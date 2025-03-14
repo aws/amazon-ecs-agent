@@ -17,6 +17,7 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/aws/amazon-ecs-agent/ecs-agent/acs/model/ecsacs"
 	"github.com/aws/amazon-ecs-agent/ecs-agent/api/attachment"
 	"github.com/aws/amazon-ecs-agent/ecs-agent/logger"
 	"github.com/aws/amazon-ecs-agent/ecs-agent/logger/field"
@@ -24,7 +25,7 @@ import (
 	"github.com/aws/amazon-ecs-agent/ecs-agent/wsclient"
 
 	"github.com/aws/aws-sdk-go-v2/aws"
-	ecsacs "github.com/aws/aws-sdk-go-v2/service/acs"
+	"github.com/aws/aws-sdk-go-v2/service/acs"
 	acstypes "github.com/aws/aws-sdk-go-v2/service/acs/types"
 	"github.com/pkg/errors"
 )
@@ -34,7 +35,7 @@ const (
 )
 
 // attachTaskENIResponder implements the wsclient.RequestResponder interface for responding
-// to ecsacs.AttachTaskNetworkInterfacesInput messages sent by ACS.
+// to acs.AttachTaskNetworkInterfacesInput messages sent by ACS.
 type attachTaskENIResponder struct {
 	eniHandler ENIHandler
 	respond    wsclient.RespondFunc
@@ -55,7 +56,7 @@ func (r *attachTaskENIResponder) HandlerFunc() wsclient.RequestHandler {
 	return r.handleAttachMessage
 }
 
-func (r *attachTaskENIResponder) handleAttachMessage(message *ecsacs.AttachTaskNetworkInterfacesInput) {
+func (r *attachTaskENIResponder) handleAttachMessage(message *acs.AttachTaskNetworkInterfacesInput) {
 	logger.Debug(fmt.Sprintf("Handling %s", AttachTaskENIMessageName))
 	receivedAt := time.Now()
 
@@ -122,7 +123,7 @@ func (r *attachTaskENIResponder) handleTaskENIFromMessage(eni acstypes.ElasticNe
 
 // validateAttachTaskNetworkInterfacesMessage performs validation checks on the
 // AttachTaskNetworkInterfacesInput.
-func validateAttachTaskNetworkInterfacesMessage(message *ecsacs.AttachTaskNetworkInterfacesInput) error {
+func validateAttachTaskNetworkInterfacesMessage(message *acs.AttachTaskNetworkInterfacesInput) error {
 	if message == nil {
 		return errors.Errorf("Message is empty")
 	}

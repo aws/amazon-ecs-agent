@@ -28,7 +28,7 @@ import (
 	"github.com/aws/amazon-ecs-agent/ecs-agent/metrics"
 
 	"github.com/aws/aws-sdk-go-v2/aws"
-	ecsacs "github.com/aws/aws-sdk-go-v2/service/acs"
+	"github.com/aws/aws-sdk-go-v2/service/acs"
 	acstypes "github.com/aws/aws-sdk-go-v2/service/acs/types"
 	"github.com/golang/mock/gomock"
 	"github.com/pkg/errors"
@@ -44,7 +44,7 @@ const (
 	roleType     = "TaskExecution"
 )
 
-var expectedCredentialsAck = &ecsacs.RefreshTaskIAMRoleCredentialsOutput{
+var expectedCredentialsAck = &acs.RefreshTaskIAMRoleCredentialsOutput{
 	Expiration:    aws.String(expiration),
 	MessageId:     aws.String(testconst.MessageID),
 	CredentialsId: aws.String(testconst.CredentialsID),
@@ -63,7 +63,7 @@ var expectedCredentials = credentials.TaskIAMRoleCredentials{
 	},
 }
 
-var testRefreshCredentialsMessage = &ecsacs.RefreshTaskIAMRoleCredentialsInput{
+var testRefreshCredentialsMessage = &acs.RefreshTaskIAMRoleCredentialsInput{
 	MessageId: aws.String(testconst.MessageID),
 	TaskArn:   aws.String(testconst.TaskARN),
 	RoleType:  roleType,
@@ -93,10 +93,10 @@ func TestInvalidCredentialsMessageNotAcked(t *testing.T) {
 		metrics.NewNopEntryFactory(),
 		testResponseSender)
 
-	handleCredentialsMessage := testRefreshCredentialsResponder.HandlerFunc().(func(*ecsacs.RefreshTaskIAMRoleCredentialsInput))
+	handleCredentialsMessage := testRefreshCredentialsResponder.HandlerFunc().(func(*acs.RefreshTaskIAMRoleCredentialsInput))
 
 	// Test handling a credentials message without any fields set.
-	message := &ecsacs.RefreshTaskIAMRoleCredentialsInput{}
+	message := &acs.RefreshTaskIAMRoleCredentialsInput{}
 	handleCredentialsMessage(message)
 	assert.False(t, ackSent,
 		"Expected no ACK of invalid refresh credentials message when it is invalid")
@@ -120,7 +120,7 @@ func TestCredentialsMessageNotAckedWhenTaskNotFound(t *testing.T) {
 		metrics.NewNopEntryFactory(),
 		testResponseSender)
 
-	handleCredentialsMessage := testRefreshCredentialsResponder.HandlerFunc().(func(*ecsacs.RefreshTaskIAMRoleCredentialsInput))
+	handleCredentialsMessage := testRefreshCredentialsResponder.HandlerFunc().(func(*acs.RefreshTaskIAMRoleCredentialsInput))
 
 	// Test handling a credentials message with a task ARN that is not in the task engine.
 	mockTaskEngine.EXPECT().GetTaskByArn(testconst.TaskARN).Return(nil, false)
@@ -150,12 +150,12 @@ func TestHandleRefreshMessageAckedWhenCredentialsUpdated(t *testing.T) {
 			ctrl := gomock.NewController(t)
 			defer ctrl.Finish()
 
-			ackSent := make(chan *ecsacs.RefreshTaskIAMRoleCredentialsOutput)
+			ackSent := make(chan *acs.RefreshTaskIAMRoleCredentialsOutput)
 			credentialsManager := credentials.NewManager()
 			mockTaskEngine := mock_engine.NewMockTaskEngine(ctrl)
 
 			testResponseSender := func(response interface{}) error {
-				resp := response.(*ecsacs.RefreshTaskIAMRoleCredentialsOutput)
+				resp := response.(*acs.RefreshTaskIAMRoleCredentialsOutput)
 				ackSent <- resp
 				return nil
 			}
@@ -165,7 +165,7 @@ func TestHandleRefreshMessageAckedWhenCredentialsUpdated(t *testing.T) {
 				testResponseSender)
 
 			handleCredentialsMessage :=
-				testRefreshCredentialsResponder.HandlerFunc().(func(*ecsacs.RefreshTaskIAMRoleCredentialsInput))
+				testRefreshCredentialsResponder.HandlerFunc().(func(*acs.RefreshTaskIAMRoleCredentialsInput))
 
 			checkAndSetDomainlessGMSATaskExecutionRoleCredentialsImpl = func(
 				iamRoleCredentials credentials.IAMRoleCredentials, task *apitask.Task) error {
@@ -239,7 +239,7 @@ func TestCredentialsMessageNotAckedWhenDomainlessGMSACredentialsError(t *testing
 				testResponseSender)
 
 			handleCredentialsMessage :=
-				testRefreshCredentialsResponder.HandlerFunc().(func(*ecsacs.RefreshTaskIAMRoleCredentialsInput))
+				testRefreshCredentialsResponder.HandlerFunc().(func(*acs.RefreshTaskIAMRoleCredentialsInput))
 
 			checkAndSetDomainlessGMSATaskExecutionRoleCredentialsImpl = func(
 				iamRoleCredentials credentials.IAMRoleCredentials, task *apitask.Task) error {

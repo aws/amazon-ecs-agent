@@ -28,12 +28,13 @@ import (
 	"testing"
 	"time"
 
+	"github.com/aws/amazon-ecs-agent/ecs-agent/acs/model/ecsacs"
 	"github.com/aws/amazon-ecs-agent/ecs-agent/metrics"
 	"github.com/aws/amazon-ecs-agent/ecs-agent/wsclient/mock/utils"
 	mock_wsconn "github.com/aws/amazon-ecs-agent/ecs-agent/wsclient/wsconn/mock"
 
 	"github.com/aws/aws-sdk-go-v2/aws"
-	ecsacs "github.com/aws/aws-sdk-go-v2/service/acs"
+	"github.com/aws/aws-sdk-go-v2/service/acs"
 	acstypes "github.com/aws/aws-sdk-go-v2/service/acs/types"
 	"github.com/aws/aws-sdk-go/aws/credentials"
 	"github.com/golang/mock/gomock"
@@ -337,15 +338,15 @@ func TestAddRequestPayloadHandler(t *testing.T) {
 	mockServer, _, _, _, _ := utils.GetMockServer(closeWS)
 	mockServer.StartTLS()
 
-	types := []interface{}{ecsacs.PayloadInput{}}
+	types := []interface{}{acs.PayloadInput{}}
 	messageError := make(chan error)
 	cs := getTestClientServer(mockServer.URL, types, 1)
 	cs.conn = conn
 
 	defer cs.Close()
 
-	messageChannel := make(chan *ecsacs.PayloadInput)
-	reqHandler := func(payload *ecsacs.PayloadInput) {
+	messageChannel := make(chan *acs.PayloadInput)
+	reqHandler := func(payload *acs.PayloadInput) {
 		messageChannel <- payload
 	}
 	cs.AddRequestHandler(reqHandler)
@@ -355,7 +356,7 @@ func TestAddRequestPayloadHandler(t *testing.T) {
 		cs.Close()
 	}()
 
-	expectedMessage := &ecsacs.PayloadInput{
+	expectedMessage := &acs.PayloadInput{
 		Tasks: []acstypes.Task{{
 			Arn: aws.String("arn"),
 		}},
@@ -381,7 +382,7 @@ func TestMakeUnrecognizedRequest(t *testing.T) {
 	mockServer, _, _, _, _ := utils.GetMockServer(closeWS)
 	mockServer.StartTLS()
 
-	types := []interface{}{ecsacs.PayloadInput{}}
+	types := []interface{}{acs.PayloadInput{}}
 	cs := getTestClientServer(mockServer.URL, types, 1)
 	cs.conn = conn
 
@@ -405,7 +406,7 @@ func TestWriteCloseMessage(t *testing.T) {
 	mockServer, _, _, errChan, _ := utils.GetMockServer(closeWS)
 	mockServer.StartTLS()
 
-	types := []interface{}{ecsacs.PayloadInput{}}
+	types := []interface{}{acs.PayloadInput{}}
 	cs := getTestClientServer(mockServer.URL, types, 1)
 	cs.Connect(mockDisconnectTimeoutMetricName, DisconnectTimeout, DisconnectJitterMax)
 

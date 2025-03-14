@@ -34,7 +34,7 @@ import (
 	ni "github.com/aws/amazon-ecs-agent/ecs-agent/netlib/model/networkinterface"
 	eautils "github.com/aws/amazon-ecs-agent/ecs-agent/utils"
 
-	ecsacs "github.com/aws/aws-sdk-go-v2/service/acs"
+	"github.com/aws/aws-sdk-go-v2/service/acs"
 	acstypes "github.com/aws/aws-sdk-go-v2/service/acs/types"
 	dockercontainer "github.com/docker/docker/api/types/container"
 	"github.com/golang/mock/gomock"
@@ -113,7 +113,7 @@ func TestPostUnmarshalWindowsCanonicalPaths(t *testing.T) {
 	}
 
 	seqNum := int64(42)
-	task, err := TaskFromACS(&taskFromAcs, &ecsacs.PayloadInput{SeqNum: &seqNum})
+	task, err := TaskFromACS(&taskFromAcs, &acs.PayloadInput{SeqNum: &seqNum})
 	assert.Nil(t, err, "Should be able to handle acs task")
 	cfg := config.Config{TaskCPUMemLimit: config.BooleanDefaultTrue{Value: config.ExplicitlyDisabled}}
 	task.PostUnmarshalTask(&cfg, nil, nil, nil, nil)
@@ -511,7 +511,7 @@ func TestPostUnmarshalTaskWithFSxWindowsFileServerVolumes(t *testing.T) {
 		},
 	}
 	seqNum := int32(42)
-	task, err := TaskFromACS(&taskFromACS, &ecsacs.PayloadInput{SeqNum: &seqNum})
+	task, err := TaskFromACS(&taskFromACS, &acs.PayloadInput{SeqNum: &seqNum})
 	assert.Nil(t, err, "Should be able to handle acs task")
 	assert.Equal(t, 1, len(task.Containers)) // before PostUnmarshalTask
 

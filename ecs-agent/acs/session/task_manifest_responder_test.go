@@ -19,13 +19,14 @@ package session
 import (
 	"testing"
 
+	"github.com/aws/amazon-ecs-agent/ecs-agent/acs/model/ecsacs"
 	mock_session "github.com/aws/amazon-ecs-agent/ecs-agent/acs/session/mocks"
 	"github.com/aws/amazon-ecs-agent/ecs-agent/acs/session/testconst"
 	"github.com/aws/amazon-ecs-agent/ecs-agent/metrics"
 	mock_metrics "github.com/aws/amazon-ecs-agent/ecs-agent/metrics/mocks"
 
 	"github.com/aws/aws-sdk-go-v2/aws"
-	ecsacs "github.com/aws/aws-sdk-go-v2/service/acs"
+	"github.com/aws/aws-sdk-go-v2/service/acs"
 	acstypes "github.com/aws/aws-sdk-go-v2/service/acs/types"
 	"github.com/golang/mock/gomock"
 	"github.com/stretchr/testify/require"
@@ -37,8 +38,8 @@ const (
 )
 
 // setupTestManifestMessage initializes a dummy TaskManifestMessage for testing
-func setupTestManifestMessage() *ecsacs.TaskManifestInput {
-	return &ecsacs.TaskManifestInput{
+func setupTestManifestMessage() *acs.TaskManifestInput {
+	return &acs.TaskManifestInput{
 		ClusterArn:           aws.String(testconst.ClusterARN),
 		ContainerInstanceArn: aws.String(testconst.ContainerInstanceARN),
 		MessageId:            aws.String(testconst.MessageID),
@@ -61,7 +62,7 @@ func TestManifestAckHappyPath(t *testing.T) {
 			// Validate ack request fields when happy path is reached.
 			require.Equal(t, aws.ToString(ackRequest.MessageId), testconst.MessageID)
 		} else {
-			stopVerification, isStopVerification := response.(*ecsacs.TaskStopVerificationInput)
+			stopVerification, isStopVerification := response.(*acs.TaskStopVerificationInput)
 			if isStopVerification {
 				// We expect only one task marked for termination.
 				require.Equal(t, len(stopVerification.StopCandidates), 1)
@@ -99,7 +100,7 @@ func TestManifestAckHappyPath(t *testing.T) {
 	)
 
 	// Handle the task manifest message update.
-	handleManifestMessage := testTaskManifestResponder.HandlerFunc().(func(*ecsacs.TaskManifestInput))
+	handleManifestMessage := testTaskManifestResponder.HandlerFunc().(func(*acs.TaskManifestInput))
 	handleManifestMessage(testManifest)
 }
 
@@ -123,7 +124,7 @@ func TestTaskManifestStaleMessage(t *testing.T) {
 	testManifest := setupTestManifestMessage()
 
 	// Set up a new manifest with a stale number and distinct message ID.
-	newManifest := &ecsacs.TaskManifestInput{
+	newManifest := &acs.TaskManifestInput{
 		ClusterArn:           aws.String(testconst.ClusterARN),
 		ContainerInstanceArn: aws.String(testconst.ContainerInstanceARN),
 		MessageId:            aws.String("456"),
@@ -142,7 +143,7 @@ func TestTaskManifestStaleMessage(t *testing.T) {
 	mockIDA.EXPECT().SetMessageID(testconst.MessageID)
 	mockComparer.EXPECT().CompareRunningTasksOnInstanceWithManifest(testManifest).Return([]acstypes.TaskIdentifier{}, nil)
 
-	handleManifestMessage := testTaskManifestResponder.HandlerFunc().(func(*ecsacs.TaskManifestInput))
+	handleManifestMessage := testTaskManifestResponder.HandlerFunc().(func(*acs.TaskManifestInput))
 
 	// Handle the task manifest message update, this should correctly set the message ID and sequence number.
 	handleManifestMessage(testManifest)

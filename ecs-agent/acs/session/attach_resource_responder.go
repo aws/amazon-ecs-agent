@@ -17,6 +17,7 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/aws/amazon-ecs-agent/ecs-agent/acs/model/ecsacs"
 	"github.com/aws/amazon-ecs-agent/ecs-agent/api/attachment"
 	"github.com/aws/amazon-ecs-agent/ecs-agent/api/attachment/resource"
 	"github.com/aws/amazon-ecs-agent/ecs-agent/logger"
@@ -26,7 +27,7 @@ import (
 
 	"github.com/aws/aws-sdk-go-v2/aws"
 	awsARN "github.com/aws/aws-sdk-go-v2/aws/arn"
-	ecsacs "github.com/aws/aws-sdk-go-v2/service/acs"
+	"github.com/aws/aws-sdk-go-v2/service/acs"
 	"github.com/pkg/errors"
 )
 
@@ -41,7 +42,7 @@ type ResourceHandler interface {
 }
 
 // attachResourceResponder implements the wsclient.RequestResponder interface for responding
-// to ecsacs.ConfirmAttachmentInput messages sent by ACS.
+// to acs.ConfirmAttachmentInput messages sent by ACS.
 type attachResourceResponder struct {
 	resourceHandler ResourceHandler
 	metricsFactory  metrics.EntryFactory
@@ -64,7 +65,7 @@ func (r *attachResourceResponder) HandlerFunc() wsclient.RequestHandler {
 	return r.handleAttachMessage
 }
 
-func (r *attachResourceResponder) handleAttachMessage(message *ecsacs.ConfirmAttachmentInput) {
+func (r *attachResourceResponder) handleAttachMessage(message *acs.ConfirmAttachmentInput) {
 	logger.Debug(fmt.Sprintf("Handling %s", AttachResourceMessageName))
 	receivedAt := time.Now()
 
@@ -122,7 +123,7 @@ func (r *attachResourceResponder) handleAttachMessage(message *ecsacs.ConfirmAtt
 
 // validateAttachResourceMessage performs validation checks on the ConfirmAttachmentInput
 // and returns the attachment properties received from validateAttachmentAndReturnProperties()
-func validateAttachResourceMessage(message *ecsacs.ConfirmAttachmentInput) (
+func validateAttachResourceMessage(message *acs.ConfirmAttachmentInput) (
 	attachmentProperties map[string]string, err error) {
 	if message == nil {
 		return nil, errors.New("Message is empty")
@@ -162,7 +163,7 @@ func validateAttachResourceMessage(message *ecsacs.ConfirmAttachmentInput) (
 
 // validateAttachment performs validation checks on the attachment contained in the ConfirmAttachmentInput
 // and returns the attachment's properties
-func validateAttachmentAndReturnProperties(message *ecsacs.ConfirmAttachmentInput) (
+func validateAttachmentAndReturnProperties(message *acs.ConfirmAttachmentInput) (
 	attachmentProperties map[string]string, err error) {
 	attachment := message.Attachment
 

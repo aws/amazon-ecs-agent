@@ -23,7 +23,7 @@ import (
 	"github.com/aws/amazon-ecs-agent/ecs-agent/wsclient"
 
 	"github.com/aws/aws-sdk-go-v2/aws"
-	ecsacs "github.com/aws/aws-sdk-go-v2/service/acs"
+	"github.com/aws/aws-sdk-go-v2/service/acs"
 	"github.com/pkg/errors"
 )
 
@@ -32,12 +32,12 @@ const (
 )
 
 type CredentialsMetadataSetter interface {
-	SetTaskRoleCredentialsMetadata(message *ecsacs.RefreshTaskIAMRoleCredentialsInput) error
-	SetExecRoleCredentialsMetadata(message *ecsacs.RefreshTaskIAMRoleCredentialsInput) error
+	SetTaskRoleCredentialsMetadata(message *acs.RefreshTaskIAMRoleCredentialsInput) error
+	SetExecRoleCredentialsMetadata(message *acs.RefreshTaskIAMRoleCredentialsInput) error
 }
 
 // refreshCredentialsResponder implements the wsclient.RequestResponder interface for responding
-// to ecsacs.RefreshTaskIAMRoleCredentialsInput messages sent by ACS.
+// to acs.RefreshTaskIAMRoleCredentialsInput messages sent by ACS.
 type refreshCredentialsResponder struct {
 	credentialsManager  credentials.Manager
 	credsMetadataSetter CredentialsMetadataSetter
@@ -65,7 +65,7 @@ func (r *refreshCredentialsResponder) HandlerFunc() wsclient.RequestHandler {
 	return r.handleCredentialsMessage
 }
 
-func (r *refreshCredentialsResponder) handleCredentialsMessage(message *ecsacs.RefreshTaskIAMRoleCredentialsInput) {
+func (r *refreshCredentialsResponder) handleCredentialsMessage(message *acs.RefreshTaskIAMRoleCredentialsInput) {
 	logger.Debug(fmt.Sprintf("Handling %s", RefreshCredentialsMessageName))
 	messageID := aws.ToString(message.MessageId)
 	taskARN := aws.ToString(message.TaskArn)
@@ -114,7 +114,7 @@ func (r *refreshCredentialsResponder) handleCredentialsMessage(message *ecsacs.R
 	}
 
 	// Send ACK.
-	err = r.respond(&ecsacs.RefreshTaskIAMRoleCredentialsOutput{
+	err = r.respond(&acs.RefreshTaskIAMRoleCredentialsOutput{
 		Expiration:    message.RoleCredentials.Expiration,
 		MessageId:     message.MessageId,
 		CredentialsId: message.RoleCredentials.CredentialsId,
@@ -132,7 +132,7 @@ func (r *refreshCredentialsResponder) handleCredentialsMessage(message *ecsacs.R
 	r.metricsFactory.New(metrics.CredentialsRefreshSuccess).WithFields(metricFields).Done(nil)
 }
 
-func (r *refreshCredentialsResponder) setCredentialsMetadata(message *ecsacs.RefreshTaskIAMRoleCredentialsInput) error {
+func (r *refreshCredentialsResponder) setCredentialsMetadata(message *acs.RefreshTaskIAMRoleCredentialsInput) error {
 	roleType := message.RoleType
 	switch roleType {
 	case credentials.ApplicationRoleType:
@@ -153,7 +153,7 @@ func (r *refreshCredentialsResponder) setCredentialsMetadata(message *ecsacs.Ref
 
 // validateIAMRoleCredentialsMessage performs validation checks on the
 // RefreshTaskIAMRoleCredentialsInput.
-func validateIAMRoleCredentialsMessage(message *ecsacs.RefreshTaskIAMRoleCredentialsInput) error {
+func validateIAMRoleCredentialsMessage(message *acs.RefreshTaskIAMRoleCredentialsInput) error {
 	if message == nil {
 		return errors.Errorf("Message is empty")
 	}
