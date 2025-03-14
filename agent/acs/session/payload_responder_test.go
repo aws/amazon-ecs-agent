@@ -695,10 +695,10 @@ func TestHandlePayloadMessageAddedEBSToTask(t *testing.T) {
 					},
 				},
 			},
-			Attachments: []*ecsacs.Attachment{
+			Attachments: []*acstypes.Attachment{
 				{
 					AttachmentArn: aws.String("attachmentArn"),
-					AttachmentProperties: []*ecsacs.AttachmentProperty{
+					AttachmentProperties: []acstypes.AttachmentProperty{
 						{
 							Name:  aws.String(apiresource.VolumeIdKey),
 							Value: aws.String(taskresourcevolume.TestVolumeId),

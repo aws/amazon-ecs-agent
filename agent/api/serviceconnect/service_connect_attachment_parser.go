@@ -20,7 +20,7 @@ import (
 	"github.com/aws/amazon-ecs-agent/ecs-agent/logger"
 
 	"github.com/aws/aws-sdk-go-v2/aws"
-	ecsacs "github.com/aws/aws-sdk-go-v2/service/acs"
+	acstypes "github.com/aws/aws-sdk-go-v2/service/acs/types"
 )
 
 const (
@@ -41,7 +41,7 @@ func GetServiceConnectContainerNameKey() string {
 
 // ParseServiceConnectAttachment parses the service connect container name and service connect config value
 // from the given attachment.
-func ParseServiceConnectAttachment(scAttachment *ecsacs.Attachment) (*Config, error) {
+func ParseServiceConnectAttachment(scAttachment *acstypes.Attachment) (*Config, error) {
 	scConfigValue := &Config{}
 	containerName := ""
 	foundSCConfigKey := false

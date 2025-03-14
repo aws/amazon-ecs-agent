@@ -20,7 +20,7 @@ import (
 	"github.com/aws/amazon-ecs-agent/ecs-agent/logger"
 
 	"github.com/aws/aws-sdk-go-v2/aws"
-	ecsacs "github.com/aws/aws-sdk-go-v2/service/acs"
+	acstypes "github.com/aws/aws-sdk-go-v2/service/acs/types"
 )
 
 const (
@@ -41,12 +41,14 @@ type EBSTaskVolumeConfig struct {
 
 // ParseEBSTaskVolumeAttachment parses the ebs task volume config value
 // from the given attachment.
-func ParseEBSTaskVolumeAttachment(ebsAttachment *ecsacs.Attachment) (*EBSTaskVolumeConfig, error) {
+func ParseEBSTaskVolumeAttachment(ebsAttachment *acstypes.Attachment) (*EBSTaskVolumeConfig, error) {
 	ebsTaskVolumeConfig := &EBSTaskVolumeConfig{}
+	
+	if len(ebsAttachment.AttachmentProperties) == 0 {
+		return nil, fmt.Errorf("failed to parse task ebs attachment: no attachment properties found")
+	}
+
 	for _, property := range ebsAttachment.AttachmentProperties {
-		if property == nil {
-			return nil, fmt.Errorf("failed to parse task ebs attachment, encountered nil property")
-		}
 		if aws.ToString(property.Value) == "" {
 			return nil, fmt.Errorf("failed to parse task ebs attachment, encountered empty value for property: %s", aws.ToString(property.Name))
 		}
