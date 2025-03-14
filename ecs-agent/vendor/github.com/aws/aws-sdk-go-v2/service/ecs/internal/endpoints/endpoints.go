@@ -186,6 +186,10 @@ var defaultPartitions = endpoints.Partitions{
 			}: endpoints.Endpoint{
 			},
 			endpoints.EndpointKey{
+			    Region: "ap-southeast-7",
+			}: endpoints.Endpoint{
+			},
+			endpoints.EndpointKey{
 			    Region: "ca-central-1",
 			}: endpoints.Endpoint{
 			},
@@ -271,6 +275,10 @@ var defaultPartitions = endpoints.Partitions{
 			},
 			endpoints.EndpointKey{
 			    Region: "me-south-1",
+			}: endpoints.Endpoint{
+			},
+			endpoints.EndpointKey{
+			    Region: "mx-central-1",
 			}: endpoints.Endpoint{
 			},
 			endpoints.EndpointKey{
@@ -463,6 +471,16 @@ var defaultPartitions = endpoints.Partitions{
 		},
 		RegionRegex: partitionRegexp.AwsIsoF,
 		IsRegionalized: true,
+		Endpoints: endpoints.Endpoints{
+			endpoints.EndpointKey{
+			    Region: "us-isof-east-1",
+			}: endpoints.Endpoint{
+			},
+			endpoints.EndpointKey{
+			    Region: "us-isof-south-1",
+			}: endpoints.Endpoint{
+			},
+		},
 	},
 	{
 		ID: "aws-us-gov",
