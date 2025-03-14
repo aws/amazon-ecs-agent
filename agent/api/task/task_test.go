@@ -57,8 +57,8 @@ import (
 	ni "github.com/aws/amazon-ecs-agent/ecs-agent/netlib/model/networkinterface"
 	commonutils "github.com/aws/amazon-ecs-agent/ecs-agent/utils"
 
+	"github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/aws/aws-sdk-go-v2/service/ecs/types"
-	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/service/secretsmanager"
 	dockercontainer "github.com/docker/docker/api/types/container"
 	"github.com/docker/docker/api/types/volume"
@@ -1282,7 +1282,7 @@ func TestPostUnmarshalTaskWithEFSVolumesThatUseECSVolumePlugin(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
 	testCreds := getACSIAMRoleCredentials()
-	credentialsIDInTask := aws.StringValue(testCreds.CredentialsId)
+	credentialsIDInTask := aws.ToString(testCreds.CredentialsId)
 	credentialsManager := mock_credentials.NewMockManager(ctrl)
 	taskCredentials := credentials.TaskIAMRoleCredentials{
 		IAMRoleCredentials: credentials.IAMRoleCredentials{CredentialsID: credentialsIDInTask},
@@ -1296,7 +1296,7 @@ func TestPostUnmarshalTaskWithEFSVolumesThatUseECSVolumePlugin(t *testing.T) {
 	task, err := TaskFromACS(taskFromACS, &ecsacs.PayloadMessage{SeqNum: &seqNum})
 	assert.Nil(t, err, "Should be able to handle acs task")
 	assert.Equal(t, 1, len(task.Containers))
-	task.SetCredentialsID(aws.StringValue(testCreds.CredentialsId))
+	task.SetCredentialsID(aws.ToString(testCreds.CredentialsId))
 
 	cfg := &config.Config{}
 	cfg.VolumePluginCapabilities = []string{"efsAuth"}
