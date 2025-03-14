@@ -55,7 +55,7 @@ func NewSequenceNumberAccessor(latestSeqNumberTaskManifest *int64, dataClient da
 // tasks running on the instance. It returns all the tasks that are running on the instance but not present in task
 // manifest message task list.
 func (tc *taskComparer) CompareRunningTasksOnInstanceWithManifest(
-	message *ecsacs.TaskManifestMessage) ([]acstypes.TaskIdentifier, error) {
+	message *ecsacs.TaskManifestInput) ([]acstypes.TaskIdentifier, error) {
 	tasksOnInstance, err := tc.taskEngine.ListTasks()
 	if err != nil {
 		return nil, err
