@@ -28,7 +28,7 @@ import (
 	"github.com/aws/amazon-ecs-agent/ecs-agent/netlib/model/status"
 	"github.com/aws/amazon-ecs-agent/ecs-agent/netlib/model/tasknetworkconfig"
 
-	"github.com/aws/aws-sdk-go/aws"
+	"github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/pkg/errors"
 )
 
@@ -148,7 +148,7 @@ func assignInterfacesToNamespaces(taskPayload *ecsacs.Task) (map[string]string, 
 		containerNetNS := ""
 
 		for _, i := range c.NetworkInterfaceNames {
-			ifName := aws.StringValue(i)
+			ifName := aws.ToString(i)
 
 			netnsName, ok := i2n[ifName]
 			if !ok {
@@ -180,7 +180,7 @@ func assignInterfacesToNamespaces(taskPayload *ecsacs.Task) (map[string]string, 
 	for _, e := range taskPayload.ElasticNetworkInterfaces {
 		if *e.Index == int64(0) {
 			for ifName, netNSName := range i2n {
-				if netNSName == aws.StringValue(e.Name) {
+				if netNSName == aws.ToString(e.Name) {
 					i2n[ifName] = ""
 				}
 			}
