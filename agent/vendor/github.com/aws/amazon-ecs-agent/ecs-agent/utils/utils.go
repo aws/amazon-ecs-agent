@@ -81,7 +81,7 @@ func MaxNum[T constraints.Integer | constraints.Float](a, b T) T {
 	return b
 }
 
-// Adapted from 
+// Adapted from
 // - https://github.com/aws/aws-sdk-go/blob/main/aws/awsutil/prettify_test.go
 // - https://github.com/aws/aws-sdk-go-v2/blob/main/internal/awsutil/prettify.go
 // "sensitive" tags aren't known at runtime in sdk v2; need to manually redact sensitive fields

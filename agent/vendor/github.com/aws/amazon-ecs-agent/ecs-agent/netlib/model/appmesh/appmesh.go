@@ -64,7 +64,7 @@ func AppMeshFromACS(proxyConfig *acstypes.ProxyConfiguration) (*AppMesh, error) 
 
 	return &AppMesh{
 		ContainerName:      aws.ToString(proxyConfig.ContainerName),
-		IgnoredUID:        	proxyConfig.Properties[ignoredUID],
+		IgnoredUID:         proxyConfig.Properties[ignoredUID],
 		IgnoredGID:         proxyConfig.Properties[ignoredGID],
 		ProxyIngressPort:   proxyConfig.Properties[proxyIngressPort],
 		ProxyEgressPort:    proxyConfig.Properties[proxyEgressPort],
@@ -86,7 +86,7 @@ func buildAppPorts(proxyConfig *acstypes.ProxyConfiguration) []string {
 // buildEgressIgnoredIPs creates egress ignored IPs from proxy config
 func buildEgressIgnoredIPs(proxyConfig *acstypes.ProxyConfiguration) []string {
 	var inputEgressIgnoredIPs []string
-	if egressIgnoredIPsValues, exists := proxyConfig.Properties[egressIgnoredIPs]; exists && egressIgnoredIPsValues!= "" {
+	if egressIgnoredIPsValues, exists := proxyConfig.Properties[egressIgnoredIPs]; exists && egressIgnoredIPsValues != "" {
 		inputEgressIgnoredIPs = strings.Split(egressIgnoredIPsValues, splitter)
 	}
 	// append agent default egress ignored IPs
@@ -96,7 +96,7 @@ func buildEgressIgnoredIPs(proxyConfig *acstypes.ProxyConfiguration) []string {
 // buildEgressIgnoredPorts creates egress ignored ports from proxy config
 func buildEgressIgnoredPorts(proxyConfig *acstypes.ProxyConfiguration) []string {
 	var inputEgressIgnoredPorts []string
-	if egressIgnoredPortsValues, exists := proxyConfig.Properties[egressIgnoredPorts]; exists && egressIgnoredPortsValues!= "" {
+	if egressIgnoredPortsValues, exists := proxyConfig.Properties[egressIgnoredPorts]; exists && egressIgnoredPortsValues != "" {
 		inputEgressIgnoredPorts = strings.Split(egressIgnoredPortsValues, splitter)
 	}
 	return inputEgressIgnoredPorts
