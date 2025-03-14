@@ -16,7 +16,7 @@ package session
 import (
 	"fmt"
 
-	"github.com/aws/aws-sdk-go/aws"
+	"github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/pkg/errors"
 
 	"github.com/aws/amazon-ecs-agent/ecs-agent/acs/model/ecsacs"
@@ -67,8 +67,8 @@ func (r *refreshCredentialsResponder) HandlerFunc() wsclient.RequestHandler {
 
 func (r *refreshCredentialsResponder) handleCredentialsMessage(message *ecsacs.IAMRoleCredentialsMessage) {
 	logger.Debug(fmt.Sprintf("Handling %s", RefreshCredentialsMessageName))
-	messageID := aws.StringValue(message.MessageId)
-	taskARN := aws.StringValue(message.TaskArn)
+	messageID := aws.ToString(message.MessageId)
+	taskARN := aws.ToString(message.TaskArn)
 	metricFields := logger.Fields{
 		field.MessageID: messageID,
 		field.TaskARN:   taskARN,
@@ -90,7 +90,7 @@ func (r *refreshCredentialsResponder) handleCredentialsMessage(message *ecsacs.I
 	err = r.credentialsManager.SetTaskCredentials(&credentials.TaskIAMRoleCredentials{
 		ARN: taskARN,
 		IAMRoleCredentials: credentials.IAMRoleCredentialsFromACS(message.RoleCredentials,
-			aws.StringValue(message.RoleType)),
+			aws.ToString(message.RoleType)),
 	})
 	if err != nil {
 		logger.Error(fmt.Sprintf("Unable to handle %s due to error in setting credentials",
@@ -133,7 +133,7 @@ func (r *refreshCredentialsResponder) handleCredentialsMessage(message *ecsacs.I
 }
 
 func (r *refreshCredentialsResponder) setCredentialsMetadata(message *ecsacs.IAMRoleCredentialsMessage) error {
-	roleType := aws.StringValue(message.RoleType)
+	roleType := aws.ToString(message.RoleType)
 	switch roleType {
 	case credentials.ApplicationRoleType:
 		err := r.credsMetadataSetter.SetTaskRoleCredentialsMetadata(message)
@@ -158,12 +158,12 @@ func validateIAMRoleCredentialsMessage(message *ecsacs.IAMRoleCredentialsMessage
 		return errors.Errorf("Message is empty")
 	}
 
-	messageID := aws.StringValue(message.MessageId)
+	messageID := aws.ToString(message.MessageId)
 	if messageID == "" {
 		return errors.Errorf("Message ID is not set")
 	}
 
-	taskArn := aws.StringValue(message.TaskArn)
+	taskArn := aws.ToString(message.TaskArn)
 	if taskArn == "" {
 		return errors.Errorf("taskArn is not set for message ID %s", messageID)
 	}
@@ -172,11 +172,11 @@ func validateIAMRoleCredentialsMessage(message *ecsacs.IAMRoleCredentialsMessage
 		return errors.Errorf("roleCredentials is not set for message ID %s", messageID)
 	}
 
-	if aws.StringValue(message.RoleCredentials.CredentialsId) == "" {
+	if aws.ToString(message.RoleCredentials.CredentialsId) == "" {
 		return errors.Errorf("roleCredentials ID not set for message ID %s", messageID)
 	}
 
-	roleType := aws.StringValue(message.RoleType)
+	roleType := aws.ToString(message.RoleType)
 	if !validRoleType(roleType) {
 		return errors.Errorf("roleType \"%s\" is invalid for message ID %s with taskArn %s", roleType, messageID,
 			taskArn)
