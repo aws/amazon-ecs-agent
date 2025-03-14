@@ -331,12 +331,8 @@ func ENIFromACS(acsENI *acstypes.ElasticNetworkInterface) (*ENI, error) {
 		InterfaceVlanProperties:      &interfaceVlanProperties,
 	}
 
-	for _, nameserverIP := range acsENI.DomainNameServers {
-		eni.DomainNameServers = append(eni.DomainNameServers, nameserverIP)
-	}
-	for _, nameserverDomain := range acsENI.DomainName {
-		eni.DomainNameSearchList = append(eni.DomainNameSearchList, nameserverDomain)
-	}
+	eni.DomainNameServers = append(eni.DomainNameServers, acsENI.DomainNameServers...)
+	eni.DomainNameSearchList = append(eni.DomainNameSearchList, acsENI.DomainName...)
 
 	return eni, nil
 }
