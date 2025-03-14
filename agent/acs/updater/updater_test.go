@@ -103,7 +103,7 @@ func TestStageUpdateWithUpdatesDisabled(t *testing.T) {
 		Reason:            ptr("Updates are disabled").(*string),
 	}})
 
-	u.stageUpdateHandler()(&ecsacs.StageUpdateMessage{
+	u.stageUpdateHandler()(&ecsacs.StageUpdateInput{
 		ClusterArn:           ptr("cluster").(*string),
 		ContainerInstanceArn: ptr("containerInstance").(*string),
 		MessageId:            ptr("mid").(*string),
@@ -169,7 +169,7 @@ func TestFullUpdateFlow(t *testing.T) {
 				})),
 			)
 
-			u.stageUpdateHandler()(&ecsacs.StageUpdateMessage{
+			u.stageUpdateHandler()(&ecsacs.StageUpdateInput{
 				ClusterArn:           ptr("cluster").(*string),
 				ContainerInstanceArn: ptr("containerInstance").(*string),
 				MessageId:            ptr("mid").(*string),
@@ -227,7 +227,7 @@ func TestMissingUpdateInfo(t *testing.T) {
 		MessageId:         ptr("mid").(*string),
 	}})
 
-	u.stageUpdateHandler()(&ecsacs.StageUpdateMessage{
+	u.stageUpdateHandler()(&ecsacs.StageUpdateInput{
 		ClusterArn:           ptr("cluster").(*string),
 		ContainerInstanceArn: ptr("containerInstance").(*string),
 		MessageId:            ptr("mid").(*string),
@@ -281,7 +281,7 @@ func TestDuplicateUpdateMessagesWithSuccess(t *testing.T) {
 		})),
 	)
 
-	u.stageUpdateHandler()(&ecsacs.StageUpdateMessage{
+	u.stageUpdateHandler()(&ecsacs.StageUpdateInput{
 		ClusterArn:           ptr("cluster").(*string),
 		ContainerInstanceArn: ptr("containerInstance").(*string),
 		MessageId:            ptr("mid").(*string),
@@ -293,7 +293,7 @@ func TestDuplicateUpdateMessagesWithSuccess(t *testing.T) {
 
 	// Multiple requests to stage something with the same signature should still
 	// result in only one download / update procedure.
-	u.stageUpdateHandler()(&ecsacs.StageUpdateMessage{
+	u.stageUpdateHandler()(&ecsacs.StageUpdateInput{
 		ClusterArn:           ptr("cluster").(*string),
 		ContainerInstanceArn: ptr("containerInstance").(*string),
 		MessageId:            ptr("mid2").(*string),
@@ -347,7 +347,7 @@ func TestDuplicateUpdateMessagesWithFailure(t *testing.T) {
 		return nil, errors.New("test error")
 	}
 
-	u.stageUpdateHandler()(&ecsacs.StageUpdateMessage{
+	u.stageUpdateHandler()(&ecsacs.StageUpdateInput{
 		ClusterArn:           ptr("cluster").(*string),
 		ContainerInstanceArn: ptr("containerInstance").(*string),
 		MessageId:            ptr("mid").(*string),
@@ -361,7 +361,7 @@ func TestDuplicateUpdateMessagesWithFailure(t *testing.T) {
 
 	// Multiple requests to stage something with the same signature where the previous update failed
 	// should cause another update attempt to be started
-	u.stageUpdateHandler()(&ecsacs.StageUpdateMessage{
+	u.stageUpdateHandler()(&ecsacs.StageUpdateInput{
 		ClusterArn:           ptr("cluster").(*string),
 		ContainerInstanceArn: ptr("containerInstance").(*string),
 		MessageId:            ptr("mid2").(*string),
@@ -417,7 +417,7 @@ func TestNewerUpdateMessages(t *testing.T) {
 		})),
 	)
 
-	u.stageUpdateHandler()(&ecsacs.StageUpdateMessage{
+	u.stageUpdateHandler()(&ecsacs.StageUpdateInput{
 		ClusterArn:           ptr("cluster").(*string),
 		ContainerInstanceArn: ptr("containerInstance").(*string),
 		MessageId:            ptr("StageMID").(*string),
@@ -431,7 +431,7 @@ func TestNewerUpdateMessages(t *testing.T) {
 	writtenFile.Reset()
 
 	// Never perform, make sure a new hash results in a new stage
-	u.stageUpdateHandler()(&ecsacs.StageUpdateMessage{
+	u.stageUpdateHandler()(&ecsacs.StageUpdateInput{
 		ClusterArn:           ptr("cluster").(*string),
 		ContainerInstanceArn: ptr("containerInstance").(*string),
 		MessageId:            ptr("StageMIDNew").(*string),
@@ -470,7 +470,7 @@ func TestValidationError(t *testing.T) {
 		}}),
 	)
 
-	u.stageUpdateHandler()(&ecsacs.StageUpdateMessage{
+	u.stageUpdateHandler()(&ecsacs.StageUpdateInput{
 		ClusterArn:           ptr("cluster").(*string),
 		ContainerInstanceArn: ptr("containerInstance").(*string),
 		MessageId:            ptr("StageMID").(*string),

@@ -95,8 +95,8 @@ func (u *updater) AddAgentUpdateHandlers(cs wsclient.ClientServer) {
 	cs.AddRequestHandler(u.performUpdateHandler())
 }
 
-func (u *updater) stageUpdateHandler() func(req *ecsacs.StageUpdateMessage) {
-	return func(req *ecsacs.StageUpdateMessage) {
+func (u *updater) stageUpdateHandler() func(req *ecsacs.StageUpdateInput) {
+	return func(req *ecsacs.StageUpdateInput) {
 		u.Lock()
 		defer u.Unlock()
 

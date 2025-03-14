@@ -38,7 +38,7 @@ func init() {
 		ecsacs.AckRequest{},
 		ecsacs.UpdateFailureInput{},
 		ecsacs.PerformUpdateInput{},
-		ecsacs.StageUpdateMessage{},
+		ecsacs.StageUpdateInput{},
 		ecsacs.RefreshTaskIAMRoleCredentialsInput{},
 		ecsacs.RefreshTaskIAMRoleCredentialsOutput{},
 		acstypes.ServerException{},
