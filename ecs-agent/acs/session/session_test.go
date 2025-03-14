@@ -59,56 +59,56 @@ const (
 {
   "type": "PayloadInput",
   "message": {
-    "messageId": "123",
-    "tasks": [
+    "MessageId": "123",
+    "Tasks": [
       {
-        "taskDefinitionAccountId": "123",
-        "containers": [
+        "TaskDefinitionAccountId": "123",
+        "Containers": [
           {
-            "environment": {},
-            "name": "name",
-            "cpu": 1,
-            "essential": true,
-            "memory": 1,
-            "portMappings": [],
-            "overrides": "{}",
-            "image": "i",
-            "mountPoints": [],
-            "volumesFrom": []
+            "Environment": {},
+            "Name": "name",
+            "Cpu": 1,
+            "Essential": true,
+            "Memory": 1,
+            "PortMappings": [],
+            "Overrides": "{}",
+            "Image": "i",
+            "MountPoints": [],
+            "VolumesFrom": []
           }
         ],
-        "elasticNetworkInterfaces":[{
-                "attachmentArn": "eni_attach_arn",
-                "ec2Id": "eni_id",
-                "ipv4Addresses":[{
-                    "primary": true,
-                    "privateAddress": "ipv4"
+        "ElasticNetworkInterfaces":[{
+                "AttachmentArn": "eni_attach_arn",
+                "Ec2Id": "eni_id",
+                "Ipv4Addresses":[{
+                    "Primary": true,
+                    "PrivateAddress": "ipv4"
                 }],
-                "ipv6Addresses": [{
-                    "address": "ipv6"
+                "Ipv6Addresses": [{
+                    "Address": "ipv6"
                 }],
-                "subnetGatewayIpv4Address": "ipv4/20",
-                "macAddress": "mac"
+                "SubnetGatewayIpv4Address": "ipv4/20",
+                "MacAddress": "mac"
         }],
-        "roleCredentials": {
-          "credentialsId": "credsId",
-          "accessKeyId": "accessKeyId",
-          "expiration": "2016-03-25T06:17:19.318+0000",
-          "roleArn": "r1",
-          "secretAccessKey": "secretAccessKey",
-          "sessionToken": "token"
+        "RoleCredentials": {
+          "CredentialsId": "credsId",
+          "AccessKeyId": "accessKeyId",
+          "Expiration": "2016-03-25T06:17:19.318+0000",
+          "RoleArn": "r1",
+          "SecretAccessKey": "secretAccessKey",
+          "SessionToken": "token"
         },
-        "version": "3",
-        "volumes": [],
-        "family": "f",
-        "arn": "arn",
-        "desiredStatus": "RUNNING"
+        "Version": "3",
+        "Volumes": [],
+        "Family": "f",
+        "Arn": "arn",
+        "DesiredStatus": "RUNNING"
       }
     ],
-    "generatedAt": 1,
-    "clusterArn": "1",
-    "containerInstanceArn": "1",
-    "seqNum": 1
+    "ReneratedAt": 1,
+    "ClusterArn": "1",
+    "ContainerInstanceArn": "1",
+    "SeqNum": 1
   }
 }
 `
@@ -116,17 +116,17 @@ const (
 {
   "type": "RefreshTaskIAMRoleCredentialsInput",
   "message": {
-    "messageId": "123",
-    "clusterArn": "default",
-    "taskArn": "t1",
-    "roleType": "TaskApplication",
-    "roleCredentials": {
-      "credentialsId": "credsId",
-      "accessKeyId": "newakid",
-      "expiration": "later",
-      "roleArn": "r1",
-      "secretAccessKey": "newskid",
-      "sessionToken": "newstkn"
+    "MessageId": "123",
+    "ClusterArn": "default",
+    "TaskArn": "t1",
+    "RoleType": "TaskApplication",
+    "RoleCredentials": {
+      "CredentialsId": "credsId",
+      "AccessKeyId": "newakid",
+      "Expiration": "later",
+      "RoleArn": "r1",
+      "SecretAccessKey": "newskid",
+      "SessionToken": "newstkn"
     }
   }
 }
@@ -135,37 +135,37 @@ const (
 {
   "type": "ConfirmAttachmentInput",
   "message": {
-    "messageId": "123",
-    "clusterArn": "arn:aws:ecs:us-west-2:123456789012:cluster/a1b2c3d4-5678-90ab-cdef-11111EXAMPLE",
-    "containerInstanceArn": "arn:aws:ecs:us-west-2:123456789012:container-instance/a1b2c3d4-5678-90ab-cdef-11111EXAMPLE",
-    "taskArn": "arn:aws:ecs:us-west-2:1234567890:task/test-cluster/abc",
-    "waitTimeoutMs": 1000,
-    "attachment": {
-      "attachmentArn": "arn:aws:ecs:us-west-2:123456789012:ephemeral-storage/a1b2c3d4-5678-90ab-cdef-11111EXAMPLE",
-      "attachmentProperties": [
+    "MessageId": "123",
+    "ClusterArn": "arn:aws:ecs:us-west-2:123456789012:cluster/a1b2c3d4-5678-90ab-cdef-11111EXAMPLE",
+    "ContainerInstanceArn": "arn:aws:ecs:us-west-2:123456789012:container-instance/a1b2c3d4-5678-90ab-cdef-11111EXAMPLE",
+    "TaskArn": "arn:aws:ecs:us-west-2:1234567890:task/test-cluster/abc",
+    "WaitTimeoutMs": 1000,
+    "Attachment": {
+      "AttachmentArn": "arn:aws:ecs:us-west-2:123456789012:ephemeral-storage/a1b2c3d4-5678-90ab-cdef-11111EXAMPLE",
+      "AttachmentProperties": [
         {
-          "name": "resourceID",
-          "value": "id1"
+          "Name": "resourceID",
+          "Value": "id1"
         },
         {
-          "name": "volumeID",
-          "value": "id1"
+          "Name": "volumeID",
+          "Value": "id1"
         },
         {
-          "name": "volumeSizeInGiB",
-          "value": "size1"
+          "Name": "volumeSizeInGiB",
+          "Value": "size1"
         },
         {
-          "name": "requestedSizeInGiB",
-          "value": "size1"
+          "Name": "requestedSizeInGiB",
+          "Value": "size1"
         },
         {
-          "name": "resourceType",
-          "value": "EphemeralStorage"
+          "Name": "resourceType",
+          "Value": "EphemeralStorage"
         },
         {
-          "name": "deviceName",
-          "value": "device1"
+          "Name": "deviceName",
+          "Value": "device1"
         }
       ]
     }
@@ -990,12 +990,12 @@ func TestSessionDoesntLeakGoroutines(t *testing.T) {
 		ended <- true
 	}()
 	// Warm it up.
-	serverIn <- `{"type":"HeartbeatInput","message":{"healthy":true,"messageId":"123"}}`
+	serverIn <- `{"type":"HeartbeatInput","message":{"Healthy":true,"MessageId":"123"}}`
 	serverIn <- samplePayloadInput
 
 	beforeGoroutines := runtime.NumGoroutine()
 	for i := 0; i < 40; i++ {
-		serverIn <- `{"type":"HeartbeatInput","message":{"healthy":true,"messageId":"123"}}`
+		serverIn <- `{"type":"HeartbeatInput","message":{"Healthy":true,"MessageId":"123"}}`
 		serverIn <- samplePayloadInput
 		closeWS <- true
 	}

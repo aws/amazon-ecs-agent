@@ -45,16 +45,16 @@ const (
 {
   "type": "RefreshTaskIAMRoleCredentialsInput",
   "message": {
-    "messageId": "123",
-    "clusterArn": "default",
-    "taskArn": "t1",
-    "roleCredentials": {
-      "credentialsId": "credsId",
-      "accessKeyId": "accessKeyId",
-      "expiration": "2016-03-25T06:17:19.318+0000",
-      "roleArn": "roleArn",
-      "secretAccessKey": "secretAccessKey",
-      "sessionToken": "token"
+    "MessageId": "123",
+    "ClusterArn": "default",
+    "TaskArn": "t1",
+    "RoleCredentials": {
+      "CredentialsId": "credsId",
+      "AccessKeyId": "accessKeyId",
+      "Expiration": "2016-03-25T06:17:19.318+0000",
+      "RoleArn": "roleArn",
+      "SecretAccessKey": "secretAccessKey",
+      "SessionToken": "token"
     }
   }
 }
@@ -63,20 +63,20 @@ const (
 {
   "type": "AttachTaskNetworkInterfacesInput",
   "message": {
-    "messageId": "123",
-    "clusterArn": "default",
-    "taskArn": "task",
-    "elasticNetworkInterfaces":[{
-      "attachmentArn": "attach_arn",
-      "ec2Id": "eni_id",
-      "ipv4Addresses":[{
-        "primary": true,
-        "privateAddress": "ipv4"
+    "MessageId": "123",
+    "ClusterArn": "default",
+    "TaskArn": "task",
+    "ElasticNetworkInterfaces":[{
+      "AttachmentArn": "attach_arn",
+      "Ec2Id": "eni_id",
+      "Ipv4Addresses":[{
+        "Primary": true,
+        "PrivateAddress": "ipv4"
       }],
-      "ipv6Addresses":[{
-        "address": "ipv6"
+      "Ipv6Addresses":[{
+        "Address": "ipv6"
       }],
-      "macAddress": "mac"
+      "MacAddress": "mac"
     }]
   }
 }
@@ -85,19 +85,19 @@ const (
 {
   "type": "AttachInstanceNetworkInterfacesInput",
   "message": {
-    "messageId": "123",
-    "clusterArn": "default",
-    "elasticNetworkInterfaces":[{
-      "attachmentArn": "attach_arn",
-      "ec2Id": "eni_id",
-      "ipv4Addresses":[{
-        "primary": true,
-        "privateAddress": "ipv4"
+    "MessageId": "123",
+    "ClusterArn": "default",
+    "ElasticNetworkInterfaces":[{
+      "AttachmentArn": "attach_arn",
+      "Ec2Id": "eni_id",
+      "Ipv4Addresses":[{
+        "Primary": true,
+        "PrivateAddress": "ipv4"
       }],
-      "ipv6Addresses":[{
-        "address": "ipv6"
+      "Ipv6Addresses":[{
+        "Address": "ipv6"
       }],
-      "macAddress": "mac"
+      "MacAddress": "mac"
     }]
   }
 }
@@ -171,7 +171,7 @@ func TestPayloadHandlerCalled(t *testing.T) {
 	// Messages should be read from the connection at least once
 	conn.EXPECT().SetReadDeadline(gomock.Any()).Return(nil).MinTimes(1)
 	conn.EXPECT().ReadMessage().Return(websocket.TextMessage,
-		[]byte(`{"type":"PayloadInput","message":{"tasks":[{"arn":"arn"}]}}`),
+		[]byte(`{"type":"PayloadInput","message":{"Tasks":[{"Arn":"arn"}]}}`),
 		nil).MinTimes(1)
 	// Invoked when closing the connection
 	conn.EXPECT().SetWriteDeadline(gomock.Any()).Return(nil)
@@ -294,7 +294,7 @@ func TestConnect(t *testing.T) {
 	}()
 
 	go func() {
-		serverChan <- `{"type":"PayloadInput","message":{"tasks":[{"arn":"arn1","desiredStatus":"RUNNING","overrides":"{}","family":"test","version":"v1","containers":[{"name":"c1","image":"redis","command":["arg1","arg2"],"cpu":10,"memory":20,"links":["db"],"portMappings":[{"containerPort":22,"hostPort":22}],"essential":true,"entryPoint":["bash"],"environment":{"key":"val"},"overrides":"{}","desiredStatus":"RUNNING"}]}],"messageId":"messageId"}}` + "\n"
+		serverChan <- `{"type":"PayloadInput","message":{"Tasks":[{"Arn":"arn1","DesiredStatus":"RUNNING","Overrides":"{}","Family":"test","Version":"v1","Containers":[{"Name":"c1","Image":"redis","Command":["arg1","arg2"],"Cpu":10,"Memory":20,"Links":["db"],"PortMappings":[{"ContainerPort":22,"HostPort":22}],"Essential":true,"EntryPoint":["bash"],"Environment":{"Key":"val"},"Overrides":"{}","DesiredStatus":"RUNNING"}]}],"MessageId":"messageId"}}` + "\n"
 	}()
 	// Error for handling a 'PayloadInput' request
 	err = <-errs
