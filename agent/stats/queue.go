@@ -22,7 +22,6 @@ import (
 	"github.com/aws/amazon-ecs-agent/ecs-agent/logger"
 	loggerfield "github.com/aws/amazon-ecs-agent/ecs-agent/logger/field"
 	"github.com/aws/amazon-ecs-agent/ecs-agent/stats"
-	"github.com/aws/amazon-ecs-agent/ecs-agent/tcs/model/ecstcs"
 
 	tcstypes "github.com/aws/aws-sdk-go-v2/service/tcs/types"
 	"github.com/cihub/seelog"
@@ -176,18 +175,18 @@ func (queue *Queue) GetLastNetworkStatPerSec() *stats.NetworkStatsPerSec {
 }
 
 // GetCPUStatsSet gets the stats set for CPU utilization.
-func (queue *Queue) GetCPUStatsSet() (tcstypes.CWStatsSet, error) {
+func (queue *Queue) GetCPUStatsSet() (*tcstypes.CWStatsSet, error) {
 	return queue.getCWStatsSet(getCPUUsagePerc)
 }
 
 // GetMemoryStatsSet gets the stats set for memory utilization.
-func (queue *Queue) GetMemoryStatsSet() (tcstypes.CWStatsSet, error) {
+func (queue *Queue) GetMemoryStatsSet() (*tcstypes.CWStatsSet, error) {
 	return queue.getCWStatsSet(getMemoryUsagePerc)
 }
 
 // GetStorageStatsSet gets the stats set for aggregate storage
 func (queue *Queue) GetStorageStatsSet() (tcstypes.StorageStatsSet, error) {
-	storageStatsSet := ecstcs.StorageStatsSet{}
+	storageStatsSet := tcstypes.StorageStatsSet{}
 	var err error
 	var errStr string
 	storageStatsSet.ReadSizeBytes, err = queue.getULongStatsSet(getStorageReadBytes)
@@ -206,15 +205,15 @@ func (queue *Queue) GetStorageStatsSet() (tcstypes.StorageStatsSet, error) {
 }
 
 // GetRestartStatsSet gets the stats set for container restarts
-func (queue *Queue) GetRestartStatsSet() (tcstypes.RestartStatsSet, error) {
+func (queue *Queue) GetRestartStatsSet() (*tcstypes.RestartStatsSet, error) {
 	return queue.getRestartStatsSet(getRestartCount)
 }
 
-func (queue *Queue) getRestartStatsSet(getInt getIntPointerFunc) (tcstypes.RestartStatsSet, error) {
+func (queue *Queue) getRestartStatsSet(getInt getIntPointerFunc) (*tcstypes.RestartStatsSet, error) {
 	queue.lock.Lock()
 	defer queue.lock.Unlock()
 
-	var firstStat, lastStat int64
+	var firstStat, lastStat int32
 	firstStat = -1
 
 	queueLength := len(queue.buffer)
@@ -234,7 +233,7 @@ func (queue *Queue) getRestartStatsSet(getInt getIntPointerFunc) (tcstypes.Resta
 		}
 		if i == queueLength-1 {
 			// get final unsent stat in the queue
-			lastStat = *thisStat
+			lastStat = int32(*thisStat)
 		}
 
 		if firstStat == -1 {
@@ -247,7 +246,7 @@ func (queue *Queue) getRestartStatsSet(getInt getIntPointerFunc) (tcstypes.Resta
 					continue
 				}
 			}
-			firstStat = *thisStat
+			firstStat = int32(*thisStat)
 		}
 	}
 
@@ -267,14 +266,14 @@ func (queue *Queue) getRestartStatsSet(getInt getIntPointerFunc) (tcstypes.Resta
 		return nil, fmt.Errorf("Negative restart count calculated, firstStat=%d lastStat=%d result=%d", firstStat, lastStat, result)
 	}
 
-	return &ecstcs.RestartStatsSet{
-		RestartCount: &result,
+	return &tcstypes.RestartStatsSet{
+		RestartCount: result,
 	}, nil
 }
 
 // GetNetworkStatsSet gets the stats set for network metrics.
-func (queue *Queue) GetNetworkStatsSet() (tcstypes.NetworkStatsSet, error) {
-	networkStatsSet := &ecstcs.NetworkStatsSet{}
+func (queue *Queue) GetNetworkStatsSet() (*tcstypes.NetworkStatsSet, error) {
+	networkStatsSet := &tcstypes.NetworkStatsSet{}
 	var err error
 	var errStr string
 	networkStatsSet.RxBytes, err = queue.getULongStatsSet(getNetworkRxBytes)
@@ -430,7 +429,7 @@ type getIntPointerFunc func(*UsageStats) *int64
 
 // getCWStatsSet gets the stats set for either CPU or Memory based on the
 // function pointer.
-func (queue *Queue) getCWStatsSet(getUsageFloat getUsageFloatFunc) (tcstypes.CWStatsSet, error) {
+func (queue *Queue) getCWStatsSet(getUsageFloat getUsageFloatFunc) (*tcstypes.CWStatsSet, error) {
 	queue.lock.Lock()
 	defer queue.lock.Unlock()
 
@@ -441,7 +440,7 @@ func (queue *Queue) getCWStatsSet(getUsageFloat getUsageFloatFunc) (tcstypes.CWS
 	}
 
 	var min, max, sum float64
-	var sampleCount int64
+	var sampleCount int32
 	min = math.MaxFloat64
 	max = -math.MaxFloat64
 	sum = 0
@@ -468,11 +467,11 @@ func (queue *Queue) getCWStatsSet(getUsageFloat getUsageFloatFunc) (tcstypes.CWS
 		return nil, fmt.Errorf("need at least 1 non-NaN data points in queue to calculate CW stats set")
 	}
 
-	return &ecstcs.CWStatsSet{
-		Max:         &max,
-		Min:         &min,
-		SampleCount: &sampleCount,
-		Sum:         &sum,
+	return &tcstypes.CWStatsSet{
+		Max:         max,
+		Min:         min,
+		SampleCount: sampleCount,
+		Sum:         sum,
 	}, nil
 }
 
@@ -522,19 +521,19 @@ func (queue *Queue) getULongStatsSet(getUsageInt getUsageIntFunc) (*tcstypes.ULo
 	baseMax, overflowMax := getInt64WithOverflow(max)
 	baseSum, overflowSum := getInt64WithOverflow(sum)
 
-	return &ecstcs.ULongStatsSet{
-		Max:         &baseMax,
-		OverflowMax: &overflowMax,
-		Min:         &baseMin,
-		OverflowMin: &overflowMin,
-		SampleCount: &sampleCount,
-		Sum:         &baseSum,
-		OverflowSum: &overflowSum,
+	return &tcstypes.ULongStatsSet{
+		Max:         baseMax,
+		OverflowMax: overflowMax,
+		Min:         baseMin,
+		OverflowMin: overflowMin,
+		SampleCount: sampleCount,
+		Sum:         baseSum,
+		OverflowSum: overflowSum,
 	}, nil
 }
 
 // getUDoubleCWStatsSet gets the stats set for per second network metrics
-func (queue *Queue) getUDoubleCWStatsSet(getUsageFloat getUsageFloatFunc) (tcstypes.UDoubleCWStatsSet, error) {
+func (queue *Queue) getUDoubleCWStatsSet(getUsageFloat getUsageFloatFunc) (*tcstypes.UDoubleCWStatsSet, error) {
 	queue.lock.Lock()
 	defer queue.lock.Unlock()
 
@@ -545,7 +544,7 @@ func (queue *Queue) getUDoubleCWStatsSet(getUsageFloat getUsageFloatFunc) (tcsty
 	}
 
 	var min, max, sum float64
-	var sampleCount int64
+	var sampleCount int32
 	min = math.MaxFloat64
 	max = -math.MaxFloat64
 	sum = 0
@@ -572,11 +571,11 @@ func (queue *Queue) getUDoubleCWStatsSet(getUsageFloat getUsageFloatFunc) (tcsty
 		return nil, fmt.Errorf("need at least 1 non-NaN data points in queue to calculate CW stats set")
 	}
 
-	return &ecstcs.UDoubleCWStatsSet{
-		Max:         &max,
-		Min:         &min,
-		SampleCount: &sampleCount,
-		Sum:         &sum,
+	return &tcstypes.UDoubleCWStatsSet{
+		Max:         max,
+		Min:         min,
+		SampleCount: sampleCount,
+		Sum:         sum,
 	}, nil
 }
 
