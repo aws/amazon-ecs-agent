@@ -525,7 +525,7 @@ func awsAwsjson11_serializeDocumentEphemeralStorageMetrics(v *types.EphemeralSto
 	defer object.Close()
 	
 	if v.BytesUtilized != nil {
-		ok := object.Key("BytesUtilized")
+		ok := object.Key("bytesUtilized")
 		if err := awsAwsjson11_serializeDocumentULongStatsSet(v.BytesUtilized, ok); err != nil {
 			return err
 		}
@@ -707,7 +707,7 @@ func awsAwsjson11_serializeDocumentInstanceStorageMetrics(v *types.InstanceStora
 	defer object.Close()
 	
 	if v.DataFilesystem != 0 {
-		ok := object.Key("DataFilesystem")
+		ok := object.Key("dataFilesystem")
 		switch {
 			case math.IsNaN(v.DataFilesystem):
 				ok.String("NaN")
@@ -724,20 +724,20 @@ func awsAwsjson11_serializeDocumentInstanceStorageMetrics(v *types.InstanceStora
 		}
 	}
 	
-	if v.OSFilesystem != 0 {
-		ok := object.Key("OSFilesystem")
+	if v.RootFilesystem != 0 {
+		ok := object.Key("rootFilesystem")
 		switch {
-			case math.IsNaN(v.OSFilesystem):
+			case math.IsNaN(v.RootFilesystem):
 				ok.String("NaN")
 			
-			case math.IsInf(v.OSFilesystem, 1):
+			case math.IsInf(v.RootFilesystem, 1):
 				ok.String("Infinity")
 			
-			case math.IsInf(v.OSFilesystem, -1):
+			case math.IsInf(v.RootFilesystem, -1):
 				ok.String("-Infinity")
 			
 			default:
-				ok.Double(v.OSFilesystem)
+				ok.Double(v.RootFilesystem)
 			
 		}
 	}

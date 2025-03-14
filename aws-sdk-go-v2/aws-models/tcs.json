@@ -881,7 +881,7 @@
         "com.amazonaws.tcs#EphemeralStorageMetrics": {
             "type": "structure",
             "members": {
-                "BytesUtilized": {
+                "bytesUtilized": {
                     "target": "com.amazonaws.tcs#ULongStatsSet"
                 }
             }
@@ -1078,13 +1078,13 @@
         "com.amazonaws.tcs#InstanceStorageMetrics": {
             "type": "structure",
             "members": {
-                "OSFilesystem": {
+                "rootFilesystem": {
                     "target": "com.amazonaws.tcs#Percentage",
                     "traits": {
                         "smithy.api#default": 0
                     }
                 },
-                "DataFilesystem": {
+                "dataFilesystem": {
                     "target": "com.amazonaws.tcs#Percentage",
                     "traits": {
                         "smithy.api#default": 0
@@ -1092,7 +1092,7 @@
                 }
             },
             "traits": {
-                "smithy.api#documentation": "InstanceStorageMetrics defines the set of metrics that represent the filesystem\n\t\tutilization of the container instance. Every container instance will have a\n\t\tfilesystem to back the operating system and optionally contain another filesystem\n\t\tto back the container data storage, including containers' writeable layers,\n\t\tcontents of container images, ephemeral bind-mounts etc. The former is captured\n\t\tby 'OSFilesystem' and the latter by 'DataFilesystem'."
+                "smithy.api#documentation": "InstanceStorageMetrics defines the set of metrics that represent the filesystem\n\t\tutilization of the container instance. Every container instance will have a\n\t\tfilesystem to back the operating system and optionally contain another filesystem\n\t\tto back the container data storage, including containers' writeable layers,\n\t\tcontents of container images, ephemeral bind-mounts etc. The former is captured\n\t\tby 'rootFilesystem' and the latter by 'dataFilesystem'."
             }
         },
         "com.amazonaws.tcs#InvalidParameterException": {

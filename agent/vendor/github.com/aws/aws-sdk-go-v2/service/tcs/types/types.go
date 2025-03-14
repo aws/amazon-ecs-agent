@@ -126,7 +126,7 @@ type InstanceMetrics struct {
 	// filesystem to back the operating system and optionally contain another
 	// filesystem to back the container data storage, including containers' writeable
 	// layers, contents of container images, ephemeral bind-mounts etc. The former is
-	// captured by 'OSFilesystem' and the latter by 'DataFilesystem'.
+	// captured by 'rootFilesystem' and the latter by 'dataFilesystem'.
 	Storage *InstanceStorageMetrics
 	
 	noSmithyDocumentSerde
@@ -167,12 +167,12 @@ type InstanceStatusMetadata struct {
 // filesystem to back the operating system and optionally contain another
 // filesystem to back the container data storage, including containers' writeable
 // layers, contents of container images, ephemeral bind-mounts etc. The former is
-// captured by 'OSFilesystem' and the latter by 'DataFilesystem'.
+// captured by 'rootFilesystem' and the latter by 'dataFilesystem'.
 type InstanceStorageMetrics struct {
 	
 	DataFilesystem float64
 	
-	OSFilesystem float64
+	RootFilesystem float64
 	
 	noSmithyDocumentSerde
 }

@@ -7712,14 +7712,14 @@ func awsAwsjson11_deserializeDocumentAccessDeniedException(v **types.AccessDenie
 	
 	for key, value := range shape {
 		switch key {
-			case "message":
-				if value != nil {
-					jtv, ok := value.(string)
-					if !ok {
-						return fmt.Errorf("expected String to be of type string, got %T instead", value)
-					}
-					sv.Message = ptr.String(jtv)
+			case "message", "Message":
+			if value != nil {
+				jtv, ok := value.(string)
+				if !ok {
+					return fmt.Errorf("expected String to be of type string, got %T instead", value)
 				}
+				sv.Message = ptr.String(jtv)
+			}
 			
 			default:
 				_, _ = key, value
@@ -7753,36 +7753,36 @@ func awsAwsjson11_deserializeDocumentAttachment(v **types.Attachment, value inte
 	for key, value := range shape {
 		switch key {
 			case "details":
-				if err := awsAwsjson11_deserializeDocumentAttachmentDetails(&sv.Details, value); err != nil {
-					return err
-				}
+			if err := awsAwsjson11_deserializeDocumentAttachmentDetails(&sv.Details, value); err != nil {
+				return err
+			}
 			
 			case "id":
-				if value != nil {
-					jtv, ok := value.(string)
-					if !ok {
-						return fmt.Errorf("expected String to be of type string, got %T instead", value)
-					}
-					sv.Id = ptr.String(jtv)
+			if value != nil {
+				jtv, ok := value.(string)
+				if !ok {
+					return fmt.Errorf("expected String to be of type string, got %T instead", value)
 				}
+				sv.Id = ptr.String(jtv)
+			}
 			
 			case "status":
-				if value != nil {
-					jtv, ok := value.(string)
-					if !ok {
-						return fmt.Errorf("expected String to be of type string, got %T instead", value)
-					}
-					sv.Status = ptr.String(jtv)
+			if value != nil {
+				jtv, ok := value.(string)
+				if !ok {
+					return fmt.Errorf("expected String to be of type string, got %T instead", value)
 				}
+				sv.Status = ptr.String(jtv)
+			}
 			
 			case "type":
-				if value != nil {
-					jtv, ok := value.(string)
-					if !ok {
-						return fmt.Errorf("expected String to be of type string, got %T instead", value)
-					}
-					sv.Type = ptr.String(jtv)
+			if value != nil {
+				jtv, ok := value.(string)
+				if !ok {
+					return fmt.Errorf("expected String to be of type string, got %T instead", value)
 				}
+				sv.Type = ptr.String(jtv)
+			}
 			
 			default:
 				_, _ = key, value
@@ -7884,40 +7884,40 @@ func awsAwsjson11_deserializeDocumentAttribute(v **types.Attribute, value interf
 	for key, value := range shape {
 		switch key {
 			case "name":
-				if value != nil {
-					jtv, ok := value.(string)
-					if !ok {
-						return fmt.Errorf("expected String to be of type string, got %T instead", value)
-					}
-					sv.Name = ptr.String(jtv)
+			if value != nil {
+				jtv, ok := value.(string)
+				if !ok {
+					return fmt.Errorf("expected String to be of type string, got %T instead", value)
 				}
+				sv.Name = ptr.String(jtv)
+			}
 			
 			case "targetId":
-				if value != nil {
-					jtv, ok := value.(string)
-					if !ok {
-						return fmt.Errorf("expected String to be of type string, got %T instead", value)
-					}
-					sv.TargetId = ptr.String(jtv)
+			if value != nil {
+				jtv, ok := value.(string)
+				if !ok {
+					return fmt.Errorf("expected String to be of type string, got %T instead", value)
 				}
+				sv.TargetId = ptr.String(jtv)
+			}
 			
 			case "targetType":
-				if value != nil {
-					jtv, ok := value.(string)
-					if !ok {
-						return fmt.Errorf("expected TargetType to be of type string, got %T instead", value)
-					}
-					sv.TargetType = types.TargetType(jtv)
+			if value != nil {
+				jtv, ok := value.(string)
+				if !ok {
+					return fmt.Errorf("expected TargetType to be of type string, got %T instead", value)
 				}
+				sv.TargetType = types.TargetType(jtv)
+			}
 			
 			case "value":
-				if value != nil {
-					jtv, ok := value.(string)
-					if !ok {
-						return fmt.Errorf("expected String to be of type string, got %T instead", value)
-					}
-					sv.Value = ptr.String(jtv)
+			if value != nil {
+				jtv, ok := value.(string)
+				if !ok {
+					return fmt.Errorf("expected String to be of type string, got %T instead", value)
 				}
+				sv.Value = ptr.String(jtv)
+			}
 			
 			default:
 				_, _ = key, value
@@ -7950,14 +7950,14 @@ func awsAwsjson11_deserializeDocumentAttributeLimitExceededException(v **types.A
 	
 	for key, value := range shape {
 		switch key {
-			case "message":
-				if value != nil {
-					jtv, ok := value.(string)
-					if !ok {
-						return fmt.Errorf("expected String to be of type string, got %T instead", value)
-					}
-					sv.Message = ptr.String(jtv)
+			case "message", "Message":
+			if value != nil {
+				jtv, ok := value.(string)
+				if !ok {
+					return fmt.Errorf("expected String to be of type string, got %T instead", value)
 				}
+				sv.Message = ptr.String(jtv)
+			}
 			
 			default:
 				_, _ = key, value
@@ -8025,36 +8025,36 @@ func awsAwsjson11_deserializeDocumentAutoScalingGroupProvider(v **types.AutoScal
 	for key, value := range shape {
 		switch key {
 			case "autoScalingGroupArn":
-				if value != nil {
-					jtv, ok := value.(string)
-					if !ok {
-						return fmt.Errorf("expected String to be of type string, got %T instead", value)
-					}
-					sv.AutoScalingGroupArn = ptr.String(jtv)
+			if value != nil {
+				jtv, ok := value.(string)
+				if !ok {
+					return fmt.Errorf("expected String to be of type string, got %T instead", value)
 				}
+				sv.AutoScalingGroupArn = ptr.String(jtv)
+			}
 			
 			case "managedDraining":
-				if value != nil {
-					jtv, ok := value.(string)
-					if !ok {
-						return fmt.Errorf("expected ManagedDraining to be of type string, got %T instead", value)
-					}
-					sv.ManagedDraining = types.ManagedDraining(jtv)
+			if value != nil {
+				jtv, ok := value.(string)
+				if !ok {
+					return fmt.Errorf("expected ManagedDraining to be of type string, got %T instead", value)
 				}
+				sv.ManagedDraining = types.ManagedDraining(jtv)
+			}
 			
 			case "managedScaling":
-				if err := awsAwsjson11_deserializeDocumentManagedScaling(&sv.ManagedScaling, value); err != nil {
-					return err
-				}
+			if err := awsAwsjson11_deserializeDocumentManagedScaling(&sv.ManagedScaling, value); err != nil {
+				return err
+			}
 			
 			case "managedTerminationProtection":
-				if value != nil {
-					jtv, ok := value.(string)
-					if !ok {
-						return fmt.Errorf("expected ManagedTerminationProtection to be of type string, got %T instead", value)
-					}
-					sv.ManagedTerminationProtection = types.ManagedTerminationProtection(jtv)
+			if value != nil {
+				jtv, ok := value.(string)
+				if !ok {
+					return fmt.Errorf("expected ManagedTerminationProtection to be of type string, got %T instead", value)
 				}
+				sv.ManagedTerminationProtection = types.ManagedTerminationProtection(jtv)
+			}
 			
 			default:
 				_, _ = key, value
@@ -8088,23 +8088,23 @@ func awsAwsjson11_deserializeDocumentAwsVpcConfiguration(v **types.AwsVpcConfigu
 	for key, value := range shape {
 		switch key {
 			case "assignPublicIp":
-				if value != nil {
-					jtv, ok := value.(string)
-					if !ok {
-						return fmt.Errorf("expected AssignPublicIp to be of type string, got %T instead", value)
-					}
-					sv.AssignPublicIp = types.AssignPublicIp(jtv)
+			if value != nil {
+				jtv, ok := value.(string)
+				if !ok {
+					return fmt.Errorf("expected AssignPublicIp to be of type string, got %T instead", value)
 				}
+				sv.AssignPublicIp = types.AssignPublicIp(jtv)
+			}
 			
 			case "securityGroups":
-				if err := awsAwsjson11_deserializeDocumentStringList(&sv.SecurityGroups, value); err != nil {
-					return err
-				}
+			if err := awsAwsjson11_deserializeDocumentStringList(&sv.SecurityGroups, value); err != nil {
+				return err
+			}
 			
 			case "subnets":
-				if err := awsAwsjson11_deserializeDocumentStringList(&sv.Subnets, value); err != nil {
-					return err
-				}
+			if err := awsAwsjson11_deserializeDocumentStringList(&sv.Subnets, value); err != nil {
+				return err
+			}
 			
 			default:
 				_, _ = key, value
@@ -8137,14 +8137,14 @@ func awsAwsjson11_deserializeDocumentBlockedException(v **types.BlockedException
 	
 	for key, value := range shape {
 		switch key {
-			case "message":
-				if value != nil {
-					jtv, ok := value.(string)
-					if !ok {
-						return fmt.Errorf("expected String to be of type string, got %T instead", value)
-					}
-					sv.Message = ptr.String(jtv)
+			case "message", "Message":
+			if value != nil {
+				jtv, ok := value.(string)
+				if !ok {
+					return fmt.Errorf("expected String to be of type string, got %T instead", value)
 				}
+				sv.Message = ptr.String(jtv)
+			}
 			
 			default:
 				_, _ = key, value
@@ -8178,59 +8178,59 @@ func awsAwsjson11_deserializeDocumentCapacityProvider(v **types.CapacityProvider
 	for key, value := range shape {
 		switch key {
 			case "autoScalingGroupProvider":
-				if err := awsAwsjson11_deserializeDocumentAutoScalingGroupProvider(&sv.AutoScalingGroupProvider, value); err != nil {
-					return err
-				}
+			if err := awsAwsjson11_deserializeDocumentAutoScalingGroupProvider(&sv.AutoScalingGroupProvider, value); err != nil {
+				return err
+			}
 			
 			case "capacityProviderArn":
-				if value != nil {
-					jtv, ok := value.(string)
-					if !ok {
-						return fmt.Errorf("expected String to be of type string, got %T instead", value)
-					}
-					sv.CapacityProviderArn = ptr.String(jtv)
+			if value != nil {
+				jtv, ok := value.(string)
+				if !ok {
+					return fmt.Errorf("expected String to be of type string, got %T instead", value)
 				}
+				sv.CapacityProviderArn = ptr.String(jtv)
+			}
 			
 			case "name":
-				if value != nil {
-					jtv, ok := value.(string)
-					if !ok {
-						return fmt.Errorf("expected String to be of type string, got %T instead", value)
-					}
-					sv.Name = ptr.String(jtv)
+			if value != nil {
+				jtv, ok := value.(string)
+				if !ok {
+					return fmt.Errorf("expected String to be of type string, got %T instead", value)
 				}
+				sv.Name = ptr.String(jtv)
+			}
 			
 			case "status":
-				if value != nil {
-					jtv, ok := value.(string)
-					if !ok {
-						return fmt.Errorf("expected CapacityProviderStatus to be of type string, got %T instead", value)
-					}
-					sv.Status = types.CapacityProviderStatus(jtv)
+			if value != nil {
+				jtv, ok := value.(string)
+				if !ok {
+					return fmt.Errorf("expected CapacityProviderStatus to be of type string, got %T instead", value)
 				}
+				sv.Status = types.CapacityProviderStatus(jtv)
+			}
 			
 			case "tags":
-				if err := awsAwsjson11_deserializeDocumentTags(&sv.Tags, value); err != nil {
-					return err
-				}
+			if err := awsAwsjson11_deserializeDocumentTags(&sv.Tags, value); err != nil {
+				return err
+			}
 			
 			case "updateStatus":
-				if value != nil {
-					jtv, ok := value.(string)
-					if !ok {
-						return fmt.Errorf("expected CapacityProviderUpdateStatus to be of type string, got %T instead", value)
-					}
-					sv.UpdateStatus = types.CapacityProviderUpdateStatus(jtv)
+			if value != nil {
+				jtv, ok := value.(string)
+				if !ok {
+					return fmt.Errorf("expected CapacityProviderUpdateStatus to be of type string, got %T instead", value)
 				}
+				sv.UpdateStatus = types.CapacityProviderUpdateStatus(jtv)
+			}
 			
 			case "updateStatusReason":
-				if value != nil {
-					jtv, ok := value.(string)
-					if !ok {
-						return fmt.Errorf("expected String to be of type string, got %T instead", value)
-					}
-					sv.UpdateStatusReason = ptr.String(jtv)
+			if value != nil {
+				jtv, ok := value.(string)
+				if !ok {
+					return fmt.Errorf("expected String to be of type string, got %T instead", value)
 				}
+				sv.UpdateStatusReason = ptr.String(jtv)
+			}
 			
 			default:
 				_, _ = key, value
@@ -8332,35 +8332,35 @@ func awsAwsjson11_deserializeDocumentCapacityProviderStrategyItem(v **types.Capa
 	for key, value := range shape {
 		switch key {
 			case "base":
-				if value != nil {
-					jtv, ok := value.(json.Number)
-					if !ok {
-						return fmt.Errorf("expected CapacityProviderStrategyItemBase to be json.Number, got %T instead", value)
-					}
-					i64, err := jtv.Int64()
-					if err != nil { return err }
-					sv.Base = int32(i64)
+			if value != nil {
+				jtv, ok := value.(json.Number)
+				if !ok {
+					return fmt.Errorf("expected CapacityProviderStrategyItemBase to be json.Number, got %T instead", value)
 				}
+				i64, err := jtv.Int64()
+				if err != nil { return err }
+				sv.Base = int32(i64)
+			}
 			
 			case "capacityProvider":
-				if value != nil {
-					jtv, ok := value.(string)
-					if !ok {
-						return fmt.Errorf("expected String to be of type string, got %T instead", value)
-					}
-					sv.CapacityProvider = ptr.String(jtv)
+			if value != nil {
+				jtv, ok := value.(string)
+				if !ok {
+					return fmt.Errorf("expected String to be of type string, got %T instead", value)
 				}
+				sv.CapacityProvider = ptr.String(jtv)
+			}
 			
 			case "weight":
-				if value != nil {
-					jtv, ok := value.(json.Number)
-					if !ok {
-						return fmt.Errorf("expected CapacityProviderStrategyItemWeight to be json.Number, got %T instead", value)
-					}
-					i64, err := jtv.Int64()
-					if err != nil { return err }
-					sv.Weight = int32(i64)
+			if value != nil {
+				jtv, ok := value.(json.Number)
+				if !ok {
+					return fmt.Errorf("expected CapacityProviderStrategyItemWeight to be json.Number, got %T instead", value)
 				}
+				i64, err := jtv.Int64()
+				if err != nil { return err }
+				sv.Weight = int32(i64)
+			}
 			
 			default:
 				_, _ = key, value
@@ -8393,14 +8393,14 @@ func awsAwsjson11_deserializeDocumentClientException(v **types.ClientException, 
 	
 	for key, value := range shape {
 		switch key {
-			case "message":
-				if value != nil {
-					jtv, ok := value.(string)
-					if !ok {
-						return fmt.Errorf("expected String to be of type string, got %T instead", value)
-					}
-					sv.Message = ptr.String(jtv)
+			case "message", "Message":
+			if value != nil {
+				jtv, ok := value.(string)
+				if !ok {
+					return fmt.Errorf("expected String to be of type string, got %T instead", value)
 				}
+				sv.Message = ptr.String(jtv)
+			}
 			
 			default:
 				_, _ = key, value
@@ -8434,124 +8434,124 @@ func awsAwsjson11_deserializeDocumentCluster(v **types.Cluster, value interface{
 	for key, value := range shape {
 		switch key {
 			case "activeServicesCount":
-				if value != nil {
-					jtv, ok := value.(json.Number)
-					if !ok {
-						return fmt.Errorf("expected Integer to be json.Number, got %T instead", value)
-					}
-					i64, err := jtv.Int64()
-					if err != nil { return err }
-					sv.ActiveServicesCount = int32(i64)
+			if value != nil {
+				jtv, ok := value.(json.Number)
+				if !ok {
+					return fmt.Errorf("expected Integer to be json.Number, got %T instead", value)
 				}
+				i64, err := jtv.Int64()
+				if err != nil { return err }
+				sv.ActiveServicesCount = int32(i64)
+			}
 			
 			case "attachments":
-				if err := awsAwsjson11_deserializeDocumentAttachments(&sv.Attachments, value); err != nil {
-					return err
-				}
+			if err := awsAwsjson11_deserializeDocumentAttachments(&sv.Attachments, value); err != nil {
+				return err
+			}
 			
 			case "attachmentsStatus":
-				if value != nil {
-					jtv, ok := value.(string)
-					if !ok {
-						return fmt.Errorf("expected String to be of type string, got %T instead", value)
-					}
-					sv.AttachmentsStatus = ptr.String(jtv)
+			if value != nil {
+				jtv, ok := value.(string)
+				if !ok {
+					return fmt.Errorf("expected String to be of type string, got %T instead", value)
 				}
+				sv.AttachmentsStatus = ptr.String(jtv)
+			}
 			
 			case "capacityProviders":
-				if err := awsAwsjson11_deserializeDocumentStringList(&sv.CapacityProviders, value); err != nil {
-					return err
-				}
+			if err := awsAwsjson11_deserializeDocumentStringList(&sv.CapacityProviders, value); err != nil {
+				return err
+			}
 			
 			case "clusterArn":
-				if value != nil {
-					jtv, ok := value.(string)
-					if !ok {
-						return fmt.Errorf("expected String to be of type string, got %T instead", value)
-					}
-					sv.ClusterArn = ptr.String(jtv)
+			if value != nil {
+				jtv, ok := value.(string)
+				if !ok {
+					return fmt.Errorf("expected String to be of type string, got %T instead", value)
 				}
+				sv.ClusterArn = ptr.String(jtv)
+			}
 			
 			case "clusterName":
-				if value != nil {
-					jtv, ok := value.(string)
-					if !ok {
-						return fmt.Errorf("expected String to be of type string, got %T instead", value)
-					}
-					sv.ClusterName = ptr.String(jtv)
+			if value != nil {
+				jtv, ok := value.(string)
+				if !ok {
+					return fmt.Errorf("expected String to be of type string, got %T instead", value)
 				}
+				sv.ClusterName = ptr.String(jtv)
+			}
 			
 			case "configuration":
-				if err := awsAwsjson11_deserializeDocumentClusterConfiguration(&sv.Configuration, value); err != nil {
-					return err
-				}
+			if err := awsAwsjson11_deserializeDocumentClusterConfiguration(&sv.Configuration, value); err != nil {
+				return err
+			}
 			
 			case "defaultCapacityProviderStrategy":
-				if err := awsAwsjson11_deserializeDocumentCapacityProviderStrategy(&sv.DefaultCapacityProviderStrategy, value); err != nil {
-					return err
-				}
+			if err := awsAwsjson11_deserializeDocumentCapacityProviderStrategy(&sv.DefaultCapacityProviderStrategy, value); err != nil {
+				return err
+			}
 			
 			case "pendingTasksCount":
-				if value != nil {
-					jtv, ok := value.(json.Number)
-					if !ok {
-						return fmt.Errorf("expected Integer to be json.Number, got %T instead", value)
-					}
-					i64, err := jtv.Int64()
-					if err != nil { return err }
-					sv.PendingTasksCount = int32(i64)
+			if value != nil {
+				jtv, ok := value.(json.Number)
+				if !ok {
+					return fmt.Errorf("expected Integer to be json.Number, got %T instead", value)
 				}
+				i64, err := jtv.Int64()
+				if err != nil { return err }
+				sv.PendingTasksCount = int32(i64)
+			}
 			
 			case "registeredContainerInstancesCount":
-				if value != nil {
-					jtv, ok := value.(json.Number)
-					if !ok {
-						return fmt.Errorf("expected Integer to be json.Number, got %T instead", value)
-					}
-					i64, err := jtv.Int64()
-					if err != nil { return err }
-					sv.RegisteredContainerInstancesCount = int32(i64)
+			if value != nil {
+				jtv, ok := value.(json.Number)
+				if !ok {
+					return fmt.Errorf("expected Integer to be json.Number, got %T instead", value)
 				}
+				i64, err := jtv.Int64()
+				if err != nil { return err }
+				sv.RegisteredContainerInstancesCount = int32(i64)
+			}
 			
 			case "runningTasksCount":
-				if value != nil {
-					jtv, ok := value.(json.Number)
-					if !ok {
-						return fmt.Errorf("expected Integer to be json.Number, got %T instead", value)
-					}
-					i64, err := jtv.Int64()
-					if err != nil { return err }
-					sv.RunningTasksCount = int32(i64)
+			if value != nil {
+				jtv, ok := value.(json.Number)
+				if !ok {
+					return fmt.Errorf("expected Integer to be json.Number, got %T instead", value)
 				}
+				i64, err := jtv.Int64()
+				if err != nil { return err }
+				sv.RunningTasksCount = int32(i64)
+			}
 			
 			case "serviceConnectDefaults":
-				if err := awsAwsjson11_deserializeDocumentClusterServiceConnectDefaults(&sv.ServiceConnectDefaults, value); err != nil {
-					return err
-				}
+			if err := awsAwsjson11_deserializeDocumentClusterServiceConnectDefaults(&sv.ServiceConnectDefaults, value); err != nil {
+				return err
+			}
 			
 			case "settings":
-				if err := awsAwsjson11_deserializeDocumentClusterSettings(&sv.Settings, value); err != nil {
-					return err
-				}
+			if err := awsAwsjson11_deserializeDocumentClusterSettings(&sv.Settings, value); err != nil {
+				return err
+			}
 			
 			case "statistics":
-				if err := awsAwsjson11_deserializeDocumentStatistics(&sv.Statistics, value); err != nil {
-					return err
-				}
+			if err := awsAwsjson11_deserializeDocumentStatistics(&sv.Statistics, value); err != nil {
+				return err
+			}
 			
 			case "status":
-				if value != nil {
-					jtv, ok := value.(string)
-					if !ok {
-						return fmt.Errorf("expected String to be of type string, got %T instead", value)
-					}
-					sv.Status = ptr.String(jtv)
+			if value != nil {
+				jtv, ok := value.(string)
+				if !ok {
+					return fmt.Errorf("expected String to be of type string, got %T instead", value)
 				}
+				sv.Status = ptr.String(jtv)
+			}
 			
 			case "tags":
-				if err := awsAwsjson11_deserializeDocumentTags(&sv.Tags, value); err != nil {
-					return err
-				}
+			if err := awsAwsjson11_deserializeDocumentTags(&sv.Tags, value); err != nil {
+				return err
+			}
 			
 			default:
 				_, _ = key, value
@@ -8585,14 +8585,14 @@ func awsAwsjson11_deserializeDocumentClusterConfiguration(v **types.ClusterConfi
 	for key, value := range shape {
 		switch key {
 			case "executeCommandConfiguration":
-				if err := awsAwsjson11_deserializeDocumentExecuteCommandConfiguration(&sv.ExecuteCommandConfiguration, value); err != nil {
-					return err
-				}
+			if err := awsAwsjson11_deserializeDocumentExecuteCommandConfiguration(&sv.ExecuteCommandConfiguration, value); err != nil {
+				return err
+			}
 			
 			case "managedStorageConfiguration":
-				if err := awsAwsjson11_deserializeDocumentManagedStorageConfiguration(&sv.ManagedStorageConfiguration, value); err != nil {
-					return err
-				}
+			if err := awsAwsjson11_deserializeDocumentManagedStorageConfiguration(&sv.ManagedStorageConfiguration, value); err != nil {
+				return err
+			}
 			
 			default:
 				_, _ = key, value
@@ -8625,14 +8625,14 @@ func awsAwsjson11_deserializeDocumentClusterContainsContainerInstancesException(
 	
 	for key, value := range shape {
 		switch key {
-			case "message":
-				if value != nil {
-					jtv, ok := value.(string)
-					if !ok {
-						return fmt.Errorf("expected String to be of type string, got %T instead", value)
-					}
-					sv.Message = ptr.String(jtv)
+			case "message", "Message":
+			if value != nil {
+				jtv, ok := value.(string)
+				if !ok {
+					return fmt.Errorf("expected String to be of type string, got %T instead", value)
 				}
+				sv.Message = ptr.String(jtv)
+			}
 			
 			default:
 				_, _ = key, value
@@ -8665,14 +8665,14 @@ func awsAwsjson11_deserializeDocumentClusterContainsServicesException(v **types.
 	
 	for key, value := range shape {
 		switch key {
-			case "message":
-				if value != nil {
-					jtv, ok := value.(string)
-					if !ok {
-						return fmt.Errorf("expected String to be of type string, got %T instead", value)
-					}
-					sv.Message = ptr.String(jtv)
+			case "message", "Message":
+			if value != nil {
+				jtv, ok := value.(string)
+				if !ok {
+					return fmt.Errorf("expected String to be of type string, got %T instead", value)
 				}
+				sv.Message = ptr.String(jtv)
+			}
 			
 			default:
 				_, _ = key, value
@@ -8705,14 +8705,14 @@ func awsAwsjson11_deserializeDocumentClusterContainsTasksException(v **types.Clu
 	
 	for key, value := range shape {
 		switch key {
-			case "message":
-				if value != nil {
-					jtv, ok := value.(string)
-					if !ok {
-						return fmt.Errorf("expected String to be of type string, got %T instead", value)
-					}
-					sv.Message = ptr.String(jtv)
+			case "message", "Message":
+			if value != nil {
+				jtv, ok := value.(string)
+				if !ok {
+					return fmt.Errorf("expected String to be of type string, got %T instead", value)
 				}
+				sv.Message = ptr.String(jtv)
+			}
 			
 			default:
 				_, _ = key, value
@@ -8745,14 +8745,14 @@ func awsAwsjson11_deserializeDocumentClusterNotFoundException(v **types.ClusterN
 	
 	for key, value := range shape {
 		switch key {
-			case "message":
-				if value != nil {
-					jtv, ok := value.(string)
-					if !ok {
-						return fmt.Errorf("expected String to be of type string, got %T instead", value)
-					}
-					sv.Message = ptr.String(jtv)
+			case "message", "Message":
+			if value != nil {
+				jtv, ok := value.(string)
+				if !ok {
+					return fmt.Errorf("expected String to be of type string, got %T instead", value)
 				}
+				sv.Message = ptr.String(jtv)
+			}
 			
 			default:
 				_, _ = key, value
@@ -8820,13 +8820,13 @@ func awsAwsjson11_deserializeDocumentClusterServiceConnectDefaults(v **types.Clu
 	for key, value := range shape {
 		switch key {
 			case "namespace":
-				if value != nil {
-					jtv, ok := value.(string)
-					if !ok {
-						return fmt.Errorf("expected String to be of type string, got %T instead", value)
-					}
-					sv.Namespace = ptr.String(jtv)
+			if value != nil {
+				jtv, ok := value.(string)
+				if !ok {
+					return fmt.Errorf("expected String to be of type string, got %T instead", value)
 				}
+				sv.Namespace = ptr.String(jtv)
+			}
 			
 			default:
 				_, _ = key, value
@@ -8860,22 +8860,22 @@ func awsAwsjson11_deserializeDocumentClusterSetting(v **types.ClusterSetting, va
 	for key, value := range shape {
 		switch key {
 			case "name":
-				if value != nil {
-					jtv, ok := value.(string)
-					if !ok {
-						return fmt.Errorf("expected ClusterSettingName to be of type string, got %T instead", value)
-					}
-					sv.Name = types.ClusterSettingName(jtv)
+			if value != nil {
+				jtv, ok := value.(string)
+				if !ok {
+					return fmt.Errorf("expected ClusterSettingName to be of type string, got %T instead", value)
 				}
+				sv.Name = types.ClusterSettingName(jtv)
+			}
 			
 			case "value":
-				if value != nil {
-					jtv, ok := value.(string)
-					if !ok {
-						return fmt.Errorf("expected String to be of type string, got %T instead", value)
-					}
-					sv.Value = ptr.String(jtv)
+			if value != nil {
+				jtv, ok := value.(string)
+				if !ok {
+					return fmt.Errorf("expected String to be of type string, got %T instead", value)
 				}
+				sv.Value = ptr.String(jtv)
+			}
 			
 			default:
 				_, _ = key, value
@@ -8978,19 +8978,19 @@ func awsAwsjson11_deserializeDocumentConflictException(v **types.ConflictExcepti
 	
 	for key, value := range shape {
 		switch key {
-			case "message":
-				if value != nil {
-					jtv, ok := value.(string)
-					if !ok {
-						return fmt.Errorf("expected String to be of type string, got %T instead", value)
-					}
-					sv.Message = ptr.String(jtv)
+			case "message", "Message":
+			if value != nil {
+				jtv, ok := value.(string)
+				if !ok {
+					return fmt.Errorf("expected String to be of type string, got %T instead", value)
 				}
+				sv.Message = ptr.String(jtv)
+			}
 			
 			case "resourceIds":
-				if err := awsAwsjson11_deserializeDocumentResourceIds(&sv.ResourceIds, value); err != nil {
-					return err
-				}
+			if err := awsAwsjson11_deserializeDocumentResourceIds(&sv.ResourceIds, value); err != nil {
+				return err
+			}
 			
 			default:
 				_, _ = key, value
@@ -9024,143 +9024,143 @@ func awsAwsjson11_deserializeDocumentContainer(v **types.Container, value interf
 	for key, value := range shape {
 		switch key {
 			case "containerArn":
-				if value != nil {
-					jtv, ok := value.(string)
-					if !ok {
-						return fmt.Errorf("expected String to be of type string, got %T instead", value)
-					}
-					sv.ContainerArn = ptr.String(jtv)
+			if value != nil {
+				jtv, ok := value.(string)
+				if !ok {
+					return fmt.Errorf("expected String to be of type string, got %T instead", value)
 				}
+				sv.ContainerArn = ptr.String(jtv)
+			}
 			
 			case "cpu":
-				if value != nil {
-					jtv, ok := value.(string)
-					if !ok {
-						return fmt.Errorf("expected String to be of type string, got %T instead", value)
-					}
-					sv.Cpu = ptr.String(jtv)
+			if value != nil {
+				jtv, ok := value.(string)
+				if !ok {
+					return fmt.Errorf("expected String to be of type string, got %T instead", value)
 				}
+				sv.Cpu = ptr.String(jtv)
+			}
 			
 			case "exitCode":
-				if value != nil {
-					jtv, ok := value.(json.Number)
-					if !ok {
-						return fmt.Errorf("expected BoxedInteger to be json.Number, got %T instead", value)
-					}
-					i64, err := jtv.Int64()
-					if err != nil { return err }
-					sv.ExitCode = ptr.Int32(int32(i64))
+			if value != nil {
+				jtv, ok := value.(json.Number)
+				if !ok {
+					return fmt.Errorf("expected BoxedInteger to be json.Number, got %T instead", value)
 				}
+				i64, err := jtv.Int64()
+				if err != nil { return err }
+				sv.ExitCode = ptr.Int32(int32(i64))
+			}
 			
 			case "gpuIds":
-				if err := awsAwsjson11_deserializeDocumentGpuIds(&sv.GpuIds, value); err != nil {
-					return err
-				}
+			if err := awsAwsjson11_deserializeDocumentGpuIds(&sv.GpuIds, value); err != nil {
+				return err
+			}
 			
 			case "healthStatus":
-				if value != nil {
-					jtv, ok := value.(string)
-					if !ok {
-						return fmt.Errorf("expected HealthStatus to be of type string, got %T instead", value)
-					}
-					sv.HealthStatus = types.HealthStatus(jtv)
+			if value != nil {
+				jtv, ok := value.(string)
+				if !ok {
+					return fmt.Errorf("expected HealthStatus to be of type string, got %T instead", value)
 				}
+				sv.HealthStatus = types.HealthStatus(jtv)
+			}
 			
 			case "image":
-				if value != nil {
-					jtv, ok := value.(string)
-					if !ok {
-						return fmt.Errorf("expected String to be of type string, got %T instead", value)
-					}
-					sv.Image = ptr.String(jtv)
+			if value != nil {
+				jtv, ok := value.(string)
+				if !ok {
+					return fmt.Errorf("expected String to be of type string, got %T instead", value)
 				}
+				sv.Image = ptr.String(jtv)
+			}
 			
 			case "imageDigest":
-				if value != nil {
-					jtv, ok := value.(string)
-					if !ok {
-						return fmt.Errorf("expected String to be of type string, got %T instead", value)
-					}
-					sv.ImageDigest = ptr.String(jtv)
+			if value != nil {
+				jtv, ok := value.(string)
+				if !ok {
+					return fmt.Errorf("expected String to be of type string, got %T instead", value)
 				}
+				sv.ImageDigest = ptr.String(jtv)
+			}
 			
 			case "lastStatus":
-				if value != nil {
-					jtv, ok := value.(string)
-					if !ok {
-						return fmt.Errorf("expected String to be of type string, got %T instead", value)
-					}
-					sv.LastStatus = ptr.String(jtv)
+			if value != nil {
+				jtv, ok := value.(string)
+				if !ok {
+					return fmt.Errorf("expected String to be of type string, got %T instead", value)
 				}
+				sv.LastStatus = ptr.String(jtv)
+			}
 			
 			case "managedAgents":
-				if err := awsAwsjson11_deserializeDocumentManagedAgents(&sv.ManagedAgents, value); err != nil {
-					return err
-				}
+			if err := awsAwsjson11_deserializeDocumentManagedAgents(&sv.ManagedAgents, value); err != nil {
+				return err
+			}
 			
 			case "memory":
-				if value != nil {
-					jtv, ok := value.(string)
-					if !ok {
-						return fmt.Errorf("expected String to be of type string, got %T instead", value)
-					}
-					sv.Memory = ptr.String(jtv)
+			if value != nil {
+				jtv, ok := value.(string)
+				if !ok {
+					return fmt.Errorf("expected String to be of type string, got %T instead", value)
 				}
+				sv.Memory = ptr.String(jtv)
+			}
 			
 			case "memoryReservation":
-				if value != nil {
-					jtv, ok := value.(string)
-					if !ok {
-						return fmt.Errorf("expected String to be of type string, got %T instead", value)
-					}
-					sv.MemoryReservation = ptr.String(jtv)
+			if value != nil {
+				jtv, ok := value.(string)
+				if !ok {
+					return fmt.Errorf("expected String to be of type string, got %T instead", value)
 				}
+				sv.MemoryReservation = ptr.String(jtv)
+			}
 			
 			case "name":
-				if value != nil {
-					jtv, ok := value.(string)
-					if !ok {
-						return fmt.Errorf("expected String to be of type string, got %T instead", value)
-					}
-					sv.Name = ptr.String(jtv)
+			if value != nil {
+				jtv, ok := value.(string)
+				if !ok {
+					return fmt.Errorf("expected String to be of type string, got %T instead", value)
 				}
+				sv.Name = ptr.String(jtv)
+			}
 			
 			case "networkBindings":
-				if err := awsAwsjson11_deserializeDocumentNetworkBindings(&sv.NetworkBindings, value); err != nil {
-					return err
-				}
+			if err := awsAwsjson11_deserializeDocumentNetworkBindings(&sv.NetworkBindings, value); err != nil {
+				return err
+			}
 			
 			case "networkInterfaces":
-				if err := awsAwsjson11_deserializeDocumentNetworkInterfaces(&sv.NetworkInterfaces, value); err != nil {
-					return err
-				}
+			if err := awsAwsjson11_deserializeDocumentNetworkInterfaces(&sv.NetworkInterfaces, value); err != nil {
+				return err
+			}
 			
 			case "reason":
-				if value != nil {
-					jtv, ok := value.(string)
-					if !ok {
-						return fmt.Errorf("expected String to be of type string, got %T instead", value)
-					}
-					sv.Reason = ptr.String(jtv)
+			if value != nil {
+				jtv, ok := value.(string)
+				if !ok {
+					return fmt.Errorf("expected String to be of type string, got %T instead", value)
 				}
+				sv.Reason = ptr.String(jtv)
+			}
 			
 			case "runtimeId":
-				if value != nil {
-					jtv, ok := value.(string)
-					if !ok {
-						return fmt.Errorf("expected String to be of type string, got %T instead", value)
-					}
-					sv.RuntimeId = ptr.String(jtv)
+			if value != nil {
+				jtv, ok := value.(string)
+				if !ok {
+					return fmt.Errorf("expected String to be of type string, got %T instead", value)
 				}
+				sv.RuntimeId = ptr.String(jtv)
+			}
 			
 			case "taskArn":
-				if value != nil {
-					jtv, ok := value.(string)
-					if !ok {
-						return fmt.Errorf("expected String to be of type string, got %T instead", value)
-					}
-					sv.TaskArn = ptr.String(jtv)
+			if value != nil {
+				jtv, ok := value.(string)
+				if !ok {
+					return fmt.Errorf("expected String to be of type string, got %T instead", value)
 				}
+				sv.TaskArn = ptr.String(jtv)
+			}
 			
 			default:
 				_, _ = key, value
@@ -9194,283 +9194,283 @@ func awsAwsjson11_deserializeDocumentContainerDefinition(v **types.ContainerDefi
 	for key, value := range shape {
 		switch key {
 			case "command":
-				if err := awsAwsjson11_deserializeDocumentStringList(&sv.Command, value); err != nil {
-					return err
-				}
+			if err := awsAwsjson11_deserializeDocumentStringList(&sv.Command, value); err != nil {
+				return err
+			}
 			
 			case "cpu":
-				if value != nil {
-					jtv, ok := value.(json.Number)
-					if !ok {
-						return fmt.Errorf("expected Integer to be json.Number, got %T instead", value)
-					}
-					i64, err := jtv.Int64()
-					if err != nil { return err }
-					sv.Cpu = int32(i64)
+			if value != nil {
+				jtv, ok := value.(json.Number)
+				if !ok {
+					return fmt.Errorf("expected Integer to be json.Number, got %T instead", value)
 				}
+				i64, err := jtv.Int64()
+				if err != nil { return err }
+				sv.Cpu = int32(i64)
+			}
 			
 			case "credentialSpecs":
-				if err := awsAwsjson11_deserializeDocumentStringList(&sv.CredentialSpecs, value); err != nil {
-					return err
-				}
+			if err := awsAwsjson11_deserializeDocumentStringList(&sv.CredentialSpecs, value); err != nil {
+				return err
+			}
 			
 			case "dependsOn":
-				if err := awsAwsjson11_deserializeDocumentContainerDependencies(&sv.DependsOn, value); err != nil {
-					return err
-				}
+			if err := awsAwsjson11_deserializeDocumentContainerDependencies(&sv.DependsOn, value); err != nil {
+				return err
+			}
 			
 			case "disableNetworking":
-				if value != nil {
-					jtv, ok := value.(bool)
-					if !ok {
-						return fmt.Errorf("expected BoxedBoolean to be of type *bool, got %T instead", value)
-					}
-					sv.DisableNetworking = ptr.Bool(jtv)
+			if value != nil {
+				jtv, ok := value.(bool)
+				if !ok {
+					return fmt.Errorf("expected BoxedBoolean to be of type *bool, got %T instead", value)
 				}
+				sv.DisableNetworking = ptr.Bool(jtv)
+			}
 			
 			case "dnsSearchDomains":
-				if err := awsAwsjson11_deserializeDocumentStringList(&sv.DnsSearchDomains, value); err != nil {
-					return err
-				}
+			if err := awsAwsjson11_deserializeDocumentStringList(&sv.DnsSearchDomains, value); err != nil {
+				return err
+			}
 			
 			case "dnsServers":
-				if err := awsAwsjson11_deserializeDocumentStringList(&sv.DnsServers, value); err != nil {
-					return err
-				}
+			if err := awsAwsjson11_deserializeDocumentStringList(&sv.DnsServers, value); err != nil {
+				return err
+			}
 			
 			case "dockerLabels":
-				if err := awsAwsjson11_deserializeDocumentDockerLabelsMap(&sv.DockerLabels, value); err != nil {
-					return err
-				}
+			if err := awsAwsjson11_deserializeDocumentDockerLabelsMap(&sv.DockerLabels, value); err != nil {
+				return err
+			}
 			
 			case "dockerSecurityOptions":
-				if err := awsAwsjson11_deserializeDocumentStringList(&sv.DockerSecurityOptions, value); err != nil {
-					return err
-				}
+			if err := awsAwsjson11_deserializeDocumentStringList(&sv.DockerSecurityOptions, value); err != nil {
+				return err
+			}
 			
 			case "entryPoint":
-				if err := awsAwsjson11_deserializeDocumentStringList(&sv.EntryPoint, value); err != nil {
-					return err
-				}
+			if err := awsAwsjson11_deserializeDocumentStringList(&sv.EntryPoint, value); err != nil {
+				return err
+			}
 			
 			case "environment":
-				if err := awsAwsjson11_deserializeDocumentEnvironmentVariables(&sv.Environment, value); err != nil {
-					return err
-				}
+			if err := awsAwsjson11_deserializeDocumentEnvironmentVariables(&sv.Environment, value); err != nil {
+				return err
+			}
 			
 			case "environmentFiles":
-				if err := awsAwsjson11_deserializeDocumentEnvironmentFiles(&sv.EnvironmentFiles, value); err != nil {
-					return err
-				}
+			if err := awsAwsjson11_deserializeDocumentEnvironmentFiles(&sv.EnvironmentFiles, value); err != nil {
+				return err
+			}
 			
 			case "essential":
-				if value != nil {
-					jtv, ok := value.(bool)
-					if !ok {
-						return fmt.Errorf("expected BoxedBoolean to be of type *bool, got %T instead", value)
-					}
-					sv.Essential = ptr.Bool(jtv)
+			if value != nil {
+				jtv, ok := value.(bool)
+				if !ok {
+					return fmt.Errorf("expected BoxedBoolean to be of type *bool, got %T instead", value)
 				}
+				sv.Essential = ptr.Bool(jtv)
+			}
 			
 			case "extraHosts":
-				if err := awsAwsjson11_deserializeDocumentHostEntryList(&sv.ExtraHosts, value); err != nil {
-					return err
-				}
+			if err := awsAwsjson11_deserializeDocumentHostEntryList(&sv.ExtraHosts, value); err != nil {
+				return err
+			}
 			
 			case "firelensConfiguration":
-				if err := awsAwsjson11_deserializeDocumentFirelensConfiguration(&sv.FirelensConfiguration, value); err != nil {
-					return err
-				}
+			if err := awsAwsjson11_deserializeDocumentFirelensConfiguration(&sv.FirelensConfiguration, value); err != nil {
+				return err
+			}
 			
 			case "healthCheck":
-				if err := awsAwsjson11_deserializeDocumentHealthCheck(&sv.HealthCheck, value); err != nil {
-					return err
-				}
+			if err := awsAwsjson11_deserializeDocumentHealthCheck(&sv.HealthCheck, value); err != nil {
+				return err
+			}
 			
 			case "hostname":
-				if value != nil {
-					jtv, ok := value.(string)
-					if !ok {
-						return fmt.Errorf("expected String to be of type string, got %T instead", value)
-					}
-					sv.Hostname = ptr.String(jtv)
+			if value != nil {
+				jtv, ok := value.(string)
+				if !ok {
+					return fmt.Errorf("expected String to be of type string, got %T instead", value)
 				}
+				sv.Hostname = ptr.String(jtv)
+			}
 			
 			case "image":
-				if value != nil {
-					jtv, ok := value.(string)
-					if !ok {
-						return fmt.Errorf("expected String to be of type string, got %T instead", value)
-					}
-					sv.Image = ptr.String(jtv)
+			if value != nil {
+				jtv, ok := value.(string)
+				if !ok {
+					return fmt.Errorf("expected String to be of type string, got %T instead", value)
 				}
+				sv.Image = ptr.String(jtv)
+			}
 			
 			case "interactive":
-				if value != nil {
-					jtv, ok := value.(bool)
-					if !ok {
-						return fmt.Errorf("expected BoxedBoolean to be of type *bool, got %T instead", value)
-					}
-					sv.Interactive = ptr.Bool(jtv)
+			if value != nil {
+				jtv, ok := value.(bool)
+				if !ok {
+					return fmt.Errorf("expected BoxedBoolean to be of type *bool, got %T instead", value)
 				}
+				sv.Interactive = ptr.Bool(jtv)
+			}
 			
 			case "links":
-				if err := awsAwsjson11_deserializeDocumentStringList(&sv.Links, value); err != nil {
-					return err
-				}
+			if err := awsAwsjson11_deserializeDocumentStringList(&sv.Links, value); err != nil {
+				return err
+			}
 			
 			case "linuxParameters":
-				if err := awsAwsjson11_deserializeDocumentLinuxParameters(&sv.LinuxParameters, value); err != nil {
-					return err
-				}
+			if err := awsAwsjson11_deserializeDocumentLinuxParameters(&sv.LinuxParameters, value); err != nil {
+				return err
+			}
 			
 			case "logConfiguration":
-				if err := awsAwsjson11_deserializeDocumentLogConfiguration(&sv.LogConfiguration, value); err != nil {
-					return err
-				}
+			if err := awsAwsjson11_deserializeDocumentLogConfiguration(&sv.LogConfiguration, value); err != nil {
+				return err
+			}
 			
 			case "memory":
-				if value != nil {
-					jtv, ok := value.(json.Number)
-					if !ok {
-						return fmt.Errorf("expected BoxedInteger to be json.Number, got %T instead", value)
-					}
-					i64, err := jtv.Int64()
-					if err != nil { return err }
-					sv.Memory = ptr.Int32(int32(i64))
+			if value != nil {
+				jtv, ok := value.(json.Number)
+				if !ok {
+					return fmt.Errorf("expected BoxedInteger to be json.Number, got %T instead", value)
 				}
+				i64, err := jtv.Int64()
+				if err != nil { return err }
+				sv.Memory = ptr.Int32(int32(i64))
+			}
 			
 			case "memoryReservation":
-				if value != nil {
-					jtv, ok := value.(json.Number)
-					if !ok {
-						return fmt.Errorf("expected BoxedInteger to be json.Number, got %T instead", value)
-					}
-					i64, err := jtv.Int64()
-					if err != nil { return err }
-					sv.MemoryReservation = ptr.Int32(int32(i64))
+			if value != nil {
+				jtv, ok := value.(json.Number)
+				if !ok {
+					return fmt.Errorf("expected BoxedInteger to be json.Number, got %T instead", value)
 				}
+				i64, err := jtv.Int64()
+				if err != nil { return err }
+				sv.MemoryReservation = ptr.Int32(int32(i64))
+			}
 			
 			case "mountPoints":
-				if err := awsAwsjson11_deserializeDocumentMountPointList(&sv.MountPoints, value); err != nil {
-					return err
-				}
+			if err := awsAwsjson11_deserializeDocumentMountPointList(&sv.MountPoints, value); err != nil {
+				return err
+			}
 			
 			case "name":
-				if value != nil {
-					jtv, ok := value.(string)
-					if !ok {
-						return fmt.Errorf("expected String to be of type string, got %T instead", value)
-					}
-					sv.Name = ptr.String(jtv)
+			if value != nil {
+				jtv, ok := value.(string)
+				if !ok {
+					return fmt.Errorf("expected String to be of type string, got %T instead", value)
 				}
+				sv.Name = ptr.String(jtv)
+			}
 			
 			case "portMappings":
-				if err := awsAwsjson11_deserializeDocumentPortMappingList(&sv.PortMappings, value); err != nil {
-					return err
-				}
+			if err := awsAwsjson11_deserializeDocumentPortMappingList(&sv.PortMappings, value); err != nil {
+				return err
+			}
 			
 			case "privileged":
-				if value != nil {
-					jtv, ok := value.(bool)
-					if !ok {
-						return fmt.Errorf("expected BoxedBoolean to be of type *bool, got %T instead", value)
-					}
-					sv.Privileged = ptr.Bool(jtv)
+			if value != nil {
+				jtv, ok := value.(bool)
+				if !ok {
+					return fmt.Errorf("expected BoxedBoolean to be of type *bool, got %T instead", value)
 				}
+				sv.Privileged = ptr.Bool(jtv)
+			}
 			
 			case "pseudoTerminal":
-				if value != nil {
-					jtv, ok := value.(bool)
-					if !ok {
-						return fmt.Errorf("expected BoxedBoolean to be of type *bool, got %T instead", value)
-					}
-					sv.PseudoTerminal = ptr.Bool(jtv)
+			if value != nil {
+				jtv, ok := value.(bool)
+				if !ok {
+					return fmt.Errorf("expected BoxedBoolean to be of type *bool, got %T instead", value)
 				}
+				sv.PseudoTerminal = ptr.Bool(jtv)
+			}
 			
 			case "readonlyRootFilesystem":
-				if value != nil {
-					jtv, ok := value.(bool)
-					if !ok {
-						return fmt.Errorf("expected BoxedBoolean to be of type *bool, got %T instead", value)
-					}
-					sv.ReadonlyRootFilesystem = ptr.Bool(jtv)
+			if value != nil {
+				jtv, ok := value.(bool)
+				if !ok {
+					return fmt.Errorf("expected BoxedBoolean to be of type *bool, got %T instead", value)
 				}
+				sv.ReadonlyRootFilesystem = ptr.Bool(jtv)
+			}
 			
 			case "repositoryCredentials":
-				if err := awsAwsjson11_deserializeDocumentRepositoryCredentials(&sv.RepositoryCredentials, value); err != nil {
-					return err
-				}
+			if err := awsAwsjson11_deserializeDocumentRepositoryCredentials(&sv.RepositoryCredentials, value); err != nil {
+				return err
+			}
 			
 			case "resourceRequirements":
-				if err := awsAwsjson11_deserializeDocumentResourceRequirements(&sv.ResourceRequirements, value); err != nil {
-					return err
-				}
+			if err := awsAwsjson11_deserializeDocumentResourceRequirements(&sv.ResourceRequirements, value); err != nil {
+				return err
+			}
 			
 			case "restartPolicy":
-				if err := awsAwsjson11_deserializeDocumentContainerRestartPolicy(&sv.RestartPolicy, value); err != nil {
-					return err
-				}
+			if err := awsAwsjson11_deserializeDocumentContainerRestartPolicy(&sv.RestartPolicy, value); err != nil {
+				return err
+			}
 			
 			case "secrets":
-				if err := awsAwsjson11_deserializeDocumentSecretList(&sv.Secrets, value); err != nil {
-					return err
-				}
+			if err := awsAwsjson11_deserializeDocumentSecretList(&sv.Secrets, value); err != nil {
+				return err
+			}
 			
 			case "startTimeout":
-				if value != nil {
-					jtv, ok := value.(json.Number)
-					if !ok {
-						return fmt.Errorf("expected BoxedInteger to be json.Number, got %T instead", value)
-					}
-					i64, err := jtv.Int64()
-					if err != nil { return err }
-					sv.StartTimeout = ptr.Int32(int32(i64))
+			if value != nil {
+				jtv, ok := value.(json.Number)
+				if !ok {
+					return fmt.Errorf("expected BoxedInteger to be json.Number, got %T instead", value)
 				}
+				i64, err := jtv.Int64()
+				if err != nil { return err }
+				sv.StartTimeout = ptr.Int32(int32(i64))
+			}
 			
 			case "stopTimeout":
-				if value != nil {
-					jtv, ok := value.(json.Number)
-					if !ok {
-						return fmt.Errorf("expected BoxedInteger to be json.Number, got %T instead", value)
-					}
-					i64, err := jtv.Int64()
-					if err != nil { return err }
-					sv.StopTimeout = ptr.Int32(int32(i64))
+			if value != nil {
+				jtv, ok := value.(json.Number)
+				if !ok {
+					return fmt.Errorf("expected BoxedInteger to be json.Number, got %T instead", value)
 				}
+				i64, err := jtv.Int64()
+				if err != nil { return err }
+				sv.StopTimeout = ptr.Int32(int32(i64))
+			}
 			
 			case "systemControls":
-				if err := awsAwsjson11_deserializeDocumentSystemControls(&sv.SystemControls, value); err != nil {
-					return err
-				}
+			if err := awsAwsjson11_deserializeDocumentSystemControls(&sv.SystemControls, value); err != nil {
+				return err
+			}
 			
 			case "ulimits":
-				if err := awsAwsjson11_deserializeDocumentUlimitList(&sv.Ulimits, value); err != nil {
-					return err
-				}
+			if err := awsAwsjson11_deserializeDocumentUlimitList(&sv.Ulimits, value); err != nil {
+				return err
+			}
 			
 			case "user":
-				if value != nil {
-					jtv, ok := value.(string)
-					if !ok {
-						return fmt.Errorf("expected String to be of type string, got %T instead", value)
-					}
-					sv.User = ptr.String(jtv)
+			if value != nil {
+				jtv, ok := value.(string)
+				if !ok {
+					return fmt.Errorf("expected String to be of type string, got %T instead", value)
 				}
+				sv.User = ptr.String(jtv)
+			}
 			
 			case "volumesFrom":
-				if err := awsAwsjson11_deserializeDocumentVolumeFromList(&sv.VolumesFrom, value); err != nil {
-					return err
-				}
+			if err := awsAwsjson11_deserializeDocumentVolumeFromList(&sv.VolumesFrom, value); err != nil {
+				return err
+			}
 			
 			case "workingDirectory":
-				if value != nil {
-					jtv, ok := value.(string)
-					if !ok {
-						return fmt.Errorf("expected String to be of type string, got %T instead", value)
-					}
-					sv.WorkingDirectory = ptr.String(jtv)
+			if value != nil {
+				jtv, ok := value.(string)
+				if !ok {
+					return fmt.Errorf("expected String to be of type string, got %T instead", value)
 				}
+				sv.WorkingDirectory = ptr.String(jtv)
+			}
 			
 			default:
 				_, _ = key, value
@@ -9572,22 +9572,22 @@ func awsAwsjson11_deserializeDocumentContainerDependency(v **types.ContainerDepe
 	for key, value := range shape {
 		switch key {
 			case "condition":
-				if value != nil {
-					jtv, ok := value.(string)
-					if !ok {
-						return fmt.Errorf("expected ContainerCondition to be of type string, got %T instead", value)
-					}
-					sv.Condition = types.ContainerCondition(jtv)
+			if value != nil {
+				jtv, ok := value.(string)
+				if !ok {
+					return fmt.Errorf("expected ContainerCondition to be of type string, got %T instead", value)
 				}
+				sv.Condition = types.ContainerCondition(jtv)
+			}
 			
 			case "containerName":
-				if value != nil {
-					jtv, ok := value.(string)
-					if !ok {
-						return fmt.Errorf("expected String to be of type string, got %T instead", value)
-					}
-					sv.ContainerName = ptr.String(jtv)
+			if value != nil {
+				jtv, ok := value.(string)
+				if !ok {
+					return fmt.Errorf("expected String to be of type string, got %T instead", value)
 				}
+				sv.ContainerName = ptr.String(jtv)
+			}
 			
 			default:
 				_, _ = key, value
@@ -9621,149 +9621,149 @@ func awsAwsjson11_deserializeDocumentContainerInstance(v **types.ContainerInstan
 	for key, value := range shape {
 		switch key {
 			case "agentConnected":
-				if value != nil {
-					jtv, ok := value.(bool)
-					if !ok {
-						return fmt.Errorf("expected Boolean to be of type *bool, got %T instead", value)
-					}
-					sv.AgentConnected = jtv
+			if value != nil {
+				jtv, ok := value.(bool)
+				if !ok {
+					return fmt.Errorf("expected Boolean to be of type *bool, got %T instead", value)
 				}
+				sv.AgentConnected = jtv
+			}
 			
 			case "agentUpdateStatus":
-				if value != nil {
-					jtv, ok := value.(string)
-					if !ok {
-						return fmt.Errorf("expected AgentUpdateStatus to be of type string, got %T instead", value)
-					}
-					sv.AgentUpdateStatus = types.AgentUpdateStatus(jtv)
+			if value != nil {
+				jtv, ok := value.(string)
+				if !ok {
+					return fmt.Errorf("expected AgentUpdateStatus to be of type string, got %T instead", value)
 				}
+				sv.AgentUpdateStatus = types.AgentUpdateStatus(jtv)
+			}
 			
 			case "attachments":
-				if err := awsAwsjson11_deserializeDocumentAttachments(&sv.Attachments, value); err != nil {
-					return err
-				}
+			if err := awsAwsjson11_deserializeDocumentAttachments(&sv.Attachments, value); err != nil {
+				return err
+			}
 			
 			case "attributes":
-				if err := awsAwsjson11_deserializeDocumentAttributes(&sv.Attributes, value); err != nil {
-					return err
-				}
+			if err := awsAwsjson11_deserializeDocumentAttributes(&sv.Attributes, value); err != nil {
+				return err
+			}
 			
 			case "capacityProviderName":
-				if value != nil {
-					jtv, ok := value.(string)
-					if !ok {
-						return fmt.Errorf("expected String to be of type string, got %T instead", value)
-					}
-					sv.CapacityProviderName = ptr.String(jtv)
+			if value != nil {
+				jtv, ok := value.(string)
+				if !ok {
+					return fmt.Errorf("expected String to be of type string, got %T instead", value)
 				}
+				sv.CapacityProviderName = ptr.String(jtv)
+			}
 			
 			case "containerInstanceArn":
-				if value != nil {
-					jtv, ok := value.(string)
-					if !ok {
-						return fmt.Errorf("expected String to be of type string, got %T instead", value)
-					}
-					sv.ContainerInstanceArn = ptr.String(jtv)
+			if value != nil {
+				jtv, ok := value.(string)
+				if !ok {
+					return fmt.Errorf("expected String to be of type string, got %T instead", value)
 				}
+				sv.ContainerInstanceArn = ptr.String(jtv)
+			}
 			
 			case "ec2InstanceId":
-				if value != nil {
-					jtv, ok := value.(string)
-					if !ok {
-						return fmt.Errorf("expected String to be of type string, got %T instead", value)
-					}
-					sv.Ec2InstanceId = ptr.String(jtv)
+			if value != nil {
+				jtv, ok := value.(string)
+				if !ok {
+					return fmt.Errorf("expected String to be of type string, got %T instead", value)
 				}
+				sv.Ec2InstanceId = ptr.String(jtv)
+			}
 			
 			case "healthStatus":
-				if err := awsAwsjson11_deserializeDocumentContainerInstanceHealthStatus(&sv.HealthStatus, value); err != nil {
-					return err
-				}
+			if err := awsAwsjson11_deserializeDocumentContainerInstanceHealthStatus(&sv.HealthStatus, value); err != nil {
+				return err
+			}
 			
 			case "pendingTasksCount":
-				if value != nil {
-					jtv, ok := value.(json.Number)
-					if !ok {
-						return fmt.Errorf("expected Integer to be json.Number, got %T instead", value)
-					}
-					i64, err := jtv.Int64()
-					if err != nil { return err }
-					sv.PendingTasksCount = int32(i64)
+			if value != nil {
+				jtv, ok := value.(json.Number)
+				if !ok {
+					return fmt.Errorf("expected Integer to be json.Number, got %T instead", value)
 				}
+				i64, err := jtv.Int64()
+				if err != nil { return err }
+				sv.PendingTasksCount = int32(i64)
+			}
 			
 			case "registeredAt":
-				if value != nil {
-					switch jtv := value.(type) {
-						case json.Number:
-							f64, err := jtv.Float64()
-							if err != nil { return err }
-							sv.RegisteredAt = ptr.Time(smithytime.ParseEpochSeconds(f64))
-						
-						default:
-							return fmt.Errorf("expected Timestamp to be a JSON Number, got %T instead", value)
-						
-					}
+			if value != nil {
+				switch jtv := value.(type) {
+					case json.Number:
+						f64, err := jtv.Float64()
+						if err != nil { return err }
+						sv.RegisteredAt = ptr.Time(smithytime.ParseEpochSeconds(f64))
+					
+					default:
+						return fmt.Errorf("expected Timestamp to be a JSON Number, got %T instead", value)
+					
 				}
+			}
 			
 			case "registeredResources":
-				if err := awsAwsjson11_deserializeDocumentResources(&sv.RegisteredResources, value); err != nil {
-					return err
-				}
+			if err := awsAwsjson11_deserializeDocumentResources(&sv.RegisteredResources, value); err != nil {
+				return err
+			}
 			
 			case "remainingResources":
-				if err := awsAwsjson11_deserializeDocumentResources(&sv.RemainingResources, value); err != nil {
-					return err
-				}
+			if err := awsAwsjson11_deserializeDocumentResources(&sv.RemainingResources, value); err != nil {
+				return err
+			}
 			
 			case "runningTasksCount":
-				if value != nil {
-					jtv, ok := value.(json.Number)
-					if !ok {
-						return fmt.Errorf("expected Integer to be json.Number, got %T instead", value)
-					}
-					i64, err := jtv.Int64()
-					if err != nil { return err }
-					sv.RunningTasksCount = int32(i64)
+			if value != nil {
+				jtv, ok := value.(json.Number)
+				if !ok {
+					return fmt.Errorf("expected Integer to be json.Number, got %T instead", value)
 				}
+				i64, err := jtv.Int64()
+				if err != nil { return err }
+				sv.RunningTasksCount = int32(i64)
+			}
 			
 			case "status":
-				if value != nil {
-					jtv, ok := value.(string)
-					if !ok {
-						return fmt.Errorf("expected String to be of type string, got %T instead", value)
-					}
-					sv.Status = ptr.String(jtv)
+			if value != nil {
+				jtv, ok := value.(string)
+				if !ok {
+					return fmt.Errorf("expected String to be of type string, got %T instead", value)
 				}
+				sv.Status = ptr.String(jtv)
+			}
 			
 			case "statusReason":
-				if value != nil {
-					jtv, ok := value.(string)
-					if !ok {
-						return fmt.Errorf("expected String to be of type string, got %T instead", value)
-					}
-					sv.StatusReason = ptr.String(jtv)
+			if value != nil {
+				jtv, ok := value.(string)
+				if !ok {
+					return fmt.Errorf("expected String to be of type string, got %T instead", value)
 				}
+				sv.StatusReason = ptr.String(jtv)
+			}
 			
 			case "tags":
-				if err := awsAwsjson11_deserializeDocumentTags(&sv.Tags, value); err != nil {
-					return err
-				}
+			if err := awsAwsjson11_deserializeDocumentTags(&sv.Tags, value); err != nil {
+				return err
+			}
 			
 			case "version":
-				if value != nil {
-					jtv, ok := value.(json.Number)
-					if !ok {
-						return fmt.Errorf("expected Long to be json.Number, got %T instead", value)
-					}
-					i64, err := jtv.Int64()
-					if err != nil { return err }
-					sv.Version = i64
+			if value != nil {
+				jtv, ok := value.(json.Number)
+				if !ok {
+					return fmt.Errorf("expected Long to be json.Number, got %T instead", value)
 				}
+				i64, err := jtv.Int64()
+				if err != nil { return err }
+				sv.Version = i64
+			}
 			
 			case "versionInfo":
-				if err := awsAwsjson11_deserializeDocumentVersionInfo(&sv.VersionInfo, value); err != nil {
-					return err
-				}
+			if err := awsAwsjson11_deserializeDocumentVersionInfo(&sv.VersionInfo, value); err != nil {
+				return err
+			}
 			
 			default:
 				_, _ = key, value
@@ -9797,18 +9797,18 @@ func awsAwsjson11_deserializeDocumentContainerInstanceHealthStatus(v **types.Con
 	for key, value := range shape {
 		switch key {
 			case "details":
-				if err := awsAwsjson11_deserializeDocumentInstanceHealthCheckResultList(&sv.Details, value); err != nil {
-					return err
-				}
+			if err := awsAwsjson11_deserializeDocumentInstanceHealthCheckResultList(&sv.Details, value); err != nil {
+				return err
+			}
 			
 			case "overallStatus":
-				if value != nil {
-					jtv, ok := value.(string)
-					if !ok {
-						return fmt.Errorf("expected InstanceHealthCheckState to be of type string, got %T instead", value)
-					}
-					sv.OverallStatus = types.InstanceHealthCheckState(jtv)
+			if value != nil {
+				jtv, ok := value.(string)
+				if !ok {
+					return fmt.Errorf("expected InstanceHealthCheckState to be of type string, got %T instead", value)
 				}
+				sv.OverallStatus = types.InstanceHealthCheckState(jtv)
+			}
 			
 			default:
 				_, _ = key, value
@@ -9876,66 +9876,66 @@ func awsAwsjson11_deserializeDocumentContainerOverride(v **types.ContainerOverri
 	for key, value := range shape {
 		switch key {
 			case "command":
-				if err := awsAwsjson11_deserializeDocumentStringList(&sv.Command, value); err != nil {
-					return err
-				}
+			if err := awsAwsjson11_deserializeDocumentStringList(&sv.Command, value); err != nil {
+				return err
+			}
 			
 			case "cpu":
-				if value != nil {
-					jtv, ok := value.(json.Number)
-					if !ok {
-						return fmt.Errorf("expected BoxedInteger to be json.Number, got %T instead", value)
-					}
-					i64, err := jtv.Int64()
-					if err != nil { return err }
-					sv.Cpu = ptr.Int32(int32(i64))
+			if value != nil {
+				jtv, ok := value.(json.Number)
+				if !ok {
+					return fmt.Errorf("expected BoxedInteger to be json.Number, got %T instead", value)
 				}
+				i64, err := jtv.Int64()
+				if err != nil { return err }
+				sv.Cpu = ptr.Int32(int32(i64))
+			}
 			
 			case "environment":
-				if err := awsAwsjson11_deserializeDocumentEnvironmentVariables(&sv.Environment, value); err != nil {
-					return err
-				}
+			if err := awsAwsjson11_deserializeDocumentEnvironmentVariables(&sv.Environment, value); err != nil {
+				return err
+			}
 			
 			case "environmentFiles":
-				if err := awsAwsjson11_deserializeDocumentEnvironmentFiles(&sv.EnvironmentFiles, value); err != nil {
-					return err
-				}
+			if err := awsAwsjson11_deserializeDocumentEnvironmentFiles(&sv.EnvironmentFiles, value); err != nil {
+				return err
+			}
 			
 			case "memory":
-				if value != nil {
-					jtv, ok := value.(json.Number)
-					if !ok {
-						return fmt.Errorf("expected BoxedInteger to be json.Number, got %T instead", value)
-					}
-					i64, err := jtv.Int64()
-					if err != nil { return err }
-					sv.Memory = ptr.Int32(int32(i64))
+			if value != nil {
+				jtv, ok := value.(json.Number)
+				if !ok {
+					return fmt.Errorf("expected BoxedInteger to be json.Number, got %T instead", value)
 				}
+				i64, err := jtv.Int64()
+				if err != nil { return err }
+				sv.Memory = ptr.Int32(int32(i64))
+			}
 			
 			case "memoryReservation":
-				if value != nil {
-					jtv, ok := value.(json.Number)
-					if !ok {
-						return fmt.Errorf("expected BoxedInteger to be json.Number, got %T instead", value)
-					}
-					i64, err := jtv.Int64()
-					if err != nil { return err }
-					sv.MemoryReservation = ptr.Int32(int32(i64))
+			if value != nil {
+				jtv, ok := value.(json.Number)
+				if !ok {
+					return fmt.Errorf("expected BoxedInteger to be json.Number, got %T instead", value)
 				}
+				i64, err := jtv.Int64()
+				if err != nil { return err }
+				sv.MemoryReservation = ptr.Int32(int32(i64))
+			}
 			
 			case "name":
-				if value != nil {
-					jtv, ok := value.(string)
-					if !ok {
-						return fmt.Errorf("expected String to be of type string, got %T instead", value)
-					}
-					sv.Name = ptr.String(jtv)
+			if value != nil {
+				jtv, ok := value.(string)
+				if !ok {
+					return fmt.Errorf("expected String to be of type string, got %T instead", value)
 				}
+				sv.Name = ptr.String(jtv)
+			}
 			
 			case "resourceRequirements":
-				if err := awsAwsjson11_deserializeDocumentResourceRequirements(&sv.ResourceRequirements, value); err != nil {
-					return err
-				}
+			if err := awsAwsjson11_deserializeDocumentResourceRequirements(&sv.ResourceRequirements, value); err != nil {
+				return err
+			}
 			
 			default:
 				_, _ = key, value
@@ -10003,29 +10003,29 @@ func awsAwsjson11_deserializeDocumentContainerRestartPolicy(v **types.ContainerR
 	for key, value := range shape {
 		switch key {
 			case "enabled":
-				if value != nil {
-					jtv, ok := value.(bool)
-					if !ok {
-						return fmt.Errorf("expected BoxedBoolean to be of type *bool, got %T instead", value)
-					}
-					sv.Enabled = ptr.Bool(jtv)
+			if value != nil {
+				jtv, ok := value.(bool)
+				if !ok {
+					return fmt.Errorf("expected BoxedBoolean to be of type *bool, got %T instead", value)
 				}
+				sv.Enabled = ptr.Bool(jtv)
+			}
 			
 			case "ignoredExitCodes":
-				if err := awsAwsjson11_deserializeDocumentIntegerList(&sv.IgnoredExitCodes, value); err != nil {
-					return err
-				}
+			if err := awsAwsjson11_deserializeDocumentIntegerList(&sv.IgnoredExitCodes, value); err != nil {
+				return err
+			}
 			
 			case "restartAttemptPeriod":
-				if value != nil {
-					jtv, ok := value.(json.Number)
-					if !ok {
-						return fmt.Errorf("expected BoxedInteger to be json.Number, got %T instead", value)
-					}
-					i64, err := jtv.Int64()
-					if err != nil { return err }
-					sv.RestartAttemptPeriod = ptr.Int32(int32(i64))
+			if value != nil {
+				jtv, ok := value.(json.Number)
+				if !ok {
+					return fmt.Errorf("expected BoxedInteger to be json.Number, got %T instead", value)
 				}
+				i64, err := jtv.Int64()
+				if err != nil { return err }
+				sv.RestartAttemptPeriod = ptr.Int32(int32(i64))
+			}
 			
 			default:
 				_, _ = key, value
@@ -10093,178 +10093,178 @@ func awsAwsjson11_deserializeDocumentDeployment(v **types.Deployment, value inte
 	for key, value := range shape {
 		switch key {
 			case "capacityProviderStrategy":
-				if err := awsAwsjson11_deserializeDocumentCapacityProviderStrategy(&sv.CapacityProviderStrategy, value); err != nil {
-					return err
-				}
+			if err := awsAwsjson11_deserializeDocumentCapacityProviderStrategy(&sv.CapacityProviderStrategy, value); err != nil {
+				return err
+			}
 			
 			case "createdAt":
-				if value != nil {
-					switch jtv := value.(type) {
-						case json.Number:
-							f64, err := jtv.Float64()
-							if err != nil { return err }
-							sv.CreatedAt = ptr.Time(smithytime.ParseEpochSeconds(f64))
-						
-						default:
-							return fmt.Errorf("expected Timestamp to be a JSON Number, got %T instead", value)
-						
-					}
+			if value != nil {
+				switch jtv := value.(type) {
+					case json.Number:
+						f64, err := jtv.Float64()
+						if err != nil { return err }
+						sv.CreatedAt = ptr.Time(smithytime.ParseEpochSeconds(f64))
+					
+					default:
+						return fmt.Errorf("expected Timestamp to be a JSON Number, got %T instead", value)
+					
 				}
+			}
 			
 			case "desiredCount":
-				if value != nil {
-					jtv, ok := value.(json.Number)
-					if !ok {
-						return fmt.Errorf("expected Integer to be json.Number, got %T instead", value)
-					}
-					i64, err := jtv.Int64()
-					if err != nil { return err }
-					sv.DesiredCount = int32(i64)
+			if value != nil {
+				jtv, ok := value.(json.Number)
+				if !ok {
+					return fmt.Errorf("expected Integer to be json.Number, got %T instead", value)
 				}
+				i64, err := jtv.Int64()
+				if err != nil { return err }
+				sv.DesiredCount = int32(i64)
+			}
 			
 			case "failedTasks":
-				if value != nil {
-					jtv, ok := value.(json.Number)
-					if !ok {
-						return fmt.Errorf("expected Integer to be json.Number, got %T instead", value)
-					}
-					i64, err := jtv.Int64()
-					if err != nil { return err }
-					sv.FailedTasks = int32(i64)
+			if value != nil {
+				jtv, ok := value.(json.Number)
+				if !ok {
+					return fmt.Errorf("expected Integer to be json.Number, got %T instead", value)
 				}
+				i64, err := jtv.Int64()
+				if err != nil { return err }
+				sv.FailedTasks = int32(i64)
+			}
 			
 			case "fargateEphemeralStorage":
-				if err := awsAwsjson11_deserializeDocumentDeploymentEphemeralStorage(&sv.FargateEphemeralStorage, value); err != nil {
-					return err
-				}
+			if err := awsAwsjson11_deserializeDocumentDeploymentEphemeralStorage(&sv.FargateEphemeralStorage, value); err != nil {
+				return err
+			}
 			
 			case "id":
-				if value != nil {
-					jtv, ok := value.(string)
-					if !ok {
-						return fmt.Errorf("expected String to be of type string, got %T instead", value)
-					}
-					sv.Id = ptr.String(jtv)
+			if value != nil {
+				jtv, ok := value.(string)
+				if !ok {
+					return fmt.Errorf("expected String to be of type string, got %T instead", value)
 				}
+				sv.Id = ptr.String(jtv)
+			}
 			
 			case "launchType":
-				if value != nil {
-					jtv, ok := value.(string)
-					if !ok {
-						return fmt.Errorf("expected LaunchType to be of type string, got %T instead", value)
-					}
-					sv.LaunchType = types.LaunchType(jtv)
+			if value != nil {
+				jtv, ok := value.(string)
+				if !ok {
+					return fmt.Errorf("expected LaunchType to be of type string, got %T instead", value)
 				}
+				sv.LaunchType = types.LaunchType(jtv)
+			}
 			
 			case "networkConfiguration":
-				if err := awsAwsjson11_deserializeDocumentNetworkConfiguration(&sv.NetworkConfiguration, value); err != nil {
-					return err
-				}
+			if err := awsAwsjson11_deserializeDocumentNetworkConfiguration(&sv.NetworkConfiguration, value); err != nil {
+				return err
+			}
 			
 			case "pendingCount":
-				if value != nil {
-					jtv, ok := value.(json.Number)
-					if !ok {
-						return fmt.Errorf("expected Integer to be json.Number, got %T instead", value)
-					}
-					i64, err := jtv.Int64()
-					if err != nil { return err }
-					sv.PendingCount = int32(i64)
+			if value != nil {
+				jtv, ok := value.(json.Number)
+				if !ok {
+					return fmt.Errorf("expected Integer to be json.Number, got %T instead", value)
 				}
+				i64, err := jtv.Int64()
+				if err != nil { return err }
+				sv.PendingCount = int32(i64)
+			}
 			
 			case "platformFamily":
-				if value != nil {
-					jtv, ok := value.(string)
-					if !ok {
-						return fmt.Errorf("expected String to be of type string, got %T instead", value)
-					}
-					sv.PlatformFamily = ptr.String(jtv)
+			if value != nil {
+				jtv, ok := value.(string)
+				if !ok {
+					return fmt.Errorf("expected String to be of type string, got %T instead", value)
 				}
+				sv.PlatformFamily = ptr.String(jtv)
+			}
 			
 			case "platformVersion":
-				if value != nil {
-					jtv, ok := value.(string)
-					if !ok {
-						return fmt.Errorf("expected String to be of type string, got %T instead", value)
-					}
-					sv.PlatformVersion = ptr.String(jtv)
+			if value != nil {
+				jtv, ok := value.(string)
+				if !ok {
+					return fmt.Errorf("expected String to be of type string, got %T instead", value)
 				}
+				sv.PlatformVersion = ptr.String(jtv)
+			}
 			
 			case "rolloutState":
-				if value != nil {
-					jtv, ok := value.(string)
-					if !ok {
-						return fmt.Errorf("expected DeploymentRolloutState to be of type string, got %T instead", value)
-					}
-					sv.RolloutState = types.DeploymentRolloutState(jtv)
+			if value != nil {
+				jtv, ok := value.(string)
+				if !ok {
+					return fmt.Errorf("expected DeploymentRolloutState to be of type string, got %T instead", value)
 				}
+				sv.RolloutState = types.DeploymentRolloutState(jtv)
+			}
 			
 			case "rolloutStateReason":
-				if value != nil {
-					jtv, ok := value.(string)
-					if !ok {
-						return fmt.Errorf("expected String to be of type string, got %T instead", value)
-					}
-					sv.RolloutStateReason = ptr.String(jtv)
+			if value != nil {
+				jtv, ok := value.(string)
+				if !ok {
+					return fmt.Errorf("expected String to be of type string, got %T instead", value)
 				}
+				sv.RolloutStateReason = ptr.String(jtv)
+			}
 			
 			case "runningCount":
-				if value != nil {
-					jtv, ok := value.(json.Number)
-					if !ok {
-						return fmt.Errorf("expected Integer to be json.Number, got %T instead", value)
-					}
-					i64, err := jtv.Int64()
-					if err != nil { return err }
-					sv.RunningCount = int32(i64)
+			if value != nil {
+				jtv, ok := value.(json.Number)
+				if !ok {
+					return fmt.Errorf("expected Integer to be json.Number, got %T instead", value)
 				}
+				i64, err := jtv.Int64()
+				if err != nil { return err }
+				sv.RunningCount = int32(i64)
+			}
 			
 			case "serviceConnectConfiguration":
-				if err := awsAwsjson11_deserializeDocumentServiceConnectConfiguration(&sv.ServiceConnectConfiguration, value); err != nil {
-					return err
-				}
+			if err := awsAwsjson11_deserializeDocumentServiceConnectConfiguration(&sv.ServiceConnectConfiguration, value); err != nil {
+				return err
+			}
 			
 			case "serviceConnectResources":
-				if err := awsAwsjson11_deserializeDocumentServiceConnectServiceResourceList(&sv.ServiceConnectResources, value); err != nil {
-					return err
-				}
+			if err := awsAwsjson11_deserializeDocumentServiceConnectServiceResourceList(&sv.ServiceConnectResources, value); err != nil {
+				return err
+			}
 			
 			case "status":
-				if value != nil {
-					jtv, ok := value.(string)
-					if !ok {
-						return fmt.Errorf("expected String to be of type string, got %T instead", value)
-					}
-					sv.Status = ptr.String(jtv)
+			if value != nil {
+				jtv, ok := value.(string)
+				if !ok {
+					return fmt.Errorf("expected String to be of type string, got %T instead", value)
 				}
+				sv.Status = ptr.String(jtv)
+			}
 			
 			case "taskDefinition":
-				if value != nil {
-					jtv, ok := value.(string)
-					if !ok {
-						return fmt.Errorf("expected String to be of type string, got %T instead", value)
-					}
-					sv.TaskDefinition = ptr.String(jtv)
+			if value != nil {
+				jtv, ok := value.(string)
+				if !ok {
+					return fmt.Errorf("expected String to be of type string, got %T instead", value)
 				}
+				sv.TaskDefinition = ptr.String(jtv)
+			}
 			
 			case "updatedAt":
-				if value != nil {
-					switch jtv := value.(type) {
-						case json.Number:
-							f64, err := jtv.Float64()
-							if err != nil { return err }
-							sv.UpdatedAt = ptr.Time(smithytime.ParseEpochSeconds(f64))
-						
-						default:
-							return fmt.Errorf("expected Timestamp to be a JSON Number, got %T instead", value)
-						
-					}
+			if value != nil {
+				switch jtv := value.(type) {
+					case json.Number:
+						f64, err := jtv.Float64()
+						if err != nil { return err }
+						sv.UpdatedAt = ptr.Time(smithytime.ParseEpochSeconds(f64))
+					
+					default:
+						return fmt.Errorf("expected Timestamp to be a JSON Number, got %T instead", value)
+					
 				}
+			}
 			
 			case "volumeConfigurations":
-				if err := awsAwsjson11_deserializeDocumentServiceVolumeConfigurations(&sv.VolumeConfigurations, value); err != nil {
-					return err
-				}
+			if err := awsAwsjson11_deserializeDocumentServiceVolumeConfigurations(&sv.VolumeConfigurations, value); err != nil {
+				return err
+			}
 			
 			default:
 				_, _ = key, value
@@ -10298,27 +10298,27 @@ func awsAwsjson11_deserializeDocumentDeploymentAlarms(v **types.DeploymentAlarms
 	for key, value := range shape {
 		switch key {
 			case "alarmNames":
-				if err := awsAwsjson11_deserializeDocumentStringList(&sv.AlarmNames, value); err != nil {
-					return err
-				}
+			if err := awsAwsjson11_deserializeDocumentStringList(&sv.AlarmNames, value); err != nil {
+				return err
+			}
 			
 			case "enable":
-				if value != nil {
-					jtv, ok := value.(bool)
-					if !ok {
-						return fmt.Errorf("expected Boolean to be of type *bool, got %T instead", value)
-					}
-					sv.Enable = jtv
+			if value != nil {
+				jtv, ok := value.(bool)
+				if !ok {
+					return fmt.Errorf("expected Boolean to be of type *bool, got %T instead", value)
 				}
+				sv.Enable = jtv
+			}
 			
 			case "rollback":
-				if value != nil {
-					jtv, ok := value.(bool)
-					if !ok {
-						return fmt.Errorf("expected Boolean to be of type *bool, got %T instead", value)
-					}
-					sv.Rollback = jtv
+			if value != nil {
+				jtv, ok := value.(bool)
+				if !ok {
+					return fmt.Errorf("expected Boolean to be of type *bool, got %T instead", value)
 				}
+				sv.Rollback = jtv
+			}
 			
 			default:
 				_, _ = key, value
@@ -10352,22 +10352,22 @@ func awsAwsjson11_deserializeDocumentDeploymentCircuitBreaker(v **types.Deployme
 	for key, value := range shape {
 		switch key {
 			case "enable":
-				if value != nil {
-					jtv, ok := value.(bool)
-					if !ok {
-						return fmt.Errorf("expected Boolean to be of type *bool, got %T instead", value)
-					}
-					sv.Enable = jtv
+			if value != nil {
+				jtv, ok := value.(bool)
+				if !ok {
+					return fmt.Errorf("expected Boolean to be of type *bool, got %T instead", value)
 				}
+				sv.Enable = jtv
+			}
 			
 			case "rollback":
-				if value != nil {
-					jtv, ok := value.(bool)
-					if !ok {
-						return fmt.Errorf("expected Boolean to be of type *bool, got %T instead", value)
-					}
-					sv.Rollback = jtv
+			if value != nil {
+				jtv, ok := value.(bool)
+				if !ok {
+					return fmt.Errorf("expected Boolean to be of type *bool, got %T instead", value)
 				}
+				sv.Rollback = jtv
+			}
 			
 			default:
 				_, _ = key, value
@@ -10401,36 +10401,36 @@ func awsAwsjson11_deserializeDocumentDeploymentConfiguration(v **types.Deploymen
 	for key, value := range shape {
 		switch key {
 			case "alarms":
-				if err := awsAwsjson11_deserializeDocumentDeploymentAlarms(&sv.Alarms, value); err != nil {
-					return err
-				}
+			if err := awsAwsjson11_deserializeDocumentDeploymentAlarms(&sv.Alarms, value); err != nil {
+				return err
+			}
 			
 			case "deploymentCircuitBreaker":
-				if err := awsAwsjson11_deserializeDocumentDeploymentCircuitBreaker(&sv.DeploymentCircuitBreaker, value); err != nil {
-					return err
-				}
+			if err := awsAwsjson11_deserializeDocumentDeploymentCircuitBreaker(&sv.DeploymentCircuitBreaker, value); err != nil {
+				return err
+			}
 			
 			case "maximumPercent":
-				if value != nil {
-					jtv, ok := value.(json.Number)
-					if !ok {
-						return fmt.Errorf("expected BoxedInteger to be json.Number, got %T instead", value)
-					}
-					i64, err := jtv.Int64()
-					if err != nil { return err }
-					sv.MaximumPercent = ptr.Int32(int32(i64))
+			if value != nil {
+				jtv, ok := value.(json.Number)
+				if !ok {
+					return fmt.Errorf("expected BoxedInteger to be json.Number, got %T instead", value)
 				}
+				i64, err := jtv.Int64()
+				if err != nil { return err }
+				sv.MaximumPercent = ptr.Int32(int32(i64))
+			}
 			
 			case "minimumHealthyPercent":
-				if value != nil {
-					jtv, ok := value.(json.Number)
-					if !ok {
-						return fmt.Errorf("expected BoxedInteger to be json.Number, got %T instead", value)
-					}
-					i64, err := jtv.Int64()
-					if err != nil { return err }
-					sv.MinimumHealthyPercent = ptr.Int32(int32(i64))
+			if value != nil {
+				jtv, ok := value.(json.Number)
+				if !ok {
+					return fmt.Errorf("expected BoxedInteger to be json.Number, got %T instead", value)
 				}
+				i64, err := jtv.Int64()
+				if err != nil { return err }
+				sv.MinimumHealthyPercent = ptr.Int32(int32(i64))
+			}
 			
 			default:
 				_, _ = key, value
@@ -10464,13 +10464,13 @@ func awsAwsjson11_deserializeDocumentDeploymentController(v **types.DeploymentCo
 	for key, value := range shape {
 		switch key {
 			case "type":
-				if value != nil {
-					jtv, ok := value.(string)
-					if !ok {
-						return fmt.Errorf("expected DeploymentControllerType to be of type string, got %T instead", value)
-					}
-					sv.Type = types.DeploymentControllerType(jtv)
+			if value != nil {
+				jtv, ok := value.(string)
+				if !ok {
+					return fmt.Errorf("expected DeploymentControllerType to be of type string, got %T instead", value)
 				}
+				sv.Type = types.DeploymentControllerType(jtv)
+			}
 			
 			default:
 				_, _ = key, value
@@ -10504,13 +10504,13 @@ func awsAwsjson11_deserializeDocumentDeploymentEphemeralStorage(v **types.Deploy
 	for key, value := range shape {
 		switch key {
 			case "kmsKeyId":
-				if value != nil {
-					jtv, ok := value.(string)
-					if !ok {
-						return fmt.Errorf("expected String to be of type string, got %T instead", value)
-					}
-					sv.KmsKeyId = ptr.String(jtv)
+			if value != nil {
+				jtv, ok := value.(string)
+				if !ok {
+					return fmt.Errorf("expected String to be of type string, got %T instead", value)
 				}
+				sv.KmsKeyId = ptr.String(jtv)
+			}
 			
 			default:
 				_, _ = key, value
@@ -10578,27 +10578,27 @@ func awsAwsjson11_deserializeDocumentDevice(v **types.Device, value interface{})
 	for key, value := range shape {
 		switch key {
 			case "containerPath":
-				if value != nil {
-					jtv, ok := value.(string)
-					if !ok {
-						return fmt.Errorf("expected String to be of type string, got %T instead", value)
-					}
-					sv.ContainerPath = ptr.String(jtv)
+			if value != nil {
+				jtv, ok := value.(string)
+				if !ok {
+					return fmt.Errorf("expected String to be of type string, got %T instead", value)
 				}
+				sv.ContainerPath = ptr.String(jtv)
+			}
 			
 			case "hostPath":
-				if value != nil {
-					jtv, ok := value.(string)
-					if !ok {
-						return fmt.Errorf("expected String to be of type string, got %T instead", value)
-					}
-					sv.HostPath = ptr.String(jtv)
+			if value != nil {
+				jtv, ok := value.(string)
+				if !ok {
+					return fmt.Errorf("expected String to be of type string, got %T instead", value)
 				}
+				sv.HostPath = ptr.String(jtv)
+			}
 			
 			case "permissions":
-				if err := awsAwsjson11_deserializeDocumentDeviceCgroupPermissions(&sv.Permissions, value); err != nil {
-					return err
-				}
+			if err := awsAwsjson11_deserializeDocumentDeviceCgroupPermissions(&sv.Permissions, value); err != nil {
+				return err
+			}
 			
 			default:
 				_, _ = key, value
@@ -10738,41 +10738,41 @@ func awsAwsjson11_deserializeDocumentDockerVolumeConfiguration(v **types.DockerV
 	for key, value := range shape {
 		switch key {
 			case "autoprovision":
-				if value != nil {
-					jtv, ok := value.(bool)
-					if !ok {
-						return fmt.Errorf("expected BoxedBoolean to be of type *bool, got %T instead", value)
-					}
-					sv.Autoprovision = ptr.Bool(jtv)
+			if value != nil {
+				jtv, ok := value.(bool)
+				if !ok {
+					return fmt.Errorf("expected BoxedBoolean to be of type *bool, got %T instead", value)
 				}
+				sv.Autoprovision = ptr.Bool(jtv)
+			}
 			
 			case "driver":
-				if value != nil {
-					jtv, ok := value.(string)
-					if !ok {
-						return fmt.Errorf("expected String to be of type string, got %T instead", value)
-					}
-					sv.Driver = ptr.String(jtv)
+			if value != nil {
+				jtv, ok := value.(string)
+				if !ok {
+					return fmt.Errorf("expected String to be of type string, got %T instead", value)
 				}
+				sv.Driver = ptr.String(jtv)
+			}
 			
 			case "driverOpts":
-				if err := awsAwsjson11_deserializeDocumentStringMap(&sv.DriverOpts, value); err != nil {
-					return err
-				}
+			if err := awsAwsjson11_deserializeDocumentStringMap(&sv.DriverOpts, value); err != nil {
+				return err
+			}
 			
 			case "labels":
-				if err := awsAwsjson11_deserializeDocumentStringMap(&sv.Labels, value); err != nil {
-					return err
-				}
+			if err := awsAwsjson11_deserializeDocumentStringMap(&sv.Labels, value); err != nil {
+				return err
+			}
 			
 			case "scope":
-				if value != nil {
-					jtv, ok := value.(string)
-					if !ok {
-						return fmt.Errorf("expected Scope to be of type string, got %T instead", value)
-					}
-					sv.Scope = types.Scope(jtv)
+			if value != nil {
+				jtv, ok := value.(string)
+				if !ok {
+					return fmt.Errorf("expected Scope to be of type string, got %T instead", value)
 				}
+				sv.Scope = types.Scope(jtv)
+			}
 			
 			default:
 				_, _ = key, value
@@ -10806,27 +10806,27 @@ func awsAwsjson11_deserializeDocumentEBSTagSpecification(v **types.EBSTagSpecifi
 	for key, value := range shape {
 		switch key {
 			case "propagateTags":
-				if value != nil {
-					jtv, ok := value.(string)
-					if !ok {
-						return fmt.Errorf("expected PropagateTags to be of type string, got %T instead", value)
-					}
-					sv.PropagateTags = types.PropagateTags(jtv)
+			if value != nil {
+				jtv, ok := value.(string)
+				if !ok {
+					return fmt.Errorf("expected PropagateTags to be of type string, got %T instead", value)
 				}
+				sv.PropagateTags = types.PropagateTags(jtv)
+			}
 			
 			case "resourceType":
-				if value != nil {
-					jtv, ok := value.(string)
-					if !ok {
-						return fmt.Errorf("expected EBSResourceType to be of type string, got %T instead", value)
-					}
-					sv.ResourceType = types.EBSResourceType(jtv)
+			if value != nil {
+				jtv, ok := value.(string)
+				if !ok {
+					return fmt.Errorf("expected EBSResourceType to be of type string, got %T instead", value)
 				}
+				sv.ResourceType = types.EBSResourceType(jtv)
+			}
 			
 			case "tags":
-				if err := awsAwsjson11_deserializeDocumentTags(&sv.Tags, value); err != nil {
-					return err
-				}
+			if err := awsAwsjson11_deserializeDocumentTags(&sv.Tags, value); err != nil {
+				return err
+			}
 			
 			default:
 				_, _ = key, value
@@ -10894,22 +10894,22 @@ func awsAwsjson11_deserializeDocumentEFSAuthorizationConfig(v **types.EFSAuthori
 	for key, value := range shape {
 		switch key {
 			case "accessPointId":
-				if value != nil {
-					jtv, ok := value.(string)
-					if !ok {
-						return fmt.Errorf("expected String to be of type string, got %T instead", value)
-					}
-					sv.AccessPointId = ptr.String(jtv)
+			if value != nil {
+				jtv, ok := value.(string)
+				if !ok {
+					return fmt.Errorf("expected String to be of type string, got %T instead", value)
 				}
+				sv.AccessPointId = ptr.String(jtv)
+			}
 			
 			case "iam":
-				if value != nil {
-					jtv, ok := value.(string)
-					if !ok {
-						return fmt.Errorf("expected EFSAuthorizationConfigIAM to be of type string, got %T instead", value)
-					}
-					sv.Iam = types.EFSAuthorizationConfigIAM(jtv)
+			if value != nil {
+				jtv, ok := value.(string)
+				if !ok {
+					return fmt.Errorf("expected EFSAuthorizationConfigIAM to be of type string, got %T instead", value)
 				}
+				sv.Iam = types.EFSAuthorizationConfigIAM(jtv)
+			}
 			
 			default:
 				_, _ = key, value
@@ -10943,47 +10943,47 @@ func awsAwsjson11_deserializeDocumentEFSVolumeConfiguration(v **types.EFSVolumeC
 	for key, value := range shape {
 		switch key {
 			case "authorizationConfig":
-				if err := awsAwsjson11_deserializeDocumentEFSAuthorizationConfig(&sv.AuthorizationConfig, value); err != nil {
-					return err
-				}
+			if err := awsAwsjson11_deserializeDocumentEFSAuthorizationConfig(&sv.AuthorizationConfig, value); err != nil {
+				return err
+			}
 			
 			case "fileSystemId":
-				if value != nil {
-					jtv, ok := value.(string)
-					if !ok {
-						return fmt.Errorf("expected String to be of type string, got %T instead", value)
-					}
-					sv.FileSystemId = ptr.String(jtv)
+			if value != nil {
+				jtv, ok := value.(string)
+				if !ok {
+					return fmt.Errorf("expected String to be of type string, got %T instead", value)
 				}
+				sv.FileSystemId = ptr.String(jtv)
+			}
 			
 			case "rootDirectory":
-				if value != nil {
-					jtv, ok := value.(string)
-					if !ok {
-						return fmt.Errorf("expected String to be of type string, got %T instead", value)
-					}
-					sv.RootDirectory = ptr.String(jtv)
+			if value != nil {
+				jtv, ok := value.(string)
+				if !ok {
+					return fmt.Errorf("expected String to be of type string, got %T instead", value)
 				}
+				sv.RootDirectory = ptr.String(jtv)
+			}
 			
 			case "transitEncryption":
-				if value != nil {
-					jtv, ok := value.(string)
-					if !ok {
-						return fmt.Errorf("expected EFSTransitEncryption to be of type string, got %T instead", value)
-					}
-					sv.TransitEncryption = types.EFSTransitEncryption(jtv)
+			if value != nil {
+				jtv, ok := value.(string)
+				if !ok {
+					return fmt.Errorf("expected EFSTransitEncryption to be of type string, got %T instead", value)
 				}
+				sv.TransitEncryption = types.EFSTransitEncryption(jtv)
+			}
 			
 			case "transitEncryptionPort":
-				if value != nil {
-					jtv, ok := value.(json.Number)
-					if !ok {
-						return fmt.Errorf("expected BoxedInteger to be json.Number, got %T instead", value)
-					}
-					i64, err := jtv.Int64()
-					if err != nil { return err }
-					sv.TransitEncryptionPort = ptr.Int32(int32(i64))
+			if value != nil {
+				jtv, ok := value.(json.Number)
+				if !ok {
+					return fmt.Errorf("expected BoxedInteger to be json.Number, got %T instead", value)
 				}
+				i64, err := jtv.Int64()
+				if err != nil { return err }
+				sv.TransitEncryptionPort = ptr.Int32(int32(i64))
+			}
 			
 			default:
 				_, _ = key, value
@@ -11017,22 +11017,22 @@ func awsAwsjson11_deserializeDocumentEnvironmentFile(v **types.EnvironmentFile, 
 	for key, value := range shape {
 		switch key {
 			case "type":
-				if value != nil {
-					jtv, ok := value.(string)
-					if !ok {
-						return fmt.Errorf("expected EnvironmentFileType to be of type string, got %T instead", value)
-					}
-					sv.Type = types.EnvironmentFileType(jtv)
+			if value != nil {
+				jtv, ok := value.(string)
+				if !ok {
+					return fmt.Errorf("expected EnvironmentFileType to be of type string, got %T instead", value)
 				}
+				sv.Type = types.EnvironmentFileType(jtv)
+			}
 			
 			case "value":
-				if value != nil {
-					jtv, ok := value.(string)
-					if !ok {
-						return fmt.Errorf("expected String to be of type string, got %T instead", value)
-					}
-					sv.Value = ptr.String(jtv)
+			if value != nil {
+				jtv, ok := value.(string)
+				if !ok {
+					return fmt.Errorf("expected String to be of type string, got %T instead", value)
 				}
+				sv.Value = ptr.String(jtv)
+			}
 			
 			default:
 				_, _ = key, value
@@ -11134,15 +11134,15 @@ func awsAwsjson11_deserializeDocumentEphemeralStorage(v **types.EphemeralStorage
 	for key, value := range shape {
 		switch key {
 			case "sizeInGiB":
-				if value != nil {
-					jtv, ok := value.(json.Number)
-					if !ok {
-						return fmt.Errorf("expected Integer to be json.Number, got %T instead", value)
-					}
-					i64, err := jtv.Int64()
-					if err != nil { return err }
-					sv.SizeInGiB = int32(i64)
+			if value != nil {
+				jtv, ok := value.(json.Number)
+				if !ok {
+					return fmt.Errorf("expected Integer to be json.Number, got %T instead", value)
 				}
+				i64, err := jtv.Int64()
+				if err != nil { return err }
+				sv.SizeInGiB = int32(i64)
+			}
 			
 			default:
 				_, _ = key, value
@@ -11176,27 +11176,27 @@ func awsAwsjson11_deserializeDocumentExecuteCommandConfiguration(v **types.Execu
 	for key, value := range shape {
 		switch key {
 			case "kmsKeyId":
-				if value != nil {
-					jtv, ok := value.(string)
-					if !ok {
-						return fmt.Errorf("expected String to be of type string, got %T instead", value)
-					}
-					sv.KmsKeyId = ptr.String(jtv)
+			if value != nil {
+				jtv, ok := value.(string)
+				if !ok {
+					return fmt.Errorf("expected String to be of type string, got %T instead", value)
 				}
+				sv.KmsKeyId = ptr.String(jtv)
+			}
 			
 			case "logConfiguration":
-				if err := awsAwsjson11_deserializeDocumentExecuteCommandLogConfiguration(&sv.LogConfiguration, value); err != nil {
-					return err
-				}
+			if err := awsAwsjson11_deserializeDocumentExecuteCommandLogConfiguration(&sv.LogConfiguration, value); err != nil {
+				return err
+			}
 			
 			case "logging":
-				if value != nil {
-					jtv, ok := value.(string)
-					if !ok {
-						return fmt.Errorf("expected ExecuteCommandLogging to be of type string, got %T instead", value)
-					}
-					sv.Logging = types.ExecuteCommandLogging(jtv)
+			if value != nil {
+				jtv, ok := value.(string)
+				if !ok {
+					return fmt.Errorf("expected ExecuteCommandLogging to be of type string, got %T instead", value)
 				}
+				sv.Logging = types.ExecuteCommandLogging(jtv)
+			}
 			
 			default:
 				_, _ = key, value
@@ -11230,49 +11230,49 @@ func awsAwsjson11_deserializeDocumentExecuteCommandLogConfiguration(v **types.Ex
 	for key, value := range shape {
 		switch key {
 			case "cloudWatchEncryptionEnabled":
-				if value != nil {
-					jtv, ok := value.(bool)
-					if !ok {
-						return fmt.Errorf("expected Boolean to be of type *bool, got %T instead", value)
-					}
-					sv.CloudWatchEncryptionEnabled = jtv
+			if value != nil {
+				jtv, ok := value.(bool)
+				if !ok {
+					return fmt.Errorf("expected Boolean to be of type *bool, got %T instead", value)
 				}
+				sv.CloudWatchEncryptionEnabled = jtv
+			}
 			
 			case "cloudWatchLogGroupName":
-				if value != nil {
-					jtv, ok := value.(string)
-					if !ok {
-						return fmt.Errorf("expected String to be of type string, got %T instead", value)
-					}
-					sv.CloudWatchLogGroupName = ptr.String(jtv)
+			if value != nil {
+				jtv, ok := value.(string)
+				if !ok {
+					return fmt.Errorf("expected String to be of type string, got %T instead", value)
 				}
+				sv.CloudWatchLogGroupName = ptr.String(jtv)
+			}
 			
 			case "s3BucketName":
-				if value != nil {
-					jtv, ok := value.(string)
-					if !ok {
-						return fmt.Errorf("expected String to be of type string, got %T instead", value)
-					}
-					sv.S3BucketName = ptr.String(jtv)
+			if value != nil {
+				jtv, ok := value.(string)
+				if !ok {
+					return fmt.Errorf("expected String to be of type string, got %T instead", value)
 				}
+				sv.S3BucketName = ptr.String(jtv)
+			}
 			
 			case "s3EncryptionEnabled":
-				if value != nil {
-					jtv, ok := value.(bool)
-					if !ok {
-						return fmt.Errorf("expected Boolean to be of type *bool, got %T instead", value)
-					}
-					sv.S3EncryptionEnabled = jtv
+			if value != nil {
+				jtv, ok := value.(bool)
+				if !ok {
+					return fmt.Errorf("expected Boolean to be of type *bool, got %T instead", value)
 				}
+				sv.S3EncryptionEnabled = jtv
+			}
 			
 			case "s3KeyPrefix":
-				if value != nil {
-					jtv, ok := value.(string)
-					if !ok {
-						return fmt.Errorf("expected String to be of type string, got %T instead", value)
-					}
-					sv.S3KeyPrefix = ptr.String(jtv)
+			if value != nil {
+				jtv, ok := value.(string)
+				if !ok {
+					return fmt.Errorf("expected String to be of type string, got %T instead", value)
 				}
+				sv.S3KeyPrefix = ptr.String(jtv)
+			}
 			
 			default:
 				_, _ = key, value
@@ -11306,31 +11306,31 @@ func awsAwsjson11_deserializeDocumentFailure(v **types.Failure, value interface{
 	for key, value := range shape {
 		switch key {
 			case "arn":
-				if value != nil {
-					jtv, ok := value.(string)
-					if !ok {
-						return fmt.Errorf("expected String to be of type string, got %T instead", value)
-					}
-					sv.Arn = ptr.String(jtv)
+			if value != nil {
+				jtv, ok := value.(string)
+				if !ok {
+					return fmt.Errorf("expected String to be of type string, got %T instead", value)
 				}
+				sv.Arn = ptr.String(jtv)
+			}
 			
 			case "detail":
-				if value != nil {
-					jtv, ok := value.(string)
-					if !ok {
-						return fmt.Errorf("expected String to be of type string, got %T instead", value)
-					}
-					sv.Detail = ptr.String(jtv)
+			if value != nil {
+				jtv, ok := value.(string)
+				if !ok {
+					return fmt.Errorf("expected String to be of type string, got %T instead", value)
 				}
+				sv.Detail = ptr.String(jtv)
+			}
 			
 			case "reason":
-				if value != nil {
-					jtv, ok := value.(string)
-					if !ok {
-						return fmt.Errorf("expected String to be of type string, got %T instead", value)
-					}
-					sv.Reason = ptr.String(jtv)
+			if value != nil {
+				jtv, ok := value.(string)
+				if !ok {
+					return fmt.Errorf("expected String to be of type string, got %T instead", value)
 				}
+				sv.Reason = ptr.String(jtv)
+			}
 			
 			default:
 				_, _ = key, value
@@ -11398,18 +11398,18 @@ func awsAwsjson11_deserializeDocumentFirelensConfiguration(v **types.FirelensCon
 	for key, value := range shape {
 		switch key {
 			case "options":
-				if err := awsAwsjson11_deserializeDocumentFirelensConfigurationOptionsMap(&sv.Options, value); err != nil {
-					return err
-				}
+			if err := awsAwsjson11_deserializeDocumentFirelensConfigurationOptionsMap(&sv.Options, value); err != nil {
+				return err
+			}
 			
 			case "type":
-				if value != nil {
-					jtv, ok := value.(string)
-					if !ok {
-						return fmt.Errorf("expected FirelensConfigurationType to be of type string, got %T instead", value)
-					}
-					sv.Type = types.FirelensConfigurationType(jtv)
+			if value != nil {
+				jtv, ok := value.(string)
+				if !ok {
+					return fmt.Errorf("expected FirelensConfigurationType to be of type string, got %T instead", value)
 				}
+				sv.Type = types.FirelensConfigurationType(jtv)
+			}
 			
 			default:
 				_, _ = key, value
@@ -11479,22 +11479,22 @@ func awsAwsjson11_deserializeDocumentFSxWindowsFileServerAuthorizationConfig(v *
 	for key, value := range shape {
 		switch key {
 			case "credentialsParameter":
-				if value != nil {
-					jtv, ok := value.(string)
-					if !ok {
-						return fmt.Errorf("expected String to be of type string, got %T instead", value)
-					}
-					sv.CredentialsParameter = ptr.String(jtv)
+			if value != nil {
+				jtv, ok := value.(string)
+				if !ok {
+					return fmt.Errorf("expected String to be of type string, got %T instead", value)
 				}
+				sv.CredentialsParameter = ptr.String(jtv)
+			}
 			
 			case "domain":
-				if value != nil {
-					jtv, ok := value.(string)
-					if !ok {
-						return fmt.Errorf("expected String to be of type string, got %T instead", value)
-					}
-					sv.Domain = ptr.String(jtv)
+			if value != nil {
+				jtv, ok := value.(string)
+				if !ok {
+					return fmt.Errorf("expected String to be of type string, got %T instead", value)
 				}
+				sv.Domain = ptr.String(jtv)
+			}
 			
 			default:
 				_, _ = key, value
@@ -11528,27 +11528,27 @@ func awsAwsjson11_deserializeDocumentFSxWindowsFileServerVolumeConfiguration(v *
 	for key, value := range shape {
 		switch key {
 			case "authorizationConfig":
-				if err := awsAwsjson11_deserializeDocumentFSxWindowsFileServerAuthorizationConfig(&sv.AuthorizationConfig, value); err != nil {
-					return err
-				}
+			if err := awsAwsjson11_deserializeDocumentFSxWindowsFileServerAuthorizationConfig(&sv.AuthorizationConfig, value); err != nil {
+				return err
+			}
 			
 			case "fileSystemId":
-				if value != nil {
-					jtv, ok := value.(string)
-					if !ok {
-						return fmt.Errorf("expected String to be of type string, got %T instead", value)
-					}
-					sv.FileSystemId = ptr.String(jtv)
+			if value != nil {
+				jtv, ok := value.(string)
+				if !ok {
+					return fmt.Errorf("expected String to be of type string, got %T instead", value)
 				}
+				sv.FileSystemId = ptr.String(jtv)
+			}
 			
 			case "rootDirectory":
-				if value != nil {
-					jtv, ok := value.(string)
-					if !ok {
-						return fmt.Errorf("expected String to be of type string, got %T instead", value)
-					}
-					sv.RootDirectory = ptr.String(jtv)
+			if value != nil {
+				jtv, ok := value.(string)
+				if !ok {
+					return fmt.Errorf("expected String to be of type string, got %T instead", value)
 				}
+				sv.RootDirectory = ptr.String(jtv)
+			}
 			
 			default:
 				_, _ = key, value
@@ -11618,53 +11618,53 @@ func awsAwsjson11_deserializeDocumentHealthCheck(v **types.HealthCheck, value in
 	for key, value := range shape {
 		switch key {
 			case "command":
-				if err := awsAwsjson11_deserializeDocumentStringList(&sv.Command, value); err != nil {
-					return err
-				}
+			if err := awsAwsjson11_deserializeDocumentStringList(&sv.Command, value); err != nil {
+				return err
+			}
 			
 			case "interval":
-				if value != nil {
-					jtv, ok := value.(json.Number)
-					if !ok {
-						return fmt.Errorf("expected BoxedInteger to be json.Number, got %T instead", value)
-					}
-					i64, err := jtv.Int64()
-					if err != nil { return err }
-					sv.Interval = ptr.Int32(int32(i64))
+			if value != nil {
+				jtv, ok := value.(json.Number)
+				if !ok {
+					return fmt.Errorf("expected BoxedInteger to be json.Number, got %T instead", value)
 				}
+				i64, err := jtv.Int64()
+				if err != nil { return err }
+				sv.Interval = ptr.Int32(int32(i64))
+			}
 			
 			case "retries":
-				if value != nil {
-					jtv, ok := value.(json.Number)
-					if !ok {
-						return fmt.Errorf("expected BoxedInteger to be json.Number, got %T instead", value)
-					}
-					i64, err := jtv.Int64()
-					if err != nil { return err }
-					sv.Retries = ptr.Int32(int32(i64))
+			if value != nil {
+				jtv, ok := value.(json.Number)
+				if !ok {
+					return fmt.Errorf("expected BoxedInteger to be json.Number, got %T instead", value)
 				}
+				i64, err := jtv.Int64()
+				if err != nil { return err }
+				sv.Retries = ptr.Int32(int32(i64))
+			}
 			
 			case "startPeriod":
-				if value != nil {
-					jtv, ok := value.(json.Number)
-					if !ok {
-						return fmt.Errorf("expected BoxedInteger to be json.Number, got %T instead", value)
-					}
-					i64, err := jtv.Int64()
-					if err != nil { return err }
-					sv.StartPeriod = ptr.Int32(int32(i64))
+			if value != nil {
+				jtv, ok := value.(json.Number)
+				if !ok {
+					return fmt.Errorf("expected BoxedInteger to be json.Number, got %T instead", value)
 				}
+				i64, err := jtv.Int64()
+				if err != nil { return err }
+				sv.StartPeriod = ptr.Int32(int32(i64))
+			}
 			
 			case "timeout":
-				if value != nil {
-					jtv, ok := value.(json.Number)
-					if !ok {
-						return fmt.Errorf("expected BoxedInteger to be json.Number, got %T instead", value)
-					}
-					i64, err := jtv.Int64()
-					if err != nil { return err }
-					sv.Timeout = ptr.Int32(int32(i64))
+			if value != nil {
+				jtv, ok := value.(json.Number)
+				if !ok {
+					return fmt.Errorf("expected BoxedInteger to be json.Number, got %T instead", value)
 				}
+				i64, err := jtv.Int64()
+				if err != nil { return err }
+				sv.Timeout = ptr.Int32(int32(i64))
+			}
 			
 			default:
 				_, _ = key, value
@@ -11698,22 +11698,22 @@ func awsAwsjson11_deserializeDocumentHostEntry(v **types.HostEntry, value interf
 	for key, value := range shape {
 		switch key {
 			case "hostname":
-				if value != nil {
-					jtv, ok := value.(string)
-					if !ok {
-						return fmt.Errorf("expected String to be of type string, got %T instead", value)
-					}
-					sv.Hostname = ptr.String(jtv)
+			if value != nil {
+				jtv, ok := value.(string)
+				if !ok {
+					return fmt.Errorf("expected String to be of type string, got %T instead", value)
 				}
+				sv.Hostname = ptr.String(jtv)
+			}
 			
 			case "ipAddress":
-				if value != nil {
-					jtv, ok := value.(string)
-					if !ok {
-						return fmt.Errorf("expected String to be of type string, got %T instead", value)
-					}
-					sv.IpAddress = ptr.String(jtv)
+			if value != nil {
+				jtv, ok := value.(string)
+				if !ok {
+					return fmt.Errorf("expected String to be of type string, got %T instead", value)
 				}
+				sv.IpAddress = ptr.String(jtv)
+			}
 			
 			default:
 				_, _ = key, value
@@ -11781,13 +11781,13 @@ func awsAwsjson11_deserializeDocumentHostVolumeProperties(v **types.HostVolumePr
 	for key, value := range shape {
 		switch key {
 			case "sourcePath":
-				if value != nil {
-					jtv, ok := value.(string)
-					if !ok {
-						return fmt.Errorf("expected String to be of type string, got %T instead", value)
-					}
-					sv.SourcePath = ptr.String(jtv)
+			if value != nil {
+				jtv, ok := value.(string)
+				if !ok {
+					return fmt.Errorf("expected String to be of type string, got %T instead", value)
 				}
+				sv.SourcePath = ptr.String(jtv)
+			}
 			
 			default:
 				_, _ = key, value
@@ -11821,22 +11821,22 @@ func awsAwsjson11_deserializeDocumentInferenceAccelerator(v **types.InferenceAcc
 	for key, value := range shape {
 		switch key {
 			case "deviceName":
-				if value != nil {
-					jtv, ok := value.(string)
-					if !ok {
-						return fmt.Errorf("expected String to be of type string, got %T instead", value)
-					}
-					sv.DeviceName = ptr.String(jtv)
+			if value != nil {
+				jtv, ok := value.(string)
+				if !ok {
+					return fmt.Errorf("expected String to be of type string, got %T instead", value)
 				}
+				sv.DeviceName = ptr.String(jtv)
+			}
 			
 			case "deviceType":
-				if value != nil {
-					jtv, ok := value.(string)
-					if !ok {
-						return fmt.Errorf("expected String to be of type string, got %T instead", value)
-					}
-					sv.DeviceType = ptr.String(jtv)
+			if value != nil {
+				jtv, ok := value.(string)
+				if !ok {
+					return fmt.Errorf("expected String to be of type string, got %T instead", value)
 				}
+				sv.DeviceType = ptr.String(jtv)
+			}
 			
 			default:
 				_, _ = key, value
@@ -11870,22 +11870,22 @@ func awsAwsjson11_deserializeDocumentInferenceAcceleratorOverride(v **types.Infe
 	for key, value := range shape {
 		switch key {
 			case "deviceName":
-				if value != nil {
-					jtv, ok := value.(string)
-					if !ok {
-						return fmt.Errorf("expected String to be of type string, got %T instead", value)
-					}
-					sv.DeviceName = ptr.String(jtv)
+			if value != nil {
+				jtv, ok := value.(string)
+				if !ok {
+					return fmt.Errorf("expected String to be of type string, got %T instead", value)
 				}
+				sv.DeviceName = ptr.String(jtv)
+			}
 			
 			case "deviceType":
-				if value != nil {
-					jtv, ok := value.(string)
-					if !ok {
-						return fmt.Errorf("expected String to be of type string, got %T instead", value)
-					}
-					sv.DeviceType = ptr.String(jtv)
+			if value != nil {
+				jtv, ok := value.(string)
+				if !ok {
+					return fmt.Errorf("expected String to be of type string, got %T instead", value)
 				}
+				sv.DeviceType = ptr.String(jtv)
+			}
 			
 			default:
 				_, _ = key, value
@@ -11987,50 +11987,50 @@ func awsAwsjson11_deserializeDocumentInstanceHealthCheckResult(v **types.Instanc
 	for key, value := range shape {
 		switch key {
 			case "lastStatusChange":
-				if value != nil {
-					switch jtv := value.(type) {
-						case json.Number:
-							f64, err := jtv.Float64()
-							if err != nil { return err }
-							sv.LastStatusChange = ptr.Time(smithytime.ParseEpochSeconds(f64))
-						
-						default:
-							return fmt.Errorf("expected Timestamp to be a JSON Number, got %T instead", value)
-						
-					}
+			if value != nil {
+				switch jtv := value.(type) {
+					case json.Number:
+						f64, err := jtv.Float64()
+						if err != nil { return err }
+						sv.LastStatusChange = ptr.Time(smithytime.ParseEpochSeconds(f64))
+					
+					default:
+						return fmt.Errorf("expected Timestamp to be a JSON Number, got %T instead", value)
+					
 				}
+			}
 			
 			case "lastUpdated":
-				if value != nil {
-					switch jtv := value.(type) {
-						case json.Number:
-							f64, err := jtv.Float64()
-							if err != nil { return err }
-							sv.LastUpdated = ptr.Time(smithytime.ParseEpochSeconds(f64))
-						
-						default:
-							return fmt.Errorf("expected Timestamp to be a JSON Number, got %T instead", value)
-						
-					}
+			if value != nil {
+				switch jtv := value.(type) {
+					case json.Number:
+						f64, err := jtv.Float64()
+						if err != nil { return err }
+						sv.LastUpdated = ptr.Time(smithytime.ParseEpochSeconds(f64))
+					
+					default:
+						return fmt.Errorf("expected Timestamp to be a JSON Number, got %T instead", value)
+					
 				}
+			}
 			
 			case "status":
-				if value != nil {
-					jtv, ok := value.(string)
-					if !ok {
-						return fmt.Errorf("expected InstanceHealthCheckState to be of type string, got %T instead", value)
-					}
-					sv.Status = types.InstanceHealthCheckState(jtv)
+			if value != nil {
+				jtv, ok := value.(string)
+				if !ok {
+					return fmt.Errorf("expected InstanceHealthCheckState to be of type string, got %T instead", value)
 				}
+				sv.Status = types.InstanceHealthCheckState(jtv)
+			}
 			
 			case "type":
-				if value != nil {
-					jtv, ok := value.(string)
-					if !ok {
-						return fmt.Errorf("expected InstanceHealthCheckType to be of type string, got %T instead", value)
-					}
-					sv.Type = types.InstanceHealthCheckType(jtv)
+			if value != nil {
+				jtv, ok := value.(string)
+				if !ok {
+					return fmt.Errorf("expected InstanceHealthCheckType to be of type string, got %T instead", value)
 				}
+				sv.Type = types.InstanceHealthCheckType(jtv)
+			}
 			
 			default:
 				_, _ = key, value
@@ -12135,14 +12135,14 @@ func awsAwsjson11_deserializeDocumentInvalidParameterException(v **types.Invalid
 	
 	for key, value := range shape {
 		switch key {
-			case "message":
-				if value != nil {
-					jtv, ok := value.(string)
-					if !ok {
-						return fmt.Errorf("expected String to be of type string, got %T instead", value)
-					}
-					sv.Message = ptr.String(jtv)
+			case "message", "Message":
+			if value != nil {
+				jtv, ok := value.(string)
+				if !ok {
+					return fmt.Errorf("expected String to be of type string, got %T instead", value)
 				}
+				sv.Message = ptr.String(jtv)
+			}
 			
 			default:
 				_, _ = key, value
@@ -12176,14 +12176,14 @@ func awsAwsjson11_deserializeDocumentKernelCapabilities(v **types.KernelCapabili
 	for key, value := range shape {
 		switch key {
 			case "add":
-				if err := awsAwsjson11_deserializeDocumentStringList(&sv.Add, value); err != nil {
-					return err
-				}
+			if err := awsAwsjson11_deserializeDocumentStringList(&sv.Add, value); err != nil {
+				return err
+			}
 			
 			case "drop":
-				if err := awsAwsjson11_deserializeDocumentStringList(&sv.Drop, value); err != nil {
-					return err
-				}
+			if err := awsAwsjson11_deserializeDocumentStringList(&sv.Drop, value); err != nil {
+				return err
+			}
 			
 			default:
 				_, _ = key, value
@@ -12217,22 +12217,22 @@ func awsAwsjson11_deserializeDocumentKeyValuePair(v **types.KeyValuePair, value 
 	for key, value := range shape {
 		switch key {
 			case "name":
-				if value != nil {
-					jtv, ok := value.(string)
-					if !ok {
-						return fmt.Errorf("expected String to be of type string, got %T instead", value)
-					}
-					sv.Name = ptr.String(jtv)
+			if value != nil {
+				jtv, ok := value.(string)
+				if !ok {
+					return fmt.Errorf("expected String to be of type string, got %T instead", value)
 				}
+				sv.Name = ptr.String(jtv)
+			}
 			
 			case "value":
-				if value != nil {
-					jtv, ok := value.(string)
-					if !ok {
-						return fmt.Errorf("expected String to be of type string, got %T instead", value)
-					}
-					sv.Value = ptr.String(jtv)
+			if value != nil {
+				jtv, ok := value.(string)
+				if !ok {
+					return fmt.Errorf("expected String to be of type string, got %T instead", value)
 				}
+				sv.Value = ptr.String(jtv)
+			}
 			
 			default:
 				_, _ = key, value
@@ -12265,14 +12265,14 @@ func awsAwsjson11_deserializeDocumentLimitExceededException(v **types.LimitExcee
 	
 	for key, value := range shape {
 		switch key {
-			case "message":
-				if value != nil {
-					jtv, ok := value.(string)
-					if !ok {
-						return fmt.Errorf("expected String to be of type string, got %T instead", value)
-					}
-					sv.Message = ptr.String(jtv)
+			case "message", "Message":
+			if value != nil {
+				jtv, ok := value.(string)
+				if !ok {
+					return fmt.Errorf("expected String to be of type string, got %T instead", value)
 				}
+				sv.Message = ptr.String(jtv)
+			}
 			
 			default:
 				_, _ = key, value
@@ -12306,61 +12306,61 @@ func awsAwsjson11_deserializeDocumentLinuxParameters(v **types.LinuxParameters, 
 	for key, value := range shape {
 		switch key {
 			case "capabilities":
-				if err := awsAwsjson11_deserializeDocumentKernelCapabilities(&sv.Capabilities, value); err != nil {
-					return err
-				}
+			if err := awsAwsjson11_deserializeDocumentKernelCapabilities(&sv.Capabilities, value); err != nil {
+				return err
+			}
 			
 			case "devices":
-				if err := awsAwsjson11_deserializeDocumentDevicesList(&sv.Devices, value); err != nil {
-					return err
-				}
+			if err := awsAwsjson11_deserializeDocumentDevicesList(&sv.Devices, value); err != nil {
+				return err
+			}
 			
 			case "initProcessEnabled":
-				if value != nil {
-					jtv, ok := value.(bool)
-					if !ok {
-						return fmt.Errorf("expected BoxedBoolean to be of type *bool, got %T instead", value)
-					}
-					sv.InitProcessEnabled = ptr.Bool(jtv)
+			if value != nil {
+				jtv, ok := value.(bool)
+				if !ok {
+					return fmt.Errorf("expected BoxedBoolean to be of type *bool, got %T instead", value)
 				}
+				sv.InitProcessEnabled = ptr.Bool(jtv)
+			}
 			
 			case "maxSwap":
-				if value != nil {
-					jtv, ok := value.(json.Number)
-					if !ok {
-						return fmt.Errorf("expected BoxedInteger to be json.Number, got %T instead", value)
-					}
-					i64, err := jtv.Int64()
-					if err != nil { return err }
-					sv.MaxSwap = ptr.Int32(int32(i64))
+			if value != nil {
+				jtv, ok := value.(json.Number)
+				if !ok {
+					return fmt.Errorf("expected BoxedInteger to be json.Number, got %T instead", value)
 				}
+				i64, err := jtv.Int64()
+				if err != nil { return err }
+				sv.MaxSwap = ptr.Int32(int32(i64))
+			}
 			
 			case "sharedMemorySize":
-				if value != nil {
-					jtv, ok := value.(json.Number)
-					if !ok {
-						return fmt.Errorf("expected BoxedInteger to be json.Number, got %T instead", value)
-					}
-					i64, err := jtv.Int64()
-					if err != nil { return err }
-					sv.SharedMemorySize = ptr.Int32(int32(i64))
+			if value != nil {
+				jtv, ok := value.(json.Number)
+				if !ok {
+					return fmt.Errorf("expected BoxedInteger to be json.Number, got %T instead", value)
 				}
+				i64, err := jtv.Int64()
+				if err != nil { return err }
+				sv.SharedMemorySize = ptr.Int32(int32(i64))
+			}
 			
 			case "swappiness":
-				if value != nil {
-					jtv, ok := value.(json.Number)
-					if !ok {
-						return fmt.Errorf("expected BoxedInteger to be json.Number, got %T instead", value)
-					}
-					i64, err := jtv.Int64()
-					if err != nil { return err }
-					sv.Swappiness = ptr.Int32(int32(i64))
+			if value != nil {
+				jtv, ok := value.(json.Number)
+				if !ok {
+					return fmt.Errorf("expected BoxedInteger to be json.Number, got %T instead", value)
 				}
+				i64, err := jtv.Int64()
+				if err != nil { return err }
+				sv.Swappiness = ptr.Int32(int32(i64))
+			}
 			
 			case "tmpfs":
-				if err := awsAwsjson11_deserializeDocumentTmpfsList(&sv.Tmpfs, value); err != nil {
-					return err
-				}
+			if err := awsAwsjson11_deserializeDocumentTmpfsList(&sv.Tmpfs, value); err != nil {
+				return err
+			}
 			
 			default:
 				_, _ = key, value
@@ -12394,42 +12394,42 @@ func awsAwsjson11_deserializeDocumentLoadBalancer(v **types.LoadBalancer, value 
 	for key, value := range shape {
 		switch key {
 			case "containerName":
-				if value != nil {
-					jtv, ok := value.(string)
-					if !ok {
-						return fmt.Errorf("expected String to be of type string, got %T instead", value)
-					}
-					sv.ContainerName = ptr.String(jtv)
+			if value != nil {
+				jtv, ok := value.(string)
+				if !ok {
+					return fmt.Errorf("expected String to be of type string, got %T instead", value)
 				}
+				sv.ContainerName = ptr.String(jtv)
+			}
 			
 			case "containerPort":
-				if value != nil {
-					jtv, ok := value.(json.Number)
-					if !ok {
-						return fmt.Errorf("expected BoxedInteger to be json.Number, got %T instead", value)
-					}
-					i64, err := jtv.Int64()
-					if err != nil { return err }
-					sv.ContainerPort = ptr.Int32(int32(i64))
+			if value != nil {
+				jtv, ok := value.(json.Number)
+				if !ok {
+					return fmt.Errorf("expected BoxedInteger to be json.Number, got %T instead", value)
 				}
+				i64, err := jtv.Int64()
+				if err != nil { return err }
+				sv.ContainerPort = ptr.Int32(int32(i64))
+			}
 			
 			case "loadBalancerName":
-				if value != nil {
-					jtv, ok := value.(string)
-					if !ok {
-						return fmt.Errorf("expected String to be of type string, got %T instead", value)
-					}
-					sv.LoadBalancerName = ptr.String(jtv)
+			if value != nil {
+				jtv, ok := value.(string)
+				if !ok {
+					return fmt.Errorf("expected String to be of type string, got %T instead", value)
 				}
+				sv.LoadBalancerName = ptr.String(jtv)
+			}
 			
 			case "targetGroupArn":
-				if value != nil {
-					jtv, ok := value.(string)
-					if !ok {
-						return fmt.Errorf("expected String to be of type string, got %T instead", value)
-					}
-					sv.TargetGroupArn = ptr.String(jtv)
+			if value != nil {
+				jtv, ok := value.(string)
+				if !ok {
+					return fmt.Errorf("expected String to be of type string, got %T instead", value)
 				}
+				sv.TargetGroupArn = ptr.String(jtv)
+			}
 			
 			default:
 				_, _ = key, value
@@ -12497,23 +12497,23 @@ func awsAwsjson11_deserializeDocumentLogConfiguration(v **types.LogConfiguration
 	for key, value := range shape {
 		switch key {
 			case "logDriver":
-				if value != nil {
-					jtv, ok := value.(string)
-					if !ok {
-						return fmt.Errorf("expected LogDriver to be of type string, got %T instead", value)
-					}
-					sv.LogDriver = types.LogDriver(jtv)
+			if value != nil {
+				jtv, ok := value.(string)
+				if !ok {
+					return fmt.Errorf("expected LogDriver to be of type string, got %T instead", value)
 				}
+				sv.LogDriver = types.LogDriver(jtv)
+			}
 			
 			case "options":
-				if err := awsAwsjson11_deserializeDocumentLogConfigurationOptionsMap(&sv.Options, value); err != nil {
-					return err
-				}
+			if err := awsAwsjson11_deserializeDocumentLogConfigurationOptionsMap(&sv.Options, value); err != nil {
+				return err
+			}
 			
 			case "secretOptions":
-				if err := awsAwsjson11_deserializeDocumentSecretList(&sv.SecretOptions, value); err != nil {
-					return err
-				}
+			if err := awsAwsjson11_deserializeDocumentSecretList(&sv.SecretOptions, value); err != nil {
+				return err
+			}
 			
 			default:
 				_, _ = key, value
@@ -12583,45 +12583,45 @@ func awsAwsjson11_deserializeDocumentManagedAgent(v **types.ManagedAgent, value 
 	for key, value := range shape {
 		switch key {
 			case "lastStartedAt":
-				if value != nil {
-					switch jtv := value.(type) {
-						case json.Number:
-							f64, err := jtv.Float64()
-							if err != nil { return err }
-							sv.LastStartedAt = ptr.Time(smithytime.ParseEpochSeconds(f64))
-						
-						default:
-							return fmt.Errorf("expected Timestamp to be a JSON Number, got %T instead", value)
-						
-					}
+			if value != nil {
+				switch jtv := value.(type) {
+					case json.Number:
+						f64, err := jtv.Float64()
+						if err != nil { return err }
+						sv.LastStartedAt = ptr.Time(smithytime.ParseEpochSeconds(f64))
+					
+					default:
+						return fmt.Errorf("expected Timestamp to be a JSON Number, got %T instead", value)
+					
 				}
+			}
 			
 			case "lastStatus":
-				if value != nil {
-					jtv, ok := value.(string)
-					if !ok {
-						return fmt.Errorf("expected String to be of type string, got %T instead", value)
-					}
-					sv.LastStatus = ptr.String(jtv)
+			if value != nil {
+				jtv, ok := value.(string)
+				if !ok {
+					return fmt.Errorf("expected String to be of type string, got %T instead", value)
 				}
+				sv.LastStatus = ptr.String(jtv)
+			}
 			
 			case "name":
-				if value != nil {
-					jtv, ok := value.(string)
-					if !ok {
-						return fmt.Errorf("expected ManagedAgentName to be of type string, got %T instead", value)
-					}
-					sv.Name = types.ManagedAgentName(jtv)
+			if value != nil {
+				jtv, ok := value.(string)
+				if !ok {
+					return fmt.Errorf("expected ManagedAgentName to be of type string, got %T instead", value)
 				}
+				sv.Name = types.ManagedAgentName(jtv)
+			}
 			
 			case "reason":
-				if value != nil {
-					jtv, ok := value.(string)
-					if !ok {
-						return fmt.Errorf("expected String to be of type string, got %T instead", value)
-					}
-					sv.Reason = ptr.String(jtv)
+			if value != nil {
+				jtv, ok := value.(string)
+				if !ok {
+					return fmt.Errorf("expected String to be of type string, got %T instead", value)
 				}
+				sv.Reason = ptr.String(jtv)
+			}
 			
 			default:
 				_, _ = key, value
@@ -12689,57 +12689,57 @@ func awsAwsjson11_deserializeDocumentManagedScaling(v **types.ManagedScaling, va
 	for key, value := range shape {
 		switch key {
 			case "instanceWarmupPeriod":
-				if value != nil {
-					jtv, ok := value.(json.Number)
-					if !ok {
-						return fmt.Errorf("expected ManagedScalingInstanceWarmupPeriod to be json.Number, got %T instead", value)
-					}
-					i64, err := jtv.Int64()
-					if err != nil { return err }
-					sv.InstanceWarmupPeriod = ptr.Int32(int32(i64))
+			if value != nil {
+				jtv, ok := value.(json.Number)
+				if !ok {
+					return fmt.Errorf("expected ManagedScalingInstanceWarmupPeriod to be json.Number, got %T instead", value)
 				}
+				i64, err := jtv.Int64()
+				if err != nil { return err }
+				sv.InstanceWarmupPeriod = ptr.Int32(int32(i64))
+			}
 			
 			case "maximumScalingStepSize":
-				if value != nil {
-					jtv, ok := value.(json.Number)
-					if !ok {
-						return fmt.Errorf("expected ManagedScalingStepSize to be json.Number, got %T instead", value)
-					}
-					i64, err := jtv.Int64()
-					if err != nil { return err }
-					sv.MaximumScalingStepSize = ptr.Int32(int32(i64))
+			if value != nil {
+				jtv, ok := value.(json.Number)
+				if !ok {
+					return fmt.Errorf("expected ManagedScalingStepSize to be json.Number, got %T instead", value)
 				}
+				i64, err := jtv.Int64()
+				if err != nil { return err }
+				sv.MaximumScalingStepSize = ptr.Int32(int32(i64))
+			}
 			
 			case "minimumScalingStepSize":
-				if value != nil {
-					jtv, ok := value.(json.Number)
-					if !ok {
-						return fmt.Errorf("expected ManagedScalingStepSize to be json.Number, got %T instead", value)
-					}
-					i64, err := jtv.Int64()
-					if err != nil { return err }
-					sv.MinimumScalingStepSize = ptr.Int32(int32(i64))
+			if value != nil {
+				jtv, ok := value.(json.Number)
+				if !ok {
+					return fmt.Errorf("expected ManagedScalingStepSize to be json.Number, got %T instead", value)
 				}
+				i64, err := jtv.Int64()
+				if err != nil { return err }
+				sv.MinimumScalingStepSize = ptr.Int32(int32(i64))
+			}
 			
 			case "status":
-				if value != nil {
-					jtv, ok := value.(string)
-					if !ok {
-						return fmt.Errorf("expected ManagedScalingStatus to be of type string, got %T instead", value)
-					}
-					sv.Status = types.ManagedScalingStatus(jtv)
+			if value != nil {
+				jtv, ok := value.(string)
+				if !ok {
+					return fmt.Errorf("expected ManagedScalingStatus to be of type string, got %T instead", value)
 				}
+				sv.Status = types.ManagedScalingStatus(jtv)
+			}
 			
 			case "targetCapacity":
-				if value != nil {
-					jtv, ok := value.(json.Number)
-					if !ok {
-						return fmt.Errorf("expected ManagedScalingTargetCapacity to be json.Number, got %T instead", value)
-					}
-					i64, err := jtv.Int64()
-					if err != nil { return err }
-					sv.TargetCapacity = ptr.Int32(int32(i64))
+			if value != nil {
+				jtv, ok := value.(json.Number)
+				if !ok {
+					return fmt.Errorf("expected ManagedScalingTargetCapacity to be json.Number, got %T instead", value)
 				}
+				i64, err := jtv.Int64()
+				if err != nil { return err }
+				sv.TargetCapacity = ptr.Int32(int32(i64))
+			}
 			
 			default:
 				_, _ = key, value
@@ -12773,22 +12773,22 @@ func awsAwsjson11_deserializeDocumentManagedStorageConfiguration(v **types.Manag
 	for key, value := range shape {
 		switch key {
 			case "fargateEphemeralStorageKmsKeyId":
-				if value != nil {
-					jtv, ok := value.(string)
-					if !ok {
-						return fmt.Errorf("expected String to be of type string, got %T instead", value)
-					}
-					sv.FargateEphemeralStorageKmsKeyId = ptr.String(jtv)
+			if value != nil {
+				jtv, ok := value.(string)
+				if !ok {
+					return fmt.Errorf("expected String to be of type string, got %T instead", value)
 				}
+				sv.FargateEphemeralStorageKmsKeyId = ptr.String(jtv)
+			}
 			
 			case "kmsKeyId":
-				if value != nil {
-					jtv, ok := value.(string)
-					if !ok {
-						return fmt.Errorf("expected String to be of type string, got %T instead", value)
-					}
-					sv.KmsKeyId = ptr.String(jtv)
+			if value != nil {
+				jtv, ok := value.(string)
+				if !ok {
+					return fmt.Errorf("expected String to be of type string, got %T instead", value)
 				}
+				sv.KmsKeyId = ptr.String(jtv)
+			}
 			
 			default:
 				_, _ = key, value
@@ -12821,14 +12821,14 @@ func awsAwsjson11_deserializeDocumentMissingVersionException(v **types.MissingVe
 	
 	for key, value := range shape {
 		switch key {
-			case "message":
-				if value != nil {
-					jtv, ok := value.(string)
-					if !ok {
-						return fmt.Errorf("expected String to be of type string, got %T instead", value)
-					}
-					sv.Message = ptr.String(jtv)
+			case "message", "Message":
+			if value != nil {
+				jtv, ok := value.(string)
+				if !ok {
+					return fmt.Errorf("expected String to be of type string, got %T instead", value)
 				}
+				sv.Message = ptr.String(jtv)
+			}
 			
 			default:
 				_, _ = key, value
@@ -12862,31 +12862,31 @@ func awsAwsjson11_deserializeDocumentMountPoint(v **types.MountPoint, value inte
 	for key, value := range shape {
 		switch key {
 			case "containerPath":
-				if value != nil {
-					jtv, ok := value.(string)
-					if !ok {
-						return fmt.Errorf("expected String to be of type string, got %T instead", value)
-					}
-					sv.ContainerPath = ptr.String(jtv)
+			if value != nil {
+				jtv, ok := value.(string)
+				if !ok {
+					return fmt.Errorf("expected String to be of type string, got %T instead", value)
 				}
+				sv.ContainerPath = ptr.String(jtv)
+			}
 			
 			case "readOnly":
-				if value != nil {
-					jtv, ok := value.(bool)
-					if !ok {
-						return fmt.Errorf("expected BoxedBoolean to be of type *bool, got %T instead", value)
-					}
-					sv.ReadOnly = ptr.Bool(jtv)
+			if value != nil {
+				jtv, ok := value.(bool)
+				if !ok {
+					return fmt.Errorf("expected BoxedBoolean to be of type *bool, got %T instead", value)
 				}
+				sv.ReadOnly = ptr.Bool(jtv)
+			}
 			
 			case "sourceVolume":
-				if value != nil {
-					jtv, ok := value.(string)
-					if !ok {
-						return fmt.Errorf("expected String to be of type string, got %T instead", value)
-					}
-					sv.SourceVolume = ptr.String(jtv)
+			if value != nil {
+				jtv, ok := value.(string)
+				if !ok {
+					return fmt.Errorf("expected String to be of type string, got %T instead", value)
 				}
+				sv.SourceVolume = ptr.String(jtv)
+			}
 			
 			default:
 				_, _ = key, value
@@ -12953,14 +12953,14 @@ func awsAwsjson11_deserializeDocumentNamespaceNotFoundException(v **types.Namesp
 	
 	for key, value := range shape {
 		switch key {
-			case "message":
-				if value != nil {
-					jtv, ok := value.(string)
-					if !ok {
-						return fmt.Errorf("expected String to be of type string, got %T instead", value)
-					}
-					sv.Message = ptr.String(jtv)
+			case "message", "Message":
+			if value != nil {
+				jtv, ok := value.(string)
+				if !ok {
+					return fmt.Errorf("expected String to be of type string, got %T instead", value)
 				}
+				sv.Message = ptr.String(jtv)
+			}
 			
 			default:
 				_, _ = key, value
@@ -12994,62 +12994,62 @@ func awsAwsjson11_deserializeDocumentNetworkBinding(v **types.NetworkBinding, va
 	for key, value := range shape {
 		switch key {
 			case "bindIP":
-				if value != nil {
-					jtv, ok := value.(string)
-					if !ok {
-						return fmt.Errorf("expected String to be of type string, got %T instead", value)
-					}
-					sv.BindIP = ptr.String(jtv)
+			if value != nil {
+				jtv, ok := value.(string)
+				if !ok {
+					return fmt.Errorf("expected String to be of type string, got %T instead", value)
 				}
+				sv.BindIP = ptr.String(jtv)
+			}
 			
 			case "containerPort":
-				if value != nil {
-					jtv, ok := value.(json.Number)
-					if !ok {
-						return fmt.Errorf("expected BoxedInteger to be json.Number, got %T instead", value)
-					}
-					i64, err := jtv.Int64()
-					if err != nil { return err }
-					sv.ContainerPort = ptr.Int32(int32(i64))
+			if value != nil {
+				jtv, ok := value.(json.Number)
+				if !ok {
+					return fmt.Errorf("expected BoxedInteger to be json.Number, got %T instead", value)
 				}
+				i64, err := jtv.Int64()
+				if err != nil { return err }
+				sv.ContainerPort = ptr.Int32(int32(i64))
+			}
 			
 			case "containerPortRange":
-				if value != nil {
-					jtv, ok := value.(string)
-					if !ok {
-						return fmt.Errorf("expected String to be of type string, got %T instead", value)
-					}
-					sv.ContainerPortRange = ptr.String(jtv)
+			if value != nil {
+				jtv, ok := value.(string)
+				if !ok {
+					return fmt.Errorf("expected String to be of type string, got %T instead", value)
 				}
+				sv.ContainerPortRange = ptr.String(jtv)
+			}
 			
 			case "hostPort":
-				if value != nil {
-					jtv, ok := value.(json.Number)
-					if !ok {
-						return fmt.Errorf("expected BoxedInteger to be json.Number, got %T instead", value)
-					}
-					i64, err := jtv.Int64()
-					if err != nil { return err }
-					sv.HostPort = ptr.Int32(int32(i64))
+			if value != nil {
+				jtv, ok := value.(json.Number)
+				if !ok {
+					return fmt.Errorf("expected BoxedInteger to be json.Number, got %T instead", value)
 				}
+				i64, err := jtv.Int64()
+				if err != nil { return err }
+				sv.HostPort = ptr.Int32(int32(i64))
+			}
 			
 			case "hostPortRange":
-				if value != nil {
-					jtv, ok := value.(string)
-					if !ok {
-						return fmt.Errorf("expected String to be of type string, got %T instead", value)
-					}
-					sv.HostPortRange = ptr.String(jtv)
+			if value != nil {
+				jtv, ok := value.(string)
+				if !ok {
+					return fmt.Errorf("expected String to be of type string, got %T instead", value)
 				}
+				sv.HostPortRange = ptr.String(jtv)
+			}
 			
 			case "protocol":
-				if value != nil {
-					jtv, ok := value.(string)
-					if !ok {
-						return fmt.Errorf("expected TransportProtocol to be of type string, got %T instead", value)
-					}
-					sv.Protocol = types.TransportProtocol(jtv)
+			if value != nil {
+				jtv, ok := value.(string)
+				if !ok {
+					return fmt.Errorf("expected TransportProtocol to be of type string, got %T instead", value)
 				}
+				sv.Protocol = types.TransportProtocol(jtv)
+			}
 			
 			default:
 				_, _ = key, value
@@ -13117,9 +13117,9 @@ func awsAwsjson11_deserializeDocumentNetworkConfiguration(v **types.NetworkConfi
 	for key, value := range shape {
 		switch key {
 			case "awsvpcConfiguration":
-				if err := awsAwsjson11_deserializeDocumentAwsVpcConfiguration(&sv.AwsvpcConfiguration, value); err != nil {
-					return err
-				}
+			if err := awsAwsjson11_deserializeDocumentAwsVpcConfiguration(&sv.AwsvpcConfiguration, value); err != nil {
+				return err
+			}
 			
 			default:
 				_, _ = key, value
@@ -13153,31 +13153,31 @@ func awsAwsjson11_deserializeDocumentNetworkInterface(v **types.NetworkInterface
 	for key, value := range shape {
 		switch key {
 			case "attachmentId":
-				if value != nil {
-					jtv, ok := value.(string)
-					if !ok {
-						return fmt.Errorf("expected String to be of type string, got %T instead", value)
-					}
-					sv.AttachmentId = ptr.String(jtv)
+			if value != nil {
+				jtv, ok := value.(string)
+				if !ok {
+					return fmt.Errorf("expected String to be of type string, got %T instead", value)
 				}
+				sv.AttachmentId = ptr.String(jtv)
+			}
 			
 			case "ipv6Address":
-				if value != nil {
-					jtv, ok := value.(string)
-					if !ok {
-						return fmt.Errorf("expected String to be of type string, got %T instead", value)
-					}
-					sv.Ipv6Address = ptr.String(jtv)
+			if value != nil {
+				jtv, ok := value.(string)
+				if !ok {
+					return fmt.Errorf("expected String to be of type string, got %T instead", value)
 				}
+				sv.Ipv6Address = ptr.String(jtv)
+			}
 			
 			case "privateIpv4Address":
-				if value != nil {
-					jtv, ok := value.(string)
-					if !ok {
-						return fmt.Errorf("expected String to be of type string, got %T instead", value)
-					}
-					sv.PrivateIpv4Address = ptr.String(jtv)
+			if value != nil {
+				jtv, ok := value.(string)
+				if !ok {
+					return fmt.Errorf("expected String to be of type string, got %T instead", value)
 				}
+				sv.PrivateIpv4Address = ptr.String(jtv)
+			}
 			
 			default:
 				_, _ = key, value
@@ -13244,14 +13244,14 @@ func awsAwsjson11_deserializeDocumentNoUpdateAvailableException(v **types.NoUpda
 	
 	for key, value := range shape {
 		switch key {
-			case "message":
-				if value != nil {
-					jtv, ok := value.(string)
-					if !ok {
-						return fmt.Errorf("expected String to be of type string, got %T instead", value)
-					}
-					sv.Message = ptr.String(jtv)
+			case "message", "Message":
+			if value != nil {
+				jtv, ok := value.(string)
+				if !ok {
+					return fmt.Errorf("expected String to be of type string, got %T instead", value)
 				}
+				sv.Message = ptr.String(jtv)
+			}
 			
 			default:
 				_, _ = key, value
@@ -13285,22 +13285,22 @@ func awsAwsjson11_deserializeDocumentPlacementConstraint(v **types.PlacementCons
 	for key, value := range shape {
 		switch key {
 			case "expression":
-				if value != nil {
-					jtv, ok := value.(string)
-					if !ok {
-						return fmt.Errorf("expected String to be of type string, got %T instead", value)
-					}
-					sv.Expression = ptr.String(jtv)
+			if value != nil {
+				jtv, ok := value.(string)
+				if !ok {
+					return fmt.Errorf("expected String to be of type string, got %T instead", value)
 				}
+				sv.Expression = ptr.String(jtv)
+			}
 			
 			case "type":
-				if value != nil {
-					jtv, ok := value.(string)
-					if !ok {
-						return fmt.Errorf("expected PlacementConstraintType to be of type string, got %T instead", value)
-					}
-					sv.Type = types.PlacementConstraintType(jtv)
+			if value != nil {
+				jtv, ok := value.(string)
+				if !ok {
+					return fmt.Errorf("expected PlacementConstraintType to be of type string, got %T instead", value)
 				}
+				sv.Type = types.PlacementConstraintType(jtv)
+			}
 			
 			default:
 				_, _ = key, value
@@ -13402,22 +13402,22 @@ func awsAwsjson11_deserializeDocumentPlacementStrategy(v **types.PlacementStrate
 	for key, value := range shape {
 		switch key {
 			case "field":
-				if value != nil {
-					jtv, ok := value.(string)
-					if !ok {
-						return fmt.Errorf("expected String to be of type string, got %T instead", value)
-					}
-					sv.Field = ptr.String(jtv)
+			if value != nil {
+				jtv, ok := value.(string)
+				if !ok {
+					return fmt.Errorf("expected String to be of type string, got %T instead", value)
 				}
+				sv.Field = ptr.String(jtv)
+			}
 			
 			case "type":
-				if value != nil {
-					jtv, ok := value.(string)
-					if !ok {
-						return fmt.Errorf("expected PlacementStrategyType to be of type string, got %T instead", value)
-					}
-					sv.Type = types.PlacementStrategyType(jtv)
+			if value != nil {
+				jtv, ok := value.(string)
+				if !ok {
+					return fmt.Errorf("expected PlacementStrategyType to be of type string, got %T instead", value)
 				}
+				sv.Type = types.PlacementStrategyType(jtv)
+			}
 			
 			default:
 				_, _ = key, value
@@ -13450,14 +13450,14 @@ func awsAwsjson11_deserializeDocumentPlatformTaskDefinitionIncompatibilityExcept
 	
 	for key, value := range shape {
 		switch key {
-			case "message":
-				if value != nil {
-					jtv, ok := value.(string)
-					if !ok {
-						return fmt.Errorf("expected String to be of type string, got %T instead", value)
-					}
-					sv.Message = ptr.String(jtv)
+			case "message", "Message":
+			if value != nil {
+				jtv, ok := value.(string)
+				if !ok {
+					return fmt.Errorf("expected String to be of type string, got %T instead", value)
 				}
+				sv.Message = ptr.String(jtv)
+			}
 			
 			default:
 				_, _ = key, value
@@ -13490,14 +13490,14 @@ func awsAwsjson11_deserializeDocumentPlatformUnknownException(v **types.Platform
 	
 	for key, value := range shape {
 		switch key {
-			case "message":
-				if value != nil {
-					jtv, ok := value.(string)
-					if !ok {
-						return fmt.Errorf("expected String to be of type string, got %T instead", value)
-					}
-					sv.Message = ptr.String(jtv)
+			case "message", "Message":
+			if value != nil {
+				jtv, ok := value.(string)
+				if !ok {
+					return fmt.Errorf("expected String to be of type string, got %T instead", value)
 				}
+				sv.Message = ptr.String(jtv)
+			}
 			
 			default:
 				_, _ = key, value
@@ -13531,62 +13531,62 @@ func awsAwsjson11_deserializeDocumentPortMapping(v **types.PortMapping, value in
 	for key, value := range shape {
 		switch key {
 			case "appProtocol":
-				if value != nil {
-					jtv, ok := value.(string)
-					if !ok {
-						return fmt.Errorf("expected ApplicationProtocol to be of type string, got %T instead", value)
-					}
-					sv.AppProtocol = types.ApplicationProtocol(jtv)
+			if value != nil {
+				jtv, ok := value.(string)
+				if !ok {
+					return fmt.Errorf("expected ApplicationProtocol to be of type string, got %T instead", value)
 				}
+				sv.AppProtocol = types.ApplicationProtocol(jtv)
+			}
 			
 			case "containerPort":
-				if value != nil {
-					jtv, ok := value.(json.Number)
-					if !ok {
-						return fmt.Errorf("expected BoxedInteger to be json.Number, got %T instead", value)
-					}
-					i64, err := jtv.Int64()
-					if err != nil { return err }
-					sv.ContainerPort = ptr.Int32(int32(i64))
+			if value != nil {
+				jtv, ok := value.(json.Number)
+				if !ok {
+					return fmt.Errorf("expected BoxedInteger to be json.Number, got %T instead", value)
 				}
+				i64, err := jtv.Int64()
+				if err != nil { return err }
+				sv.ContainerPort = ptr.Int32(int32(i64))
+			}
 			
 			case "containerPortRange":
-				if value != nil {
-					jtv, ok := value.(string)
-					if !ok {
-						return fmt.Errorf("expected String to be of type string, got %T instead", value)
-					}
-					sv.ContainerPortRange = ptr.String(jtv)
+			if value != nil {
+				jtv, ok := value.(string)
+				if !ok {
+					return fmt.Errorf("expected String to be of type string, got %T instead", value)
 				}
+				sv.ContainerPortRange = ptr.String(jtv)
+			}
 			
 			case "hostPort":
-				if value != nil {
-					jtv, ok := value.(json.Number)
-					if !ok {
-						return fmt.Errorf("expected BoxedInteger to be json.Number, got %T instead", value)
-					}
-					i64, err := jtv.Int64()
-					if err != nil { return err }
-					sv.HostPort = ptr.Int32(int32(i64))
+			if value != nil {
+				jtv, ok := value.(json.Number)
+				if !ok {
+					return fmt.Errorf("expected BoxedInteger to be json.Number, got %T instead", value)
 				}
+				i64, err := jtv.Int64()
+				if err != nil { return err }
+				sv.HostPort = ptr.Int32(int32(i64))
+			}
 			
 			case "name":
-				if value != nil {
-					jtv, ok := value.(string)
-					if !ok {
-						return fmt.Errorf("expected String to be of type string, got %T instead", value)
-					}
-					sv.Name = ptr.String(jtv)
+			if value != nil {
+				jtv, ok := value.(string)
+				if !ok {
+					return fmt.Errorf("expected String to be of type string, got %T instead", value)
 				}
+				sv.Name = ptr.String(jtv)
+			}
 			
 			case "protocol":
-				if value != nil {
-					jtv, ok := value.(string)
-					if !ok {
-						return fmt.Errorf("expected TransportProtocol to be of type string, got %T instead", value)
-					}
-					sv.Protocol = types.TransportProtocol(jtv)
+			if value != nil {
+				jtv, ok := value.(string)
+				if !ok {
+					return fmt.Errorf("expected TransportProtocol to be of type string, got %T instead", value)
 				}
+				sv.Protocol = types.TransportProtocol(jtv)
+			}
 			
 			default:
 				_, _ = key, value
@@ -13654,36 +13654,36 @@ func awsAwsjson11_deserializeDocumentProtectedTask(v **types.ProtectedTask, valu
 	for key, value := range shape {
 		switch key {
 			case "expirationDate":
-				if value != nil {
-					switch jtv := value.(type) {
-						case json.Number:
-							f64, err := jtv.Float64()
-							if err != nil { return err }
-							sv.ExpirationDate = ptr.Time(smithytime.ParseEpochSeconds(f64))
-						
-						default:
-							return fmt.Errorf("expected Timestamp to be a JSON Number, got %T instead", value)
-						
-					}
+			if value != nil {
+				switch jtv := value.(type) {
+					case json.Number:
+						f64, err := jtv.Float64()
+						if err != nil { return err }
+						sv.ExpirationDate = ptr.Time(smithytime.ParseEpochSeconds(f64))
+					
+					default:
+						return fmt.Errorf("expected Timestamp to be a JSON Number, got %T instead", value)
+					
 				}
+			}
 			
 			case "protectionEnabled":
-				if value != nil {
-					jtv, ok := value.(bool)
-					if !ok {
-						return fmt.Errorf("expected Boolean to be of type *bool, got %T instead", value)
-					}
-					sv.ProtectionEnabled = jtv
+			if value != nil {
+				jtv, ok := value.(bool)
+				if !ok {
+					return fmt.Errorf("expected Boolean to be of type *bool, got %T instead", value)
 				}
+				sv.ProtectionEnabled = jtv
+			}
 			
 			case "taskArn":
-				if value != nil {
-					jtv, ok := value.(string)
-					if !ok {
-						return fmt.Errorf("expected String to be of type string, got %T instead", value)
-					}
-					sv.TaskArn = ptr.String(jtv)
+			if value != nil {
+				jtv, ok := value.(string)
+				if !ok {
+					return fmt.Errorf("expected String to be of type string, got %T instead", value)
 				}
+				sv.TaskArn = ptr.String(jtv)
+			}
 			
 			default:
 				_, _ = key, value
@@ -13751,27 +13751,27 @@ func awsAwsjson11_deserializeDocumentProxyConfiguration(v **types.ProxyConfigura
 	for key, value := range shape {
 		switch key {
 			case "containerName":
-				if value != nil {
-					jtv, ok := value.(string)
-					if !ok {
-						return fmt.Errorf("expected String to be of type string, got %T instead", value)
-					}
-					sv.ContainerName = ptr.String(jtv)
+			if value != nil {
+				jtv, ok := value.(string)
+				if !ok {
+					return fmt.Errorf("expected String to be of type string, got %T instead", value)
 				}
+				sv.ContainerName = ptr.String(jtv)
+			}
 			
 			case "properties":
-				if err := awsAwsjson11_deserializeDocumentProxyConfigurationProperties(&sv.Properties, value); err != nil {
-					return err
-				}
+			if err := awsAwsjson11_deserializeDocumentProxyConfigurationProperties(&sv.Properties, value); err != nil {
+				return err
+			}
 			
 			case "type":
-				if value != nil {
-					jtv, ok := value.(string)
-					if !ok {
-						return fmt.Errorf("expected ProxyConfigurationType to be of type string, got %T instead", value)
-					}
-					sv.Type = types.ProxyConfigurationType(jtv)
+			if value != nil {
+				jtv, ok := value.(string)
+				if !ok {
+					return fmt.Errorf("expected ProxyConfigurationType to be of type string, got %T instead", value)
 				}
+				sv.Type = types.ProxyConfigurationType(jtv)
+			}
 			
 			default:
 				_, _ = key, value
@@ -13839,13 +13839,13 @@ func awsAwsjson11_deserializeDocumentRepositoryCredentials(v **types.RepositoryC
 	for key, value := range shape {
 		switch key {
 			case "credentialsParameter":
-				if value != nil {
-					jtv, ok := value.(string)
-					if !ok {
-						return fmt.Errorf("expected String to be of type string, got %T instead", value)
-					}
-					sv.CredentialsParameter = ptr.String(jtv)
+			if value != nil {
+				jtv, ok := value.(string)
+				if !ok {
+					return fmt.Errorf("expected String to be of type string, got %T instead", value)
 				}
+				sv.CredentialsParameter = ptr.String(jtv)
+			}
 			
 			default:
 				_, _ = key, value
@@ -13913,81 +13913,81 @@ func awsAwsjson11_deserializeDocumentResource(v **types.Resource, value interfac
 	for key, value := range shape {
 		switch key {
 			case "doubleValue":
-				if value != nil {
-					switch jtv := value.(type) {
-						case json.Number:
-							f64, err := jtv.Float64()
-							if err != nil { return err }
-							sv.DoubleValue = f64
-						
-						case string:
-							var f64 float64
-							switch {
-								case strings.EqualFold(jtv, "NaN"):
-									f64 = math.NaN()
-								
-								case strings.EqualFold(jtv, "Infinity"):
-									f64 = math.Inf(1)
-								
-								case strings.EqualFold(jtv, "-Infinity"):
-									f64 = math.Inf(-1)
-								
-								default:
-									return fmt.Errorf("unknown JSON number value: %s", jtv)
-								
-							}
-							sv.DoubleValue = f64
-						
-						default:
-							return fmt.Errorf("expected Double to be a JSON Number, got %T instead", value)
-						
-					}
+			if value != nil {
+				switch jtv := value.(type) {
+					case json.Number:
+						f64, err := jtv.Float64()
+						if err != nil { return err }
+						sv.DoubleValue = f64
+					
+					case string:
+						var f64 float64
+						switch {
+							case strings.EqualFold(jtv, "NaN"):
+								f64 = math.NaN()
+							
+							case strings.EqualFold(jtv, "Infinity"):
+								f64 = math.Inf(1)
+							
+							case strings.EqualFold(jtv, "-Infinity"):
+								f64 = math.Inf(-1)
+							
+							default:
+								return fmt.Errorf("unknown JSON number value: %s", jtv)
+							
+						}
+						sv.DoubleValue = f64
+					
+					default:
+						return fmt.Errorf("expected Double to be a JSON Number, got %T instead", value)
+					
 				}
+			}
 			
 			case "integerValue":
-				if value != nil {
-					jtv, ok := value.(json.Number)
-					if !ok {
-						return fmt.Errorf("expected Integer to be json.Number, got %T instead", value)
-					}
-					i64, err := jtv.Int64()
-					if err != nil { return err }
-					sv.IntegerValue = int32(i64)
+			if value != nil {
+				jtv, ok := value.(json.Number)
+				if !ok {
+					return fmt.Errorf("expected Integer to be json.Number, got %T instead", value)
 				}
+				i64, err := jtv.Int64()
+				if err != nil { return err }
+				sv.IntegerValue = int32(i64)
+			}
 			
 			case "longValue":
-				if value != nil {
-					jtv, ok := value.(json.Number)
-					if !ok {
-						return fmt.Errorf("expected Long to be json.Number, got %T instead", value)
-					}
-					i64, err := jtv.Int64()
-					if err != nil { return err }
-					sv.LongValue = i64
+			if value != nil {
+				jtv, ok := value.(json.Number)
+				if !ok {
+					return fmt.Errorf("expected Long to be json.Number, got %T instead", value)
 				}
+				i64, err := jtv.Int64()
+				if err != nil { return err }
+				sv.LongValue = i64
+			}
 			
 			case "name":
-				if value != nil {
-					jtv, ok := value.(string)
-					if !ok {
-						return fmt.Errorf("expected String to be of type string, got %T instead", value)
-					}
-					sv.Name = ptr.String(jtv)
+			if value != nil {
+				jtv, ok := value.(string)
+				if !ok {
+					return fmt.Errorf("expected String to be of type string, got %T instead", value)
 				}
+				sv.Name = ptr.String(jtv)
+			}
 			
 			case "stringSetValue":
-				if err := awsAwsjson11_deserializeDocumentStringList(&sv.StringSetValue, value); err != nil {
-					return err
-				}
+			if err := awsAwsjson11_deserializeDocumentStringList(&sv.StringSetValue, value); err != nil {
+				return err
+			}
 			
 			case "type":
-				if value != nil {
-					jtv, ok := value.(string)
-					if !ok {
-						return fmt.Errorf("expected String to be of type string, got %T instead", value)
-					}
-					sv.Type = ptr.String(jtv)
+			if value != nil {
+				jtv, ok := value.(string)
+				if !ok {
+					return fmt.Errorf("expected String to be of type string, got %T instead", value)
 				}
+				sv.Type = ptr.String(jtv)
+			}
 			
 			default:
 				_, _ = key, value
@@ -14056,14 +14056,14 @@ func awsAwsjson11_deserializeDocumentResourceInUseException(v **types.ResourceIn
 	
 	for key, value := range shape {
 		switch key {
-			case "message":
-				if value != nil {
-					jtv, ok := value.(string)
-					if !ok {
-						return fmt.Errorf("expected String to be of type string, got %T instead", value)
-					}
-					sv.Message = ptr.String(jtv)
+			case "message", "Message":
+			if value != nil {
+				jtv, ok := value.(string)
+				if !ok {
+					return fmt.Errorf("expected String to be of type string, got %T instead", value)
 				}
+				sv.Message = ptr.String(jtv)
+			}
 			
 			default:
 				_, _ = key, value
@@ -14096,14 +14096,14 @@ func awsAwsjson11_deserializeDocumentResourceNotFoundException(v **types.Resourc
 	
 	for key, value := range shape {
 		switch key {
-			case "message":
-				if value != nil {
-					jtv, ok := value.(string)
-					if !ok {
-						return fmt.Errorf("expected String to be of type string, got %T instead", value)
-					}
-					sv.Message = ptr.String(jtv)
+			case "message", "Message":
+			if value != nil {
+				jtv, ok := value.(string)
+				if !ok {
+					return fmt.Errorf("expected String to be of type string, got %T instead", value)
 				}
+				sv.Message = ptr.String(jtv)
+			}
 			
 			default:
 				_, _ = key, value
@@ -14137,22 +14137,22 @@ func awsAwsjson11_deserializeDocumentResourceRequirement(v **types.ResourceRequi
 	for key, value := range shape {
 		switch key {
 			case "type":
-				if value != nil {
-					jtv, ok := value.(string)
-					if !ok {
-						return fmt.Errorf("expected ResourceType to be of type string, got %T instead", value)
-					}
-					sv.Type = types.ResourceType(jtv)
+			if value != nil {
+				jtv, ok := value.(string)
+				if !ok {
+					return fmt.Errorf("expected ResourceType to be of type string, got %T instead", value)
 				}
+				sv.Type = types.ResourceType(jtv)
+			}
 			
 			case "value":
-				if value != nil {
-					jtv, ok := value.(string)
-					if !ok {
-						return fmt.Errorf("expected String to be of type string, got %T instead", value)
-					}
-					sv.Value = ptr.String(jtv)
+			if value != nil {
+				jtv, ok := value.(string)
+				if !ok {
+					return fmt.Errorf("expected String to be of type string, got %T instead", value)
 				}
+				sv.Value = ptr.String(jtv)
+			}
 			
 			default:
 				_, _ = key, value
@@ -14254,22 +14254,22 @@ func awsAwsjson11_deserializeDocumentRuntimePlatform(v **types.RuntimePlatform, 
 	for key, value := range shape {
 		switch key {
 			case "cpuArchitecture":
-				if value != nil {
-					jtv, ok := value.(string)
-					if !ok {
-						return fmt.Errorf("expected CPUArchitecture to be of type string, got %T instead", value)
-					}
-					sv.CpuArchitecture = types.CPUArchitecture(jtv)
+			if value != nil {
+				jtv, ok := value.(string)
+				if !ok {
+					return fmt.Errorf("expected CPUArchitecture to be of type string, got %T instead", value)
 				}
+				sv.CpuArchitecture = types.CPUArchitecture(jtv)
+			}
 			
 			case "operatingSystemFamily":
-				if value != nil {
-					jtv, ok := value.(string)
-					if !ok {
-						return fmt.Errorf("expected OSFamily to be of type string, got %T instead", value)
-					}
-					sv.OperatingSystemFamily = types.OSFamily(jtv)
+			if value != nil {
+				jtv, ok := value.(string)
+				if !ok {
+					return fmt.Errorf("expected OSFamily to be of type string, got %T instead", value)
 				}
+				sv.OperatingSystemFamily = types.OSFamily(jtv)
+			}
 			
 			default:
 				_, _ = key, value
@@ -14303,45 +14303,45 @@ func awsAwsjson11_deserializeDocumentScale(v **types.Scale, value interface{}) e
 	for key, value := range shape {
 		switch key {
 			case "unit":
-				if value != nil {
-					jtv, ok := value.(string)
-					if !ok {
-						return fmt.Errorf("expected ScaleUnit to be of type string, got %T instead", value)
-					}
-					sv.Unit = types.ScaleUnit(jtv)
+			if value != nil {
+				jtv, ok := value.(string)
+				if !ok {
+					return fmt.Errorf("expected ScaleUnit to be of type string, got %T instead", value)
 				}
+				sv.Unit = types.ScaleUnit(jtv)
+			}
 			
 			case "value":
-				if value != nil {
-					switch jtv := value.(type) {
-						case json.Number:
-							f64, err := jtv.Float64()
-							if err != nil { return err }
-							sv.Value = f64
-						
-						case string:
-							var f64 float64
-							switch {
-								case strings.EqualFold(jtv, "NaN"):
-									f64 = math.NaN()
-								
-								case strings.EqualFold(jtv, "Infinity"):
-									f64 = math.Inf(1)
-								
-								case strings.EqualFold(jtv, "-Infinity"):
-									f64 = math.Inf(-1)
-								
-								default:
-									return fmt.Errorf("unknown JSON number value: %s", jtv)
-								
-							}
-							sv.Value = f64
-						
-						default:
-							return fmt.Errorf("expected Double to be a JSON Number, got %T instead", value)
-						
-					}
+			if value != nil {
+				switch jtv := value.(type) {
+					case json.Number:
+						f64, err := jtv.Float64()
+						if err != nil { return err }
+						sv.Value = f64
+					
+					case string:
+						var f64 float64
+						switch {
+							case strings.EqualFold(jtv, "NaN"):
+								f64 = math.NaN()
+							
+							case strings.EqualFold(jtv, "Infinity"):
+								f64 = math.Inf(1)
+							
+							case strings.EqualFold(jtv, "-Infinity"):
+								f64 = math.Inf(-1)
+							
+							default:
+								return fmt.Errorf("unknown JSON number value: %s", jtv)
+							
+						}
+						sv.Value = f64
+					
+					default:
+						return fmt.Errorf("expected Double to be a JSON Number, got %T instead", value)
+					
 				}
+			}
 			
 			default:
 				_, _ = key, value
@@ -14375,22 +14375,22 @@ func awsAwsjson11_deserializeDocumentSecret(v **types.Secret, value interface{})
 	for key, value := range shape {
 		switch key {
 			case "name":
-				if value != nil {
-					jtv, ok := value.(string)
-					if !ok {
-						return fmt.Errorf("expected String to be of type string, got %T instead", value)
-					}
-					sv.Name = ptr.String(jtv)
+			if value != nil {
+				jtv, ok := value.(string)
+				if !ok {
+					return fmt.Errorf("expected String to be of type string, got %T instead", value)
 				}
+				sv.Name = ptr.String(jtv)
+			}
 			
 			case "valueFrom":
-				if value != nil {
-					jtv, ok := value.(string)
-					if !ok {
-						return fmt.Errorf("expected String to be of type string, got %T instead", value)
-					}
-					sv.ValueFrom = ptr.String(jtv)
+			if value != nil {
+				jtv, ok := value.(string)
+				if !ok {
+					return fmt.Errorf("expected String to be of type string, got %T instead", value)
 				}
+				sv.ValueFrom = ptr.String(jtv)
+			}
 			
 			default:
 				_, _ = key, value
@@ -14457,14 +14457,14 @@ func awsAwsjson11_deserializeDocumentServerException(v **types.ServerException, 
 	
 	for key, value := range shape {
 		switch key {
-			case "message":
-				if value != nil {
-					jtv, ok := value.(string)
-					if !ok {
-						return fmt.Errorf("expected String to be of type string, got %T instead", value)
-					}
-					sv.Message = ptr.String(jtv)
+			case "message", "Message":
+			if value != nil {
+				jtv, ok := value.(string)
+				if !ok {
+					return fmt.Errorf("expected String to be of type string, got %T instead", value)
 				}
+				sv.Message = ptr.String(jtv)
+			}
 			
 			default:
 				_, _ = key, value
@@ -14498,248 +14498,248 @@ func awsAwsjson11_deserializeDocumentService(v **types.Service, value interface{
 	for key, value := range shape {
 		switch key {
 			case "capacityProviderStrategy":
-				if err := awsAwsjson11_deserializeDocumentCapacityProviderStrategy(&sv.CapacityProviderStrategy, value); err != nil {
-					return err
-				}
+			if err := awsAwsjson11_deserializeDocumentCapacityProviderStrategy(&sv.CapacityProviderStrategy, value); err != nil {
+				return err
+			}
 			
 			case "clusterArn":
-				if value != nil {
-					jtv, ok := value.(string)
-					if !ok {
-						return fmt.Errorf("expected String to be of type string, got %T instead", value)
-					}
-					sv.ClusterArn = ptr.String(jtv)
+			if value != nil {
+				jtv, ok := value.(string)
+				if !ok {
+					return fmt.Errorf("expected String to be of type string, got %T instead", value)
 				}
+				sv.ClusterArn = ptr.String(jtv)
+			}
 			
 			case "createdAt":
-				if value != nil {
-					switch jtv := value.(type) {
-						case json.Number:
-							f64, err := jtv.Float64()
-							if err != nil { return err }
-							sv.CreatedAt = ptr.Time(smithytime.ParseEpochSeconds(f64))
-						
-						default:
-							return fmt.Errorf("expected Timestamp to be a JSON Number, got %T instead", value)
-						
-					}
+			if value != nil {
+				switch jtv := value.(type) {
+					case json.Number:
+						f64, err := jtv.Float64()
+						if err != nil { return err }
+						sv.CreatedAt = ptr.Time(smithytime.ParseEpochSeconds(f64))
+					
+					default:
+						return fmt.Errorf("expected Timestamp to be a JSON Number, got %T instead", value)
+					
 				}
+			}
 			
 			case "createdBy":
-				if value != nil {
-					jtv, ok := value.(string)
-					if !ok {
-						return fmt.Errorf("expected String to be of type string, got %T instead", value)
-					}
-					sv.CreatedBy = ptr.String(jtv)
+			if value != nil {
+				jtv, ok := value.(string)
+				if !ok {
+					return fmt.Errorf("expected String to be of type string, got %T instead", value)
 				}
+				sv.CreatedBy = ptr.String(jtv)
+			}
 			
 			case "deploymentConfiguration":
-				if err := awsAwsjson11_deserializeDocumentDeploymentConfiguration(&sv.DeploymentConfiguration, value); err != nil {
-					return err
-				}
+			if err := awsAwsjson11_deserializeDocumentDeploymentConfiguration(&sv.DeploymentConfiguration, value); err != nil {
+				return err
+			}
 			
 			case "deploymentController":
-				if err := awsAwsjson11_deserializeDocumentDeploymentController(&sv.DeploymentController, value); err != nil {
-					return err
-				}
+			if err := awsAwsjson11_deserializeDocumentDeploymentController(&sv.DeploymentController, value); err != nil {
+				return err
+			}
 			
 			case "deployments":
-				if err := awsAwsjson11_deserializeDocumentDeployments(&sv.Deployments, value); err != nil {
-					return err
-				}
+			if err := awsAwsjson11_deserializeDocumentDeployments(&sv.Deployments, value); err != nil {
+				return err
+			}
 			
 			case "desiredCount":
-				if value != nil {
-					jtv, ok := value.(json.Number)
-					if !ok {
-						return fmt.Errorf("expected Integer to be json.Number, got %T instead", value)
-					}
-					i64, err := jtv.Int64()
-					if err != nil { return err }
-					sv.DesiredCount = int32(i64)
+			if value != nil {
+				jtv, ok := value.(json.Number)
+				if !ok {
+					return fmt.Errorf("expected Integer to be json.Number, got %T instead", value)
 				}
+				i64, err := jtv.Int64()
+				if err != nil { return err }
+				sv.DesiredCount = int32(i64)
+			}
 			
 			case "enableECSManagedTags":
-				if value != nil {
-					jtv, ok := value.(bool)
-					if !ok {
-						return fmt.Errorf("expected Boolean to be of type *bool, got %T instead", value)
-					}
-					sv.EnableECSManagedTags = jtv
+			if value != nil {
+				jtv, ok := value.(bool)
+				if !ok {
+					return fmt.Errorf("expected Boolean to be of type *bool, got %T instead", value)
 				}
+				sv.EnableECSManagedTags = jtv
+			}
 			
 			case "enableExecuteCommand":
-				if value != nil {
-					jtv, ok := value.(bool)
-					if !ok {
-						return fmt.Errorf("expected Boolean to be of type *bool, got %T instead", value)
-					}
-					sv.EnableExecuteCommand = jtv
+			if value != nil {
+				jtv, ok := value.(bool)
+				if !ok {
+					return fmt.Errorf("expected Boolean to be of type *bool, got %T instead", value)
 				}
+				sv.EnableExecuteCommand = jtv
+			}
 			
 			case "events":
-				if err := awsAwsjson11_deserializeDocumentServiceEvents(&sv.Events, value); err != nil {
-					return err
-				}
+			if err := awsAwsjson11_deserializeDocumentServiceEvents(&sv.Events, value); err != nil {
+				return err
+			}
 			
 			case "healthCheckGracePeriodSeconds":
-				if value != nil {
-					jtv, ok := value.(json.Number)
-					if !ok {
-						return fmt.Errorf("expected BoxedInteger to be json.Number, got %T instead", value)
-					}
-					i64, err := jtv.Int64()
-					if err != nil { return err }
-					sv.HealthCheckGracePeriodSeconds = ptr.Int32(int32(i64))
+			if value != nil {
+				jtv, ok := value.(json.Number)
+				if !ok {
+					return fmt.Errorf("expected BoxedInteger to be json.Number, got %T instead", value)
 				}
+				i64, err := jtv.Int64()
+				if err != nil { return err }
+				sv.HealthCheckGracePeriodSeconds = ptr.Int32(int32(i64))
+			}
 			
 			case "launchType":
-				if value != nil {
-					jtv, ok := value.(string)
-					if !ok {
-						return fmt.Errorf("expected LaunchType to be of type string, got %T instead", value)
-					}
-					sv.LaunchType = types.LaunchType(jtv)
+			if value != nil {
+				jtv, ok := value.(string)
+				if !ok {
+					return fmt.Errorf("expected LaunchType to be of type string, got %T instead", value)
 				}
+				sv.LaunchType = types.LaunchType(jtv)
+			}
 			
 			case "loadBalancers":
-				if err := awsAwsjson11_deserializeDocumentLoadBalancers(&sv.LoadBalancers, value); err != nil {
-					return err
-				}
+			if err := awsAwsjson11_deserializeDocumentLoadBalancers(&sv.LoadBalancers, value); err != nil {
+				return err
+			}
 			
 			case "networkConfiguration":
-				if err := awsAwsjson11_deserializeDocumentNetworkConfiguration(&sv.NetworkConfiguration, value); err != nil {
-					return err
-				}
+			if err := awsAwsjson11_deserializeDocumentNetworkConfiguration(&sv.NetworkConfiguration, value); err != nil {
+				return err
+			}
 			
 			case "pendingCount":
-				if value != nil {
-					jtv, ok := value.(json.Number)
-					if !ok {
-						return fmt.Errorf("expected Integer to be json.Number, got %T instead", value)
-					}
-					i64, err := jtv.Int64()
-					if err != nil { return err }
-					sv.PendingCount = int32(i64)
+			if value != nil {
+				jtv, ok := value.(json.Number)
+				if !ok {
+					return fmt.Errorf("expected Integer to be json.Number, got %T instead", value)
 				}
+				i64, err := jtv.Int64()
+				if err != nil { return err }
+				sv.PendingCount = int32(i64)
+			}
 			
 			case "placementConstraints":
-				if err := awsAwsjson11_deserializeDocumentPlacementConstraints(&sv.PlacementConstraints, value); err != nil {
-					return err
-				}
+			if err := awsAwsjson11_deserializeDocumentPlacementConstraints(&sv.PlacementConstraints, value); err != nil {
+				return err
+			}
 			
 			case "placementStrategy":
-				if err := awsAwsjson11_deserializeDocumentPlacementStrategies(&sv.PlacementStrategy, value); err != nil {
-					return err
-				}
+			if err := awsAwsjson11_deserializeDocumentPlacementStrategies(&sv.PlacementStrategy, value); err != nil {
+				return err
+			}
 			
 			case "platformFamily":
-				if value != nil {
-					jtv, ok := value.(string)
-					if !ok {
-						return fmt.Errorf("expected String to be of type string, got %T instead", value)
-					}
-					sv.PlatformFamily = ptr.String(jtv)
+			if value != nil {
+				jtv, ok := value.(string)
+				if !ok {
+					return fmt.Errorf("expected String to be of type string, got %T instead", value)
 				}
+				sv.PlatformFamily = ptr.String(jtv)
+			}
 			
 			case "platformVersion":
-				if value != nil {
-					jtv, ok := value.(string)
-					if !ok {
-						return fmt.Errorf("expected String to be of type string, got %T instead", value)
-					}
-					sv.PlatformVersion = ptr.String(jtv)
+			if value != nil {
+				jtv, ok := value.(string)
+				if !ok {
+					return fmt.Errorf("expected String to be of type string, got %T instead", value)
 				}
+				sv.PlatformVersion = ptr.String(jtv)
+			}
 			
 			case "propagateTags":
-				if value != nil {
-					jtv, ok := value.(string)
-					if !ok {
-						return fmt.Errorf("expected PropagateTags to be of type string, got %T instead", value)
-					}
-					sv.PropagateTags = types.PropagateTags(jtv)
+			if value != nil {
+				jtv, ok := value.(string)
+				if !ok {
+					return fmt.Errorf("expected PropagateTags to be of type string, got %T instead", value)
 				}
+				sv.PropagateTags = types.PropagateTags(jtv)
+			}
 			
 			case "roleArn":
-				if value != nil {
-					jtv, ok := value.(string)
-					if !ok {
-						return fmt.Errorf("expected String to be of type string, got %T instead", value)
-					}
-					sv.RoleArn = ptr.String(jtv)
+			if value != nil {
+				jtv, ok := value.(string)
+				if !ok {
+					return fmt.Errorf("expected String to be of type string, got %T instead", value)
 				}
+				sv.RoleArn = ptr.String(jtv)
+			}
 			
 			case "runningCount":
-				if value != nil {
-					jtv, ok := value.(json.Number)
-					if !ok {
-						return fmt.Errorf("expected Integer to be json.Number, got %T instead", value)
-					}
-					i64, err := jtv.Int64()
-					if err != nil { return err }
-					sv.RunningCount = int32(i64)
+			if value != nil {
+				jtv, ok := value.(json.Number)
+				if !ok {
+					return fmt.Errorf("expected Integer to be json.Number, got %T instead", value)
 				}
+				i64, err := jtv.Int64()
+				if err != nil { return err }
+				sv.RunningCount = int32(i64)
+			}
 			
 			case "schedulingStrategy":
-				if value != nil {
-					jtv, ok := value.(string)
-					if !ok {
-						return fmt.Errorf("expected SchedulingStrategy to be of type string, got %T instead", value)
-					}
-					sv.SchedulingStrategy = types.SchedulingStrategy(jtv)
+			if value != nil {
+				jtv, ok := value.(string)
+				if !ok {
+					return fmt.Errorf("expected SchedulingStrategy to be of type string, got %T instead", value)
 				}
+				sv.SchedulingStrategy = types.SchedulingStrategy(jtv)
+			}
 			
 			case "serviceArn":
-				if value != nil {
-					jtv, ok := value.(string)
-					if !ok {
-						return fmt.Errorf("expected String to be of type string, got %T instead", value)
-					}
-					sv.ServiceArn = ptr.String(jtv)
+			if value != nil {
+				jtv, ok := value.(string)
+				if !ok {
+					return fmt.Errorf("expected String to be of type string, got %T instead", value)
 				}
+				sv.ServiceArn = ptr.String(jtv)
+			}
 			
 			case "serviceName":
-				if value != nil {
-					jtv, ok := value.(string)
-					if !ok {
-						return fmt.Errorf("expected String to be of type string, got %T instead", value)
-					}
-					sv.ServiceName = ptr.String(jtv)
+			if value != nil {
+				jtv, ok := value.(string)
+				if !ok {
+					return fmt.Errorf("expected String to be of type string, got %T instead", value)
 				}
+				sv.ServiceName = ptr.String(jtv)
+			}
 			
 			case "serviceRegistries":
-				if err := awsAwsjson11_deserializeDocumentServiceRegistries(&sv.ServiceRegistries, value); err != nil {
-					return err
-				}
+			if err := awsAwsjson11_deserializeDocumentServiceRegistries(&sv.ServiceRegistries, value); err != nil {
+				return err
+			}
 			
 			case "status":
-				if value != nil {
-					jtv, ok := value.(string)
-					if !ok {
-						return fmt.Errorf("expected String to be of type string, got %T instead", value)
-					}
-					sv.Status = ptr.String(jtv)
+			if value != nil {
+				jtv, ok := value.(string)
+				if !ok {
+					return fmt.Errorf("expected String to be of type string, got %T instead", value)
 				}
+				sv.Status = ptr.String(jtv)
+			}
 			
 			case "tags":
-				if err := awsAwsjson11_deserializeDocumentTags(&sv.Tags, value); err != nil {
-					return err
-				}
+			if err := awsAwsjson11_deserializeDocumentTags(&sv.Tags, value); err != nil {
+				return err
+			}
 			
 			case "taskDefinition":
-				if value != nil {
-					jtv, ok := value.(string)
-					if !ok {
-						return fmt.Errorf("expected String to be of type string, got %T instead", value)
-					}
-					sv.TaskDefinition = ptr.String(jtv)
+			if value != nil {
+				jtv, ok := value.(string)
+				if !ok {
+					return fmt.Errorf("expected String to be of type string, got %T instead", value)
 				}
+				sv.TaskDefinition = ptr.String(jtv)
+			}
 			
 			case "taskSets":
-				if err := awsAwsjson11_deserializeDocumentTaskSets(&sv.TaskSets, value); err != nil {
-					return err
-				}
+			if err := awsAwsjson11_deserializeDocumentTaskSets(&sv.TaskSets, value); err != nil {
+				return err
+			}
 			
 			default:
 				_, _ = key, value
@@ -14773,24 +14773,24 @@ func awsAwsjson11_deserializeDocumentServiceConnectClientAlias(v **types.Service
 	for key, value := range shape {
 		switch key {
 			case "dnsName":
-				if value != nil {
-					jtv, ok := value.(string)
-					if !ok {
-						return fmt.Errorf("expected String to be of type string, got %T instead", value)
-					}
-					sv.DnsName = ptr.String(jtv)
+			if value != nil {
+				jtv, ok := value.(string)
+				if !ok {
+					return fmt.Errorf("expected String to be of type string, got %T instead", value)
 				}
+				sv.DnsName = ptr.String(jtv)
+			}
 			
 			case "port":
-				if value != nil {
-					jtv, ok := value.(json.Number)
-					if !ok {
-						return fmt.Errorf("expected PortNumber to be json.Number, got %T instead", value)
-					}
-					i64, err := jtv.Int64()
-					if err != nil { return err }
-					sv.Port = ptr.Int32(int32(i64))
+			if value != nil {
+				jtv, ok := value.(json.Number)
+				if !ok {
+					return fmt.Errorf("expected PortNumber to be json.Number, got %T instead", value)
 				}
+				i64, err := jtv.Int64()
+				if err != nil { return err }
+				sv.Port = ptr.Int32(int32(i64))
+			}
 			
 			default:
 				_, _ = key, value
@@ -14858,32 +14858,32 @@ func awsAwsjson11_deserializeDocumentServiceConnectConfiguration(v **types.Servi
 	for key, value := range shape {
 		switch key {
 			case "enabled":
-				if value != nil {
-					jtv, ok := value.(bool)
-					if !ok {
-						return fmt.Errorf("expected Boolean to be of type *bool, got %T instead", value)
-					}
-					sv.Enabled = jtv
+			if value != nil {
+				jtv, ok := value.(bool)
+				if !ok {
+					return fmt.Errorf("expected Boolean to be of type *bool, got %T instead", value)
 				}
+				sv.Enabled = jtv
+			}
 			
 			case "logConfiguration":
-				if err := awsAwsjson11_deserializeDocumentLogConfiguration(&sv.LogConfiguration, value); err != nil {
-					return err
-				}
+			if err := awsAwsjson11_deserializeDocumentLogConfiguration(&sv.LogConfiguration, value); err != nil {
+				return err
+			}
 			
 			case "namespace":
-				if value != nil {
-					jtv, ok := value.(string)
-					if !ok {
-						return fmt.Errorf("expected String to be of type string, got %T instead", value)
-					}
-					sv.Namespace = ptr.String(jtv)
+			if value != nil {
+				jtv, ok := value.(string)
+				if !ok {
+					return fmt.Errorf("expected String to be of type string, got %T instead", value)
 				}
+				sv.Namespace = ptr.String(jtv)
+			}
 			
 			case "services":
-				if err := awsAwsjson11_deserializeDocumentServiceConnectServiceList(&sv.Services, value); err != nil {
-					return err
-				}
+			if err := awsAwsjson11_deserializeDocumentServiceConnectServiceList(&sv.Services, value); err != nil {
+				return err
+			}
 			
 			default:
 				_, _ = key, value
@@ -14917,48 +14917,48 @@ func awsAwsjson11_deserializeDocumentServiceConnectService(v **types.ServiceConn
 	for key, value := range shape {
 		switch key {
 			case "clientAliases":
-				if err := awsAwsjson11_deserializeDocumentServiceConnectClientAliasList(&sv.ClientAliases, value); err != nil {
-					return err
-				}
+			if err := awsAwsjson11_deserializeDocumentServiceConnectClientAliasList(&sv.ClientAliases, value); err != nil {
+				return err
+			}
 			
 			case "discoveryName":
-				if value != nil {
-					jtv, ok := value.(string)
-					if !ok {
-						return fmt.Errorf("expected String to be of type string, got %T instead", value)
-					}
-					sv.DiscoveryName = ptr.String(jtv)
+			if value != nil {
+				jtv, ok := value.(string)
+				if !ok {
+					return fmt.Errorf("expected String to be of type string, got %T instead", value)
 				}
+				sv.DiscoveryName = ptr.String(jtv)
+			}
 			
 			case "ingressPortOverride":
-				if value != nil {
-					jtv, ok := value.(json.Number)
-					if !ok {
-						return fmt.Errorf("expected PortNumber to be json.Number, got %T instead", value)
-					}
-					i64, err := jtv.Int64()
-					if err != nil { return err }
-					sv.IngressPortOverride = ptr.Int32(int32(i64))
+			if value != nil {
+				jtv, ok := value.(json.Number)
+				if !ok {
+					return fmt.Errorf("expected PortNumber to be json.Number, got %T instead", value)
 				}
+				i64, err := jtv.Int64()
+				if err != nil { return err }
+				sv.IngressPortOverride = ptr.Int32(int32(i64))
+			}
 			
 			case "portName":
-				if value != nil {
-					jtv, ok := value.(string)
-					if !ok {
-						return fmt.Errorf("expected String to be of type string, got %T instead", value)
-					}
-					sv.PortName = ptr.String(jtv)
+			if value != nil {
+				jtv, ok := value.(string)
+				if !ok {
+					return fmt.Errorf("expected String to be of type string, got %T instead", value)
 				}
+				sv.PortName = ptr.String(jtv)
+			}
 			
 			case "timeout":
-				if err := awsAwsjson11_deserializeDocumentTimeoutConfiguration(&sv.Timeout, value); err != nil {
-					return err
-				}
+			if err := awsAwsjson11_deserializeDocumentTimeoutConfiguration(&sv.Timeout, value); err != nil {
+				return err
+			}
 			
 			case "tls":
-				if err := awsAwsjson11_deserializeDocumentServiceConnectTlsConfiguration(&sv.Tls, value); err != nil {
-					return err
-				}
+			if err := awsAwsjson11_deserializeDocumentServiceConnectTlsConfiguration(&sv.Tls, value); err != nil {
+				return err
+			}
 			
 			default:
 				_, _ = key, value
@@ -15026,22 +15026,22 @@ func awsAwsjson11_deserializeDocumentServiceConnectServiceResource(v **types.Ser
 	for key, value := range shape {
 		switch key {
 			case "discoveryArn":
-				if value != nil {
-					jtv, ok := value.(string)
-					if !ok {
-						return fmt.Errorf("expected String to be of type string, got %T instead", value)
-					}
-					sv.DiscoveryArn = ptr.String(jtv)
+			if value != nil {
+				jtv, ok := value.(string)
+				if !ok {
+					return fmt.Errorf("expected String to be of type string, got %T instead", value)
 				}
+				sv.DiscoveryArn = ptr.String(jtv)
+			}
 			
 			case "discoveryName":
-				if value != nil {
-					jtv, ok := value.(string)
-					if !ok {
-						return fmt.Errorf("expected String to be of type string, got %T instead", value)
-					}
-					sv.DiscoveryName = ptr.String(jtv)
+			if value != nil {
+				jtv, ok := value.(string)
+				if !ok {
+					return fmt.Errorf("expected String to be of type string, got %T instead", value)
 				}
+				sv.DiscoveryName = ptr.String(jtv)
+			}
 			
 			default:
 				_, _ = key, value
@@ -15109,13 +15109,13 @@ func awsAwsjson11_deserializeDocumentServiceConnectTlsCertificateAuthority(v **t
 	for key, value := range shape {
 		switch key {
 			case "awsPcaAuthorityArn":
-				if value != nil {
-					jtv, ok := value.(string)
-					if !ok {
-						return fmt.Errorf("expected String to be of type string, got %T instead", value)
-					}
-					sv.AwsPcaAuthorityArn = ptr.String(jtv)
+			if value != nil {
+				jtv, ok := value.(string)
+				if !ok {
+					return fmt.Errorf("expected String to be of type string, got %T instead", value)
 				}
+				sv.AwsPcaAuthorityArn = ptr.String(jtv)
+			}
 			
 			default:
 				_, _ = key, value
@@ -15149,27 +15149,27 @@ func awsAwsjson11_deserializeDocumentServiceConnectTlsConfiguration(v **types.Se
 	for key, value := range shape {
 		switch key {
 			case "issuerCertificateAuthority":
-				if err := awsAwsjson11_deserializeDocumentServiceConnectTlsCertificateAuthority(&sv.IssuerCertificateAuthority, value); err != nil {
-					return err
-				}
+			if err := awsAwsjson11_deserializeDocumentServiceConnectTlsCertificateAuthority(&sv.IssuerCertificateAuthority, value); err != nil {
+				return err
+			}
 			
 			case "kmsKey":
-				if value != nil {
-					jtv, ok := value.(string)
-					if !ok {
-						return fmt.Errorf("expected String to be of type string, got %T instead", value)
-					}
-					sv.KmsKey = ptr.String(jtv)
+			if value != nil {
+				jtv, ok := value.(string)
+				if !ok {
+					return fmt.Errorf("expected String to be of type string, got %T instead", value)
 				}
+				sv.KmsKey = ptr.String(jtv)
+			}
 			
 			case "roleArn":
-				if value != nil {
-					jtv, ok := value.(string)
-					if !ok {
-						return fmt.Errorf("expected String to be of type string, got %T instead", value)
-					}
-					sv.RoleArn = ptr.String(jtv)
+			if value != nil {
+				jtv, ok := value.(string)
+				if !ok {
+					return fmt.Errorf("expected String to be of type string, got %T instead", value)
 				}
+				sv.RoleArn = ptr.String(jtv)
+			}
 			
 			default:
 				_, _ = key, value
@@ -15203,36 +15203,36 @@ func awsAwsjson11_deserializeDocumentServiceEvent(v **types.ServiceEvent, value 
 	for key, value := range shape {
 		switch key {
 			case "createdAt":
-				if value != nil {
-					switch jtv := value.(type) {
-						case json.Number:
-							f64, err := jtv.Float64()
-							if err != nil { return err }
-							sv.CreatedAt = ptr.Time(smithytime.ParseEpochSeconds(f64))
-						
-						default:
-							return fmt.Errorf("expected Timestamp to be a JSON Number, got %T instead", value)
-						
-					}
+			if value != nil {
+				switch jtv := value.(type) {
+					case json.Number:
+						f64, err := jtv.Float64()
+						if err != nil { return err }
+						sv.CreatedAt = ptr.Time(smithytime.ParseEpochSeconds(f64))
+					
+					default:
+						return fmt.Errorf("expected Timestamp to be a JSON Number, got %T instead", value)
+					
 				}
+			}
 			
 			case "id":
-				if value != nil {
-					jtv, ok := value.(string)
-					if !ok {
-						return fmt.Errorf("expected String to be of type string, got %T instead", value)
-					}
-					sv.Id = ptr.String(jtv)
+			if value != nil {
+				jtv, ok := value.(string)
+				if !ok {
+					return fmt.Errorf("expected String to be of type string, got %T instead", value)
 				}
+				sv.Id = ptr.String(jtv)
+			}
 			
 			case "message":
-				if value != nil {
-					jtv, ok := value.(string)
-					if !ok {
-						return fmt.Errorf("expected String to be of type string, got %T instead", value)
-					}
-					sv.Message = ptr.String(jtv)
+			if value != nil {
+				jtv, ok := value.(string)
+				if !ok {
+					return fmt.Errorf("expected String to be of type string, got %T instead", value)
 				}
+				sv.Message = ptr.String(jtv)
+			}
 			
 			default:
 				_, _ = key, value
@@ -15300,96 +15300,96 @@ func awsAwsjson11_deserializeDocumentServiceManagedEBSVolumeConfiguration(v **ty
 	for key, value := range shape {
 		switch key {
 			case "encrypted":
-				if value != nil {
-					jtv, ok := value.(bool)
-					if !ok {
-						return fmt.Errorf("expected BoxedBoolean to be of type *bool, got %T instead", value)
-					}
-					sv.Encrypted = ptr.Bool(jtv)
+			if value != nil {
+				jtv, ok := value.(bool)
+				if !ok {
+					return fmt.Errorf("expected BoxedBoolean to be of type *bool, got %T instead", value)
 				}
+				sv.Encrypted = ptr.Bool(jtv)
+			}
 			
 			case "filesystemType":
-				if value != nil {
-					jtv, ok := value.(string)
-					if !ok {
-						return fmt.Errorf("expected TaskFilesystemType to be of type string, got %T instead", value)
-					}
-					sv.FilesystemType = types.TaskFilesystemType(jtv)
+			if value != nil {
+				jtv, ok := value.(string)
+				if !ok {
+					return fmt.Errorf("expected TaskFilesystemType to be of type string, got %T instead", value)
 				}
+				sv.FilesystemType = types.TaskFilesystemType(jtv)
+			}
 			
 			case "iops":
-				if value != nil {
-					jtv, ok := value.(json.Number)
-					if !ok {
-						return fmt.Errorf("expected BoxedInteger to be json.Number, got %T instead", value)
-					}
-					i64, err := jtv.Int64()
-					if err != nil { return err }
-					sv.Iops = ptr.Int32(int32(i64))
+			if value != nil {
+				jtv, ok := value.(json.Number)
+				if !ok {
+					return fmt.Errorf("expected BoxedInteger to be json.Number, got %T instead", value)
 				}
+				i64, err := jtv.Int64()
+				if err != nil { return err }
+				sv.Iops = ptr.Int32(int32(i64))
+			}
 			
 			case "kmsKeyId":
-				if value != nil {
-					jtv, ok := value.(string)
-					if !ok {
-						return fmt.Errorf("expected EBSKMSKeyId to be of type string, got %T instead", value)
-					}
-					sv.KmsKeyId = ptr.String(jtv)
+			if value != nil {
+				jtv, ok := value.(string)
+				if !ok {
+					return fmt.Errorf("expected EBSKMSKeyId to be of type string, got %T instead", value)
 				}
+				sv.KmsKeyId = ptr.String(jtv)
+			}
 			
 			case "roleArn":
-				if value != nil {
-					jtv, ok := value.(string)
-					if !ok {
-						return fmt.Errorf("expected IAMRoleArn to be of type string, got %T instead", value)
-					}
-					sv.RoleArn = ptr.String(jtv)
+			if value != nil {
+				jtv, ok := value.(string)
+				if !ok {
+					return fmt.Errorf("expected IAMRoleArn to be of type string, got %T instead", value)
 				}
+				sv.RoleArn = ptr.String(jtv)
+			}
 			
 			case "sizeInGiB":
-				if value != nil {
-					jtv, ok := value.(json.Number)
-					if !ok {
-						return fmt.Errorf("expected BoxedInteger to be json.Number, got %T instead", value)
-					}
-					i64, err := jtv.Int64()
-					if err != nil { return err }
-					sv.SizeInGiB = ptr.Int32(int32(i64))
+			if value != nil {
+				jtv, ok := value.(json.Number)
+				if !ok {
+					return fmt.Errorf("expected BoxedInteger to be json.Number, got %T instead", value)
 				}
+				i64, err := jtv.Int64()
+				if err != nil { return err }
+				sv.SizeInGiB = ptr.Int32(int32(i64))
+			}
 			
 			case "snapshotId":
-				if value != nil {
-					jtv, ok := value.(string)
-					if !ok {
-						return fmt.Errorf("expected EBSSnapshotId to be of type string, got %T instead", value)
-					}
-					sv.SnapshotId = ptr.String(jtv)
+			if value != nil {
+				jtv, ok := value.(string)
+				if !ok {
+					return fmt.Errorf("expected EBSSnapshotId to be of type string, got %T instead", value)
 				}
+				sv.SnapshotId = ptr.String(jtv)
+			}
 			
 			case "tagSpecifications":
-				if err := awsAwsjson11_deserializeDocumentEBSTagSpecifications(&sv.TagSpecifications, value); err != nil {
-					return err
-				}
+			if err := awsAwsjson11_deserializeDocumentEBSTagSpecifications(&sv.TagSpecifications, value); err != nil {
+				return err
+			}
 			
 			case "throughput":
-				if value != nil {
-					jtv, ok := value.(json.Number)
-					if !ok {
-						return fmt.Errorf("expected BoxedInteger to be json.Number, got %T instead", value)
-					}
-					i64, err := jtv.Int64()
-					if err != nil { return err }
-					sv.Throughput = ptr.Int32(int32(i64))
+			if value != nil {
+				jtv, ok := value.(json.Number)
+				if !ok {
+					return fmt.Errorf("expected BoxedInteger to be json.Number, got %T instead", value)
 				}
+				i64, err := jtv.Int64()
+				if err != nil { return err }
+				sv.Throughput = ptr.Int32(int32(i64))
+			}
 			
 			case "volumeType":
-				if value != nil {
-					jtv, ok := value.(string)
-					if !ok {
-						return fmt.Errorf("expected EBSVolumeType to be of type string, got %T instead", value)
-					}
-					sv.VolumeType = ptr.String(jtv)
+			if value != nil {
+				jtv, ok := value.(string)
+				if !ok {
+					return fmt.Errorf("expected EBSVolumeType to be of type string, got %T instead", value)
 				}
+				sv.VolumeType = ptr.String(jtv)
+			}
 			
 			default:
 				_, _ = key, value
@@ -15422,14 +15422,14 @@ func awsAwsjson11_deserializeDocumentServiceNotActiveException(v **types.Service
 	
 	for key, value := range shape {
 		switch key {
-			case "message":
-				if value != nil {
-					jtv, ok := value.(string)
-					if !ok {
-						return fmt.Errorf("expected String to be of type string, got %T instead", value)
-					}
-					sv.Message = ptr.String(jtv)
+			case "message", "Message":
+			if value != nil {
+				jtv, ok := value.(string)
+				if !ok {
+					return fmt.Errorf("expected String to be of type string, got %T instead", value)
 				}
+				sv.Message = ptr.String(jtv)
+			}
 			
 			default:
 				_, _ = key, value
@@ -15462,14 +15462,14 @@ func awsAwsjson11_deserializeDocumentServiceNotFoundException(v **types.ServiceN
 	
 	for key, value := range shape {
 		switch key {
-			case "message":
-				if value != nil {
-					jtv, ok := value.(string)
-					if !ok {
-						return fmt.Errorf("expected String to be of type string, got %T instead", value)
-					}
-					sv.Message = ptr.String(jtv)
+			case "message", "Message":
+			if value != nil {
+				jtv, ok := value.(string)
+				if !ok {
+					return fmt.Errorf("expected String to be of type string, got %T instead", value)
 				}
+				sv.Message = ptr.String(jtv)
+			}
 			
 			default:
 				_, _ = key, value
@@ -15537,44 +15537,44 @@ func awsAwsjson11_deserializeDocumentServiceRegistry(v **types.ServiceRegistry, 
 	for key, value := range shape {
 		switch key {
 			case "containerName":
-				if value != nil {
-					jtv, ok := value.(string)
-					if !ok {
-						return fmt.Errorf("expected String to be of type string, got %T instead", value)
-					}
-					sv.ContainerName = ptr.String(jtv)
+			if value != nil {
+				jtv, ok := value.(string)
+				if !ok {
+					return fmt.Errorf("expected String to be of type string, got %T instead", value)
 				}
+				sv.ContainerName = ptr.String(jtv)
+			}
 			
 			case "containerPort":
-				if value != nil {
-					jtv, ok := value.(json.Number)
-					if !ok {
-						return fmt.Errorf("expected BoxedInteger to be json.Number, got %T instead", value)
-					}
-					i64, err := jtv.Int64()
-					if err != nil { return err }
-					sv.ContainerPort = ptr.Int32(int32(i64))
+			if value != nil {
+				jtv, ok := value.(json.Number)
+				if !ok {
+					return fmt.Errorf("expected BoxedInteger to be json.Number, got %T instead", value)
 				}
+				i64, err := jtv.Int64()
+				if err != nil { return err }
+				sv.ContainerPort = ptr.Int32(int32(i64))
+			}
 			
 			case "port":
-				if value != nil {
-					jtv, ok := value.(json.Number)
-					if !ok {
-						return fmt.Errorf("expected BoxedInteger to be json.Number, got %T instead", value)
-					}
-					i64, err := jtv.Int64()
-					if err != nil { return err }
-					sv.Port = ptr.Int32(int32(i64))
+			if value != nil {
+				jtv, ok := value.(json.Number)
+				if !ok {
+					return fmt.Errorf("expected BoxedInteger to be json.Number, got %T instead", value)
 				}
+				i64, err := jtv.Int64()
+				if err != nil { return err }
+				sv.Port = ptr.Int32(int32(i64))
+			}
 			
 			case "registryArn":
-				if value != nil {
-					jtv, ok := value.(string)
-					if !ok {
-						return fmt.Errorf("expected String to be of type string, got %T instead", value)
-					}
-					sv.RegistryArn = ptr.String(jtv)
+			if value != nil {
+				jtv, ok := value.(string)
+				if !ok {
+					return fmt.Errorf("expected String to be of type string, got %T instead", value)
 				}
+				sv.RegistryArn = ptr.String(jtv)
+			}
 			
 			default:
 				_, _ = key, value
@@ -15642,18 +15642,18 @@ func awsAwsjson11_deserializeDocumentServiceVolumeConfiguration(v **types.Servic
 	for key, value := range shape {
 		switch key {
 			case "managedEBSVolume":
-				if err := awsAwsjson11_deserializeDocumentServiceManagedEBSVolumeConfiguration(&sv.ManagedEBSVolume, value); err != nil {
-					return err
-				}
+			if err := awsAwsjson11_deserializeDocumentServiceManagedEBSVolumeConfiguration(&sv.ManagedEBSVolume, value); err != nil {
+				return err
+			}
 			
 			case "name":
-				if value != nil {
-					jtv, ok := value.(string)
-					if !ok {
-						return fmt.Errorf("expected ECSVolumeName to be of type string, got %T instead", value)
-					}
-					sv.Name = ptr.String(jtv)
+			if value != nil {
+				jtv, ok := value.(string)
+				if !ok {
+					return fmt.Errorf("expected ECSVolumeName to be of type string, got %T instead", value)
 				}
+				sv.Name = ptr.String(jtv)
+			}
 			
 			default:
 				_, _ = key, value
@@ -15721,31 +15721,31 @@ func awsAwsjson11_deserializeDocumentSession(v **types.Session, value interface{
 	for key, value := range shape {
 		switch key {
 			case "sessionId":
-				if value != nil {
-					jtv, ok := value.(string)
-					if !ok {
-						return fmt.Errorf("expected String to be of type string, got %T instead", value)
-					}
-					sv.SessionId = ptr.String(jtv)
+			if value != nil {
+				jtv, ok := value.(string)
+				if !ok {
+					return fmt.Errorf("expected String to be of type string, got %T instead", value)
 				}
+				sv.SessionId = ptr.String(jtv)
+			}
 			
 			case "streamUrl":
-				if value != nil {
-					jtv, ok := value.(string)
-					if !ok {
-						return fmt.Errorf("expected String to be of type string, got %T instead", value)
-					}
-					sv.StreamUrl = ptr.String(jtv)
+			if value != nil {
+				jtv, ok := value.(string)
+				if !ok {
+					return fmt.Errorf("expected String to be of type string, got %T instead", value)
 				}
+				sv.StreamUrl = ptr.String(jtv)
+			}
 			
 			case "tokenValue":
-				if value != nil {
-					jtv, ok := value.(string)
-					if !ok {
-						return fmt.Errorf("expected SensitiveString to be of type string, got %T instead", value)
-					}
-					sv.TokenValue = ptr.String(jtv)
+			if value != nil {
+				jtv, ok := value.(string)
+				if !ok {
+					return fmt.Errorf("expected SensitiveString to be of type string, got %T instead", value)
 				}
+				sv.TokenValue = ptr.String(jtv)
+			}
 			
 			default:
 				_, _ = key, value
@@ -15779,40 +15779,40 @@ func awsAwsjson11_deserializeDocumentSetting(v **types.Setting, value interface{
 	for key, value := range shape {
 		switch key {
 			case "name":
-				if value != nil {
-					jtv, ok := value.(string)
-					if !ok {
-						return fmt.Errorf("expected SettingName to be of type string, got %T instead", value)
-					}
-					sv.Name = types.SettingName(jtv)
+			if value != nil {
+				jtv, ok := value.(string)
+				if !ok {
+					return fmt.Errorf("expected SettingName to be of type string, got %T instead", value)
 				}
+				sv.Name = types.SettingName(jtv)
+			}
 			
 			case "principalArn":
-				if value != nil {
-					jtv, ok := value.(string)
-					if !ok {
-						return fmt.Errorf("expected String to be of type string, got %T instead", value)
-					}
-					sv.PrincipalArn = ptr.String(jtv)
+			if value != nil {
+				jtv, ok := value.(string)
+				if !ok {
+					return fmt.Errorf("expected String to be of type string, got %T instead", value)
 				}
+				sv.PrincipalArn = ptr.String(jtv)
+			}
 			
 			case "type":
-				if value != nil {
-					jtv, ok := value.(string)
-					if !ok {
-						return fmt.Errorf("expected SettingType to be of type string, got %T instead", value)
-					}
-					sv.Type = types.SettingType(jtv)
+			if value != nil {
+				jtv, ok := value.(string)
+				if !ok {
+					return fmt.Errorf("expected SettingType to be of type string, got %T instead", value)
 				}
+				sv.Type = types.SettingType(jtv)
+			}
 			
 			case "value":
-				if value != nil {
-					jtv, ok := value.(string)
-					if !ok {
-						return fmt.Errorf("expected String to be of type string, got %T instead", value)
-					}
-					sv.Value = ptr.String(jtv)
+			if value != nil {
+				jtv, ok := value.(string)
+				if !ok {
+					return fmt.Errorf("expected String to be of type string, got %T instead", value)
 				}
+				sv.Value = ptr.String(jtv)
+			}
 			
 			default:
 				_, _ = key, value
@@ -15986,22 +15986,22 @@ func awsAwsjson11_deserializeDocumentSystemControl(v **types.SystemControl, valu
 	for key, value := range shape {
 		switch key {
 			case "namespace":
-				if value != nil {
-					jtv, ok := value.(string)
-					if !ok {
-						return fmt.Errorf("expected String to be of type string, got %T instead", value)
-					}
-					sv.Namespace = ptr.String(jtv)
+			if value != nil {
+				jtv, ok := value.(string)
+				if !ok {
+					return fmt.Errorf("expected String to be of type string, got %T instead", value)
 				}
+				sv.Namespace = ptr.String(jtv)
+			}
 			
 			case "value":
-				if value != nil {
-					jtv, ok := value.(string)
-					if !ok {
-						return fmt.Errorf("expected String to be of type string, got %T instead", value)
-					}
-					sv.Value = ptr.String(jtv)
+			if value != nil {
+				jtv, ok := value.(string)
+				if !ok {
+					return fmt.Errorf("expected String to be of type string, got %T instead", value)
 				}
+				sv.Value = ptr.String(jtv)
+			}
 			
 			default:
 				_, _ = key, value
@@ -16069,22 +16069,22 @@ func awsAwsjson11_deserializeDocumentTag(v **types.Tag, value interface{}) error
 	for key, value := range shape {
 		switch key {
 			case "key":
-				if value != nil {
-					jtv, ok := value.(string)
-					if !ok {
-						return fmt.Errorf("expected TagKey to be of type string, got %T instead", value)
-					}
-					sv.Key = ptr.String(jtv)
+			if value != nil {
+				jtv, ok := value.(string)
+				if !ok {
+					return fmt.Errorf("expected TagKey to be of type string, got %T instead", value)
 				}
+				sv.Key = ptr.String(jtv)
+			}
 			
 			case "value":
-				if value != nil {
-					jtv, ok := value.(string)
-					if !ok {
-						return fmt.Errorf("expected TagValue to be of type string, got %T instead", value)
-					}
-					sv.Value = ptr.String(jtv)
+			if value != nil {
+				jtv, ok := value.(string)
+				if !ok {
+					return fmt.Errorf("expected TagValue to be of type string, got %T instead", value)
 				}
+				sv.Value = ptr.String(jtv)
+			}
 			
 			default:
 				_, _ = key, value
@@ -16151,14 +16151,14 @@ func awsAwsjson11_deserializeDocumentTargetNotConnectedException(v **types.Targe
 	
 	for key, value := range shape {
 		switch key {
-			case "message":
-				if value != nil {
-					jtv, ok := value.(string)
-					if !ok {
-						return fmt.Errorf("expected String to be of type string, got %T instead", value)
-					}
-					sv.Message = ptr.String(jtv)
+			case "message", "Message":
+			if value != nil {
+				jtv, ok := value.(string)
+				if !ok {
+					return fmt.Errorf("expected String to be of type string, got %T instead", value)
 				}
+				sv.Message = ptr.String(jtv)
+			}
 			
 			default:
 				_, _ = key, value
@@ -16191,14 +16191,14 @@ func awsAwsjson11_deserializeDocumentTargetNotFoundException(v **types.TargetNot
 	
 	for key, value := range shape {
 		switch key {
-			case "message":
-				if value != nil {
-					jtv, ok := value.(string)
-					if !ok {
-						return fmt.Errorf("expected String to be of type string, got %T instead", value)
-					}
-					sv.Message = ptr.String(jtv)
+			case "message", "Message":
+			if value != nil {
+				jtv, ok := value.(string)
+				if !ok {
+					return fmt.Errorf("expected String to be of type string, got %T instead", value)
 				}
+				sv.Message = ptr.String(jtv)
+			}
 			
 			default:
 				_, _ = key, value
@@ -16232,347 +16232,347 @@ func awsAwsjson11_deserializeDocumentTask(v **types.Task, value interface{}) err
 	for key, value := range shape {
 		switch key {
 			case "attachments":
-				if err := awsAwsjson11_deserializeDocumentAttachments(&sv.Attachments, value); err != nil {
-					return err
-				}
+			if err := awsAwsjson11_deserializeDocumentAttachments(&sv.Attachments, value); err != nil {
+				return err
+			}
 			
 			case "attributes":
-				if err := awsAwsjson11_deserializeDocumentAttributes(&sv.Attributes, value); err != nil {
-					return err
-				}
+			if err := awsAwsjson11_deserializeDocumentAttributes(&sv.Attributes, value); err != nil {
+				return err
+			}
 			
 			case "availabilityZone":
-				if value != nil {
-					jtv, ok := value.(string)
-					if !ok {
-						return fmt.Errorf("expected String to be of type string, got %T instead", value)
-					}
-					sv.AvailabilityZone = ptr.String(jtv)
+			if value != nil {
+				jtv, ok := value.(string)
+				if !ok {
+					return fmt.Errorf("expected String to be of type string, got %T instead", value)
 				}
+				sv.AvailabilityZone = ptr.String(jtv)
+			}
 			
 			case "capacityProviderName":
-				if value != nil {
-					jtv, ok := value.(string)
-					if !ok {
-						return fmt.Errorf("expected String to be of type string, got %T instead", value)
-					}
-					sv.CapacityProviderName = ptr.String(jtv)
+			if value != nil {
+				jtv, ok := value.(string)
+				if !ok {
+					return fmt.Errorf("expected String to be of type string, got %T instead", value)
 				}
+				sv.CapacityProviderName = ptr.String(jtv)
+			}
 			
 			case "clusterArn":
-				if value != nil {
-					jtv, ok := value.(string)
-					if !ok {
-						return fmt.Errorf("expected String to be of type string, got %T instead", value)
-					}
-					sv.ClusterArn = ptr.String(jtv)
+			if value != nil {
+				jtv, ok := value.(string)
+				if !ok {
+					return fmt.Errorf("expected String to be of type string, got %T instead", value)
 				}
+				sv.ClusterArn = ptr.String(jtv)
+			}
 			
 			case "connectivity":
-				if value != nil {
-					jtv, ok := value.(string)
-					if !ok {
-						return fmt.Errorf("expected Connectivity to be of type string, got %T instead", value)
-					}
-					sv.Connectivity = types.Connectivity(jtv)
+			if value != nil {
+				jtv, ok := value.(string)
+				if !ok {
+					return fmt.Errorf("expected Connectivity to be of type string, got %T instead", value)
 				}
+				sv.Connectivity = types.Connectivity(jtv)
+			}
 			
 			case "connectivityAt":
-				if value != nil {
-					switch jtv := value.(type) {
-						case json.Number:
-							f64, err := jtv.Float64()
-							if err != nil { return err }
-							sv.ConnectivityAt = ptr.Time(smithytime.ParseEpochSeconds(f64))
-						
-						default:
-							return fmt.Errorf("expected Timestamp to be a JSON Number, got %T instead", value)
-						
-					}
+			if value != nil {
+				switch jtv := value.(type) {
+					case json.Number:
+						f64, err := jtv.Float64()
+						if err != nil { return err }
+						sv.ConnectivityAt = ptr.Time(smithytime.ParseEpochSeconds(f64))
+					
+					default:
+						return fmt.Errorf("expected Timestamp to be a JSON Number, got %T instead", value)
+					
 				}
+			}
 			
 			case "containerInstanceArn":
-				if value != nil {
-					jtv, ok := value.(string)
-					if !ok {
-						return fmt.Errorf("expected String to be of type string, got %T instead", value)
-					}
-					sv.ContainerInstanceArn = ptr.String(jtv)
+			if value != nil {
+				jtv, ok := value.(string)
+				if !ok {
+					return fmt.Errorf("expected String to be of type string, got %T instead", value)
 				}
+				sv.ContainerInstanceArn = ptr.String(jtv)
+			}
 			
 			case "containers":
-				if err := awsAwsjson11_deserializeDocumentContainers(&sv.Containers, value); err != nil {
-					return err
-				}
+			if err := awsAwsjson11_deserializeDocumentContainers(&sv.Containers, value); err != nil {
+				return err
+			}
 			
 			case "cpu":
-				if value != nil {
-					jtv, ok := value.(string)
-					if !ok {
-						return fmt.Errorf("expected String to be of type string, got %T instead", value)
-					}
-					sv.Cpu = ptr.String(jtv)
+			if value != nil {
+				jtv, ok := value.(string)
+				if !ok {
+					return fmt.Errorf("expected String to be of type string, got %T instead", value)
 				}
+				sv.Cpu = ptr.String(jtv)
+			}
 			
 			case "createdAt":
-				if value != nil {
-					switch jtv := value.(type) {
-						case json.Number:
-							f64, err := jtv.Float64()
-							if err != nil { return err }
-							sv.CreatedAt = ptr.Time(smithytime.ParseEpochSeconds(f64))
-						
-						default:
-							return fmt.Errorf("expected Timestamp to be a JSON Number, got %T instead", value)
-						
-					}
+			if value != nil {
+				switch jtv := value.(type) {
+					case json.Number:
+						f64, err := jtv.Float64()
+						if err != nil { return err }
+						sv.CreatedAt = ptr.Time(smithytime.ParseEpochSeconds(f64))
+					
+					default:
+						return fmt.Errorf("expected Timestamp to be a JSON Number, got %T instead", value)
+					
 				}
+			}
 			
 			case "desiredStatus":
-				if value != nil {
-					jtv, ok := value.(string)
-					if !ok {
-						return fmt.Errorf("expected String to be of type string, got %T instead", value)
-					}
-					sv.DesiredStatus = ptr.String(jtv)
+			if value != nil {
+				jtv, ok := value.(string)
+				if !ok {
+					return fmt.Errorf("expected String to be of type string, got %T instead", value)
 				}
+				sv.DesiredStatus = ptr.String(jtv)
+			}
 			
 			case "enableExecuteCommand":
-				if value != nil {
-					jtv, ok := value.(bool)
-					if !ok {
-						return fmt.Errorf("expected Boolean to be of type *bool, got %T instead", value)
-					}
-					sv.EnableExecuteCommand = jtv
+			if value != nil {
+				jtv, ok := value.(bool)
+				if !ok {
+					return fmt.Errorf("expected Boolean to be of type *bool, got %T instead", value)
 				}
+				sv.EnableExecuteCommand = jtv
+			}
 			
 			case "ephemeralStorage":
-				if err := awsAwsjson11_deserializeDocumentEphemeralStorage(&sv.EphemeralStorage, value); err != nil {
-					return err
-				}
+			if err := awsAwsjson11_deserializeDocumentEphemeralStorage(&sv.EphemeralStorage, value); err != nil {
+				return err
+			}
 			
 			case "executionStoppedAt":
-				if value != nil {
-					switch jtv := value.(type) {
-						case json.Number:
-							f64, err := jtv.Float64()
-							if err != nil { return err }
-							sv.ExecutionStoppedAt = ptr.Time(smithytime.ParseEpochSeconds(f64))
-						
-						default:
-							return fmt.Errorf("expected Timestamp to be a JSON Number, got %T instead", value)
-						
-					}
+			if value != nil {
+				switch jtv := value.(type) {
+					case json.Number:
+						f64, err := jtv.Float64()
+						if err != nil { return err }
+						sv.ExecutionStoppedAt = ptr.Time(smithytime.ParseEpochSeconds(f64))
+					
+					default:
+						return fmt.Errorf("expected Timestamp to be a JSON Number, got %T instead", value)
+					
 				}
+			}
 			
 			case "fargateEphemeralStorage":
-				if err := awsAwsjson11_deserializeDocumentTaskEphemeralStorage(&sv.FargateEphemeralStorage, value); err != nil {
-					return err
-				}
+			if err := awsAwsjson11_deserializeDocumentTaskEphemeralStorage(&sv.FargateEphemeralStorage, value); err != nil {
+				return err
+			}
 			
 			case "group":
-				if value != nil {
-					jtv, ok := value.(string)
-					if !ok {
-						return fmt.Errorf("expected String to be of type string, got %T instead", value)
-					}
-					sv.Group = ptr.String(jtv)
+			if value != nil {
+				jtv, ok := value.(string)
+				if !ok {
+					return fmt.Errorf("expected String to be of type string, got %T instead", value)
 				}
+				sv.Group = ptr.String(jtv)
+			}
 			
 			case "healthStatus":
-				if value != nil {
-					jtv, ok := value.(string)
-					if !ok {
-						return fmt.Errorf("expected HealthStatus to be of type string, got %T instead", value)
-					}
-					sv.HealthStatus = types.HealthStatus(jtv)
+			if value != nil {
+				jtv, ok := value.(string)
+				if !ok {
+					return fmt.Errorf("expected HealthStatus to be of type string, got %T instead", value)
 				}
+				sv.HealthStatus = types.HealthStatus(jtv)
+			}
 			
 			case "inferenceAccelerators":
-				if err := awsAwsjson11_deserializeDocumentInferenceAccelerators(&sv.InferenceAccelerators, value); err != nil {
-					return err
-				}
+			if err := awsAwsjson11_deserializeDocumentInferenceAccelerators(&sv.InferenceAccelerators, value); err != nil {
+				return err
+			}
 			
 			case "lastStatus":
-				if value != nil {
-					jtv, ok := value.(string)
-					if !ok {
-						return fmt.Errorf("expected String to be of type string, got %T instead", value)
-					}
-					sv.LastStatus = ptr.String(jtv)
+			if value != nil {
+				jtv, ok := value.(string)
+				if !ok {
+					return fmt.Errorf("expected String to be of type string, got %T instead", value)
 				}
+				sv.LastStatus = ptr.String(jtv)
+			}
 			
 			case "launchType":
-				if value != nil {
-					jtv, ok := value.(string)
-					if !ok {
-						return fmt.Errorf("expected LaunchType to be of type string, got %T instead", value)
-					}
-					sv.LaunchType = types.LaunchType(jtv)
+			if value != nil {
+				jtv, ok := value.(string)
+				if !ok {
+					return fmt.Errorf("expected LaunchType to be of type string, got %T instead", value)
 				}
+				sv.LaunchType = types.LaunchType(jtv)
+			}
 			
 			case "memory":
-				if value != nil {
-					jtv, ok := value.(string)
-					if !ok {
-						return fmt.Errorf("expected String to be of type string, got %T instead", value)
-					}
-					sv.Memory = ptr.String(jtv)
+			if value != nil {
+				jtv, ok := value.(string)
+				if !ok {
+					return fmt.Errorf("expected String to be of type string, got %T instead", value)
 				}
+				sv.Memory = ptr.String(jtv)
+			}
 			
 			case "overrides":
-				if err := awsAwsjson11_deserializeDocumentTaskOverride(&sv.Overrides, value); err != nil {
-					return err
-				}
+			if err := awsAwsjson11_deserializeDocumentTaskOverride(&sv.Overrides, value); err != nil {
+				return err
+			}
 			
 			case "platformFamily":
-				if value != nil {
-					jtv, ok := value.(string)
-					if !ok {
-						return fmt.Errorf("expected String to be of type string, got %T instead", value)
-					}
-					sv.PlatformFamily = ptr.String(jtv)
+			if value != nil {
+				jtv, ok := value.(string)
+				if !ok {
+					return fmt.Errorf("expected String to be of type string, got %T instead", value)
 				}
+				sv.PlatformFamily = ptr.String(jtv)
+			}
 			
 			case "platformVersion":
-				if value != nil {
-					jtv, ok := value.(string)
-					if !ok {
-						return fmt.Errorf("expected String to be of type string, got %T instead", value)
-					}
-					sv.PlatformVersion = ptr.String(jtv)
+			if value != nil {
+				jtv, ok := value.(string)
+				if !ok {
+					return fmt.Errorf("expected String to be of type string, got %T instead", value)
 				}
+				sv.PlatformVersion = ptr.String(jtv)
+			}
 			
 			case "pullStartedAt":
-				if value != nil {
-					switch jtv := value.(type) {
-						case json.Number:
-							f64, err := jtv.Float64()
-							if err != nil { return err }
-							sv.PullStartedAt = ptr.Time(smithytime.ParseEpochSeconds(f64))
-						
-						default:
-							return fmt.Errorf("expected Timestamp to be a JSON Number, got %T instead", value)
-						
-					}
+			if value != nil {
+				switch jtv := value.(type) {
+					case json.Number:
+						f64, err := jtv.Float64()
+						if err != nil { return err }
+						sv.PullStartedAt = ptr.Time(smithytime.ParseEpochSeconds(f64))
+					
+					default:
+						return fmt.Errorf("expected Timestamp to be a JSON Number, got %T instead", value)
+					
 				}
+			}
 			
 			case "pullStoppedAt":
-				if value != nil {
-					switch jtv := value.(type) {
-						case json.Number:
-							f64, err := jtv.Float64()
-							if err != nil { return err }
-							sv.PullStoppedAt = ptr.Time(smithytime.ParseEpochSeconds(f64))
-						
-						default:
-							return fmt.Errorf("expected Timestamp to be a JSON Number, got %T instead", value)
-						
-					}
+			if value != nil {
+				switch jtv := value.(type) {
+					case json.Number:
+						f64, err := jtv.Float64()
+						if err != nil { return err }
+						sv.PullStoppedAt = ptr.Time(smithytime.ParseEpochSeconds(f64))
+					
+					default:
+						return fmt.Errorf("expected Timestamp to be a JSON Number, got %T instead", value)
+					
 				}
+			}
 			
 			case "startedAt":
-				if value != nil {
-					switch jtv := value.(type) {
-						case json.Number:
-							f64, err := jtv.Float64()
-							if err != nil { return err }
-							sv.StartedAt = ptr.Time(smithytime.ParseEpochSeconds(f64))
-						
-						default:
-							return fmt.Errorf("expected Timestamp to be a JSON Number, got %T instead", value)
-						
-					}
+			if value != nil {
+				switch jtv := value.(type) {
+					case json.Number:
+						f64, err := jtv.Float64()
+						if err != nil { return err }
+						sv.StartedAt = ptr.Time(smithytime.ParseEpochSeconds(f64))
+					
+					default:
+						return fmt.Errorf("expected Timestamp to be a JSON Number, got %T instead", value)
+					
 				}
+			}
 			
 			case "startedBy":
-				if value != nil {
-					jtv, ok := value.(string)
-					if !ok {
-						return fmt.Errorf("expected String to be of type string, got %T instead", value)
-					}
-					sv.StartedBy = ptr.String(jtv)
+			if value != nil {
+				jtv, ok := value.(string)
+				if !ok {
+					return fmt.Errorf("expected String to be of type string, got %T instead", value)
 				}
+				sv.StartedBy = ptr.String(jtv)
+			}
 			
 			case "stopCode":
-				if value != nil {
-					jtv, ok := value.(string)
-					if !ok {
-						return fmt.Errorf("expected TaskStopCode to be of type string, got %T instead", value)
-					}
-					sv.StopCode = types.TaskStopCode(jtv)
+			if value != nil {
+				jtv, ok := value.(string)
+				if !ok {
+					return fmt.Errorf("expected TaskStopCode to be of type string, got %T instead", value)
 				}
+				sv.StopCode = types.TaskStopCode(jtv)
+			}
 			
 			case "stoppedAt":
-				if value != nil {
-					switch jtv := value.(type) {
-						case json.Number:
-							f64, err := jtv.Float64()
-							if err != nil { return err }
-							sv.StoppedAt = ptr.Time(smithytime.ParseEpochSeconds(f64))
-						
-						default:
-							return fmt.Errorf("expected Timestamp to be a JSON Number, got %T instead", value)
-						
-					}
+			if value != nil {
+				switch jtv := value.(type) {
+					case json.Number:
+						f64, err := jtv.Float64()
+						if err != nil { return err }
+						sv.StoppedAt = ptr.Time(smithytime.ParseEpochSeconds(f64))
+					
+					default:
+						return fmt.Errorf("expected Timestamp to be a JSON Number, got %T instead", value)
+					
 				}
+			}
 			
 			case "stoppedReason":
-				if value != nil {
-					jtv, ok := value.(string)
-					if !ok {
-						return fmt.Errorf("expected String to be of type string, got %T instead", value)
-					}
-					sv.StoppedReason = ptr.String(jtv)
+			if value != nil {
+				jtv, ok := value.(string)
+				if !ok {
+					return fmt.Errorf("expected String to be of type string, got %T instead", value)
 				}
+				sv.StoppedReason = ptr.String(jtv)
+			}
 			
 			case "stoppingAt":
-				if value != nil {
-					switch jtv := value.(type) {
-						case json.Number:
-							f64, err := jtv.Float64()
-							if err != nil { return err }
-							sv.StoppingAt = ptr.Time(smithytime.ParseEpochSeconds(f64))
-						
-						default:
-							return fmt.Errorf("expected Timestamp to be a JSON Number, got %T instead", value)
-						
-					}
+			if value != nil {
+				switch jtv := value.(type) {
+					case json.Number:
+						f64, err := jtv.Float64()
+						if err != nil { return err }
+						sv.StoppingAt = ptr.Time(smithytime.ParseEpochSeconds(f64))
+					
+					default:
+						return fmt.Errorf("expected Timestamp to be a JSON Number, got %T instead", value)
+					
 				}
+			}
 			
 			case "tags":
-				if err := awsAwsjson11_deserializeDocumentTags(&sv.Tags, value); err != nil {
-					return err
-				}
+			if err := awsAwsjson11_deserializeDocumentTags(&sv.Tags, value); err != nil {
+				return err
+			}
 			
 			case "taskArn":
-				if value != nil {
-					jtv, ok := value.(string)
-					if !ok {
-						return fmt.Errorf("expected String to be of type string, got %T instead", value)
-					}
-					sv.TaskArn = ptr.String(jtv)
+			if value != nil {
+				jtv, ok := value.(string)
+				if !ok {
+					return fmt.Errorf("expected String to be of type string, got %T instead", value)
 				}
+				sv.TaskArn = ptr.String(jtv)
+			}
 			
 			case "taskDefinitionArn":
-				if value != nil {
-					jtv, ok := value.(string)
-					if !ok {
-						return fmt.Errorf("expected String to be of type string, got %T instead", value)
-					}
-					sv.TaskDefinitionArn = ptr.String(jtv)
+			if value != nil {
+				jtv, ok := value.(string)
+				if !ok {
+					return fmt.Errorf("expected String to be of type string, got %T instead", value)
 				}
+				sv.TaskDefinitionArn = ptr.String(jtv)
+			}
 			
 			case "version":
-				if value != nil {
-					jtv, ok := value.(json.Number)
-					if !ok {
-						return fmt.Errorf("expected Long to be json.Number, got %T instead", value)
-					}
-					i64, err := jtv.Int64()
-					if err != nil { return err }
-					sv.Version = i64
+			if value != nil {
+				jtv, ok := value.(json.Number)
+				if !ok {
+					return fmt.Errorf("expected Long to be json.Number, got %T instead", value)
 				}
+				i64, err := jtv.Int64()
+				if err != nil { return err }
+				sv.Version = i64
+			}
 			
 			default:
 				_, _ = key, value
@@ -16606,192 +16606,192 @@ func awsAwsjson11_deserializeDocumentTaskDefinition(v **types.TaskDefinition, va
 	for key, value := range shape {
 		switch key {
 			case "compatibilities":
-				if err := awsAwsjson11_deserializeDocumentCompatibilityList(&sv.Compatibilities, value); err != nil {
-					return err
-				}
+			if err := awsAwsjson11_deserializeDocumentCompatibilityList(&sv.Compatibilities, value); err != nil {
+				return err
+			}
 			
 			case "containerDefinitions":
-				if err := awsAwsjson11_deserializeDocumentContainerDefinitions(&sv.ContainerDefinitions, value); err != nil {
-					return err
-				}
+			if err := awsAwsjson11_deserializeDocumentContainerDefinitions(&sv.ContainerDefinitions, value); err != nil {
+				return err
+			}
 			
 			case "cpu":
-				if value != nil {
-					jtv, ok := value.(string)
-					if !ok {
-						return fmt.Errorf("expected String to be of type string, got %T instead", value)
-					}
-					sv.Cpu = ptr.String(jtv)
+			if value != nil {
+				jtv, ok := value.(string)
+				if !ok {
+					return fmt.Errorf("expected String to be of type string, got %T instead", value)
 				}
+				sv.Cpu = ptr.String(jtv)
+			}
 			
 			case "deregisteredAt":
-				if value != nil {
-					switch jtv := value.(type) {
-						case json.Number:
-							f64, err := jtv.Float64()
-							if err != nil { return err }
-							sv.DeregisteredAt = ptr.Time(smithytime.ParseEpochSeconds(f64))
-						
-						default:
-							return fmt.Errorf("expected Timestamp to be a JSON Number, got %T instead", value)
-						
-					}
+			if value != nil {
+				switch jtv := value.(type) {
+					case json.Number:
+						f64, err := jtv.Float64()
+						if err != nil { return err }
+						sv.DeregisteredAt = ptr.Time(smithytime.ParseEpochSeconds(f64))
+					
+					default:
+						return fmt.Errorf("expected Timestamp to be a JSON Number, got %T instead", value)
+					
 				}
+			}
 			
 			case "ephemeralStorage":
-				if err := awsAwsjson11_deserializeDocumentEphemeralStorage(&sv.EphemeralStorage, value); err != nil {
-					return err
-				}
+			if err := awsAwsjson11_deserializeDocumentEphemeralStorage(&sv.EphemeralStorage, value); err != nil {
+				return err
+			}
 			
 			case "executionRoleArn":
-				if value != nil {
-					jtv, ok := value.(string)
-					if !ok {
-						return fmt.Errorf("expected String to be of type string, got %T instead", value)
-					}
-					sv.ExecutionRoleArn = ptr.String(jtv)
+			if value != nil {
+				jtv, ok := value.(string)
+				if !ok {
+					return fmt.Errorf("expected String to be of type string, got %T instead", value)
 				}
+				sv.ExecutionRoleArn = ptr.String(jtv)
+			}
 			
 			case "family":
-				if value != nil {
-					jtv, ok := value.(string)
-					if !ok {
-						return fmt.Errorf("expected String to be of type string, got %T instead", value)
-					}
-					sv.Family = ptr.String(jtv)
+			if value != nil {
+				jtv, ok := value.(string)
+				if !ok {
+					return fmt.Errorf("expected String to be of type string, got %T instead", value)
 				}
+				sv.Family = ptr.String(jtv)
+			}
 			
 			case "inferenceAccelerators":
-				if err := awsAwsjson11_deserializeDocumentInferenceAccelerators(&sv.InferenceAccelerators, value); err != nil {
-					return err
-				}
+			if err := awsAwsjson11_deserializeDocumentInferenceAccelerators(&sv.InferenceAccelerators, value); err != nil {
+				return err
+			}
 			
 			case "ipcMode":
-				if value != nil {
-					jtv, ok := value.(string)
-					if !ok {
-						return fmt.Errorf("expected IpcMode to be of type string, got %T instead", value)
-					}
-					sv.IpcMode = types.IpcMode(jtv)
+			if value != nil {
+				jtv, ok := value.(string)
+				if !ok {
+					return fmt.Errorf("expected IpcMode to be of type string, got %T instead", value)
 				}
+				sv.IpcMode = types.IpcMode(jtv)
+			}
 			
 			case "memory":
-				if value != nil {
-					jtv, ok := value.(string)
-					if !ok {
-						return fmt.Errorf("expected String to be of type string, got %T instead", value)
-					}
-					sv.Memory = ptr.String(jtv)
+			if value != nil {
+				jtv, ok := value.(string)
+				if !ok {
+					return fmt.Errorf("expected String to be of type string, got %T instead", value)
 				}
+				sv.Memory = ptr.String(jtv)
+			}
 			
 			case "networkMode":
-				if value != nil {
-					jtv, ok := value.(string)
-					if !ok {
-						return fmt.Errorf("expected NetworkMode to be of type string, got %T instead", value)
-					}
-					sv.NetworkMode = types.NetworkMode(jtv)
+			if value != nil {
+				jtv, ok := value.(string)
+				if !ok {
+					return fmt.Errorf("expected NetworkMode to be of type string, got %T instead", value)
 				}
+				sv.NetworkMode = types.NetworkMode(jtv)
+			}
 			
 			case "pidMode":
-				if value != nil {
-					jtv, ok := value.(string)
-					if !ok {
-						return fmt.Errorf("expected PidMode to be of type string, got %T instead", value)
-					}
-					sv.PidMode = types.PidMode(jtv)
+			if value != nil {
+				jtv, ok := value.(string)
+				if !ok {
+					return fmt.Errorf("expected PidMode to be of type string, got %T instead", value)
 				}
+				sv.PidMode = types.PidMode(jtv)
+			}
 			
 			case "placementConstraints":
-				if err := awsAwsjson11_deserializeDocumentTaskDefinitionPlacementConstraints(&sv.PlacementConstraints, value); err != nil {
-					return err
-				}
+			if err := awsAwsjson11_deserializeDocumentTaskDefinitionPlacementConstraints(&sv.PlacementConstraints, value); err != nil {
+				return err
+			}
 			
 			case "proxyConfiguration":
-				if err := awsAwsjson11_deserializeDocumentProxyConfiguration(&sv.ProxyConfiguration, value); err != nil {
-					return err
-				}
+			if err := awsAwsjson11_deserializeDocumentProxyConfiguration(&sv.ProxyConfiguration, value); err != nil {
+				return err
+			}
 			
 			case "registeredAt":
-				if value != nil {
-					switch jtv := value.(type) {
-						case json.Number:
-							f64, err := jtv.Float64()
-							if err != nil { return err }
-							sv.RegisteredAt = ptr.Time(smithytime.ParseEpochSeconds(f64))
-						
-						default:
-							return fmt.Errorf("expected Timestamp to be a JSON Number, got %T instead", value)
-						
-					}
+			if value != nil {
+				switch jtv := value.(type) {
+					case json.Number:
+						f64, err := jtv.Float64()
+						if err != nil { return err }
+						sv.RegisteredAt = ptr.Time(smithytime.ParseEpochSeconds(f64))
+					
+					default:
+						return fmt.Errorf("expected Timestamp to be a JSON Number, got %T instead", value)
+					
 				}
+			}
 			
 			case "registeredBy":
-				if value != nil {
-					jtv, ok := value.(string)
-					if !ok {
-						return fmt.Errorf("expected String to be of type string, got %T instead", value)
-					}
-					sv.RegisteredBy = ptr.String(jtv)
+			if value != nil {
+				jtv, ok := value.(string)
+				if !ok {
+					return fmt.Errorf("expected String to be of type string, got %T instead", value)
 				}
+				sv.RegisteredBy = ptr.String(jtv)
+			}
 			
 			case "requiresAttributes":
-				if err := awsAwsjson11_deserializeDocumentRequiresAttributes(&sv.RequiresAttributes, value); err != nil {
-					return err
-				}
+			if err := awsAwsjson11_deserializeDocumentRequiresAttributes(&sv.RequiresAttributes, value); err != nil {
+				return err
+			}
 			
 			case "requiresCompatibilities":
-				if err := awsAwsjson11_deserializeDocumentCompatibilityList(&sv.RequiresCompatibilities, value); err != nil {
-					return err
-				}
+			if err := awsAwsjson11_deserializeDocumentCompatibilityList(&sv.RequiresCompatibilities, value); err != nil {
+				return err
+			}
 			
 			case "revision":
-				if value != nil {
-					jtv, ok := value.(json.Number)
-					if !ok {
-						return fmt.Errorf("expected Integer to be json.Number, got %T instead", value)
-					}
-					i64, err := jtv.Int64()
-					if err != nil { return err }
-					sv.Revision = int32(i64)
+			if value != nil {
+				jtv, ok := value.(json.Number)
+				if !ok {
+					return fmt.Errorf("expected Integer to be json.Number, got %T instead", value)
 				}
+				i64, err := jtv.Int64()
+				if err != nil { return err }
+				sv.Revision = int32(i64)
+			}
 			
 			case "runtimePlatform":
-				if err := awsAwsjson11_deserializeDocumentRuntimePlatform(&sv.RuntimePlatform, value); err != nil {
-					return err
-				}
+			if err := awsAwsjson11_deserializeDocumentRuntimePlatform(&sv.RuntimePlatform, value); err != nil {
+				return err
+			}
 			
 			case "status":
-				if value != nil {
-					jtv, ok := value.(string)
-					if !ok {
-						return fmt.Errorf("expected TaskDefinitionStatus to be of type string, got %T instead", value)
-					}
-					sv.Status = types.TaskDefinitionStatus(jtv)
+			if value != nil {
+				jtv, ok := value.(string)
+				if !ok {
+					return fmt.Errorf("expected TaskDefinitionStatus to be of type string, got %T instead", value)
 				}
+				sv.Status = types.TaskDefinitionStatus(jtv)
+			}
 			
 			case "taskDefinitionArn":
-				if value != nil {
-					jtv, ok := value.(string)
-					if !ok {
-						return fmt.Errorf("expected String to be of type string, got %T instead", value)
-					}
-					sv.TaskDefinitionArn = ptr.String(jtv)
+			if value != nil {
+				jtv, ok := value.(string)
+				if !ok {
+					return fmt.Errorf("expected String to be of type string, got %T instead", value)
 				}
+				sv.TaskDefinitionArn = ptr.String(jtv)
+			}
 			
 			case "taskRoleArn":
-				if value != nil {
-					jtv, ok := value.(string)
-					if !ok {
-						return fmt.Errorf("expected String to be of type string, got %T instead", value)
-					}
-					sv.TaskRoleArn = ptr.String(jtv)
+			if value != nil {
+				jtv, ok := value.(string)
+				if !ok {
+					return fmt.Errorf("expected String to be of type string, got %T instead", value)
 				}
+				sv.TaskRoleArn = ptr.String(jtv)
+			}
 			
 			case "volumes":
-				if err := awsAwsjson11_deserializeDocumentVolumeList(&sv.Volumes, value); err != nil {
-					return err
-				}
+			if err := awsAwsjson11_deserializeDocumentVolumeList(&sv.Volumes, value); err != nil {
+				return err
+			}
 			
 			default:
 				_, _ = key, value
@@ -16859,22 +16859,22 @@ func awsAwsjson11_deserializeDocumentTaskDefinitionPlacementConstraint(v **types
 	for key, value := range shape {
 		switch key {
 			case "expression":
-				if value != nil {
-					jtv, ok := value.(string)
-					if !ok {
-						return fmt.Errorf("expected String to be of type string, got %T instead", value)
-					}
-					sv.Expression = ptr.String(jtv)
+			if value != nil {
+				jtv, ok := value.(string)
+				if !ok {
+					return fmt.Errorf("expected String to be of type string, got %T instead", value)
 				}
+				sv.Expression = ptr.String(jtv)
+			}
 			
 			case "type":
-				if value != nil {
-					jtv, ok := value.(string)
-					if !ok {
-						return fmt.Errorf("expected TaskDefinitionPlacementConstraintType to be of type string, got %T instead", value)
-					}
-					sv.Type = types.TaskDefinitionPlacementConstraintType(jtv)
+			if value != nil {
+				jtv, ok := value.(string)
+				if !ok {
+					return fmt.Errorf("expected TaskDefinitionPlacementConstraintType to be of type string, got %T instead", value)
 				}
+				sv.Type = types.TaskDefinitionPlacementConstraintType(jtv)
+			}
 			
 			default:
 				_, _ = key, value
@@ -16942,24 +16942,24 @@ func awsAwsjson11_deserializeDocumentTaskEphemeralStorage(v **types.TaskEphemera
 	for key, value := range shape {
 		switch key {
 			case "kmsKeyId":
-				if value != nil {
-					jtv, ok := value.(string)
-					if !ok {
-						return fmt.Errorf("expected String to be of type string, got %T instead", value)
-					}
-					sv.KmsKeyId = ptr.String(jtv)
+			if value != nil {
+				jtv, ok := value.(string)
+				if !ok {
+					return fmt.Errorf("expected String to be of type string, got %T instead", value)
 				}
+				sv.KmsKeyId = ptr.String(jtv)
+			}
 			
 			case "sizeInGiB":
-				if value != nil {
-					jtv, ok := value.(json.Number)
-					if !ok {
-						return fmt.Errorf("expected Integer to be json.Number, got %T instead", value)
-					}
-					i64, err := jtv.Int64()
-					if err != nil { return err }
-					sv.SizeInGiB = int32(i64)
+			if value != nil {
+				jtv, ok := value.(json.Number)
+				if !ok {
+					return fmt.Errorf("expected Integer to be json.Number, got %T instead", value)
 				}
+				i64, err := jtv.Int64()
+				if err != nil { return err }
+				sv.SizeInGiB = int32(i64)
+			}
 			
 			default:
 				_, _ = key, value
@@ -16993,55 +16993,55 @@ func awsAwsjson11_deserializeDocumentTaskOverride(v **types.TaskOverride, value 
 	for key, value := range shape {
 		switch key {
 			case "containerOverrides":
-				if err := awsAwsjson11_deserializeDocumentContainerOverrides(&sv.ContainerOverrides, value); err != nil {
-					return err
-				}
+			if err := awsAwsjson11_deserializeDocumentContainerOverrides(&sv.ContainerOverrides, value); err != nil {
+				return err
+			}
 			
 			case "cpu":
-				if value != nil {
-					jtv, ok := value.(string)
-					if !ok {
-						return fmt.Errorf("expected String to be of type string, got %T instead", value)
-					}
-					sv.Cpu = ptr.String(jtv)
+			if value != nil {
+				jtv, ok := value.(string)
+				if !ok {
+					return fmt.Errorf("expected String to be of type string, got %T instead", value)
 				}
+				sv.Cpu = ptr.String(jtv)
+			}
 			
 			case "ephemeralStorage":
-				if err := awsAwsjson11_deserializeDocumentEphemeralStorage(&sv.EphemeralStorage, value); err != nil {
-					return err
-				}
+			if err := awsAwsjson11_deserializeDocumentEphemeralStorage(&sv.EphemeralStorage, value); err != nil {
+				return err
+			}
 			
 			case "executionRoleArn":
-				if value != nil {
-					jtv, ok := value.(string)
-					if !ok {
-						return fmt.Errorf("expected String to be of type string, got %T instead", value)
-					}
-					sv.ExecutionRoleArn = ptr.String(jtv)
+			if value != nil {
+				jtv, ok := value.(string)
+				if !ok {
+					return fmt.Errorf("expected String to be of type string, got %T instead", value)
 				}
+				sv.ExecutionRoleArn = ptr.String(jtv)
+			}
 			
 			case "inferenceAcceleratorOverrides":
-				if err := awsAwsjson11_deserializeDocumentInferenceAcceleratorOverrides(&sv.InferenceAcceleratorOverrides, value); err != nil {
-					return err
-				}
+			if err := awsAwsjson11_deserializeDocumentInferenceAcceleratorOverrides(&sv.InferenceAcceleratorOverrides, value); err != nil {
+				return err
+			}
 			
 			case "memory":
-				if value != nil {
-					jtv, ok := value.(string)
-					if !ok {
-						return fmt.Errorf("expected String to be of type string, got %T instead", value)
-					}
-					sv.Memory = ptr.String(jtv)
+			if value != nil {
+				jtv, ok := value.(string)
+				if !ok {
+					return fmt.Errorf("expected String to be of type string, got %T instead", value)
 				}
+				sv.Memory = ptr.String(jtv)
+			}
 			
 			case "taskRoleArn":
-				if value != nil {
-					jtv, ok := value.(string)
-					if !ok {
-						return fmt.Errorf("expected String to be of type string, got %T instead", value)
-					}
-					sv.TaskRoleArn = ptr.String(jtv)
+			if value != nil {
+				jtv, ok := value.(string)
+				if !ok {
+					return fmt.Errorf("expected String to be of type string, got %T instead", value)
 				}
+				sv.TaskRoleArn = ptr.String(jtv)
+			}
 			
 			default:
 				_, _ = key, value
@@ -17109,222 +17109,222 @@ func awsAwsjson11_deserializeDocumentTaskSet(v **types.TaskSet, value interface{
 	for key, value := range shape {
 		switch key {
 			case "capacityProviderStrategy":
-				if err := awsAwsjson11_deserializeDocumentCapacityProviderStrategy(&sv.CapacityProviderStrategy, value); err != nil {
-					return err
-				}
+			if err := awsAwsjson11_deserializeDocumentCapacityProviderStrategy(&sv.CapacityProviderStrategy, value); err != nil {
+				return err
+			}
 			
 			case "clusterArn":
-				if value != nil {
-					jtv, ok := value.(string)
-					if !ok {
-						return fmt.Errorf("expected String to be of type string, got %T instead", value)
-					}
-					sv.ClusterArn = ptr.String(jtv)
+			if value != nil {
+				jtv, ok := value.(string)
+				if !ok {
+					return fmt.Errorf("expected String to be of type string, got %T instead", value)
 				}
+				sv.ClusterArn = ptr.String(jtv)
+			}
 			
 			case "computedDesiredCount":
-				if value != nil {
-					jtv, ok := value.(json.Number)
-					if !ok {
-						return fmt.Errorf("expected Integer to be json.Number, got %T instead", value)
-					}
-					i64, err := jtv.Int64()
-					if err != nil { return err }
-					sv.ComputedDesiredCount = int32(i64)
+			if value != nil {
+				jtv, ok := value.(json.Number)
+				if !ok {
+					return fmt.Errorf("expected Integer to be json.Number, got %T instead", value)
 				}
+				i64, err := jtv.Int64()
+				if err != nil { return err }
+				sv.ComputedDesiredCount = int32(i64)
+			}
 			
 			case "createdAt":
-				if value != nil {
-					switch jtv := value.(type) {
-						case json.Number:
-							f64, err := jtv.Float64()
-							if err != nil { return err }
-							sv.CreatedAt = ptr.Time(smithytime.ParseEpochSeconds(f64))
-						
-						default:
-							return fmt.Errorf("expected Timestamp to be a JSON Number, got %T instead", value)
-						
-					}
+			if value != nil {
+				switch jtv := value.(type) {
+					case json.Number:
+						f64, err := jtv.Float64()
+						if err != nil { return err }
+						sv.CreatedAt = ptr.Time(smithytime.ParseEpochSeconds(f64))
+					
+					default:
+						return fmt.Errorf("expected Timestamp to be a JSON Number, got %T instead", value)
+					
 				}
+			}
 			
 			case "externalId":
-				if value != nil {
-					jtv, ok := value.(string)
-					if !ok {
-						return fmt.Errorf("expected String to be of type string, got %T instead", value)
-					}
-					sv.ExternalId = ptr.String(jtv)
+			if value != nil {
+				jtv, ok := value.(string)
+				if !ok {
+					return fmt.Errorf("expected String to be of type string, got %T instead", value)
 				}
+				sv.ExternalId = ptr.String(jtv)
+			}
 			
 			case "fargateEphemeralStorage":
-				if err := awsAwsjson11_deserializeDocumentDeploymentEphemeralStorage(&sv.FargateEphemeralStorage, value); err != nil {
-					return err
-				}
+			if err := awsAwsjson11_deserializeDocumentDeploymentEphemeralStorage(&sv.FargateEphemeralStorage, value); err != nil {
+				return err
+			}
 			
 			case "id":
-				if value != nil {
-					jtv, ok := value.(string)
-					if !ok {
-						return fmt.Errorf("expected String to be of type string, got %T instead", value)
-					}
-					sv.Id = ptr.String(jtv)
+			if value != nil {
+				jtv, ok := value.(string)
+				if !ok {
+					return fmt.Errorf("expected String to be of type string, got %T instead", value)
 				}
+				sv.Id = ptr.String(jtv)
+			}
 			
 			case "launchType":
-				if value != nil {
-					jtv, ok := value.(string)
-					if !ok {
-						return fmt.Errorf("expected LaunchType to be of type string, got %T instead", value)
-					}
-					sv.LaunchType = types.LaunchType(jtv)
+			if value != nil {
+				jtv, ok := value.(string)
+				if !ok {
+					return fmt.Errorf("expected LaunchType to be of type string, got %T instead", value)
 				}
+				sv.LaunchType = types.LaunchType(jtv)
+			}
 			
 			case "loadBalancers":
-				if err := awsAwsjson11_deserializeDocumentLoadBalancers(&sv.LoadBalancers, value); err != nil {
-					return err
-				}
+			if err := awsAwsjson11_deserializeDocumentLoadBalancers(&sv.LoadBalancers, value); err != nil {
+				return err
+			}
 			
 			case "networkConfiguration":
-				if err := awsAwsjson11_deserializeDocumentNetworkConfiguration(&sv.NetworkConfiguration, value); err != nil {
-					return err
-				}
+			if err := awsAwsjson11_deserializeDocumentNetworkConfiguration(&sv.NetworkConfiguration, value); err != nil {
+				return err
+			}
 			
 			case "pendingCount":
-				if value != nil {
-					jtv, ok := value.(json.Number)
-					if !ok {
-						return fmt.Errorf("expected Integer to be json.Number, got %T instead", value)
-					}
-					i64, err := jtv.Int64()
-					if err != nil { return err }
-					sv.PendingCount = int32(i64)
+			if value != nil {
+				jtv, ok := value.(json.Number)
+				if !ok {
+					return fmt.Errorf("expected Integer to be json.Number, got %T instead", value)
 				}
+				i64, err := jtv.Int64()
+				if err != nil { return err }
+				sv.PendingCount = int32(i64)
+			}
 			
 			case "platformFamily":
-				if value != nil {
-					jtv, ok := value.(string)
-					if !ok {
-						return fmt.Errorf("expected String to be of type string, got %T instead", value)
-					}
-					sv.PlatformFamily = ptr.String(jtv)
+			if value != nil {
+				jtv, ok := value.(string)
+				if !ok {
+					return fmt.Errorf("expected String to be of type string, got %T instead", value)
 				}
+				sv.PlatformFamily = ptr.String(jtv)
+			}
 			
 			case "platformVersion":
-				if value != nil {
-					jtv, ok := value.(string)
-					if !ok {
-						return fmt.Errorf("expected String to be of type string, got %T instead", value)
-					}
-					sv.PlatformVersion = ptr.String(jtv)
+			if value != nil {
+				jtv, ok := value.(string)
+				if !ok {
+					return fmt.Errorf("expected String to be of type string, got %T instead", value)
 				}
+				sv.PlatformVersion = ptr.String(jtv)
+			}
 			
 			case "runningCount":
-				if value != nil {
-					jtv, ok := value.(json.Number)
-					if !ok {
-						return fmt.Errorf("expected Integer to be json.Number, got %T instead", value)
-					}
-					i64, err := jtv.Int64()
-					if err != nil { return err }
-					sv.RunningCount = int32(i64)
+			if value != nil {
+				jtv, ok := value.(json.Number)
+				if !ok {
+					return fmt.Errorf("expected Integer to be json.Number, got %T instead", value)
 				}
+				i64, err := jtv.Int64()
+				if err != nil { return err }
+				sv.RunningCount = int32(i64)
+			}
 			
 			case "scale":
-				if err := awsAwsjson11_deserializeDocumentScale(&sv.Scale, value); err != nil {
-					return err
-				}
+			if err := awsAwsjson11_deserializeDocumentScale(&sv.Scale, value); err != nil {
+				return err
+			}
 			
 			case "serviceArn":
-				if value != nil {
-					jtv, ok := value.(string)
-					if !ok {
-						return fmt.Errorf("expected String to be of type string, got %T instead", value)
-					}
-					sv.ServiceArn = ptr.String(jtv)
+			if value != nil {
+				jtv, ok := value.(string)
+				if !ok {
+					return fmt.Errorf("expected String to be of type string, got %T instead", value)
 				}
+				sv.ServiceArn = ptr.String(jtv)
+			}
 			
 			case "serviceRegistries":
-				if err := awsAwsjson11_deserializeDocumentServiceRegistries(&sv.ServiceRegistries, value); err != nil {
-					return err
-				}
+			if err := awsAwsjson11_deserializeDocumentServiceRegistries(&sv.ServiceRegistries, value); err != nil {
+				return err
+			}
 			
 			case "stabilityStatus":
-				if value != nil {
-					jtv, ok := value.(string)
-					if !ok {
-						return fmt.Errorf("expected StabilityStatus to be of type string, got %T instead", value)
-					}
-					sv.StabilityStatus = types.StabilityStatus(jtv)
+			if value != nil {
+				jtv, ok := value.(string)
+				if !ok {
+					return fmt.Errorf("expected StabilityStatus to be of type string, got %T instead", value)
 				}
+				sv.StabilityStatus = types.StabilityStatus(jtv)
+			}
 			
 			case "stabilityStatusAt":
-				if value != nil {
-					switch jtv := value.(type) {
-						case json.Number:
-							f64, err := jtv.Float64()
-							if err != nil { return err }
-							sv.StabilityStatusAt = ptr.Time(smithytime.ParseEpochSeconds(f64))
-						
-						default:
-							return fmt.Errorf("expected Timestamp to be a JSON Number, got %T instead", value)
-						
-					}
+			if value != nil {
+				switch jtv := value.(type) {
+					case json.Number:
+						f64, err := jtv.Float64()
+						if err != nil { return err }
+						sv.StabilityStatusAt = ptr.Time(smithytime.ParseEpochSeconds(f64))
+					
+					default:
+						return fmt.Errorf("expected Timestamp to be a JSON Number, got %T instead", value)
+					
 				}
+			}
 			
 			case "startedBy":
-				if value != nil {
-					jtv, ok := value.(string)
-					if !ok {
-						return fmt.Errorf("expected String to be of type string, got %T instead", value)
-					}
-					sv.StartedBy = ptr.String(jtv)
+			if value != nil {
+				jtv, ok := value.(string)
+				if !ok {
+					return fmt.Errorf("expected String to be of type string, got %T instead", value)
 				}
+				sv.StartedBy = ptr.String(jtv)
+			}
 			
 			case "status":
-				if value != nil {
-					jtv, ok := value.(string)
-					if !ok {
-						return fmt.Errorf("expected String to be of type string, got %T instead", value)
-					}
-					sv.Status = ptr.String(jtv)
+			if value != nil {
+				jtv, ok := value.(string)
+				if !ok {
+					return fmt.Errorf("expected String to be of type string, got %T instead", value)
 				}
+				sv.Status = ptr.String(jtv)
+			}
 			
 			case "tags":
-				if err := awsAwsjson11_deserializeDocumentTags(&sv.Tags, value); err != nil {
-					return err
-				}
+			if err := awsAwsjson11_deserializeDocumentTags(&sv.Tags, value); err != nil {
+				return err
+			}
 			
 			case "taskDefinition":
-				if value != nil {
-					jtv, ok := value.(string)
-					if !ok {
-						return fmt.Errorf("expected String to be of type string, got %T instead", value)
-					}
-					sv.TaskDefinition = ptr.String(jtv)
+			if value != nil {
+				jtv, ok := value.(string)
+				if !ok {
+					return fmt.Errorf("expected String to be of type string, got %T instead", value)
 				}
+				sv.TaskDefinition = ptr.String(jtv)
+			}
 			
 			case "taskSetArn":
-				if value != nil {
-					jtv, ok := value.(string)
-					if !ok {
-						return fmt.Errorf("expected String to be of type string, got %T instead", value)
-					}
-					sv.TaskSetArn = ptr.String(jtv)
+			if value != nil {
+				jtv, ok := value.(string)
+				if !ok {
+					return fmt.Errorf("expected String to be of type string, got %T instead", value)
 				}
+				sv.TaskSetArn = ptr.String(jtv)
+			}
 			
 			case "updatedAt":
-				if value != nil {
-					switch jtv := value.(type) {
-						case json.Number:
-							f64, err := jtv.Float64()
-							if err != nil { return err }
-							sv.UpdatedAt = ptr.Time(smithytime.ParseEpochSeconds(f64))
-						
-						default:
-							return fmt.Errorf("expected Timestamp to be a JSON Number, got %T instead", value)
-						
-					}
+			if value != nil {
+				switch jtv := value.(type) {
+					case json.Number:
+						f64, err := jtv.Float64()
+						if err != nil { return err }
+						sv.UpdatedAt = ptr.Time(smithytime.ParseEpochSeconds(f64))
+					
+					default:
+						return fmt.Errorf("expected Timestamp to be a JSON Number, got %T instead", value)
+					
 				}
+			}
 			
 			default:
 				_, _ = key, value
@@ -17357,14 +17357,14 @@ func awsAwsjson11_deserializeDocumentTaskSetNotFoundException(v **types.TaskSetN
 	
 	for key, value := range shape {
 		switch key {
-			case "message":
-				if value != nil {
-					jtv, ok := value.(string)
-					if !ok {
-						return fmt.Errorf("expected String to be of type string, got %T instead", value)
-					}
-					sv.Message = ptr.String(jtv)
+			case "message", "Message":
+			if value != nil {
+				jtv, ok := value.(string)
+				if !ok {
+					return fmt.Errorf("expected String to be of type string, got %T instead", value)
 				}
+				sv.Message = ptr.String(jtv)
+			}
 			
 			default:
 				_, _ = key, value
@@ -17432,26 +17432,26 @@ func awsAwsjson11_deserializeDocumentTimeoutConfiguration(v **types.TimeoutConfi
 	for key, value := range shape {
 		switch key {
 			case "idleTimeoutSeconds":
-				if value != nil {
-					jtv, ok := value.(json.Number)
-					if !ok {
-						return fmt.Errorf("expected Duration to be json.Number, got %T instead", value)
-					}
-					i64, err := jtv.Int64()
-					if err != nil { return err }
-					sv.IdleTimeoutSeconds = ptr.Int32(int32(i64))
+			if value != nil {
+				jtv, ok := value.(json.Number)
+				if !ok {
+					return fmt.Errorf("expected Duration to be json.Number, got %T instead", value)
 				}
+				i64, err := jtv.Int64()
+				if err != nil { return err }
+				sv.IdleTimeoutSeconds = ptr.Int32(int32(i64))
+			}
 			
 			case "perRequestTimeoutSeconds":
-				if value != nil {
-					jtv, ok := value.(json.Number)
-					if !ok {
-						return fmt.Errorf("expected Duration to be json.Number, got %T instead", value)
-					}
-					i64, err := jtv.Int64()
-					if err != nil { return err }
-					sv.PerRequestTimeoutSeconds = ptr.Int32(int32(i64))
+			if value != nil {
+				jtv, ok := value.(json.Number)
+				if !ok {
+					return fmt.Errorf("expected Duration to be json.Number, got %T instead", value)
 				}
+				i64, err := jtv.Int64()
+				if err != nil { return err }
+				sv.PerRequestTimeoutSeconds = ptr.Int32(int32(i64))
+			}
 			
 			default:
 				_, _ = key, value
@@ -17485,29 +17485,29 @@ func awsAwsjson11_deserializeDocumentTmpfs(v **types.Tmpfs, value interface{}) e
 	for key, value := range shape {
 		switch key {
 			case "containerPath":
-				if value != nil {
-					jtv, ok := value.(string)
-					if !ok {
-						return fmt.Errorf("expected String to be of type string, got %T instead", value)
-					}
-					sv.ContainerPath = ptr.String(jtv)
+			if value != nil {
+				jtv, ok := value.(string)
+				if !ok {
+					return fmt.Errorf("expected String to be of type string, got %T instead", value)
 				}
+				sv.ContainerPath = ptr.String(jtv)
+			}
 			
 			case "mountOptions":
-				if err := awsAwsjson11_deserializeDocumentStringList(&sv.MountOptions, value); err != nil {
-					return err
-				}
+			if err := awsAwsjson11_deserializeDocumentStringList(&sv.MountOptions, value); err != nil {
+				return err
+			}
 			
 			case "size":
-				if value != nil {
-					jtv, ok := value.(json.Number)
-					if !ok {
-						return fmt.Errorf("expected Integer to be json.Number, got %T instead", value)
-					}
-					i64, err := jtv.Int64()
-					if err != nil { return err }
-					sv.Size = int32(i64)
+			if value != nil {
+				jtv, ok := value.(json.Number)
+				if !ok {
+					return fmt.Errorf("expected Integer to be json.Number, got %T instead", value)
 				}
+				i64, err := jtv.Int64()
+				if err != nil { return err }
+				sv.Size = int32(i64)
+			}
 			
 			default:
 				_, _ = key, value
@@ -17575,35 +17575,35 @@ func awsAwsjson11_deserializeDocumentUlimit(v **types.Ulimit, value interface{})
 	for key, value := range shape {
 		switch key {
 			case "hardLimit":
-				if value != nil {
-					jtv, ok := value.(json.Number)
-					if !ok {
-						return fmt.Errorf("expected Integer to be json.Number, got %T instead", value)
-					}
-					i64, err := jtv.Int64()
-					if err != nil { return err }
-					sv.HardLimit = int32(i64)
+			if value != nil {
+				jtv, ok := value.(json.Number)
+				if !ok {
+					return fmt.Errorf("expected Integer to be json.Number, got %T instead", value)
 				}
+				i64, err := jtv.Int64()
+				if err != nil { return err }
+				sv.HardLimit = int32(i64)
+			}
 			
 			case "name":
-				if value != nil {
-					jtv, ok := value.(string)
-					if !ok {
-						return fmt.Errorf("expected UlimitName to be of type string, got %T instead", value)
-					}
-					sv.Name = types.UlimitName(jtv)
+			if value != nil {
+				jtv, ok := value.(string)
+				if !ok {
+					return fmt.Errorf("expected UlimitName to be of type string, got %T instead", value)
 				}
+				sv.Name = types.UlimitName(jtv)
+			}
 			
 			case "softLimit":
-				if value != nil {
-					jtv, ok := value.(json.Number)
-					if !ok {
-						return fmt.Errorf("expected Integer to be json.Number, got %T instead", value)
-					}
-					i64, err := jtv.Int64()
-					if err != nil { return err }
-					sv.SoftLimit = int32(i64)
+			if value != nil {
+				jtv, ok := value.(json.Number)
+				if !ok {
+					return fmt.Errorf("expected Integer to be json.Number, got %T instead", value)
 				}
+				i64, err := jtv.Int64()
+				if err != nil { return err }
+				sv.SoftLimit = int32(i64)
+			}
 			
 			default:
 				_, _ = key, value
@@ -17670,14 +17670,14 @@ func awsAwsjson11_deserializeDocumentUnsupportedFeatureException(v **types.Unsup
 	
 	for key, value := range shape {
 		switch key {
-			case "message":
-				if value != nil {
-					jtv, ok := value.(string)
-					if !ok {
-						return fmt.Errorf("expected String to be of type string, got %T instead", value)
-					}
-					sv.Message = ptr.String(jtv)
+			case "message", "Message":
+			if value != nil {
+				jtv, ok := value.(string)
+				if !ok {
+					return fmt.Errorf("expected String to be of type string, got %T instead", value)
 				}
+				sv.Message = ptr.String(jtv)
+			}
 			
 			default:
 				_, _ = key, value
@@ -17710,14 +17710,14 @@ func awsAwsjson11_deserializeDocumentUpdateInProgressException(v **types.UpdateI
 	
 	for key, value := range shape {
 		switch key {
-			case "message":
-				if value != nil {
-					jtv, ok := value.(string)
-					if !ok {
-						return fmt.Errorf("expected String to be of type string, got %T instead", value)
-					}
-					sv.Message = ptr.String(jtv)
+			case "message", "Message":
+			if value != nil {
+				jtv, ok := value.(string)
+				if !ok {
+					return fmt.Errorf("expected String to be of type string, got %T instead", value)
 				}
+				sv.Message = ptr.String(jtv)
+			}
 			
 			default:
 				_, _ = key, value
@@ -17751,31 +17751,31 @@ func awsAwsjson11_deserializeDocumentVersionInfo(v **types.VersionInfo, value in
 	for key, value := range shape {
 		switch key {
 			case "agentHash":
-				if value != nil {
-					jtv, ok := value.(string)
-					if !ok {
-						return fmt.Errorf("expected String to be of type string, got %T instead", value)
-					}
-					sv.AgentHash = ptr.String(jtv)
+			if value != nil {
+				jtv, ok := value.(string)
+				if !ok {
+					return fmt.Errorf("expected String to be of type string, got %T instead", value)
 				}
+				sv.AgentHash = ptr.String(jtv)
+			}
 			
 			case "agentVersion":
-				if value != nil {
-					jtv, ok := value.(string)
-					if !ok {
-						return fmt.Errorf("expected String to be of type string, got %T instead", value)
-					}
-					sv.AgentVersion = ptr.String(jtv)
+			if value != nil {
+				jtv, ok := value.(string)
+				if !ok {
+					return fmt.Errorf("expected String to be of type string, got %T instead", value)
 				}
+				sv.AgentVersion = ptr.String(jtv)
+			}
 			
 			case "dockerVersion":
-				if value != nil {
-					jtv, ok := value.(string)
-					if !ok {
-						return fmt.Errorf("expected String to be of type string, got %T instead", value)
-					}
-					sv.DockerVersion = ptr.String(jtv)
+			if value != nil {
+				jtv, ok := value.(string)
+				if !ok {
+					return fmt.Errorf("expected String to be of type string, got %T instead", value)
 				}
+				sv.DockerVersion = ptr.String(jtv)
+			}
 			
 			default:
 				_, _ = key, value
@@ -17809,42 +17809,42 @@ func awsAwsjson11_deserializeDocumentVolume(v **types.Volume, value interface{})
 	for key, value := range shape {
 		switch key {
 			case "configuredAtLaunch":
-				if value != nil {
-					jtv, ok := value.(bool)
-					if !ok {
-						return fmt.Errorf("expected BoxedBoolean to be of type *bool, got %T instead", value)
-					}
-					sv.ConfiguredAtLaunch = ptr.Bool(jtv)
+			if value != nil {
+				jtv, ok := value.(bool)
+				if !ok {
+					return fmt.Errorf("expected BoxedBoolean to be of type *bool, got %T instead", value)
 				}
+				sv.ConfiguredAtLaunch = ptr.Bool(jtv)
+			}
 			
 			case "dockerVolumeConfiguration":
-				if err := awsAwsjson11_deserializeDocumentDockerVolumeConfiguration(&sv.DockerVolumeConfiguration, value); err != nil {
-					return err
-				}
+			if err := awsAwsjson11_deserializeDocumentDockerVolumeConfiguration(&sv.DockerVolumeConfiguration, value); err != nil {
+				return err
+			}
 			
 			case "efsVolumeConfiguration":
-				if err := awsAwsjson11_deserializeDocumentEFSVolumeConfiguration(&sv.EfsVolumeConfiguration, value); err != nil {
-					return err
-				}
+			if err := awsAwsjson11_deserializeDocumentEFSVolumeConfiguration(&sv.EfsVolumeConfiguration, value); err != nil {
+				return err
+			}
 			
 			case "fsxWindowsFileServerVolumeConfiguration":
-				if err := awsAwsjson11_deserializeDocumentFSxWindowsFileServerVolumeConfiguration(&sv.FsxWindowsFileServerVolumeConfiguration, value); err != nil {
-					return err
-				}
+			if err := awsAwsjson11_deserializeDocumentFSxWindowsFileServerVolumeConfiguration(&sv.FsxWindowsFileServerVolumeConfiguration, value); err != nil {
+				return err
+			}
 			
 			case "host":
-				if err := awsAwsjson11_deserializeDocumentHostVolumeProperties(&sv.Host, value); err != nil {
-					return err
-				}
+			if err := awsAwsjson11_deserializeDocumentHostVolumeProperties(&sv.Host, value); err != nil {
+				return err
+			}
 			
 			case "name":
-				if value != nil {
-					jtv, ok := value.(string)
-					if !ok {
-						return fmt.Errorf("expected String to be of type string, got %T instead", value)
-					}
-					sv.Name = ptr.String(jtv)
+			if value != nil {
+				jtv, ok := value.(string)
+				if !ok {
+					return fmt.Errorf("expected String to be of type string, got %T instead", value)
 				}
+				sv.Name = ptr.String(jtv)
+			}
 			
 			default:
 				_, _ = key, value
@@ -17878,22 +17878,22 @@ func awsAwsjson11_deserializeDocumentVolumeFrom(v **types.VolumeFrom, value inte
 	for key, value := range shape {
 		switch key {
 			case "readOnly":
-				if value != nil {
-					jtv, ok := value.(bool)
-					if !ok {
-						return fmt.Errorf("expected BoxedBoolean to be of type *bool, got %T instead", value)
-					}
-					sv.ReadOnly = ptr.Bool(jtv)
+			if value != nil {
+				jtv, ok := value.(bool)
+				if !ok {
+					return fmt.Errorf("expected BoxedBoolean to be of type *bool, got %T instead", value)
 				}
+				sv.ReadOnly = ptr.Bool(jtv)
+			}
 			
 			case "sourceContainer":
-				if value != nil {
-					jtv, ok := value.(string)
-					if !ok {
-						return fmt.Errorf("expected String to be of type string, got %T instead", value)
-					}
-					sv.SourceContainer = ptr.String(jtv)
+			if value != nil {
+				jtv, ok := value.(string)
+				if !ok {
+					return fmt.Errorf("expected String to be of type string, got %T instead", value)
 				}
+				sv.SourceContainer = ptr.String(jtv)
+			}
 			
 			default:
 				_, _ = key, value
@@ -17995,9 +17995,9 @@ func awsAwsjson11_deserializeOpDocumentCreateCapacityProviderOutput(v **CreateCa
 	for key, value := range shape {
 		switch key {
 			case "capacityProvider":
-				if err := awsAwsjson11_deserializeDocumentCapacityProvider(&sv.CapacityProvider, value); err != nil {
-					return err
-				}
+			if err := awsAwsjson11_deserializeDocumentCapacityProvider(&sv.CapacityProvider, value); err != nil {
+				return err
+			}
 			
 			default:
 				_, _ = key, value
@@ -18031,9 +18031,9 @@ func awsAwsjson11_deserializeOpDocumentCreateClusterOutput(v **CreateClusterOutp
 	for key, value := range shape {
 		switch key {
 			case "cluster":
-				if err := awsAwsjson11_deserializeDocumentCluster(&sv.Cluster, value); err != nil {
-					return err
-				}
+			if err := awsAwsjson11_deserializeDocumentCluster(&sv.Cluster, value); err != nil {
+				return err
+			}
 			
 			default:
 				_, _ = key, value
@@ -18067,9 +18067,9 @@ func awsAwsjson11_deserializeOpDocumentCreateServiceOutput(v **CreateServiceOutp
 	for key, value := range shape {
 		switch key {
 			case "service":
-				if err := awsAwsjson11_deserializeDocumentService(&sv.Service, value); err != nil {
-					return err
-				}
+			if err := awsAwsjson11_deserializeDocumentService(&sv.Service, value); err != nil {
+				return err
+			}
 			
 			default:
 				_, _ = key, value
@@ -18103,9 +18103,9 @@ func awsAwsjson11_deserializeOpDocumentCreateTaskSetOutput(v **CreateTaskSetOutp
 	for key, value := range shape {
 		switch key {
 			case "taskSet":
-				if err := awsAwsjson11_deserializeDocumentTaskSet(&sv.TaskSet, value); err != nil {
-					return err
-				}
+			if err := awsAwsjson11_deserializeDocumentTaskSet(&sv.TaskSet, value); err != nil {
+				return err
+			}
 			
 			default:
 				_, _ = key, value
@@ -18139,9 +18139,9 @@ func awsAwsjson11_deserializeOpDocumentDeleteAccountSettingOutput(v **DeleteAcco
 	for key, value := range shape {
 		switch key {
 			case "setting":
-				if err := awsAwsjson11_deserializeDocumentSetting(&sv.Setting, value); err != nil {
-					return err
-				}
+			if err := awsAwsjson11_deserializeDocumentSetting(&sv.Setting, value); err != nil {
+				return err
+			}
 			
 			default:
 				_, _ = key, value
@@ -18175,9 +18175,9 @@ func awsAwsjson11_deserializeOpDocumentDeleteAttributesOutput(v **DeleteAttribut
 	for key, value := range shape {
 		switch key {
 			case "attributes":
-				if err := awsAwsjson11_deserializeDocumentAttributes(&sv.Attributes, value); err != nil {
-					return err
-				}
+			if err := awsAwsjson11_deserializeDocumentAttributes(&sv.Attributes, value); err != nil {
+				return err
+			}
 			
 			default:
 				_, _ = key, value
@@ -18211,9 +18211,9 @@ func awsAwsjson11_deserializeOpDocumentDeleteCapacityProviderOutput(v **DeleteCa
 	for key, value := range shape {
 		switch key {
 			case "capacityProvider":
-				if err := awsAwsjson11_deserializeDocumentCapacityProvider(&sv.CapacityProvider, value); err != nil {
-					return err
-				}
+			if err := awsAwsjson11_deserializeDocumentCapacityProvider(&sv.CapacityProvider, value); err != nil {
+				return err
+			}
 			
 			default:
 				_, _ = key, value
@@ -18247,9 +18247,9 @@ func awsAwsjson11_deserializeOpDocumentDeleteClusterOutput(v **DeleteClusterOutp
 	for key, value := range shape {
 		switch key {
 			case "cluster":
-				if err := awsAwsjson11_deserializeDocumentCluster(&sv.Cluster, value); err != nil {
-					return err
-				}
+			if err := awsAwsjson11_deserializeDocumentCluster(&sv.Cluster, value); err != nil {
+				return err
+			}
 			
 			default:
 				_, _ = key, value
@@ -18283,9 +18283,9 @@ func awsAwsjson11_deserializeOpDocumentDeleteServiceOutput(v **DeleteServiceOutp
 	for key, value := range shape {
 		switch key {
 			case "service":
-				if err := awsAwsjson11_deserializeDocumentService(&sv.Service, value); err != nil {
-					return err
-				}
+			if err := awsAwsjson11_deserializeDocumentService(&sv.Service, value); err != nil {
+				return err
+			}
 			
 			default:
 				_, _ = key, value
@@ -18319,14 +18319,14 @@ func awsAwsjson11_deserializeOpDocumentDeleteTaskDefinitionsOutput(v **DeleteTas
 	for key, value := range shape {
 		switch key {
 			case "failures":
-				if err := awsAwsjson11_deserializeDocumentFailures(&sv.Failures, value); err != nil {
-					return err
-				}
+			if err := awsAwsjson11_deserializeDocumentFailures(&sv.Failures, value); err != nil {
+				return err
+			}
 			
 			case "taskDefinitions":
-				if err := awsAwsjson11_deserializeDocumentTaskDefinitionList(&sv.TaskDefinitions, value); err != nil {
-					return err
-				}
+			if err := awsAwsjson11_deserializeDocumentTaskDefinitionList(&sv.TaskDefinitions, value); err != nil {
+				return err
+			}
 			
 			default:
 				_, _ = key, value
@@ -18360,9 +18360,9 @@ func awsAwsjson11_deserializeOpDocumentDeleteTaskSetOutput(v **DeleteTaskSetOutp
 	for key, value := range shape {
 		switch key {
 			case "taskSet":
-				if err := awsAwsjson11_deserializeDocumentTaskSet(&sv.TaskSet, value); err != nil {
-					return err
-				}
+			if err := awsAwsjson11_deserializeDocumentTaskSet(&sv.TaskSet, value); err != nil {
+				return err
+			}
 			
 			default:
 				_, _ = key, value
@@ -18396,9 +18396,9 @@ func awsAwsjson11_deserializeOpDocumentDeregisterContainerInstanceOutput(v **Der
 	for key, value := range shape {
 		switch key {
 			case "containerInstance":
-				if err := awsAwsjson11_deserializeDocumentContainerInstance(&sv.ContainerInstance, value); err != nil {
-					return err
-				}
+			if err := awsAwsjson11_deserializeDocumentContainerInstance(&sv.ContainerInstance, value); err != nil {
+				return err
+			}
 			
 			default:
 				_, _ = key, value
@@ -18432,9 +18432,9 @@ func awsAwsjson11_deserializeOpDocumentDeregisterTaskDefinitionOutput(v **Deregi
 	for key, value := range shape {
 		switch key {
 			case "taskDefinition":
-				if err := awsAwsjson11_deserializeDocumentTaskDefinition(&sv.TaskDefinition, value); err != nil {
-					return err
-				}
+			if err := awsAwsjson11_deserializeDocumentTaskDefinition(&sv.TaskDefinition, value); err != nil {
+				return err
+			}
 			
 			default:
 				_, _ = key, value
@@ -18468,23 +18468,23 @@ func awsAwsjson11_deserializeOpDocumentDescribeCapacityProvidersOutput(v **Descr
 	for key, value := range shape {
 		switch key {
 			case "capacityProviders":
-				if err := awsAwsjson11_deserializeDocumentCapacityProviders(&sv.CapacityProviders, value); err != nil {
-					return err
-				}
+			if err := awsAwsjson11_deserializeDocumentCapacityProviders(&sv.CapacityProviders, value); err != nil {
+				return err
+			}
 			
 			case "failures":
-				if err := awsAwsjson11_deserializeDocumentFailures(&sv.Failures, value); err != nil {
-					return err
-				}
+			if err := awsAwsjson11_deserializeDocumentFailures(&sv.Failures, value); err != nil {
+				return err
+			}
 			
 			case "nextToken":
-				if value != nil {
-					jtv, ok := value.(string)
-					if !ok {
-						return fmt.Errorf("expected String to be of type string, got %T instead", value)
-					}
-					sv.NextToken = ptr.String(jtv)
+			if value != nil {
+				jtv, ok := value.(string)
+				if !ok {
+					return fmt.Errorf("expected String to be of type string, got %T instead", value)
 				}
+				sv.NextToken = ptr.String(jtv)
+			}
 			
 			default:
 				_, _ = key, value
@@ -18518,14 +18518,14 @@ func awsAwsjson11_deserializeOpDocumentDescribeClustersOutput(v **DescribeCluste
 	for key, value := range shape {
 		switch key {
 			case "clusters":
-				if err := awsAwsjson11_deserializeDocumentClusters(&sv.Clusters, value); err != nil {
-					return err
-				}
+			if err := awsAwsjson11_deserializeDocumentClusters(&sv.Clusters, value); err != nil {
+				return err
+			}
 			
 			case "failures":
-				if err := awsAwsjson11_deserializeDocumentFailures(&sv.Failures, value); err != nil {
-					return err
-				}
+			if err := awsAwsjson11_deserializeDocumentFailures(&sv.Failures, value); err != nil {
+				return err
+			}
 			
 			default:
 				_, _ = key, value
@@ -18559,14 +18559,14 @@ func awsAwsjson11_deserializeOpDocumentDescribeContainerInstancesOutput(v **Desc
 	for key, value := range shape {
 		switch key {
 			case "containerInstances":
-				if err := awsAwsjson11_deserializeDocumentContainerInstances(&sv.ContainerInstances, value); err != nil {
-					return err
-				}
+			if err := awsAwsjson11_deserializeDocumentContainerInstances(&sv.ContainerInstances, value); err != nil {
+				return err
+			}
 			
 			case "failures":
-				if err := awsAwsjson11_deserializeDocumentFailures(&sv.Failures, value); err != nil {
-					return err
-				}
+			if err := awsAwsjson11_deserializeDocumentFailures(&sv.Failures, value); err != nil {
+				return err
+			}
 			
 			default:
 				_, _ = key, value
@@ -18600,14 +18600,14 @@ func awsAwsjson11_deserializeOpDocumentDescribeServicesOutput(v **DescribeServic
 	for key, value := range shape {
 		switch key {
 			case "failures":
-				if err := awsAwsjson11_deserializeDocumentFailures(&sv.Failures, value); err != nil {
-					return err
-				}
+			if err := awsAwsjson11_deserializeDocumentFailures(&sv.Failures, value); err != nil {
+				return err
+			}
 			
 			case "services":
-				if err := awsAwsjson11_deserializeDocumentServices(&sv.Services, value); err != nil {
-					return err
-				}
+			if err := awsAwsjson11_deserializeDocumentServices(&sv.Services, value); err != nil {
+				return err
+			}
 			
 			default:
 				_, _ = key, value
@@ -18641,14 +18641,14 @@ func awsAwsjson11_deserializeOpDocumentDescribeTaskDefinitionOutput(v **Describe
 	for key, value := range shape {
 		switch key {
 			case "tags":
-				if err := awsAwsjson11_deserializeDocumentTags(&sv.Tags, value); err != nil {
-					return err
-				}
+			if err := awsAwsjson11_deserializeDocumentTags(&sv.Tags, value); err != nil {
+				return err
+			}
 			
 			case "taskDefinition":
-				if err := awsAwsjson11_deserializeDocumentTaskDefinition(&sv.TaskDefinition, value); err != nil {
-					return err
-				}
+			if err := awsAwsjson11_deserializeDocumentTaskDefinition(&sv.TaskDefinition, value); err != nil {
+				return err
+			}
 			
 			default:
 				_, _ = key, value
@@ -18682,14 +18682,14 @@ func awsAwsjson11_deserializeOpDocumentDescribeTaskSetsOutput(v **DescribeTaskSe
 	for key, value := range shape {
 		switch key {
 			case "failures":
-				if err := awsAwsjson11_deserializeDocumentFailures(&sv.Failures, value); err != nil {
-					return err
-				}
+			if err := awsAwsjson11_deserializeDocumentFailures(&sv.Failures, value); err != nil {
+				return err
+			}
 			
 			case "taskSets":
-				if err := awsAwsjson11_deserializeDocumentTaskSets(&sv.TaskSets, value); err != nil {
-					return err
-				}
+			if err := awsAwsjson11_deserializeDocumentTaskSets(&sv.TaskSets, value); err != nil {
+				return err
+			}
 			
 			default:
 				_, _ = key, value
@@ -18723,14 +18723,14 @@ func awsAwsjson11_deserializeOpDocumentDescribeTasksOutput(v **DescribeTasksOutp
 	for key, value := range shape {
 		switch key {
 			case "failures":
-				if err := awsAwsjson11_deserializeDocumentFailures(&sv.Failures, value); err != nil {
-					return err
-				}
+			if err := awsAwsjson11_deserializeDocumentFailures(&sv.Failures, value); err != nil {
+				return err
+			}
 			
 			case "tasks":
-				if err := awsAwsjson11_deserializeDocumentTasks(&sv.Tasks, value); err != nil {
-					return err
-				}
+			if err := awsAwsjson11_deserializeDocumentTasks(&sv.Tasks, value); err != nil {
+				return err
+			}
 			
 			default:
 				_, _ = key, value
@@ -18764,40 +18764,40 @@ func awsAwsjson11_deserializeOpDocumentDiscoverPollEndpointOutput(v **DiscoverPo
 	for key, value := range shape {
 		switch key {
 			case "endpoint":
-				if value != nil {
-					jtv, ok := value.(string)
-					if !ok {
-						return fmt.Errorf("expected String to be of type string, got %T instead", value)
-					}
-					sv.Endpoint = ptr.String(jtv)
+			if value != nil {
+				jtv, ok := value.(string)
+				if !ok {
+					return fmt.Errorf("expected String to be of type string, got %T instead", value)
 				}
+				sv.Endpoint = ptr.String(jtv)
+			}
 			
 			case "serviceConnectEndpoint":
-				if value != nil {
-					jtv, ok := value.(string)
-					if !ok {
-						return fmt.Errorf("expected String to be of type string, got %T instead", value)
-					}
-					sv.ServiceConnectEndpoint = ptr.String(jtv)
+			if value != nil {
+				jtv, ok := value.(string)
+				if !ok {
+					return fmt.Errorf("expected String to be of type string, got %T instead", value)
 				}
+				sv.ServiceConnectEndpoint = ptr.String(jtv)
+			}
 			
 			case "systemLogsEndpoint":
-				if value != nil {
-					jtv, ok := value.(string)
-					if !ok {
-						return fmt.Errorf("expected String to be of type string, got %T instead", value)
-					}
-					sv.SystemLogsEndpoint = ptr.String(jtv)
+			if value != nil {
+				jtv, ok := value.(string)
+				if !ok {
+					return fmt.Errorf("expected String to be of type string, got %T instead", value)
 				}
+				sv.SystemLogsEndpoint = ptr.String(jtv)
+			}
 			
 			case "telemetryEndpoint":
-				if value != nil {
-					jtv, ok := value.(string)
-					if !ok {
-						return fmt.Errorf("expected String to be of type string, got %T instead", value)
-					}
-					sv.TelemetryEndpoint = ptr.String(jtv)
+			if value != nil {
+				jtv, ok := value.(string)
+				if !ok {
+					return fmt.Errorf("expected String to be of type string, got %T instead", value)
 				}
+				sv.TelemetryEndpoint = ptr.String(jtv)
+			}
 			
 			default:
 				_, _ = key, value
@@ -18831,54 +18831,54 @@ func awsAwsjson11_deserializeOpDocumentExecuteCommandOutput(v **ExecuteCommandOu
 	for key, value := range shape {
 		switch key {
 			case "clusterArn":
-				if value != nil {
-					jtv, ok := value.(string)
-					if !ok {
-						return fmt.Errorf("expected String to be of type string, got %T instead", value)
-					}
-					sv.ClusterArn = ptr.String(jtv)
+			if value != nil {
+				jtv, ok := value.(string)
+				if !ok {
+					return fmt.Errorf("expected String to be of type string, got %T instead", value)
 				}
+				sv.ClusterArn = ptr.String(jtv)
+			}
 			
 			case "containerArn":
-				if value != nil {
-					jtv, ok := value.(string)
-					if !ok {
-						return fmt.Errorf("expected String to be of type string, got %T instead", value)
-					}
-					sv.ContainerArn = ptr.String(jtv)
+			if value != nil {
+				jtv, ok := value.(string)
+				if !ok {
+					return fmt.Errorf("expected String to be of type string, got %T instead", value)
 				}
+				sv.ContainerArn = ptr.String(jtv)
+			}
 			
 			case "containerName":
-				if value != nil {
-					jtv, ok := value.(string)
-					if !ok {
-						return fmt.Errorf("expected String to be of type string, got %T instead", value)
-					}
-					sv.ContainerName = ptr.String(jtv)
+			if value != nil {
+				jtv, ok := value.(string)
+				if !ok {
+					return fmt.Errorf("expected String to be of type string, got %T instead", value)
 				}
+				sv.ContainerName = ptr.String(jtv)
+			}
 			
 			case "interactive":
-				if value != nil {
-					jtv, ok := value.(bool)
-					if !ok {
-						return fmt.Errorf("expected Boolean to be of type *bool, got %T instead", value)
-					}
-					sv.Interactive = jtv
+			if value != nil {
+				jtv, ok := value.(bool)
+				if !ok {
+					return fmt.Errorf("expected Boolean to be of type *bool, got %T instead", value)
 				}
+				sv.Interactive = jtv
+			}
 			
 			case "session":
-				if err := awsAwsjson11_deserializeDocumentSession(&sv.Session, value); err != nil {
-					return err
-				}
+			if err := awsAwsjson11_deserializeDocumentSession(&sv.Session, value); err != nil {
+				return err
+			}
 			
 			case "taskArn":
-				if value != nil {
-					jtv, ok := value.(string)
-					if !ok {
-						return fmt.Errorf("expected String to be of type string, got %T instead", value)
-					}
-					sv.TaskArn = ptr.String(jtv)
+			if value != nil {
+				jtv, ok := value.(string)
+				if !ok {
+					return fmt.Errorf("expected String to be of type string, got %T instead", value)
 				}
+				sv.TaskArn = ptr.String(jtv)
+			}
 			
 			default:
 				_, _ = key, value
@@ -18912,14 +18912,14 @@ func awsAwsjson11_deserializeOpDocumentGetTaskProtectionOutput(v **GetTaskProtec
 	for key, value := range shape {
 		switch key {
 			case "failures":
-				if err := awsAwsjson11_deserializeDocumentFailures(&sv.Failures, value); err != nil {
-					return err
-				}
+			if err := awsAwsjson11_deserializeDocumentFailures(&sv.Failures, value); err != nil {
+				return err
+			}
 			
 			case "protectedTasks":
-				if err := awsAwsjson11_deserializeDocumentProtectedTasks(&sv.ProtectedTasks, value); err != nil {
-					return err
-				}
+			if err := awsAwsjson11_deserializeDocumentProtectedTasks(&sv.ProtectedTasks, value); err != nil {
+				return err
+			}
 			
 			default:
 				_, _ = key, value
@@ -18953,18 +18953,18 @@ func awsAwsjson11_deserializeOpDocumentListAccountSettingsOutput(v **ListAccount
 	for key, value := range shape {
 		switch key {
 			case "nextToken":
-				if value != nil {
-					jtv, ok := value.(string)
-					if !ok {
-						return fmt.Errorf("expected String to be of type string, got %T instead", value)
-					}
-					sv.NextToken = ptr.String(jtv)
+			if value != nil {
+				jtv, ok := value.(string)
+				if !ok {
+					return fmt.Errorf("expected String to be of type string, got %T instead", value)
 				}
+				sv.NextToken = ptr.String(jtv)
+			}
 			
 			case "settings":
-				if err := awsAwsjson11_deserializeDocumentSettings(&sv.Settings, value); err != nil {
-					return err
-				}
+			if err := awsAwsjson11_deserializeDocumentSettings(&sv.Settings, value); err != nil {
+				return err
+			}
 			
 			default:
 				_, _ = key, value
@@ -18998,18 +18998,18 @@ func awsAwsjson11_deserializeOpDocumentListAttributesOutput(v **ListAttributesOu
 	for key, value := range shape {
 		switch key {
 			case "attributes":
-				if err := awsAwsjson11_deserializeDocumentAttributes(&sv.Attributes, value); err != nil {
-					return err
-				}
+			if err := awsAwsjson11_deserializeDocumentAttributes(&sv.Attributes, value); err != nil {
+				return err
+			}
 			
 			case "nextToken":
-				if value != nil {
-					jtv, ok := value.(string)
-					if !ok {
-						return fmt.Errorf("expected String to be of type string, got %T instead", value)
-					}
-					sv.NextToken = ptr.String(jtv)
+			if value != nil {
+				jtv, ok := value.(string)
+				if !ok {
+					return fmt.Errorf("expected String to be of type string, got %T instead", value)
 				}
+				sv.NextToken = ptr.String(jtv)
+			}
 			
 			default:
 				_, _ = key, value
@@ -19043,18 +19043,18 @@ func awsAwsjson11_deserializeOpDocumentListClustersOutput(v **ListClustersOutput
 	for key, value := range shape {
 		switch key {
 			case "clusterArns":
-				if err := awsAwsjson11_deserializeDocumentStringList(&sv.ClusterArns, value); err != nil {
-					return err
-				}
+			if err := awsAwsjson11_deserializeDocumentStringList(&sv.ClusterArns, value); err != nil {
+				return err
+			}
 			
 			case "nextToken":
-				if value != nil {
-					jtv, ok := value.(string)
-					if !ok {
-						return fmt.Errorf("expected String to be of type string, got %T instead", value)
-					}
-					sv.NextToken = ptr.String(jtv)
+			if value != nil {
+				jtv, ok := value.(string)
+				if !ok {
+					return fmt.Errorf("expected String to be of type string, got %T instead", value)
 				}
+				sv.NextToken = ptr.String(jtv)
+			}
 			
 			default:
 				_, _ = key, value
@@ -19088,18 +19088,18 @@ func awsAwsjson11_deserializeOpDocumentListContainerInstancesOutput(v **ListCont
 	for key, value := range shape {
 		switch key {
 			case "containerInstanceArns":
-				if err := awsAwsjson11_deserializeDocumentStringList(&sv.ContainerInstanceArns, value); err != nil {
-					return err
-				}
+			if err := awsAwsjson11_deserializeDocumentStringList(&sv.ContainerInstanceArns, value); err != nil {
+				return err
+			}
 			
 			case "nextToken":
-				if value != nil {
-					jtv, ok := value.(string)
-					if !ok {
-						return fmt.Errorf("expected String to be of type string, got %T instead", value)
-					}
-					sv.NextToken = ptr.String(jtv)
+			if value != nil {
+				jtv, ok := value.(string)
+				if !ok {
+					return fmt.Errorf("expected String to be of type string, got %T instead", value)
 				}
+				sv.NextToken = ptr.String(jtv)
+			}
 			
 			default:
 				_, _ = key, value
@@ -19133,18 +19133,18 @@ func awsAwsjson11_deserializeOpDocumentListServicesByNamespaceOutput(v **ListSer
 	for key, value := range shape {
 		switch key {
 			case "nextToken":
-				if value != nil {
-					jtv, ok := value.(string)
-					if !ok {
-						return fmt.Errorf("expected String to be of type string, got %T instead", value)
-					}
-					sv.NextToken = ptr.String(jtv)
+			if value != nil {
+				jtv, ok := value.(string)
+				if !ok {
+					return fmt.Errorf("expected String to be of type string, got %T instead", value)
 				}
+				sv.NextToken = ptr.String(jtv)
+			}
 			
 			case "serviceArns":
-				if err := awsAwsjson11_deserializeDocumentStringList(&sv.ServiceArns, value); err != nil {
-					return err
-				}
+			if err := awsAwsjson11_deserializeDocumentStringList(&sv.ServiceArns, value); err != nil {
+				return err
+			}
 			
 			default:
 				_, _ = key, value
@@ -19178,18 +19178,18 @@ func awsAwsjson11_deserializeOpDocumentListServicesOutput(v **ListServicesOutput
 	for key, value := range shape {
 		switch key {
 			case "nextToken":
-				if value != nil {
-					jtv, ok := value.(string)
-					if !ok {
-						return fmt.Errorf("expected String to be of type string, got %T instead", value)
-					}
-					sv.NextToken = ptr.String(jtv)
+			if value != nil {
+				jtv, ok := value.(string)
+				if !ok {
+					return fmt.Errorf("expected String to be of type string, got %T instead", value)
 				}
+				sv.NextToken = ptr.String(jtv)
+			}
 			
 			case "serviceArns":
-				if err := awsAwsjson11_deserializeDocumentStringList(&sv.ServiceArns, value); err != nil {
-					return err
-				}
+			if err := awsAwsjson11_deserializeDocumentStringList(&sv.ServiceArns, value); err != nil {
+				return err
+			}
 			
 			default:
 				_, _ = key, value
@@ -19223,9 +19223,9 @@ func awsAwsjson11_deserializeOpDocumentListTagsForResourceOutput(v **ListTagsFor
 	for key, value := range shape {
 		switch key {
 			case "tags":
-				if err := awsAwsjson11_deserializeDocumentTags(&sv.Tags, value); err != nil {
-					return err
-				}
+			if err := awsAwsjson11_deserializeDocumentTags(&sv.Tags, value); err != nil {
+				return err
+			}
 			
 			default:
 				_, _ = key, value
@@ -19259,18 +19259,18 @@ func awsAwsjson11_deserializeOpDocumentListTaskDefinitionFamiliesOutput(v **List
 	for key, value := range shape {
 		switch key {
 			case "families":
-				if err := awsAwsjson11_deserializeDocumentStringList(&sv.Families, value); err != nil {
-					return err
-				}
+			if err := awsAwsjson11_deserializeDocumentStringList(&sv.Families, value); err != nil {
+				return err
+			}
 			
 			case "nextToken":
-				if value != nil {
-					jtv, ok := value.(string)
-					if !ok {
-						return fmt.Errorf("expected String to be of type string, got %T instead", value)
-					}
-					sv.NextToken = ptr.String(jtv)
+			if value != nil {
+				jtv, ok := value.(string)
+				if !ok {
+					return fmt.Errorf("expected String to be of type string, got %T instead", value)
 				}
+				sv.NextToken = ptr.String(jtv)
+			}
 			
 			default:
 				_, _ = key, value
@@ -19304,18 +19304,18 @@ func awsAwsjson11_deserializeOpDocumentListTaskDefinitionsOutput(v **ListTaskDef
 	for key, value := range shape {
 		switch key {
 			case "nextToken":
-				if value != nil {
-					jtv, ok := value.(string)
-					if !ok {
-						return fmt.Errorf("expected String to be of type string, got %T instead", value)
-					}
-					sv.NextToken = ptr.String(jtv)
+			if value != nil {
+				jtv, ok := value.(string)
+				if !ok {
+					return fmt.Errorf("expected String to be of type string, got %T instead", value)
 				}
+				sv.NextToken = ptr.String(jtv)
+			}
 			
 			case "taskDefinitionArns":
-				if err := awsAwsjson11_deserializeDocumentStringList(&sv.TaskDefinitionArns, value); err != nil {
-					return err
-				}
+			if err := awsAwsjson11_deserializeDocumentStringList(&sv.TaskDefinitionArns, value); err != nil {
+				return err
+			}
 			
 			default:
 				_, _ = key, value
@@ -19349,18 +19349,18 @@ func awsAwsjson11_deserializeOpDocumentListTasksOutput(v **ListTasksOutput, valu
 	for key, value := range shape {
 		switch key {
 			case "nextToken":
-				if value != nil {
-					jtv, ok := value.(string)
-					if !ok {
-						return fmt.Errorf("expected String to be of type string, got %T instead", value)
-					}
-					sv.NextToken = ptr.String(jtv)
+			if value != nil {
+				jtv, ok := value.(string)
+				if !ok {
+					return fmt.Errorf("expected String to be of type string, got %T instead", value)
 				}
+				sv.NextToken = ptr.String(jtv)
+			}
 			
 			case "taskArns":
-				if err := awsAwsjson11_deserializeDocumentStringList(&sv.TaskArns, value); err != nil {
-					return err
-				}
+			if err := awsAwsjson11_deserializeDocumentStringList(&sv.TaskArns, value); err != nil {
+				return err
+			}
 			
 			default:
 				_, _ = key, value
@@ -19394,9 +19394,9 @@ func awsAwsjson11_deserializeOpDocumentPutAccountSettingDefaultOutput(v **PutAcc
 	for key, value := range shape {
 		switch key {
 			case "setting":
-				if err := awsAwsjson11_deserializeDocumentSetting(&sv.Setting, value); err != nil {
-					return err
-				}
+			if err := awsAwsjson11_deserializeDocumentSetting(&sv.Setting, value); err != nil {
+				return err
+			}
 			
 			default:
 				_, _ = key, value
@@ -19430,9 +19430,9 @@ func awsAwsjson11_deserializeOpDocumentPutAccountSettingOutput(v **PutAccountSet
 	for key, value := range shape {
 		switch key {
 			case "setting":
-				if err := awsAwsjson11_deserializeDocumentSetting(&sv.Setting, value); err != nil {
-					return err
-				}
+			if err := awsAwsjson11_deserializeDocumentSetting(&sv.Setting, value); err != nil {
+				return err
+			}
 			
 			default:
 				_, _ = key, value
@@ -19466,9 +19466,9 @@ func awsAwsjson11_deserializeOpDocumentPutAttributesOutput(v **PutAttributesOutp
 	for key, value := range shape {
 		switch key {
 			case "attributes":
-				if err := awsAwsjson11_deserializeDocumentAttributes(&sv.Attributes, value); err != nil {
-					return err
-				}
+			if err := awsAwsjson11_deserializeDocumentAttributes(&sv.Attributes, value); err != nil {
+				return err
+			}
 			
 			default:
 				_, _ = key, value
@@ -19502,9 +19502,9 @@ func awsAwsjson11_deserializeOpDocumentPutClusterCapacityProvidersOutput(v **Put
 	for key, value := range shape {
 		switch key {
 			case "cluster":
-				if err := awsAwsjson11_deserializeDocumentCluster(&sv.Cluster, value); err != nil {
-					return err
-				}
+			if err := awsAwsjson11_deserializeDocumentCluster(&sv.Cluster, value); err != nil {
+				return err
+			}
 			
 			default:
 				_, _ = key, value
@@ -19538,9 +19538,9 @@ func awsAwsjson11_deserializeOpDocumentRegisterContainerInstanceOutput(v **Regis
 	for key, value := range shape {
 		switch key {
 			case "containerInstance":
-				if err := awsAwsjson11_deserializeDocumentContainerInstance(&sv.ContainerInstance, value); err != nil {
-					return err
-				}
+			if err := awsAwsjson11_deserializeDocumentContainerInstance(&sv.ContainerInstance, value); err != nil {
+				return err
+			}
 			
 			default:
 				_, _ = key, value
@@ -19574,14 +19574,14 @@ func awsAwsjson11_deserializeOpDocumentRegisterTaskDefinitionOutput(v **Register
 	for key, value := range shape {
 		switch key {
 			case "tags":
-				if err := awsAwsjson11_deserializeDocumentTags(&sv.Tags, value); err != nil {
-					return err
-				}
+			if err := awsAwsjson11_deserializeDocumentTags(&sv.Tags, value); err != nil {
+				return err
+			}
 			
 			case "taskDefinition":
-				if err := awsAwsjson11_deserializeDocumentTaskDefinition(&sv.TaskDefinition, value); err != nil {
-					return err
-				}
+			if err := awsAwsjson11_deserializeDocumentTaskDefinition(&sv.TaskDefinition, value); err != nil {
+				return err
+			}
 			
 			default:
 				_, _ = key, value
@@ -19615,14 +19615,14 @@ func awsAwsjson11_deserializeOpDocumentRunTaskOutput(v **RunTaskOutput, value in
 	for key, value := range shape {
 		switch key {
 			case "failures":
-				if err := awsAwsjson11_deserializeDocumentFailures(&sv.Failures, value); err != nil {
-					return err
-				}
+			if err := awsAwsjson11_deserializeDocumentFailures(&sv.Failures, value); err != nil {
+				return err
+			}
 			
 			case "tasks":
-				if err := awsAwsjson11_deserializeDocumentTasks(&sv.Tasks, value); err != nil {
-					return err
-				}
+			if err := awsAwsjson11_deserializeDocumentTasks(&sv.Tasks, value); err != nil {
+				return err
+			}
 			
 			default:
 				_, _ = key, value
@@ -19656,14 +19656,14 @@ func awsAwsjson11_deserializeOpDocumentStartTaskOutput(v **StartTaskOutput, valu
 	for key, value := range shape {
 		switch key {
 			case "failures":
-				if err := awsAwsjson11_deserializeDocumentFailures(&sv.Failures, value); err != nil {
-					return err
-				}
+			if err := awsAwsjson11_deserializeDocumentFailures(&sv.Failures, value); err != nil {
+				return err
+			}
 			
 			case "tasks":
-				if err := awsAwsjson11_deserializeDocumentTasks(&sv.Tasks, value); err != nil {
-					return err
-				}
+			if err := awsAwsjson11_deserializeDocumentTasks(&sv.Tasks, value); err != nil {
+				return err
+			}
 			
 			default:
 				_, _ = key, value
@@ -19697,9 +19697,9 @@ func awsAwsjson11_deserializeOpDocumentStopTaskOutput(v **StopTaskOutput, value 
 	for key, value := range shape {
 		switch key {
 			case "task":
-				if err := awsAwsjson11_deserializeDocumentTask(&sv.Task, value); err != nil {
-					return err
-				}
+			if err := awsAwsjson11_deserializeDocumentTask(&sv.Task, value); err != nil {
+				return err
+			}
 			
 			default:
 				_, _ = key, value
@@ -19733,13 +19733,13 @@ func awsAwsjson11_deserializeOpDocumentSubmitAttachmentStateChangesOutput(v **Su
 	for key, value := range shape {
 		switch key {
 			case "acknowledgment":
-				if value != nil {
-					jtv, ok := value.(string)
-					if !ok {
-						return fmt.Errorf("expected String to be of type string, got %T instead", value)
-					}
-					sv.Acknowledgment = ptr.String(jtv)
+			if value != nil {
+				jtv, ok := value.(string)
+				if !ok {
+					return fmt.Errorf("expected String to be of type string, got %T instead", value)
 				}
+				sv.Acknowledgment = ptr.String(jtv)
+			}
 			
 			default:
 				_, _ = key, value
@@ -19773,13 +19773,13 @@ func awsAwsjson11_deserializeOpDocumentSubmitContainerStateChangeOutput(v **Subm
 	for key, value := range shape {
 		switch key {
 			case "acknowledgment":
-				if value != nil {
-					jtv, ok := value.(string)
-					if !ok {
-						return fmt.Errorf("expected String to be of type string, got %T instead", value)
-					}
-					sv.Acknowledgment = ptr.String(jtv)
+			if value != nil {
+				jtv, ok := value.(string)
+				if !ok {
+					return fmt.Errorf("expected String to be of type string, got %T instead", value)
 				}
+				sv.Acknowledgment = ptr.String(jtv)
+			}
 			
 			default:
 				_, _ = key, value
@@ -19813,13 +19813,13 @@ func awsAwsjson11_deserializeOpDocumentSubmitTaskStateChangeOutput(v **SubmitTas
 	for key, value := range shape {
 		switch key {
 			case "acknowledgment":
-				if value != nil {
-					jtv, ok := value.(string)
-					if !ok {
-						return fmt.Errorf("expected String to be of type string, got %T instead", value)
-					}
-					sv.Acknowledgment = ptr.String(jtv)
+			if value != nil {
+				jtv, ok := value.(string)
+				if !ok {
+					return fmt.Errorf("expected String to be of type string, got %T instead", value)
 				}
+				sv.Acknowledgment = ptr.String(jtv)
+			}
 			
 			default:
 				_, _ = key, value
@@ -19915,9 +19915,9 @@ func awsAwsjson11_deserializeOpDocumentUpdateCapacityProviderOutput(v **UpdateCa
 	for key, value := range shape {
 		switch key {
 			case "capacityProvider":
-				if err := awsAwsjson11_deserializeDocumentCapacityProvider(&sv.CapacityProvider, value); err != nil {
-					return err
-				}
+			if err := awsAwsjson11_deserializeDocumentCapacityProvider(&sv.CapacityProvider, value); err != nil {
+				return err
+			}
 			
 			default:
 				_, _ = key, value
@@ -19951,9 +19951,9 @@ func awsAwsjson11_deserializeOpDocumentUpdateClusterOutput(v **UpdateClusterOutp
 	for key, value := range shape {
 		switch key {
 			case "cluster":
-				if err := awsAwsjson11_deserializeDocumentCluster(&sv.Cluster, value); err != nil {
-					return err
-				}
+			if err := awsAwsjson11_deserializeDocumentCluster(&sv.Cluster, value); err != nil {
+				return err
+			}
 			
 			default:
 				_, _ = key, value
@@ -19987,9 +19987,9 @@ func awsAwsjson11_deserializeOpDocumentUpdateClusterSettingsOutput(v **UpdateClu
 	for key, value := range shape {
 		switch key {
 			case "cluster":
-				if err := awsAwsjson11_deserializeDocumentCluster(&sv.Cluster, value); err != nil {
-					return err
-				}
+			if err := awsAwsjson11_deserializeDocumentCluster(&sv.Cluster, value); err != nil {
+				return err
+			}
 			
 			default:
 				_, _ = key, value
@@ -20023,9 +20023,9 @@ func awsAwsjson11_deserializeOpDocumentUpdateContainerAgentOutput(v **UpdateCont
 	for key, value := range shape {
 		switch key {
 			case "containerInstance":
-				if err := awsAwsjson11_deserializeDocumentContainerInstance(&sv.ContainerInstance, value); err != nil {
-					return err
-				}
+			if err := awsAwsjson11_deserializeDocumentContainerInstance(&sv.ContainerInstance, value); err != nil {
+				return err
+			}
 			
 			default:
 				_, _ = key, value
@@ -20059,14 +20059,14 @@ func awsAwsjson11_deserializeOpDocumentUpdateContainerInstancesStateOutput(v **U
 	for key, value := range shape {
 		switch key {
 			case "containerInstances":
-				if err := awsAwsjson11_deserializeDocumentContainerInstances(&sv.ContainerInstances, value); err != nil {
-					return err
-				}
+			if err := awsAwsjson11_deserializeDocumentContainerInstances(&sv.ContainerInstances, value); err != nil {
+				return err
+			}
 			
 			case "failures":
-				if err := awsAwsjson11_deserializeDocumentFailures(&sv.Failures, value); err != nil {
-					return err
-				}
+			if err := awsAwsjson11_deserializeDocumentFailures(&sv.Failures, value); err != nil {
+				return err
+			}
 			
 			default:
 				_, _ = key, value
@@ -20100,9 +20100,9 @@ func awsAwsjson11_deserializeOpDocumentUpdateServiceOutput(v **UpdateServiceOutp
 	for key, value := range shape {
 		switch key {
 			case "service":
-				if err := awsAwsjson11_deserializeDocumentService(&sv.Service, value); err != nil {
-					return err
-				}
+			if err := awsAwsjson11_deserializeDocumentService(&sv.Service, value); err != nil {
+				return err
+			}
 			
 			default:
 				_, _ = key, value
@@ -20136,9 +20136,9 @@ func awsAwsjson11_deserializeOpDocumentUpdateServicePrimaryTaskSetOutput(v **Upd
 	for key, value := range shape {
 		switch key {
 			case "taskSet":
-				if err := awsAwsjson11_deserializeDocumentTaskSet(&sv.TaskSet, value); err != nil {
-					return err
-				}
+			if err := awsAwsjson11_deserializeDocumentTaskSet(&sv.TaskSet, value); err != nil {
+				return err
+			}
 			
 			default:
 				_, _ = key, value
@@ -20172,14 +20172,14 @@ func awsAwsjson11_deserializeOpDocumentUpdateTaskProtectionOutput(v **UpdateTask
 	for key, value := range shape {
 		switch key {
 			case "failures":
-				if err := awsAwsjson11_deserializeDocumentFailures(&sv.Failures, value); err != nil {
-					return err
-				}
+			if err := awsAwsjson11_deserializeDocumentFailures(&sv.Failures, value); err != nil {
+				return err
+			}
 			
 			case "protectedTasks":
-				if err := awsAwsjson11_deserializeDocumentProtectedTasks(&sv.ProtectedTasks, value); err != nil {
-					return err
-				}
+			if err := awsAwsjson11_deserializeDocumentProtectedTasks(&sv.ProtectedTasks, value); err != nil {
+				return err
+			}
 			
 			default:
 				_, _ = key, value
@@ -20213,9 +20213,9 @@ func awsAwsjson11_deserializeOpDocumentUpdateTaskSetOutput(v **UpdateTaskSetOutp
 	for key, value := range shape {
 		switch key {
 			case "taskSet":
-				if err := awsAwsjson11_deserializeDocumentTaskSet(&sv.TaskSet, value); err != nil {
-					return err
-				}
+			if err := awsAwsjson11_deserializeDocumentTaskSet(&sv.TaskSet, value); err != nil {
+				return err
+			}
 			
 			default:
 				_, _ = key, value

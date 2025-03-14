@@ -391,6 +391,7 @@ func tasksRunningStateRetryable(ctx context.Context, input *DescribeTasksInput, 
 		}
 	}
 	
+	if err != nil { return false, err }
 	return true, nil
 }
 
@@ -574,6 +575,7 @@ func tasksStoppedStateRetryable(ctx context.Context, input *DescribeTasksInput, 
 		}
 	}
 	
+	if err != nil { return false, err }
 	return true, nil
 }
 
