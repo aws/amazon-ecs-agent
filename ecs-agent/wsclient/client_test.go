@@ -35,7 +35,7 @@ import (
 	mock_wsconn "github.com/aws/amazon-ecs-agent/ecs-agent/wsclient/wsconn/mock"
 	"github.com/golang/mock/gomock"
 
-	"github.com/aws/aws-sdk-go/aws"
+	"github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/aws/aws-sdk-go/aws/credentials"
 
 	"github.com/gorilla/websocket"
