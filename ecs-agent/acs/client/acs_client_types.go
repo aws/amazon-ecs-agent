@@ -37,7 +37,7 @@ func init() {
 		ecsacs.PollOutput{},
 		ecsacs.AckRequest{},
 		ecsacs.UpdateFailureInput{},
-		ecsacs.PerformUpdateMessage{},
+		ecsacs.PerformUpdateInput{},
 		ecsacs.StageUpdateMessage{},
 		ecsacs.RefreshTaskIAMRoleCredentialsInput{},
 		ecsacs.RefreshTaskIAMRoleCredentialsOutput{},
