@@ -164,8 +164,9 @@ func testValidateAttachmentAndReturnPropertiesWithoutAttachmentType(t *testing.T
 	require.Error(t, err)
 	confirmAttachmentMessageCopy.Attachment.AttachmentArn = aws.String(testAttachmentArn)
 
-	for _, property := range confirmAttachmentMessageCopy.Attachment.AttachmentProperties {
-		t.Run(utils.Prettify(property), func(t *testing.T) {
+	for i, _ := range confirmAttachmentMessageCopy.Attachment.AttachmentProperties {
+		property := &confirmAttachmentMessageCopy.Attachment.AttachmentProperties[i]
+		t.Run(utils.Prettify(*property), func(t *testing.T) {
 			originalPropertyName := property.Name
 			property.Name = aws.String("")
 			_, err := validateAttachmentAndReturnProperties(&confirmAttachmentMessageCopy)
@@ -202,8 +203,9 @@ func testValidateAttachmentAndReturnPropertiesWithAttachmentType(t *testing.T) {
 	confirmAttachmentMessageCopy.Attachment.AttachmentArn = aws.String(testAttachmentArn)
 
 	// Verify the property name & property value must be non-empty.
-	for _, property := range confirmAttachmentMessageCopy.Attachment.AttachmentProperties {
-		t.Run(utils.Prettify(property), func(t *testing.T) {
+	for i, _ := range confirmAttachmentMessageCopy.Attachment.AttachmentProperties {
+		property := &confirmAttachmentMessageCopy.Attachment.AttachmentProperties[i]
+		t.Run(utils.Prettify(*property), func(t *testing.T) {
 			originalPropertyName := property.Name
 			property.Name = aws.String("")
 			_, err := validateAttachmentAndReturnProperties(&confirmAttachmentMessageCopy)
@@ -237,7 +239,8 @@ func testValidateAttachmentAndReturnPropertiesWithAttachmentType(t *testing.T) {
 	}
 	for _, requiredProperty := range requiredProperties {
 		verified := false
-		for _, property := range confirmAttachmentMessageCopy.Attachment.AttachmentProperties {
+		for i, _ := range confirmAttachmentMessageCopy.Attachment.AttachmentProperties {
+			property := &confirmAttachmentMessageCopy.Attachment.AttachmentProperties[i]
 			if requiredProperty == aws.ToString(property.Name) {
 				originalPropertyName := property.Name
 				property.Name = aws.String("")
@@ -307,7 +310,8 @@ func TestValidateAttachmentFilesystemProperty(t *testing.T) {
 	confirmAttachmentMessageCopy.Attachment.AttachmentProperties = testAttachmentPropertiesForEBSAttach
 
 	validFileSystems := []string{"xfs", "ext2", "ext3", "ext4", "ntfs"}
-	for _, property := range confirmAttachmentMessageCopy.Attachment.AttachmentProperties {
+	for i, _ := range confirmAttachmentMessageCopy.Attachment.AttachmentProperties {
+		property := &confirmAttachmentMessageCopy.Attachment.AttachmentProperties[i]
 		if aws.ToString(property.Name) == resource.FileSystemKey {
 			for _, fs := range validFileSystems {
 				originalPropertyValue := property.Value
