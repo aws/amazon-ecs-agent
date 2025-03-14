@@ -23,6 +23,7 @@ import (
 	"github.com/aws/amazon-ecs-agent/ecs-agent/logger"
 	"github.com/aws/amazon-ecs-agent/ecs-agent/logger/field"
 	"github.com/aws/amazon-ecs-agent/ecs-agent/metrics"
+	"github.com/aws/amazon-ecs-agent/ecs-agent/utils"
 	"github.com/aws/amazon-ecs-agent/ecs-agent/wsclient"
 
 	"github.com/aws/aws-sdk-go-v2/aws"
@@ -171,7 +172,7 @@ func validateAttachmentAndReturnProperties(message *acs.ConfirmAttachmentInput) 
 	_, err = awsARN.Parse(arn)
 	if err != nil {
 		return nil, errors.Errorf(
-			"resource attachment validation: invalid arn %s specified for attachment: %s", arn, attachment.String())
+			"resource attachment validation: invalid arn %s specified for attachment: %s", arn, utils.Prettify(attachment))
 	}
 
 	attachmentProperties = make(map[string]string)
@@ -180,13 +181,13 @@ func validateAttachmentAndReturnProperties(message *acs.ConfirmAttachmentInput) 
 		name := aws.ToString(property.Name)
 		if name == "" {
 			return nil, errors.Errorf(
-				"resource attachment validation: no name specified for attachment property: %s", property.String())
+				"resource attachment validation: no name specified for attachment property: %s", utils.Prettify(property))
 		}
 
 		value := aws.ToString(property.Value)
 		if value == "" {
 			return nil, errors.Errorf(
-				"resource attachment validation: no value specified for attachment property: %s", property.String())
+				"resource attachment validation: no value specified for attachment property: %s", utils.Prettify(property))
 		}
 
 		attachmentProperties[name] = value
