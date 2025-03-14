@@ -34,7 +34,7 @@ func init() {
 		ecsacs.HeartbeatInput{},
 		ecsacs.HeartbeatOutput{},
 		ecsacs.PayloadMessage{},
-		ecsacs.CloseMessage{},
+		ecsacs.PollOutput{},
 		ecsacs.AckRequest{},
 		ecsacs.NackRequest{},
 		ecsacs.PerformUpdateMessage{},
