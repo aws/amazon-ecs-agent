@@ -21,7 +21,7 @@ import (
 	"strings"
 	"testing"
 
-	ecsacs "github.com/aws/aws-sdk-go-v2/service/acs"
+	acstypes "github.com/aws/aws-sdk-go-v2/service/acs/types"
 	"github.com/stretchr/testify/require"
 )
 
@@ -33,7 +33,7 @@ func init() {
 
 func TestInvalidInstanceException(t *testing.T) {
 	errMsg := "Invalid instance"
-	err := acsErr.NewError(&ecsacs.InvalidInstanceException{Message_: &errMsg})
+	err := acsErr.NewError(&acstypes.InvalidInstanceException{Message: &errMsg})
 
 	require.False(t, err.Retry(), "Expected InvalidInstanceException to not be retriable")
 	require.EqualError(t, err, "InvalidInstanceException: "+errMsg)
@@ -41,14 +41,14 @@ func TestInvalidInstanceException(t *testing.T) {
 
 func TestInvalidClusterException(t *testing.T) {
 	errMsg := "Invalid cluster"
-	err := acsErr.NewError(&ecsacs.InvalidClusterException{Message_: &errMsg})
+	err := acsErr.NewError(&acstypes.InvalidClusterException{Message: &errMsg})
 
 	require.False(t, err.Retry(), "Expected to not be retriable")
 	require.EqualError(t, err, "InvalidClusterException: "+errMsg)
 }
 
 func TestServerException(t *testing.T) {
-	err := acsErr.NewError(&ecsacs.ServerException{Message_: nil})
+	err := acsErr.NewError(&acstypes.ServerException{Message: nil})
 
 	require.True(t, err.Retry(), "Server exceptions are retriable")
 	require.EqualError(t, err, "ServerException: null")
