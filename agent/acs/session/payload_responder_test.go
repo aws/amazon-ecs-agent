@@ -952,7 +952,7 @@ func TestHandlePayloadMessageAddedECRAuthData(t *testing.T) {
 	actual := addedTask.Containers[0].RegistryAuthentication
 	assert.NotNil(t, actual.ECRAuthData)
 	assert.Nil(t, actual.ASMAuthData)
-	assert.Equal(t, expected.Type, actual.Type)
+	assert.Equal(t, string(expected.Type), actual.Type)
 	assert.Equal(t, aws.ToString(expected.EcrAuthData.Region), actual.ECRAuthData.Region)
 	assert.Equal(t, aws.ToString(expected.EcrAuthData.RegistryId), actual.ECRAuthData.RegistryID)
 }
@@ -1004,7 +1004,7 @@ func TestHandlePayloadMessageAddedASMAuthData(t *testing.T) {
 	actual := addedTask.Containers[0].RegistryAuthentication
 	assert.NotNil(t, actual.ASMAuthData)
 	assert.Nil(t, actual.ECRAuthData)
-	assert.Equal(t, expected.Type, actual.Type)
+	assert.Equal(t, string(expected.Type), actual.Type)
 	assert.Equal(t, aws.ToString(expected.AsmAuthData.Region), actual.ASMAuthData.Region)
 	assert.Equal(t, aws.ToString(expected.AsmAuthData.CredentialsParameter), actual.ASMAuthData.CredentialsParameter)
 }
@@ -1053,7 +1053,7 @@ func TestHandlePayloadMessageAddedFirelensData(t *testing.T) {
 	// Validate the pieces of the Firelens container.
 	expected := testPayloadMessage.Tasks[0].Containers[0].FirelensConfiguration
 	actual := addedTask.Containers[0].FirelensConfig
-	assert.Equal(t, expected.Type, actual.Type)
+	assert.Equal(t, string(expected.Type), actual.Type)
 	assert.NotNil(t, actual.Options)
 	assert.Equal(t, expected.Options["enable-ecs-log-metadata"],
 		actual.Options["enable-ecs-log-metadata"])
