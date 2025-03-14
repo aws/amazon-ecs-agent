@@ -24,6 +24,7 @@ import (
 
 	"github.com/aws/aws-sdk-go-v2/aws"
 	ecsacs "github.com/aws/aws-sdk-go-v2/service/acs"
+	acstypes "github.com/aws/aws-sdk-go-v2/service/acs/types"
 	"github.com/stretchr/testify/require"
 )
 
@@ -52,11 +53,11 @@ func TestTaskStopVerificationACKResponder_StopsTaskContainersAndResources(t *tes
 	taskStopper := session.NewTaskStopper(taskEngine, data.NewNoopClient())
 	responder := acssession.NewTaskStopVerificationACKResponder(taskStopper, manifestMessageIDAccessor, metrics.NewNopEntryFactory())
 
-	handler := responder.HandlerFunc().(func(*ecsacs.TaskStopVerificationAck))
-	handler(&ecsacs.TaskStopVerificationAck{
+	handler := responder.HandlerFunc().(func(*ecsacs.TaskStopVerificationOutput))
+	handler(&ecsacs.TaskStopVerificationOutput{
 		GeneratedAt: aws.Int64(testconst.DummyInt),
 		MessageId:   aws.String(manifestMessageIDAccessor.GetMessageID()),
-		StopTasks:   []*ecsacs.TaskIdentifier{{TaskArn: aws.String(task.Arn)}},
+		StopTasks:   []acstypes.TaskIdentifier{{TaskArn: aws.String(task.Arn)}},
 	})
 
 	// Wait for all state changes before verifying container, resource, and task statuses.
@@ -106,11 +107,11 @@ func TestTaskStopVerificationACKResponder_StopsSpecificTasks(t *testing.T) {
 	responder := acssession.NewTaskStopVerificationACKResponder(taskStopper, manifestMessageIDAccessor, metrics.NewNopEntryFactory())
 
 	// Stop the last 2 tasks.
-	handler := responder.HandlerFunc().(func(*ecsacs.TaskStopVerificationAck))
-	handler(&ecsacs.TaskStopVerificationAck{
+	handler := responder.HandlerFunc().(func(*ecsacs.TaskStopVerificationOutput))
+	handler(&ecsacs.TaskStopVerificationOutput{
 		GeneratedAt: aws.Int64(testconst.DummyInt),
 		MessageId:   aws.String(manifestMessageIDAccessor.GetMessageID()),
-		StopTasks: []*ecsacs.TaskIdentifier{
+		StopTasks: []acstypes.TaskIdentifier{
 			{TaskArn: aws.String(tasks[1].Arn)},
 			{TaskArn: aws.String(tasks[2].Arn)},
 		},
@@ -185,11 +186,11 @@ func TestTaskStopVerificationACKResponder(t *testing.T) {
 			taskStopper := session.NewTaskStopper(taskEngine, data.NewNoopClient())
 			responder := acssession.NewTaskStopVerificationACKResponder(taskStopper, manifestMessageIDAccessor, metrics.NewNopEntryFactory())
 
-			handler := responder.HandlerFunc().(func(*ecsacs.TaskStopVerificationAck))
-			handler(&ecsacs.TaskStopVerificationAck{
+			handler := responder.HandlerFunc().(func(*ecsacs.TaskStopVerificationOutput))
+			handler(&ecsacs.TaskStopVerificationOutput{
 				GeneratedAt: aws.Int64(testconst.DummyInt),
 				MessageId:   aws.String(manifestMessageIDAccessor.GetMessageID()),
-				StopTasks: []*ecsacs.TaskIdentifier{
+				StopTasks: []acstypes.TaskIdentifier{
 					{TaskArn: aws.String(tc.stopTaskArn)},
 				},
 			})

@@ -63,7 +63,7 @@ func (r *taskStopVerificationACKResponder) HandlerFunc() wsclient.RequestHandler
 
 // handleTaskStopVerificationACK goes through the list of verified tasks to be stopped
 // and stops each one by setting the desired status of each task to STOPPED.
-func (r *taskStopVerificationACKResponder) handleTaskStopVerificationACK(message *ecsacs.TaskStopVerificationAck) {
+func (r *taskStopVerificationACKResponder) handleTaskStopVerificationACK(message *ecsacs.TaskStopVerificationOutput) {
 	logger.Debug(fmt.Sprintf("Handling %s", TaskStopVerificationACKMessageName))
 
 	// Ensure that message is valid and that a corresponding task manifest message has been processed before.
