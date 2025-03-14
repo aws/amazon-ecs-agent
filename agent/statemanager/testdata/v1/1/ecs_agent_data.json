@@ -209,16 +209,16 @@
           ],
           "volumes": [
             {
-              "host": {
+              "Host": {
                 "sourcePath": "/tmp/host/path"
               },
-              "name": "host",
-              "type": "host"
+              "Name": "host",
+              "Type": "host"
             },
             {
-              "host": {},
-              "name": "local",
-              "type": "host"
+              "Host": {},
+              "Name": "local",
+              "Type": "host"
             }
           ],
           "DesiredStatus": "RUNNING",
