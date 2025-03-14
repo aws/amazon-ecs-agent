@@ -33,7 +33,7 @@ func init() {
 	acsRecognizedTypes = []interface{}{
 		ecsacs.HeartbeatInput{},
 		ecsacs.HeartbeatOutput{},
-		ecsacs.PayloadMessage{},
+		ecsacs.PayloadInput{},
 		ecsacs.PollOutput{},
 		ecsacs.AckRequest{},
 		ecsacs.UpdateFailureInput{},

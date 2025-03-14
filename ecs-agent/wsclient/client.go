@@ -115,7 +115,7 @@ type RequestHandler interface{}
 //	    dispatcher actor.Dispatcher
 //	}
 //	func(d *payloadmessagedispatcher) HandlerFunc() RequestHandler {
-//	    return func(payload *ecsacs.PayloadMessage) {
+//	    return func(payload *ecsacs.PayloadInput) {
 //	        message := &actor.DispatcherMessage{
 //	            Payload: payload,
 //	            AckFunc: func() error {

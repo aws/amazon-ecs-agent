@@ -21,7 +21,6 @@ import (
 	"github.com/aws/amazon-ecs-agent/ecs-agent/netlib/model/tasknetworkconfig"
 
 	"github.com/aws/aws-sdk-go-v2/aws"
-	ecsacs "github.com/aws/aws-sdk-go-v2/service/acs"
 	acstypes "github.com/aws/aws-sdk-go-v2/service/acs/types"
 	"github.com/aws/aws-sdk-go-v2/service/ecs/types"
 )
@@ -58,12 +57,12 @@ const (
 // getSingleNetNSAWSVPCTestData returns a task payload and a task network config
 // to be used the input and reference result for tests. The reference object will
 // has only one network namespace and network interface.
-func getSingleNetNSAWSVPCTestData(testTaskID string) (*ecsacs.Task, tasknetworkconfig.TaskNetworkConfig) {
+func getSingleNetNSAWSVPCTestData(testTaskID string) (*acstypes.Task, tasknetworkconfig.TaskNetworkConfig) {
 	enis, netIfs := getTestInterfacesData_Containerd()
-	taskPayload := &ecsacs.Task{
+	taskPayload := &acstypes.Task{
 		NetworkMode:              aws.String(string(types.NetworkModeAwsvpc)),
-		ElasticNetworkInterfaces: []*acstypes.ElasticNetworkInterface{enis[0]},
-		Containers:               []*ecsacs.Container{{}},
+		ElasticNetworkInterfaces: []acstypes.ElasticNetworkInterface{enis[0]},
+		Containers:               []acstypes.Container{{}},
 	}
 
 	netNSName := fmt.Sprintf(netNSNamePattern, testTaskID, eniName)
@@ -88,7 +87,7 @@ func getSingleNetNSAWSVPCTestData(testTaskID string) (*ecsacs.Task, tasknetworkc
 }
 
 // getSingleNetNSMultiIfaceWithNameTestData returns the test data for EKS like use cases but with names specified for interfaces.
-func getSingleNetNSMultiIfaceWithNameTestData(testTaskID string) (*ecsacs.Task, tasknetworkconfig.TaskNetworkConfig) {
+func getSingleNetNSMultiIfaceWithNameTestData(testTaskID string) (*acstypes.Task, tasknetworkconfig.TaskNetworkConfig) {
 	taskPayload, taskNetConfig := getSingleNetNSMultiIfaceAWSVPCTestData(testTaskID)
 	for i, iface := range taskPayload.ElasticNetworkInterfaces {
 		eniName := fmt.Sprintf("eni-%d", i)
@@ -105,7 +104,7 @@ func getSingleNetNSMultiIfaceWithNameTestData(testTaskID string) (*ecsacs.Task, 
 }
 
 // getSingleNetNSMultiIfaceAWSVPCTestData returns test data for EKS like use cases.
-func getSingleNetNSMultiIfaceAWSVPCTestData(testTaskID string) (*ecsacs.Task, tasknetworkconfig.TaskNetworkConfig) {
+func getSingleNetNSMultiIfaceAWSVPCTestData(testTaskID string) (*acstypes.Task, tasknetworkconfig.TaskNetworkConfig) {
 	taskPayload, taskNetConfig := getSingleNetNSAWSVPCTestData(testTaskID)
 	enis, netIfs := getTestInterfacesData_Containerd()
 	secondIFPayload := enis[1]
@@ -118,7 +117,7 @@ func getSingleNetNSMultiIfaceAWSVPCTestData(testTaskID string) (*ecsacs.Task, ta
 }
 
 // getMultiNetNSMultiIfaceAWSVPCTestData returns test data for multiple netns and net interface cases.
-func getMultiNetNSMultiIfaceAWSVPCTestData(testTaskID string) (*ecsacs.Task, tasknetworkconfig.TaskNetworkConfig) {
+func getMultiNetNSMultiIfaceAWSVPCTestData(testTaskID string) (*acstypes.Task, tasknetworkconfig.TaskNetworkConfig) {
 	ifName1 := "primary-eni"
 	ifName2 := "secondary-eni"
 	enis, netIfs := getTestInterfacesData_Containerd()
@@ -129,21 +128,21 @@ func getMultiNetNSMultiIfaceAWSVPCTestData(testTaskID string) (*ecsacs.Task, tas
 	netIfs[1].Name = ifName2
 	netIfs[1].Default = true
 
-	taskPayload := &ecsacs.Task{
+	taskPayload := &acstypes.Task{
 		NetworkMode:              aws.String(string(types.NetworkModeAwsvpc)),
 		ElasticNetworkInterfaces: enis,
-		Containers: []*ecsacs.Container{
+		Containers: []acstypes.Container{
 			{
-				NetworkInterfaceNames: []*string{aws.String(ifName2)},
+				NetworkInterfaceNames: []string{ifName2},
 			},
 			{
-				NetworkInterfaceNames: []*string{aws.String(ifName1)},
+				NetworkInterfaceNames: []string{ifName1},
 			},
 			{
-				NetworkInterfaceNames: []*string{aws.String(ifName1)},
+				NetworkInterfaceNames: []string{ifName1},
 			},
 			{
-				NetworkInterfaceNames: []*string{aws.String(ifName2)},
+				NetworkInterfaceNames: []string{ifName2},
 			},
 		},
 	}
@@ -182,16 +181,16 @@ func getMultiNetNSMultiIfaceAWSVPCTestData(testTaskID string) (*ecsacs.Task, tas
 	return taskPayload, taskNetConfig
 }
 
-func getTestInterfacesData_Containerd() ([]*acstypes.ElasticNetworkInterface, []networkinterface.NetworkInterface) {
+func getTestInterfacesData_Containerd() ([]acstypes.ElasticNetworkInterface, []networkinterface.NetworkInterface) {
 	// interfacePayloads have multiple interfaces as they are sent by ACS
 	// that can be used as input data for tests.
-	interfacePayloads := []*acstypes.ElasticNetworkInterface{
+	interfacePayloads := []acstypes.ElasticNetworkInterface{
 		{
 			Ec2Id:             aws.String(eniID),
 			MacAddress:        aws.String(eniMAC),
 			PrivateDnsName:    aws.String(dnsName),
 			DomainNameServers: []string{nameServer},
-			Index:             aws.Int64(0),
+			Index:             aws.Int32(0),
 			Ipv4Addresses: []acstypes.IPv4AddressAssignment{
 				{
 					Primary:        aws.Bool(true),
@@ -212,7 +211,7 @@ func getTestInterfacesData_Containerd() ([]*acstypes.ElasticNetworkInterface, []
 			MacAddress:        aws.String(eniMAC2),
 			PrivateDnsName:    aws.String(dnsName),
 			DomainNameServers: []string{nameServer2},
-			Index:             aws.Int64(1),
+			Index:             aws.Int32(1),
 			Ipv4Addresses: []acstypes.IPv4AddressAssignment{
 				{
 					Primary:        aws.Bool(true),
@@ -289,23 +288,23 @@ func getTestInterfacesData_Containerd() ([]*acstypes.ElasticNetworkInterface, []
 
 // getV2NTestData returns a test task payload with a V2N interface to be used as test input and the
 // task network config object as the expected output.
-func getV2NTestData(testTaskID string) (*ecsacs.Task, tasknetworkconfig.TaskNetworkConfig) {
+func getV2NTestData(testTaskID string) (*acstypes.Task, tasknetworkconfig.TaskNetworkConfig) {
 	enis, netIfs := getTestInterfacesData_Firecracker()
-	taskPayload := &ecsacs.Task{
+	taskPayload := &acstypes.Task{
 		NetworkMode:              aws.String(string(types.NetworkModeAwsvpc)),
 		ElasticNetworkInterfaces: enis,
-		Containers: []*ecsacs.Container{
+		Containers: []acstypes.Container{
 			{
-				NetworkInterfaceNames: []*string{aws.String(secondaryIfaceName), aws.String(vethIfaceName)},
+				NetworkInterfaceNames: []string{secondaryIfaceName, vethIfaceName},
 			},
 			{
-				NetworkInterfaceNames: []*string{aws.String(secondaryIfaceName), aws.String(vethIfaceName)},
+				NetworkInterfaceNames: []string{secondaryIfaceName, vethIfaceName},
 			},
 			{
-				NetworkInterfaceNames: []*string{aws.String(primaryIfaceName)},
+				NetworkInterfaceNames: []string{primaryIfaceName},
 			},
 			{
-				NetworkInterfaceNames: []*string{aws.String(primaryIfaceName)},
+				NetworkInterfaceNames: []string{primaryIfaceName},
 			},
 		},
 	}
@@ -330,17 +329,17 @@ func getV2NTestData(testTaskID string) (*ecsacs.Task, tasknetworkconfig.TaskNetw
 	return taskPayload, taskNetConfig
 }
 
-func getTestInterfacesData_Firecracker() ([]*acstypes.ElasticNetworkInterface, []*networkinterface.NetworkInterface) {
+func getTestInterfacesData_Firecracker() ([]acstypes.ElasticNetworkInterface, []*networkinterface.NetworkInterface) {
 	// interfacePayloads have multiple interfaces as they are sent by ACS
 	// that can be used as input data for tests.
-	interfacePayloads := []*acstypes.ElasticNetworkInterface{
+	interfacePayloads := []acstypes.ElasticNetworkInterface{
 		{
 			Name:              aws.String(primaryIfaceName),
 			Ec2Id:             aws.String(eniID),
 			MacAddress:        aws.String(eniMAC),
 			PrivateDnsName:    aws.String(dnsName),
 			DomainNameServers: []string{nameServer},
-			Index:             aws.Int64(0),
+			Index:             aws.Int32(0),
 			Ipv4Addresses: []acstypes.IPv4AddressAssignment{
 				{
 					Primary:        aws.Bool(true),
@@ -364,7 +363,7 @@ func getTestInterfacesData_Firecracker() ([]*acstypes.ElasticNetworkInterface, [
 			Name:                         aws.String(secondaryIfaceName),
 			PrivateDnsName:               aws.String(dnsName),
 			DomainNameServers:            []string{nameServer2},
-			Index:                        aws.Int64(1),
+			Index:                        aws.Int32(1),
 			SubnetGatewayIpv4Address:     aws.String(subnetGatewayCIDR2),
 			InterfaceAssociationProtocol: networkinterface.V2NInterfaceAssociationProtocol,
 			DomainName:                   []string{searchDomainName},
@@ -379,7 +378,7 @@ func getTestInterfacesData_Firecracker() ([]*acstypes.ElasticNetworkInterface, [
 			InterfaceVethProperties: &acstypes.NetworkInterfaceVethProperties{
 				PeerInterface: aws.String("primary"),
 			},
-			Index: aws.Int64(2),
+			Index: aws.Int32(2),
 		},
 	}
 

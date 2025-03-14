@@ -170,7 +170,7 @@ func TestPayloadHandlerCalled(t *testing.T) {
 	// Messages should be read from the connection at least once
 	conn.EXPECT().SetReadDeadline(gomock.Any()).Return(nil).MinTimes(1)
 	conn.EXPECT().ReadMessage().Return(websocket.TextMessage,
-		[]byte(`{"type":"PayloadMessage","message":{"tasks":[{"arn":"arn"}]}}`),
+		[]byte(`{"type":"PayloadInput","message":{"tasks":[{"arn":"arn"}]}}`),
 		nil).MinTimes(1)
 	// Invoked when closing the connection
 	conn.EXPECT().SetWriteDeadline(gomock.Any()).Return(nil)
@@ -178,15 +178,15 @@ func TestPayloadHandlerCalled(t *testing.T) {
 	cs := testCS(conn)
 	defer cs.Close()
 
-	messageChannel := make(chan *ecsacs.PayloadMessage)
-	reqHandler := func(payload *ecsacs.PayloadMessage) {
+	messageChannel := make(chan *ecsacs.PayloadInput)
+	reqHandler := func(payload *ecsacs.PayloadInput) {
 		messageChannel <- payload
 	}
 	cs.AddRequestHandler(reqHandler)
 	go cs.Serve(context.Background())
 
-	expectedMessage := &ecsacs.PayloadMessage{
-		Tasks: []*ecsacs.Task{{
+	expectedMessage := &ecsacs.PayloadInput{
+		Tasks: []acstypes.Task{{
 			Arn: aws.String("arn"),
 		}},
 	}
@@ -280,9 +280,9 @@ func TestConnect(t *testing.T) {
 	}
 
 	errs := make(chan error)
-	cs.AddRequestHandler(func(msg *ecsacs.PayloadMessage) {
+	cs.AddRequestHandler(func(msg *ecsacs.PayloadInput) {
 		if *msg.MessageId != "messageId" || len(msg.Tasks) != 1 || *msg.Tasks[0].Arn != "arn1" {
-			errs <- errors.New("incorrect payloadMessage arguments")
+			errs <- errors.New("incorrect payloadInput arguments")
 		} else {
 			errs <- nil
 		}
@@ -293,9 +293,9 @@ func TestConnect(t *testing.T) {
 	}()
 
 	go func() {
-		serverChan <- `{"type":"PayloadMessage","message":{"tasks":[{"arn":"arn1","desiredStatus":"RUNNING","overrides":"{}","family":"test","version":"v1","containers":[{"name":"c1","image":"redis","command":["arg1","arg2"],"cpu":10,"memory":20,"links":["db"],"portMappings":[{"containerPort":22,"hostPort":22}],"essential":true,"entryPoint":["bash"],"environment":{"key":"val"},"overrides":"{}","desiredStatus":"RUNNING"}]}],"messageId":"messageId"}}` + "\n"
+		serverChan <- `{"type":"PayloadInput","message":{"tasks":[{"arn":"arn1","desiredStatus":"RUNNING","overrides":"{}","family":"test","version":"v1","containers":[{"name":"c1","image":"redis","command":["arg1","arg2"],"cpu":10,"memory":20,"links":["db"],"portMappings":[{"containerPort":22,"hostPort":22}],"essential":true,"entryPoint":["bash"],"environment":{"key":"val"},"overrides":"{}","desiredStatus":"RUNNING"}]}],"messageId":"messageId"}}` + "\n"
 	}()
-	// Error for handling a 'PayloadMessage' request
+	// Error for handling a 'PayloadInput' request
 	err = <-errs
 	if err != nil {
 		t.Fatal(err)

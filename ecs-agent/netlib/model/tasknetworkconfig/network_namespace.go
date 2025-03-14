@@ -22,7 +22,7 @@ import (
 	"github.com/aws/amazon-ecs-agent/ecs-agent/netlib/model/serviceconnect"
 	"github.com/aws/amazon-ecs-agent/ecs-agent/netlib/model/status"
 
-	ecsacs "github.com/aws/aws-sdk-go-v2/service/acs"
+	acstypes "github.com/aws/aws-sdk-go-v2/service/acs/types"
 )
 
 // NetworkNamespace is model representing each network namespace.
@@ -50,7 +50,7 @@ func NewNetworkNamespace(
 	netNSName string,
 	netNSPath string,
 	index int,
-	proxyConfig *ecsacs.ProxyConfiguration,
+	proxyConfig *acstypes.ProxyConfiguration,
 	networkInterfaces ...*networkinterface.NetworkInterface) (*NetworkNamespace, error) {
 	netNS := &NetworkNamespace{
 		Name:              netNSName,

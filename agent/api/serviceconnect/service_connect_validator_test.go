@@ -19,12 +19,12 @@ import (
 	"testing"
 
 	"github.com/aws/aws-sdk-go-v2/aws"
-	ecsacs "github.com/aws/aws-sdk-go-v2/service/acs"
+	acstypes "github.com/aws/aws-sdk-go-v2/service/acs/types"
 	"github.com/stretchr/testify/assert"
 )
 
 var (
-	testTaskContainers = []*ecsacs.Container{
+	testTaskContainers = []acstypes.Container{
 		{
 			Name: aws.String(testServiceConnectContainerName),
 		},

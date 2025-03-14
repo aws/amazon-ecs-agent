@@ -107,7 +107,7 @@ func (tmr *taskManifestResponder) processTaskManifestMessage(
 	agentLatestSeqNum := tmr.snAccessor.GetLatestSequenceNumber()
 
 	// Verify that task manifest isn't stale.
-	// The agent will keep track of the highest sequence number received in both PayloadMessage and TaskManifestInput.
+	// The agent will keep track of the highest sequence number received in both PayloadInput and TaskManifestInput.
 	// If the sequence number on TaskManifestInput is lower or equal to to the latest known one, the TaskManifestInput must be discarded.
 	// The manifest should also not be a duplicate of the last one received, so the number cannot be less than or equal to the latest.
 	// ACS will guarantee that the sequence number is indeed increasing and valid for this use case.

@@ -51,13 +51,13 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
-// samplePayloadMessage, sampleRefreshCredentialsMessage, and sampleAttachResourceMessage are required to be type
+// samplePayloadInput, sampleRefreshCredentialsMessage, and sampleAttachResourceMessage are required to be type
 // string because the channel used by the test fake ACS server to read in messages in the tests where these consts
 // are used is a string channel (i.e., not a channel of any particular message type).
 const (
-	samplePayloadMessage = `
+	samplePayloadInput = `
 {
-  "type": "PayloadMessage",
+  "type": "PayloadInput",
   "message": {
     "messageId": "123",
     "tasks": [
@@ -991,12 +991,12 @@ func TestSessionDoesntLeakGoroutines(t *testing.T) {
 	}()
 	// Warm it up.
 	serverIn <- `{"type":"HeartbeatInput","message":{"healthy":true,"messageId":"123"}}`
-	serverIn <- samplePayloadMessage
+	serverIn <- samplePayloadInput
 
 	beforeGoroutines := runtime.NumGoroutine()
 	for i := 0; i < 40; i++ {
 		serverIn <- `{"type":"HeartbeatInput","message":{"healthy":true,"messageId":"123"}}`
-		serverIn <- samplePayloadMessage
+		serverIn <- samplePayloadInput
 		closeWS <- true
 	}
 

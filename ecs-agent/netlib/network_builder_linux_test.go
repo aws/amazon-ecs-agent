@@ -35,7 +35,7 @@ import (
 	mock_netwrapper "github.com/aws/amazon-ecs-agent/ecs-agent/utils/netwrapper/mocks"
 
 	"github.com/aws/aws-sdk-go-v2/aws"
-	ecsacs "github.com/aws/aws-sdk-go-v2/service/acs"
+	acstypes "github.com/aws/aws-sdk-go-v2/service/acs/types"
 	"github.com/aws/aws-sdk-go-v2/service/ecs/types"
 	"github.com/golang/mock/gomock"
 	"github.com/stretchr/testify/require"
@@ -78,7 +78,7 @@ func TestNetworkBuilder_Stop(t *testing.T) {
 // getTestFunc returns a test function that verifies the capability of the networkBuilder
 // to translate a given input task payload into desired network data models.
 func getTestFunc(
-	dataGenF func(string) (input *ecsacs.Task, expected tasknetworkconfig.TaskNetworkConfig),
+	dataGenF func(string) (input *acstypes.Task, expected tasknetworkconfig.TaskNetworkConfig),
 	plt string,
 ) func(*testing.T) {
 
