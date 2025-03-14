@@ -16,7 +16,7 @@ package session
 import (
 	"fmt"
 
-	"github.com/aws/aws-sdk-go/aws"
+	"github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/pkg/errors"
 
 	apitask "github.com/aws/amazon-ecs-agent/agent/api/task"
@@ -48,7 +48,7 @@ func (cmSetter *credentialsMetadataSetter) SetTaskRoleCredentialsMetadata(
 	if err != nil {
 		return err
 	}
-	task.SetCredentialsID(aws.StringValue(message.RoleCredentials.CredentialsId))
+	task.SetCredentialsID(aws.ToString(message.RoleCredentials.CredentialsId))
 	return nil
 }
 
@@ -58,14 +58,14 @@ func (cmSetter *credentialsMetadataSetter) SetExecRoleCredentialsMetadata(
 	if err != nil {
 		return errors.Wrap(err, "unable to get credentials message's task")
 	}
-	task.SetExecutionRoleCredentialsID(aws.StringValue(message.RoleCredentials.CredentialsId))
+	task.SetExecutionRoleCredentialsID(aws.ToString(message.RoleCredentials.CredentialsId))
 
 	// Refresh domainless gMSA plugin credentials if needed.
 	err = checkAndSetDomainlessGMSATaskExecutionRoleCredentialsImpl(credentials.IAMRoleCredentialsFromACS(
-		message.RoleCredentials, aws.StringValue(message.RoleType)), task)
+		message.RoleCredentials, aws.ToString(message.RoleType)), task)
 	if err != nil {
 		return errors.Wrap(err, fmt.Sprintf("unable to set %s for task with ARN %s",
-			"DomainlessGMSATaskExecutionRoleCredentials", aws.StringValue(message.TaskArn)))
+			"DomainlessGMSATaskExecutionRoleCredentials", aws.ToString(message.TaskArn)))
 	}
 
 	return nil
@@ -73,8 +73,8 @@ func (cmSetter *credentialsMetadataSetter) SetExecRoleCredentialsMetadata(
 
 func (cmSetter *credentialsMetadataSetter) getCredentialsMessageTask(
 	message *ecsacs.IAMRoleCredentialsMessage) (*apitask.Task, error) {
-	taskARN := aws.StringValue(message.TaskArn)
-	messageID := aws.StringValue(message.MessageId)
+	taskARN := aws.ToString(message.TaskArn)
+	messageID := aws.ToString(message.MessageId)
 	task, ok := cmSetter.taskEngine.GetTaskByArn(taskARN)
 	if !ok {
 		return nil, errors.Errorf(
