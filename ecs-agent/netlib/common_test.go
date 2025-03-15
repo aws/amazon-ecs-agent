@@ -89,7 +89,8 @@ func getSingleNetNSAWSVPCTestData(testTaskID string) (*acstypes.Task, tasknetwor
 // getSingleNetNSMultiIfaceWithNameTestData returns the test data for EKS like use cases but with names specified for interfaces.
 func getSingleNetNSMultiIfaceWithNameTestData(testTaskID string) (*acstypes.Task, tasknetworkconfig.TaskNetworkConfig) {
 	taskPayload, taskNetConfig := getSingleNetNSMultiIfaceAWSVPCTestData(testTaskID)
-	for i, iface := range taskPayload.ElasticNetworkInterfaces {
+	for i, _ := range taskPayload.ElasticNetworkInterfaces {
+		iface := &taskPayload.ElasticNetworkInterfaces[i]
 		eniName := fmt.Sprintf("eni-%d", i)
 		iface.Name = aws.String(eniName)
 		taskNetConfig.NetworkNamespaces[0].NetworkInterfaces[i].Name = eniName
