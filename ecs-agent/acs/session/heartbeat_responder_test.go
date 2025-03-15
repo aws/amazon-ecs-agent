@@ -19,12 +19,12 @@ package session
 import (
 	"testing"
 
-	"github.com/aws/aws-sdk-go/aws"
+	"github.com/aws/amazon-ecs-agent/ecs-agent/doctor"
+
+	"github.com/aws/aws-sdk-go-v2/aws"
+	"github.com/aws/aws-sdk-go-v2/service/acs"
 	"github.com/golang/mock/gomock"
 	"github.com/stretchr/testify/require"
-
-	"github.com/aws/amazon-ecs-agent/ecs-agent/acs/model/ecsacs"
-	"github.com/aws/amazon-ecs-agent/ecs-agent/doctor"
 )
 
 const (
@@ -32,12 +32,12 @@ const (
 )
 
 func TestAckHeartbeatMessage(t *testing.T) {
-	heartbeatReceived := &ecsacs.HeartbeatMessage{
+	heartbeatReceived := &acs.HeartbeatInput{
 		MessageId: aws.String(heartbeatMessageId),
 		Healthy:   aws.Bool(true),
 	}
 
-	heartbeatAckExpected := &ecsacs.HeartbeatAckRequest{
+	heartbeatAckExpected := &acs.HeartbeatOutput{
 		MessageId: aws.String(heartbeatMessageId),
 	}
 
@@ -45,13 +45,13 @@ func TestAckHeartbeatMessage(t *testing.T) {
 }
 
 func TestAckHeartbeatMessageNotHealthy(t *testing.T) {
-	heartbeatReceived := &ecsacs.HeartbeatMessage{
+	heartbeatReceived := &acs.HeartbeatInput{
 		MessageId: aws.String(heartbeatMessageId),
 		// ECS Agent currently ignores this field so we expect no behavior change
 		Healthy: aws.Bool(false),
 	}
 
-	heartbeatAckExpected := &ecsacs.HeartbeatAckRequest{
+	heartbeatAckExpected := &acs.HeartbeatOutput{
 		MessageId: aws.String(heartbeatMessageId),
 	}
 
@@ -59,11 +59,11 @@ func TestAckHeartbeatMessageNotHealthy(t *testing.T) {
 }
 
 func TestAckHeartbeatMessageWithoutMessageId(t *testing.T) {
-	heartbeatReceived := &ecsacs.HeartbeatMessage{
+	heartbeatReceived := &acs.HeartbeatInput{
 		Healthy: aws.Bool(true),
 	}
 
-	heartbeatAckExpected := &ecsacs.HeartbeatAckRequest{
+	heartbeatAckExpected := &acs.HeartbeatOutput{
 		MessageId: nil,
 	}
 
@@ -71,26 +71,26 @@ func TestAckHeartbeatMessageWithoutMessageId(t *testing.T) {
 }
 
 func TestAckHeartbeatMessageEmpty(t *testing.T) {
-	heartbeatReceived := &ecsacs.HeartbeatMessage{}
+	heartbeatReceived := &acs.HeartbeatInput{}
 
-	heartbeatAckExpected := &ecsacs.HeartbeatAckRequest{
+	heartbeatAckExpected := &acs.HeartbeatOutput{
 		MessageId: nil,
 	}
 
 	validateHeartbeatAck(t, heartbeatReceived, heartbeatAckExpected)
 }
 
-func validateHeartbeatAck(t *testing.T, heartbeatReceived *ecsacs.HeartbeatMessage, heartbeatAckExpected *ecsacs.HeartbeatAckRequest) {
+func validateHeartbeatAck(t *testing.T, heartbeatReceived *acs.HeartbeatInput, heartbeatAckExpected *acs.HeartbeatOutput) {
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
 
-	ackSent := make(chan *ecsacs.HeartbeatAckRequest)
+	ackSent := make(chan *acs.HeartbeatOutput)
 
 	emptyHealthchecksList := []doctor.Healthcheck{}
 	emptyDoctor, _ := doctor.NewDoctor(emptyHealthchecksList, "testCluster", "this:is:an:instance:arn")
 
 	testResponseSender := func(response interface{}) error {
-		resp := response.(*ecsacs.HeartbeatAckRequest)
+		resp := response.(*acs.HeartbeatOutput)
 		ackSent <- resp
 		return nil
 	}

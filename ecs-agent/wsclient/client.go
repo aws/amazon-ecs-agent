@@ -44,7 +44,6 @@ import (
 	"github.com/aws/amazon-ecs-agent/ecs-agent/wsclient/wsconn"
 
 	"github.com/aws/aws-sdk-go/aws/credentials"
-	"github.com/aws/aws-sdk-go/private/protocol/json/jsonutil"
 	"github.com/gorilla/websocket"
 	"github.com/pkg/errors"
 )
@@ -115,7 +114,7 @@ type RequestHandler interface{}
 //	    dispatcher actor.Dispatcher
 //	}
 //	func(d *payloadmessagedispatcher) HandlerFunc() RequestHandler {
-//	    return func(payload *ecsacs.PayloadMessage) {
+//	    return func(payload *ecsacs.PayloadInput) {
 //	        message := &actor.DispatcherMessage{
 //	            Payload: payload,
 //	            AckFunc: func() error {
@@ -547,7 +546,7 @@ func (cs *ClientServerImpl) CreateRequestMessage(input interface{}) ([]byte, err
 	if msg.Type == "" {
 		return nil, &UnrecognizedWSRequestType{reflect.TypeOf(input).String()}
 	}
-	messageData, err := jsonutil.BuildJSON(input)
+	messageData, err := json.Marshal(input)
 	if err != nil {
 		return nil, &NotMarshallableWSRequest{msg.Type, err}
 	}

@@ -7,7 +7,6 @@ import (
 	awsmiddleware "github.com/aws/aws-sdk-go-v2/aws/middleware"
 	"context"
 	"fmt"
-	jmespath "github.com/jmespath/go-jmespath"
 	"github.com/aws/smithy-go/middleware"
 	smithyhttp "github.com/aws/smithy-go/transport/http"
 	smithytime "github.com/aws/smithy-go/time"
@@ -319,71 +318,67 @@ func (w *TasksRunningWaiter) WaitForOutput(ctx context.Context, params *Describe
 func tasksRunningStateRetryable(ctx context.Context, input *DescribeTasksInput, output *DescribeTasksOutput, err error) (bool, error) {
 	
 	if err == nil {
-		pathValue, err :=  jmespath.Search("tasks[].lastStatus", output)
-		if err != nil {
-			return false, fmt.Errorf("error evaluating waiter state: %w", err)
+		v1 := output.Tasks
+		var v2 []string
+		for _, v := range v1 {
+			v3 := v.LastStatus
+			if v3 != nil {
+			    v2 = append(v2, *v3)
+			}
 		}
-		
 		expectedValue := "STOPPED"
-		listOfValues, ok := pathValue.([]interface{})
-		 if !ok {
-			return false, fmt.Errorf("waiter comparator expected list got %T", pathValue)
+		var match bool
+		for _, v := range v2 {
+			if string(v) == expectedValue {
+			    match = true
+			    break
+			}
 		}
 		
-		for _, v := range listOfValues {
-			value, ok := v.(*string)
-			if !ok {
-			return false, fmt.Errorf("waiter comparator expected *string value, got %T", pathValue)}
-			
-			if string(*value) == expectedValue {
-				return false, fmt.Errorf("waiter state transitioned to Failure")
-			}
+		if match {
+			return false, fmt.Errorf("waiter state transitioned to Failure")
 		}
 	}
 	
 	if err == nil {
-		pathValue, err :=  jmespath.Search("failures[].reason", output)
-		if err != nil {
-			return false, fmt.Errorf("error evaluating waiter state: %w", err)
+		v1 := output.Failures
+		var v2 []string
+		for _, v := range v1 {
+			v3 := v.Reason
+			if v3 != nil {
+			    v2 = append(v2, *v3)
+			}
 		}
-		
 		expectedValue := "MISSING"
-		listOfValues, ok := pathValue.([]interface{})
-		 if !ok {
-			return false, fmt.Errorf("waiter comparator expected list got %T", pathValue)
+		var match bool
+		for _, v := range v2 {
+			if string(v) == expectedValue {
+			    match = true
+			    break
+			}
 		}
 		
-		for _, v := range listOfValues {
-			value, ok := v.(*string)
-			if !ok {
-			return false, fmt.Errorf("waiter comparator expected *string value, got %T", pathValue)}
-			
-			if string(*value) == expectedValue {
-				return false, fmt.Errorf("waiter state transitioned to Failure")
-			}
+		if match {
+			return false, fmt.Errorf("waiter state transitioned to Failure")
 		}
 	}
 	
 	if err == nil {
-		pathValue, err :=  jmespath.Search("tasks[].lastStatus", output)
-		if err != nil {
-			return false, fmt.Errorf("error evaluating waiter state: %w", err)
+		v1 := output.Tasks
+		var v2 []string
+		for _, v := range v1 {
+			v3 := v.LastStatus
+			if v3 != nil {
+			    v2 = append(v2, *v3)
+			}
 		}
-		
 		expectedValue := "RUNNING"
-		var match = true
-		listOfValues, ok := pathValue.([]interface{})
-		 if !ok {
-			return false, fmt.Errorf("waiter comparator expected list got %T", pathValue)
-		}
-		
-		if len(listOfValues) == 0 { match = false }
-		for _, v := range listOfValues {
-			value, ok := v.(*string)
-			if !ok {
-			return false, fmt.Errorf("waiter comparator expected *string value, got %T", pathValue)}
-			
-			if string(*value) != expectedValue { match = false }
+		match := len(v2) > 0
+		for _, v := range v2 {
+			if string(v) != expectedValue {
+			    match = false
+			    break
+			}
 		}
 		
 		if match {
@@ -391,6 +386,7 @@ func tasksRunningStateRetryable(ctx context.Context, input *DescribeTasksInput, 
 		}
 	}
 	
+	if err != nil { return false, err }
 	return true, nil
 }
 
@@ -548,25 +544,21 @@ func (w *TasksStoppedWaiter) WaitForOutput(ctx context.Context, params *Describe
 func tasksStoppedStateRetryable(ctx context.Context, input *DescribeTasksInput, output *DescribeTasksOutput, err error) (bool, error) {
 	
 	if err == nil {
-		pathValue, err :=  jmespath.Search("tasks[].lastStatus", output)
-		if err != nil {
-			return false, fmt.Errorf("error evaluating waiter state: %w", err)
+		v1 := output.Tasks
+		var v2 []string
+		for _, v := range v1 {
+			v3 := v.LastStatus
+			if v3 != nil {
+			    v2 = append(v2, *v3)
+			}
 		}
-		
 		expectedValue := "STOPPED"
-		var match = true
-		listOfValues, ok := pathValue.([]interface{})
-		 if !ok {
-			return false, fmt.Errorf("waiter comparator expected list got %T", pathValue)
-		}
-		
-		if len(listOfValues) == 0 { match = false }
-		for _, v := range listOfValues {
-			value, ok := v.(*string)
-			if !ok {
-			return false, fmt.Errorf("waiter comparator expected *string value, got %T", pathValue)}
-			
-			if string(*value) != expectedValue { match = false }
+		match := len(v2) > 0
+		for _, v := range v2 {
+			if string(v) != expectedValue {
+			    match = false
+			    break
+			}
 		}
 		
 		if match {
@@ -574,6 +566,7 @@ func tasksStoppedStateRetryable(ctx context.Context, input *DescribeTasksInput, 
 		}
 	}
 	
+	if err != nil { return false, err }
 	return true, nil
 }
 

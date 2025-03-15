@@ -20,11 +20,10 @@ import (
 	"net"
 	"testing"
 
-	"github.com/aws/aws-sdk-go/aws"
+	"github.com/aws/aws-sdk-go-v2/aws"
+	acstypes "github.com/aws/aws-sdk-go-v2/service/acs/types"
 	"github.com/pkg/errors"
 	"github.com/stretchr/testify/assert"
-
-	"github.com/aws/amazon-ecs-agent/ecs-agent/acs/model/ecsacs"
 )
 
 const (
@@ -182,21 +181,21 @@ func TestENIFromACS(t *testing.T) {
 	eni, err := ENIFromACS(acsENI)
 	assert.NoError(t, err)
 	assert.NotNil(t, eni)
-	assert.Equal(t, aws.StringValue(acsENI.Ec2Id), eni.ID)
+	assert.Equal(t, aws.ToString(acsENI.Ec2Id), eni.ID)
 	assert.Len(t, eni.IPV4Addresses, 1)
 	assert.Len(t, eni.GetIPV4Addresses(), 1)
-	assert.Equal(t, aws.StringValue(acsENI.Ipv4Addresses[0].PrivateAddress), eni.IPV4Addresses[0].Address)
-	assert.Equal(t, aws.BoolValue(acsENI.Ipv4Addresses[0].Primary), eni.IPV4Addresses[0].Primary)
-	assert.Equal(t, aws.StringValue(acsENI.MacAddress), eni.MacAddress)
+	assert.Equal(t, aws.ToString(acsENI.Ipv4Addresses[0].PrivateAddress), eni.IPV4Addresses[0].Address)
+	assert.Equal(t, aws.ToBool(acsENI.Ipv4Addresses[0].Primary), eni.IPV4Addresses[0].Primary)
+	assert.Equal(t, aws.ToString(acsENI.MacAddress), eni.MacAddress)
 	assert.Len(t, eni.IPV6Addresses, 1)
 	assert.Len(t, eni.GetIPV6Addresses(), 1)
-	assert.Equal(t, aws.StringValue(acsENI.Ipv6Addresses[0].Address), eni.IPV6Addresses[0].Address)
+	assert.Equal(t, aws.ToString(acsENI.Ipv6Addresses[0].Address), eni.IPV6Addresses[0].Address)
 	assert.Len(t, eni.DomainNameServers, 2)
 	assert.Equal(t, defaultDNS, eni.DomainNameServers[0])
 	assert.Equal(t, customDNS, eni.DomainNameServers[1])
 	assert.Len(t, eni.DomainNameSearchList, 1)
 	assert.Equal(t, customSearchDomain, eni.DomainNameSearchList[0])
-	assert.Equal(t, aws.StringValue(acsENI.PrivateDnsName), eni.PrivateDNSName)
+	assert.Equal(t, aws.ToString(acsENI.PrivateDnsName), eni.PrivateDNSName)
 }
 
 // TestValidateENIFromACS tests the validation of enis from acs
@@ -215,18 +214,18 @@ func TestValidateENIFromACS(t *testing.T) {
 }
 
 func TestInvalidENIInterfaceVlanPropertyMissing(t *testing.T) {
-	acsENI := &ecsacs.ElasticNetworkInterface{
-		InterfaceAssociationProtocol: aws.String(VLANInterfaceAssociationProtocol),
+	acsENI := &acstypes.ElasticNetworkInterface{
+		InterfaceAssociationProtocol: VLANInterfaceAssociationProtocol,
 		AttachmentArn:                aws.String("arn"),
 		Ec2Id:                        aws.String("ec2id"),
-		Ipv4Addresses: []*ecsacs.IPv4AddressAssignment{
+		Ipv4Addresses: []acstypes.IPv4AddressAssignment{
 			{
 				Primary:        aws.Bool(true),
 				PrivateAddress: aws.String("ipv4"),
 			},
 		},
 		SubnetGatewayIpv4Address: aws.String(ipv4GwWithPrefixLength),
-		Ipv6Addresses: []*ecsacs.IPv6AddressAssignment{
+		Ipv6Addresses: []acstypes.IPv6AddressAssignment{
 			{
 				Address: aws.String("ipv6"),
 			},
@@ -240,18 +239,18 @@ func TestInvalidENIInterfaceVlanPropertyMissing(t *testing.T) {
 }
 
 func TestInvalidENIInvalidInterfaceAssociationProtocol(t *testing.T) {
-	acsENI := &ecsacs.ElasticNetworkInterface{
-		InterfaceAssociationProtocol: aws.String("no-eni"),
+	acsENI := &acstypes.ElasticNetworkInterface{
+		InterfaceAssociationProtocol: "no-eni",
 		AttachmentArn:                aws.String("arn"),
 		Ec2Id:                        aws.String("ec2id"),
-		Ipv4Addresses: []*ecsacs.IPv4AddressAssignment{
+		Ipv4Addresses: []acstypes.IPv4AddressAssignment{
 			{
 				Primary:        aws.Bool(true),
 				PrivateAddress: aws.String("ipv4"),
 			},
 		},
 		SubnetGatewayIpv4Address: aws.String(ipv4GwWithPrefixLength),
-		Ipv6Addresses: []*ecsacs.IPv6AddressAssignment{
+		Ipv6Addresses: []acstypes.IPv6AddressAssignment{
 			{
 				Address: aws.String("ipv6"),
 			},
@@ -269,24 +268,24 @@ func TestInvalidSubnetGatewayAddress(t *testing.T) {
 	assert.Error(t, err)
 }
 
-func getTestACSENI() *ecsacs.ElasticNetworkInterface {
-	return &ecsacs.ElasticNetworkInterface{
+func getTestACSENI() *acstypes.ElasticNetworkInterface {
+	return &acstypes.ElasticNetworkInterface{
 		AttachmentArn: aws.String("arn"),
 		Ec2Id:         aws.String("ec2id"),
-		Ipv4Addresses: []*ecsacs.IPv4AddressAssignment{
+		Ipv4Addresses: []acstypes.IPv4AddressAssignment{
 			{
 				Primary:        aws.Bool(true),
 				PrivateAddress: aws.String(ipv4Addr),
 			},
 		},
 		SubnetGatewayIpv4Address: aws.String(ipv4GwWithPrefixLength),
-		Ipv6Addresses: []*ecsacs.IPv6AddressAssignment{
+		Ipv6Addresses: []acstypes.IPv6AddressAssignment{
 			{
 				Address: aws.String(ipv6Addr)},
 		},
 		MacAddress:        aws.String("mac"),
-		DomainNameServers: []*string{aws.String(defaultDNS), aws.String(customDNS)},
-		DomainName:        []*string{aws.String(customSearchDomain)},
+		DomainNameServers: []string{defaultDNS, customDNS},
+		DomainName:        []string{customSearchDomain},
 		PrivateDnsName:    aws.String("ip.region.compute.internal"),
 	}
 }

@@ -31,7 +31,9 @@ import (
 	nlappmesh "github.com/aws/amazon-ecs-agent/ecs-agent/netlib/model/appmesh"
 	ni "github.com/aws/amazon-ecs-agent/ecs-agent/netlib/model/networkinterface"
 
-	"github.com/aws/aws-sdk-go/aws"
+	"github.com/aws/aws-sdk-go-v2/aws"
+	"github.com/aws/aws-sdk-go-v2/service/acs"
+	acstypes "github.com/aws/aws-sdk-go-v2/service/acs/types"
 	"github.com/pkg/errors"
 )
 
@@ -66,15 +68,15 @@ func NewPayloadMessageHandler(taskEngine engine.TaskEngine,
 	}
 }
 
-func (pmHandler *payloadMessageHandler) ProcessMessage(message *ecsacs.PayloadMessage,
-	ackFunc func(*ecsacs.AckRequest, []*ecsacs.IAMRoleCredentialsAckRequest)) error {
+func (pmHandler *payloadMessageHandler) ProcessMessage(message *acs.PayloadInput,
+	ackFunc func(*ecsacs.AckRequest, []*acs.RefreshTaskIAMRoleCredentialsOutput)) error {
 
 	credentialsAcks, allTasksHandled := pmHandler.addPayloadTasks(message)
 
 	// Update latestSeqNumberTaskManifest for it to get updated in state file.
 	if pmHandler.latestSeqNumberTaskManifest != nil && message.SeqNum != nil &&
-		*pmHandler.latestSeqNumberTaskManifest < *message.SeqNum {
-		*pmHandler.latestSeqNumberTaskManifest = *message.SeqNum
+		*pmHandler.latestSeqNumberTaskManifest < int64(*message.SeqNum) {
+		*pmHandler.latestSeqNumberTaskManifest = int64(*message.SeqNum)
 	}
 
 	if !allTasksHandled {
@@ -94,34 +96,33 @@ func (pmHandler *payloadMessageHandler) ProcessMessage(message *ecsacs.PayloadMe
 // addPayloadTasks does validation on each task and, for all valid ones, adds
 // it to the task engine. It returns a bool indicating if it could add every
 // task to the taskEngine and a slice of credential ack requests.
-func (pmHandler *payloadMessageHandler) addPayloadTasks(payload *ecsacs.PayloadMessage) (
-	[]*ecsacs.IAMRoleCredentialsAckRequest, bool) {
+func (pmHandler *payloadMessageHandler) addPayloadTasks(payload *acs.PayloadInput) (
+	[]*acs.RefreshTaskIAMRoleCredentialsOutput, bool) {
 	// Verify that we were able to work with all tasks in this payload.
 	// This is so we know whether to ACK the whole thing or not.
 	allTasksOK := true
 
+	if len(payload.Tasks) == 0 {
+		logger.Critical("Received empty task list for message", logger.Fields{
+			loggerfield.MessageID: aws.ToString(payload.MessageId),
+		})
+		return nil, false
+	}
+
 	validTasks := make([]*apitask.Task, 0, len(payload.Tasks))
 	for _, task := range payload.Tasks {
-		if task == nil {
-			logger.Critical("Received nil task for message", logger.Fields{
-				loggerfield.MessageID: aws.StringValue(payload.MessageId),
-			})
-			allTasksOK = false
-			continue
-		}
-
 		// Note: If we receive an EBS-backed task, we'll also receive an incomplete volume configuration in the list of Volumes
 		// To accommodate this, we'll first check if the task IS EBS-backed then we'll mark the corresponding Volume object to be
 		// of type "attachment". This volume object will be replaced by the newly created EBS volume configuration when we parse
 		// through the task attachments.
-		volName, ok := hasEBSAttachment(task)
+		volName, ok := hasEBSAttachment(&task)
 		if ok {
-			initializeAttachmentTypeVolume(task, volName)
+			initializeAttachmentTypeVolume(&task, volName)
 		}
 
-		apiTask, err := apitask.TaskFromACS(task, payload)
+		apiTask, err := apitask.TaskFromACS(&task, payload)
 		if err != nil {
-			pmHandler.handleInvalidTask(task, err, payload)
+			pmHandler.handleInvalidTask(&task, err, payload)
 			allTasksOK = false
 			continue
 		}
@@ -146,11 +147,11 @@ func (pmHandler *payloadMessageHandler) addPayloadTasks(payload *ecsacs.PayloadM
 				credentials.ApplicationRoleType)
 			err = pmHandler.credentialsManager.SetTaskCredentials(
 				&(credentials.TaskIAMRoleCredentials{
-					ARN:                aws.StringValue(task.Arn),
+					ARN:                aws.ToString(task.Arn),
 					IAMRoleCredentials: taskIAMRoleCredentials,
 				}))
 			if err != nil {
-				pmHandler.handleInvalidTask(task, err, payload)
+				pmHandler.handleInvalidTask(&task, err, payload)
 				allTasksOK = false
 				continue
 			}
@@ -166,9 +167,9 @@ func (pmHandler *payloadMessageHandler) addPayloadTasks(payload *ecsacs.PayloadM
 
 		// Add ENI information to the task struct.
 		for _, acsENI := range task.ElasticNetworkInterfaces {
-			eni, err := ni.InterfaceFromACS(acsENI)
+			eni, err := ni.InterfaceFromACS(&acsENI)
 			if err != nil {
-				pmHandler.handleInvalidTask(task, err, payload)
+				pmHandler.handleInvalidTask(&task, err, payload)
 				allTasksOK = false
 				continue
 			}
@@ -179,7 +180,7 @@ func (pmHandler *payloadMessageHandler) addPayloadTasks(payload *ecsacs.PayloadM
 		if task.ProxyConfiguration != nil {
 			appmesh, err := nlappmesh.AppMeshFromACS(task.ProxyConfiguration)
 			if err != nil {
-				pmHandler.handleInvalidTask(task, err, payload)
+				pmHandler.handleInvalidTask(&task, err, payload)
 				allTasksOK = false
 				continue
 			}
@@ -194,11 +195,11 @@ func (pmHandler *payloadMessageHandler) addPayloadTasks(payload *ecsacs.PayloadM
 				credentials.ExecutionRoleType)
 			err = pmHandler.credentialsManager.SetTaskCredentials(
 				&(credentials.TaskIAMRoleCredentials{
-					ARN:                aws.StringValue(task.Arn),
+					ARN:                aws.ToString(task.Arn),
 					IAMRoleCredentials: taskExecutionIAMRoleCredentials,
 				}))
 			if err != nil {
-				pmHandler.handleInvalidTask(task, err, payload)
+				pmHandler.handleInvalidTask(&task, err, payload)
 				allTasksOK = false
 				continue
 			}
@@ -232,17 +233,17 @@ func (pmHandler *payloadMessageHandler) addPayloadTasks(payload *ecsacs.PayloadM
 
 // handleInvalidTask handles invalid tasks by sending 'stopped' with
 // a suitable reason to the backend.
-func (pmHandler *payloadMessageHandler) handleInvalidTask(task *ecsacs.Task, err error,
-	payload *ecsacs.PayloadMessage) {
+func (pmHandler *payloadMessageHandler) handleInvalidTask(task *acstypes.Task, err error,
+	payload *acs.PayloadInput) {
 	logger.Warn("Received unexpected ACS message", logger.Fields{
-		loggerfield.MessageID: aws.StringValue(payload.MessageId),
-		loggerfield.TaskARN:   aws.StringValue(task.Arn),
+		loggerfield.MessageID: aws.ToString(payload.MessageId),
+		loggerfield.TaskARN:   aws.ToString(task.Arn),
 		loggerfield.Error:     err,
 	})
 
-	if aws.StringValue(task.Arn) == "" {
+	if aws.ToString(task.Arn) == "" {
 		logger.Critical("Received task with no ARN for payload message", logger.Fields{
-			loggerfield.MessageID: aws.StringValue(payload.MessageId),
+			loggerfield.MessageID: aws.ToString(payload.MessageId),
 		})
 		return
 	}
@@ -263,10 +264,10 @@ func (pmHandler *payloadMessageHandler) handleInvalidTask(task *ecsacs.Task, err
 
 // addTasks adds the tasks to the task engine based on the skipAddTask condition.
 // This is used to add non-stopped tasks before adding stopped tasks.
-func (pmHandler *payloadMessageHandler) addTasks(payload *ecsacs.PayloadMessage, tasks []*apitask.Task,
-	skipAddTask skipAddTaskComparatorFunc) ([]*ecsacs.IAMRoleCredentialsAckRequest, bool) {
+func (pmHandler *payloadMessageHandler) addTasks(payload *acs.PayloadInput, tasks []*apitask.Task,
+	skipAddTask skipAddTaskComparatorFunc) ([]*acs.RefreshTaskIAMRoleCredentialsOutput, bool) {
 	allTasksOK := true
-	var credentialsAcks []*ecsacs.IAMRoleCredentialsAckRequest
+	var credentialsAcks []*acs.RefreshTaskIAMRoleCredentialsOutput
 	for _, task := range tasks {
 		if skipAddTask(task.GetDesiredStatus()) {
 			continue
@@ -316,13 +317,13 @@ func (pmHandler *payloadMessageHandler) addTasks(payload *ecsacs.PayloadMessage,
 }
 
 func (pmHandler *payloadMessageHandler) ackCredentials(messageID *string, credentialsID string) (
-	*ecsacs.IAMRoleCredentialsAckRequest, error) {
+	*acs.RefreshTaskIAMRoleCredentialsOutput, error) {
 	creds, ok := pmHandler.credentialsManager.GetTaskCredentials(credentialsID)
 	if !ok {
 		return nil, errors.Errorf("credentials could not be retrieved")
 
 	} else {
-		return &ecsacs.IAMRoleCredentialsAckRequest{
+		return &acs.RefreshTaskIAMRoleCredentialsOutput{
 			MessageId:     messageID,
 			Expiration:    aws.String(creds.IAMRoleCredentials.Expiration),
 			CredentialsId: aws.String(creds.IAMRoleCredentials.CredentialsID),
@@ -340,7 +341,7 @@ func isTaskStatusNotStopped(status apitaskstatus.TaskStatus) bool {
 	return status != apitaskstatus.TaskStopped
 }
 
-func hasEBSAttachment(acsTask *ecsacs.Task) (string, bool) {
+func hasEBSAttachment(acsTask *acstypes.Task) (string, bool) {
 	// TODO: This will only work if there's one EBS volume per task. If we there is a case where we have multi-attach for a task, this needs to be modified
 	for _, attachment := range acsTask.Attachments {
 		if *attachment.AttachmentType == apiresource.EBSTaskAttach {
@@ -354,11 +355,10 @@ func hasEBSAttachment(acsTask *ecsacs.Task) (string, bool) {
 	return "", false
 }
 
-func initializeAttachmentTypeVolume(acsTask *ecsacs.Task, volName string) {
+func initializeAttachmentTypeVolume(acsTask *acstypes.Task, volName string) {
 	for _, volume := range acsTask.Volumes {
-		if *volume.Name == volName && volume.Type == nil {
-			newType := "attachment"
-			volume.Type = &newType
+		if *volume.Name == volName && volume.Type == "" {
+			volume.Type = "attachment"
 		}
 	}
 }

@@ -39,7 +39,7 @@ import (
 )
 
 func TestMarshalUnmarshalOldTaskVolumes(t *testing.T) {
-	taskData := `{"volumes":[{"host":{"sourcePath":"/path"},"name":"1"},{"host":{"hostpath":""}, "name":"2"}]}`
+	taskData := `{"volumes":[{"Host":{"sourcePath":"/path"},"Name":"1"},{"Host":{"hostpath":""}, "Name":"2"}]}`
 
 	var out Task
 	err := json.Unmarshal([]byte(taskData), &out)
@@ -98,7 +98,7 @@ func TestMarshalTaskVolumesEFS(t *testing.T) {
 		"resources": null,
 		"volumes": [
 		  {
-			"efsVolumeConfiguration": {
+			"EfsVolumeConfiguration": {
 				"authorizationConfig": {
 					"accessPointId": "fsap-123",
 					"iam": "ENABLED"
@@ -109,8 +109,8 @@ func TestMarshalTaskVolumesEFS(t *testing.T) {
 				"transitEncryptionPort": 23456,
 			 	"dockerVolumeName": ""
 			},
-			"name": "1",
-			"type": "efs"
+			"Name": "1",
+			"Type": "efs"
 		  }
 		],
 		"DesiredStatus": "NONE",
@@ -145,7 +145,7 @@ func TestUnmarshalTaskVolumesEFS(t *testing.T) {
 		"resources": null,
 		"volumes": [
 		  {
-			"efsVolumeConfiguration": {
+			"EfsVolumeConfiguration": {
 			  "authorizationConfig": {
 					"accessPointId": "fsap-123",
 					"iam": "ENABLED"
@@ -156,8 +156,8 @@ func TestUnmarshalTaskVolumesEFS(t *testing.T) {
 				"transitEncryptionPort": 23456,
 				"dockerVolumeName": ""
 			},
-			"name": "1",
-			"type": "efs"
+			"Name": "1",
+			"Type": "efs"
 		  }
 		],
 		"DesiredStatus": "NONE",
@@ -220,7 +220,7 @@ func TestMarshalEBSVolumes(t *testing.T) {
 		"resources": null,
 		"volumes": [
 		  {
-			"ebsVolumeConfiguration": {
+			"EbsVolumeConfiguration": {
 				"volumeId": "vol-12345",
 				"volumeName": "test-volume",
 				"volumeSizeGib": "10",
@@ -229,8 +229,8 @@ func TestMarshalEBSVolumes(t *testing.T) {
 			 	"fileSystem": "ext4",
 				"dockerVolumeName": ""
 			},
-			"name": "1",
-			"type": "amazonebs"
+			"Name": "1",
+			"Type": "amazonebs"
 		  }
 		],
 		"DesiredStatus": "NONE",
@@ -265,7 +265,7 @@ func TestUnmarshalEBSVolumes(t *testing.T) {
 		"resources": null,
 		"volumes": [
 		  {
-			"ebsVolumeConfiguration": {
+			"EbsVolumeConfiguration": {
 				"volumeId": "vol-12345",
 				"volumeName": "test-volume",
 				"volumeSizeGib": "10",
@@ -274,8 +274,8 @@ func TestUnmarshalEBSVolumes(t *testing.T) {
 			 	"fileSystem": "ext4",
 				"dockerVolumeName": ""
 			},
-			"name": "1",
-			"type": "amazonebs"
+			"Name": "1",
+			"Type": "amazonebs"
 		  }
 		],
 		"DesiredStatus": "NONE",

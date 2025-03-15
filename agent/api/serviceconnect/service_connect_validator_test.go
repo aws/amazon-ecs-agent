@@ -18,13 +18,13 @@ package serviceconnect
 import (
 	"testing"
 
-	"github.com/aws/amazon-ecs-agent/ecs-agent/acs/model/ecsacs"
-	"github.com/aws/aws-sdk-go/aws"
+	"github.com/aws/aws-sdk-go-v2/aws"
+	acstypes "github.com/aws/aws-sdk-go-v2/service/acs/types"
 	"github.com/stretchr/testify/assert"
 )
 
 var (
-	testTaskContainers = []*ecsacs.Container{
+	testTaskContainers = []acstypes.Container{
 		{
 			Name: aws.String(testServiceConnectContainerName),
 		},

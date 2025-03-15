@@ -23,11 +23,11 @@ import (
 	"github.com/aws/amazon-ecs-agent/agent/dockerclient"
 	"github.com/aws/amazon-ecs-agent/agent/taskresource"
 	taskresourcevolume "github.com/aws/amazon-ecs-agent/agent/taskresource/volume"
-	"github.com/aws/amazon-ecs-agent/ecs-agent/acs/model/ecsacs"
 	apicontainerstatus "github.com/aws/amazon-ecs-agent/ecs-agent/api/container/status"
 	"github.com/aws/amazon-ecs-agent/ecs-agent/utils/ttime"
 
-	"github.com/aws/aws-sdk-go/aws"
+	"github.com/aws/aws-sdk-go-v2/aws"
+	acstypes "github.com/aws/aws-sdk-go-v2/service/acs/types"
 )
 
 const (
@@ -61,9 +61,9 @@ func dockerMap(task *Task) map[string]*apicontainer.DockerContainer {
 	return m
 }
 
-func getACSIAMRoleCredentials() *ecsacs.IAMRoleCredentials {
+func getACSIAMRoleCredentials() *acstypes.IAMRoleCredentials {
 	testTime := ttime.Now().Truncate(1 * time.Second).Format(time.RFC3339)
-	return &ecsacs.IAMRoleCredentials{
+	return &acstypes.IAMRoleCredentials{
 		CredentialsId:   strptr("credsId"),
 		AccessKeyId:     strptr("keyId"),
 		Expiration:      strptr(testTime),
@@ -73,16 +73,16 @@ func getACSIAMRoleCredentials() *ecsacs.IAMRoleCredentials {
 	}
 }
 
-func getACSEFSTask() *ecsacs.Task {
-	return &ecsacs.Task{
+func getACSEFSTask() *acstypes.Task {
+	return &acstypes.Task{
 		Arn:           strptr(testTaskARN),
 		DesiredStatus: strptr("RUNNING"),
 		Family:        strptr("myFamily"),
 		Version:       strptr("1"),
-		Containers: []*ecsacs.Container{
+		Containers: []acstypes.Container{
 			{
 				Name: strptr("myName1"),
-				MountPoints: []*ecsacs.MountPoint{
+				MountPoints: []acstypes.MountPoint{
 					{
 						ContainerPath: strptr("/some/path"),
 						SourceVolume:  strptr("efsvolume"),
@@ -90,19 +90,19 @@ func getACSEFSTask() *ecsacs.Task {
 				},
 			},
 		},
-		Volumes: []*ecsacs.Volume{
+		Volumes: []acstypes.Volume{
 			{
 				Name: strptr("efsvolume"),
-				Type: strptr("efs"),
-				EfsVolumeConfiguration: &ecsacs.EFSVolumeConfiguration{
-					AuthorizationConfig: &ecsacs.EFSAuthorizationConfig{
-						Iam:           strptr("ENABLED"),
+				Type: "efs",
+				EfsVolumeConfiguration: &acstypes.EFSVolumeConfiguration{
+					AuthorizationConfig: &acstypes.EFSAuthorizationConfig{
+						Iam:           "ENABLED",
 						AccessPointId: strptr("fsap-123"),
 					},
 					FileSystemId:          strptr("fs-12345"),
 					RootDirectory:         strptr("/tmp"),
-					TransitEncryption:     strptr("ENABLED"),
-					TransitEncryptionPort: aws.Int64(12345),
+					TransitEncryption:     "ENABLED",
+					TransitEncryptionPort: aws.Int32(12345),
 				},
 			},
 		},
