@@ -81,7 +81,6 @@ type Engine interface {
 	GetTaskHealthMetrics() (*ecstcs.HealthMetadata, []*ecstcs.TaskHealth, error)
 	GetPublishServiceConnectTickerInterval() int32
 	SetPublishServiceConnectTickerInterval(int32)
-	GetPublishMetricsTicker() *time.Ticker
 }
 
 // DockerStatsEngine is used to monitor docker container events and to report
@@ -1081,10 +1080,6 @@ func (engine *DockerStatsEngine) SetPublishServiceConnectTickerInterval(publishS
 	defer engine.lock.Unlock()
 
 	engine.publishServiceConnectTickerInterval = publishServiceConnectTickerInterval
-}
-
-func (engine *DockerStatsEngine) GetPublishMetricsTicker() *time.Ticker {
-	return engine.publishMetricsTicker
 }
 
 func (engine *DockerStatsEngine) getEBSVolumeMetrics(taskArn string) []*ecstcs.VolumeMetric {

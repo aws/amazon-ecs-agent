@@ -20,7 +20,6 @@ package mock_stats
 
 import (
 	reflect "reflect"
-	time "time"
 
 	stats "github.com/aws/amazon-ecs-agent/ecs-agent/stats"
 	ecstcs "github.com/aws/amazon-ecs-agent/ecs-agent/tcs/model/ecstcs"
@@ -81,20 +80,6 @@ func (m *MockEngine) GetInstanceMetrics(arg0 bool) (*ecstcs.MetricsMetadata, []*
 func (mr *MockEngineMockRecorder) GetInstanceMetrics(arg0 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetInstanceMetrics", reflect.TypeOf((*MockEngine)(nil).GetInstanceMetrics), arg0)
-}
-
-// GetPublishMetricsTicker mocks base method.
-func (m *MockEngine) GetPublishMetricsTicker() *time.Ticker {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "GetPublishMetricsTicker")
-	ret0, _ := ret[0].(*time.Ticker)
-	return ret0
-}
-
-// GetPublishMetricsTicker indicates an expected call of GetPublishMetricsTicker.
-func (mr *MockEngineMockRecorder) GetPublishMetricsTicker() *gomock.Call {
-	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetPublishMetricsTicker", reflect.TypeOf((*MockEngine)(nil).GetPublishMetricsTicker))
 }
 
 // GetPublishServiceConnectTickerInterval mocks base method.
