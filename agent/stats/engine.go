@@ -45,8 +45,8 @@ import (
 	"github.com/aws/amazon-ecs-agent/ecs-agent/stats"
 	"github.com/aws/amazon-ecs-agent/ecs-agent/tcs/model/ecstcs"
 
+	"github.com/aws/aws-sdk-go-v2/aws"
 	tcstypes "github.com/aws/aws-sdk-go-v2/service/tcs/types"
-	"github.com/aws/aws-sdk-go/aws"
 	"github.com/docker/docker/api/types"
 )
 
@@ -78,9 +78,9 @@ type DockerContainerMetadataResolver struct {
 // Engine defines methods to be implemented by the engine struct. It is
 // defined to make testing easier.
 type Engine interface {
-	GetInstanceMetrics(includeServiceConnectStats bool) (*tcstypes.MetricsMetadata, []*tcstypes.TaskMetric, error)
+	GetInstanceMetrics(includeServiceConnectStats bool) (*tcstypes.MetricsMetadata, []tcstypes.TaskMetric, error)
 	ContainerDockerStats(taskARN string, containerID string) (*types.StatsJSON, *stats.NetworkStatsPerSec, error)
-	GetTaskHealthMetrics() (*tcstypes.HealthMetadata, []*tcstypes.TaskHealth, error)
+	GetTaskHealthMetrics() (*tcstypes.HealthMetadata, []tcstypes.TaskHealth, error)
 	GetPublishServiceConnectTickerInterval() int32
 	SetPublishServiceConnectTickerInterval(int32)
 	GetPublishMetricsTicker() *time.Ticker
@@ -587,7 +587,7 @@ func (engine *DockerStatsEngine) GetInstanceMetrics(includeServiceConnectStats b
 		if includeServiceConnectStats {
 			if serviceConnectStats, ok := engine.taskToServiceConnectStats[taskArn]; ok {
 				if !serviceConnectStats.HasStatsBeenSent() {
-					taskMetric.ServiceConnectMetricsWrapper = serviceConnectStats.GetStats()
+					taskMetric.ServiceConnectMetricsWrapper = convertPtrSliceToValueSlice(serviceConnectStats.GetStats())
 					seelog.Debugf("Adding service connect stats for task : %s", taskArn)
 					serviceConnectStats.SetStatsSent(true)
 				}
@@ -1156,4 +1156,19 @@ func (engine *DockerStatsEngine) getVolumeMetricsWithTimeout(volumeId, hostPath 
 	// releases resources if GetVolumeMetrics finishes before timeout
 	defer cancel()
 	return engine.csiClient.GetVolumeMetrics(derivedCtx, volumeId, hostPath)
+}
+
+// convertPtrSliceToValueSlice converts a slice of GeneralMetricsWrapper pointers to a slice of values
+func convertPtrSliceToValueSlice(ptrSlice []*tcstypes.GeneralMetricsWrapper) []tcstypes.GeneralMetricsWrapper {
+	if ptrSlice == nil {
+		return nil
+	}
+
+	result := make([]tcstypes.GeneralMetricsWrapper, 0, len(ptrSlice))
+	for _, ptr := range ptrSlice {
+		if ptr != nil {
+			result = append(result, *ptr)
+		}
+	}
+	return result
 }

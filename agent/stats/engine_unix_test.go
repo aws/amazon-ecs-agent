@@ -31,7 +31,7 @@ import (
 	apitaskstatus "github.com/aws/amazon-ecs-agent/ecs-agent/api/task/status"
 	ni "github.com/aws/amazon-ecs-agent/ecs-agent/netlib/model/networkinterface"
 	"github.com/aws/amazon-ecs-agent/ecs-agent/tcs/model/ecstcs"
-	"github.com/aws/aws-sdk-go/aws"
+	"github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/docker/docker/api/types"
 	"github.com/golang/mock/gomock"
 	"github.com/stretchr/testify/assert"
@@ -286,7 +286,7 @@ func TestStartMetricsPublishForChannelFull(t *testing.T) {
 				telemetryMessage := <-telemetryMessages
 				if tc.expectedNonEmptyMetricsMsg {
 					assert.NotEmpty(t, telemetryMessage.TaskMetrics)
-					assert.NotZero(t, *telemetryMessage.TaskMetrics[0].ContainerMetrics[0].StorageStatsSet.ReadSizeBytes.Sum)
+					assert.NotZero(t, telemetryMessage.TaskMetrics[0].ContainerMetrics[0].StorageStatsSet.ReadSizeBytes.Sum)
 				} else {
 					assert.Empty(t, telemetryMessage.TaskMetrics)
 				}
@@ -314,7 +314,7 @@ func TestStartMetricsPublishForChannelFull(t *testing.T) {
 				healthMessage := <-healthMessages
 				assert.NotEmpty(t, telemetryMessage.TaskMetrics)
 				assert.NotEmpty(t, healthMessage.HealthMetrics)
-				assert.Zero(t, *telemetryMessage.TaskMetrics[0].ContainerMetrics[0].StorageStatsSet.ReadSizeBytes.Sum)
+				assert.Zero(t, telemetryMessage.TaskMetrics[0].ContainerMetrics[0].StorageStatsSet.ReadSizeBytes.Sum)
 			}
 
 			cancel()

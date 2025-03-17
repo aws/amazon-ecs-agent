@@ -23,8 +23,8 @@ import (
 	time "time"
 
 	stats "github.com/aws/amazon-ecs-agent/ecs-agent/stats"
-	ecstcs "github.com/aws/amazon-ecs-agent/ecs-agent/tcs/model/ecstcs"
-	types "github.com/docker/docker/api/types"
+	types "github.com/aws/aws-sdk-go-v2/service/tcs/types"
+	types0 "github.com/docker/docker/api/types"
 	gomock "github.com/golang/mock/gomock"
 )
 
@@ -52,10 +52,10 @@ func (m *MockEngine) EXPECT() *MockEngineMockRecorder {
 }
 
 // ContainerDockerStats mocks base method.
-func (m *MockEngine) ContainerDockerStats(arg0, arg1 string) (*types.StatsJSON, *stats.NetworkStatsPerSec, error) {
+func (m *MockEngine) ContainerDockerStats(arg0, arg1 string) (*types0.StatsJSON, *stats.NetworkStatsPerSec, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "ContainerDockerStats", arg0, arg1)
-	ret0, _ := ret[0].(*types.StatsJSON)
+	ret0, _ := ret[0].(*types0.StatsJSON)
 	ret1, _ := ret[1].(*stats.NetworkStatsPerSec)
 	ret2, _ := ret[2].(error)
 	return ret0, ret1, ret2
@@ -68,11 +68,11 @@ func (mr *MockEngineMockRecorder) ContainerDockerStats(arg0, arg1 interface{}) *
 }
 
 // GetInstanceMetrics mocks base method.
-func (m *MockEngine) GetInstanceMetrics(arg0 bool) (*ecstcs.MetricsMetadata, []*ecstcs.TaskMetric, error) {
+func (m *MockEngine) GetInstanceMetrics(arg0 bool) (*types.MetricsMetadata, []types.TaskMetric, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "GetInstanceMetrics", arg0)
-	ret0, _ := ret[0].(*ecstcs.MetricsMetadata)
-	ret1, _ := ret[1].([]*ecstcs.TaskMetric)
+	ret0, _ := ret[0].(*types.MetricsMetadata)
+	ret1, _ := ret[1].([]types.TaskMetric)
 	ret2, _ := ret[2].(error)
 	return ret0, ret1, ret2
 }
@@ -112,11 +112,11 @@ func (mr *MockEngineMockRecorder) GetPublishServiceConnectTickerInterval() *gomo
 }
 
 // GetTaskHealthMetrics mocks base method.
-func (m *MockEngine) GetTaskHealthMetrics() (*ecstcs.HealthMetadata, []*ecstcs.TaskHealth, error) {
+func (m *MockEngine) GetTaskHealthMetrics() (*types.HealthMetadata, []types.TaskHealth, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "GetTaskHealthMetrics")
-	ret0, _ := ret[0].(*ecstcs.HealthMetadata)
-	ret1, _ := ret[1].([]*ecstcs.TaskHealth)
+	ret0, _ := ret[0].(*types.HealthMetadata)
+	ret1, _ := ret[1].([]types.TaskHealth)
 	ret2, _ := ret[2].(error)
 	return ret0, ret1, ret2
 }

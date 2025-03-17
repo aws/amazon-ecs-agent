@@ -32,7 +32,7 @@ import (
 )
 
 type ServiceConnectStats struct {
-	stats        []tcstypes.GeneralMetricsWrapper
+	stats        []*tcstypes.GeneralMetricsWrapper
 	appnetClient appnet.AppNetClient
 	sent         bool
 	lock         sync.RWMutex
@@ -80,8 +80,8 @@ func (sc *ServiceConnectStats) retrieveServiceConnectStats(task *apitask.Task) {
 	sc.setStats(statsCollectedList)
 }
 
-func convertToTACSStats(mf map[string]*prometheus.MetricFamily, taskId string) ([]tcstypes.GeneralMetricsWrapper, error) {
-	statsMap := make(map[string]tcstypes.GeneralMetricsWrapper)
+func convertToTACSStats(mf map[string]*prometheus.MetricFamily, taskId string) ([]*tcstypes.GeneralMetricsWrapper, error) {
+	statsMap := make(map[string]*tcstypes.GeneralMetricsWrapper)
 
 	for _, v := range mf {
 		for _, metric := range v.Metric {
@@ -167,7 +167,7 @@ func convertToTACSStats(mf map[string]*prometheus.MetricFamily, taskId string) (
 			if generalMetricsWrapper, ok := statsMap[dimensionAsString]; !ok {
 				// Dimension does not exist in statsMap, add it to the statsMap
 				generalMetricsList := []tcstypes.GeneralMetric{generalMetric}
-				generalMetricsWrapper = tcstypes.GeneralMetricsWrapper{
+				generalMetricsWrapper = &tcstypes.GeneralMetricsWrapper{
 					Dimensions:     dimensions,
 					GeneralMetrics: generalMetricsList,
 					MetricType:     tcstypes.MetricType(metricType),
@@ -180,7 +180,7 @@ func convertToTACSStats(mf map[string]*prometheus.MetricFamily, taskId string) (
 		}
 	}
 
-	statsCollectedList := []tcstypes.GeneralMetricsWrapper{}
+	statsCollectedList := []*tcstypes.GeneralMetricsWrapper{}
 	for _, gm := range statsMap {
 		statsCollectedList = append(statsCollectedList, gm)
 	}
@@ -188,14 +188,14 @@ func convertToTACSStats(mf map[string]*prometheus.MetricFamily, taskId string) (
 	return statsCollectedList, nil
 }
 
-func (sc *ServiceConnectStats) setStats(stats []tcstypes.GeneralMetricsWrapper) {
+func (sc *ServiceConnectStats) setStats(stats []*tcstypes.GeneralMetricsWrapper) {
 	sc.lock.Lock()
 	defer sc.lock.Unlock()
 
 	sc.stats = stats
 }
 
-func (sc *ServiceConnectStats) GetStats() []tcstypes.GeneralMetricsWrapper {
+func (sc *ServiceConnectStats) GetStats() []*tcstypes.GeneralMetricsWrapper {
 	sc.lock.RLock()
 	defer sc.lock.RUnlock()
 

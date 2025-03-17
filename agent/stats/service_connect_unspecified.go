@@ -17,12 +17,13 @@ package stats
 
 import (
 	apitask "github.com/aws/amazon-ecs-agent/agent/api/task"
-	"github.com/aws/amazon-ecs-agent/ecs-agent/tcs/model/ecstcs"
+
+	tcstypes "github.com/aws/aws-sdk-go-v2/service/tcs/types"
 	"github.com/pkg/errors"
 )
 
 type ServiceConnectStats struct {
-	stats []*ecstcs.GeneralMetricsWrapper
+	stats []*tcstypes.GeneralMetricsWrapper
 	sent  bool
 }
 
@@ -33,7 +34,7 @@ func newServiceConnectStats() (*ServiceConnectStats, error) {
 func (sc *ServiceConnectStats) retrieveServiceConnectStats(task *apitask.Task) {
 }
 
-func (sc *ServiceConnectStats) GetStats() []*ecstcs.GeneralMetricsWrapper {
+func (sc *ServiceConnectStats) GetStats() []*tcstypes.GeneralMetricsWrapper {
 	return nil
 }
 

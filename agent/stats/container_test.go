@@ -34,6 +34,7 @@ import (
 	apicontainerstatus "github.com/aws/amazon-ecs-agent/ecs-agent/api/container/status"
 	apitaskstatus "github.com/aws/amazon-ecs-agent/ecs-agent/api/task/status"
 	ni "github.com/aws/amazon-ecs-agent/ecs-agent/netlib/model/networkinterface"
+
 	"github.com/docker/docker/api/types"
 	"github.com/golang/mock/gomock"
 	"github.com/stretchr/testify/require"
@@ -105,34 +106,34 @@ func TestContainerStatsCollection(t *testing.T) {
 	if err != nil {
 		t.Fatal("Error gettting cpu stats set:", err)
 	}
-	if *cpuStatsSet.Min == math.MaxFloat64 || math.IsNaN(*cpuStatsSet.Min) {
-		t.Error("Min value incorrectly set: ", *cpuStatsSet.Min)
+	if cpuStatsSet.Min == math.MaxFloat64 || math.IsNaN(cpuStatsSet.Min) {
+		t.Error("Min value incorrectly set: ", cpuStatsSet.Min)
 	}
-	if *cpuStatsSet.Max == -math.MaxFloat64 || math.IsNaN(*cpuStatsSet.Max) {
-		t.Error("Max value incorrectly set: ", *cpuStatsSet.Max)
+	if cpuStatsSet.Max == -math.MaxFloat64 || math.IsNaN(cpuStatsSet.Max) {
+		t.Error("Max value incorrectly set: ", cpuStatsSet.Max)
 	}
-	if *cpuStatsSet.SampleCount == 0 {
+	if cpuStatsSet.SampleCount == 0 {
 		t.Error("Samplecount is 0")
 	}
-	if *cpuStatsSet.Sum == 0 {
-		t.Error("Sum value incorrectly set: ", *cpuStatsSet.Sum)
+	if cpuStatsSet.Sum == 0 {
+		t.Error("Sum value incorrectly set: ", cpuStatsSet.Sum)
 	}
 
 	memStatsSet, err := container.statsQueue.GetMemoryStatsSet()
 	if err != nil {
 		t.Error("Error gettting cpu stats set:", err)
 	}
-	if *memStatsSet.Min == math.MaxFloat64 {
-		t.Error("Min value incorrectly set: ", *memStatsSet.Min)
+	if memStatsSet.Min == math.MaxFloat64 {
+		t.Error("Min value incorrectly set: ", memStatsSet.Min)
 	}
-	if *memStatsSet.Max == 0 {
-		t.Error("Max value incorrectly set: ", *memStatsSet.Max)
+	if memStatsSet.Max == 0 {
+		t.Error("Max value incorrectly set: ", memStatsSet.Max)
 	}
-	if *memStatsSet.SampleCount == 0 {
+	if memStatsSet.SampleCount == 0 {
 		t.Error("Samplecount is 0")
 	}
-	if *memStatsSet.Sum == 0 {
-		t.Error("Sum value incorrectly set: ", *memStatsSet.Sum)
+	if memStatsSet.Sum == 0 {
+		t.Error("Sum value incorrectly set: ", memStatsSet.Sum)
 	}
 
 	restartStatSet, err := container.statsQueue.GetRestartStatsSet()
@@ -227,7 +228,7 @@ func TestContainerStatsCollection_WithRestartPolicy(t *testing.T) {
 
 	restartStatSet, err := container.statsQueue.GetRestartStatsSet()
 	require.NoError(t, err)
-	require.Equal(t, int64(numStatsPreRestart), *restartStatSet.RestartCount)
+	require.Equal(t, int32(numStatsPreRestart), restartStatSet.RestartCount)
 	// Reset sets all of the existing stats to "sent" status in the stats queue
 	container.statsQueue.Reset()
 
@@ -240,7 +241,7 @@ func TestContainerStatsCollection_WithRestartPolicy(t *testing.T) {
 	// restarts to TCS.
 	require.Equal(t, totalNumStats, restartTracker.GetRestartCount(), fmt.Sprintf(
 		"Raw restart count should be %d + %d = %d", numStatsPreRestart, numStatsPostRestart, totalNumStats))
-	require.Equal(t, int64(numStatsPostRestart), *restartStatSet.RestartCount, fmt.Sprintf(
+	require.Equal(t, int32(numStatsPostRestart), restartStatSet.RestartCount, fmt.Sprintf(
 		"Metric sent to TCS should be %d - %d = %d", totalNumStats, numStatsPreRestart, numStatsPostRestart))
 	container.StopStatsCollection()
 }

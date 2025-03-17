@@ -38,7 +38,9 @@ import (
 	mock_csiclient "github.com/aws/amazon-ecs-agent/ecs-agent/csiclient/mocks"
 	ni "github.com/aws/amazon-ecs-agent/ecs-agent/netlib/model/networkinterface"
 	"github.com/aws/amazon-ecs-agent/ecs-agent/tcs/model/ecstcs"
-	"github.com/aws/aws-sdk-go/aws"
+
+	"github.com/aws/aws-sdk-go-v2/aws"
+	tcstypes "github.com/aws/aws-sdk-go-v2/service/tcs/types"
 	"github.com/docker/docker/api/types"
 	"github.com/golang/mock/gomock"
 	"github.com/stretchr/testify/assert"
@@ -468,7 +470,7 @@ func TestStartMetricsPublish(t *testing.T) {
 				telemetryMessage := <-telemetryMessages
 				if tc.expectedNonEmptyMetricsMsg {
 					assert.NotEmpty(t, telemetryMessage.TaskMetrics)
-					assert.NotZero(t, *telemetryMessage.TaskMetrics[0].ContainerMetrics[0].StorageStatsSet.ReadSizeBytes.Sum)
+					assert.NotZero(t, telemetryMessage.TaskMetrics[0].ContainerMetrics[0].StorageStatsSet.ReadSizeBytes.Sum)
 				} else {
 					assert.Empty(t, telemetryMessage.TaskMetrics)
 				}
@@ -496,7 +498,7 @@ func TestStartMetricsPublish(t *testing.T) {
 				healthMessage := <-healthMessages
 				assert.NotEmpty(t, telemetryMessage.TaskMetrics)
 				assert.NotEmpty(t, healthMessage.HealthMetrics)
-				assert.Zero(t, *telemetryMessage.TaskMetrics[0].ContainerMetrics[0].StorageStatsSet.ReadSizeBytes.Sum)
+				assert.Zero(t, telemetryMessage.TaskMetrics[0].ContainerMetrics[0].StorageStatsSet.ReadSizeBytes.Sum)
 			}
 
 			cancel()
@@ -571,10 +573,10 @@ func TestGetTaskHealthMetrics(t *testing.T) {
 	metadata, taskHealth, err := engine.GetTaskHealthMetrics()
 	assert.NoError(t, err)
 
-	assert.Equal(t, aws.StringValue(metadata.ContainerInstance), "container_instance")
+	assert.Equal(t, aws.ToString(metadata.ContainerInstance), "container_instance")
 	assert.Len(t, taskHealth, 1)
 	assert.Len(t, taskHealth[0].Containers, 1)
-	assert.Equal(t, aws.StringValue(taskHealth[0].Containers[0].HealthStatus), "HEALTHY")
+	assert.Equal(t, tcstypes.HealthStatusHealthy, taskHealth[0].Containers[0].HealthStatus)
 }
 
 func TestGetTaskHealthMetricsStoppedContainer(t *testing.T) {
@@ -818,7 +820,7 @@ func TestFetchEBSVolumeMetrics(t *testing.T) {
 	tcs := []struct {
 		name                    string
 		setCSIClientExpectation func(*mock_csiclient.MockCSIClient)
-		expectedMetrics         []*ecstcs.VolumeMetric
+		expectedMetrics         []tcstypes.VolumeMetric
 		numMetrics              int
 	}{
 		{
@@ -829,21 +831,21 @@ func TestFetchEBSVolumeMetrics(t *testing.T) {
 					Capacity: 20 * 1024 * 1024 * 1024,
 				}, nil).Times(1)
 			},
-			expectedMetrics: []*ecstcs.VolumeMetric{
+			expectedMetrics: []tcstypes.VolumeMetric{
 				{
 					VolumeId:   aws.String("vol-12345"),
 					VolumeName: aws.String("test-volume"),
-					Utilized: &ecstcs.UDoubleCWStatsSet{
-						Max:         aws.Float64(15 * 1024 * 1024 * 1024),
-						Min:         aws.Float64(15 * 1024 * 1024 * 1024),
-						SampleCount: aws.Int64(1),
-						Sum:         aws.Float64(15 * 1024 * 1024 * 1024),
+					Utilized: &tcstypes.UDoubleCWStatsSet{
+						Max:         *aws.Float64(15 * 1024 * 1024 * 1024),
+						Min:         *aws.Float64(15 * 1024 * 1024 * 1024),
+						SampleCount: *aws.Int32(1),
+						Sum:         *aws.Float64(15 * 1024 * 1024 * 1024),
 					},
-					Size: &ecstcs.UDoubleCWStatsSet{
-						Max:         aws.Float64(20 * 1024 * 1024 * 1024),
-						Min:         aws.Float64(20 * 1024 * 1024 * 1024),
-						SampleCount: aws.Int64(1),
-						Sum:         aws.Float64(20 * 1024 * 1024 * 1024),
+					Size: &tcstypes.UDoubleCWStatsSet{
+						Max:         *aws.Float64(20 * 1024 * 1024 * 1024),
+						Min:         *aws.Float64(20 * 1024 * 1024 * 1024),
+						SampleCount: *aws.Int32(1),
+						Sum:         *aws.Float64(20 * 1024 * 1024 * 1024),
 					},
 				},
 			},
@@ -904,7 +906,7 @@ func TestFetchEBSVolumeMetrics(t *testing.T) {
 			actualMetrics := engine.fetchEBSVolumeMetrics(t1, "t1")
 
 			assert.Len(t, actualMetrics, tc.numMetrics)
-			assert.Equal(t, actualMetrics, tc.expectedMetrics)
+			assert.Equal(t, tc.expectedMetrics, actualMetrics)
 		})
 	}
 

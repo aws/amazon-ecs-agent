@@ -335,7 +335,7 @@ func (engine *nonIdleInstanceMetricsStatsSource) GetInstanceMetrics(includeServi
 		taskArn := "task/" + strconv.FormatInt(i, 10)
 		taskMetrics = append(taskMetrics, types.TaskMetric{TaskArn: &taskArn})
 	}
-	storageMetrics = &types.InstanceStorageMetrics{DataFilesystem: *aws.Float64(25), OSFilesystem: *aws.Float64(50)}
+	storageMetrics = &types.InstanceStorageMetrics{DataFilesystem: *aws.Float64(25), RootFilesystem: *aws.Float64(50)}
 	instanceMetrics = &types.InstanceMetrics{Storage: storageMetrics}
 	return instanceMetrics, metadata, taskMetrics, nil
 }

@@ -29,10 +29,10 @@ import (
 	dm "github.com/aws/amazon-ecs-agent/agent/engine/daemonmanager"
 	"github.com/aws/amazon-ecs-agent/agent/statechange"
 	"github.com/aws/amazon-ecs-agent/ecs-agent/eventstream"
-	"github.com/aws/amazon-ecs-agent/ecs-agent/tcs/model/ecstcs"
 
+	"github.com/aws/aws-sdk-go-v2/aws"
 	ecstypes "github.com/aws/aws-sdk-go-v2/service/ecs/types"
-	"github.com/aws/aws-sdk-go/aws"
+	tcstypes "github.com/aws/aws-sdk-go-v2/service/tcs/types"
 	"github.com/docker/docker/api/types"
 	dockercontainer "github.com/docker/docker/api/types/container"
 	"github.com/docker/docker/api/types/network"
@@ -157,8 +157,8 @@ func validateInstanceMetrics(t *testing.T, engine *DockerStatsEngine, includeSer
 	assert.Len(t, taskMetrics, 1, "incorrect number of tasks")
 
 	taskMetric := taskMetrics[0]
-	assert.Equal(t, aws.StringValue(taskMetric.TaskDefinitionFamily), taskDefinitionFamily, "unexpected task definition family")
-	assert.Equal(t, aws.StringValue(taskMetric.TaskDefinitionVersion), taskDefinitionVersion, "unexpected task definition version")
+	assert.Equal(t, aws.ToString(taskMetric.TaskDefinitionFamily), taskDefinitionFamily, "unexpected task definition family")
+	assert.Equal(t, aws.ToString(taskMetric.TaskDefinitionVersion), taskDefinitionVersion, "unexpected task definition version")
 	assert.NoError(t, validateContainerMetrics(taskMetric.ContainerMetrics, 1), "validating container metrics failed")
 	if includeServiceConnectStats {
 		assert.NoError(t, validateServiceConnectMetrics(taskMetric.ServiceConnectMetricsWrapper, 1), "validating service connect metrics failed")
@@ -172,15 +172,15 @@ func validateInstanceMetricsWithDisabledMetrics(t *testing.T, engine *DockerStat
 	assert.Len(t, taskMetrics, 1, "incorrect number of tasks")
 
 	taskMetric := taskMetrics[0]
-	assert.Equal(t, aws.StringValue(taskMetric.TaskDefinitionFamily), taskDefinitionFamily, "unexpected task definition family")
-	assert.Equal(t, aws.StringValue(taskMetric.TaskDefinitionVersion), taskDefinitionVersion, "unexpected task definition version")
+	assert.Equal(t, aws.ToString(taskMetric.TaskDefinitionFamily), taskDefinitionFamily, "unexpected task definition family")
+	assert.Equal(t, aws.ToString(taskMetric.TaskDefinitionVersion), taskDefinitionVersion, "unexpected task definition version")
 	assert.NoError(t, validateContainerMetrics(taskMetric.ContainerMetrics, 0), "validating container metrics failed")
 	if includeServiceConnectStats {
 		assert.NoError(t, validateServiceConnectMetrics(taskMetric.ServiceConnectMetricsWrapper, 1), "validating service connect metrics failed")
 	}
 }
 
-func validateContainerMetrics(containerMetrics []*ecstcs.ContainerMetric, expected int) error {
+func validateContainerMetrics(containerMetrics []tcstypes.ContainerMetric, expected int) error {
 	if len(containerMetrics) != expected {
 		return fmt.Errorf("Mismatch in number of ContainerStatsSet elements. Expected: %d, Got: %d", expected, len(containerMetrics))
 	}
@@ -204,7 +204,7 @@ func validateContainerMetrics(containerMetrics []*ecstcs.ContainerMetric, expect
 	return nil
 }
 
-func validateServiceConnectMetrics(serviceConnectMetrics []*ecstcs.GeneralMetricsWrapper, expected int) error {
+func validateServiceConnectMetrics(serviceConnectMetrics []tcstypes.GeneralMetricsWrapper, expected int) error {
 	if len(serviceConnectMetrics) != expected {
 		return fmt.Errorf("Mismatch in number of serviceConnectMetrics elements. Expected: %d, Got: %d", expected, len(serviceConnectMetrics))
 	}
@@ -224,12 +224,12 @@ func validateIdleContainerMetrics(t *testing.T, engine *DockerStatsEngine) {
 	assert.NoError(t, err, "getting instance metrics failed")
 	assert.NoError(t, validateMetricsMetadata(metadata), "validating metadata failed")
 
-	assert.True(t, aws.BoolValue(metadata.Idle), "expected idle metadata to be true")
-	assert.True(t, aws.BoolValue(metadata.Fin), "fin not set to true when idle")
+	assert.True(t, metadata.Idle, "expected idle metadata to be true")
+	assert.True(t, metadata.Fin, "fin not set to true when idle")
 	assert.Len(t, taskMetrics, 0, "expected empty task metrics")
 }
 
-func validateMetricsMetadata(metadata *ecstcs.MetricsMetadata) error {
+func validateMetricsMetadata(metadata *tcstypes.MetricsMetadata) error {
 	if metadata == nil {
 		return fmt.Errorf("Metadata is nil")
 	}
@@ -248,40 +248,40 @@ func validateMetricsMetadata(metadata *ecstcs.MetricsMetadata) error {
 	return nil
 }
 
-func validateHealthMetricsMetadata(metadata *ecstcs.HealthMetadata) error {
+func validateHealthMetricsMetadata(metadata *tcstypes.HealthMetadata) error {
 	if metadata == nil {
 		return fmt.Errorf("metadata is nil")
 	}
 
-	if aws.StringValue(metadata.Cluster) != defaultCluster {
+	if aws.ToString(metadata.Cluster) != defaultCluster {
 		return fmt.Errorf("expected cluster in metadata to be: %s, got %s",
-			defaultCluster, aws.StringValue(metadata.Cluster))
+			defaultCluster, aws.ToString(metadata.Cluster))
 	}
 
-	if aws.StringValue(metadata.ContainerInstance) != defaultContainerInstance {
+	if aws.ToString(metadata.ContainerInstance) != defaultContainerInstance {
 		return fmt.Errorf("expected container instance in metadata to be %s, got %s",
-			defaultContainerInstance, aws.StringValue(metadata.ContainerInstance))
+			defaultContainerInstance, aws.ToString(metadata.ContainerInstance))
 	}
-	if len(aws.StringValue(metadata.MessageId)) == 0 {
+	if len(aws.ToString(metadata.MessageId)) == 0 {
 		return fmt.Errorf("empty MessageId")
 	}
 
 	return nil
 }
 
-func validateContainerHealthMetrics(metrics []*ecstcs.ContainerHealth, expected int) error {
+func validateContainerHealthMetrics(metrics []tcstypes.ContainerHealth, expected int) error {
 	if len(metrics) != expected {
 		return fmt.Errorf("mismatch in number of ContainerHealth elements. Expected: %d, Got: %d",
 			expected, len(metrics))
 	}
 	for _, health := range metrics {
-		if aws.StringValue(health.ContainerName) == "" {
+		if aws.ToString(health.ContainerName) == "" {
 			return fmt.Errorf("container name is empty")
 		}
-		if aws.StringValue(health.HealthStatus) == "" {
+		if health.HealthStatus == "" {
 			return fmt.Errorf("container health status is empty")
 		}
-		if aws.TimeValue(health.StatusSince).IsZero() {
+		if health.StatusSince.IsZero() {
 			return fmt.Errorf("container health status change timestamp is empty")
 		}
 	}
@@ -293,9 +293,9 @@ func validateTaskHealthMetrics(t *testing.T, engine *DockerStatsEngine) {
 	assert.NoError(t, err, "getting task health metrics failed")
 	require.Len(t, healthMetrics, 1)
 	assert.NoError(t, validateHealthMetricsMetadata(healthMetadata), "validating health metedata failed")
-	assert.Equal(t, aws.StringValue(healthMetrics[0].TaskArn), taskArn, "task arn not expected")
-	assert.Equal(t, aws.StringValue(healthMetrics[0].TaskDefinitionFamily), taskDefinitionFamily, "task definition family not expected")
-	assert.Equal(t, aws.StringValue(healthMetrics[0].TaskDefinitionVersion), taskDefinitionVersion, "task definition version not expected")
+	assert.Equal(t, aws.ToString(healthMetrics[0].TaskArn), taskArn, "task arn not expected")
+	assert.Equal(t, aws.ToString(healthMetrics[0].TaskDefinitionFamily), taskDefinitionFamily, "task definition family not expected")
+	assert.Equal(t, aws.ToString(healthMetrics[0].TaskDefinitionVersion), taskDefinitionVersion, "task definition version not expected")
 	assert.NoError(t, validateContainerHealthMetrics(healthMetrics[0].Containers, 1))
 }
 
