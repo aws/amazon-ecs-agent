@@ -76,7 +76,7 @@ func TestPostUnmarshalWindowsCanonicalPaths(t *testing.T) {
 		Volumes: []acstypes.Volume{
 			{
 				Name: strptr("sourceVolume"),
-				Type: strptr("host"),
+				Type: "host",
 				Host: &acstypes.HostVolumeProperties{
 					SourcePath: strptr(`C:/Host/path`),
 				},
@@ -112,7 +112,7 @@ func TestPostUnmarshalWindowsCanonicalPaths(t *testing.T) {
 		},
 	}
 
-	seqNum := int64(42)
+	seqNum := int32(42)
 	task, err := TaskFromACS(&taskFromAcs, &acs.PayloadInput{SeqNum: &seqNum})
 	assert.Nil(t, err, "Should be able to handle acs task")
 	cfg := config.Config{TaskCPUMemLimit: config.BooleanDefaultTrue{Value: config.ExplicitlyDisabled}}
@@ -498,7 +498,7 @@ func TestPostUnmarshalTaskWithFSxWindowsFileServerVolumes(t *testing.T) {
 		Volumes: []acstypes.Volume{
 			{
 				Name: strptr("fsxWindowsFileServerVolume"),
-				Type: strptr("fsxWindowsFileServer"),
+				Type: "fsxWindowsFileServer",
 				FsxWindowsFileServerVolumeConfiguration: &acstypes.FSxWindowsFileServerVolumeConfiguration{
 					AuthorizationConfig: &acstypes.FSxWindowsFileServerAuthorizationConfig{
 						CredentialsParameter: strptr("arn"),

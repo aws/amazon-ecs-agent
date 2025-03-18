@@ -105,13 +105,13 @@ func (c *containerd) buildAWSVPCNetworkConfig(
 	}
 
 	// Find primary network interface in order to build the task netns name.
-	var primaryIF *acstypes.ElasticNetworkInterface
+	var primaryIF acstypes.ElasticNetworkInterface
 	for _, eni := range taskPayload.ElasticNetworkInterfaces {
-		if aws.ToInt64(eni.Index) == 0 {
+		if aws.ToInt32(eni.Index) == 0 {
 			primaryIF = eni
 		}
 	}
-	ifName := networkinterface.GetInterfaceName(primaryIF)
+	ifName := networkinterface.GetInterfaceName(&primaryIF)
 	netNSName := networkinterface.NetNSName(taskID, ifName)
 	netNSPath := c.GetNetNSPath(netNSName)
 
@@ -128,11 +128,15 @@ func (c *containerd) buildAWSVPCNetworkConfig(
 		"MacToNames": macToNames,
 	})
 
+	eniPointerSlice := make([]*acstypes.ElasticNetworkInterface, len(taskPayload.ElasticNetworkInterfaces))
+	for i := range taskPayload.ElasticNetworkInterfaces {
+		eniPointerSlice[i] = &taskPayload.ElasticNetworkInterfaces[i]
+	}
 	// Create interface object.
 	iface, err := networkinterface.New(
-		taskPayload.ElasticNetworkInterfaces[0],
+		&taskPayload.ElasticNetworkInterfaces[0],
 		"",
-		taskPayload.ElasticNetworkInterfaces,
+		eniPointerSlice,
 		macToNames,
 	)
 	iface.Default = true
