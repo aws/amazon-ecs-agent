@@ -32,9 +32,9 @@ import (
 	mock_wsconn "github.com/aws/amazon-ecs-agent/ecs-agent/wsclient/wsconn/mock"
 
 	"github.com/aws/aws-sdk-go-v2/aws"
+	"github.com/aws/aws-sdk-go-v2/credentials"
 	"github.com/aws/aws-sdk-go-v2/service/acs"
 	acstypes "github.com/aws/aws-sdk-go-v2/service/acs/types"
-	"github.com/aws/aws-sdk-go/aws/credentials"
 	"github.com/golang/mock/gomock"
 	"github.com/gorilla/websocket"
 	"github.com/stretchr/testify/assert"
@@ -110,7 +110,7 @@ const (
 	rwTimeout       = time.Second
 )
 
-var testCreds = credentials.NewStaticCredentials("test-id", "test-secret", "test-token")
+var testCreds = credentials.NewStaticCredentialsProvider("test-id", "test-secret", "test-token")
 
 var testCfg = &wsclient.WSClientMinAgentConfig{
 	AcceptInsecureCert: true,
@@ -267,7 +267,7 @@ func TestConnect(t *testing.T) {
 		t.Fatal(<-serverErr)
 	}()
 
-	cs := testACSClientFactory.New(server.URL, testCreds, rwTimeout, testCfg, metrics.NewNopEntryFactory())
+	cs := testACSClientFactory.New(server.URL, aws.NewCredentialsCache(testCreds), rwTimeout, testCfg, metrics.NewNopEntryFactory())
 	// Wait for up to a second for the mock server to launch
 	for i := 0; i < 100; i++ {
 		_, err = cs.Connect(metrics.ACSDisconnectTimeoutMetricName, wsclient.DisconnectTimeout, wsclient.DisconnectJitterMax)
@@ -338,7 +338,7 @@ func TestConnectClientError(t *testing.T) {
 	}))
 	defer testServer.Close()
 
-	cs := testACSClientFactory.New(testServer.URL, testCreds, rwTimeout, testCfg, metrics.NewNopEntryFactory())
+	cs := testACSClientFactory.New(testServer.URL, aws.NewCredentialsCache(testCreds), rwTimeout, testCfg, metrics.NewNopEntryFactory())
 	_, err := cs.Connect(metrics.ACSDisconnectTimeoutMetricName, wsclient.DisconnectTimeout, wsclient.DisconnectJitterMax)
 	_, ok := err.(*wsclient.WSError)
 	assert.True(t, ok, "Connect error expected to be a WSError type")
@@ -346,7 +346,7 @@ func TestConnectClientError(t *testing.T) {
 }
 
 func testCS(conn *mock_wsconn.MockWebsocketConn) wsclient.ClientServer {
-	foo := testACSClientFactory.New("localhost:443", testCreds, rwTimeout, testCfg, metrics.NewNopEntryFactory())
+	foo := testACSClientFactory.New("localhost:443", aws.NewCredentialsCache(testCreds), rwTimeout, testCfg, metrics.NewNopEntryFactory())
 	cs := foo.(*clientServer)
 	cs.SetConnection(conn)
 	return cs

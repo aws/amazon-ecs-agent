@@ -44,7 +44,9 @@ import (
 	mock_retry "github.com/aws/amazon-ecs-agent/ecs-agent/utils/retry/mock"
 	"github.com/aws/amazon-ecs-agent/ecs-agent/wsclient"
 	mock_wsclient "github.com/aws/amazon-ecs-agent/ecs-agent/wsclient/mock"
-	"github.com/aws/aws-sdk-go/aws/credentials"
+
+	"github.com/aws/aws-sdk-go-v2/aws"
+	"github.com/aws/aws-sdk-go-v2/credentials"
 	"github.com/golang/mock/gomock"
 	"github.com/gorilla/websocket"
 	"github.com/pkg/errors"
@@ -180,7 +182,7 @@ const (
 
 var inactiveInstanceError = errors.New("InactiveInstanceException")
 var noopFunc = func() {}
-var testCreds = credentials.NewStaticCredentials("test-id", "test-secret", "test-token")
+var testCreds = credentials.NewStaticCredentialsProvider("test-id", "test-secret", "test-token")
 var testMinAgentConfig = &wsclient.WSClientMinAgentConfig{
 	AcceptInsecureCert: true,
 	AWSRegion:          "us-west-2",
@@ -973,7 +975,7 @@ func TestSessionDoesntLeakGoroutines(t *testing.T) {
 	go func() {
 		acsSession := session{
 			containerInstanceARN:  testconst.ContainerInstanceARN,
-			credentialsProvider:   testCreds,
+			credentialsCache:      aws.NewCredentialsCache(testCreds),
 			dockerVersion:         dockerVersion,
 			minAgentConfig:        testMinAgentConfig,
 			ecsClient:             ecsClient,
@@ -1052,7 +1054,7 @@ func TestStartSessionHandlesRefreshCredentialsMessages(t *testing.T) {
 		acsSession := NewSession(testconst.ContainerInstanceARN,
 			testconst.ClusterARN,
 			ecsClient,
-			testCreds,
+			aws.NewCredentialsCache(testCreds),
 			noopFunc,
 			acsclient.NewACSClientFactory(),
 			metricsfactory.NewNopEntryFactory(),
@@ -1318,7 +1320,7 @@ func TestStartSessionHandlesAttachResourceMessages(t *testing.T) {
 		acsSession := NewSession(testconst.ContainerInstanceARN,
 			testconst.ClusterARN,
 			ecsClient,
-			testCreds,
+			aws.NewCredentialsCache(testCreds),
 			noopFunc,
 			acsclient.NewACSClientFactory(),
 			metricsfactory.NewNopEntryFactory(),
