@@ -648,7 +648,7 @@ func testCS(conn *mock_wsconn.MockWebsocketConn, metricsMessages <-chan ecstcs.T
 		AcceptInsecureCert: true,
 	}
 	cs := New("https://aws.amazon.com/ecs", cfg, emptyDoctor, false, testPublishMetricsInterval,
-	aws.NewCredentialsCache(testCreds), rwTimeout, metricsMessages, healthMessages, metrics.NewNopEntryFactory()).(*tcsClientServer)
+		aws.NewCredentialsCache(testCreds), rwTimeout, metricsMessages, healthMessages, metrics.NewNopEntryFactory()).(*tcsClientServer)
 	cs.SetConnection(conn)
 	return cs
 }

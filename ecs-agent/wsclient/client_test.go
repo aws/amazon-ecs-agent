@@ -121,11 +121,11 @@ func getTestClientServer(url string, msgType []interface{}, rwTimeout time.Durat
 			DockerEndpoint:     "unix://" + dockerEndpoint,
 			IsDocker:           true,
 		},
-		CredentialsCache:   aws.NewCredentialsCache(testCreds),
-		TypeDecoder:        BuildTypeDecoder(msgType),
-		RWTimeout:          rwTimeout * time.Second,
-		RequestHandlers:    make(map[string]RequestHandler),
-		MetricsFactory:     metrics.NewNopEntryFactory(),
+		CredentialsCache: aws.NewCredentialsCache(testCreds),
+		TypeDecoder:      BuildTypeDecoder(msgType),
+		RWTimeout:        rwTimeout * time.Second,
+		RequestHandlers:  make(map[string]RequestHandler),
+		MetricsFactory:   metrics.NewNopEntryFactory(),
 	}
 }
 

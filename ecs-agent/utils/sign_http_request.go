@@ -44,7 +44,7 @@ func SignHTTPRequest(req *http.Request, region, service string, creds *aws.Crede
 		hasher := sha256.New()
 		if _, err := io.Copy(hasher, body); err != nil {
 			logger.Warn(fmt.Sprintf("Error hashing request body: %v", err))
-            return errors.Wrap(err, "aws sdk http signer: failed to hash request body")
+			return errors.Wrap(err, "aws sdk http signer: failed to hash request body")
 		}
 
 		// Reset the body reader to the beginning
@@ -54,7 +54,7 @@ func SignHTTPRequest(req *http.Request, region, service string, creds *aws.Crede
 		}
 		payloadHash = hex.EncodeToString(hasher.Sum(nil))
 	}
-	
+
 	err = signer.SignHTTP(req.Context(), credsValue, req, payloadHash, service, region, time.Now())
 	if err != nil {
 		logger.Warn(fmt.Sprintf("Signing HTTP request failed: %v", err))
