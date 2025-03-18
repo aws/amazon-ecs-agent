@@ -14,7 +14,9 @@
 package utils
 
 import (
+	"crypto/sha256"
 	"fmt"
+	"io"
 	"net/http"
 	"time"
 
@@ -25,18 +27,30 @@ import (
 )
 
 // SignHTTPRequest signs an http.Request struct with authv4 using the given region, service, and credentials.
-func SignHTTPRequest(req *http.Request, region, service string, creds *aws.CredentialsCache) error {
+func SignHTTPRequest(req *http.Request, region, service string, creds *aws.CredentialsCache, body io.ReadSeeker) error {
 	signer := v4.NewSigner()
 	credsValue, err := creds.Retrieve(req.Context())
 	if err != nil {
 		logger.Warn(fmt.Sprintf("Retrieving credentials failed: %v", err))
 		return errors.Wrap(err, "aws sdk http signer: failed to retrieve credentials")
 	}
-	hash := v4.GetPayloadHash(req.Context())
-	err = signer.SignHTTP(req.Context(), credsValue, req, hash, service, region, time.Now())
+	err = signer.SignHTTP(req.Context(), credsValue, req, bodyHash(body), service, region, time.Now())
 	if err != nil {
 		logger.Warn(fmt.Sprintf("Signing HTTP request failed: %v", err))
 		return errors.Wrap(err, "aws sdk http signer: failed to sign http request")
 	}
 	return nil
+}
+
+func bodyHash(body io.ReadSeeker) string {
+	if body == nil {
+		return fmt.Sprintf("%x", sha256.Sum256([]byte("")))
+	}
+
+	h := sha256.New()
+	body.Seek(0, io.SeekStart)
+	io.Copy(h, body)
+	body.Seek(0, io.SeekStart)
+
+	return fmt.Sprintf("%x", h.Sum(nil))
 }

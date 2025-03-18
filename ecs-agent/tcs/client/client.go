@@ -503,7 +503,7 @@ func signRequestFunc(url, region string, credentialsCache *aws.CredentialsCache)
 			return nil, err
 		}
 
-		err = utils.SignHTTPRequest(request, region, "ecs", credentialsCache)
+		err = utils.SignHTTPRequest(request, region, "ecs", credentialsCache, reqBody)
 		if err != nil {
 			return nil, err
 		}
