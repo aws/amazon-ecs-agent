@@ -59,5 +59,34 @@ func init() {
 }
 
 func NewACSDecoder() wsclient.TypeDecoder {
-	return wsclient.BuildTypeDecoder(acsRecognizedTypes)
+	decoder := wsclient.BuildTypeDecoder(acsRecognizedTypes)
+
+	// aliases {aliasTypeName: origTypeName}
+	// This is needed because ACS service uses different type Names as we do
+	aliasMap := map[string]string{
+		"HeartbeatMessage":                       "HeartbeatInput",
+		"HeartbeatAckRequest":                    "HeartbeatOutput",
+		"PayloadMessage":                         "PayloadInput",
+		"CloseMessage":                           "PollOutput",
+		"PerformUpdateMessage":                   "PerformUpdateInput",
+		"StageUpdateMessage":                     "StageUpdateInput",
+		"IAMRoleCredentialsMessage":              "RefreshTaskIAMRoleCredentialsInput",
+		"IAMRoleCredentialsAckRequest":           "RefreshTaskIAMRoleCredentialsOutput",
+		"ErrorMessage":                           "ErrorInput",
+		"AttachTaskNetworkInterfacesMessage":     "AttachTaskNetworkInterfacesInput",
+		"AttachInstanceNetworkInterfacesMessage": "AttachInstanceNetworkInterfacesInput",
+		"ConfirmAttachmentMessage":               "ConfirmAttachmentInput",
+		"TaskManifestMessage":                    "TaskManifestInput",
+		"TaskStopVerificationAck":                "TaskStopVerificationOutput",
+		"TaskStopVerificationMessage":            "TaskStopVerificationInput",
+	}
+
+	typeMappings := decoder.(*wsclient.TypeDecoderImpl).GetRecognizedTypes()
+	for alias, original := range aliasMap {
+		if originalType, exists := typeMappings[original]; exists {
+			typeMappings[alias] = originalType
+		}
+	}
+
+	return decoder
 }

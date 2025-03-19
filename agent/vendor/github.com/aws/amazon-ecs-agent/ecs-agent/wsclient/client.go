@@ -408,7 +408,12 @@ func (cs *ClientServerImpl) AddRequestHandler(f RequestHandler) {
 			"argument type not recognized: %v", firstArgTypeStr))
 		os.Exit(ExitTerminal)
 	}
-	cs.RequestHandlers[firstArgTypeStr] = f
+	// Loop through the recognized types (including aliases) and set the request handlers
+	for typeNameOrAlias, originalType := range recognizedTypes {
+		if originalType.Name() == firstArgTypeStr {
+			cs.RequestHandlers[typeNameOrAlias] = f
+		}
+	}
 }
 
 // SetAnyRequestHandler passes a RequestHandler object into the client.
