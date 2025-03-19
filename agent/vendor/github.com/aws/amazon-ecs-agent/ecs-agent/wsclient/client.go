@@ -231,7 +231,7 @@ func (cs *ClientServerImpl) Connect(disconnectMetricName string,
 	request, _ := http.NewRequest("GET", parsedURL.String(), nil)
 
 	// Sign the request; we'll send its headers via the websocket client which includes the signature
-	err = utils.SignHTTPRequest(request, cs.Cfg.AWSRegion, ServiceName, cs.CredentialsCache)
+	err = utils.SignHTTPRequest(request, cs.Cfg.AWSRegion, ServiceName, cs.CredentialsCache, nil)
 	if err != nil {
 		return nil, err
 	}
