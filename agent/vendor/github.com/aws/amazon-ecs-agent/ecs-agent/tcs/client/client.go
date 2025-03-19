@@ -16,6 +16,7 @@ package tcsclient
 import (
 	"bytes"
 	"context"
+	"encoding/json"
 	"fmt"
 	"io"
 	"net/http"
@@ -32,7 +33,6 @@ import (
 	"github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/aws/aws-sdk-go-v2/service/tcs"
 	"github.com/aws/aws-sdk-go-v2/service/tcs/types"
-	"github.com/aws/aws-sdk-go/private/protocol/json/jsonutil"
 
 	"github.com/cihub/seelog"
 	"github.com/pborman/uuid"
@@ -216,7 +216,7 @@ func (cs *tcsClientServer) metricsToPublishMetricRequests(metrics ecstcs.Telemet
 		tempTaskMetric.ServiceConnectMetricsWrapper = tempTaskMetric.ServiceConnectMetricsWrapper[:0]
 
 		messageTaskMetrics = append(messageTaskMetrics, tempTaskMetric)
-		tmsg, _ := jsonutil.BuildJSON(ecstcs.NewPublishMetricsRequest(messageInstanceMetrics, requestMetadata, copyTaskMetrics(messageTaskMetrics)))
+		tmsg, _ := json.Marshal(ecstcs.NewPublishMetricsRequest(messageInstanceMetrics, requestMetadata, copyTaskMetrics(messageTaskMetrics)))
 		// remove the tempTaskMetric added to messageTaskMetrics after creating tempMessage
 		messageTaskMetrics = messageTaskMetrics[:len(messageTaskMetrics)-1]
 		if len(tmsg) > publishMetricRequestSizeLimit {
@@ -269,7 +269,7 @@ func (cs *tcsClientServer) serviceConnectMetricsToPublishMetricRequests(instance
 		tempTaskMetric.ServiceConnectMetricsWrapper = append(tempTaskMetric.ServiceConnectMetricsWrapper, serviceConnectMetric)
 		messageTaskMetrics = append(messageTaskMetrics, tempTaskMetric)
 		// TODO [SC]: Load test and profile this since BuildJSON results in lot of CPU and memory consumption.
-		tempMessage, _ := jsonutil.BuildJSON(ecstcs.NewPublishMetricsRequest(messageInstanceMetrics, requestMetadata, copyTaskMetrics(messageTaskMetrics)))
+		tempMessage, _ := json.Marshal(ecstcs.NewPublishMetricsRequest(messageInstanceMetrics, requestMetadata, copyTaskMetrics(messageTaskMetrics)))
 		// remove the tempTaskMetric added to messageTaskMetrics after creating tempMessage
 		messageTaskMetrics = messageTaskMetrics[:len(messageTaskMetrics)-1]
 		if len(tempMessage) > publishMetricRequestSizeLimit {

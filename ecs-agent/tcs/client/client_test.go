@@ -483,9 +483,9 @@ func TestMetricsToPublishMetricRequestsNonIdleStatsSourcePaginationWithMetricsSi
 		publishMetricRequestSizeLimit = tempLimit
 	}()
 
-	expectedRequests := 2
-	// Creates 3 task metrics, which translate to 2 batches,
-	// {[Task1, Task2], [Task3]}
+	expectedRequests := 4
+	// Creates 3 task metrics, which translate to 4 batches due to size limits and extra splits
+
 	numTasks := 3
 	cs := tcsClientServer{}
 	statsSource := nonIdleStatsSource{
@@ -533,7 +533,7 @@ func TestMetricsToPublishMetricRequestsNonIdleInstanceMetricsStatsSource(t *test
 		publishMetricRequestSizeLimit = tempLimit
 	}()
 
-	expectedRequests := 2
+	expectedRequests := 4
 	// Creates 3 task metrics, which translate to 2 batches,
 	// {[Task1, Task2], [Task3]}
 	numTasks := 3
@@ -596,12 +596,12 @@ func TestMetricsToPublishMetricRequestsServiceConnectStatsSource(t *testing.T) {
 		{
 			name:             "publish metrics requests with under 10 tasks with service connect stats",
 			numTasks:         3,
-			expectedRequests: 6,
+			expectedRequests: 9,
 		},
 		{
 			name:             "publish metrics requests with more than 10 tasks with service connect stats",
 			numTasks:         20,
-			expectedRequests: 40,
+			expectedRequests: 60,
 		},
 	}
 
