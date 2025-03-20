@@ -15,20 +15,22 @@ package session
 import (
 	"testing"
 
-	"github.com/aws/amazon-ecs-agent/ecs-agent/acs/model/ecsacs"
 	mock_session "github.com/aws/amazon-ecs-agent/ecs-agent/acs/session/mocks"
 	"github.com/aws/amazon-ecs-agent/ecs-agent/acs/session/testconst"
 	"github.com/aws/amazon-ecs-agent/ecs-agent/metrics"
 	mock_metrics "github.com/aws/amazon-ecs-agent/ecs-agent/metrics/mocks"
-	"github.com/aws/aws-sdk-go/aws"
+
+	"github.com/aws/aws-sdk-go-v2/aws"
+	"github.com/aws/aws-sdk-go-v2/service/acs"
+	acstypes "github.com/aws/aws-sdk-go-v2/service/acs/types"
 	"github.com/golang/mock/gomock"
 	"github.com/stretchr/testify/assert"
 )
 
-var testStopVerificationAck = &ecsacs.TaskStopVerificationAck{
+var testStopVerificationAck = &acs.TaskStopVerificationOutput{
 	GeneratedAt: aws.Int64(testconst.DummyInt),
 	MessageId:   aws.String(testconst.MessageID),
-	StopTasks: []*ecsacs.TaskIdentifier{
+	StopTasks: []acstypes.TaskIdentifier{
 		{
 			TaskArn:        aws.String(testconst.TaskARN),
 			TaskClusterArn: aws.String(testconst.ClusterARN),
@@ -56,7 +58,7 @@ func TestTaskStopVerificationAckResponderStopsTasks(t *testing.T) {
 		manifestMessageIDAccessor.EXPECT().GetMessageID().Return(testconst.MessageID),
 		manifestMessageIDAccessor.EXPECT().SetMessageID(""),
 		metricsFactory.EXPECT().New(metrics.TaskStoppedMetricName).Return(mockEntry),
-		taskStopper.EXPECT().StopTask(aws.StringValue(testStopVerificationAck.StopTasks[0].TaskArn)).
+		taskStopper.EXPECT().StopTask(aws.ToString(testStopVerificationAck.StopTasks[0].TaskArn)).
 			Do(func(interface{}) {
 				taskStopVerificationAckTaskHasBeenStopped = true
 			}),
@@ -67,7 +69,7 @@ func TestTaskStopVerificationAckResponderStopsTasks(t *testing.T) {
 		manifestMessageIDAccessor,
 		metricsFactory)
 	handleTaskStopVerificationAck :=
-		taskStopVerificationAckResponder.HandlerFunc().(func(message *ecsacs.TaskStopVerificationAck))
+		taskStopVerificationAckResponder.HandlerFunc().(func(message *acs.TaskStopVerificationOutput))
 	handleTaskStopVerificationAck(testStopVerificationAck)
 
 	assert.True(t, taskStopVerificationAckTaskHasBeenStopped)
@@ -98,8 +100,8 @@ func TestTaskStopVerificationAckResponderInvalidAck(t *testing.T) {
 		manifestMessageIDAccessor,
 		metricsFactory)
 	handleTaskStopVerificationAck :=
-		taskStopVerificationAckResponder.HandlerFunc().(func(message *ecsacs.TaskStopVerificationAck))
+		taskStopVerificationAckResponder.HandlerFunc().(func(message *acs.TaskStopVerificationOutput))
 	handleTaskStopVerificationAck(testStopVerificationAck)
 
-	assert.NotEqual(t, aws.StringValue(testStopVerificationAck.MessageId), differentMessageID)
+	assert.NotEqual(t, aws.ToString(testStopVerificationAck.MessageId), differentMessageID)
 }

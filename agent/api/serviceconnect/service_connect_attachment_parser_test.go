@@ -17,13 +17,12 @@ package serviceconnect
 
 import (
 	"fmt"
+	"strconv"
 	"strings"
 	"testing"
 
-	"strconv"
-
-	"github.com/aws/amazon-ecs-agent/ecs-agent/acs/model/ecsacs"
-	"github.com/aws/aws-sdk-go/aws"
+	"github.com/aws/aws-sdk-go-v2/aws"
+	acstypes "github.com/aws/aws-sdk-go-v2/service/acs/types"
 	"github.com/stretchr/testify/assert"
 )
 
@@ -131,17 +130,17 @@ func constructTestServiceConnectConfig(networkMode string, override, emptyIngres
 	return unquotedSCConfig
 }
 
-// getTestACSAttachmentProperty returns *ecsacs.AttachmentProperty with passed parameters.
-func getTestACSAttachmentProperty(propertyName, propertyValue string) *ecsacs.AttachmentProperty {
-	return &ecsacs.AttachmentProperty{
+// getTestACSAttachmentProperty returns *acstypes.AttachmentProperty with passed parameters.
+func getTestACSAttachmentProperty(propertyName, propertyValue string) acstypes.AttachmentProperty {
+	return acstypes.AttachmentProperty{
 		Name:  strptr(propertyName),
 		Value: strptr(propertyValue),
 	}
 }
 
 // getTestACSAttachments returns *ecsacs.Task.getTestACSAttachments.
-func getTestACSAttachments(attachmentProperties []*ecsacs.AttachmentProperty) *ecsacs.Attachment {
-	return &ecsacs.Attachment{
+func getTestACSAttachments(attachmentProperties []acstypes.AttachmentProperty) *acstypes.Attachment {
+	return &acstypes.Attachment{
 		AttachmentArn:        strptr("attachmentArn"),
 		AttachmentProperties: attachmentProperties,
 		AttachmentType:       strptr(testServiceConnectAttachmentType),
@@ -166,7 +165,7 @@ func TestParseServiceConnectAttachment(t *testing.T) {
 	testSCContainerNameAttachmentProperty := getTestACSAttachmentProperty(serviceConnectContainerNameKey, testServiceConnectContainerName)
 	tt := []struct {
 		testName                 string
-		testSCAttachmentProperty *ecsacs.AttachmentProperty
+		testSCAttachmentProperty acstypes.AttachmentProperty
 		expectedIngressConfig    []IngressConfigEntry
 		expectedEgressConfig     *EgressConfig
 		expectedDnsConfig        []DNSConfigEntry
@@ -317,7 +316,7 @@ func TestParseServiceConnectAttachment(t *testing.T) {
 				tc.expectedIngressConfig,
 				tc.expectedEgressConfig,
 				tc.expectedDnsConfig)
-			testAttachmentProperties := []*ecsacs.AttachmentProperty{testSCContainerNameAttachmentProperty}
+			testAttachmentProperties := []acstypes.AttachmentProperty{testSCContainerNameAttachmentProperty}
 			testAttachmentProperties = append(testAttachmentProperties, tc.testSCAttachmentProperty)
 			testSCAttachment := getTestACSAttachments(testAttachmentProperties)
 			parsedServiceConnectConfig, err := ParseServiceConnectAttachment(testSCAttachment)
@@ -346,7 +345,7 @@ func TestParseServiceConnectAttachmentWithError(t *testing.T) {
 		t.Run(tc.testName, func(t *testing.T) {
 			testSCAttachmentProperty = getTestACSAttachmentProperty(serviceConnectConfigKey, tc.testAttachmentPropertyValue)
 			testSCContainerNameAttachmentProperty := getTestACSAttachmentProperty(serviceConnectContainerNameKey, tc.testSCContainerName)
-			testAttachmentProperties := []*ecsacs.AttachmentProperty{testSCAttachmentProperty}
+			testAttachmentProperties := []acstypes.AttachmentProperty{testSCAttachmentProperty}
 			testAttachmentProperties = append(testAttachmentProperties, testSCContainerNameAttachmentProperty)
 			testSCAttachment := getTestACSAttachments(testAttachmentProperties)
 			_, err := ParseServiceConnectAttachment(testSCAttachment)

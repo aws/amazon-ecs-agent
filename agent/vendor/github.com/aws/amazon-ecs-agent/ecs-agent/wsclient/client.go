@@ -33,9 +33,8 @@ import (
 	"sync"
 	"time"
 
-	"github.com/aws/amazon-ecs-agent/ecs-agent/logger/field"
-
 	"github.com/aws/amazon-ecs-agent/ecs-agent/logger"
+	"github.com/aws/amazon-ecs-agent/ecs-agent/logger/field"
 	"github.com/aws/amazon-ecs-agent/ecs-agent/metrics"
 	"github.com/aws/amazon-ecs-agent/ecs-agent/utils"
 	"github.com/aws/amazon-ecs-agent/ecs-agent/utils/cipher"
@@ -43,8 +42,7 @@ import (
 	"github.com/aws/amazon-ecs-agent/ecs-agent/utils/retry"
 	"github.com/aws/amazon-ecs-agent/ecs-agent/wsclient/wsconn"
 
-	"github.com/aws/aws-sdk-go/aws/credentials"
-	"github.com/aws/aws-sdk-go/private/protocol/json/jsonutil"
+	"github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/gorilla/websocket"
 	"github.com/pkg/errors"
 )
@@ -115,7 +113,7 @@ type RequestHandler interface{}
 //	    dispatcher actor.Dispatcher
 //	}
 //	func(d *payloadmessagedispatcher) HandlerFunc() RequestHandler {
-//	    return func(payload *ecsacs.PayloadMessage) {
+//	    return func(payload *ecsacs.PayloadInput) {
 //	        message := &actor.DispatcherMessage{
 //	            Payload: payload,
 //	            AckFunc: func() error {
@@ -174,7 +172,7 @@ type ClientServerImpl struct {
 	// conn holds the underlying low-level websocket connection
 	conn wsconn.WebsocketConn
 	// CredentialProvider is used to retrieve AWS credentials
-	CredentialProvider *credentials.Credentials
+	CredentialsCache *aws.CredentialsCache
 	// RequestHandlers is a map from message types to handler functions of the
 	// form:
 	//     "FooMessage": func(message *ecsacs.FooMessage)
@@ -231,7 +229,7 @@ func (cs *ClientServerImpl) Connect(disconnectMetricName string,
 	request, _ := http.NewRequest("GET", parsedURL.String(), nil)
 
 	// Sign the request; we'll send its headers via the websocket client which includes the signature
-	err = utils.SignHTTPRequest(request, cs.Cfg.AWSRegion, ServiceName, cs.CredentialProvider, nil)
+	err = utils.SignHTTPRequest(request, cs.Cfg.AWSRegion, ServiceName, cs.CredentialsCache, nil)
 	if err != nil {
 		return nil, err
 	}
@@ -410,7 +408,12 @@ func (cs *ClientServerImpl) AddRequestHandler(f RequestHandler) {
 			"argument type not recognized: %v", firstArgTypeStr))
 		os.Exit(ExitTerminal)
 	}
-	cs.RequestHandlers[firstArgTypeStr] = f
+	// Loop through the recognized types (including aliases) and set the request handlers
+	for typeNameOrAlias, originalType := range recognizedTypes {
+		if originalType.Name() == firstArgTypeStr {
+			cs.RequestHandlers[typeNameOrAlias] = f
+		}
+	}
 }
 
 // SetAnyRequestHandler passes a RequestHandler object into the client.
@@ -547,7 +550,7 @@ func (cs *ClientServerImpl) CreateRequestMessage(input interface{}) ([]byte, err
 	if msg.Type == "" {
 		return nil, &UnrecognizedWSRequestType{reflect.TypeOf(input).String()}
 	}
-	messageData, err := jsonutil.BuildJSON(input)
+	messageData, err := json.Marshal(input)
 	if err != nil {
 		return nil, &NotMarshallableWSRequest{msg.Type, err}
 	}

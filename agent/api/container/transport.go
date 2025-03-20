@@ -15,7 +15,6 @@ package container
 
 import (
 	"errors"
-	"strings"
 
 	"github.com/cihub/seelog"
 )
@@ -26,8 +25,9 @@ const (
 	// TransportProtocolUDP represents UDP
 	TransportProtocolUDP
 
-	tcp = "tcp"
-	udp = "udp"
+	tcp             = "tcp"
+	udp             = "udp"
+	jsonEmptyString = `""`
 )
 
 // TransportProtocol is an enumeration of valid transport protocols
@@ -65,7 +65,7 @@ func (tp *TransportProtocol) String() string {
 // setting TCP as the zero-value but treating other unrecognized values as
 // errors
 func (tp *TransportProtocol) UnmarshalJSON(b []byte) error {
-	if strings.ToLower(string(b)) == "null" {
+	if string(b) == jsonEmptyString {
 		*tp = TransportProtocolTCP
 		seelog.Warn("Unmarshalled nil TransportProtocol as TCP")
 		return nil

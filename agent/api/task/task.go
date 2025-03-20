@@ -40,7 +40,6 @@ import (
 	resourcetype "github.com/aws/amazon-ecs-agent/agent/taskresource/types"
 	taskresourcevolume "github.com/aws/amazon-ecs-agent/agent/taskresource/volume"
 	"github.com/aws/amazon-ecs-agent/agent/utils"
-	"github.com/aws/amazon-ecs-agent/ecs-agent/acs/model/ecsacs"
 	"github.com/aws/amazon-ecs-agent/ecs-agent/api/container/restart"
 	apicontainerstatus "github.com/aws/amazon-ecs-agent/ecs-agent/api/container/status"
 	apierrors "github.com/aws/amazon-ecs-agent/ecs-agent/api/errors"
@@ -55,8 +54,9 @@ import (
 	"github.com/aws/amazon-ecs-agent/ecs-agent/utils/ttime"
 	ecstypes "github.com/aws/aws-sdk-go-v2/service/ecs/types"
 
-	"github.com/aws/aws-sdk-go/aws"
-	"github.com/aws/aws-sdk-go/private/protocol/json/jsonutil"
+	"github.com/aws/aws-sdk-go-v2/aws"
+	"github.com/aws/aws-sdk-go-v2/service/acs"
+	acstypes "github.com/aws/aws-sdk-go-v2/service/acs/types"
 	"github.com/docker/docker/api/types"
 	dockercontainer "github.com/docker/docker/api/types/container"
 	"github.com/docker/go-connections/nat"
@@ -309,10 +309,10 @@ type Task struct {
 	DefaultIfname string `json:"DefaultIfname,omitempty"`
 }
 
-// TaskFromACS translates ecsacs.Task to apitask.Task by first marshaling the received
-// ecsacs.Task to json and unmarshalling it as apitask.Task
-func TaskFromACS(acsTask *ecsacs.Task, envelope *ecsacs.PayloadMessage) (*Task, error) {
-	data, err := jsonutil.BuildJSON(acsTask)
+// TaskFromACS translates acs.Task to apitask.Task by first marshaling the received
+// acs.Task to json and unmarshalling it as apitask.Task
+func TaskFromACS(acsTask *acstypes.Task, envelope *acs.PayloadInput) (*Task, error) {
+	data, err := json.Marshal(acsTask)
 	if err != nil {
 		return nil, err
 	}
@@ -322,7 +322,7 @@ func TaskFromACS(acsTask *ecsacs.Task, envelope *ecsacs.PayloadMessage) (*Task, 
 	}
 
 	// Set the EnableFaultInjection field if present
-	task.EnableFaultInjection = aws.BoolValue(acsTask.EnableFaultInjection)
+	task.EnableFaultInjection = aws.ToBool(acsTask.EnableFaultInjection)
 
 	// Overrides the container command if it's set
 	for _, container := range task.Containers {
@@ -521,7 +521,7 @@ func (task *Task) initializeCredentialSpecResource(config *config.Config, creden
 // ACS is streaming down this value with task payload. In case of docker bridge mode task, this value might be left empty
 // as it's the default task network mode.
 func (task *Task) initNetworkMode(acsTaskNetworkMode *string) {
-	switch aws.StringValue(acsTaskNetworkMode) {
+	switch aws.ToString(acsTaskNetworkMode) {
 	case AWSVPCNetworkMode:
 		task.NetworkMode = AWSVPCNetworkMode
 	case HostNetworkMode:
@@ -533,7 +533,7 @@ func (task *Task) initNetworkMode(acsTaskNetworkMode *string) {
 	default:
 		logger.Warn("Unmapped task network mode", logger.Fields{
 			field.TaskID:      task.GetID(),
-			field.NetworkMode: aws.StringValue(acsTaskNetworkMode),
+			field.NetworkMode: aws.ToString(acsTaskNetworkMode),
 		})
 	}
 }
@@ -1487,7 +1487,7 @@ func (task *Task) addNetworkResourceProvisioningDependencyAwsvpc(cfg *config.Con
 				return errors.Errorf("user needs to be specified for proxy container")
 			}
 			containerConfig := &dockercontainer.Config{}
-			if err := json.Unmarshal([]byte(aws.StringValue(container.DockerConfig.Config)), &containerConfig); err != nil {
+			if err := json.Unmarshal([]byte(aws.ToString(container.DockerConfig.Config)), &containerConfig); err != nil {
 				return errors.Errorf("unable to decode given docker config: %s", err.Error())
 			}
 
@@ -1792,7 +1792,7 @@ func (task *Task) dockerConfig(container *apicontainer.Container, apiVersion doc
 	}
 
 	if container.DockerConfig.Config != nil {
-		if err := json.Unmarshal([]byte(aws.StringValue(container.DockerConfig.Config)), &containerConfig); err != nil {
+		if err := json.Unmarshal([]byte(aws.ToString(container.DockerConfig.Config)), &containerConfig); err != nil {
 			return nil, &apierrors.DockerClientConfigError{Msg: "Unable decode given docker config: " + err.Error()}
 		}
 	}
