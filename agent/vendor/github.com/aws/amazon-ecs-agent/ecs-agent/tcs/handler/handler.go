@@ -194,6 +194,7 @@ func (session *telemetrySession) StartTelemetrySession(ctx context.Context) erro
 	client.AddRequestHandler(ackPublishHealthMetricHandler(heartBeatTimer, session.heartbeatTimeout, session.heartbeatJitterMax))
 	client.AddRequestHandler(ackPublishInstanceStatusHandler(heartBeatTimer, session.heartbeatTimeout, session.heartbeatJitterMax))
 	client.SetAnyRequestHandler(anyMessageHandler(client, wsRWTimeout))
+
 	return client.Serve(ctx)
 }
 

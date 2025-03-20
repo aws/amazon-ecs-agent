@@ -482,7 +482,7 @@ func (cs *ClientServerImpl) WriteMessage(send []byte) error {
 			err, cs.URL))
 	}
 
-	return cs.conn.WriteMessage(websocket.BinaryMessage, send)
+	return cs.conn.WriteMessage(websocket.TextMessage, send)
 }
 
 // WriteCloseMessage wraps the low level websocket WriteControl method with a lock, and sends a message of type
@@ -569,6 +569,11 @@ func (cs *ClientServerImpl) CreateRequestMessage(input interface{}) ([]byte, err
 			break
 		}
 	}
+	// Add debug logging for message type
+	logger.Debug("Creating WebSocket message", logger.Fields{
+		"messageType": msg.Type,
+		"inputType":   reflect.TypeOf(input).String(),
+	})
 	if msg.Type == "" {
 		return nil, &UnrecognizedWSRequestType{reflect.TypeOf(input).String()}
 	}
