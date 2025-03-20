@@ -25,12 +25,11 @@ import (
 
 	apicontainer "github.com/aws/amazon-ecs-agent/agent/api/container"
 	mock_ecr "github.com/aws/amazon-ecs-agent/agent/ecr/mocks"
+	ecrapi "github.com/aws/amazon-ecs-agent/agent/ecr/model/ecr"
 	"github.com/aws/amazon-ecs-agent/ecs-agent/async"
 	mock_async "github.com/aws/amazon-ecs-agent/ecs-agent/async/mocks"
 	"github.com/aws/amazon-ecs-agent/ecs-agent/credentials"
-
-	"github.com/aws/aws-sdk-go-v2/aws"
-	"github.com/aws/aws-sdk-go-v2/service/ecr/types"
+	"github.com/aws/aws-sdk-go/aws"
 	"github.com/docker/docker/api/types/registry"
 	"github.com/golang/mock/gomock"
 	"github.com/stretchr/testify/assert"
@@ -79,7 +78,7 @@ func TestGetAuthConfigSuccess(t *testing.T) {
 	}
 
 	factory.EXPECT().GetClient(authData).Return(client, nil)
-	client.EXPECT().GetAuthorizationToken(authData.RegistryID).Return(&types.AuthorizationData{
+	client.EXPECT().GetAuthorizationToken(authData.RegistryID).Return(&ecrapi.AuthorizationData{
 		ProxyEndpoint:      aws.String(proxyEndpointScheme + proxyEndpoint),
 		AuthorizationToken: aws.String(base64.StdEncoding.EncodeToString([]byte(username + ":" + password))),
 	}, nil)
@@ -116,7 +115,7 @@ func TestGetAuthConfigNoMatchAuthorizationToken(t *testing.T) {
 	}
 
 	factory.EXPECT().GetClient(authData).Return(client, nil)
-	client.EXPECT().GetAuthorizationToken(authData.RegistryID).Return(&types.AuthorizationData{
+	client.EXPECT().GetAuthorizationToken(authData.RegistryID).Return(&ecrapi.AuthorizationData{
 		ProxyEndpoint:      aws.String(proxyEndpointScheme + "notproxy"),
 		AuthorizationToken: aws.String(base64.StdEncoding.EncodeToString([]byte(username + ":" + password))),
 	}, nil)
@@ -151,7 +150,7 @@ func TestGetAuthConfigBadBase64(t *testing.T) {
 	}
 
 	factory.EXPECT().GetClient(authData).Return(client, nil)
-	client.EXPECT().GetAuthorizationToken(authData.RegistryID).Return(&types.AuthorizationData{
+	client.EXPECT().GetAuthorizationToken(authData.RegistryID).Return(&ecrapi.AuthorizationData{
 		ProxyEndpoint:      aws.String(proxyEndpointScheme + "notproxy"),
 		AuthorizationToken: aws.String((username + ":" + password)),
 	}, nil)
@@ -254,7 +253,7 @@ func TestIsTokenValid(t *testing.T) {
 	}
 
 	for _, testCase := range testAuthTimes {
-		testAuthData := &types.AuthorizationData{
+		testAuthData := &ecrapi.AuthorizationData{
 			ProxyEndpoint:      aws.String(testProxyEndpoint),
 			AuthorizationToken: aws.String(testToken),
 			ExpiresAt:          aws.Time(time.Now().Add(testCase.expireIn)),
@@ -301,7 +300,7 @@ func TestAuthorizationTokenCacheMiss(t *testing.T) {
 		endpointOverride: authData.EndpointOverride,
 	}
 
-	dockerAuthData := &types.AuthorizationData{
+	dockerAuthData := &ecrapi.AuthorizationData{
 		ProxyEndpoint:      aws.String(proxyEndpointScheme + proxyEndpoint),
 		AuthorizationToken: aws.String(base64.StdEncoding.EncodeToString([]byte(username + ":" + password))),
 	}
@@ -331,7 +330,7 @@ func TestAuthorizationTokenCacheHit(t *testing.T) {
 	password := "test_passwd"
 
 	proxyEndpoint := "proxy"
-	testAuthData := &types.AuthorizationData{
+	testAuthData := &ecrapi.AuthorizationData{
 		ProxyEndpoint:      aws.String(proxyEndpointScheme + proxyEndpoint),
 		AuthorizationToken: aws.String(base64.StdEncoding.EncodeToString([]byte(username + ":" + password))),
 		ExpiresAt:          aws.Time(time.Now().Add(12 * time.Hour)),
@@ -373,7 +372,7 @@ func TestAuthorizationTokenCacheWithCredentialsHit(t *testing.T) {
 	password := "test_passwd"
 
 	proxyEndpoint := "proxy"
-	testAuthData := &types.AuthorizationData{
+	testAuthData := &ecrapi.AuthorizationData{
 		ProxyEndpoint:      aws.String(proxyEndpointScheme + proxyEndpoint),
 		AuthorizationToken: aws.String(base64.StdEncoding.EncodeToString([]byte(username + ":" + password))),
 		ExpiresAt:          aws.Time(time.Now().Add(12 * time.Hour)),
@@ -420,7 +419,7 @@ func TestAuthorizationTokenCacheHitExpired(t *testing.T) {
 	password := "test_passwd"
 
 	proxyEndpoint := "proxy"
-	testAuthData := &types.AuthorizationData{
+	testAuthData := &ecrapi.AuthorizationData{
 		ProxyEndpoint:      aws.String(proxyEndpointScheme + proxyEndpoint),
 		AuthorizationToken: aws.String(base64.StdEncoding.EncodeToString([]byte(username + ":" + password))),
 		ExpiresAt:          aws.Time(time.Now()),
@@ -445,7 +444,7 @@ func TestAuthorizationTokenCacheHitExpired(t *testing.T) {
 		endpointOverride: authData.EndpointOverride,
 	}
 
-	dockerAuthData := &types.AuthorizationData{
+	dockerAuthData := &ecrapi.AuthorizationData{
 		ProxyEndpoint:      aws.String(proxyEndpointScheme + proxyEndpoint),
 		AuthorizationToken: aws.String(base64.StdEncoding.EncodeToString([]byte(username + ":" + password))),
 	}
@@ -477,7 +476,7 @@ func TestExtractECRTokenError(t *testing.T) {
 	password := "test_passwd"
 
 	proxyEndpoint := "proxy"
-	testAuthData := &types.AuthorizationData{
+	testAuthData := &ecrapi.AuthorizationData{
 		ProxyEndpoint: aws.String(proxyEndpointScheme + proxyEndpoint),
 		// This will makes the extract fail
 		AuthorizationToken: aws.String("-"),
@@ -503,7 +502,7 @@ func TestExtractECRTokenError(t *testing.T) {
 		endpointOverride: authData.EndpointOverride,
 	}
 
-	dockerAuthData := &types.AuthorizationData{
+	dockerAuthData := &ecrapi.AuthorizationData{
 		ProxyEndpoint:      aws.String(proxyEndpointScheme + proxyEndpoint),
 		AuthorizationToken: aws.String(base64.StdEncoding.EncodeToString([]byte(username + ":" + password))),
 	}
