@@ -31,8 +31,9 @@ import (
 	apitask "github.com/aws/amazon-ecs-agent/agent/api/task"
 	apitaskstatus "github.com/aws/amazon-ecs-agent/ecs-agent/api/task/status"
 	ni "github.com/aws/amazon-ecs-agent/ecs-agent/netlib/model/networkinterface"
-	"github.com/aws/amazon-ecs-agent/ecs-agent/tcs/model/ecstcs"
-	"github.com/aws/aws-sdk-go/aws"
+
+	"github.com/aws/aws-sdk-go-v2/aws"
+	tcstypes "github.com/aws/aws-sdk-go-v2/service/tcs/types"
 	"github.com/gorilla/mux"
 	"github.com/stretchr/testify/assert"
 )
@@ -57,7 +58,7 @@ func TestRetrieveServiceConnectMetrics(t *testing.T) {
 
 	var tests = []struct {
 		stats         string
-		expectedStats []*ecstcs.GeneralMetricsWrapper
+		expectedStats []*tcstypes.GeneralMetricsWrapper
 	}{
 		{
 			stats: `# TYPE MetricFamily1 counter
@@ -65,10 +66,10 @@ func TestRetrieveServiceConnectMetrics(t *testing.T) {
 				# TYPE MetricFamily2 counter
 				MetricFamily2{DimensionB="value2", DimensionA="value1", Direction="ingress"} 1
 				`,
-			expectedStats: []*ecstcs.GeneralMetricsWrapper{
+			expectedStats: []*tcstypes.GeneralMetricsWrapper{
 				{
-					MetricType: aws.String("1"),
-					Dimensions: []*ecstcs.Dimension{
+					MetricType: tcstypes.MetricType("1"),
+					Dimensions: []tcstypes.Dimension{
 						{
 							Key:   aws.String("DimensionA"),
 							Value: aws.String("value1"),
@@ -76,16 +77,16 @@ func TestRetrieveServiceConnectMetrics(t *testing.T) {
 							Key:   aws.String("DimensionB"),
 							Value: aws.String("value2"),
 						}},
-					GeneralMetrics: []*ecstcs.GeneralMetric{
+					GeneralMetrics: []tcstypes.GeneralMetric{
 						{
-							MetricCounts: []*int64{aws.Int64(1)},
+							MetricCounts: []int64{*aws.Int64(1)},
 							MetricName:   aws.String("MetricFamily1"),
-							MetricValues: []*float64{aws.Float64(1)},
+							MetricValues: []float64{*aws.Float64(1)},
 						},
 						{
-							MetricCounts: []*int64{aws.Int64(1)},
+							MetricCounts: []int64{*aws.Int64(1)},
 							MetricName:   aws.String("MetricFamily2"),
-							MetricValues: []*float64{aws.Float64(1)},
+							MetricValues: []float64{*aws.Float64(1)},
 						},
 					},
 				},
@@ -97,10 +98,10 @@ func TestRetrieveServiceConnectMetrics(t *testing.T) {
 				MetricFamily3{DimensionX="value1", DimensionY="value2", Direction="egress", le="1"} 1
 				MetricFamily3{DimensionX="value1", DimensionY="value2", Direction="egress", le="5"} 3
 				`,
-			expectedStats: []*ecstcs.GeneralMetricsWrapper{
+			expectedStats: []*tcstypes.GeneralMetricsWrapper{
 				{
-					MetricType: aws.String("2"),
-					Dimensions: []*ecstcs.Dimension{
+					MetricType: tcstypes.MetricType("2"),
+					Dimensions: []tcstypes.Dimension{
 						{
 							Key:   aws.String("DimensionX"),
 							Value: aws.String("value1"),
@@ -108,11 +109,11 @@ func TestRetrieveServiceConnectMetrics(t *testing.T) {
 							Key:   aws.String("DimensionY"),
 							Value: aws.String("value2"),
 						}},
-					GeneralMetrics: []*ecstcs.GeneralMetric{
+					GeneralMetrics: []tcstypes.GeneralMetric{
 						{
-							MetricCounts: []*int64{aws.Int64(1), aws.Int64(2)},
+							MetricCounts: []int64{*aws.Int64(1), *aws.Int64(2)},
 							MetricName:   aws.String("MetricFamily3"),
-							MetricValues: []*float64{aws.Float64(0.5), aws.Float64(5)},
+							MetricValues: []float64{*aws.Float64(0.5), *aws.Float64(5)},
 						},
 					},
 				},
@@ -124,7 +125,7 @@ func TestRetrieveServiceConnectMetrics(t *testing.T) {
 				MetricFamily3{DimensionX="value1", DimensionY="value2", Direction="egress", le="1"} 0
 				MetricFamily3{DimensionX="value1", DimensionY="value2", Direction="egress", le="5"} 0
 				`,
-			expectedStats: []*ecstcs.GeneralMetricsWrapper{},
+			expectedStats: []*tcstypes.GeneralMetricsWrapper{},
 		},
 	}
 
@@ -159,7 +160,7 @@ func TestRetrieveServiceConnectMetrics(t *testing.T) {
 	}
 }
 
-func sortMetrics(metricList []*ecstcs.GeneralMetricsWrapper) {
+func sortMetrics(metricList []*tcstypes.GeneralMetricsWrapper) {
 	for _, metric := range metricList {
 		sort.Slice(metric.GeneralMetrics, func(i, j int) bool {
 			return *metric.GeneralMetrics[i].MetricName < *metric.GeneralMetrics[j].MetricName

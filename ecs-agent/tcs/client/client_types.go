@@ -20,8 +20,9 @@
 package tcsclient
 
 import (
-	"github.com/aws/amazon-ecs-agent/ecs-agent/tcs/model/ecstcs"
 	"github.com/aws/amazon-ecs-agent/ecs-agent/wsclient"
+	ecstcs "github.com/aws/aws-sdk-go-v2/service/tcs"
+	"github.com/aws/aws-sdk-go-v2/service/tcs/types"
 )
 
 var tcsTypes []interface{}
@@ -35,19 +36,19 @@ func init() {
 	// reflection, but that would solve this. The alternative is to either parse
 	// the .json model or the generated struct names.
 	tcsTypes = []interface{}{
-		ecstcs.StopTelemetrySessionMessage{},
-		ecstcs.AckPublishMetric{},
-		ecstcs.HeartbeatMessage{},
-		ecstcs.PublishMetricsRequest{},
-		ecstcs.PublishHealthRequest{},
-		ecstcs.AckPublishHealth{},
-		ecstcs.StartTelemetrySessionRequest{},
-		ecstcs.ServerException{},
-		ecstcs.BadRequestException{},
-		ecstcs.ResourceValidationException{},
-		ecstcs.InvalidParameterException{},
-		ecstcs.AckPublishInstanceStatus{},
-		ecstcs.PublishInstanceStatusRequest{},
+		ecstcs.StartTelemetrySessionOutput{},
+		ecstcs.PublishMetricsOutput{},
+		ecstcs.HeartbeatInput{},
+		ecstcs.PublishMetricsInput{},
+		ecstcs.PublishHealthInput{},
+		ecstcs.PublishHealthOutput{},
+		ecstcs.StartTelemetrySessionInput{},
+		types.ServerException{},
+		types.BadRequestException{},
+		types.ResourceValidationException{},
+		types.InvalidParameterException{},
+		ecstcs.PublishInstanceStatusOutput{},
+		ecstcs.PublishInstanceStatusInput{},
 	}
 }
 

@@ -43,8 +43,7 @@ import (
 	"github.com/aws/amazon-ecs-agent/ecs-agent/utils/retry"
 	"github.com/aws/amazon-ecs-agent/ecs-agent/wsclient/wsconn"
 
-	"github.com/aws/aws-sdk-go/aws/credentials"
-	"github.com/aws/aws-sdk-go/private/protocol/json/jsonutil"
+	"github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/gorilla/websocket"
 	"github.com/pkg/errors"
 )
@@ -173,8 +172,8 @@ type ClientServerImpl struct {
 	Cfg *WSClientMinAgentConfig
 	// conn holds the underlying low-level websocket connection
 	conn wsconn.WebsocketConn
-	// CredentialProvider is used to retrieve AWS credentials
-	CredentialProvider *credentials.Credentials
+	// CredentialCache is used to retrieve AWS credentials
+	CredentialsCache *aws.CredentialsCache
 	// RequestHandlers is a map from message types to handler functions of the
 	// form:
 	//     "FooMessage": func(message *ecsacs.FooMessage)
@@ -231,7 +230,7 @@ func (cs *ClientServerImpl) Connect(disconnectMetricName string,
 	request, _ := http.NewRequest("GET", parsedURL.String(), nil)
 
 	// Sign the request; we'll send its headers via the websocket client which includes the signature
-	err = utils.SignHTTPRequest(request, cs.Cfg.AWSRegion, ServiceName, cs.CredentialProvider, nil)
+	err = utils.SignHTTPRequest(request, cs.Cfg.AWSRegion, ServiceName, cs.CredentialsCache, nil)
 	if err != nil {
 		return nil, err
 	}
@@ -421,17 +420,43 @@ func (cs *ClientServerImpl) SetAnyRequestHandler(f RequestHandler) {
 // MakeRequest makes a request using the given input. Note, the input *MUST* be
 // a pointer to a valid backend type that this client recognises
 func (cs *ClientServerImpl) MakeRequest(input interface{}) error {
+	// Add detailed debug logging for TCS metrics requests
+	if reflect.TypeOf(input).String() == "*tcs.PublishMetricsInput" {
+		// Use reflection to check if this is a metrics request
+		inputVal := reflect.ValueOf(input).Elem()
+
+		// Try to get the Fin field to log its state
+		metadataField := inputVal.FieldByName("Metadata")
+		if metadataField.IsValid() && !metadataField.IsNil() {
+			finField := metadataField.Elem().FieldByName("Fin")
+			if finField.IsValid() {
+				logger.Debug("Making TCS metrics request", logger.Fields{
+					"type": reflect.TypeOf(input).String(),
+					"fin":  finField.Bool(),
+				})
+			}
+		}
+	}
+
+	// Create the request message
 	send, err := cs.CreateRequestMessage(input)
 	if err != nil {
 		return err
 	}
 
+	// Apply any configured request hook
 	if cs.MakeRequestHook != nil {
 		send, err = cs.MakeRequestHook(send)
 		if err != nil {
 			return err
 		}
 	}
+
+	// Add detailed logging of the request size
+	logger.Debug("Sending WebSocket request", logger.Fields{
+		"type": reflect.TypeOf(input).String(),
+		"size": len(send),
+	})
 
 	// Over the wire we send something like
 	// {"type":"AckRequest","message":{"messageId":"xyz"}}
@@ -544,10 +569,15 @@ func (cs *ClientServerImpl) CreateRequestMessage(input interface{}) ([]byte, err
 			break
 		}
 	}
+	// Add debug logging for message type
+	logger.Debug("Creating WebSocket message", logger.Fields{
+		"messageType": msg.Type,
+		"inputType":   reflect.TypeOf(input).String(),
+	})
 	if msg.Type == "" {
 		return nil, &UnrecognizedWSRequestType{reflect.TypeOf(input).String()}
 	}
-	messageData, err := jsonutil.BuildJSON(input)
+	messageData, err := json.Marshal(input)
 	if err != nil {
 		return nil, &NotMarshallableWSRequest{msg.Type, err}
 	}
