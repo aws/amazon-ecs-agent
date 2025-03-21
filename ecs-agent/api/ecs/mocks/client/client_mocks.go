@@ -22,7 +22,7 @@ import (
 	reflect "reflect"
 
 	ecs "github.com/aws/amazon-ecs-agent/ecs-agent/api/ecs"
-	credentials "github.com/aws/aws-sdk-go/aws/credentials"
+	aws "github.com/aws/aws-sdk-go-v2/aws"
 	gomock "github.com/golang/mock/gomock"
 )
 
@@ -50,10 +50,10 @@ func (m *MockECSClientFactory) EXPECT() *MockECSClientFactoryMockRecorder {
 }
 
 // GetCredentials mocks base method.
-func (m *MockECSClientFactory) GetCredentials() *credentials.Credentials {
+func (m *MockECSClientFactory) GetCredentials() aws.CredentialsProvider {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "GetCredentials")
-	ret0, _ := ret[0].(*credentials.Credentials)
+	ret0, _ := ret[0].(aws.CredentialsProvider)
 	return ret0
 }
 
