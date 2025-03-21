@@ -6,5 +6,5 @@ import (
 )
 
 type TaskProtectionClientFactoryInterface interface {
-	NewTaskProtectionClient(taskRoleCredential credentials.TaskIAMRoleCredentials) (ecs.ECSTaskProtectionSDK, error)
+	NewTaskProtectionClient(taskRoleCredential credentials.TaskIAMRoleCredentials) ecs.ECSTaskProtectionSDK
 }

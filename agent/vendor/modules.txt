@@ -21,6 +21,7 @@ github.com/aws/amazon-ecs-agent/ecs-agent/api/container/status
 github.com/aws/amazon-ecs-agent/ecs-agent/api/ecs
 github.com/aws/amazon-ecs-agent/ecs-agent/api/ecs/client
 github.com/aws/amazon-ecs-agent/ecs-agent/api/ecs/mocks
+github.com/aws/amazon-ecs-agent/ecs-agent/api/ecs/model/ecs
 github.com/aws/amazon-ecs-agent/ecs-agent/api/errors
 github.com/aws/amazon-ecs-agent/ecs-agent/api/task/status
 github.com/aws/amazon-ecs-agent/ecs-agent/async
@@ -208,11 +209,6 @@ github.com/aws/aws-sdk-go-v2/internal/ini
 github.com/aws/aws-sdk-go-v2/service/ec2
 github.com/aws/aws-sdk-go-v2/service/ec2/internal/endpoints
 github.com/aws/aws-sdk-go-v2/service/ec2/types
-# github.com/aws/aws-sdk-go-v2/service/ecs v1.47.3 => ../aws-sdk-go-v2/service/ecs
-## explicit; go 1.21
-github.com/aws/aws-sdk-go-v2/service/ecs
-github.com/aws/aws-sdk-go-v2/service/ecs/internal/endpoints
-github.com/aws/aws-sdk-go-v2/service/ecs/types
 # github.com/aws/aws-sdk-go-v2/service/internal/accept-encoding v1.12.1
 ## explicit; go 1.21
 github.com/aws/aws-sdk-go-v2/service/internal/accept-encoding
@@ -727,4 +723,3 @@ sigs.k8s.io/json/internal/golang/encoding/json
 ## explicit; go 1.13
 sigs.k8s.io/structured-merge-diff/v4/value
 # github.com/aws/amazon-ecs-agent/ecs-agent => ../ecs-agent
-# github.com/aws/aws-sdk-go-v2/service/ecs => ../aws-sdk-go-v2/service/ecs

@@ -23,10 +23,10 @@ import (
 	"github.com/aws/amazon-ecs-agent/agent/config"
 	"github.com/aws/amazon-ecs-agent/agent/dockerclient"
 	dm "github.com/aws/amazon-ecs-agent/agent/engine/daemonmanager"
+	"github.com/aws/amazon-ecs-agent/ecs-agent/api/ecs/model/ecs"
 	"github.com/aws/amazon-ecs-agent/ecs-agent/logger"
 	"github.com/aws/amazon-ecs-agent/ecs-agent/logger/field"
 	md "github.com/aws/amazon-ecs-agent/ecs-agent/manageddaemon"
-	"github.com/aws/aws-sdk-go-v2/service/ecs/types"
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/cihub/seelog"
 	"github.com/pkg/errors"
@@ -201,8 +201,8 @@ var (
 //	ecs.capability.network.container-port-range
 //	ecs.capability.container-restart-policy
 //	ecs.capability.fault-injection
-func (agent *ecsAgent) capabilities() ([]types.Attribute, error) {
-	var capabilities []types.Attribute
+func (agent *ecsAgent) capabilities() ([]*ecs.Attribute, error) {
+	var capabilities []*ecs.Attribute
 
 	for _, cap := range nameOnlyAttributes {
 		capabilities = appendNameOnlyAttribute(capabilities, attributePrefix+cap)
@@ -320,8 +320,8 @@ func (agent *ecsAgent) capabilities() ([]types.Attribute, error) {
 	return capabilities, nil
 }
 
-func (agent *ecsAgent) appendDockerDependentCapabilities(capabilities []types.Attribute,
-	supportedVersions map[dockerclient.DockerVersion]bool) []types.Attribute {
+func (agent *ecsAgent) appendDockerDependentCapabilities(capabilities []*ecs.Attribute,
+	supportedVersions map[dockerclient.DockerVersion]bool) []*ecs.Attribute {
 	if _, ok := supportedVersions[dockerclient.Version_1_19]; ok {
 		capabilities = appendNameOnlyAttribute(capabilities, capabilityPrefix+"ecr-auth")
 		capabilities = appendNameOnlyAttribute(capabilities, attributePrefix+"execution-role-ecr-pull")
@@ -333,7 +333,7 @@ func (agent *ecsAgent) appendDockerDependentCapabilities(capabilities []types.At
 	return capabilities
 }
 
-func (agent *ecsAgent) appendGMSACapabilities(capabilities []types.Attribute) []types.Attribute {
+func (agent *ecsAgent) appendGMSACapabilities(capabilities []*ecs.Attribute) []*ecs.Attribute {
 	if agent.cfg.GMSACapable.Enabled() {
 		return appendNameOnlyAttribute(capabilities, attributePrefix+capabilityGMSA)
 	}
@@ -341,7 +341,7 @@ func (agent *ecsAgent) appendGMSACapabilities(capabilities []types.Attribute) []
 	return capabilities
 }
 
-func (agent *ecsAgent) appendGMSADomainlessCapabilities(capabilities []types.Attribute) []types.Attribute {
+func (agent *ecsAgent) appendGMSADomainlessCapabilities(capabilities []*ecs.Attribute) []*ecs.Attribute {
 	if agent.cfg.GMSADomainlessCapable.Enabled() {
 		return appendNameOnlyAttribute(capabilities, attributePrefix+capabilityGMSADomainless)
 	}
@@ -349,7 +349,7 @@ func (agent *ecsAgent) appendGMSADomainlessCapabilities(capabilities []types.Att
 	return capabilities
 }
 
-func (agent *ecsAgent) appendLoggingDriverCapabilities(capabilities []types.Attribute, supportedVersions map[dockerclient.DockerVersion]bool) []types.Attribute {
+func (agent *ecsAgent) appendLoggingDriverCapabilities(capabilities []*ecs.Attribute, supportedVersions map[dockerclient.DockerVersion]bool) []*ecs.Attribute {
 	for _, loggingDriver := range agent.cfg.AvailableLoggingDrivers {
 		requiredVersion := dockerclient.LoggingDriverMinimumVersion[loggingDriver]
 		if _, ok := supportedVersions[requiredVersion]; ok {
@@ -359,7 +359,7 @@ func (agent *ecsAgent) appendLoggingDriverCapabilities(capabilities []types.Attr
 	return capabilities
 }
 
-func (agent *ecsAgent) appendTaskIamRoleCapabilities(capabilities []types.Attribute, supportedVersions map[dockerclient.DockerVersion]bool) []types.Attribute {
+func (agent *ecsAgent) appendTaskIamRoleCapabilities(capabilities []*ecs.Attribute, supportedVersions map[dockerclient.DockerVersion]bool) []*ecs.Attribute {
 	if agent.cfg.TaskIAMRoleEnabled.Enabled() {
 		// The "task-iam-role" capability is supported for docker v1.7.x onwards
 		// Refer https://github.com/docker/docker/blob/master/docs/reference/api/docker_remote_api.md
@@ -382,7 +382,7 @@ func (agent *ecsAgent) appendTaskIamRoleCapabilities(capabilities []types.Attrib
 	return capabilities
 }
 
-func (agent *ecsAgent) appendTaskCPUMemLimitCapabilities(capabilities []types.Attribute, supportedVersions map[dockerclient.DockerVersion]bool) ([]types.Attribute, error) {
+func (agent *ecsAgent) appendTaskCPUMemLimitCapabilities(capabilities []*ecs.Attribute, supportedVersions map[dockerclient.DockerVersion]bool) ([]*ecs.Attribute, error) {
 	if agent.cfg.TaskCPUMemLimit.Enabled() {
 		if _, ok := supportedVersions[dockerclient.Version_1_22]; ok {
 			capabilities = appendNameOnlyAttribute(capabilities, attributePrefix+capabilityTaskCPUMemLimit)
@@ -398,7 +398,7 @@ func (agent *ecsAgent) appendTaskCPUMemLimitCapabilities(capabilities []types.At
 	return capabilities, nil
 }
 
-func (agent *ecsAgent) appendIncreasedTaskCPULimitCapability(capabilities []types.Attribute) []types.Attribute {
+func (agent *ecsAgent) appendIncreasedTaskCPULimitCapability(capabilities []*ecs.Attribute) []*ecs.Attribute {
 	if !agent.cfg.TaskCPUMemLimit.Enabled() {
 		// don't register the "increased-task-cpu-limit" capability if the "task-cpu-mem-limit" capability is disabled.
 		// "task-cpu-mem-limit" capability may be explicitly disabled or disabled due to unsupported docker version.
@@ -409,12 +409,12 @@ func (agent *ecsAgent) appendIncreasedTaskCPULimitCapability(capabilities []type
 	return capabilities
 }
 
-func (agent *ecsAgent) appendTaskENICapabilities(capabilities []types.Attribute) []types.Attribute {
+func (agent *ecsAgent) appendTaskENICapabilities(capabilities []*ecs.Attribute) []*ecs.Attribute {
 	if agent.cfg.TaskENIEnabled.Enabled() {
 		// The assumption here is that all of the dependencies for supporting the
 		// Task ENI in the Agent have already been validated prior to the invocation of
 		// the `agent.capabilities()` call
-		capabilities = append(capabilities, types.Attribute{
+		capabilities = append(capabilities, &ecs.Attribute{
 			Name: aws.String(attributePrefix + taskENIAttributeSuffix),
 		})
 		capabilities = agent.appendIPv6Capability(capabilities)
@@ -428,7 +428,7 @@ func (agent *ecsAgent) appendTaskENICapabilities(capabilities []types.Attribute)
 		if agent.cfg.AWSVPCBlockInstanceMetdata.Enabled() {
 			// If the Block Instance Metadata flag is set for AWS VPC networking mode, register a capability
 			// indicating the same
-			capabilities = append(capabilities, types.Attribute{
+			capabilities = append(capabilities, &ecs.Attribute{
 				Name: aws.String(attributePrefix + taskENIBlockInstanceMetadataAttributeSuffix),
 			})
 		}
@@ -437,7 +437,7 @@ func (agent *ecsAgent) appendTaskENICapabilities(capabilities []types.Attribute)
 	return capabilities
 }
 
-func (agent *ecsAgent) appendExecCapabilities(capabilities []types.Attribute) ([]types.Attribute, error) {
+func (agent *ecsAgent) appendExecCapabilities(capabilities []*ecs.Attribute) ([]*ecs.Attribute, error) {
 
 	// Only Windows 2019 and above are supported, all Linux supported
 	if platformSupported, err := isPlatformExecSupported(); err != nil || !platformSupported {
@@ -483,7 +483,7 @@ func (agent *ecsAgent) appendExecCapabilities(capabilities []types.Attribute) ([
 	return appendNameOnlyAttribute(capabilities, attributePrefix+capabilityExec), nil
 }
 
-func (agent *ecsAgent) appendServiceConnectCapabilities(capabilities []types.Attribute) []types.Attribute {
+func (agent *ecsAgent) appendServiceConnectCapabilities(capabilities []*ecs.Attribute) []*ecs.Attribute {
 	if loaded, _ := agent.serviceconnectManager.IsLoaded(agent.dockerClient); !loaded {
 		_, err := agent.serviceconnectManager.LoadImage(agent.ctx, agent.cfg, agent.dockerClient)
 		if err != nil {
@@ -509,7 +509,7 @@ func (agent *ecsAgent) appendServiceConnectCapabilities(capabilities []types.Att
 	return capabilities
 }
 
-func (agent *ecsAgent) appendEBSTaskAttachCapabilities(capabilities []types.Attribute) []types.Attribute {
+func (agent *ecsAgent) appendEBSTaskAttachCapabilities(capabilities []*ecs.Attribute) []*ecs.Attribute {
 	// todo update to import multiple daemons and append capabilities
 	// for now load only EBS CSI Driver daemon
 	daemonDefinitions, err := md.ImportAll()
@@ -543,7 +543,8 @@ func (agent *ecsAgent) appendEBSTaskAttachCapabilities(capabilities []types.Attr
 	return capabilities
 }
 
-func (agent *ecsAgent) appendFaultInjectionCapabilities(capabilities []types.Attribute) []types.Attribute {
+func (agent *ecsAgent) appendFaultInjectionCapabilities(capabilities []*ecs.Attribute) []*ecs.Attribute {
+
 	// Check if the agent is running in EXTERNAL launch type
 	if agent.cfg.External.Enabled() {
 		seelog.Warn("Fault injection capability not enabled: EXTERNAL launch type detected")
@@ -628,19 +629,19 @@ func defaultPathExists(path string, shouldBeDirectory bool) (bool, error) {
 	return (isDirectory && shouldBeDirectory) || (!isDirectory && !shouldBeDirectory), nil
 }
 
-func appendNameOnlyAttribute(attributes []types.Attribute, name string) []types.Attribute {
-	return append(attributes, types.Attribute{
+func appendNameOnlyAttribute(attributes []*ecs.Attribute, name string) []*ecs.Attribute {
+	return append(attributes, &ecs.Attribute{
 		Name: aws.String(name),
 	})
 }
 
-func removeAttributesByNames(attributes []types.Attribute, names []string) []types.Attribute {
+func removeAttributesByNames(attributes []*ecs.Attribute, names []string) []*ecs.Attribute {
 	nameMap := make(map[string]struct{})
 	for _, name := range names {
 		nameMap[name] = struct{}{}
 	}
 
-	var ret []types.Attribute
+	var ret []*ecs.Attribute
 	for _, attr := range attributes {
 		if _, ok := nameMap[aws.StringValue(attr.Name)]; !ok {
 			ret = append(ret, attr)

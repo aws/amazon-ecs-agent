@@ -21,7 +21,7 @@ package mock_gpu
 import (
 	reflect "reflect"
 
-	types "github.com/aws/aws-sdk-go-v2/service/ecs/types"
+	ecs "github.com/aws/amazon-ecs-agent/ecs-agent/api/ecs/model/ecs"
 	gomock "github.com/golang/mock/gomock"
 )
 
@@ -49,10 +49,10 @@ func (m *MockGPUManager) EXPECT() *MockGPUManagerMockRecorder {
 }
 
 // GetDevices mocks base method.
-func (m *MockGPUManager) GetDevices() []types.PlatformDevice {
+func (m *MockGPUManager) GetDevices() []*ecs.PlatformDevice {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "GetDevices")
-	ret0, _ := ret[0].([]types.PlatformDevice)
+	ret0, _ := ret[0].([]*ecs.PlatformDevice)
 	return ret0
 }
 

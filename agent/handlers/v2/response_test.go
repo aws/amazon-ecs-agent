@@ -19,7 +19,6 @@ package v2
 import (
 	"encoding/json"
 	"fmt"
-	"net/http"
 	"testing"
 	"time"
 
@@ -28,16 +27,15 @@ import (
 	mock_dockerstate "github.com/aws/amazon-ecs-agent/agent/engine/dockerstate/mocks"
 	apicontainerstatus "github.com/aws/amazon-ecs-agent/ecs-agent/api/container/status"
 	mock_ecs "github.com/aws/amazon-ecs-agent/ecs-agent/api/ecs/mocks"
+	"github.com/aws/amazon-ecs-agent/ecs-agent/api/ecs/model/ecs"
 	apitaskstatus "github.com/aws/amazon-ecs-agent/ecs-agent/api/task/status"
 	ni "github.com/aws/amazon-ecs-agent/ecs-agent/netlib/model/networkinterface"
 	tmdsv2 "github.com/aws/amazon-ecs-agent/ecs-agent/tmds/handlers/v2"
-
-	"github.com/aws/aws-sdk-go-v2/aws"
-	awshttp "github.com/aws/aws-sdk-go-v2/aws/transport/http"
-	ecstypes "github.com/aws/aws-sdk-go-v2/service/ecs/types"
-	smithyhttp "github.com/aws/smithy-go/transport/http"
+	"github.com/aws/aws-sdk-go/aws"
+	"github.com/aws/aws-sdk-go/aws/awserr"
 	"github.com/docker/docker/api/types"
 	"github.com/golang/mock/gomock"
+	"github.com/pkg/errors"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -455,7 +453,7 @@ func TestTaskResponseMarshal(t *testing.T) {
 	gomock.InOrder(
 		state.EXPECT().TaskByArn(taskARN).Return(task, true),
 		state.EXPECT().ContainerMapByArn(taskARN).Return(containerNameToDockerContainer, true),
-		ecsClient.EXPECT().GetResourceTags(containerInstanceArn).Return([]ecstypes.Tag{
+		ecsClient.EXPECT().GetResourceTags(containerInstanceArn).Return([]*ecs.Tag{
 			{
 				Key:   &contInstTag1Key,
 				Value: &contInstTag1Val,
@@ -465,7 +463,7 @@ func TestTaskResponseMarshal(t *testing.T) {
 				Value: &contInstTag2Val,
 			},
 		}, nil),
-		ecsClient.EXPECT().GetResourceTags(taskARN).Return([]ecstypes.Tag{
+		ecsClient.EXPECT().GetResourceTags(taskARN).Return([]*ecs.Tag{
 			{
 				Key:   &taskTag1Key,
 				Value: &taskTag1Val,
@@ -681,38 +679,19 @@ func TestTaskResponseWithV4TagsError(t *testing.T) {
 		},
 	}
 
+	errCode := "ThrottlingException"
 	errMessage := "Rate exceeded"
 	errStatusCode := 400
 	containerTagsRequestId := "cef9da77-aee7-431d-84d5-f92b2d342c51"
 	taskTagsRequestId := "45dbbc67-0c60-4248-855e-14fdf4c11870"
-	containerTagsErr := &awshttp.ResponseError{
-		ResponseError: &smithyhttp.ResponseError{
-			Response: &smithyhttp.Response{
-				Response: &http.Response{
-					StatusCode: errStatusCode,
-				},
-			},
-			Err: &ecstypes.LimitExceededException{Message: &errMessage},
-		},
-		RequestID: containerTagsRequestId,
-	}
-	taskTagsErr := &awshttp.ResponseError{
-		ResponseError: &smithyhttp.ResponseError{
-			Response: &smithyhttp.Response{
-				Response: &http.Response{
-					StatusCode: errStatusCode,
-				},
-			},
-			Err: &ecstypes.LimitExceededException{Message: &errMessage},
-		},
-		RequestID: taskTagsRequestId,
-	}
+	containerTagsErr := awserr.NewRequestFailure(awserr.Error(awserr.New(errCode, errMessage, errors.New(""))), errStatusCode, containerTagsRequestId)
+	taskTagsError := awserr.NewRequestFailure(awserr.Error(awserr.New(errCode, errMessage, errors.New(""))), errStatusCode, taskTagsRequestId)
 
 	gomock.InOrder(
 		state.EXPECT().TaskByArn(taskARN).Return(task, true),
 		state.EXPECT().ContainerMapByArn(taskARN).Return(containerNameToDockerContainer, true),
 		ecsClient.EXPECT().GetResourceTags(containerInstanceArn).Return(nil, containerTagsErr),
-		ecsClient.EXPECT().GetResourceTags(taskARN).Return(nil, taskTagsErr),
+		ecsClient.EXPECT().GetResourceTags(taskARN).Return(nil, taskTagsError),
 	)
 
 	taskWithTagsResponse, err := NewTaskResponse(taskARN, state, ecsClient, cluster, availabilityZone, containerInstanceArn, true, true)
@@ -720,13 +699,13 @@ func TestTaskResponseWithV4TagsError(t *testing.T) {
 	_, err = json.Marshal(taskWithTagsResponse)
 	assert.NoError(t, err)
 	assert.Equal(t, taskWithTagsResponse.Errors[0].ErrorField, "ContainerInstanceTags")
-	assert.Equal(t, taskWithTagsResponse.Errors[0].ErrorCode, (&ecstypes.LimitExceededException{}).ErrorCode())
+	assert.Equal(t, taskWithTagsResponse.Errors[0].ErrorCode, errCode)
 	assert.Equal(t, taskWithTagsResponse.Errors[0].ErrorMessage, errMessage)
 	assert.Equal(t, taskWithTagsResponse.Errors[0].StatusCode, errStatusCode)
 	assert.Equal(t, taskWithTagsResponse.Errors[0].RequestId, containerTagsRequestId)
 	assert.Equal(t, taskWithTagsResponse.Errors[0].ResourceARN, containerInstanceArn)
 	assert.Equal(t, taskWithTagsResponse.Errors[1].ErrorField, "TaskTags")
-	assert.Equal(t, taskWithTagsResponse.Errors[1].ErrorCode, (&ecstypes.LimitExceededException{}).ErrorCode())
+	assert.Equal(t, taskWithTagsResponse.Errors[1].ErrorCode, errCode)
 	assert.Equal(t, taskWithTagsResponse.Errors[1].ErrorMessage, errMessage)
 	assert.Equal(t, taskWithTagsResponse.Errors[1].StatusCode, errStatusCode)
 	assert.Equal(t, taskWithTagsResponse.Errors[1].RequestId, taskTagsRequestId)

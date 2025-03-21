@@ -20,7 +20,7 @@ import (
 	"testing"
 
 	"github.com/aws/amazon-ecs-agent/ecs-agent/ec2"
-	"github.com/aws/aws-sdk-go-v2/aws"
+	"github.com/aws/aws-sdk-go/aws/credentials"
 	"github.com/golang/mock/gomock"
 	"github.com/stretchr/testify/assert"
 )
@@ -29,15 +29,15 @@ func TestECSClientFactory(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
 
-	credentialsCache := aws.NewCredentialsCache(&aws.AnonymousCredentials{})
+	credentialsProvider := credentials.AnonymousCredentials
 	cfgAccessor := newMockConfigAccessor(ctrl, nil)
 	ec2MetadataClient := ec2.NewBlackholeEC2MetadataClient()
 	agentVersion := "0.0.0"
 
-	clientFactory, ok := NewECSClientFactory(credentialsCache, cfgAccessor, ec2MetadataClient,
+	clientFactory, ok := NewECSClientFactory(credentialsProvider, cfgAccessor, ec2MetadataClient,
 		agentVersion).(*ecsClientFactory)
 	assert.True(t, ok)
-	assert.Equal(t, credentialsCache, clientFactory.credentialsCache)
+	assert.Equal(t, credentialsProvider, clientFactory.credentialsProvider)
 	assert.Equal(t, cfgAccessor, clientFactory.configAccessor)
 	assert.Equal(t, ec2MetadataClient, clientFactory.ec2MetadataClient)
 	assert.Equal(t, agentVersion, clientFactory.agentVersion)
@@ -46,9 +46,9 @@ func TestECSClientFactory(t *testing.T) {
 	assert.NoError(t, err)
 	c, ok := client.(*ecsClient)
 	assert.True(t, ok)
-	assert.Equal(t, credentialsCache, c.credentialsCache)
+	assert.Equal(t, credentialsProvider, c.credentialsProvider)
 	assert.Equal(t, cfgAccessor, c.configAccessor)
 	assert.Equal(t, ec2MetadataClient, c.ec2metadata)
 
-	assert.Equal(t, credentialsCache, clientFactory.GetCredentials())
+	assert.Equal(t, credentialsProvider, clientFactory.GetCredentials())
 }

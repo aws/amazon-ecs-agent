@@ -43,6 +43,7 @@ import (
 	"github.com/aws/amazon-ecs-agent/ecs-agent/acs/model/ecsacs"
 	"github.com/aws/amazon-ecs-agent/ecs-agent/api/container/restart"
 	apicontainerstatus "github.com/aws/amazon-ecs-agent/ecs-agent/api/container/status"
+	"github.com/aws/amazon-ecs-agent/ecs-agent/api/ecs/model/ecs"
 	apierrors "github.com/aws/amazon-ecs-agent/ecs-agent/api/errors"
 	apitaskstatus "github.com/aws/amazon-ecs-agent/ecs-agent/api/task/status"
 	"github.com/aws/amazon-ecs-agent/ecs-agent/credentials"
@@ -53,7 +54,6 @@ import (
 	commonutils "github.com/aws/amazon-ecs-agent/ecs-agent/utils"
 	"github.com/aws/amazon-ecs-agent/ecs-agent/utils/arn"
 	"github.com/aws/amazon-ecs-agent/ecs-agent/utils/ttime"
-	ecstypes "github.com/aws/aws-sdk-go-v2/service/ecs/types"
 
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/private/protocol/json/jsonutil"
@@ -3617,42 +3617,42 @@ func (task *Task) IsLaunchTypeFargate() bool {
 //
 // * GPU
 //   - Concatenate each container's gpu ids
-func (task *Task) ToHostResources() map[string]ecstypes.Resource {
-	resources := make(map[string]ecstypes.Resource)
+func (task *Task) ToHostResources() map[string]*ecs.Resource {
+	resources := make(map[string]*ecs.Resource)
 	// CPU
 	if task.CPU > 0 {
 		// cpu unit is vcpu at task level
 		// convert to cpushares
-		taskCPUint32 := int32(task.CPU * 1024)
-		resources["CPU"] = ecstypes.Resource{
+		taskCPUint64 := int64(task.CPU * 1024)
+		resources["CPU"] = &ecs.Resource{
 			Name:         utils.Strptr("CPU"),
 			Type:         utils.Strptr("INTEGER"),
-			IntegerValue: taskCPUint32,
+			IntegerValue: &taskCPUint64,
 		}
 	} else {
 		// cpu unit is cpushares at container level
-		containerCPUint32 := int32(0)
+		containerCPUint64 := int64(0)
 		for _, container := range task.Containers {
-			containerCPUint32 += int32(container.CPU)
+			containerCPUint64 += int64(container.CPU)
 		}
-		resources["CPU"] = ecstypes.Resource{
+		resources["CPU"] = &ecs.Resource{
 			Name:         utils.Strptr("CPU"),
 			Type:         utils.Strptr("INTEGER"),
-			IntegerValue: containerCPUint32,
+			IntegerValue: &containerCPUint64,
 		}
 	}
 
 	// Memory
 	if task.Memory > 0 {
 		// memory unit is MiB at task level
-		taskMEMint32 := int32(task.Memory)
-		resources["MEMORY"] = ecstypes.Resource{
+		taskMEMint64 := task.Memory
+		resources["MEMORY"] = &ecs.Resource{
 			Name:         utils.Strptr("MEMORY"),
 			Type:         utils.Strptr("INTEGER"),
-			IntegerValue: taskMEMint32,
+			IntegerValue: &taskMEMint64,
 		}
 	} else {
-		containerMEMint32 := int32(0)
+		containerMEMint64 := int64(0)
 
 		for _, c := range task.Containers {
 			// To parse memory reservation / soft limit
@@ -3662,21 +3662,21 @@ func (task *Task) ToHostResources() map[string]ecstypes.Resource {
 				err := json.Unmarshal([]byte(*c.DockerConfig.HostConfig), hostConfig)
 				if err != nil || hostConfig.MemoryReservation <= 0 {
 					// container memory unit is MiB, keeping as is
-					containerMEMint32 += int32(c.Memory)
+					containerMEMint64 += int64(c.Memory)
 				} else {
 					// Soft limit is specified in MiB units but translated to bytes while being transferred to Agent
 					// Converting back to MiB
-					containerMEMint32 += int32(hostConfig.MemoryReservation / (1024 * 1024))
+					containerMEMint64 += hostConfig.MemoryReservation / (1024 * 1024)
 				}
 			} else {
 				// container memory unit is MiB, keeping as is
-				containerMEMint32 += int32(c.Memory)
+				containerMEMint64 += int64(c.Memory)
 			}
 		}
-		resources["MEMORY"] = ecstypes.Resource{
+		resources["MEMORY"] = &ecs.Resource{
 			Name:         utils.Strptr("MEMORY"),
 			Type:         utils.Strptr("INTEGER"),
-			IntegerValue: containerMEMint32,
+			IntegerValue: &containerMEMint64,
 		}
 	}
 
@@ -3699,34 +3699,34 @@ func (task *Task) ToHostResources() map[string]ecstypes.Resource {
 			}
 		}
 	}
-	resources["PORTS_TCP"] = ecstypes.Resource{
+	resources["PORTS_TCP"] = &ecs.Resource{
 		Name:           utils.Strptr("PORTS_TCP"),
 		Type:           utils.Strptr("STRINGSET"),
 		StringSetValue: commonutils.Uint16SliceToStringSlice(tcpPortSet),
 	}
-	resources["PORTS_UDP"] = ecstypes.Resource{
+	resources["PORTS_UDP"] = &ecs.Resource{
 		Name:           utils.Strptr("PORTS_UDP"),
 		Type:           utils.Strptr("STRINGSET"),
 		StringSetValue: commonutils.Uint16SliceToStringSlice(udpPortSet),
 	}
 
 	// GPU
-	var gpus []string
+	var gpus []*string
 	for _, c := range task.Containers {
-		gpus = append(gpus, c.GPUIDs...)
+		gpus = append(gpus, aws.StringSlice(c.GPUIDs)...)
 	}
-	resources["GPU"] = ecstypes.Resource{
+	resources["GPU"] = &ecs.Resource{
 		Name:           utils.Strptr("GPU"),
 		Type:           utils.Strptr("STRINGSET"),
 		StringSetValue: gpus,
 	}
 	logger.Debug("Task host resources to account for", logger.Fields{
 		"taskArn":   task.Arn,
-		"CPU":       resources["CPU"].IntegerValue,
-		"MEMORY":    resources["MEMORY"].IntegerValue,
-		"PORTS_TCP": resources["PORTS_TCP"].StringSetValue,
-		"PORTS_UDP": resources["PORTS_UDP"].StringSetValue,
-		"GPU":       resources["GPU"].StringSetValue,
+		"CPU":       *resources["CPU"].IntegerValue,
+		"MEMORY":    *resources["MEMORY"].IntegerValue,
+		"PORTS_TCP": aws.StringValueSlice(resources["PORTS_TCP"].StringSetValue),
+		"PORTS_UDP": aws.StringValueSlice(resources["PORTS_UDP"].StringSetValue),
+		"GPU":       aws.StringValueSlice(resources["GPU"].StringSetValue),
 	})
 	return resources
 }

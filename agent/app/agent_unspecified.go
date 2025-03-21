@@ -21,8 +21,8 @@ import (
 
 	"github.com/aws/amazon-ecs-agent/agent/engine"
 	"github.com/aws/amazon-ecs-agent/agent/engine/dockerstate"
+	"github.com/aws/amazon-ecs-agent/ecs-agent/api/ecs/model/ecs"
 	"github.com/aws/amazon-ecs-agent/ecs-agent/credentials"
-	"github.com/aws/aws-sdk-go-v2/service/ecs/types"
 	"github.com/cihub/seelog"
 )
 
@@ -47,7 +47,7 @@ func (agent *ecsAgent) initializeGPUManager() error {
 	return nil
 }
 
-func (agent *ecsAgent) getPlatformDevices() []types.PlatformDevice {
+func (agent *ecsAgent) getPlatformDevices() []*ecs.PlatformDevice {
 	return nil
 }
 

@@ -18,6 +18,7 @@ import (
 	"fmt"
 
 	"github.com/aws/amazon-ecs-agent/ecs-agent/acs/model/ecsacs"
+	"github.com/aws/amazon-ecs-agent/ecs-agent/api/ecs/model/ecs"
 	"github.com/aws/amazon-ecs-agent/ecs-agent/logger"
 	"github.com/aws/amazon-ecs-agent/ecs-agent/metrics"
 	"github.com/aws/amazon-ecs-agent/ecs-agent/netlib/data"
@@ -27,7 +28,6 @@ import (
 	"github.com/aws/amazon-ecs-agent/ecs-agent/netlib/platform"
 	"github.com/aws/amazon-ecs-agent/ecs-agent/utils/netwrapper"
 	"github.com/aws/amazon-ecs-agent/ecs-agent/volume"
-	"github.com/aws/aws-sdk-go-v2/service/ecs/types"
 
 	multierror "github.com/hashicorp/go-multierror"
 	"github.com/pkg/errors"
@@ -36,9 +36,9 @@ import (
 type NetworkBuilder interface {
 	BuildTaskNetworkConfiguration(taskID string, taskPayload *ecsacs.Task) (*tasknetworkconfig.TaskNetworkConfig, error)
 
-	Start(ctx context.Context, mode types.NetworkMode, taskID string, netNS *tasknetworkconfig.NetworkNamespace) error
+	Start(ctx context.Context, mode string, taskID string, netNS *tasknetworkconfig.NetworkNamespace) error
 
-	Stop(ctx context.Context, mode types.NetworkMode, taskID string, netNS *tasknetworkconfig.NetworkNamespace) error
+	Stop(ctx context.Context, mode string, taskID string, netNS *tasknetworkconfig.NetworkNamespace) error
 }
 
 type networkBuilder struct {
@@ -79,7 +79,7 @@ func (nb *networkBuilder) BuildTaskNetworkConfiguration(
 // Start builds up a particular network namespace for the task as per desired configuration.
 func (nb *networkBuilder) Start(
 	ctx context.Context,
-	mode types.NetworkMode, taskID string,
+	mode string, taskID string,
 	netNS *tasknetworkconfig.NetworkNamespace,
 ) error {
 	logFields := map[string]interface{}{
@@ -98,12 +98,12 @@ func (nb *networkBuilder) Start(
 
 	var err error
 	switch mode {
-	case types.NetworkModeAwsvpc:
+	case ecs.NetworkModeAwsvpc:
 		err = nb.startAWSVPC(ctx, taskID, netNS)
-	case types.NetworkModeHost:
+	case ecs.NetworkModeHost:
 		err = nb.platformAPI.HandleHostMode()
 	default:
-		err = errors.New("invalid network mode: " + string(mode))
+		err = errors.New("invalid network mode: " + mode)
 	}
 
 	metricEntry.Done(err)
@@ -111,7 +111,7 @@ func (nb *networkBuilder) Start(
 	return err
 }
 
-func (nb *networkBuilder) Stop(ctx context.Context, mode types.NetworkMode, taskID string, netNS *tasknetworkconfig.NetworkNamespace) error {
+func (nb *networkBuilder) Stop(ctx context.Context, mode string, taskID string, netNS *tasknetworkconfig.NetworkNamespace) error {
 	logFields := map[string]interface{}{
 		"NetworkMode":           mode,
 		"NetNSName":             netNS.Name,
@@ -128,12 +128,12 @@ func (nb *networkBuilder) Stop(ctx context.Context, mode types.NetworkMode, task
 
 	var err error
 	switch mode {
-	case types.NetworkModeAwsvpc:
+	case ecs.NetworkModeAwsvpc:
 		err = nb.stopAWSVPC(ctx, netNS)
-	case types.NetworkModeHost:
+	case ecs.NetworkModeHost:
 		err = nb.platformAPI.HandleHostMode()
 	default:
-		err = errors.New("invalid network mode: " + string(mode))
+		err = errors.New("invalid network mode: " + mode)
 	}
 
 	metricEntry.Done(err)

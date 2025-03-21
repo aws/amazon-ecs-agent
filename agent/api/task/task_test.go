@@ -26,8 +26,12 @@ import (
 	"testing"
 	"time"
 
-	apicontainer "github.com/aws/amazon-ecs-agent/agent/api/container"
 	"github.com/aws/amazon-ecs-agent/agent/api/serviceconnect"
+	"github.com/aws/amazon-ecs-agent/agent/taskresource/credentialspec"
+
+	"github.com/docker/go-connections/nat"
+
+	apicontainer "github.com/aws/amazon-ecs-agent/agent/api/container"
 	"github.com/aws/amazon-ecs-agent/agent/asm"
 	mock_asm_factory "github.com/aws/amazon-ecs-agent/agent/asm/factory/mocks"
 	mock_factory "github.com/aws/amazon-ecs-agent/agent/asm/factory/mocks"
@@ -40,10 +44,6 @@ import (
 	mock_ssm_factory "github.com/aws/amazon-ecs-agent/agent/ssm/factory/mocks"
 	"github.com/aws/amazon-ecs-agent/agent/taskresource"
 	"github.com/aws/amazon-ecs-agent/agent/taskresource/asmauth"
-	"github.com/aws/amazon-ecs-agent/agent/taskresource/asmsecret"
-	"github.com/aws/amazon-ecs-agent/agent/taskresource/credentialspec"
-	"github.com/aws/amazon-ecs-agent/agent/taskresource/envFiles"
-	"github.com/aws/amazon-ecs-agent/agent/taskresource/ssmsecret"
 	resourcestatus "github.com/aws/amazon-ecs-agent/agent/taskresource/status"
 	taskresourcevolume "github.com/aws/amazon-ecs-agent/agent/taskresource/volume"
 	"github.com/aws/amazon-ecs-agent/agent/utils"
@@ -51,18 +51,20 @@ import (
 	apiresource "github.com/aws/amazon-ecs-agent/ecs-agent/api/attachment/resource"
 	"github.com/aws/amazon-ecs-agent/ecs-agent/api/container/restart"
 	apicontainerstatus "github.com/aws/amazon-ecs-agent/ecs-agent/api/container/status"
+	"github.com/aws/amazon-ecs-agent/ecs-agent/api/ecs/model/ecs"
 	apitaskstatus "github.com/aws/amazon-ecs-agent/ecs-agent/api/task/status"
 	"github.com/aws/amazon-ecs-agent/ecs-agent/credentials"
 	mock_credentials "github.com/aws/amazon-ecs-agent/ecs-agent/credentials/mocks"
 	ni "github.com/aws/amazon-ecs-agent/ecs-agent/netlib/model/networkinterface"
 	commonutils "github.com/aws/amazon-ecs-agent/ecs-agent/utils"
-
-	"github.com/aws/aws-sdk-go-v2/service/ecs/types"
-	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/service/secretsmanager"
+
+	"github.com/aws/amazon-ecs-agent/agent/taskresource/asmsecret"
+	"github.com/aws/amazon-ecs-agent/agent/taskresource/envFiles"
+	"github.com/aws/amazon-ecs-agent/agent/taskresource/ssmsecret"
+	"github.com/aws/aws-sdk-go/aws"
 	dockercontainer "github.com/docker/docker/api/types/container"
 	"github.com/docker/docker/api/types/volume"
-	"github.com/docker/go-connections/nat"
 	"github.com/docker/go-units"
 	"github.com/golang/mock/gomock"
 	"github.com/stretchr/testify/assert"
@@ -5026,33 +5028,33 @@ func TestInitializeAndGetCredentialSpecResource(t *testing.T) {
 	assert.True(t, ok)
 }
 
-func getTestTaskResourceMap(cpu int32, mem int32, ports []string, portsUdp []string, gpuIDs []string) map[string]types.Resource {
-	taskResources := make(map[string]types.Resource)
-	taskResources["CPU"] = types.Resource{
+func getTestTaskResourceMap(cpu int64, mem int64, ports []*string, portsUdp []*string, gpuIDs []*string) map[string]*ecs.Resource {
+	taskResources := make(map[string]*ecs.Resource)
+	taskResources["CPU"] = &ecs.Resource{
 		Name:         utils.Strptr("CPU"),
 		Type:         utils.Strptr("INTEGER"),
-		IntegerValue: cpu,
+		IntegerValue: &cpu,
 	}
 
-	taskResources["MEMORY"] = types.Resource{
+	taskResources["MEMORY"] = &ecs.Resource{
 		Name:         utils.Strptr("MEMORY"),
 		Type:         utils.Strptr("INTEGER"),
-		IntegerValue: mem,
+		IntegerValue: &mem,
 	}
 
-	taskResources["PORTS_TCP"] = types.Resource{
+	taskResources["PORTS_TCP"] = &ecs.Resource{
 		Name:           utils.Strptr("PORTS_TCP"),
 		Type:           utils.Strptr("STRINGSET"),
 		StringSetValue: ports,
 	}
 
-	taskResources["PORTS_UDP"] = types.Resource{
+	taskResources["PORTS_UDP"] = &ecs.Resource{
 		Name:           utils.Strptr("PORTS_UDP"),
 		Type:           utils.Strptr("STRINGSET"),
 		StringSetValue: portsUdp,
 	}
 
-	taskResources["GPU"] = types.Resource{
+	taskResources["GPU"] = &ecs.Resource{
 		Name:           utils.Strptr("GPU"),
 		Type:           utils.Strptr("STRINGSET"),
 		StringSetValue: gpuIDs,
@@ -5247,35 +5249,35 @@ func TestToHostResources(t *testing.T) {
 
 	portsTCP := []uint16{10, 11}
 	portsUDP := []uint16{20, 21}
-	taskGPUs := []string{"gpu1", "gpu2"}
+	taskGpus := aws.StringSlice([]string{"gpu1", "gpu2"})
 
 	testCases := []struct {
 		task              *Task
-		expectedResources map[string]types.Resource
+		expectedResources map[string]*ecs.Resource
 	}{
 		{
 			task:              testTask1,
-			expectedResources: getTestTaskResourceMap(int32(1024), int32(512), []string{}, []string{}, taskGPUs),
+			expectedResources: getTestTaskResourceMap(int64(1024), int64(512), []*string{}, []*string{}, taskGpus),
 		},
 		{
 			task:              testTask2,
-			expectedResources: getTestTaskResourceMap(int32(2400), int32(1000), []string{}, []string{}, []string{}),
+			expectedResources: getTestTaskResourceMap(int64(2400), int64(1000), []*string{}, []*string{}, []*string{}),
 		},
 		{
 			task:              testTask3,
-			expectedResources: getTestTaskResourceMap(int32(2400), int32(1700), []string{}, []string{}, []string{}),
+			expectedResources: getTestTaskResourceMap(int64(2400), int64(1700), []*string{}, []*string{}, []*string{}),
 		},
 		{
 			task:              testTask4,
-			expectedResources: getTestTaskResourceMap(int32(1024), int32(512), commonutils.Uint16SliceToStringSlice(portsTCP), commonutils.Uint16SliceToStringSlice(portsUDP), []string{}),
+			expectedResources: getTestTaskResourceMap(int64(1024), int64(512), commonutils.Uint16SliceToStringSlice(portsTCP), commonutils.Uint16SliceToStringSlice(portsUDP), []*string{}),
 		},
 		{
 			task:              testTask5,
-			expectedResources: getTestTaskResourceMap(int32(600), int32(1800), []string{}, []string{}, []string{}),
+			expectedResources: getTestTaskResourceMap(int64(600), int64(1800), []*string{}, []*string{}, []*string{}),
 		},
 		{
 			task:              testTask6,
-			expectedResources: getTestTaskResourceMap(int32(1024), int32(512), []string{}, []string{}, []string{}),
+			expectedResources: getTestTaskResourceMap(int64(1024), int64(512), []*string{}, []*string{}, []*string{}),
 		},
 	}
 
@@ -5287,16 +5289,16 @@ func TestToHostResources(t *testing.T) {
 		}
 
 		//CPU
-		assert.Equal(t, tc.expectedResources["CPU"].IntegerValue, calcResources["CPU"].IntegerValue, "Error converting task CPU resources")
+		assert.Equal(t, *tc.expectedResources["CPU"].IntegerValue, *calcResources["CPU"].IntegerValue, "Error converting task CPU resources")
 
 		//MEMORY
-		assert.Equal(t, tc.expectedResources["MEMORY"].IntegerValue, calcResources["MEMORY"].IntegerValue, "Error converting task Memory resources")
+		assert.Equal(t, *tc.expectedResources["MEMORY"].IntegerValue, *calcResources["MEMORY"].IntegerValue, "Error converting task Memory resources")
 
 		//GPU
 		for _, expectedGpu := range tc.expectedResources["GPU"].StringSetValue {
 			found := false
 			for _, calcGpu := range calcResources["GPU"].StringSetValue {
-				if expectedGpu == calcGpu {
+				if *expectedGpu == *calcGpu {
 					found = true
 					break
 				}
@@ -5309,7 +5311,7 @@ func TestToHostResources(t *testing.T) {
 		for _, expectedPort := range tc.expectedResources["PORTS_TCP"].StringSetValue {
 			found := false
 			for _, calcPort := range calcResources["PORTS_TCP"].StringSetValue {
-				if expectedPort == calcPort {
+				if *expectedPort == *calcPort {
 					found = true
 					break
 				}
@@ -5322,7 +5324,7 @@ func TestToHostResources(t *testing.T) {
 		for _, expectedPort := range tc.expectedResources["PORTS_UDP"].StringSetValue {
 			found := false
 			for _, calcPort := range calcResources["PORTS_UDP"].StringSetValue {
-				if expectedPort == calcPort {
+				if *expectedPort == *calcPort {
 					found = true
 					break
 				}

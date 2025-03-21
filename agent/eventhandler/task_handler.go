@@ -27,7 +27,7 @@ import (
 	"github.com/aws/amazon-ecs-agent/agent/statechange"
 	"github.com/aws/amazon-ecs-agent/agent/utils"
 	"github.com/aws/amazon-ecs-agent/ecs-agent/api/ecs"
-	apierrors "github.com/aws/amazon-ecs-agent/ecs-agent/api/errors"
+	ecsmodel "github.com/aws/amazon-ecs-agent/ecs-agent/api/ecs/model/ecs"
 	apitaskstatus "github.com/aws/amazon-ecs-agent/ecs-agent/api/task/status"
 	"github.com/aws/amazon-ecs-agent/ecs-agent/logger"
 	"github.com/aws/amazon-ecs-agent/ecs-agent/utils/retry"
@@ -441,7 +441,7 @@ func (taskEvents *taskSendableEvents) toStringUnsafe() string {
 // handleInvalidParamException removes the event from event queue when its parameters are
 // invalid to reduce redundant API call
 func handleInvalidParamException(err error, events *list.List, eventToSubmit *list.Element) {
-	if utils.IsAWSErrorCodeEqual(err, apierrors.ErrCodeInvalidParameterException) {
+	if utils.IsAWSErrorCodeEqual(err, ecsmodel.ErrCodeInvalidParameterException) {
 		event := eventToSubmit.Value.(*sendableEvent)
 		logger.Warn("TaskHandler: Event is sent with invalid parameters; just removing", event.toFields())
 		events.Remove(eventToSubmit)

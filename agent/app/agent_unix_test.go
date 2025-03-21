@@ -42,12 +42,12 @@ import (
 	"github.com/aws/amazon-ecs-agent/agent/taskresource/cgroup/control/mock_control"
 	mock_loader "github.com/aws/amazon-ecs-agent/agent/utils/loader/mocks"
 	mock_mobypkgwrapper "github.com/aws/amazon-ecs-agent/agent/utils/mobypkgwrapper/mocks"
+	"github.com/aws/amazon-ecs-agent/ecs-agent/api/ecs/model/ecs"
 	mock_ec2 "github.com/aws/amazon-ecs-agent/ecs-agent/ec2/mocks"
 	"github.com/aws/amazon-ecs-agent/ecs-agent/eventstream"
 	md "github.com/aws/amazon-ecs-agent/ecs-agent/manageddaemon"
 
 	awsv2 "github.com/aws/aws-sdk-go-v2/aws"
-	"github.com/aws/aws-sdk-go-v2/service/ecs/types"
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/aws/awserr"
 	"github.com/golang/mock/gomock"
@@ -142,7 +142,7 @@ func TestDoStartTaskENIHappyPath(t *testing.T) {
 			gomock.Any()).Return([]string{}, nil),
 		client.EXPECT().RegisterContainerInstance(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(),
 			gomock.Any(), gomock.Any()).Do(
-			func(x interface{}, attributes []types.Attribute, y interface{}, z interface{}, w interface{},
+			func(x interface{}, attributes []*ecs.Attribute, y interface{}, z interface{}, w interface{},
 				outpostARN interface{}) {
 				vpcFound := false
 				subnetFound := false
@@ -606,18 +606,18 @@ func TestDoStartGPUManagerHappyPath(t *testing.T) {
 	ec2MetadataClient := mock_ec2.NewMockEC2MetadataClient(ctrl)
 	mockPauseLoader := mock_loader.NewMockLoader(ctrl)
 
-	devices := []types.PlatformDevice{
+	devices := []*ecs.PlatformDevice{
 		{
 			Id:   aws.String("id1"),
-			Type: types.PlatformDeviceTypeGpu,
+			Type: aws.String(ecs.PlatformDeviceTypeGpu),
 		},
 		{
 			Id:   aws.String("id2"),
-			Type: types.PlatformDeviceTypeGpu,
+			Type: aws.String(ecs.PlatformDeviceTypeGpu),
 		},
 		{
 			Id:   aws.String("id3"),
-			Type: types.PlatformDeviceTypeGpu,
+			Type: aws.String(ecs.PlatformDeviceTypeGpu),
 		},
 	}
 	var discoverEndpointsInvoked sync.WaitGroup

@@ -25,8 +25,7 @@ import (
 	"testing"
 	"time"
 
-	apierrors "github.com/aws/amazon-ecs-agent/ecs-agent/api/errors"
-
+	"github.com/aws/amazon-ecs-agent/ecs-agent/api/ecs/model/ecs"
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/aws/awserr"
 	"github.com/aws/smithy-go"
@@ -116,22 +115,13 @@ func TestIsAWSErrorCodeEqual(t *testing.T) {
 	}{
 		{
 			name: "Happy Path",
-			err:  awserr.New(apierrors.ErrCodeInvalidParameterException, "errMsg", errors.New("err")),
+			err:  awserr.New(ecs.ErrCodeInvalidParameterException, "errMsg", errors.New("err")),
 			res:  true,
 		},
 		{
 			name: "Wrong Error Code",
 			err:  awserr.New("errCode", "errMsg", errors.New("err")),
 			res:  false,
-		},
-		{
-			name: "Happy Path SDKv2",
-			err:  &smithy.GenericAPIError{Code: apierrors.ErrCodeInvalidParameterException},
-			res:  true,
-		},
-		{
-			name: "Wrong Error Code SDKv2",
-			err:  &smithy.GenericAPIError{Code: "errCode"},
 		},
 		{
 			name: "Wrong Error Type",
@@ -142,7 +132,7 @@ func TestIsAWSErrorCodeEqual(t *testing.T) {
 
 	for _, tc := range testcases {
 		t.Run(tc.name, func(t *testing.T) {
-			assert.Equal(t, tc.res, IsAWSErrorCodeEqual(tc.err, apierrors.ErrCodeInvalidParameterException))
+			assert.Equal(t, tc.res, IsAWSErrorCodeEqual(tc.err, ecs.ErrCodeInvalidParameterException))
 		})
 	}
 }
