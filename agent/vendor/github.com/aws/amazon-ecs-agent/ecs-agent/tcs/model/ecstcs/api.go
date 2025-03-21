@@ -583,7 +583,7 @@ type InstanceStorageMetrics struct {
 
 	DataFilesystem *float64 `locationName:"dataFilesystem" type:"double"`
 
-	RootFilesystem *float64 `locationName:"rootFilesystem" type:"double"`
+	OSFilesystem *float64 `locationName:"oSFilesystem" type:"double"`
 }
 
 // String returns the string representation.

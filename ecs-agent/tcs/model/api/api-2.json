@@ -247,7 +247,7 @@
     "InstanceStorageMetrics":{
       "type":"structure",
       "members":{
-        "rootFilesystem":{"shape":"Percentage"},
+        "oSFilesystem":{"shape":"Percentage"},
         "dataFilesystem":{"shape":"Percentage"}
       }
     },
