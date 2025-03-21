@@ -18,14 +18,13 @@
 package ecr_test
 
 import (
-	"context"
 	"errors"
 	"testing"
 
 	"github.com/aws/amazon-ecs-agent/agent/ecr"
 	mock_ecr "github.com/aws/amazon-ecs-agent/agent/ecr/mocks"
-	ecrservice "github.com/aws/aws-sdk-go-v2/service/ecr"
-	"github.com/aws/aws-sdk-go-v2/service/ecr/types"
+	ecrapi "github.com/aws/amazon-ecs-agent/agent/ecr/model/ecr"
+	"github.com/aws/aws-sdk-go/aws"
 	"github.com/golang/mock/gomock"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/suite"
@@ -58,11 +57,10 @@ func (suite *GetAuthorizationTokenTestSuite) TeardownTest() {
 
 func (suite *GetAuthorizationTokenTestSuite) TestGetAuthorizationTokenMissingAuthData() {
 	suite.mockClient.EXPECT().GetAuthorizationToken(
-		context.TODO(),
-		&ecrservice.GetAuthorizationTokenInput{
-			RegistryIds: []string{testRegistryId},
-		}).Return(&ecrservice.GetAuthorizationTokenOutput{
-		AuthorizationData: []types.AuthorizationData{},
+		&ecrapi.GetAuthorizationTokenInput{
+			RegistryIds: []*string{aws.String(testRegistryId)},
+		}).Return(&ecrapi.GetAuthorizationTokenOutput{
+		AuthorizationData: []*ecrapi.AuthorizationData{},
 	}, nil)
 
 	authorizationData, err := suite.ecrClient.GetAuthorizationToken(testRegistryId)
@@ -72,9 +70,8 @@ func (suite *GetAuthorizationTokenTestSuite) TestGetAuthorizationTokenMissingAut
 
 func (suite *GetAuthorizationTokenTestSuite) TestGetAuthorizationTokenError() {
 	suite.mockClient.EXPECT().GetAuthorizationToken(
-		context.TODO(),
-		&ecrservice.GetAuthorizationTokenInput{
-			RegistryIds: []string{testRegistryId},
+		&ecrapi.GetAuthorizationTokenInput{
+			RegistryIds: []*string{aws.String(testRegistryId)},
 		}).Return(nil, errors.New("Nope Nope Nope"))
 
 	authorizationData, err := suite.ecrClient.GetAuthorizationToken(testRegistryId)

@@ -21,14 +21,13 @@ import (
 
 	apicontainer "github.com/aws/amazon-ecs-agent/agent/api/container"
 	"github.com/aws/amazon-ecs-agent/agent/ecr"
+	ecrapi "github.com/aws/amazon-ecs-agent/agent/ecr/model/ecr"
 	"github.com/aws/amazon-ecs-agent/ecs-agent/async"
 	"github.com/aws/amazon-ecs-agent/ecs-agent/credentials"
 	"github.com/aws/amazon-ecs-agent/ecs-agent/logger"
 	"github.com/aws/amazon-ecs-agent/ecs-agent/logger/field"
 	"github.com/aws/amazon-ecs-agent/ecs-agent/utils/retry"
-
-	"github.com/aws/aws-sdk-go-v2/aws"
-	"github.com/aws/aws-sdk-go-v2/service/ecr/types"
+	"github.com/aws/aws-sdk-go/aws"
 	log "github.com/cihub/seelog"
 	"github.com/docker/docker/api/types/registry"
 )
@@ -116,7 +115,7 @@ func (authProvider *ecrAuthProvider) getAuthConfigFromCache(key cacheKey) *regis
 		return nil
 	}
 
-	cachedToken, ok := token.(*types.AuthorizationData)
+	cachedToken, ok := token.(*ecrapi.AuthorizationData)
 	if !ok {
 		log.Warnf("Reading ECR credentials from cache failed")
 		return nil
@@ -164,7 +163,7 @@ func (authProvider *ecrAuthProvider) getAuthConfigFromECR(image string, key cach
 
 	// Verify the auth data has the correct format for ECR
 	if ecrAuthData.ProxyEndpoint != nil &&
-		strings.HasPrefix(proxyEndpointScheme+image, aws.ToString(ecrAuthData.ProxyEndpoint)) &&
+		strings.HasPrefix(proxyEndpointScheme+image, aws.StringValue(ecrAuthData.ProxyEndpoint)) &&
 		ecrAuthData.AuthorizationToken != nil {
 
 		// Cache the new token
@@ -174,8 +173,8 @@ func (authProvider *ecrAuthProvider) getAuthConfigFromECR(image string, key cach
 	return registry.AuthConfig{}, fmt.Errorf("ecr auth: AuthorizationData is malformed for %s", image)
 }
 
-func extractToken(authData *types.AuthorizationData) (registry.AuthConfig, error) {
-	decodedToken, err := base64.StdEncoding.DecodeString(aws.ToString(authData.AuthorizationToken))
+func extractToken(authData *ecrapi.AuthorizationData) (registry.AuthConfig, error) {
+	decodedToken, err := base64.StdEncoding.DecodeString(aws.StringValue(authData.AuthorizationToken))
 	if err != nil {
 		return registry.AuthConfig{}, err
 	}
@@ -183,18 +182,18 @@ func extractToken(authData *types.AuthorizationData) (registry.AuthConfig, error
 	return registry.AuthConfig{
 		Username:      parts[0],
 		Password:      parts[1],
-		ServerAddress: aws.ToString(authData.ProxyEndpoint),
+		ServerAddress: aws.StringValue(authData.ProxyEndpoint),
 	}, nil
 }
 
 // IsTokenValid checks the token is still within it's expiration window. We early expire to allow
 // for timing in calls and add jitter to avoid refreshing all of the tokens at once.
-func (authProvider *ecrAuthProvider) IsTokenValid(authData *types.AuthorizationData) bool {
+func (authProvider *ecrAuthProvider) IsTokenValid(authData *ecrapi.AuthorizationData) bool {
 	if authData == nil || authData.ExpiresAt == nil {
 		return false
 	}
 
-	refreshTime := aws.ToTime(authData.ExpiresAt).
+	refreshTime := aws.TimeValue(authData.ExpiresAt).
 		Add(-1 * retry.AddJitter(MinimumJitterDuration, MinimumJitterDuration))
 
 	return time.Now().Before(refreshTime)
