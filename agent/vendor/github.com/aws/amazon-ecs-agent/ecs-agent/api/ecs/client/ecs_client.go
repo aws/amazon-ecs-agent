@@ -22,11 +22,20 @@ import (
 	"sync"
 	"time"
 
+	"github.com/aws/aws-sdk-go/aws"
+	"github.com/aws/aws-sdk-go/aws/awserr"
+	"github.com/aws/aws-sdk-go/aws/credentials"
+	"github.com/aws/aws-sdk-go/aws/endpoints"
+	"github.com/aws/aws-sdk-go/aws/session"
+	"github.com/docker/docker/pkg/meminfo"
+
 	apicontainerstatus "github.com/aws/amazon-ecs-agent/ecs-agent/api/container/status"
 	"github.com/aws/amazon-ecs-agent/ecs-agent/api/ecs"
+	ecsmodel "github.com/aws/amazon-ecs-agent/ecs-agent/api/ecs/model/ecs"
 	apierrors "github.com/aws/amazon-ecs-agent/ecs-agent/api/errors"
 	"github.com/aws/amazon-ecs-agent/ecs-agent/async"
 	"github.com/aws/amazon-ecs-agent/ecs-agent/config"
+	"github.com/aws/amazon-ecs-agent/ecs-agent/credentials/instancecreds"
 	"github.com/aws/amazon-ecs-agent/ecs-agent/ec2"
 	"github.com/aws/amazon-ecs-agent/ecs-agent/httpclient"
 	"github.com/aws/amazon-ecs-agent/ecs-agent/logger"
@@ -34,13 +43,6 @@ import (
 	"github.com/aws/amazon-ecs-agent/ecs-agent/metrics"
 	"github.com/aws/amazon-ecs-agent/ecs-agent/utils"
 	"github.com/aws/amazon-ecs-agent/ecs-agent/utils/retry"
-
-	"github.com/aws/aws-sdk-go-v2/aws"
-	awsconfig "github.com/aws/aws-sdk-go-v2/config"
-	ecsservice "github.com/aws/aws-sdk-go-v2/service/ecs"
-	"github.com/aws/aws-sdk-go-v2/service/ecs/types"
-	"github.com/aws/smithy-go"
-	"github.com/docker/docker/pkg/meminfo"
 )
 
 const (
@@ -75,15 +77,9 @@ const (
 	rciRetryMultiple       = 2.0
 )
 
-var nonRetriableErrors = []smithy.APIError{
-	new(types.AccessDeniedException),
-	new(types.InvalidParameterException),
-	new(types.ClientException),
-}
-
 // ecsClient implements ECSClient interface.
 type ecsClient struct {
-	credentialsCache                 *aws.CredentialsCache
+	credentialsProvider              *credentials.Credentials
 	configAccessor                   config.AgentConfigAccessor
 	standardClient                   ecs.ECSStandardSDK
 	submitStateChangeClient          ecs.ECSSubmitStateSDK
@@ -101,17 +97,18 @@ type ecsClient struct {
 
 // NewECSClient creates a new ECSClient interface object.
 func NewECSClient(
-	credentialsCache *aws.CredentialsCache,
+	credentialsProvider *credentials.Credentials,
 	configAccessor config.AgentConfigAccessor,
 	ec2MetadataClient ec2.EC2MetadataClient,
 	agentVer string,
 	options ...ECSClientOption) (ecs.ECSClient, error) {
+
 	client := &ecsClient{
-		credentialsCache:  credentialsCache,
-		configAccessor:    configAccessor,
-		ec2metadata:       ec2MetadataClient,
-		httpClient:        httpclient.New(RoundtripTimeout, configAccessor.AcceptInsecureCert(), agentVer, configAccessor.OSType()),
-		pollEndpointCache: async.NewTTLCache(&async.TTL{Duration: defaultPollEndpointCacheTTL}),
+		credentialsProvider: credentialsProvider,
+		configAccessor:      configAccessor,
+		ec2metadata:         ec2MetadataClient,
+		httpClient:          httpclient.New(RoundtripTimeout, configAccessor.AcceptInsecureCert(), agentVer, configAccessor.OSType()),
+		pollEndpointCache:   async.NewTTLCache(&async.TTL{Duration: defaultPollEndpointCacheTTL}),
 	}
 
 	// Apply options to configure/override ECS client values.
@@ -119,16 +116,17 @@ func NewECSClient(
 		opt(client)
 	}
 
-	ecsConfig, err := newECSConfig(client.credentialsCache, configAccessor, client.httpClient, client.isFIPSDetected)
+	ecsConfig := newECSConfig(credentialsProvider, configAccessor, client.httpClient, client.isFIPSDetected)
+	s, err := session.NewSession(&ecsConfig)
 	if err != nil {
 		return nil, err
 	}
 
 	if client.standardClient == nil {
-		client.standardClient = ecsservice.NewFromConfig(ecsConfig)
+		client.standardClient = ecsmodel.New(s)
 	}
 	if client.submitStateChangeClient == nil {
-		client.submitStateChangeClient = newSubmitStateChangeClient(ecsConfig)
+		client.submitStateChangeClient = newSubmitStateChangeClient(&ecsConfig)
 	}
 	if client.metricsFactory == nil {
 		client.metricsFactory = metrics.NewNopEntryFactory()
@@ -141,39 +139,28 @@ func NewECSClient(
 }
 
 func newECSConfig(
-	credentialsCache *aws.CredentialsCache,
+	credentialsProvider *credentials.Credentials,
 	configAccessor config.AgentConfigAccessor,
 	httpClient *http.Client,
-	isFIPSEnabled bool,
-) (aws.Config, error) {
+	isFIPSEnabled bool) aws.Config {
+	var ecsConfig aws.Config
+	ecsConfig.HTTPClient = httpClient
+	ecsConfig.Credentials = credentialsProvider
+	ecsConfig.Region = aws.String(configAccessor.AWSRegion())
 	// We should respect the endpoint given (if any) because it could be the Gamma or Zeta endpoint of ECS service which
 	// don't have the corresponding FIPS endpoints. Otherwise, when the host has FIPS enabled, we should tell SDK to
 	// pick the FIPS endpoint.
-	var endpointFn = func(_ *awsconfig.LoadOptions) error {
-		return nil
-	}
 	if configAccessor.APIEndpoint() != "" {
-		endpointFn = awsconfig.WithBaseEndpoint(configAccessor.APIEndpoint())
+		ecsConfig.Endpoint = aws.String(configAccessor.APIEndpoint())
 	} else if isFIPSEnabled {
-		endpointFn = awsconfig.WithUseFIPSEndpoint(aws.FIPSEndpointStateEnabled)
+		ecsConfig.UseFIPSEndpoint = endpoints.FIPSEndpointStateEnabled
 	}
-
-	ecsConfig, err := awsconfig.LoadDefaultConfig(
-		context.TODO(),
-		awsconfig.WithHTTPClient(httpClient),
-		awsconfig.WithRegion(configAccessor.AWSRegion()),
-		awsconfig.WithCredentialsProvider(credentialsCache),
-		endpointFn,
-	)
-	if err != nil {
-		return aws.Config{}, err
-	}
-	return ecsConfig, nil
+	return ecsConfig
 }
 
 // CreateCluster creates a cluster from a given name and returns its ARN.
 func (client *ecsClient) CreateCluster(clusterName string) (string, error) {
-	resp, err := client.standardClient.CreateCluster(context.TODO(), &ecsservice.CreateClusterInput{ClusterName: &clusterName})
+	resp, err := client.standardClient.CreateCluster(&ecsmodel.CreateClusterInput{ClusterName: &clusterName})
 	if err != nil {
 		logger.Critical("Could not create cluster", logger.Fields{
 			field.Cluster: clusterName,
@@ -192,8 +179,8 @@ func (client *ecsClient) CreateCluster(clusterName string) (string, error) {
 // ContainerInstanceARN if successful. Supplying a non-empty container
 // instance ARN allows a container instance to update its registered
 // resources.
-func (client *ecsClient) RegisterContainerInstance(containerInstanceArn string, attributes []types.Attribute,
-	tags []types.Tag, registrationToken string, platformDevices []types.PlatformDevice,
+func (client *ecsClient) RegisterContainerInstance(containerInstanceArn string, attributes []*ecsmodel.Attribute,
+	tags []*ecsmodel.Tag, registrationToken string, platformDevices []*ecsmodel.PlatformDevice,
 	outpostARN string) (string, string, error) {
 
 	clusterRef := client.configAccessor.Cluster()
@@ -224,8 +211,8 @@ func (client *ecsClient) RegisterContainerInstance(containerInstanceArn string, 
 
 // registerContainerInstanceWithRetry wraps around registerContainerInstance with exponential backoff retry implementation.
 func (client *ecsClient) registerContainerInstanceWithRetry(clusterRef string, containerInstanceArn string,
-	attributes []types.Attribute, tags []types.Tag, registrationToken string,
-	platformDevices []types.PlatformDevice, outpostARN string) (string, string, error) {
+	attributes []*ecsmodel.Attribute, tags []*ecsmodel.Tag, registrationToken string,
+	platformDevices []*ecsmodel.PlatformDevice, outpostARN string) (string, string, error) {
 
 	var containerInstanceARN, availabilityZone string
 	var errFromRCI error
@@ -263,11 +250,11 @@ func (client *ecsClient) registerContainerInstanceWithRetry(clusterRef string, c
 }
 
 func (client *ecsClient) registerContainerInstance(clusterRef string, containerInstanceArn string,
-	attributes []types.Attribute, tags []types.Tag, registrationToken string,
-	platformDevices []types.PlatformDevice, outpostARN string) (string, string, error) {
+	attributes []*ecsmodel.Attribute, tags []*ecsmodel.Tag, registrationToken string,
+	platformDevices []*ecsmodel.PlatformDevice, outpostARN string) (string, string, error) {
 
-	registerRequest := ecsservice.RegisterContainerInstanceInput{Cluster: &clusterRef}
-	var registrationAttributes []types.Attribute
+	registerRequest := ecsmodel.RegisterContainerInstanceInput{Cluster: &clusterRef}
+	var registrationAttributes []*ecsmodel.Attribute
 	if containerInstanceArn != "" {
 		// We are re-connecting a previously registered instance, restored from snapshot.
 		registerRequest.ContainerInstanceArn = &containerInstanceArn
@@ -276,8 +263,8 @@ func (client *ecsClient) registerContainerInstance(clusterRef string, containerI
 		// Custom attribute registration only happens on initial instance registration.
 		for _, attribute := range client.getCustomAttributes() {
 			logger.Debug("Added a new custom attribute", logger.Fields{
-				field.AttributeName:  aws.ToString(attribute.Name),
-				field.AttributeValue: aws.ToString(attribute.Value),
+				field.AttributeName:  aws.StringValue(attribute.Name),
+				field.AttributeValue: aws.StringValue(attribute.Value),
 			})
 			registrationAttributes = append(registrationAttributes, attribute)
 		}
@@ -304,7 +291,7 @@ func (client *ecsClient) registerContainerInstance(clusterRef string, containerI
 	registerRequest.TotalResources = resources
 
 	registerRequest.ClientToken = &registrationToken
-	resp, err := client.standardClient.RegisterContainerInstance(context.TODO(), &registerRequest)
+	resp, err := client.standardClient.RegisterContainerInstance(&registerRequest)
 	if err != nil {
 		logger.Error("Unable to register as a container instance with ECS", logger.Fields{
 			field.Error: err,
@@ -315,8 +302,8 @@ func (client *ecsClient) registerContainerInstance(clusterRef string, containerI
 	var availabilityzone = ""
 	if resp != nil {
 		for _, attr := range resp.ContainerInstance.Attributes {
-			if aws.ToString(attr.Name) == azAttrName {
-				availabilityzone = aws.ToString(attr.Value)
+			if aws.StringValue(attr.Name) == azAttrName {
+				availabilityzone = aws.StringValue(attr.Value)
 				break
 			}
 		}
@@ -324,11 +311,11 @@ func (client *ecsClient) registerContainerInstance(clusterRef string, containerI
 
 	logger.Info("Registered container instance with cluster!")
 	err = validateRegisteredAttributes(registerRequest.Attributes, resp.ContainerInstance.Attributes)
-	return aws.ToString(resp.ContainerInstance.ContainerInstanceArn), availabilityzone, err
+	return aws.StringValue(resp.ContainerInstance.ContainerInstanceArn), availabilityzone, err
 }
 
 func (client *ecsClient) setInstanceIdentity(
-	registerRequest ecsservice.RegisterContainerInstanceInput) ecsservice.RegisterContainerInstanceInput {
+	registerRequest ecsmodel.RegisterContainerInstanceInput) ecsmodel.RegisterContainerInstanceInput {
 	instanceIdentityDoc := ""
 	instanceIdentitySignature := ""
 
@@ -349,16 +336,12 @@ func (client *ecsClient) setInstanceIdentity(
 		logger.Debug("Attempting to get Instance Identity Document")
 		instanceIdentityDoc, attemptErr = client.ec2metadata.GetDynamicData(ec2.InstanceIdentityDocumentResource)
 		if attemptErr != nil {
-			logger.Error("Unable to get instance identity document, retrying", logger.Fields{
+			logger.Debug("Unable to get instance identity document, retrying", logger.Fields{
 				field.Error: attemptErr,
 			})
 			// Force credentials to expire in case they are stale but not expired.
-			client.credentialsCache.Invalidate()
-			if creds, err := client.credentialsCache.Retrieve(ctx); err != nil || !creds.HasKeys() {
-				logger.Error("Unable to get valid credentials after invalidating credentials cache", logger.Fields{
-					field.Error: err,
-				})
-			}
+			client.credentialsProvider.Expire()
+			client.credentialsProvider = instancecreds.GetCredentials(client.configAccessor.External())
 			return apierrors.NewRetriableError(apierrors.NewRetriable(true), attemptErr)
 		}
 		logger.Debug("Successfully retrieved Instance Identity Document")
@@ -400,11 +383,11 @@ func (client *ecsClient) setInstanceIdentity(
 	return registerRequest
 }
 
-func attributesToMap(attributes []types.Attribute) map[string]string {
+func attributesToMap(attributes []*ecsmodel.Attribute) map[string]string {
 	attributeMap := make(map[string]string)
 	attribs := attributes
 	for _, attribute := range attribs {
-		attributeMap[aws.ToString(attribute.Name)] = aws.ToString(attribute.Value)
+		attributeMap[aws.StringValue(attribute.Name)] = aws.StringValue(attribute.Value)
 	}
 	return attributeMap
 }
@@ -427,13 +410,13 @@ func findMissingAttributes(expectedAttributes, actualAttributes map[string]strin
 	return missingAttributes, err
 }
 
-func (client *ecsClient) getResources() ([]types.Resource, error) {
+func (client *ecsClient) getResources() ([]*ecsmodel.Resource, error) {
 	// Below are micro-optimizations - the pointers to integerStr and stringSetStr are used multiple times below.
 	integerStr := "INTEGER"
 	stringSetStr := "STRINGSET"
 
 	cpu, mem := getCpuAndMemory()
-	remainingMem := mem - int32(client.configAccessor.ReservedMemory())
+	remainingMem := mem - int64(client.configAccessor.ReservedMemory())
 	logger.Info("Remaining memory", logger.Fields{
 		"remainingMemory": remainingMem,
 	})
@@ -443,38 +426,38 @@ func (client *ecsClient) getResources() ([]types.Resource, error) {
 				"total memory: %d, reserved: %d", mem, client.configAccessor.ReservedMemory())
 	}
 
-	cpuResource := types.Resource{
+	cpuResource := ecsmodel.Resource{
 		Name:         aws.String("CPU"),
 		Type:         &integerStr,
-		IntegerValue: cpu,
+		IntegerValue: &cpu,
 	}
-	memResource := types.Resource{
+	memResource := ecsmodel.Resource{
 		Name:         aws.String("MEMORY"),
 		Type:         &integerStr,
-		IntegerValue: remainingMem,
+		IntegerValue: &remainingMem,
 	}
-	portResource := types.Resource{
+	portResource := ecsmodel.Resource{
 		Name:           aws.String("PORTS"),
 		Type:           &stringSetStr,
 		StringSetValue: utils.Uint16SliceToStringSlice(client.configAccessor.ReservedPorts()),
 	}
-	udpPortResource := types.Resource{
+	udpPortResource := ecsmodel.Resource{
 		Name:           aws.String("PORTS_UDP"),
 		Type:           &stringSetStr,
 		StringSetValue: utils.Uint16SliceToStringSlice(client.configAccessor.ReservedPortsUDP()),
 	}
 
-	return []types.Resource{cpuResource, memResource, portResource, udpPortResource}, nil
+	return []*ecsmodel.Resource{&cpuResource, &memResource, &portResource, &udpPortResource}, nil
 }
 
 // GetHostResources calling getHostResources to get a list of CPU, MEMORY, PORTS and PORTS_UPD resources
 // and return a resourceMap that map the resource name to each resource
-func (client *ecsClient) GetHostResources() (map[string]types.Resource, error) {
+func (client *ecsClient) GetHostResources() (map[string]*ecsmodel.Resource, error) {
 	resources, err := client.getResources()
 	if err != nil {
 		return nil, err
 	}
-	resourceMap := make(map[string]types.Resource)
+	resourceMap := make(map[string]*ecsmodel.Resource)
 	for _, resource := range resources {
 		if *resource.Name == "PORTS" {
 			// Except for RCI, TCP Ports are named as PORTS_TCP in Agent for Host Resources purpose.
@@ -485,11 +468,11 @@ func (client *ecsClient) GetHostResources() (map[string]types.Resource, error) {
 	return resourceMap, nil
 }
 
-func getCpuAndMemory() (int32, int32) {
+func getCpuAndMemory() (int64, int64) {
 	memInfo, err := meminfo.Read()
-	mem := int32(0)
+	mem := int64(0)
 	if err == nil {
-		mem = int32(memInfo.MemTotal / 1024 / 1024) // MiB
+		mem = memInfo.MemTotal / 1024 / 1024 // MiB
 	} else {
 		logger.Error("Unable to get memory info", logger.Fields{
 			field.Error: err,
@@ -498,10 +481,10 @@ func getCpuAndMemory() (int32, int32) {
 
 	cpu := utils.GetNumCPU() * 1024
 
-	return int32(cpu), mem
+	return int64(cpu), mem
 }
 
-func validateRegisteredAttributes(expectedAttributes, actualAttributes []types.Attribute) error {
+func validateRegisteredAttributes(expectedAttributes, actualAttributes []*ecsmodel.Attribute) error {
 	var err error
 	expectedAttributesMap := attributesToMap(expectedAttributes)
 	actualAttributesMap := attributesToMap(actualAttributes)
@@ -516,13 +499,13 @@ func validateRegisteredAttributes(expectedAttributes, actualAttributes []types.A
 	return err
 }
 
-func (client *ecsClient) getAdditionalAttributes() []types.Attribute {
-	var attrs []types.Attribute
+func (client *ecsClient) getAdditionalAttributes() []*ecsmodel.Attribute {
+	var attrs []*ecsmodel.Attribute
 
 	// Add a check to ensure only non-empty values are added
 	// to API call.
 	if client.configAccessor.OSType() != "" {
-		attrs = append(attrs, types.Attribute{
+		attrs = append(attrs, &ecsmodel.Attribute{
 			Name:  aws.String(osTypeAttrName),
 			Value: aws.String(client.configAccessor.OSType()),
 		})
@@ -532,7 +515,7 @@ func (client *ecsClient) getAdditionalAttributes() []types.Attribute {
 	// using ecs client shared library. Add a check to ensure only non-empty values are added
 	// to API call.
 	if client.configAccessor.OSFamily() != "" {
-		attrs = append(attrs, types.Attribute{
+		attrs = append(attrs, &ecsmodel.Attribute{
 			Name:  aws.String(osFamilyAttrName),
 			Value: aws.String(client.configAccessor.OSFamily()),
 		})
@@ -540,7 +523,7 @@ func (client *ecsClient) getAdditionalAttributes() []types.Attribute {
 	// Send CPU arch attribute directly when running on external capacity. When running on EC2 or Fargate launch type,
 	// this is not needed since the CPU arch is reported via instance identity document in those cases.
 	if client.configAccessor.External() {
-		attrs = append(attrs, types.Attribute{
+		attrs = append(attrs, &ecsmodel.Attribute{
 			Name:  aws.String(cpuArchAttrName),
 			Value: aws.String(getCPUArch()),
 		})
@@ -548,22 +531,22 @@ func (client *ecsClient) getAdditionalAttributes() []types.Attribute {
 	return attrs
 }
 
-func (client *ecsClient) getOutpostAttribute(outpostARN string) []types.Attribute {
+func (client *ecsClient) getOutpostAttribute(outpostARN string) []*ecsmodel.Attribute {
 	if len(outpostARN) > 0 {
-		return []types.Attribute{
+		return []*ecsmodel.Attribute{
 			{
 				Name:  aws.String("ecs.outpost-arn"),
 				Value: aws.String(outpostARN),
 			},
 		}
 	}
-	return []types.Attribute{}
+	return []*ecsmodel.Attribute{}
 }
 
-func (client *ecsClient) getCustomAttributes() []types.Attribute {
-	var attributes []types.Attribute
+func (client *ecsClient) getCustomAttributes() []*ecsmodel.Attribute {
+	var attributes []*ecsmodel.Attribute
 	for attribute, value := range client.configAccessor.InstanceAttributes() {
-		attributes = append(attributes, types.Attribute{
+		attributes = append(attributes, &ecsmodel.Attribute{
 			Name:  aws.String(attribute),
 			Value: aws.String(value),
 		})
@@ -594,16 +577,16 @@ func (client *ecsClient) submitTaskStateChange(change ecs.TaskStateChange) error
 	if change.Attachment != nil {
 		// Confirm attachment by submitting attachment state change via SubmitTaskStateChange API (specifically in
 		// the input's Attachments field).
-		var attachments []types.AttachmentStateChange
+		var attachments []*ecsmodel.AttachmentStateChange
 		eniStatus := change.Attachment.Status.String()
-		attachments = []types.AttachmentStateChange{
+		attachments = []*ecsmodel.AttachmentStateChange{
 			{
 				AttachmentArn: aws.String(change.Attachment.AttachmentARN),
 				Status:        aws.String(eniStatus),
 			},
 		}
 
-		_, err := client.submitStateChangeClient.SubmitTaskStateChange(context.TODO(), &ecsservice.SubmitTaskStateChangeInput{
+		_, err := client.submitStateChangeClient.SubmitTaskStateChange(&ecsmodel.SubmitTaskStateChangeInput{
 			Cluster:     aws.String(clusterARN),
 			Task:        aws.String(change.TaskARN),
 			Attachments: attachments,
@@ -621,7 +604,7 @@ func (client *ecsClient) submitTaskStateChange(change ecs.TaskStateChange) error
 		return nil
 	}
 
-	req := ecsservice.SubmitTaskStateChangeInput{
+	req := ecsmodel.SubmitTaskStateChangeInput{
 		Cluster:            aws.String(clusterARN),
 		Task:               aws.String(change.TaskARN),
 		Status:             aws.String(change.Status.BackendStatus()),
@@ -633,7 +616,7 @@ func (client *ecsClient) submitTaskStateChange(change ecs.TaskStateChange) error
 		Containers:         formatContainers(change.Containers, client.shouldExcludeIPv6PortBinding, change.TaskARN),
 	}
 
-	_, err := client.submitStateChangeClient.SubmitTaskStateChange(context.TODO(), &req)
+	_, err := client.submitStateChangeClient.SubmitTaskStateChange(&req)
 	if err != nil {
 		logger.Error("Could not submit task state change", logger.Fields{
 			field.Error:       err,
@@ -647,7 +630,7 @@ func (client *ecsClient) submitTaskStateChange(change ecs.TaskStateChange) error
 
 func (client *ecsClient) SubmitContainerStateChange(change ecs.ContainerStateChange) error {
 
-	input := ecsservice.SubmitContainerStateChangeInput{
+	input := ecsmodel.SubmitContainerStateChangeInput{
 		Cluster:       aws.String(client.configAccessor.Cluster()),
 		ContainerName: aws.String(change.ContainerName),
 		Task:          aws.String(change.TaskArn),
@@ -676,8 +659,8 @@ func (client *ecsClient) SubmitContainerStateChange(change ecs.ContainerStateCha
 	input.Status = aws.String(stat)
 
 	if change.ExitCode != nil {
-		exitCode := int32(aws.ToInt(change.ExitCode))
-		input.ExitCode = aws.Int32(exitCode)
+		exitCode := int64(aws.IntValue(change.ExitCode))
+		input.ExitCode = aws.Int64(exitCode)
 	}
 
 	networkBindings := change.NetworkBindings
@@ -687,7 +670,7 @@ func (client *ecsClient) SubmitContainerStateChange(change ecs.ContainerStateCha
 	}
 	input.NetworkBindings = networkBindings
 
-	_, err := client.submitStateChangeClient.SubmitContainerStateChange(context.TODO(), &input)
+	_, err := client.submitStateChangeClient.SubmitContainerStateChange(&input)
 	if err != nil {
 		logger.Error("Could not submit container state change", logger.Fields{
 			field.Error:            err,
@@ -716,9 +699,9 @@ func (client *ecsClient) SubmitAttachmentStateChange(change ecs.AttachmentStateC
 func (client *ecsClient) submitAttachmentStateChange(change ecs.AttachmentStateChange) error {
 	attachmentStatus := change.Attachment.GetAttachmentStatus()
 
-	req := ecsservice.SubmitAttachmentStateChangesInput{
+	req := ecsmodel.SubmitAttachmentStateChangesInput{
 		Cluster: aws.String(client.configAccessor.Cluster()),
-		Attachments: []types.AttachmentStateChange{
+		Attachments: []*ecsmodel.AttachmentStateChange{
 			{
 				AttachmentArn: aws.String(change.Attachment.GetAttachmentARN()),
 				Status:        aws.String(attachmentStatus.String()),
@@ -726,7 +709,7 @@ func (client *ecsClient) submitAttachmentStateChange(change ecs.AttachmentStateC
 		},
 	}
 
-	_, err := client.submitStateChangeClient.SubmitAttachmentStateChanges(context.TODO(), &req)
+	_, err := client.submitStateChangeClient.SubmitAttachmentStateChanges(&req)
 	if err != nil {
 		logger.Warn("Could not submit attachment state change", logger.Fields{
 			field.Error:             err,
@@ -740,10 +723,15 @@ func (client *ecsClient) submitAttachmentStateChange(change ecs.AttachmentStateC
 
 func submitStateCustomRetriableError(err error) error {
 	retry := true
-	for _, apiErr := range nonRetriableErrors {
-		if errors.As(err, &apiErr) {
+	aerr, ok := err.(awserr.Error)
+	if ok {
+		switch aerr.Code() {
+		case ecsmodel.ErrCodeInvalidParameterException:
 			retry = false
-			break
+		case ecsmodel.ErrCodeAccessDeniedException:
+			retry = false
+		case ecsmodel.ErrCodeClientException:
+			retry = false
 		}
 	}
 	return apierrors.NewRetriableError(apierrors.NewRetriable(retry), err)
@@ -758,7 +746,7 @@ func (client *ecsClient) DiscoverPollEndpoint(containerInstanceArn string) (stri
 		return "", errors.New("no endpoint returned; nil")
 	}
 
-	return aws.ToString(resp.Endpoint), nil
+	return aws.StringValue(resp.Endpoint), nil
 }
 
 func (client *ecsClient) DiscoverTelemetryEndpoint(containerInstanceArn string) (string, error) {
@@ -770,7 +758,7 @@ func (client *ecsClient) DiscoverTelemetryEndpoint(containerInstanceArn string) 
 		return "", errors.New("no telemetry endpoint returned; nil")
 	}
 
-	return aws.ToString(resp.TelemetryEndpoint), nil
+	return aws.StringValue(resp.TelemetryEndpoint), nil
 }
 
 func (client *ecsClient) DiscoverServiceConnectEndpoint(containerInstanceArn string) (string, error) {
@@ -782,7 +770,7 @@ func (client *ecsClient) DiscoverServiceConnectEndpoint(containerInstanceArn str
 		return "", errors.New("no ServiceConnect endpoint returned; nil")
 	}
 
-	return aws.ToString(resp.ServiceConnectEndpoint), nil
+	return aws.StringValue(resp.ServiceConnectEndpoint), nil
 }
 
 func (client *ecsClient) DiscoverSystemLogsEndpoint(containerInstanceArn string, availabilityZone string) (string,
@@ -795,11 +783,11 @@ func (client *ecsClient) DiscoverSystemLogsEndpoint(containerInstanceArn string,
 		return "", errors.New("no system logs endpoint returned; nil")
 	}
 
-	return aws.ToString(resp.SystemLogsEndpoint), nil
+	return aws.StringValue(resp.SystemLogsEndpoint), nil
 }
 
 func (client *ecsClient) discoverPollEndpoint(containerInstanceArn string,
-	availabilityZone string) (*ecsservice.DiscoverPollEndpointOutput, error) {
+	availabilityZone string) (*ecsmodel.DiscoverPollEndpointOutput, error) {
 	client.pollEndpointLock.Lock()
 	defer client.pollEndpointLock.Unlock()
 	ctx, cancel := context.WithTimeout(context.Background(), discoverPollEndpointTimeout)
@@ -808,16 +796,16 @@ func (client *ecsClient) discoverPollEndpoint(containerInstanceArn string,
 	cachedEndpoint, expired, found := client.pollEndpointCache.Get(containerInstanceArn)
 	if !expired && found {
 		// Cache hit and not expired. Return the output.
-		output, ok := cachedEndpoint.(*ecsservice.DiscoverPollEndpointOutput)
-		systemLogsEndpoint := aws.ToString(output.SystemLogsEndpoint)
+		output, ok := cachedEndpoint.(*ecsmodel.DiscoverPollEndpointOutput)
+		systemLogsEndpoint := aws.StringValue(output.SystemLogsEndpoint)
 		if ok {
 			// Presence of the system logs endpoint can be disregarded if the AZ was not provided,
 			// but the cache hit must include a non-empty system logs endpoint if the AZ was provided.
 			if availabilityZone == "" || (availabilityZone != "" && systemLogsEndpoint != "") {
 				logger.Info("Using cached DiscoverPollEndpoint", logger.Fields{
-					field.Endpoint:               aws.ToString(output.Endpoint),
-					field.TelemetryEndpoint:      aws.ToString(output.TelemetryEndpoint),
-					field.ServiceConnectEndpoint: aws.ToString(output.ServiceConnectEndpoint),
+					field.Endpoint:               aws.StringValue(output.Endpoint),
+					field.TelemetryEndpoint:      aws.StringValue(output.TelemetryEndpoint),
+					field.ServiceConnectEndpoint: aws.StringValue(output.ServiceConnectEndpoint),
 					field.SystemLogsEndpoint:     systemLogsEndpoint,
 					field.ContainerInstanceARN:   containerInstanceArn,
 				})
@@ -831,7 +819,7 @@ func (client *ecsClient) discoverPollEndpoint(containerInstanceArn string,
 		field.ContainerInstanceARN: containerInstanceArn,
 		field.AvailabilityZone:     availabilityZone,
 	})
-	output, err := client.standardClient.DiscoverPollEndpoint(ctx, &ecsservice.DiscoverPollEndpointInput{
+	output, err := client.standardClient.DiscoverPollEndpointWithContext(ctx, &ecsmodel.DiscoverPollEndpointInput{
 		ContainerInstance: &containerInstanceArn,
 		Cluster:           aws.String(client.configAccessor.Cluster()),
 		ZoneId:            aws.String(availabilityZone),
@@ -842,13 +830,13 @@ func (client *ecsClient) discoverPollEndpoint(containerInstanceArn string,
 		// If we got an error calling the API, fallback to an expired cached endpoint if
 		// we have it.
 		if expired {
-			if output, ok := cachedEndpoint.(*ecsservice.DiscoverPollEndpointOutput); ok {
+			if output, ok := cachedEndpoint.(*ecsmodel.DiscoverPollEndpointOutput); ok {
 				logger.Info("Error calling DiscoverPollEndpoint. Using cached-but-expired endpoint as a fallback.",
 					logger.Fields{
-						field.Endpoint:               aws.ToString(output.Endpoint),
-						field.TelemetryEndpoint:      aws.ToString(output.TelemetryEndpoint),
-						field.ServiceConnectEndpoint: aws.ToString(output.ServiceConnectEndpoint),
-						field.SystemLogsEndpoint:     aws.ToString(output.SystemLogsEndpoint),
+						field.Endpoint:               aws.StringValue(output.Endpoint),
+						field.TelemetryEndpoint:      aws.StringValue(output.TelemetryEndpoint),
+						field.ServiceConnectEndpoint: aws.StringValue(output.ServiceConnectEndpoint),
+						field.SystemLogsEndpoint:     aws.StringValue(output.SystemLogsEndpoint),
 						field.ContainerInstanceARN:   containerInstanceArn,
 					})
 				return output, nil
@@ -862,8 +850,8 @@ func (client *ecsClient) discoverPollEndpoint(containerInstanceArn string,
 	return output, nil
 }
 
-func (client *ecsClient) GetResourceTags(resourceArn string) ([]types.Tag, error) {
-	output, err := client.standardClient.ListTagsForResource(context.TODO(), &ecsservice.ListTagsForResourceInput{
+func (client *ecsClient) GetResourceTags(resourceArn string) ([]*ecsmodel.Tag, error) {
+	output, err := client.standardClient.ListTagsForResource(&ecsmodel.ListTagsForResourceInput{
 		ResourceArn: &resourceArn,
 	})
 	if err != nil {
@@ -872,21 +860,21 @@ func (client *ecsClient) GetResourceTags(resourceArn string) ([]types.Tag, error
 	return output.Tags, nil
 }
 
-func (client *ecsClient) UpdateContainerInstancesState(instanceARN string, status types.ContainerInstanceStatus) error {
+func (client *ecsClient) UpdateContainerInstancesState(instanceARN string, status string) error {
 	logger.Debug("Invoking UpdateContainerInstancesState", logger.Fields{
 		field.Status:               status,
 		field.ContainerInstanceARN: instanceARN,
 	})
-	_, err := client.standardClient.UpdateContainerInstancesState(context.TODO(), &ecsservice.UpdateContainerInstancesStateInput{
-		ContainerInstances: []string{instanceARN},
-		Status:             status,
+	_, err := client.standardClient.UpdateContainerInstancesState(&ecsmodel.UpdateContainerInstancesStateInput{
+		ContainerInstances: []*string{aws.String(instanceARN)},
+		Status:             aws.String(status),
 		Cluster:            aws.String(client.configAccessor.Cluster()),
 	})
 	return err
 }
 
-func formatManagedAgents(managedAgents []types.ManagedAgentStateChange) []types.ManagedAgentStateChange {
-	var result []types.ManagedAgentStateChange
+func formatManagedAgents(managedAgents []*ecsmodel.ManagedAgentStateChange) []*ecsmodel.ManagedAgentStateChange {
+	var result []*ecsmodel.ManagedAgentStateChange
 	for _, m := range managedAgents {
 		if m.Reason != nil {
 			m.Reason = trimStringPtr(m.Reason, ecsMaxContainerReasonLength)
@@ -896,9 +884,9 @@ func formatManagedAgents(managedAgents []types.ManagedAgentStateChange) []types.
 	return result
 }
 
-func formatContainers(containers []types.ContainerStateChange, shouldExcludeIPv6PortBinding bool,
-	taskARN string) []types.ContainerStateChange {
-	var result []types.ContainerStateChange
+func formatContainers(containers []*ecsmodel.ContainerStateChange, shouldExcludeIPv6PortBinding bool,
+	taskARN string) []*ecsmodel.ContainerStateChange {
+	var result []*ecsmodel.ContainerStateChange
 	for _, c := range containers {
 		if c.RuntimeId != nil {
 			c.RuntimeId = trimStringPtr(c.RuntimeId, ecsMaxRuntimeIDLength)
@@ -911,18 +899,18 @@ func formatContainers(containers []types.ContainerStateChange, shouldExcludeIPv6
 		}
 		if shouldExcludeIPv6PortBinding {
 			c.NetworkBindings = excludeIPv6PortBindingFromNetworkBindings(c.NetworkBindings,
-				aws.ToString(c.ContainerName), taskARN)
+				aws.StringValue(c.ContainerName), taskARN)
 		}
 		result = append(result, c)
 	}
 	return result
 }
 
-func excludeIPv6PortBindingFromNetworkBindings(networkBindings []types.NetworkBinding, containerName,
-	taskARN string) []types.NetworkBinding {
-	var result []types.NetworkBinding
+func excludeIPv6PortBindingFromNetworkBindings(networkBindings []*ecsmodel.NetworkBinding, containerName,
+	taskARN string) []*ecsmodel.NetworkBinding {
+	var result []*ecsmodel.NetworkBinding
 	for _, binding := range networkBindings {
-		if aws.ToString(binding.BindIP) == "::" {
+		if aws.StringValue(binding.BindIP) == "::" {
 			logger.Debug("Exclude IPv6 port binding", logger.Fields{
 				"portBinding":       binding,
 				field.ContainerName: containerName,
@@ -939,7 +927,7 @@ func trimStringPtr(inputStringPtr *string, maxLen int) *string {
 	if inputStringPtr == nil {
 		return nil
 	}
-	return aws.String(trimString(aws.ToString(inputStringPtr), maxLen))
+	return aws.String(trimString(aws.StringValue(inputStringPtr), maxLen))
 }
 
 func trimString(inputString string, maxLen int) string {
@@ -952,11 +940,11 @@ func trimString(inputString string, maxLen int) string {
 }
 
 func isTransientError(err error) bool {
-	var apiErr smithy.APIError
+	var awsErr awserr.Error
 	// Using errors.As to unwrap as opposed to errors.Is.
-	if errors.As(err, &apiErr) {
-		switch apiErr.ErrorCode() {
-		case apierrors.ErrCodeServerException, apierrors.ErrCodeLimitExceededException:
+	if errors.As(err, &awsErr) {
+		switch awsErr.Code() {
+		case ecsmodel.ErrCodeServerException, "ThrottlingException":
 			return true
 		}
 	}

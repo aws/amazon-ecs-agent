@@ -20,6 +20,7 @@ import (
 	"context"
 
 	"github.com/aws/amazon-ecs-agent/ecs-agent/acs/model/ecsacs"
+	"github.com/aws/amazon-ecs-agent/ecs-agent/api/ecs/model/ecs"
 	"github.com/aws/amazon-ecs-agent/ecs-agent/logger"
 	netlibdata "github.com/aws/amazon-ecs-agent/ecs-agent/netlib/data"
 	"github.com/aws/amazon-ecs-agent/ecs-agent/netlib/model/appmesh"
@@ -33,7 +34,6 @@ import (
 	"github.com/aws/amazon-ecs-agent/ecs-agent/utils/retry"
 	"github.com/aws/amazon-ecs-agent/ecs-agent/volume"
 
-	ecstypes "github.com/aws/aws-sdk-go-v2/service/ecs/types"
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/containernetworking/cni/pkg/types"
 	"github.com/pkg/errors"
@@ -85,9 +85,9 @@ func NewPlatform(
 func (c *containerd) BuildTaskNetworkConfiguration(
 	taskID string,
 	taskPayload *ecsacs.Task) (*tasknetworkconfig.TaskNetworkConfig, error) {
-	mode := ecstypes.NetworkMode(aws.StringValue(taskPayload.NetworkMode))
+	mode := aws.StringValue(taskPayload.NetworkMode)
 	switch mode {
-	case ecstypes.NetworkModeAwsvpc:
+	case ecs.NetworkModeAwsvpc:
 		return c.buildAWSVPCNetworkConfig(taskID, taskPayload)
 	default:
 		return nil, errors.New("invalid network mode")
@@ -155,7 +155,7 @@ func (c *containerd) buildAWSVPCNetworkConfig(
 		NetworkNamespaces: []*tasknetworkconfig.NetworkNamespace{
 			netNS,
 		},
-		NetworkMode: ecstypes.NetworkModeAwsvpc,
+		NetworkMode: ecs.NetworkModeAwsvpc,
 	}, nil
 }
 

@@ -25,6 +25,7 @@ import (
 	"sort"
 
 	"github.com/aws/amazon-ecs-agent/ecs-agent/acs/model/ecsacs"
+	"github.com/aws/amazon-ecs-agent/ecs-agent/api/ecs/model/ecs"
 	"github.com/aws/amazon-ecs-agent/ecs-agent/ec2"
 	"github.com/aws/amazon-ecs-agent/ecs-agent/logger"
 	netlibdata "github.com/aws/amazon-ecs-agent/ecs-agent/netlib/data"
@@ -41,7 +42,6 @@ import (
 	"github.com/aws/amazon-ecs-agent/ecs-agent/volume"
 
 	"github.com/aws/aws-sdk-go-v2/aws"
-	"github.com/aws/aws-sdk-go-v2/service/ecs/types"
 	cnitypes "github.com/containernetworking/cni/pkg/types/100"
 	cnins "github.com/containernetworking/plugins/pkg/ns"
 	"github.com/pkg/errors"
@@ -143,23 +143,23 @@ func (c *common) buildTaskNetworkConfiguration(
 	singleNetNS bool,
 	ifaceToGuestNetNS map[string]string,
 ) (*tasknetworkconfig.TaskNetworkConfig, error) {
-	mode := types.NetworkMode(aws.ToString(taskPayload.NetworkMode))
+	mode := aws.ToString(taskPayload.NetworkMode)
 	var netNSs []*tasknetworkconfig.NetworkNamespace
 	var err error
 	switch mode {
-	case types.NetworkModeAwsvpc:
+	case ecs.NetworkModeAwsvpc:
 		netNSs, err = c.buildAWSVPCNetworkNamespaces(taskID, taskPayload, singleNetNS, ifaceToGuestNetNS)
 		if err != nil {
 			return nil, errors.Wrap(err, "failed to translate network configuration")
 		}
-	case types.NetworkModeBridge:
+	case ecs.NetworkModeBridge:
 		return nil, errors.New("not implemented")
-	case types.NetworkModeHost:
+	case ecs.NetworkModeHost:
 		return nil, errors.New("not implemented")
-	case types.NetworkModeNone:
+	case ecs.NetworkModeNone:
 		return nil, errors.New("not implemented")
 	default:
-		return nil, errors.New("invalid network mode: " + string(mode))
+		return nil, errors.New("invalid network mode: " + mode)
 	}
 
 	return &tasknetworkconfig.TaskNetworkConfig{

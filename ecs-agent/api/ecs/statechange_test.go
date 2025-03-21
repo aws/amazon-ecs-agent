@@ -25,9 +25,9 @@ import (
 	"github.com/aws/amazon-ecs-agent/ecs-agent/api/attachment"
 	apicontainerstatus "github.com/aws/amazon-ecs-agent/ecs-agent/api/container/status"
 	mock_statechange "github.com/aws/amazon-ecs-agent/ecs-agent/api/ecs/mocks/statechange"
+	"github.com/aws/amazon-ecs-agent/ecs-agent/api/ecs/model/ecs"
 	apitaskstatus "github.com/aws/amazon-ecs-agent/ecs-agent/api/task/status"
 	ni "github.com/aws/amazon-ecs-agent/ecs-agent/netlib/model/networkinterface"
-	"github.com/aws/aws-sdk-go-v2/service/ecs/types"
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/golang/mock/gomock"
 	"github.com/stretchr/testify/assert"
@@ -57,12 +57,12 @@ func TestContainerStateChangeString(t *testing.T) {
 		Status:        apicontainerstatus.ContainerRunning,
 		ExitCode:      aws.Int(1),
 		Reason:        "reason",
-		NetworkBindings: []types.NetworkBinding{
+		NetworkBindings: []*ecs.NetworkBinding{
 			{
-				ContainerPort: aws.Int32(1),
-				HostPort:      aws.Int32(2),
+				ContainerPort: aws.Int64(1),
+				HostPort:      aws.Int64(2),
 				BindIP:        aws.String("1.2.3.4"),
-				Protocol:      "udp",
+				Protocol:      aws.String("udp"),
 			},
 		},
 		MetadataGetter: metadataGetter,
@@ -109,14 +109,14 @@ func TestTaskStateChangeString(t *testing.T) {
 				AttachmentARN: attachmentArn,
 			},
 		},
-		Containers: []types.ContainerStateChange{
+		Containers: []*ecs.ContainerStateChange{
 			{
 				ContainerName: aws.String(containerName),
 			},
 		},
-		ManagedAgents: []types.ManagedAgentStateChange{
+		ManagedAgents: []*ecs.ManagedAgentStateChange{
 			{
-				ManagedAgentName: types.ManagedAgentNameExecuteCommandAgent,
+				ManagedAgentName: aws.String(ecs.ManagedAgentNameExecuteCommandAgent),
 			},
 		},
 		MetadataGetter: metadataGetter,
@@ -131,8 +131,8 @@ func TestTaskStateChangeString(t *testing.T) {
 		", PullStoppedAt: %s"+
 		", ExecutionStoppedAt: %s"+
 		", "+change.Attachment.String()+
-		", container change: "+prettify(change.Containers[0])+
-		", managed agent: "+prettify(change.ManagedAgents[0]),
+		", container change: "+change.Containers[0].String()+
+		", managed agent: "+change.ManagedAgents[0].String(),
 		change.TaskARN,
 		change.Status.String(),
 		change.MetadataGetter.GetTaskSentStatusString(),

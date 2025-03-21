@@ -50,16 +50,16 @@ import (
 	mock_mobypkgwrapper "github.com/aws/amazon-ecs-agent/agent/utils/mobypkgwrapper/mocks"
 	"github.com/aws/amazon-ecs-agent/agent/version"
 	mock_ecs "github.com/aws/amazon-ecs-agent/ecs-agent/api/ecs/mocks"
+	"github.com/aws/amazon-ecs-agent/ecs-agent/api/ecs/model/ecs"
 	apierrors "github.com/aws/amazon-ecs-agent/ecs-agent/api/errors"
 	mock_credentials "github.com/aws/amazon-ecs-agent/ecs-agent/credentials/mocks"
 	mock_ec2 "github.com/aws/amazon-ecs-agent/ecs-agent/ec2/mocks"
 	"github.com/aws/amazon-ecs-agent/ecs-agent/eventstream"
 	md "github.com/aws/amazon-ecs-agent/ecs-agent/manageddaemon"
-
 	awsv2 "github.com/aws/aws-sdk-go-v2/aws"
-	ecstypes "github.com/aws/aws-sdk-go-v2/service/ecs/types"
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/aws/awserr"
+
 	"github.com/aws/smithy-go"
 	smithyhttp "github.com/aws/smithy-go/transport/http"
 
@@ -89,19 +89,19 @@ var serverErr = getResponseError(500)
 var apiVersions = []dockerclient.DockerVersion{
 	dockerclient.MinDockerAPIVersion,
 }
-var capabilities []ecstypes.Attribute
-var testHostCPU = int32(1024)
-var testHostMEMORY = int32(1024)
-var testHostResource = map[string]ecstypes.Resource{
-	"CPU": ecstypes.Resource{
+var capabilities []*ecs.Attribute
+var testHostCPU = int64(1024)
+var testHostMEMORY = int64(1024)
+var testHostResource = map[string]*ecs.Resource{
+	"CPU": &ecs.Resource{
 		Name:         utils.Strptr("CPU"),
 		Type:         utils.Strptr("INTEGER"),
-		IntegerValue: testHostCPU,
+		IntegerValue: &testHostCPU,
 	},
-	"MEMORY": ecstypes.Resource{
+	"MEMORY": &ecs.Resource{
 		Name:         utils.Strptr("MEMORY"),
 		Type:         utils.Strptr("INTEGER"),
-		IntegerValue: testHostMEMORY,
+		IntegerValue: &testHostMEMORY,
 	},
 }
 
@@ -1081,9 +1081,8 @@ func TestReregisterContainerInstanceInstanceTypeChanged(t *testing.T) {
 		mockDockerClient.EXPECT().ListPluginsWithFilters(gomock.Any(), gomock.Any(),
 			gomock.Any(), gomock.Any()).AnyTimes().Return([]string{}, nil),
 		client.EXPECT().RegisterContainerInstance(containerInstanceARN, gomock.Any(), gomock.Any(), gomock.Any(),
-			gomock.Any(), gomock.Any()).Return("", "", &smithy.GenericAPIError{
-			Message: apierrors.InstanceTypeChangedErrorMessage,
-		}),
+			gomock.Any(), gomock.Any()).Return("", "", awserr.New("",
+			apierrors.InstanceTypeChangedErrorMessage, errors.New(""))),
 	)
 
 	cfg := getTestConfig()
@@ -1698,7 +1697,7 @@ func TestMergeTags(t *testing.T) {
 	commonKeyEC2Value := "commonEC2Value"
 	commonKeyLocalValue := "commonKeyLocalValue"
 
-	localTags := []ecstypes.Tag{
+	localTags := []*ecs.Tag{
 		{
 			Key:   aws.String(localKey),
 			Value: aws.String(localValue),
@@ -1709,7 +1708,7 @@ func TestMergeTags(t *testing.T) {
 		},
 	}
 
-	ec2Tags := []ecstypes.Tag{
+	ec2Tags := []*ecs.Tag{
 		{
 			Key:   aws.String(ec2Key),
 			Value: aws.String(ec2Value),
@@ -1747,7 +1746,7 @@ func TestGetContainerInstanceTagsFromEC2API(t *testing.T) {
 		ec2Client:         ec2Client,
 	}
 	instanceID := "iid"
-	tags := []ecstypes.Tag{
+	tags := []*ecs.Tag{
 		{
 			Key:   aws.String("key"),
 			Value: aws.String("value"),
@@ -1872,7 +1871,7 @@ func TestSpotInstanceActionCheck_Sunny(t *testing.T) {
 			containerInstanceARN: myARN,
 		}
 		ec2MetadataClient.EXPECT().SpotInstanceAction().Return(test.jsonresp, nil)
-		ecsClient.EXPECT().UpdateContainerInstancesState(myARN, ecstypes.ContainerInstanceStatusDraining).Return(nil)
+		ecsClient.EXPECT().UpdateContainerInstancesState(myARN, "DRAINING").Return(nil)
 
 		assert.True(t, agent.spotInstanceDrainingPoller(ecsClient))
 	}
@@ -1948,41 +1947,41 @@ func getTestConfig() config.Config {
 	return cfg
 }
 
-func getTestHostResources() map[string]ecstypes.Resource {
-	hostResources := make(map[string]ecstypes.Resource)
-	CPUs := int32(1024)
-	hostResources["CPU"] = ecstypes.Resource{
+func getTestHostResources() map[string]*ecs.Resource {
+	hostResources := make(map[string]*ecs.Resource)
+	CPUs := int64(1024)
+	hostResources["CPU"] = &ecs.Resource{
 		Name:         utils.Strptr("CPU"),
 		Type:         utils.Strptr("INTEGER"),
-		IntegerValue: CPUs,
+		IntegerValue: &CPUs,
 	}
 	//MEMORY
-	memory := int32(1024)
-	hostResources["MEMORY"] = ecstypes.Resource{
+	memory := int64(1024)
+	hostResources["MEMORY"] = &ecs.Resource{
 		Name:         utils.Strptr("MEMORY"),
 		Type:         utils.Strptr("INTEGER"),
-		IntegerValue: memory,
+		IntegerValue: &memory,
 	}
 	//PORTS
-	portsTCP := []string{}
-	hostResources["PORTS_TCP"] = ecstypes.Resource{
+	ports_tcp := []*string{}
+	hostResources["PORTS_TCP"] = &ecs.Resource{
 		Name:           utils.Strptr("PORTS_TCP"),
 		Type:           utils.Strptr("STRINGSET"),
-		StringSetValue: portsTCP,
+		StringSetValue: ports_tcp,
 	}
 	//PORTS_UDP
-	portsUDP := []string{}
-	hostResources["PORTS_UDP"] = ecstypes.Resource{
+	ports_udp := []*string{}
+	hostResources["PORTS_UDP"] = &ecs.Resource{
 		Name:           utils.Strptr("PORTS_UDP"),
 		Type:           utils.Strptr("STRINGSET"),
-		StringSetValue: portsUDP,
+		StringSetValue: ports_udp,
 	}
 	//GPUs
 	gpuIDs := []string{"gpu1", "gpu2", "gpu3", "gpu4"}
-	hostResources["GPU"] = ecstypes.Resource{
+	hostResources["GPU"] = &ecs.Resource{
 		Name:           utils.Strptr("GPU"),
 		Type:           utils.Strptr("STRINGSET"),
-		StringSetValue: gpuIDs,
+		StringSetValue: aws.StringSlice(gpuIDs),
 	}
 	return hostResources
 }

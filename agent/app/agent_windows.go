@@ -38,9 +38,9 @@ import (
 	ssmfactory "github.com/aws/amazon-ecs-agent/agent/ssm/factory"
 	"github.com/aws/amazon-ecs-agent/agent/statechange"
 	"github.com/aws/amazon-ecs-agent/agent/taskresource"
+	"github.com/aws/amazon-ecs-agent/ecs-agent/api/ecs/model/ecs"
 	"github.com/aws/amazon-ecs-agent/ecs-agent/credentials"
 
-	"github.com/aws/aws-sdk-go-v2/service/ecs/types"
 	"github.com/cihub/seelog"
 	"github.com/pkg/errors"
 	"golang.org/x/sys/windows/svc"
@@ -338,7 +338,7 @@ func (agent *ecsAgent) initializeGPUManager() error {
 	return nil
 }
 
-func (agent *ecsAgent) getPlatformDevices() []types.PlatformDevice {
+func (agent *ecsAgent) getPlatformDevices() []*ecs.PlatformDevice {
 	return nil
 }
 

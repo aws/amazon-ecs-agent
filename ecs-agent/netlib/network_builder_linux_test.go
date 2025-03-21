@@ -24,6 +24,7 @@ import (
 	"testing"
 
 	"github.com/aws/amazon-ecs-agent/ecs-agent/acs/model/ecsacs"
+	"github.com/aws/amazon-ecs-agent/ecs-agent/api/ecs/model/ecs"
 	"github.com/aws/amazon-ecs-agent/ecs-agent/metrics"
 	mock_metrics "github.com/aws/amazon-ecs-agent/ecs-agent/metrics/mocks"
 	mock_data "github.com/aws/amazon-ecs-agent/ecs-agent/netlib/data/mocks"
@@ -35,7 +36,6 @@ import (
 	mock_platform "github.com/aws/amazon-ecs-agent/ecs-agent/netlib/platform/mocks"
 	mock_netwrapper "github.com/aws/amazon-ecs-agent/ecs-agent/utils/netwrapper/mocks"
 
-	"github.com/aws/aws-sdk-go-v2/service/ecs/types"
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/golang/mock/gomock"
 	"github.com/stretchr/testify/require"
@@ -172,7 +172,7 @@ func testNetworkBuilder_StartAWSVPC(t *testing.T) {
 		gomock.InOrder(
 			getExpectedCalls_StartAWSVPC(ctx, platformAPI, metricsFactory, mockEntry, netDao, netNS)...,
 		)
-		netBuilder.Start(ctx, types.NetworkModeAwsvpc, taskID, netNS)
+		netBuilder.Start(ctx, ecs.NetworkModeAwsvpc, taskID, netNS)
 	})
 
 	// Single ENI with AppMesh config and desired state = READY_PULL.
@@ -186,7 +186,7 @@ func testNetworkBuilder_StartAWSVPC(t *testing.T) {
 		gomock.InOrder(
 			getExpectedCalls_StartAWSVPC(ctx, platformAPI, metricsFactory, mockEntry, netDao, netNS)...,
 		)
-		netBuilder.Start(ctx, types.NetworkModeAwsvpc, taskID, netNS)
+		netBuilder.Start(ctx, ecs.NetworkModeAwsvpc, taskID, netNS)
 	})
 
 	// Single ENI with AppMesh config and desired state = READY.
@@ -198,7 +198,7 @@ func testNetworkBuilder_StartAWSVPC(t *testing.T) {
 		gomock.InOrder(
 			getExpectedCalls_StartAWSVPC(ctx, platformAPI, metricsFactory, mockEntry, netDao, netNS)...,
 		)
-		netBuilder.Start(ctx, types.NetworkModeAwsvpc, taskID, netNS)
+		netBuilder.Start(ctx, ecs.NetworkModeAwsvpc, taskID, netNS)
 	})
 
 	// Single ENI with ServiceConnect and desired state = READY.
@@ -212,7 +212,7 @@ func testNetworkBuilder_StartAWSVPC(t *testing.T) {
 		gomock.InOrder(
 			getExpectedCalls_StartAWSVPC(ctx, platformAPI, metricsFactory, mockEntry, netDao, netNS)...,
 		)
-		netBuilder.Start(ctx, types.NetworkModeAwsvpc, taskID, netNS)
+		netBuilder.Start(ctx, ecs.NetworkModeAwsvpc, taskID, netNS)
 	})
 
 	// Single ENI with ServiceConnect and desired state = READY_PULL.
@@ -224,7 +224,7 @@ func testNetworkBuilder_StartAWSVPC(t *testing.T) {
 		gomock.InOrder(
 			getExpectedCalls_StartAWSVPC(ctx, platformAPI, metricsFactory, mockEntry, netDao, netNS)...,
 		)
-		netBuilder.Start(ctx, types.NetworkModeAwsvpc, taskID, netNS)
+		netBuilder.Start(ctx, ecs.NetworkModeAwsvpc, taskID, netNS)
 	})
 
 	// Single netns with multi interface case.
@@ -235,7 +235,7 @@ func testNetworkBuilder_StartAWSVPC(t *testing.T) {
 		gomock.InOrder(
 			getExpectedCalls_StartAWSVPC(ctx, platformAPI, metricsFactory, mockEntry, netDao, netNS)...,
 		)
-		netBuilder.Start(ctx, types.NetworkModeAwsvpc, taskID, netNS)
+		netBuilder.Start(ctx, ecs.NetworkModeAwsvpc, taskID, netNS)
 	})
 
 	// Desired state = DELETED. There should be no expected calls to
@@ -246,7 +246,7 @@ func testNetworkBuilder_StartAWSVPC(t *testing.T) {
 		gomock.InOrder(
 			getExpectedCalls_StartAWSVPC(ctx, platformAPI, metricsFactory, mockEntry, netDao, netNS)...,
 		)
-		netBuilder.Start(ctx, types.NetworkModeAwsvpc, taskID, netNS)
+		netBuilder.Start(ctx, ecs.NetworkModeAwsvpc, taskID, netNS)
 	})
 }
 
@@ -338,7 +338,7 @@ func testNetworkBuilder_StopAWSVPC(t *testing.T) {
 		gomock.InOrder(
 			getExpectedCalls_StopAWSVPC(ctx, platformAPI, metricsFactory, mockEntry, netNS)...,
 		)
-		netBuilder.Stop(ctx, types.NetworkModeAwsvpc, taskID, netNS)
+		netBuilder.Stop(ctx, ecs.NetworkModeAwsvpc, taskID, netNS)
 	})
 }
 

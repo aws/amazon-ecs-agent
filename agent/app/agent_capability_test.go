@@ -34,9 +34,9 @@ import (
 	mock_serviceconnect "github.com/aws/amazon-ecs-agent/agent/engine/serviceconnect/mock"
 	mock_loader "github.com/aws/amazon-ecs-agent/agent/utils/loader/mocks"
 	mock_mobypkgwrapper "github.com/aws/amazon-ecs-agent/agent/utils/mobypkgwrapper/mocks"
+	"github.com/aws/amazon-ecs-agent/ecs-agent/api/ecs/model/ecs"
 	md "github.com/aws/amazon-ecs-agent/ecs-agent/manageddaemon"
 
-	"github.com/aws/aws-sdk-go-v2/service/ecs/types"
 	"github.com/aws/aws-sdk-go/aws"
 	aws_credentials "github.com/aws/aws-sdk-go/aws/credentials"
 	"github.com/golang/mock/gomock"
@@ -146,13 +146,13 @@ func TestCapabilities(t *testing.T) {
 		attributePrefix + capabilityContainerRestartPolicy,
 	}
 
-	var expectedCapabilities []types.Attribute
+	var expectedCapabilities []*ecs.Attribute
 	for _, name := range expectedNameOnlyCapabilities {
 		expectedCapabilities = append(expectedCapabilities,
-			types.Attribute{Name: aws.String(name)})
+			&ecs.Attribute{Name: aws.String(name)})
 	}
 	expectedCapabilities = append(expectedCapabilities,
-		[]types.Attribute{
+		[]*ecs.Attribute{
 			{
 				Name:  aws.String(attributePrefix + cniPluginVersionSuffix),
 				Value: aws.String("v1"),
@@ -176,7 +176,7 @@ func TestCapabilities(t *testing.T) {
 	assert.NoError(t, err)
 
 	for _, expected := range expectedCapabilities {
-		assert.Contains(t, capabilities, types.Attribute{
+		assert.Contains(t, capabilities, &ecs.Attribute{
 			Name:  expected.Name,
 			Value: expected.Value,
 		})
@@ -192,12 +192,12 @@ func TestCapabilitiesExternal(t *testing.T) {
 	capsExternal := getCapabilitiesWithConfig(cfg, t)
 
 	for _, cap := range externalUnsupportedCapabilities {
-		assert.NotContains(t, capsExternal, types.Attribute{
+		assert.NotContains(t, capsExternal, &ecs.Attribute{
 			Name: aws.String(cap),
 		})
 	}
 	for _, cap := range externalSpecificCapabilities {
-		assert.Contains(t, capsExternal, types.Attribute{
+		assert.Contains(t, capsExternal, &ecs.Attribute{
 			Name: aws.String(cap),
 		})
 	}
@@ -225,7 +225,7 @@ func getCapabilitiesTestConfig() *config.Config {
 	}
 }
 
-func getCapabilitiesWithConfig(cfg *config.Config, t *testing.T) []types.Attribute {
+func getCapabilitiesWithConfig(cfg *config.Config, t *testing.T) []*ecs.Attribute {
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
 
@@ -590,10 +590,10 @@ func TestAWSVPCBlockInstanceMetadataWhenTaskENIIsDisabled(t *testing.T) {
 		capabilityPrefix + "logging-driver.json-file",
 	}
 
-	var expectedCapabilities []types.Attribute
+	var expectedCapabilities []*ecs.Attribute
 	for _, name := range expectedCapabilityNames {
 		expectedCapabilities = append(expectedCapabilities,
-			types.Attribute{Name: aws.String(name)})
+			&ecs.Attribute{Name: aws.String(name)})
 	}
 
 	ctx, cancel := context.WithCancel(context.TODO())
@@ -614,7 +614,7 @@ func TestAWSVPCBlockInstanceMetadataWhenTaskENIIsDisabled(t *testing.T) {
 	assert.NoError(t, err)
 
 	for _, expected := range expectedCapabilities {
-		assert.Contains(t, capabilities, types.Attribute{
+		assert.Contains(t, capabilities, &ecs.Attribute{
 			Name:  expected.Name,
 			Value: expected.Value,
 		})
@@ -1108,7 +1108,7 @@ func TestCapabilitesScanPluginsErrorCase(t *testing.T) {
 }
 
 func TestCapabilitiesExecuteCommand(t *testing.T) {
-	execCapability := types.Attribute{
+	execCapability := ecs.Attribute{
 		Name: aws.String(attributePrefix + capabilityExec),
 	}
 	testCases := []struct {
@@ -1220,9 +1220,9 @@ func TestCapabilitiesExecuteCommand(t *testing.T) {
 			}
 
 			if tc.shouldHaveExecCapability {
-				assert.Contains(t, capabilities, execCapability)
+				assert.Contains(t, capabilities, &execCapability)
 			} else {
-				assert.NotContains(t, capabilities, execCapability)
+				assert.NotContains(t, capabilities, &execCapability)
 			}
 		})
 	}
@@ -1318,13 +1318,13 @@ func TestCapabilitiesNoServiceConnect(t *testing.T) {
 		attributePrefix + capabilityContainerRestartPolicy,
 	}
 
-	var expectedCapabilities []types.Attribute
+	var expectedCapabilities []*ecs.Attribute
 	for _, name := range expectedNameOnlyCapabilities {
 		expectedCapabilities = append(expectedCapabilities,
-			types.Attribute{Name: aws.String(name)})
+			&ecs.Attribute{Name: aws.String(name)})
 	}
 	expectedCapabilities = append(expectedCapabilities,
-		[]types.Attribute{
+		[]*ecs.Attribute{
 			{
 				Name:  aws.String(attributePrefix + cniPluginVersionSuffix),
 				Value: aws.String("v1"),
@@ -1349,7 +1349,7 @@ func TestCapabilitiesNoServiceConnect(t *testing.T) {
 	assert.NoError(t, err)
 
 	for _, expected := range expectedCapabilities {
-		assert.Contains(t, capabilities, types.Attribute{
+		assert.Contains(t, capabilities, &ecs.Attribute{
 			Name:  expected.Name,
 			Value: expected.Value,
 		})
@@ -1469,32 +1469,32 @@ func TestDefaultPathExistsd(t *testing.T) {
 }
 
 func TestAppendAndRemoveAttributes(t *testing.T) {
-	attrs := appendNameOnlyAttribute([]types.Attribute{}, "cap-1")
+	attrs := appendNameOnlyAttribute([]*ecs.Attribute{}, "cap-1")
 	attrs = appendNameOnlyAttribute(attrs, "cap-2")
 	require.Len(t, attrs, 2)
-	assert.Contains(t, attrs, types.Attribute{
+	assert.Contains(t, attrs, &ecs.Attribute{
 		Name: aws.String("cap-1"),
 	})
-	assert.Contains(t, attrs, types.Attribute{
+	assert.Contains(t, attrs, &ecs.Attribute{
 		Name: aws.String("cap-2"),
 	})
 
 	attrs = removeAttributesByNames(attrs, []string{"cap-1"})
 	require.Len(t, attrs, 1)
-	assert.NotContains(t, attrs, types.Attribute{
+	assert.NotContains(t, attrs, &ecs.Attribute{
 		Name: aws.String("cap-1"),
 	})
-	assert.Contains(t, attrs, types.Attribute{
+	assert.Contains(t, attrs, &ecs.Attribute{
 		Name: aws.String("cap-2"),
 	})
 }
 
 func TestAppendGMSACapabilities(t *testing.T) {
-	var inputCapabilities []types.Attribute
-	var expectedCapabilities []types.Attribute
+	var inputCapabilities []*ecs.Attribute
+	var expectedCapabilities []*ecs.Attribute
 
 	expectedCapabilities = append(expectedCapabilities,
-		[]types.Attribute{
+		[]*ecs.Attribute{
 			{
 				Name: aws.String(attributePrefix + capabilityGMSA),
 			},
@@ -1516,11 +1516,11 @@ func TestAppendGMSACapabilities(t *testing.T) {
 }
 
 func TestAppendGMSADomainlessCapabilities(t *testing.T) {
-	var inputCapabilities []types.Attribute
-	var expectedCapabilities []types.Attribute
+	var inputCapabilities []*ecs.Attribute
+	var expectedCapabilities []*ecs.Attribute
 
 	expectedCapabilities = append(expectedCapabilities,
-		[]types.Attribute{
+		[]*ecs.Attribute{
 			{
 				Name: aws.String(attributePrefix + capabilityGMSADomainless),
 			},
@@ -1542,11 +1542,11 @@ func TestAppendGMSADomainlessCapabilities(t *testing.T) {
 }
 
 func TestAppendGMSADomainlessCapabilitiesFalse(t *testing.T) {
-	var inputCapabilities []types.Attribute
-	var expectedCapabilities []types.Attribute
+	var inputCapabilities []*ecs.Attribute
+	var expectedCapabilities []*ecs.Attribute
 
 	expectedCapabilities = append(expectedCapabilities,
-		[]types.Attribute{}...)
+		[]*ecs.Attribute{}...)
 
 	agent := &ecsAgent{
 		cfg: &config.Config{
@@ -1565,7 +1565,7 @@ func TestAppendFaultInjectionCapabilities(t *testing.T) {
 	t.Run("Fault Injection Capability Available", func(t *testing.T) {
 		// Test case where required tooling is available
 		isFaultInjectionToolingAvailable = func() bool { return true }
-		capabilities := []types.Attribute{}
+		capabilities := []*ecs.Attribute{}
 		agent := &ecsAgent{
 			cfg: &config.Config{},
 		}
@@ -1577,7 +1577,7 @@ func TestAppendFaultInjectionCapabilities(t *testing.T) {
 	t.Run("Fault Injection Capability Not Available", func(t *testing.T) {
 		// Test case where required tooling is not available
 		isFaultInjectionToolingAvailable = func() bool { return false }
-		capabilities := []types.Attribute{}
+		capabilities := []*ecs.Attribute{}
 		agent := &ecsAgent{
 			cfg: &config.Config{},
 		}
@@ -1589,7 +1589,7 @@ func TestAppendFaultInjectionCapabilities(t *testing.T) {
 	t.Run("Fault Injection Capability Not Available for EXTERNAL Launch Type", func(t *testing.T) {
 		// Test case where required tooling is available but EXTERNAL Launch Type
 		isFaultInjectionToolingAvailable = func() bool { return true }
-		capabilities := []types.Attribute{}
+		capabilities := []*ecs.Attribute{}
 		agent := &ecsAgent{
 			cfg: &config.Config{
 				External: config.BooleanDefaultFalse{Value: config.ExplicitlyEnabled},

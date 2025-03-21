@@ -6,6 +6,7 @@ import (
 	"fmt"
 
 	"github.com/aws/amazon-ecs-agent/ecs-agent/acs/model/ecsacs"
+	"github.com/aws/amazon-ecs-agent/ecs-agent/api/ecs/model/ecs"
 	"github.com/aws/amazon-ecs-agent/ecs-agent/ec2"
 	"github.com/aws/amazon-ecs-agent/ecs-agent/logger"
 	loggerfield "github.com/aws/amazon-ecs-agent/ecs-agent/logger/field"
@@ -15,7 +16,6 @@ import (
 	"github.com/aws/amazon-ecs-agent/ecs-agent/netlib/model/serviceconnect"
 	"github.com/aws/amazon-ecs-agent/ecs-agent/netlib/model/status"
 	"github.com/aws/amazon-ecs-agent/ecs-agent/netlib/model/tasknetworkconfig"
-	"github.com/aws/aws-sdk-go-v2/service/ecs/types"
 
 	"github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/pkg/errors"
@@ -40,22 +40,22 @@ func (m *managedLinux) BuildTaskNetworkConfiguration(
 	taskID string,
 	taskPayload *ecsacs.Task,
 ) (*tasknetworkconfig.TaskNetworkConfig, error) {
-	mode := types.NetworkMode(aws.ToString(taskPayload.NetworkMode))
+	mode := aws.ToString(taskPayload.NetworkMode)
 	var netNSs []*tasknetworkconfig.NetworkNamespace
 	var err error
 	switch mode {
-	case types.NetworkModeAwsvpc:
+	case ecs.NetworkModeAwsvpc:
 		netNSs, err = m.common.buildAWSVPCNetworkNamespaces(taskID, taskPayload, false, nil)
 		if err != nil {
 			return nil, errors.Wrap(err, "failed to translate network configuration")
 		}
-	case types.NetworkModeHost:
+	case ecs.NetworkModeHost:
 		netNSs, err = m.buildDefaultNetworkNamespace(taskID)
 		if err != nil {
 			return nil, errors.Wrap(err, "failed to create network namespace with host eni")
 		}
 	default:
-		return nil, errors.New("invalid network mode: " + string(mode))
+		return nil, errors.New("invalid network mode: " + mode)
 	}
 	return &tasknetworkconfig.TaskNetworkConfig{
 		NetworkNamespaces: netNSs,

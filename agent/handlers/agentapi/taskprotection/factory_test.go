@@ -51,8 +51,7 @@ func TestGetECSClientHappyCase(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
 
-	ret, err := factory.NewTaskProtectionClient(testIAMRoleCredentials)
-	assert.NoError(t, err)
+	ret := factory.NewTaskProtectionClient(testIAMRoleCredentials)
 	_, ok := ret.(ecs.ECSTaskProtectionSDK)
 
 	// Assert response

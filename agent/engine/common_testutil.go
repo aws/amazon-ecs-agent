@@ -40,11 +40,12 @@ import (
 	"github.com/aws/amazon-ecs-agent/agent/utils"
 	referenceutil "github.com/aws/amazon-ecs-agent/agent/utils/reference"
 	apicontainerstatus "github.com/aws/amazon-ecs-agent/ecs-agent/api/container/status"
+	"github.com/aws/amazon-ecs-agent/ecs-agent/api/ecs/model/ecs"
 	apitaskstatus "github.com/aws/amazon-ecs-agent/ecs-agent/api/task/status"
 	"github.com/aws/amazon-ecs-agent/ecs-agent/credentials"
 	mock_ttime "github.com/aws/amazon-ecs-agent/ecs-agent/utils/ttime/mocks"
 
-	"github.com/aws/aws-sdk-go-v2/service/ecs/types"
+	"github.com/aws/aws-sdk-go/aws"
 	"github.com/cihub/seelog"
 	dockercontainer "github.com/docker/docker/api/types/container"
 	"github.com/docker/docker/api/types/registry"
@@ -417,41 +418,41 @@ func enableExecCommandAgentForContainer(container *apicontainer.Container, state
 	}
 }
 
-func getTestHostResources() map[string]types.Resource {
-	hostResources := make(map[string]types.Resource)
-	CPUs := int32(1024)
-	hostResources["CPU"] = types.Resource{
+func getTestHostResources() map[string]*ecs.Resource {
+	hostResources := make(map[string]*ecs.Resource)
+	CPUs := int64(1024)
+	hostResources["CPU"] = &ecs.Resource{
 		Name:         utils.Strptr("CPU"),
 		Type:         utils.Strptr("INTEGER"),
-		IntegerValue: CPUs,
+		IntegerValue: &CPUs,
 	}
 	//MEMORY
-	memory := int32(1024)
-	hostResources["MEMORY"] = types.Resource{
+	memory := int64(1024)
+	hostResources["MEMORY"] = &ecs.Resource{
 		Name:         utils.Strptr("MEMORY"),
 		Type:         utils.Strptr("INTEGER"),
-		IntegerValue: memory,
+		IntegerValue: &memory,
 	}
 	//PORTS
-	portsTCP := []string{}
-	hostResources["PORTS_TCP"] = types.Resource{
+	ports_tcp := []*string{}
+	hostResources["PORTS_TCP"] = &ecs.Resource{
 		Name:           utils.Strptr("PORTS_TCP"),
 		Type:           utils.Strptr("STRINGSET"),
-		StringSetValue: portsTCP,
+		StringSetValue: ports_tcp,
 	}
 	//PORTS_UDP
-	portsUDP := []string{}
-	hostResources["PORTS_UDP"] = types.Resource{
+	ports_udp := []*string{}
+	hostResources["PORTS_UDP"] = &ecs.Resource{
 		Name:           utils.Strptr("PORTS_UDP"),
 		Type:           utils.Strptr("STRINGSET"),
-		StringSetValue: portsUDP,
+		StringSetValue: ports_udp,
 	}
 	//GPUs
 	gpuIDs := []string{"gpu1", "gpu2", "gpu3", "gpu4"}
-	hostResources["GPU"] = types.Resource{
+	hostResources["GPU"] = &ecs.Resource{
 		Name:           utils.Strptr("GPU"),
 		Type:           utils.Strptr("STRINGSET"),
-		StringSetValue: gpuIDs,
+		StringSetValue: aws.StringSlice(gpuIDs),
 	}
 	return hostResources
 }
