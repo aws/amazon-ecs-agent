@@ -1,4 +1,7 @@
 # Changelog
+# 1.91.2
+* Bugfix - Revert "Migrate ECR client to aws-sdk-go-v2". [4539](https://github.com/aws/amazon-ecs-agent/pull/4539)
+
 # 1.91.1
 * Enhancement - Add adaptive retry logic in RCI call for non-terminal errors. [#4499](https://github.com/aws/amazon-ecs-agent/pull/4499)
 * Enhancement - Refactor introspection api to consume shared server in ecs-agent [#4483](https://github.com/aws/amazon-ecs-agent/pull/4483)

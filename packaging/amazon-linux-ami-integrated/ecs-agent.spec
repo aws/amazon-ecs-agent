@@ -27,7 +27,7 @@
 %global ebs_csi_driver_dir /var/lib/ecs/deps/daemons/ebs-csi-driver
 
 Name:           ecs-init
-Version:        1.91.1
+Version:        1.91.2
 Release:        1%{?dist}
 License:        Apache 2.0
 Summary:        Amazon Elastic Container Service initialization application
@@ -282,6 +282,9 @@ fi
 %endif
 
 %changelog
+* Thu Mar 20 2025 Dane H Lim <slimdane@amazon.com> - 1.91.2-1
+- Cache Agent version 1.91.2
+
 * Tue Mar 11 2025 Michael Ye <yemike@amazon.com> - 1.91.1-1
 - Cache Agent version 1.91.1
 
