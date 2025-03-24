@@ -53,7 +53,7 @@ func (*acsClientFactory) New(url string,
 
 	cs := &clientServer{}
 	cs.URL = url
-	cs.CredentialCache = credentialsCache
+	cs.CredentialsCache = credentialsCache
 	cs.Cfg = cfg
 	cs.ServiceError = &acsError{}
 	cs.RequestHandlers = make(map[string]wsclient.RequestHandler)
