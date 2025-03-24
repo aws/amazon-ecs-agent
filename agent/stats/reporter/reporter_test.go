@@ -26,7 +26,8 @@ import (
 	"github.com/aws/amazon-ecs-agent/agent/version"
 	"github.com/aws/amazon-ecs-agent/ecs-agent/doctor"
 	"github.com/aws/amazon-ecs-agent/ecs-agent/eventstream"
-	"github.com/aws/aws-sdk-go/aws/credentials"
+	"github.com/aws/aws-sdk-go-v2/aws"
+	"github.com/aws/aws-sdk-go-v2/credentials"
 	"github.com/golang/mock/gomock"
 	"github.com/stretchr/testify/assert"
 )
@@ -41,7 +42,7 @@ const (
 
 func TestNewDockerTelemetrySession(t *testing.T) {
 	emptyDoctor, _ := doctor.NewDoctor([]doctor.Healthcheck{}, testCluster, testContainerInstanceArn)
-	testCredentials := credentials.NewStaticCredentials("test-id", "test-secret", "test-token")
+	testCredentials := aws.NewCredentialsCache(credentials.NewStaticCredentialsProvider("test-id", "test-secret", "test-token"))
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
 	mockEngine := mock_engine.NewMockTaskEngine(ctrl)
