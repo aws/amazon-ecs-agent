@@ -35,8 +35,8 @@ import (
 	"github.com/aws/amazon-ecs-agent/ecs-agent/tcs/model/ecstcs"
 	"github.com/aws/amazon-ecs-agent/ecs-agent/wsclient"
 	wsmock "github.com/aws/amazon-ecs-agent/ecs-agent/wsclient/mock/utils"
-	"github.com/aws/aws-sdk-go/aws"
-	"github.com/aws/aws-sdk-go/aws/credentials"
+	"github.com/aws/aws-sdk-go-v2/aws"
+	"github.com/aws/aws-sdk-go-v2/credentials"
 	"github.com/golang/mock/gomock"
 	"github.com/gorilla/websocket"
 	"github.com/stretchr/testify/assert"
@@ -67,7 +67,7 @@ type mockStatsSource struct {
 	publishMetricsTicker *time.Ticker
 }
 
-var testCreds = credentials.NewStaticCredentials("test-id", "test-secret", "test-token")
+var testCreds = aws.NewCredentialsCache(credentials.NewStaticCredentialsProvider("test-id", "test-secret", "test-token"))
 
 var testCfg = &wsclient.WSClientMinAgentConfig{
 	AWSRegion:          "us-east-1",
