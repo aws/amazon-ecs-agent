@@ -14,24 +14,61 @@
 package utils
 
 import (
+	"crypto/sha256"
+	"encoding/hex"
 	"fmt"
 	"io"
 	"net/http"
 	"time"
 
 	"github.com/aws/amazon-ecs-agent/ecs-agent/logger"
-	"github.com/aws/aws-sdk-go/aws/credentials"
-	v4 "github.com/aws/aws-sdk-go/aws/signer/v4"
+	"github.com/aws/aws-sdk-go-v2/aws"
+	v4 "github.com/aws/aws-sdk-go-v2/aws/signer/v4"
 	"github.com/pkg/errors"
 )
 
 // SignHTTPRequest signs an http.Request struct with authv4 using the given region, service, and credentials.
-func SignHTTPRequest(req *http.Request, region, service string, creds *credentials.Credentials, body io.ReadSeeker) error {
-	signer := v4.NewSigner(creds)
-	_, err := signer.Sign(req, body, service, region, time.Now())
+func SignHTTPRequest(req *http.Request, region, service string, creds *aws.CredentialsCache, body io.ReadSeeker) error {
+	signer := v4.NewSigner()
+	credsValue, err := creds.Retrieve(req.Context())
+	if err != nil {
+		logger.Warn(fmt.Sprintf("Retrieving credentials failed: %v", err))
+		return errors.Wrap(err, "aws sdk http signer: failed to retrieve credentials")
+	}
+
+	hashedBody, err := hashRequestBody(body)
+	if err != nil {
+		return errors.Wrap(err, "aws sdk http signer: failed to hash request body")
+	}
+
+	err = signer.SignHTTP(req.Context(), credsValue, req, hashedBody, service, region, time.Now())
 	if err != nil {
 		logger.Warn(fmt.Sprintf("Signing HTTP request failed: %v", err))
 		return errors.Wrap(err, "aws sdk http signer: failed to sign http request")
 	}
 	return nil
+}
+
+func hashRequestBody(body io.ReadSeeker) (string, error) {
+	hasher := sha256.New()
+	if body == nil {
+		_, err := hasher.Write([]byte{})
+		if err != nil {
+			return "", err
+		}
+	} else {
+		bodyData, err := io.ReadAll(body)
+		if err != nil {
+			return "", err
+		}
+		body.Seek(0, io.SeekStart)
+
+		_, err = hasher.Write(bodyData)
+		if err != nil {
+			return "", err
+		}
+	}
+	hashInBytes := hasher.Sum(nil)
+	hashedString := hex.EncodeToString(hashInBytes)
+	return hashedString, nil
 }
