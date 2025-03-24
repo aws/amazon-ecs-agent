@@ -52,7 +52,7 @@ func SignHTTPRequest(req *http.Request, region, service string, creds *aws.Crede
 func hashRequestBody(body io.ReadSeeker) (string, error) {
 	hasher := sha256.New()
 	if body == nil {
-		_, err := hasher.Write([]byte{})
+		_, err := hasher.Write([]byte(""))
 		if err != nil {
 			return "", err
 		}
