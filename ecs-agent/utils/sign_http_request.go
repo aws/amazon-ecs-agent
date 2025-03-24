@@ -50,16 +50,23 @@ func SignHTTPRequest(req *http.Request, region, service string, creds *aws.Crede
 }
 
 func hashRequestBody(body io.ReadSeeker) (string, error) {
-	bodyData, err := io.ReadAll(body)
-	if err != nil {
-		return "", err
-	}
-	body.Seek(0, io.SeekStart)
-
 	hasher := sha256.New()
-	_, err = hasher.Write(bodyData)
-	if err != nil {
-		return "", err
+	if body == nil {
+		_, err := hasher.Write([]byte{})
+		if err != nil {
+			return "", err
+		}
+	} else {
+		bodyData, err := io.ReadAll(body)
+		if err != nil {
+			return "", err
+		}
+		body.Seek(0, io.SeekStart)
+
+		_, err = hasher.Write(bodyData)
+		if err != nil {
+			return "", err
+		}
 	}
 	hashInBytes := hasher.Sum(nil)
 	hashedString := hex.EncodeToString(hashInBytes)

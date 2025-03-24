@@ -974,7 +974,7 @@ func TestSessionDoesntLeakGoroutines(t *testing.T) {
 	go func() {
 		acsSession := session{
 			containerInstanceARN:  testconst.ContainerInstanceARN,
-			credentialsProvider:   testCreds,
+			credentialsCache:      testCreds,
 			dockerVersion:         dockerVersion,
 			minAgentConfig:        testMinAgentConfig,
 			ecsClient:             ecsClient,

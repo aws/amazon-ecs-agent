@@ -35,8 +35,8 @@ import (
 	"github.com/aws/amazon-ecs-agent/ecs-agent/tcs/model/ecstcs"
 	"github.com/aws/amazon-ecs-agent/ecs-agent/wsclient"
 	mock_wsconn "github.com/aws/amazon-ecs-agent/ecs-agent/wsclient/wsconn/mock"
-	"github.com/aws/aws-sdk-go/aws"
-	"github.com/aws/aws-sdk-go/aws/credentials"
+	"github.com/aws/aws-sdk-go-v2/aws"
+	"github.com/aws/aws-sdk-go-v2/credentials"
 	"github.com/golang/mock/gomock"
 	"github.com/stretchr/testify/assert"
 )
@@ -99,7 +99,7 @@ func (fc *falseHealthcheck) GetLastHealthcheckTime() time.Time {
 	return time.Date(1974, time.May, 19, 1, 2, 3, 4, time.UTC)
 }
 
-var testCreds = credentials.NewStaticCredentials("test-id", "test-secret", "test-token")
+var testCreds = aws.NewCredentialsCache(credentials.NewStaticCredentialsProvider("test-id", "test-secret", "test-token"))
 
 var emptyDoctor, _ = doctor.NewDoctor([]doctor.Healthcheck{}, "test-cluster", "this:is:an:instance:arn")
 
