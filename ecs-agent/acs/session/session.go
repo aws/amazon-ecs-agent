@@ -71,7 +71,7 @@ type Session interface {
 type session struct {
 	containerInstanceARN           string
 	cluster                        string
-	credentialsCache            *aws.CredentialsCache
+	credentialsCache               *aws.CredentialsCache
 	ecsClient                      ecs.ECSClient
 	inactiveInstanceCB             func()
 	agentVersion                   string
@@ -132,7 +132,7 @@ func NewSession(containerInstanceARN string,
 		containerInstanceARN:           containerInstanceARN,
 		cluster:                        cluster,
 		ecsClient:                      ecsClient,
-		credentialsCache:            credentialsCache,
+		credentialsCache:               credentialsCache,
 		inactiveInstanceCB:             inactiveInstanceCB,
 		clientFactory:                  clientFactory,
 		metricsFactory:                 metricsFactory,

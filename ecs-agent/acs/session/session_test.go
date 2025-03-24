@@ -181,7 +181,7 @@ const (
 
 var inactiveInstanceError = errors.New("InactiveInstanceException")
 var noopFunc = func() {}
-var testCreds = aws.NewCredentialsCache(credentials.NewStaticCredentialsProvider"test-id", "test-secret", "test-token"))
+var testCreds = aws.NewCredentialsCache(credentials.NewStaticCredentialsProvider("test-id", "test-secret", "test-token"))
 var testMinAgentConfig = &wsclient.WSClientMinAgentConfig{
 	AcceptInsecureCert: true,
 	AWSRegion:          "us-west-2",
