@@ -30,7 +30,7 @@ import (
 	tcshandler "github.com/aws/amazon-ecs-agent/ecs-agent/tcs/handler"
 	"github.com/aws/amazon-ecs-agent/ecs-agent/tcs/model/ecstcs"
 	"github.com/aws/amazon-ecs-agent/ecs-agent/wsclient"
-	"github.com/aws/aws-sdk-go/aws/credentials"
+	"github.com/aws/aws-sdk-go-v2/aws"
 )
 
 const (
@@ -47,7 +47,7 @@ type DockerTelemetrySession struct {
 // tcshandler.TelemetrySession contains the logic to manage the TCSClient and corresponding websocket connection
 func NewDockerTelemetrySession(
 	containerInstanceArn string,
-	credentialProvider *credentials.Credentials,
+	credentialCache *aws.CredentialsCache,
 	cfg *config.Config,
 	deregisterInstanceEventStream *eventstream.EventStream,
 	ecsClient ecs.ECSClient,
@@ -75,7 +75,7 @@ func NewDockerTelemetrySession(
 		agentHash,
 		containerRuntimeVersion,
 		cfg.DisableMetrics.Enabled(),
-		credentialProvider,
+		credentialCache,
 		&wsclient.WSClientMinAgentConfig{
 			AWSRegion:          cfg.AWSRegion,
 			AcceptInsecureCert: cfg.AcceptInsecureCert,
