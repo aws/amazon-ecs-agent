@@ -18,10 +18,9 @@ import (
 	"net"
 	"strings"
 
+	"github.com/aws/amazon-ecs-agent/ecs-agent/acs/model/ecsacs"
 	"github.com/aws/amazon-ecs-agent/ecs-agent/logger"
-
 	"github.com/aws/aws-sdk-go-v2/aws"
-	acstypes "github.com/aws/aws-sdk-go-v2/service/acs/types"
 )
 
 const (
@@ -42,7 +41,7 @@ const (
 )
 
 // validateContainerName validates the service connect container name exists in the task and no duplication.
-func validateContainerName(scContainerName string, taskContainers []acstypes.Container) error {
+func validateContainerName(scContainerName string, taskContainers []*ecsacs.Container) error {
 	// service connect container name is required
 	if scContainerName == "" {
 		return fmt.Errorf("missing service connect container name")
@@ -293,7 +292,7 @@ func validatePort(port uint16) error {
 // 1) fields consumed and proceeded by ECS Agent
 // 2) fields with a global standard, e.g. CIDR format
 func ValidateServiceConnectConfig(scConfig *Config,
-	taskContainers []acstypes.Container,
+	taskContainers []*ecsacs.Container,
 	taskNetworkMode string,
 	ipv6Enabled bool) error {
 	if err := validateContainerName(scConfig.ContainerName, taskContainers); err != nil {

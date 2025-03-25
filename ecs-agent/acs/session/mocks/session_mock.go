@@ -24,8 +24,6 @@ import (
 	ecsacs "github.com/aws/amazon-ecs-agent/ecs-agent/acs/model/ecsacs"
 	resource "github.com/aws/amazon-ecs-agent/ecs-agent/api/attachment/resource"
 	networkinterface "github.com/aws/amazon-ecs-agent/ecs-agent/netlib/model/networkinterface"
-	acs "github.com/aws/aws-sdk-go-v2/service/acs"
-	types "github.com/aws/aws-sdk-go-v2/service/acs/types"
 	gomock "github.com/golang/mock/gomock"
 )
 
@@ -125,7 +123,7 @@ func (m *MockCredentialsMetadataSetter) EXPECT() *MockCredentialsMetadataSetterM
 }
 
 // SetExecRoleCredentialsMetadata mocks base method.
-func (m *MockCredentialsMetadataSetter) SetExecRoleCredentialsMetadata(arg0 *acs.RefreshTaskIAMRoleCredentialsInput) error {
+func (m *MockCredentialsMetadataSetter) SetExecRoleCredentialsMetadata(arg0 *ecsacs.IAMRoleCredentialsMessage) error {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "SetExecRoleCredentialsMetadata", arg0)
 	ret0, _ := ret[0].(error)
@@ -139,7 +137,7 @@ func (mr *MockCredentialsMetadataSetterMockRecorder) SetExecRoleCredentialsMetad
 }
 
 // SetTaskRoleCredentialsMetadata mocks base method.
-func (m *MockCredentialsMetadataSetter) SetTaskRoleCredentialsMetadata(arg0 *acs.RefreshTaskIAMRoleCredentialsInput) error {
+func (m *MockCredentialsMetadataSetter) SetTaskRoleCredentialsMetadata(arg0 *ecsacs.IAMRoleCredentialsMessage) error {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "SetTaskRoleCredentialsMetadata", arg0)
 	ret0, _ := ret[0].(error)
@@ -176,7 +174,7 @@ func (m *MockPayloadMessageHandler) EXPECT() *MockPayloadMessageHandlerMockRecor
 }
 
 // ProcessMessage mocks base method.
-func (m *MockPayloadMessageHandler) ProcessMessage(arg0 *acs.PayloadInput, arg1 func(*ecsacs.AckRequest, []*acs.RefreshTaskIAMRoleCredentialsOutput)) error {
+func (m *MockPayloadMessageHandler) ProcessMessage(arg0 *ecsacs.PayloadMessage, arg1 func(*ecsacs.AckRequest, []*ecsacs.IAMRoleCredentialsAckRequest)) error {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "ProcessMessage", arg0, arg1)
 	ret0, _ := ret[0].(error)
@@ -264,10 +262,10 @@ func (m *MockTaskComparer) EXPECT() *MockTaskComparerMockRecorder {
 }
 
 // CompareRunningTasksOnInstanceWithManifest mocks base method.
-func (m *MockTaskComparer) CompareRunningTasksOnInstanceWithManifest(arg0 *acs.TaskManifestInput) ([]types.TaskIdentifier, error) {
+func (m *MockTaskComparer) CompareRunningTasksOnInstanceWithManifest(arg0 *ecsacs.TaskManifestMessage) ([]*ecsacs.TaskIdentifier, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "CompareRunningTasksOnInstanceWithManifest", arg0)
-	ret0, _ := ret[0].([]types.TaskIdentifier)
+	ret0, _ := ret[0].([]*ecsacs.TaskIdentifier)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }

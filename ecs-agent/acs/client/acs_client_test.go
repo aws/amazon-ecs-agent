@@ -30,11 +30,8 @@ import (
 	"github.com/aws/amazon-ecs-agent/ecs-agent/metrics"
 	"github.com/aws/amazon-ecs-agent/ecs-agent/wsclient"
 	mock_wsconn "github.com/aws/amazon-ecs-agent/ecs-agent/wsclient/wsconn/mock"
-
 	"github.com/aws/aws-sdk-go-v2/aws"
-	"github.com/aws/aws-sdk-go-v2/credentials"
-	"github.com/aws/aws-sdk-go-v2/service/acs"
-	acstypes "github.com/aws/aws-sdk-go-v2/service/acs/types"
+	"github.com/aws/aws-sdk-go/aws/credentials"
 	"github.com/golang/mock/gomock"
 	"github.com/gorilla/websocket"
 	"github.com/stretchr/testify/assert"
@@ -43,61 +40,61 @@ import (
 const (
 	sampleCredentialsMessage = `
 {
-  "type": "RefreshTaskIAMRoleCredentialsInput",
+  "type": "IAMRoleCredentialsMessage",
   "message": {
-    "MessageId": "123",
-    "ClusterArn": "default",
-    "TaskArn": "t1",
-    "RoleCredentials": {
-      "CredentialsId": "credsId",
-      "AccessKeyId": "accessKeyId",
-      "Expiration": "2016-03-25T06:17:19.318+0000",
-      "RoleArn": "roleArn",
-      "SecretAccessKey": "secretAccessKey",
-      "SessionToken": "token"
+    "messageId": "123",
+    "clusterArn": "default",
+    "taskArn": "t1",
+    "roleCredentials": {
+      "credentialsId": "credsId",
+      "accessKeyId": "accessKeyId",
+      "expiration": "2016-03-25T06:17:19.318+0000",
+      "roleArn": "roleArn",
+      "secretAccessKey": "secretAccessKey",
+      "sessionToken": "token"
     }
   }
 }
 `
 	sampleAttachENIMessage = `
 {
-  "type": "AttachTaskNetworkInterfacesInput",
+  "type": "AttachTaskNetworkInterfacesMessage",
   "message": {
-    "MessageId": "123",
-    "ClusterArn": "default",
-    "TaskArn": "task",
-    "ElasticNetworkInterfaces":[{
-      "AttachmentArn": "attach_arn",
-      "Ec2Id": "eni_id",
-      "Ipv4Addresses":[{
-        "Primary": true,
-        "PrivateAddress": "ipv4"
+    "messageId": "123",
+    "clusterArn": "default",
+    "taskArn": "task",
+    "elasticNetworkInterfaces":[{
+      "attachmentArn": "attach_arn",
+      "ec2Id": "eni_id",
+      "ipv4Addresses":[{
+        "primary": true,
+        "privateAddress": "ipv4"
       }],
-      "Ipv6Addresses":[{
-        "Address": "ipv6"
+      "ipv6Addresses":[{
+        "address": "ipv6"
       }],
-      "MacAddress": "mac"
+      "macAddress": "mac"
     }]
   }
 }
 `
 	sampleAttachInstanceENIMessage = `
 {
-  "type": "AttachInstanceNetworkInterfacesInput",
+  "type": "AttachInstanceNetworkInterfacesMessage",
   "message": {
-    "MessageId": "123",
-    "ClusterArn": "default",
-    "ElasticNetworkInterfaces":[{
-      "AttachmentArn": "attach_arn",
-      "Ec2Id": "eni_id",
-      "Ipv4Addresses":[{
-        "Primary": true,
-        "PrivateAddress": "ipv4"
+    "messageId": "123",
+    "clusterArn": "default",
+    "elasticNetworkInterfaces":[{
+      "attachmentArn": "attach_arn",
+      "ec2Id": "eni_id",
+      "ipv4Addresses":[{
+        "primary": true,
+        "privateAddress": "ipv4"
       }],
-      "Ipv6Addresses":[{
-        "Address": "ipv6"
+      "ipv6Addresses":[{
+        "address": "ipv6"
       }],
-      "MacAddress": "mac"
+      "macAddress": "mac"
     }]
   }
 }
@@ -110,7 +107,7 @@ const (
 	rwTimeout       = time.Second
 )
 
-var testCreds = credentials.NewStaticCredentialsProvider("test-id", "test-secret", "test-token")
+var testCreds = credentials.NewStaticCredentials("test-id", "test-secret", "test-token")
 
 var testCfg = &wsclient.WSClientMinAgentConfig{
 	AcceptInsecureCert: true,
@@ -171,7 +168,7 @@ func TestPayloadHandlerCalled(t *testing.T) {
 	// Messages should be read from the connection at least once
 	conn.EXPECT().SetReadDeadline(gomock.Any()).Return(nil).MinTimes(1)
 	conn.EXPECT().ReadMessage().Return(websocket.TextMessage,
-		[]byte(`{"type":"PayloadInput","message":{"Tasks":[{"Arn":"arn"}]}}`),
+		[]byte(`{"type":"PayloadMessage","message":{"tasks":[{"arn":"arn"}]}}`),
 		nil).MinTimes(1)
 	// Invoked when closing the connection
 	conn.EXPECT().SetWriteDeadline(gomock.Any()).Return(nil)
@@ -179,15 +176,15 @@ func TestPayloadHandlerCalled(t *testing.T) {
 	cs := testCS(conn)
 	defer cs.Close()
 
-	messageChannel := make(chan *acs.PayloadInput)
-	reqHandler := func(payload *acs.PayloadInput) {
+	messageChannel := make(chan *ecsacs.PayloadMessage)
+	reqHandler := func(payload *ecsacs.PayloadMessage) {
 		messageChannel <- payload
 	}
 	cs.AddRequestHandler(reqHandler)
 	go cs.Serve(context.Background())
 
-	expectedMessage := &acs.PayloadInput{
-		Tasks: []acstypes.Task{{
+	expectedMessage := &ecsacs.PayloadMessage{
+		Tasks: []*ecsacs.Task{{
 			Arn: aws.String("arn"),
 		}},
 	}
@@ -210,18 +207,18 @@ func TestRefreshCredentialsHandlerCalled(t *testing.T) {
 	cs := testCS(conn)
 	defer cs.Close()
 
-	messageChannel := make(chan *acs.RefreshTaskIAMRoleCredentialsInput)
-	reqHandler := func(message *acs.RefreshTaskIAMRoleCredentialsInput) {
+	messageChannel := make(chan *ecsacs.IAMRoleCredentialsMessage)
+	reqHandler := func(message *ecsacs.IAMRoleCredentialsMessage) {
 		messageChannel <- message
 	}
 	cs.AddRequestHandler(reqHandler)
 
 	go cs.Serve(context.Background())
 
-	expectedMessage := &acs.RefreshTaskIAMRoleCredentialsInput{
+	expectedMessage := &ecsacs.IAMRoleCredentialsMessage{
 		MessageId: aws.String("123"),
 		TaskArn:   aws.String("t1"),
-		RoleCredentials: &acstypes.IAMRoleCredentials{
+		RoleCredentials: &ecsacs.IAMRoleCredentials{
 			CredentialsId:   aws.String("credsId"),
 			AccessKeyId:     aws.String("accessKeyId"),
 			Expiration:      aws.String("2016-03-25T06:17:19.318+0000"),
@@ -267,7 +264,7 @@ func TestConnect(t *testing.T) {
 		t.Fatal(<-serverErr)
 	}()
 
-	cs := testACSClientFactory.New(server.URL, aws.NewCredentialsCache(testCreds), rwTimeout, testCfg, metrics.NewNopEntryFactory())
+	cs := testACSClientFactory.New(server.URL, testCreds, rwTimeout, testCfg, metrics.NewNopEntryFactory())
 	// Wait for up to a second for the mock server to launch
 	for i := 0; i < 100; i++ {
 		_, err = cs.Connect(metrics.ACSDisconnectTimeoutMetricName, wsclient.DisconnectTimeout, wsclient.DisconnectJitterMax)
@@ -281,9 +278,9 @@ func TestConnect(t *testing.T) {
 	}
 
 	errs := make(chan error)
-	cs.AddRequestHandler(func(msg *acs.PayloadInput) {
+	cs.AddRequestHandler(func(msg *ecsacs.PayloadMessage) {
 		if *msg.MessageId != "messageId" || len(msg.Tasks) != 1 || *msg.Tasks[0].Arn != "arn1" {
-			errs <- errors.New("incorrect payloadInput arguments")
+			errs <- errors.New("incorrect payloadMessage arguments")
 		} else {
 			errs <- nil
 		}
@@ -294,9 +291,9 @@ func TestConnect(t *testing.T) {
 	}()
 
 	go func() {
-		serverChan <- `{"type":"PayloadInput","message":{"Tasks":[{"Arn":"arn1","DesiredStatus":"RUNNING","Overrides":"{}","Family":"test","Version":"v1","Containers":[{"Name":"c1","Image":"redis","Command":["arg1","arg2"],"Cpu":10,"Memory":20,"Links":["db"],"PortMappings":[{"ContainerPort":22,"HostPort":22}],"Essential":true,"EntryPoint":["bash"],"Environment":{"Key":"val"},"Overrides":"{}","DesiredStatus":"RUNNING"}]}],"MessageId":"messageId"}}` + "\n"
+		serverChan <- `{"type":"PayloadMessage","message":{"tasks":[{"arn":"arn1","desiredStatus":"RUNNING","overrides":"{}","family":"test","version":"v1","containers":[{"name":"c1","image":"redis","command":["arg1","arg2"],"cpu":10,"memory":20,"links":["db"],"portMappings":[{"containerPort":22,"hostPort":22}],"essential":true,"entryPoint":["bash"],"environment":{"key":"val"},"overrides":"{}","desiredStatus":"RUNNING"}]}],"messageId":"messageId"}}` + "\n"
 	}()
-	// Error for handling a 'PayloadInput' request
+	// Error for handling a 'PayloadMessage' request
 	err = <-errs
 	if err != nil {
 		t.Fatal(err)
@@ -338,7 +335,7 @@ func TestConnectClientError(t *testing.T) {
 	}))
 	defer testServer.Close()
 
-	cs := testACSClientFactory.New(testServer.URL, aws.NewCredentialsCache(testCreds), rwTimeout, testCfg, metrics.NewNopEntryFactory())
+	cs := testACSClientFactory.New(testServer.URL, testCreds, rwTimeout, testCfg, metrics.NewNopEntryFactory())
 	_, err := cs.Connect(metrics.ACSDisconnectTimeoutMetricName, wsclient.DisconnectTimeout, wsclient.DisconnectJitterMax)
 	_, ok := err.(*wsclient.WSError)
 	assert.True(t, ok, "Connect error expected to be a WSError type")
@@ -346,7 +343,7 @@ func TestConnectClientError(t *testing.T) {
 }
 
 func testCS(conn *mock_wsconn.MockWebsocketConn) wsclient.ClientServer {
-	foo := testACSClientFactory.New("localhost:443", aws.NewCredentialsCache(testCreds), rwTimeout, testCfg, metrics.NewNopEntryFactory())
+	foo := testACSClientFactory.New("localhost:443", testCreds, rwTimeout, testCfg, metrics.NewNopEntryFactory())
 	cs := foo.(*clientServer)
 	cs.SetConnection(conn)
 	return cs
@@ -404,8 +401,8 @@ func TestAttachENIHandlerCalled(t *testing.T) {
 	conn.EXPECT().SetWriteDeadline(gomock.Any()).Return(nil)
 	conn.EXPECT().Close()
 
-	messageChannel := make(chan *acs.AttachTaskNetworkInterfacesInput)
-	reqHandler := func(message *acs.AttachTaskNetworkInterfacesInput) {
+	messageChannel := make(chan *ecsacs.AttachTaskNetworkInterfacesMessage)
+	reqHandler := func(message *ecsacs.AttachTaskNetworkInterfacesMessage) {
 		messageChannel <- message
 	}
 
@@ -413,20 +410,20 @@ func TestAttachENIHandlerCalled(t *testing.T) {
 
 	go cs.Serve(context.Background())
 
-	expectedMessage := &acs.AttachTaskNetworkInterfacesInput{
+	expectedMessage := &ecsacs.AttachTaskNetworkInterfacesMessage{
 		MessageId:  aws.String("123"),
 		ClusterArn: aws.String("default"),
 		TaskArn:    aws.String("task"),
-		ElasticNetworkInterfaces: []acstypes.ElasticNetworkInterface{
+		ElasticNetworkInterfaces: []*ecsacs.ElasticNetworkInterface{
 			{AttachmentArn: aws.String("attach_arn"),
 				Ec2Id: aws.String("eni_id"),
-				Ipv4Addresses: []acstypes.IPv4AddressAssignment{
+				Ipv4Addresses: []*ecsacs.IPv4AddressAssignment{
 					{
 						Primary:        aws.Bool(true),
 						PrivateAddress: aws.String("ipv4"),
 					},
 				},
-				Ipv6Addresses: []acstypes.IPv6AddressAssignment{
+				Ipv6Addresses: []*ecsacs.IPv6AddressAssignment{
 					{
 						Address: aws.String("ipv6"),
 					},
@@ -455,8 +452,8 @@ func TestAttachInstanceENIHandlerCalled(t *testing.T) {
 	conn.EXPECT().SetWriteDeadline(gomock.Any()).Return(nil)
 	conn.EXPECT().Close()
 
-	messageChannel := make(chan *acs.AttachInstanceNetworkInterfacesInput)
-	reqHandler := func(message *acs.AttachInstanceNetworkInterfacesInput) {
+	messageChannel := make(chan *ecsacs.AttachInstanceNetworkInterfacesMessage)
+	reqHandler := func(message *ecsacs.AttachInstanceNetworkInterfacesMessage) {
 		messageChannel <- message
 	}
 
@@ -464,19 +461,19 @@ func TestAttachInstanceENIHandlerCalled(t *testing.T) {
 
 	go cs.Serve(context.Background())
 
-	expectedMessage := &acs.AttachInstanceNetworkInterfacesInput{
+	expectedMessage := &ecsacs.AttachInstanceNetworkInterfacesMessage{
 		MessageId:  aws.String("123"),
 		ClusterArn: aws.String("default"),
-		ElasticNetworkInterfaces: []acstypes.ElasticNetworkInterface{
+		ElasticNetworkInterfaces: []*ecsacs.ElasticNetworkInterface{
 			{AttachmentArn: aws.String("attach_arn"),
 				Ec2Id: aws.String("eni_id"),
-				Ipv4Addresses: []acstypes.IPv4AddressAssignment{
+				Ipv4Addresses: []*ecsacs.IPv4AddressAssignment{
 					{
 						Primary:        aws.Bool(true),
 						PrivateAddress: aws.String("ipv4"),
 					},
 				},
-				Ipv6Addresses: []acstypes.IPv6AddressAssignment{
+				Ipv6Addresses: []*ecsacs.IPv6AddressAssignment{
 					{
 						Address: aws.String("ipv6"),
 					},

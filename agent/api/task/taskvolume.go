@@ -38,8 +38,8 @@ const (
 // TaskVolume is a definition of all the volumes available for containers to
 // reference within a task. It must be named.
 type TaskVolume struct {
-	Type   string `json:"Type"`
-	Name   string `json:"Name"`
+	Type   string `json:"type"`
+	Name   string `json:"name"`
 	Volume taskresourcevolume.Volume
 }
 
@@ -51,7 +51,7 @@ func (tv *TaskVolume) UnmarshalJSON(b []byte) error {
 	if err := json.Unmarshal(b, &intermediate); err != nil {
 		return err
 	}
-	name, ok := intermediate["Name"]
+	name, ok := intermediate["name"]
 	if !ok {
 		return errors.New("invalid Volume; must include a name")
 	}
@@ -59,7 +59,7 @@ func (tv *TaskVolume) UnmarshalJSON(b []byte) error {
 		return err
 	}
 
-	volumeType, ok := intermediate["Type"]
+	volumeType, ok := intermediate["type"]
 	if !ok {
 		volumeType = []byte(`"host"`)
 		seelog.Infof("Unmarshal task volume: volume type not specified, default to host")
@@ -70,15 +70,15 @@ func (tv *TaskVolume) UnmarshalJSON(b []byte) error {
 
 	switch tv.Type {
 	case HostVolumeType:
-		return tv.unmarshalHostVolume(intermediate["Host"])
+		return tv.unmarshalHostVolume(intermediate["host"])
 	case DockerVolumeType:
-		return tv.unmarshalDockerVolume(intermediate["DockerVolumeConfiguration"])
+		return tv.unmarshalDockerVolume(intermediate["dockerVolumeConfiguration"])
 	case EFSVolumeType:
-		return tv.unmarshalEFSVolume(intermediate["EfsVolumeConfiguration"])
+		return tv.unmarshalEFSVolume(intermediate["efsVolumeConfiguration"])
 	case FSxWindowsFileServerVolumeType:
-		return tv.unmarshalFSxWindowsFileServerVolume(intermediate["FsxWindowsFileServerVolumeConfiguration"])
+		return tv.unmarshalFSxWindowsFileServerVolume(intermediate["fsxWindowsFileServerVolumeConfiguration"])
 	case apiresource.EBSTaskAttach:
-		return tv.unmarshalEBSVolume(intermediate["EbsVolumeConfiguration"])
+		return tv.unmarshalEBSVolume(intermediate["ebsVolumeConfiguration"])
 	case AttachmentType:
 		seelog.Warn("Obtaining the volume configuration from task attachments.")
 		return nil
@@ -95,20 +95,20 @@ func (tv *TaskVolume) MarshalJSON() ([]byte, error) {
 		tv.Type = HostVolumeType
 	}
 
-	result["Name"] = tv.Name
-	result["Type"] = tv.Type
+	result["name"] = tv.Name
+	result["type"] = tv.Type
 
 	switch tv.Type {
 	case DockerVolumeType:
-		result["DockerVolumeConfiguration"] = tv.Volume
+		result["dockerVolumeConfiguration"] = tv.Volume
 	case HostVolumeType:
-		result["Host"] = tv.Volume
+		result["host"] = tv.Volume
 	case EFSVolumeType:
-		result["EfsVolumeConfiguration"] = tv.Volume
+		result["efsVolumeConfiguration"] = tv.Volume
 	case FSxWindowsFileServerVolumeType:
-		result["FsxWindowsFileServerVolumeConfiguration"] = tv.Volume
+		result["fsxWindowsFileServerVolumeConfiguration"] = tv.Volume
 	case apiresource.EBSTaskAttach:
-		result["EbsVolumeConfiguration"] = tv.Volume
+		result["ebsVolumeConfiguration"] = tv.Volume
 	default:
 		return nil, errors.Errorf("unrecognized volume type: %q", tv.Type)
 	}

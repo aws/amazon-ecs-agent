@@ -47,6 +47,7 @@ import (
 	resourcestatus "github.com/aws/amazon-ecs-agent/agent/taskresource/status"
 	taskresourcevolume "github.com/aws/amazon-ecs-agent/agent/taskresource/volume"
 	"github.com/aws/amazon-ecs-agent/agent/utils"
+	"github.com/aws/amazon-ecs-agent/ecs-agent/acs/model/ecsacs"
 	apiresource "github.com/aws/amazon-ecs-agent/ecs-agent/api/attachment/resource"
 	"github.com/aws/amazon-ecs-agent/ecs-agent/api/container/restart"
 	apicontainerstatus "github.com/aws/amazon-ecs-agent/ecs-agent/api/container/status"
@@ -57,8 +58,6 @@ import (
 	commonutils "github.com/aws/amazon-ecs-agent/ecs-agent/utils"
 
 	"github.com/aws/aws-sdk-go-v2/aws"
-	"github.com/aws/aws-sdk-go-v2/service/acs"
-	acstypes "github.com/aws/aws-sdk-go-v2/service/acs/types"
 	"github.com/aws/aws-sdk-go-v2/service/ecs/types"
 	"github.com/aws/aws-sdk-go/service/secretsmanager"
 	dockercontainer "github.com/docker/docker/api/types/container"
@@ -1180,15 +1179,15 @@ func TestPostUnmarshalTaskWithDockerVolumes(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	dockerClient := mock_dockerapi.NewMockDockerClient(ctrl)
 	dockerClient.EXPECT().InspectVolume(gomock.Any(), gomock.Any(), gomock.Any()).Return(dockerapi.SDKVolumeResponse{DockerVolume: &volume.Volume{}})
-	taskFromACS := acstypes.Task{
+	taskFromACS := ecsacs.Task{
 		Arn:           strptr("myArn"),
 		DesiredStatus: strptr("RUNNING"),
 		Family:        strptr("myFamily"),
 		Version:       strptr("1"),
-		Containers: []acstypes.Container{
+		Containers: []*ecsacs.Container{
 			{
 				Name: strptr("myName1"),
-				MountPoints: []acstypes.MountPoint{
+				MountPoints: []*ecsacs.MountPoint{
 					{
 						ContainerPath: strptr("/some/path"),
 						SourceVolume:  strptr("dockervolume"),
@@ -1196,22 +1195,22 @@ func TestPostUnmarshalTaskWithDockerVolumes(t *testing.T) {
 				},
 			},
 		},
-		Volumes: []acstypes.Volume{
+		Volumes: []*ecsacs.Volume{
 			{
 				Name: strptr("dockervolume"),
-				Type: "docker",
-				DockerVolumeConfiguration: &acstypes.DockerVolumeConfiguration{
+				Type: strptr("docker"),
+				DockerVolumeConfiguration: &ecsacs.DockerVolumeConfiguration{
 					Autoprovision: &autoprovision,
-					Scope:         "shared",
+					Scope:         strptr("shared"),
 					Driver:        strptr("local"),
-					DriverOpts:    make(map[string]string),
+					DriverOpts:    make(map[string]*string),
 					Labels:        nil,
 				},
 			},
 		},
 	}
-	seqNum := int32(42)
-	task, err := TaskFromACS(&taskFromACS, &acs.PayloadInput{SeqNum: &seqNum})
+	seqNum := int64(42)
+	task, err := TaskFromACS(&taskFromACS, &ecsacs.PayloadMessage{SeqNum: &seqNum})
 	assert.Nil(t, err, "Should be able to handle acs task")
 	assert.Equal(t, 1, len(task.Containers)) // before PostUnmarshalTask
 	cfg := config.Config{}
@@ -1227,7 +1226,7 @@ func TestPostUnmarshalTaskWithDockerVolumes(t *testing.T) {
 // task definitions into a dockerVolumeConfiguration task resource.
 func TestPostUnmarshalTaskWithEFSVolumes(t *testing.T) {
 	taskFromACS := getACSEFSTask()
-	seqNum := int32(42)
+	seqNum := int64(42)
 
 	testCases := map[string]string{
 		"us-west-2":     "fs-12345.efs.us-west-2.amazonaws.com",
@@ -1237,7 +1236,7 @@ func TestPostUnmarshalTaskWithEFSVolumes(t *testing.T) {
 	}
 	for region, expectedHostname := range testCases {
 		t.Run(region, func(t *testing.T) {
-			task, err := TaskFromACS(taskFromACS, &acs.PayloadInput{SeqNum: &seqNum})
+			task, err := TaskFromACS(taskFromACS, &ecsacs.PayloadMessage{SeqNum: &seqNum})
 			assert.Nil(t, err, "Should be able to handle acs task")
 			assert.Equal(t, 1, len(task.Containers)) // before PostUnmarshalTask
 			cfg := config.Config{}
@@ -1293,9 +1292,9 @@ func TestPostUnmarshalTaskWithEFSVolumesThatUseECSVolumePlugin(t *testing.T) {
 
 	taskFromACS := getACSEFSTask()
 	taskFromACS.RoleCredentials = testCreds
-	seqNum := int32(42)
-	task, err := TaskFromACS(taskFromACS, &acs.PayloadInput{SeqNum: &seqNum})
-	assert.Nil(t, err, "Should be able to haåååndle acs task")
+	seqNum := int64(42)
+	task, err := TaskFromACS(taskFromACS, &ecsacs.PayloadMessage{SeqNum: &seqNum})
+	assert.Nil(t, err, "Should be able to handle acs task")
 	assert.Equal(t, 1, len(task.Containers))
 	task.SetCredentialsID(aws.ToString(testCreds.CredentialsId))
 
@@ -1406,15 +1405,15 @@ func TestInitializeContainersV1AgentAPIEndpoint(t *testing.T) {
 
 func TestPostUnmarshalTaskWithLocalVolumes(t *testing.T) {
 	// Constants used here are defined in task_unix_test.go and task_windows_test.go
-	taskFromACS := acstypes.Task{
+	taskFromACS := ecsacs.Task{
 		Arn:           strptr("myArn"),
 		DesiredStatus: strptr("RUNNING"),
 		Family:        strptr("myFamily"),
 		Version:       strptr("1"),
-		Containers: []acstypes.Container{
+		Containers: []*ecsacs.Container{
 			{
 				Name: strptr("myName1"),
-				MountPoints: []acstypes.MountPoint{
+				MountPoints: []*ecsacs.MountPoint{
 					{
 						ContainerPath: strptr("/path1/"),
 						SourceVolume:  strptr("localvol1"),
@@ -1423,7 +1422,7 @@ func TestPostUnmarshalTaskWithLocalVolumes(t *testing.T) {
 			},
 			{
 				Name: strptr("myName2"),
-				MountPoints: []acstypes.MountPoint{
+				MountPoints: []*ecsacs.MountPoint{
 					{
 						ContainerPath: strptr("/path2/"),
 						SourceVolume:  strptr("localvol2"),
@@ -1431,21 +1430,21 @@ func TestPostUnmarshalTaskWithLocalVolumes(t *testing.T) {
 				},
 			},
 		},
-		Volumes: []acstypes.Volume{
+		Volumes: []*ecsacs.Volume{
 			{
 				Name: strptr("localvol1"),
-				Type: "host",
-				Host: &acstypes.HostVolumeProperties{},
+				Type: strptr("host"),
+				Host: &ecsacs.HostVolumeProperties{},
 			},
 			{
 				Name: strptr("localvol2"),
-				Type: "host",
-				Host: &acstypes.HostVolumeProperties{},
+				Type: strptr("host"),
+				Host: &ecsacs.HostVolumeProperties{},
 			},
 		},
 	}
-	seqNum := int32(42)
-	task, err := TaskFromACS(&taskFromACS, &acs.PayloadInput{SeqNum: &seqNum})
+	seqNum := int64(42)
+	task, err := TaskFromACS(&taskFromACS, &ecsacs.PayloadMessage{SeqNum: &seqNum})
 	assert.Nil(t, err, "Should be able to handle acs task")
 	assert.Equal(t, 2, len(task.Containers)) // before PostUnmarshalTask
 	cfg := config.Config{}
@@ -1508,14 +1507,14 @@ func TestGetPIDAndIPCFromTask(t *testing.T) {
 // Tests if NamespacePauseContainer was provisioned in PostUnmarshalTask
 func TestPostUnmarshalTaskWithPIDSharing(t *testing.T) {
 	for _, aTest := range namespaceTests {
-		testTaskFromACS := acstypes.Task{
+		testTaskFromACS := ecsacs.Task{
 			Arn:           strptr("myArn"),
 			DesiredStatus: strptr("RUNNING"),
 			Family:        strptr("myFamily"),
 			PidMode:       strptr(aTest.PIDMode),
 			IpcMode:       strptr(aTest.IPCMode),
 			Version:       strptr("1"),
-			Containers: []acstypes.Container{
+			Containers: []*ecsacs.Container{
 				{
 					Name: strptr("container1"),
 				},
@@ -1525,8 +1524,8 @@ func TestPostUnmarshalTaskWithPIDSharing(t *testing.T) {
 			},
 		}
 
-		seqNum := int32(42)
-		task, err := TaskFromACS(&testTaskFromACS, &acs.PayloadInput{SeqNum: &seqNum})
+		seqNum := int64(42)
+		task, err := TaskFromACS(&testTaskFromACS, &ecsacs.PayloadMessage{SeqNum: &seqNum})
 		assert.NoError(t, err, "Should be able to handle acs task")
 		assert.Equal(t, aTest.PIDMode, task.getPIDMode())
 		assert.Equal(t, aTest.IPCMode, task.getIPCMode())
@@ -1544,14 +1543,14 @@ func TestPostUnmarshalTaskWithPIDSharing(t *testing.T) {
 
 func TestNamespaceProvisionDependencyAndHostConfig(t *testing.T) {
 	for _, aTest := range namespaceTests {
-		taskFromACS := acstypes.Task{
+		taskFromACS := ecsacs.Task{
 			Arn:           strptr("myArn"),
 			DesiredStatus: strptr("RUNNING"),
 			Family:        strptr("myFamily"),
 			PidMode:       strptr(aTest.PIDMode),
 			IpcMode:       strptr(aTest.IPCMode),
 			Version:       strptr("1"),
-			Containers: []acstypes.Container{
+			Containers: []*ecsacs.Container{
 				{
 					Name: strptr("container1"),
 				},
@@ -1560,8 +1559,8 @@ func TestNamespaceProvisionDependencyAndHostConfig(t *testing.T) {
 				},
 			},
 		}
-		seqNum := int32(42)
-		task, err := TaskFromACS(&taskFromACS, &acs.PayloadInput{SeqNum: &seqNum})
+		seqNum := int64(42)
+		task, err := TaskFromACS(&taskFromACS, &ecsacs.PayloadMessage{SeqNum: &seqNum})
 		assert.Nil(t, err, "Should be able to handle acs task")
 		assert.Equal(t, aTest.PIDMode, task.getPIDMode())
 		assert.Equal(t, aTest.IPCMode, task.getIPCMode())
@@ -1688,107 +1687,116 @@ func TestAddNamespaceSharingProvisioningDependency(t *testing.T) {
 }
 
 func TestTaskFromACS(t *testing.T) {
+	intptr := func(i int64) *int64 {
+		return &i
+	}
+	boolptr := func(b bool) *bool {
+		return &b
+	}
+	floatptr := func(f float64) *float64 {
+		return &f
+	}
 	// Testing type conversions, bleh. At least the type conversion itself
 	// doesn't look this messy.
-	taskFromAcs := acstypes.Task{
+	taskFromAcs := ecsacs.Task{
 		Arn:           strptr("myArn"),
 		DesiredStatus: strptr("RUNNING"),
 		Family:        strptr("myFamily"),
 		Version:       strptr("1"),
 		ServiceName:   strptr("myService"),
-		Containers: []acstypes.Container{
+		Containers: []*ecsacs.Container{
 			{
 				Name:        strptr("myName"),
-				Cpu:         aws.Int32(10),
-				Command:     []string{"command", "command2"},
-				EntryPoint:  []string{"sh", "-c"},
-				Environment: map[string]string{"key": "value"},
-				Essential:   aws.Bool(true),
+				Cpu:         intptr(10),
+				Command:     []*string{strptr("command"), strptr("command2")},
+				EntryPoint:  []*string{strptr("sh"), strptr("-c")},
+				Environment: map[string]*string{"key": strptr("value")},
+				Essential:   boolptr(true),
 				Image:       strptr("image:tag"),
-				Links:       []string{"link1", "link2"},
-				Memory:      aws.Int32(100),
-				MountPoints: []acstypes.MountPoint{
+				Links:       []*string{strptr("link1"), strptr("link2")},
+				Memory:      intptr(100),
+				MountPoints: []*ecsacs.MountPoint{
 					{
 						ContainerPath: strptr("/container/path"),
-						ReadOnly:      aws.Bool(true),
+						ReadOnly:      boolptr(true),
 						SourceVolume:  strptr("sourceVolume"),
 					},
 				},
 				Overrides: strptr(`{"command":["a","b","c"]}`),
-				PortMappings: []acstypes.PortMapping{
+				PortMappings: []*ecsacs.PortMapping{
 					{
-						HostPort:      aws.Int32(800),
-						ContainerPort: aws.Int32(900),
-						Protocol:      "udp",
+						HostPort:      intptr(800),
+						ContainerPort: intptr(900),
+						Protocol:      strptr("udp"),
 					},
 					{
 						ContainerPortRange: strptr("99-199"),
-						Protocol:           "tcp",
+						Protocol:           strptr("tcp"),
 					},
 				},
-				VolumesFrom: []acstypes.VolumeFrom{
+				VolumesFrom: []*ecsacs.VolumeFrom{
 					{
-						ReadOnly:        aws.Bool(true),
+						ReadOnly:        boolptr(true),
 						SourceContainer: strptr("volumeLink"),
 					},
 				},
-				DockerConfig: &acstypes.DockerConfig{
+				DockerConfig: &ecsacs.DockerConfig{
 					Config:     strptr("config json"),
 					HostConfig: strptr("hostconfig json"),
 					Version:    strptr("version string"),
 				},
-				Secrets: []acstypes.Secret{
+				Secrets: []*ecsacs.Secret{
 					{
 						Name:      strptr("secret"),
 						ValueFrom: strptr("/test/secret"),
-						Provider:  "ssm",
+						Provider:  strptr("ssm"),
 						Region:    strptr("us-west-2"),
 					},
 				},
-				EnvironmentFiles: []acstypes.EnvironmentFile{
+				EnvironmentFiles: []*ecsacs.EnvironmentFile{
 					{
 						Value: strptr("s3://bucketName/envFile"),
-						Type:  "s3",
+						Type:  strptr("s3"),
 					},
 				},
 			},
 		},
-		Volumes: []acstypes.Volume{
+		Volumes: []*ecsacs.Volume{
 			{
 				Name: strptr("volName"),
-				Type: "host",
-				Host: &acstypes.HostVolumeProperties{
+				Type: strptr("host"),
+				Host: &ecsacs.HostVolumeProperties{
 					SourcePath: strptr("/host/path"),
 				},
 			},
 		},
-		Associations: []acstypes.Association{
+		Associations: []*ecsacs.Association{
 			{
-				Containers: []string{
-					"myName",
+				Containers: []*string{
+					strptr("myName"),
 				},
-				Content: &acstypes.EncodedString{
-					Encoding: "base64",
+				Content: &ecsacs.EncodedString{
+					Encoding: strptr("base64"),
 					Value:    strptr("val"),
 				},
 				Name: strptr("gpu1"),
-				Type: "gpu",
+				Type: strptr("gpu"),
 			},
 			{
-				Containers: []string{
-					"myName",
+				Containers: []*string{
+					strptr("myName"),
 				},
-				Content: &acstypes.EncodedString{
-					Encoding: "base64",
+				Content: &ecsacs.EncodedString{
+					Encoding: strptr("base64"),
 					Value:    strptr("val"),
 				},
 				Name: strptr("dev1"),
-				Type: "elastic-inference",
+				Type: strptr("elastic-inference"),
 			},
 		},
 		RoleCredentials: getACSIAMRoleCredentials(),
-		Cpu:             aws.Float64(2.0),
-		Memory:          aws.Int32(512),
+		Cpu:             floatptr(2.0),
+		Memory:          intptr(512),
 	}
 	expectedTask := &Task{
 		Arn:                 "myArn",
@@ -1895,8 +1903,8 @@ func TestTaskFromACS(t *testing.T) {
 		ResourcesMapUnsafe: make(map[string][]taskresource.TaskResource),
 	}
 
-	seqNum := int32(42)
-	task, err := TaskFromACS(&taskFromAcs, &acs.PayloadInput{SeqNum: &seqNum})
+	seqNum := int64(42)
+	task, err := TaskFromACS(&taskFromAcs, &ecsacs.PayloadMessage{SeqNum: &seqNum})
 
 	assert.NoError(t, err)
 	assert.EqualValues(t, expectedTask, task)
@@ -2206,15 +2214,15 @@ func TestTaskGetPrimaryENI(t *testing.T) {
 
 // TestTaskFromACSWithOverrides tests the container command is overridden correctly
 func TestTaskFromACSWithOverrides(t *testing.T) {
-	taskFromACS := acstypes.Task{
+	taskFromACS := ecsacs.Task{
 		Arn:           strptr("myArn"),
 		DesiredStatus: strptr("RUNNING"),
 		Family:        strptr("myFamily"),
 		Version:       strptr("1"),
-		Containers: []acstypes.Container{
+		Containers: []*ecsacs.Container{
 			{
 				Name: strptr("myName1"),
-				MountPoints: []acstypes.MountPoint{
+				MountPoints: []*ecsacs.MountPoint{
 					{
 						ContainerPath: strptr("volumeContainerPath1"),
 						SourceVolume:  strptr("volumeName1"),
@@ -2224,8 +2232,8 @@ func TestTaskFromACSWithOverrides(t *testing.T) {
 			},
 			{
 				Name:    strptr("myName2"),
-				Command: []string{"command"},
-				MountPoints: []acstypes.MountPoint{
+				Command: []*string{strptr("command")},
+				MountPoints: []*ecsacs.MountPoint{
 					{
 						ContainerPath: strptr("volumeContainerPath2"),
 						SourceVolume:  strptr("volumeName2"),
@@ -2235,8 +2243,8 @@ func TestTaskFromACSWithOverrides(t *testing.T) {
 		},
 	}
 
-	seqNum := int32(42)
-	task, err := TaskFromACS(&taskFromACS, &acs.PayloadInput{SeqNum: &seqNum})
+	seqNum := int64(42)
+	task, err := TaskFromACS(&taskFromACS, &ecsacs.PayloadMessage{SeqNum: &seqNum})
 	assert.Nil(t, err, "Should be able to handle acs task")
 	assert.Equal(t, 2, len(task.Containers)) // before PostUnmarshalTask
 
@@ -3808,19 +3816,19 @@ func TestInitializeContainerOrderingWithError(t *testing.T) {
 }
 
 func TestTaskFromACSPerContainerTimeouts(t *testing.T) {
-	modelTimeout := int32(10)
+	modelTimeout := int64(10)
 	expectedTimeout := uint(modelTimeout)
 
-	taskFromACS := acstypes.Task{
-		Containers: []acstypes.Container{
+	taskFromACS := ecsacs.Task{
+		Containers: []*ecsacs.Container{
 			{
-				StartTimeout: aws.Int32(modelTimeout),
-				StopTimeout:  aws.Int32(modelTimeout),
+				StartTimeout: aws.Int64(modelTimeout),
+				StopTimeout:  aws.Int64(modelTimeout),
 			},
 		},
 	}
-	seqNum := int32(42)
-	task, err := TaskFromACS(&taskFromACS, &acs.PayloadInput{SeqNum: &seqNum})
+	seqNum := int64(42)
+	task, err := TaskFromACS(&taskFromACS, &ecsacs.PayloadMessage{SeqNum: &seqNum})
 	assert.Nil(t, err, "Should be able to handle acs task")
 
 	assert.Equal(t, task.Containers[0].StartTimeout, expectedTimeout)
@@ -3830,9 +3838,9 @@ func TestTaskFromACSPerContainerTimeouts(t *testing.T) {
 // Tests that ACS Task to Task translation does not fail when ServiceName is missing.
 // Asserts that Task.ServiceName is empty in such a case.
 func TestTaskFromACSServiceNameMissing(t *testing.T) {
-	taskFromACS := acstypes.Task{} // No service name
-	seqNum := int32(42)
-	task, err := TaskFromACS(&taskFromACS, &acs.PayloadInput{SeqNum: &seqNum})
+	taskFromACS := ecsacs.Task{} // No service name
+	seqNum := int64(42)
+	task, err := TaskFromACS(&taskFromACS, &ecsacs.PayloadMessage{SeqNum: &seqNum})
 	assert.Nil(t, err, "Should be able to handle acs task")
 	assert.Equal(t, task.ServiceName, "")
 }
@@ -4079,14 +4087,14 @@ func getTestENI() *ni.NetworkInterface {
 }
 
 func TestPostUnmarshalTaskWithOptions(t *testing.T) {
-	taskFromACS := acstypes.Task{
+	taskFromACS := ecsacs.Task{
 		Arn:           strptr("myArn"),
 		DesiredStatus: strptr("RUNNING"),
 		Family:        strptr("myFamily"),
 		Version:       strptr("1"),
 	}
-	seqNum := int32(42)
-	task, err := TaskFromACS(&taskFromACS, &acs.PayloadInput{SeqNum: &seqNum})
+	seqNum := int64(42)
+	task, err := TaskFromACS(&taskFromACS, &ecsacs.PayloadMessage{SeqNum: &seqNum})
 	assert.Nil(t, err, "Should be able to handle acs task")
 	numCalls := 0
 	opt := func(optTask *Task) error {
@@ -4191,19 +4199,19 @@ func TestPostUnmarshalTaskWithServiceConnectAWSVPCMode(t *testing.T) {
 		utilizedPort3: {},
 	}
 
-	taskFromACS := acstypes.Task{
+	taskFromACS := ecsacs.Task{
 		Arn:           strptr("myArn"),
 		DesiredStatus: strptr("RUNNING"),
 		Family:        strptr("myFamily"),
 		Version:       strptr("1"),
-		Containers: []acstypes.Container{
+		Containers: []*ecsacs.Container{
 			containerFromACS("C1", utilizedPort1, 0, AWSVPCNetworkMode),
 			containerFromACS("C2", utilizedPort2, 0, AWSVPCNetworkMode),
 			containerFromACS(serviceConnectContainerTestName, 0, 0, AWSVPCNetworkMode),
 		},
 	}
-	seqNum := int32(42)
-	task, err := TaskFromACS(&taskFromACS, &acs.PayloadInput{SeqNum: &seqNum})
+	seqNum := int64(42)
+	task, err := TaskFromACS(&taskFromACS, &ecsacs.PayloadMessage{SeqNum: &seqNum})
 	testSCConfig := serviceconnect.Config{
 		ContainerName: serviceConnectContainerTestName,
 		IngressConfig: []serviceconnect.IngressConfigEntry{
@@ -4261,19 +4269,19 @@ func TestPostUnmarshalTaskWithServiceConnectBridgeMode(t *testing.T) {
 		listenerPort2: {},
 		listenerPort3: {},
 	}
-	taskFromACS := acstypes.Task{
+	taskFromACS := ecsacs.Task{
 		Arn:           strptr("myArn"),
 		DesiredStatus: strptr("RUNNING"),
 		Family:        strptr("myFamily"),
 		Version:       strptr("1"),
-		Containers: []acstypes.Container{
+		Containers: []*ecsacs.Container{
 			containerFromACS("C1", utilizedPort1, 0, BridgeNetworkMode),
 			containerFromACS("C2", utilizedPort2, 0, BridgeNetworkMode),
 			containerFromACS(serviceConnectContainerTestName, 0, 0, BridgeNetworkMode),
 		},
 	}
-	seqNum := int32(42)
-	task, err := TaskFromACS(&taskFromACS, &acs.PayloadInput{SeqNum: &seqNum})
+	seqNum := int64(42)
+	task, err := TaskFromACS(&taskFromACS, &ecsacs.PayloadMessage{SeqNum: &seqNum})
 	testSCConfig := serviceconnect.Config{
 		ContainerName: serviceConnectContainerTestName,
 		IngressConfig: []serviceconnect.IngressConfigEntry{
@@ -4306,28 +4314,28 @@ func TestPostUnmarshalTaskWithServiceConnectBridgeMode(t *testing.T) {
 	validateServiceConnectBridgeModePauseContainer(t, task)
 }
 
-func containerFromACS(name string, containerPort int32, hostPort int32, networkMode string) acstypes.Container {
-	var portMapping *acstypes.PortMapping
+func containerFromACS(name string, containerPort int64, hostPort int64, networkMode string) *ecsacs.Container {
+	var portMapping *ecsacs.PortMapping
 	if containerPort != 0 || hostPort != 0 {
-		portMapping = &acstypes.PortMapping{}
+		portMapping = &ecsacs.PortMapping{}
 		if containerPort != 0 {
-			portMapping.ContainerPort = aws.Int32(containerPort)
+			portMapping.ContainerPort = aws.Int64(containerPort)
 		}
 		if hostPort != 0 {
-			portMapping.HostPort = aws.Int32(hostPort)
+			portMapping.HostPort = aws.Int64(hostPort)
 		}
 	}
 
-	container := acstypes.Container{
+	container := &ecsacs.Container{
 		Name: aws.String(name),
-		DockerConfig: &acstypes.DockerConfig{
+		DockerConfig: &ecsacs.DockerConfig{
 			HostConfig: aws.String(fmt.Sprintf(
 				`{"NetworkMode":"%s"}`, networkMode)),
 		},
 	}
 	if portMapping != nil {
-		container.PortMappings = []acstypes.PortMapping{
-			*portMapping,
+		container.PortMappings = []*ecsacs.PortMapping{
+			portMapping,
 		}
 	}
 	return container
@@ -4496,13 +4504,13 @@ func TestTaskFromACS_InitNetworkMode(t *testing.T) {
 			expectedTaskNetworkMode: HostNetworkMode,
 		},
 	} {
-		taskFromACS := acstypes.Task{
+		taskFromACS := ecsacs.Task{
 			Arn:           strptr("myArn"),
 			DesiredStatus: strptr("RUNNING"),
 			Family:        strptr("myFamily"),
 			Version:       strptr("1"),
 			NetworkMode:   aws.String(tc.inputNetworkMode),
-			Containers: []acstypes.Container{
+			Containers: []*ecsacs.Container{
 				{
 					Name: aws.String("C1"),
 				},
@@ -4511,8 +4519,8 @@ func TestTaskFromACS_InitNetworkMode(t *testing.T) {
 				},
 			},
 		}
-		seqNum := int32(42)
-		task, err := TaskFromACS(&taskFromACS, &acs.PayloadInput{SeqNum: &seqNum})
+		seqNum := int64(42)
+		task, err := TaskFromACS(&taskFromACS, &ecsacs.PayloadMessage{SeqNum: &seqNum})
 		assert.Nil(t, err, "Should be able to handle acs task")
 		assert.Equal(t, tc.expectedTaskNetworkMode, task.NetworkMode)
 		switch tc.inputNetworkMode {
@@ -4578,18 +4586,18 @@ func TestGetBridgeModeTaskContainerForPauseContainer_NotFound(t *testing.T) {
 }
 
 func TestTaskServiceConnectAttachment(t *testing.T) {
-	seqNum := int32(42)
+	seqNum := int64(42)
 	tt := []struct {
 		testName                    string
-		testElasticNetworkInterface acstypes.ElasticNetworkInterface
+		testElasticNetworkInterface *ecsacs.ElasticNetworkInterface
 		testNetworkMode             string
 		testSCConfigValue           string
 		testExpectedSCConfig        *serviceconnect.Config
 	}{
 		{
 			testName: "Bridge default case",
-			testElasticNetworkInterface: acstypes.ElasticNetworkInterface{
-				Ipv4Addresses: []acstypes.IPv4AddressAssignment{
+			testElasticNetworkInterface: &ecsacs.ElasticNetworkInterface{
+				Ipv4Addresses: []*ecsacs.IPv4AddressAssignment{
 					{
 						Primary:        aws.Bool(true),
 						PrivateAddress: aws.String(ipv4),
@@ -4622,8 +4630,8 @@ func TestTaskServiceConnectAttachment(t *testing.T) {
 		},
 		{
 			testName: "AWSVPC override case with IPv6 enabled",
-			testElasticNetworkInterface: acstypes.ElasticNetworkInterface{
-				Ipv6Addresses: []acstypes.IPv6AddressAssignment{
+			testElasticNetworkInterface: &ecsacs.ElasticNetworkInterface{
+				Ipv6Addresses: []*ecsacs.IPv6AddressAssignment{
 					{
 						Address: aws.String("ipv6"),
 					},
@@ -4657,20 +4665,20 @@ func TestTaskServiceConnectAttachment(t *testing.T) {
 
 	for _, tc := range tt {
 		t.Run(tc.testName, func(t *testing.T) {
-			taskFromACS := acstypes.Task{
+			taskFromACS := ecsacs.Task{
 				Arn:                      strptr("myArn"),
 				DesiredStatus:            strptr("RUNNING"),
 				Family:                   strptr("myFamily"),
 				Version:                  strptr("1"),
-				ElasticNetworkInterfaces: []acstypes.ElasticNetworkInterface{tc.testElasticNetworkInterface},
-				Containers: []acstypes.Container{
+				ElasticNetworkInterfaces: []*ecsacs.ElasticNetworkInterface{tc.testElasticNetworkInterface},
+				Containers: []*ecsacs.Container{
 					containerFromACS("C1", 33333, 0, tc.testNetworkMode),
 					containerFromACS(serviceConnectContainerTestName, 0, 0, tc.testNetworkMode),
 				},
-				Attachments: []acstypes.Attachment{
+				Attachments: []*ecsacs.Attachment{
 					{
 						AttachmentArn: strptr("attachmentArn"),
-						AttachmentProperties: []acstypes.AttachmentProperty{
+						AttachmentProperties: []*ecsacs.AttachmentProperty{
 							{
 								Name:  strptr(serviceconnect.GetServiceConnectConfigKey()),
 								Value: strptr(tc.testSCConfigValue),
@@ -4685,7 +4693,7 @@ func TestTaskServiceConnectAttachment(t *testing.T) {
 				},
 				NetworkMode: strptr(tc.testNetworkMode),
 			}
-			task, err := TaskFromACS(&taskFromACS, &acs.PayloadInput{SeqNum: &seqNum})
+			task, err := TaskFromACS(&taskFromACS, &ecsacs.PayloadMessage{SeqNum: &seqNum})
 			assert.Nil(t, err, "Should be able to handle acs task")
 			assert.Equal(t, tc.testNetworkMode, task.NetworkMode)
 			assert.Equal(t, tc.testExpectedSCConfig, task.ServiceConnectConfig)
@@ -4694,44 +4702,44 @@ func TestTaskServiceConnectAttachment(t *testing.T) {
 }
 
 func TestTaskWithoutServiceConnectAttachment(t *testing.T) {
-	seqNum := int32(42)
-	testElasticNetworkInterface := acstypes.ElasticNetworkInterface{
-		Ipv4Addresses: []acstypes.IPv4AddressAssignment{
+	seqNum := int64(42)
+	testElasticNetworkInterface := &ecsacs.ElasticNetworkInterface{
+		Ipv4Addresses: []*ecsacs.IPv4AddressAssignment{
 			{
 				Primary:        aws.Bool(true),
 				PrivateAddress: aws.String(ipv4),
 			},
 		},
 	}
-	taskFromACS := acstypes.Task{
+	taskFromACS := ecsacs.Task{
 		Arn:                      strptr("myArn"),
 		DesiredStatus:            strptr("RUNNING"),
 		Family:                   strptr("myFamily"),
 		Version:                  strptr("1"),
-		ElasticNetworkInterfaces: []acstypes.ElasticNetworkInterface{testElasticNetworkInterface},
-		Containers: []acstypes.Container{
+		ElasticNetworkInterfaces: []*ecsacs.ElasticNetworkInterface{testElasticNetworkInterface},
+		Containers: []*ecsacs.Container{
 			containerFromACS("C1", 33333, 0, BridgeNetworkMode),
 		},
 		NetworkMode: strptr(BridgeNetworkMode),
 	}
 
-	task, err := TaskFromACS(&taskFromACS, &acs.PayloadInput{SeqNum: &seqNum})
+	task, err := TaskFromACS(&taskFromACS, &ecsacs.PayloadMessage{SeqNum: &seqNum})
 	assert.Nil(t, err, "Should be able to handle acs task")
 	assert.Equal(t, BridgeNetworkMode, task.NetworkMode)
 	assert.Nil(t, task.ServiceConnectConfig, "Should be no service connect config")
 }
 
 func TestTaskWithEBSVolumeAttachment(t *testing.T) {
-	seqNum := int32(42)
-	taskFromACS := acstypes.Task{
+	seqNum := int64(42)
+	taskFromACS := ecsacs.Task{
 		Arn:           strptr("myArn"),
 		DesiredStatus: strptr("RUNNING"),
 		Family:        strptr("myFamily"),
 		Version:       strptr("1"),
-		Containers: []acstypes.Container{
+		Containers: []*ecsacs.Container{
 			{
 				Name: strptr("myName1"),
-				MountPoints: []acstypes.MountPoint{
+				MountPoints: []*ecsacs.MountPoint{
 					{
 						ContainerPath: strptr("/foo"),
 						SourceVolume:  strptr("test-volume"),
@@ -4740,10 +4748,10 @@ func TestTaskWithEBSVolumeAttachment(t *testing.T) {
 				},
 			},
 		},
-		Attachments: []acstypes.Attachment{
+		Attachments: []*ecsacs.Attachment{
 			{
 				AttachmentArn: strptr("attachmentArn"),
-				AttachmentProperties: []acstypes.AttachmentProperty{
+				AttachmentProperties: []*ecsacs.AttachmentProperty{
 					{
 						Name:  strptr(apiresource.VolumeIdKey),
 						Value: strptr(taskresourcevolume.TestVolumeId),
@@ -4772,11 +4780,11 @@ func TestTaskWithEBSVolumeAttachment(t *testing.T) {
 				AttachmentType: strptr(apiresource.EBSTaskAttach),
 			},
 		},
-		Volumes: []acstypes.Volume{
+		Volumes: []*ecsacs.Volume{
 			{
 				Name: strptr("test-volume"),
-				Type: AttachmentType,
-				Host: &acstypes.HostVolumeProperties{
+				Type: strptr(AttachmentType),
+				Host: &ecsacs.HostVolumeProperties{
 					SourcePath: strptr("/host/path"),
 				},
 			},
@@ -4792,7 +4800,7 @@ func TestTaskWithEBSVolumeAttachment(t *testing.T) {
 		FileSystem:           "ext4",
 	}
 
-	task, err := TaskFromACS(&taskFromACS, &acs.PayloadInput{SeqNum: &seqNum})
+	task, err := TaskFromACS(&taskFromACS, &ecsacs.PayloadMessage{SeqNum: &seqNum})
 	assert.Nil(t, err, "Should be able to handle acs task")
 	assert.Len(t, task.Containers, 1)
 	assert.Len(t, task.Volumes, 1)

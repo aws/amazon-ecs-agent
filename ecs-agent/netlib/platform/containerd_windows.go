@@ -19,6 +19,7 @@ package platform
 import (
 	"context"
 
+	"github.com/aws/amazon-ecs-agent/ecs-agent/acs/model/ecsacs"
 	"github.com/aws/amazon-ecs-agent/ecs-agent/logger"
 	netlibdata "github.com/aws/amazon-ecs-agent/ecs-agent/netlib/data"
 	"github.com/aws/amazon-ecs-agent/ecs-agent/netlib/model/appmesh"
@@ -33,7 +34,6 @@ import (
 	"github.com/aws/amazon-ecs-agent/ecs-agent/volume"
 
 	"github.com/aws/aws-sdk-go-v2/aws"
-	acstypes "github.com/aws/aws-sdk-go-v2/service/acs/types"
 	ecstypes "github.com/aws/aws-sdk-go-v2/service/ecs/types"
 	"github.com/containernetworking/cni/pkg/types"
 	"github.com/pkg/errors"
@@ -84,7 +84,7 @@ func NewPlatform(
 // BuildTaskNetworkConfiguration builds a task network configuration object from the task payload.
 func (c *containerd) BuildTaskNetworkConfiguration(
 	taskID string,
-	taskPayload *acstypes.Task) (*tasknetworkconfig.TaskNetworkConfig, error) {
+	taskPayload *ecsacs.Task) (*tasknetworkconfig.TaskNetworkConfig, error) {
 	mode := ecstypes.NetworkMode(aws.ToString(taskPayload.NetworkMode))
 	switch mode {
 	case ecstypes.NetworkModeAwsvpc:
@@ -98,20 +98,20 @@ func (c *containerd) BuildTaskNetworkConfiguration(
 // buildAWSVPCNetworkConfig builds task network config object for AWSVPC.
 func (c *containerd) buildAWSVPCNetworkConfig(
 	taskID string,
-	taskPayload *acstypes.Task,
+	taskPayload *ecsacs.Task,
 ) (*tasknetworkconfig.TaskNetworkConfig, error) {
 	if len(taskPayload.ElasticNetworkInterfaces) == 0 {
 		return nil, errors.New("interfaces list cannot be empty")
 	}
 
 	// Find primary network interface in order to build the task netns name.
-	var primaryIF acstypes.ElasticNetworkInterface
+	var primaryIF *ecsacs.ElasticNetworkInterface
 	for _, eni := range taskPayload.ElasticNetworkInterfaces {
-		if aws.ToInt32(eni.Index) == 0 {
+		if aws.ToInt64(eni.Index) == 0 {
 			primaryIF = eni
 		}
 	}
-	ifName := networkinterface.GetInterfaceName(&primaryIF)
+	ifName := networkinterface.GetInterfaceName(primaryIF)
 	netNSName := networkinterface.NetNSName(taskID, ifName)
 	netNSPath := c.GetNetNSPath(netNSName)
 
@@ -128,15 +128,11 @@ func (c *containerd) buildAWSVPCNetworkConfig(
 		"MacToNames": macToNames,
 	})
 
-	eniPointerSlice := make([]*acstypes.ElasticNetworkInterface, len(taskPayload.ElasticNetworkInterfaces))
-	for i := range taskPayload.ElasticNetworkInterfaces {
-		eniPointerSlice[i] = &taskPayload.ElasticNetworkInterfaces[i]
-	}
 	// Create interface object.
 	iface, err := networkinterface.New(
-		&taskPayload.ElasticNetworkInterfaces[0],
+		taskPayload.ElasticNetworkInterfaces[0],
 		"",
-		eniPointerSlice,
+		taskPayload.ElasticNetworkInterfaces,
 		macToNames,
 	)
 	iface.Default = true

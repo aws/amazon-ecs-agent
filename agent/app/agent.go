@@ -991,7 +991,7 @@ func (agent *ecsAgent) startAsyncRoutines(
 	}
 	go statsEngine.StartMetricsPublish()
 
-	session, err := reporter.NewDockerTelemetrySession(agent.containerInstanceARN, agent.credentialsCache, agent.cfg, deregisterInstanceEventStream,
+	session, err := reporter.NewDockerTelemetrySession(agent.containerInstanceARN, agent.credentialProvider, agent.cfg, deregisterInstanceEventStream,
 		client, taskEngine, telemetryMessages, healthMessages, doctor)
 	if err != nil {
 		seelog.Warnf("Error creating telemetry session: %v", err)
@@ -1102,7 +1102,7 @@ func (agent *ecsAgent) startACSSession(
 	acsSession := session.NewSession(agent.containerInstanceARN,
 		agent.cfg.Cluster,
 		client,
-		agent.credentialsCache,
+		agent.credentialProvider,
 		inactiveInstanceCB,
 		acsclient.NewACSClientFactory(),
 		metricsfactory.NewNopEntryFactory(),

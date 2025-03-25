@@ -21,12 +21,12 @@ import (
 	"strings"
 	"sync"
 
+	"github.com/aws/amazon-ecs-agent/ecs-agent/acs/model/ecsacs"
 	"github.com/aws/amazon-ecs-agent/ecs-agent/logger"
 	loggerfield "github.com/aws/amazon-ecs-agent/ecs-agent/logger/field"
 	"github.com/aws/amazon-ecs-agent/ecs-agent/netlib/model/status"
 
 	"github.com/aws/aws-sdk-go-v2/aws"
-	acstypes "github.com/aws/aws-sdk-go-v2/service/acs/types"
 	"github.com/pkg/errors"
 )
 
@@ -376,7 +376,7 @@ type IPV6Address struct {
 }
 
 // InterfaceFromACS validates the given ACS NetworkInterface information and creates an NetworkInterface object from it.
-func InterfaceFromACS(acsENI *acstypes.ElasticNetworkInterface) (*NetworkInterface, error) {
+func InterfaceFromACS(acsENI *ecsacs.ElasticNetworkInterface) (*NetworkInterface, error) {
 	err := ValidateENI(acsENI)
 	if err != nil {
 		return nil, err
@@ -407,11 +407,11 @@ func InterfaceFromACS(acsENI *acstypes.ElasticNetworkInterface) (*NetworkInterfa
 		IPV6Addresses:                ipv6Addrs,
 		SubnetGatewayIPV4Address:     aws.ToString(acsENI.SubnetGatewayIpv4Address),
 		PrivateDNSName:               aws.ToString(acsENI.PrivateDnsName),
-		InterfaceAssociationProtocol: string(acsENI.InterfaceAssociationProtocol),
+		InterfaceAssociationProtocol: aws.ToString(acsENI.InterfaceAssociationProtocol),
 	}
 
 	// Read NetworkInterface association properties.
-	if acsENI.InterfaceAssociationProtocol == VLANInterfaceAssociationProtocol {
+	if aws.ToString(acsENI.InterfaceAssociationProtocol) == VLANInterfaceAssociationProtocol {
 		var interfaceVlanProperties InterfaceVlanProperties
 		interfaceVlanProperties.TrunkInterfaceMacAddress = aws.ToString(acsENI.InterfaceVlanProperties.TrunkInterfaceMacAddress)
 		interfaceVlanProperties.VlanID = aws.ToString(acsENI.InterfaceVlanProperties.VlanId)
@@ -419,14 +419,18 @@ func InterfaceFromACS(acsENI *acstypes.ElasticNetworkInterface) (*NetworkInterfa
 		ni.InterfaceAssociationProtocol = VLANInterfaceAssociationProtocol
 	}
 
-	ni.DomainNameServers = append(ni.DomainNameServers, acsENI.DomainNameServers...)
-	ni.DomainNameSearchList = append(ni.DomainNameSearchList, acsENI.DomainName...)
+	for _, nameserverIP := range acsENI.DomainNameServers {
+		ni.DomainNameServers = append(ni.DomainNameServers, aws.ToString(nameserverIP))
+	}
+	for _, nameserverDomain := range acsENI.DomainName {
+		ni.DomainNameSearchList = append(ni.DomainNameSearchList, aws.ToString(nameserverDomain))
+	}
 
 	return ni, nil
 }
 
 // ValidateENI validates the NetworkInterface information sent from ACS.
-func ValidateENI(acsENI *acstypes.ElasticNetworkInterface) error {
+func ValidateENI(acsENI *ecsacs.ElasticNetworkInterface) error {
 	// At least one IPv4 address should be associated with the NetworkInterface.
 	if len(acsENI.Ipv4Addresses) < 1 {
 		return errors.Errorf("eni message validation: no ipv4 addresses in the message")
@@ -451,15 +455,15 @@ func ValidateENI(acsENI *acstypes.ElasticNetworkInterface) error {
 	}
 
 	// The association protocol, if specified, must be a supported value.
-	if (acsENI.InterfaceAssociationProtocol != "") &&
-		(acsENI.InterfaceAssociationProtocol != VLANInterfaceAssociationProtocol) &&
-		(acsENI.InterfaceAssociationProtocol != DefaultInterfaceAssociationProtocol) {
+	if (acsENI.InterfaceAssociationProtocol != nil) &&
+		(aws.ToString(acsENI.InterfaceAssociationProtocol) != VLANInterfaceAssociationProtocol) &&
+		(aws.ToString(acsENI.InterfaceAssociationProtocol) != DefaultInterfaceAssociationProtocol) {
 		return errors.Errorf("invalid interface association protocol: %s",
-			acsENI.InterfaceAssociationProtocol)
+			aws.ToString(acsENI.InterfaceAssociationProtocol))
 	}
 
 	// If the interface association protocol is vlan, InterfaceVlanProperties must be specified.
-	if acsENI.InterfaceAssociationProtocol == VLANInterfaceAssociationProtocol {
+	if aws.ToString(acsENI.InterfaceAssociationProtocol) == VLANInterfaceAssociationProtocol {
 		if acsENI.InterfaceVlanProperties == nil ||
 			len(aws.ToString(acsENI.InterfaceVlanProperties.VlanId)) == 0 ||
 			len(aws.ToString(acsENI.InterfaceVlanProperties.TrunkInterfaceMacAddress)) == 0 {
@@ -472,16 +476,16 @@ func ValidateENI(acsENI *acstypes.ElasticNetworkInterface) error {
 
 // New creates a new NetworkInterface model.
 func New(
-	acsENI *acstypes.ElasticNetworkInterface,
+	acsENI *ecsacs.ElasticNetworkInterface,
 	guestNetNSName string,
-	ifaceList []*acstypes.ElasticNetworkInterface,
+	ifaceList []*ecsacs.ElasticNetworkInterface,
 	macToName map[string]string,
 ) (*NetworkInterface, error) {
 	var err error
 
 	var networkInterface *NetworkInterface
 
-	interfaceAssociationProtocol := acsENI.InterfaceAssociationProtocol
+	interfaceAssociationProtocol := aws.ToString(acsENI.InterfaceAssociationProtocol)
 
 	switch interfaceAssociationProtocol {
 
@@ -515,7 +519,7 @@ func New(
 		}
 	}
 
-	networkInterface.Index = int64(aws.ToInt32(acsENI.Index))
+	networkInterface.Index = aws.ToInt64(acsENI.Index)
 	networkInterface.Name = GetInterfaceName(acsENI)
 	networkInterface.KnownStatus = status.NetworkNone
 	networkInterface.DesiredStatus = status.NetworkReadyPull
@@ -576,7 +580,7 @@ func (ni *NetworkInterface) ShouldGenerateNetworkConfigFiles() bool {
 }
 
 // GetInterfaceName creates the NetworkInterface name from the NetworkInterface mac address in case it is empty in the ACS payload.
-func GetInterfaceName(acsENI *acstypes.ElasticNetworkInterface) string {
+func GetInterfaceName(acsENI *ecsacs.ElasticNetworkInterface) string {
 	if acsENI.Name != nil {
 		return aws.ToString(acsENI.Name)
 	}
@@ -585,7 +589,7 @@ func GetInterfaceName(acsENI *acstypes.ElasticNetworkInterface) string {
 }
 
 // v2nTunnelFromACS creates an NetworkInterface model with V2N tunnel properties from the ACS NetworkInterface payload.
-func v2nTunnelFromACS(acsENI *acstypes.ElasticNetworkInterface) (*NetworkInterface, error) {
+func v2nTunnelFromACS(acsENI *ecsacs.ElasticNetworkInterface) (*NetworkInterface, error) {
 	// We only require the association protocol and the mac address.
 	// Mac address is needed primarily because according to current logic, this mac address is assigned to the
 	// interface that gets attached inside the MicroVM. The mac address is also used to find the interface inside
@@ -612,8 +616,8 @@ func v2nTunnelFromACS(acsENI *acstypes.ElasticNetworkInterface) (*NetworkInterfa
 				},
 			},
 
-			DomainNameServers:    acsENI.DomainNameServers,
-			DomainNameSearchList: acsENI.DomainName,
+			DomainNameServers:    aws.ToStringSlice(acsENI.DomainNameServers),
+			DomainNameSearchList: aws.ToStringSlice(acsENI.DomainName),
 			TunnelProperties: &TunnelProperties{
 				ID:                   aws.ToString(acsTunnelProperties.TunnelId),
 				DestinationIPAddress: aws.ToString(acsTunnelProperties.InterfaceIpAddress),
@@ -624,22 +628,22 @@ func v2nTunnelFromACS(acsENI *acstypes.ElasticNetworkInterface) (*NetworkInterfa
 
 // vethPairFromACS creates an NetworkInterface model with veth pair properties from the ACS NetworkInterface payload.
 func vethPairFromACS(
-	acsENI *acstypes.ElasticNetworkInterface,
-	ifaceList []*acstypes.ElasticNetworkInterface) (*NetworkInterface, error) {
+	acsENI *ecsacs.ElasticNetworkInterface,
+	ifaceList []*ecsacs.ElasticNetworkInterface) (*NetworkInterface, error) {
 	if acsENI.InterfaceVethProperties == nil ||
 		acsENI.InterfaceVethProperties.PeerInterface == nil {
 		return nil, errors.New("interface veth properties not found in payload")
 	}
 
 	peerName := aws.ToString(acsENI.InterfaceVethProperties.PeerInterface)
-	var peerInterface *acstypes.ElasticNetworkInterface
+	var peerInterface *ecsacs.ElasticNetworkInterface
 	for _, iface := range ifaceList {
 		if aws.ToString(iface.Name) == peerName {
 			peerInterface = iface
 		}
 	}
 
-	if peerInterface.InterfaceAssociationProtocol == VETHInterfaceAssociationProtocol {
+	if aws.ToString(peerInterface.InterfaceAssociationProtocol) == VETHInterfaceAssociationProtocol {
 		return nil, errors.New("peer interface cannot be veth")
 	}
 
@@ -649,8 +653,8 @@ func vethPairFromACS(
 			// DNS related data for VETH interface will be copied from the peer interface's DNS data.
 			// This is because if default traffic of the container needs to use the VETH interface,
 			// domain name resolution will be based on the DNS config of the peer interface.
-			DomainNameServers:    peerInterface.DomainNameServers,
-			DomainNameSearchList: peerInterface.DomainName,
+			DomainNameServers:    aws.ToStringSlice(peerInterface.DomainNameServers),
+			DomainNameSearchList: aws.ToStringSlice(peerInterface.DomainName),
 			VETHProperties: &VETHProperties{
 				PeerInterfaceName: aws.ToString(acsENI.InterfaceVethProperties.PeerInterface),
 			},

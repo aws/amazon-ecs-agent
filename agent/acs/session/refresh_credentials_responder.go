@@ -16,13 +16,13 @@ package session
 import (
 	"fmt"
 
+	"github.com/aws/aws-sdk-go-v2/aws"
+	"github.com/pkg/errors"
+
 	apitask "github.com/aws/amazon-ecs-agent/agent/api/task"
 	"github.com/aws/amazon-ecs-agent/agent/engine"
+	"github.com/aws/amazon-ecs-agent/ecs-agent/acs/model/ecsacs"
 	"github.com/aws/amazon-ecs-agent/ecs-agent/credentials"
-
-	"github.com/aws/aws-sdk-go-v2/aws"
-	"github.com/aws/aws-sdk-go-v2/service/acs"
-	"github.com/pkg/errors"
 )
 
 var (
@@ -43,7 +43,7 @@ func NewCredentialsMetadataSetter(taskEngine engine.TaskEngine) *credentialsMeta
 }
 
 func (cmSetter *credentialsMetadataSetter) SetTaskRoleCredentialsMetadata(
-	message *acs.RefreshTaskIAMRoleCredentialsInput) error {
+	message *ecsacs.IAMRoleCredentialsMessage) error {
 	task, err := cmSetter.getCredentialsMessageTask(message)
 	if err != nil {
 		return err
@@ -53,7 +53,7 @@ func (cmSetter *credentialsMetadataSetter) SetTaskRoleCredentialsMetadata(
 }
 
 func (cmSetter *credentialsMetadataSetter) SetExecRoleCredentialsMetadata(
-	message *acs.RefreshTaskIAMRoleCredentialsInput) error {
+	message *ecsacs.IAMRoleCredentialsMessage) error {
 	task, err := cmSetter.getCredentialsMessageTask(message)
 	if err != nil {
 		return errors.Wrap(err, "unable to get credentials message's task")
@@ -62,7 +62,7 @@ func (cmSetter *credentialsMetadataSetter) SetExecRoleCredentialsMetadata(
 
 	// Refresh domainless gMSA plugin credentials if needed.
 	err = checkAndSetDomainlessGMSATaskExecutionRoleCredentialsImpl(credentials.IAMRoleCredentialsFromACS(
-		message.RoleCredentials, string(message.RoleType)), task)
+		message.RoleCredentials, aws.ToString(message.RoleType)), task)
 	if err != nil {
 		return errors.Wrap(err, fmt.Sprintf("unable to set %s for task with ARN %s",
 			"DomainlessGMSATaskExecutionRoleCredentials", aws.ToString(message.TaskArn)))
@@ -72,7 +72,7 @@ func (cmSetter *credentialsMetadataSetter) SetExecRoleCredentialsMetadata(
 }
 
 func (cmSetter *credentialsMetadataSetter) getCredentialsMessageTask(
-	message *acs.RefreshTaskIAMRoleCredentialsInput) (*apitask.Task, error) {
+	message *ecsacs.IAMRoleCredentialsMessage) (*apitask.Task, error) {
 	taskARN := aws.ToString(message.TaskArn)
 	messageID := aws.ToString(message.MessageId)
 	task, ok := cmSetter.taskEngine.GetTaskByArn(taskARN)

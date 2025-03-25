@@ -23,17 +23,15 @@ import (
 	"github.com/aws/amazon-ecs-agent/ecs-agent/logger"
 	"github.com/aws/amazon-ecs-agent/ecs-agent/logger/field"
 	"github.com/aws/amazon-ecs-agent/ecs-agent/metrics"
-	"github.com/aws/amazon-ecs-agent/ecs-agent/utils"
 	"github.com/aws/amazon-ecs-agent/ecs-agent/wsclient"
 
 	"github.com/aws/aws-sdk-go-v2/aws"
 	awsARN "github.com/aws/aws-sdk-go-v2/aws/arn"
-	"github.com/aws/aws-sdk-go-v2/service/acs"
 	"github.com/pkg/errors"
 )
 
 const (
-	AttachResourceMessageName = "ConfirmAttachmentInput"
+	AttachResourceMessageName = "ConfirmAttachmentMessage"
 	// DefaultAttachmentWaitTimeoutInMs is the default timeout, 5 minutes, for handling the attachments from ACS.
 	DefaultAttachmentWaitTimeoutInMs = 300000
 )
@@ -43,7 +41,7 @@ type ResourceHandler interface {
 }
 
 // attachResourceResponder implements the wsclient.RequestResponder interface for responding
-// to acs.ConfirmAttachmentInput messages sent by ACS.
+// to ecsacs.ConfirmAttachmentMessage messages sent by ACS.
 type attachResourceResponder struct {
 	resourceHandler ResourceHandler
 	metricsFactory  metrics.EntryFactory
@@ -66,7 +64,7 @@ func (r *attachResourceResponder) HandlerFunc() wsclient.RequestHandler {
 	return r.handleAttachMessage
 }
 
-func (r *attachResourceResponder) handleAttachMessage(message *acs.ConfirmAttachmentInput) {
+func (r *attachResourceResponder) handleAttachMessage(message *ecsacs.ConfirmAttachmentMessage) {
 	logger.Debug(fmt.Sprintf("Handling %s", AttachResourceMessageName))
 	receivedAt := time.Now()
 
@@ -122,9 +120,9 @@ func (r *attachResourceResponder) handleAttachMessage(message *acs.ConfirmAttach
 	}()
 }
 
-// validateAttachResourceMessage performs validation checks on the ConfirmAttachmentInput
+// validateAttachResourceMessage performs validation checks on the ConfirmAttachmentMessage
 // and returns the attachment properties received from validateAttachmentAndReturnProperties()
-func validateAttachResourceMessage(message *acs.ConfirmAttachmentInput) (
+func validateAttachResourceMessage(message *ecsacs.ConfirmAttachmentMessage) (
 	attachmentProperties map[string]string, err error) {
 	if message == nil {
 		return nil, errors.New("Message is empty")
@@ -162,9 +160,9 @@ func validateAttachResourceMessage(message *acs.ConfirmAttachmentInput) (
 	return attachmentProperties, nil
 }
 
-// validateAttachment performs validation checks on the attachment contained in the ConfirmAttachmentInput
+// validateAttachment performs validation checks on the attachment contained in the ConfirmAttachmentMessage
 // and returns the attachment's properties
-func validateAttachmentAndReturnProperties(message *acs.ConfirmAttachmentInput) (
+func validateAttachmentAndReturnProperties(message *ecsacs.ConfirmAttachmentMessage) (
 	attachmentProperties map[string]string, err error) {
 	attachment := message.Attachment
 
@@ -172,7 +170,7 @@ func validateAttachmentAndReturnProperties(message *acs.ConfirmAttachmentInput) 
 	_, err = awsARN.Parse(arn)
 	if err != nil {
 		return nil, errors.Errorf(
-			"resource attachment validation: invalid arn %s specified for attachment: %s", arn, utils.Prettify(attachment))
+			"resource attachment validation: invalid arn %s specified for attachment: %s", arn, attachment.String())
 	}
 
 	attachmentProperties = make(map[string]string)
@@ -181,13 +179,13 @@ func validateAttachmentAndReturnProperties(message *acs.ConfirmAttachmentInput) 
 		name := aws.ToString(property.Name)
 		if name == "" {
 			return nil, errors.Errorf(
-				"resource attachment validation: no name specified for attachment property: %s", utils.Prettify(property))
+				"resource attachment validation: no name specified for attachment property: %s", property.String())
 		}
 
 		value := aws.ToString(property.Value)
 		if value == "" {
 			return nil, errors.Errorf(
-				"resource attachment validation: no value specified for attachment property: %s", utils.Prettify(property))
+				"resource attachment validation: no value specified for attachment property: %s", property.String())
 		}
 
 		attachmentProperties[name] = value

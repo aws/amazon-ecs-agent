@@ -16,28 +16,28 @@ package session
 import (
 	"fmt"
 
+	"github.com/aws/aws-sdk-go-v2/aws"
+	"github.com/pkg/errors"
+
+	"github.com/aws/amazon-ecs-agent/ecs-agent/acs/model/ecsacs"
 	"github.com/aws/amazon-ecs-agent/ecs-agent/credentials"
 	"github.com/aws/amazon-ecs-agent/ecs-agent/logger"
 	"github.com/aws/amazon-ecs-agent/ecs-agent/logger/field"
 	"github.com/aws/amazon-ecs-agent/ecs-agent/metrics"
 	"github.com/aws/amazon-ecs-agent/ecs-agent/wsclient"
-
-	"github.com/aws/aws-sdk-go-v2/aws"
-	"github.com/aws/aws-sdk-go-v2/service/acs"
-	"github.com/pkg/errors"
 )
 
 const (
-	RefreshCredentialsMessageName = "RefreshTaskIAMRoleCredentialsInput"
+	RefreshCredentialsMessageName = "IAMRoleCredentialsMessage"
 )
 
 type CredentialsMetadataSetter interface {
-	SetTaskRoleCredentialsMetadata(message *acs.RefreshTaskIAMRoleCredentialsInput) error
-	SetExecRoleCredentialsMetadata(message *acs.RefreshTaskIAMRoleCredentialsInput) error
+	SetTaskRoleCredentialsMetadata(message *ecsacs.IAMRoleCredentialsMessage) error
+	SetExecRoleCredentialsMetadata(message *ecsacs.IAMRoleCredentialsMessage) error
 }
 
 // refreshCredentialsResponder implements the wsclient.RequestResponder interface for responding
-// to acs.RefreshTaskIAMRoleCredentialsInput messages sent by ACS.
+// to ecsacs.IAMRoleCredentialsMessage messages sent by ACS.
 type refreshCredentialsResponder struct {
 	credentialsManager  credentials.Manager
 	credsMetadataSetter CredentialsMetadataSetter
@@ -65,7 +65,7 @@ func (r *refreshCredentialsResponder) HandlerFunc() wsclient.RequestHandler {
 	return r.handleCredentialsMessage
 }
 
-func (r *refreshCredentialsResponder) handleCredentialsMessage(message *acs.RefreshTaskIAMRoleCredentialsInput) {
+func (r *refreshCredentialsResponder) handleCredentialsMessage(message *ecsacs.IAMRoleCredentialsMessage) {
 	logger.Debug(fmt.Sprintf("Handling %s", RefreshCredentialsMessageName))
 	messageID := aws.ToString(message.MessageId)
 	taskARN := aws.ToString(message.TaskArn)
@@ -90,7 +90,7 @@ func (r *refreshCredentialsResponder) handleCredentialsMessage(message *acs.Refr
 	err = r.credentialsManager.SetTaskCredentials(&credentials.TaskIAMRoleCredentials{
 		ARN: taskARN,
 		IAMRoleCredentials: credentials.IAMRoleCredentialsFromACS(message.RoleCredentials,
-			string(message.RoleType)),
+			aws.ToString(message.RoleType)),
 	})
 	if err != nil {
 		logger.Error(fmt.Sprintf("Unable to handle %s due to error in setting credentials",
@@ -114,7 +114,7 @@ func (r *refreshCredentialsResponder) handleCredentialsMessage(message *acs.Refr
 	}
 
 	// Send ACK.
-	err = r.respond(&acs.RefreshTaskIAMRoleCredentialsOutput{
+	err = r.respond(&ecsacs.IAMRoleCredentialsAckRequest{
 		Expiration:    message.RoleCredentials.Expiration,
 		MessageId:     message.MessageId,
 		CredentialsId: message.RoleCredentials.CredentialsId,
@@ -132,8 +132,8 @@ func (r *refreshCredentialsResponder) handleCredentialsMessage(message *acs.Refr
 	r.metricsFactory.New(metrics.CredentialsRefreshSuccess).WithFields(metricFields).Done(nil)
 }
 
-func (r *refreshCredentialsResponder) setCredentialsMetadata(message *acs.RefreshTaskIAMRoleCredentialsInput) error {
-	roleType := message.RoleType
+func (r *refreshCredentialsResponder) setCredentialsMetadata(message *ecsacs.IAMRoleCredentialsMessage) error {
+	roleType := aws.ToString(message.RoleType)
 	switch roleType {
 	case credentials.ApplicationRoleType:
 		err := r.credsMetadataSetter.SetTaskRoleCredentialsMetadata(message)
@@ -152,8 +152,8 @@ func (r *refreshCredentialsResponder) setCredentialsMetadata(message *acs.Refres
 }
 
 // validateIAMRoleCredentialsMessage performs validation checks on the
-// RefreshTaskIAMRoleCredentialsInput.
-func validateIAMRoleCredentialsMessage(message *acs.RefreshTaskIAMRoleCredentialsInput) error {
+// IAMRoleCredentialsMessage.
+func validateIAMRoleCredentialsMessage(message *ecsacs.IAMRoleCredentialsMessage) error {
 	if message == nil {
 		return errors.Errorf("Message is empty")
 	}
@@ -176,7 +176,7 @@ func validateIAMRoleCredentialsMessage(message *acs.RefreshTaskIAMRoleCredential
 		return errors.Errorf("roleCredentials ID not set for message ID %s", messageID)
 	}
 
-	roleType := string(message.RoleType)
+	roleType := aws.ToString(message.RoleType)
 	if !validRoleType(roleType) {
 		return errors.Errorf("roleType \"%s\" is invalid for message ID %s with taskArn %s", roleType, messageID,
 			taskArn)

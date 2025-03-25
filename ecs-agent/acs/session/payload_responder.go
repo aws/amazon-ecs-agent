@@ -20,23 +20,21 @@ import (
 	"github.com/aws/amazon-ecs-agent/ecs-agent/logger"
 	"github.com/aws/amazon-ecs-agent/ecs-agent/logger/field"
 	"github.com/aws/amazon-ecs-agent/ecs-agent/wsclient"
-
 	"github.com/aws/aws-sdk-go-v2/aws"
-	"github.com/aws/aws-sdk-go-v2/service/acs"
 	"github.com/pkg/errors"
 )
 
 const (
-	PayloadMessageName = "PayloadInput"
+	PayloadMessageName = "PayloadMessage"
 )
 
 type PayloadMessageHandler interface {
-	ProcessMessage(message *acs.PayloadInput,
-		ackFunc func(*ecsacs.AckRequest, []*acs.RefreshTaskIAMRoleCredentialsOutput)) error
+	ProcessMessage(message *ecsacs.PayloadMessage,
+		ackFunc func(*ecsacs.AckRequest, []*ecsacs.IAMRoleCredentialsAckRequest)) error
 }
 
 // payloadResponder implements the wsclient.RequestResponder interface for responding
-// to acs.PayloadInput messages sent by ACS.
+// to ecsacs.PayloadMessage messages sent by ACS.
 type payloadResponder struct {
 	payloadMessageHandler PayloadMessageHandler
 	respond               wsclient.RespondFunc
@@ -58,7 +56,7 @@ func (r *payloadResponder) HandlerFunc() wsclient.RequestHandler {
 	return r.handlePayloadMessage
 }
 
-func (r *payloadResponder) handlePayloadMessage(message *acs.PayloadInput) {
+func (r *payloadResponder) handlePayloadMessage(message *ecsacs.PayloadMessage) {
 	logger.Debug(fmt.Sprintf("Handling %s", PayloadMessageName))
 
 	// Validate fields in the message.
@@ -81,7 +79,7 @@ func (r *payloadResponder) handlePayloadMessage(message *acs.PayloadInput) {
 
 // ackFunc sends ACKs of the payload message and of the credentials associated with the tasks contained in the payload
 // message.
-func (r *payloadResponder) ackFunc(payloadAck *ecsacs.AckRequest, credsAcks []*acs.RefreshTaskIAMRoleCredentialsOutput) {
+func (r *payloadResponder) ackFunc(payloadAck *ecsacs.AckRequest, credsAcks []*ecsacs.IAMRoleCredentialsAckRequest) {
 	go r.sendAck(payloadAck)
 
 	for _, credsAck := range credsAcks {
@@ -90,18 +88,18 @@ func (r *payloadResponder) ackFunc(payloadAck *ecsacs.AckRequest, credsAcks []*a
 }
 
 // sendAck handles the sending of an individual specific ACK, assuming it is of type
-// acs.RefreshTaskIAMRoleCredentialsOutput or ecsacs.AckRequest.
+// ecsacs.IAMRoleCredentialsAckRequest or ecsacs.AckRequest.
 //
 // NOTE: These above two ACK types are different from each other. payloadResponder needs to be able to send both types
 // of ACKs because while processing payload message we may wish to ACK:
 //  1. any credentials associated with task(s) contained in a payload message that were handled
-//     (via acs.RefreshTaskIAMRoleCredentialsOutput)
+//     (via ecsacs.IAMRoleCredentialsAckRequest)
 //  2. the payload message itself
 //     (via ecsacs.AckRequest)
 func (r *payloadResponder) sendAck(ackRequest interface{}) {
-	var credentialsAck *acs.RefreshTaskIAMRoleCredentialsOutput
+	var credentialsAck *ecsacs.IAMRoleCredentialsAckRequest
 	var payloadMessageAck *ecsacs.AckRequest
-	credentialsAck, ok := ackRequest.(*acs.RefreshTaskIAMRoleCredentialsOutput)
+	credentialsAck, ok := ackRequest.(*ecsacs.IAMRoleCredentialsAckRequest)
 	if ok {
 		logger.Debug(fmt.Sprintf("ACKing credentials associated with %s", PayloadMessageName), logger.Fields{
 			field.CredentialsID: aws.ToString(credentialsAck.CredentialsId),
@@ -115,7 +113,7 @@ func (r *payloadResponder) sendAck(ackRequest interface{}) {
 			})
 		} else {
 			logger.Error(fmt.Sprintf("Error sending acknowledgement: %s",
-				"ackRequest does not hold type acs.RefreshTaskIAMRoleCredentialsOutput or ecsacs.AckRequest"))
+				"ackRequest does not hold type ecsacs.IAMRoleCredentialsAckRequest or ecsacs.AckRequest"))
 			return
 		}
 	}
@@ -138,7 +136,7 @@ func (r *payloadResponder) sendAck(ackRequest interface{}) {
 		} else {
 			// We don't expect this condition to ever be reached, but log an error just in case it is.
 			logger.Error(fmt.Sprintf("Error sending acknowledgement for %s",
-				"ackRequest that does not hold type acs.RefreshTaskIAMRoleCredentialsOutput or ecsacs.AckRequest"),
+				"ackRequest that does not hold type ecsacs.IAMRoleCredentialsAckRequest or ecsacs.AckRequest"),
 				logger.Fields{
 					field.Error: err,
 				})
@@ -147,7 +145,7 @@ func (r *payloadResponder) sendAck(ackRequest interface{}) {
 }
 
 // validatePayloadMessage performs validation checks on the PayloadMessage.
-func validatePayloadMessage(message *acs.PayloadInput) error {
+func validatePayloadMessage(message *ecsacs.PayloadMessage) error {
 	if message == nil {
 		return errors.Errorf("Message is empty")
 	}

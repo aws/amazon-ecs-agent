@@ -18,17 +18,16 @@ import (
 
 	"github.com/aws/amazon-ecs-agent/agent/api/serviceconnect"
 	taskresourcevolume "github.com/aws/amazon-ecs-agent/agent/taskresource/volume"
+	"github.com/aws/amazon-ecs-agent/ecs-agent/acs/model/ecsacs"
 	apiresource "github.com/aws/amazon-ecs-agent/ecs-agent/api/attachment/resource"
 	"github.com/aws/amazon-ecs-agent/ecs-agent/logger"
-
 	"github.com/aws/aws-sdk-go-v2/aws"
-	acstypes "github.com/aws/aws-sdk-go-v2/service/acs/types"
 )
 
 // AttachmentHandler defines an interface to handle attachment received from ACS.
 type AttachmentHandler interface {
-	parseAttachment(acsAttachment *acstypes.Attachment) error
-	validateAttachment(acsTask *acstypes.Task, task *Task) error
+	parseAttachment(acsAttachment *ecsacs.Attachment) error
+	validateAttachment(acsTask *ecsacs.Task, task *Task) error
 }
 
 // ServiceConnectAttachmentHandler defines a service connect type attachment handler.
@@ -52,14 +51,14 @@ func getHandlerByType(handlerType string, handlers map[string]AttachmentHandler)
 }
 
 // attachment parser of service connect attachment handler.
-func (scAttachment *ServiceConnectAttachmentHandler) parseAttachment(acsAttachment *acstypes.Attachment) error {
+func (scAttachment *ServiceConnectAttachmentHandler) parseAttachment(acsAttachment *ecsacs.Attachment) error {
 	config, err := serviceconnect.ParseServiceConnectAttachment(acsAttachment)
 	scAttachment.scConfig = config
 	return err
 }
 
 // attachment validator of service connect attachment handler.
-func (scAttachment *ServiceConnectAttachmentHandler) validateAttachment(acsTask *acstypes.Task, task *Task) error {
+func (scAttachment *ServiceConnectAttachmentHandler) validateAttachment(acsTask *ecsacs.Task, task *Task) error {
 	config := scAttachment.scConfig
 	taskContainers := acsTask.Containers
 	ipv6Enabled := false
@@ -76,17 +75,16 @@ func (scAttachment *ServiceConnectAttachmentHandler) validateAttachment(acsTask 
 }
 
 // handleTaskAttachments parses and validates attachments based on attachment type.
-func handleTaskAttachments(acsTask *acstypes.Task, task *Task) error {
+func handleTaskAttachments(acsTask *ecsacs.Task, task *Task) error {
 	if acsTask.Attachments != nil {
-		var serviceConnectAttachment *acstypes.Attachment
-		var ebsVolumeAttachments []*acstypes.Attachment
+		var serviceConnectAttachment *ecsacs.Attachment
+		var ebsVolumeAttachments []*ecsacs.Attachment
 		for _, attachment := range acsTask.Attachments {
-			attachmentPtr := &attachment
 			switch aws.ToString(attachment.AttachmentType) {
 			case serviceConnectAttachmentType:
-				serviceConnectAttachment = attachmentPtr
+				serviceConnectAttachment = attachment
 			case apiresource.EBSTaskAttach:
-				ebsVolumeAttachments = append(ebsVolumeAttachments, attachmentPtr)
+				ebsVolumeAttachments = append(ebsVolumeAttachments, attachment)
 			default:
 				logger.Debug("Received an attachment type", logger.Fields{
 					"attachmentType": attachment.AttachmentType,

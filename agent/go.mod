@@ -11,7 +11,6 @@ require (
 	github.com/aws/aws-sdk-go-v2/config v1.28.1
 	github.com/aws/aws-sdk-go-v2/credentials v1.17.42
 	github.com/aws/aws-sdk-go-v2/feature/ec2/imds v1.16.18
-	github.com/aws/aws-sdk-go-v2/service/acs v0.0.0-00010101000000-000000000000
 	github.com/aws/aws-sdk-go-v2/service/ecr v1.41.1
 	github.com/aws/aws-sdk-go-v2/service/ecs v1.47.3
 	github.com/aws/smithy-go v1.22.2
@@ -111,6 +110,5 @@ require (
 
 replace (
 	github.com/aws/amazon-ecs-agent/ecs-agent => ../ecs-agent
-	github.com/aws/aws-sdk-go-v2/service/acs => ../aws-sdk-go-v2/service/acs
 	github.com/aws/aws-sdk-go-v2/service/ecs => ../aws-sdk-go-v2/service/ecs
 )

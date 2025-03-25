@@ -43,7 +43,7 @@ type ResourceAttachment struct {
 	err   error
 }
 
-// Agent Communication Service (ACS) can send messages of type ConfirmAttachmentInput. These messages include
+// Agent Communication Service (ACS) can send messages of type ConfirmAttachmentMessage. These messages include
 // an attachment, and map of associated properties. The below list contains attachment properties which Agent can use
 // to validate various types of attachments.
 const (
