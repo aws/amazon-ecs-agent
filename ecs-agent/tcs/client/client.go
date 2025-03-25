@@ -28,7 +28,8 @@ import (
 	"github.com/aws/amazon-ecs-agent/ecs-agent/tcs/model/ecstcs"
 	"github.com/aws/amazon-ecs-agent/ecs-agent/utils"
 	"github.com/aws/amazon-ecs-agent/ecs-agent/wsclient"
-	"github.com/aws/aws-sdk-go-v2/aws"
+	"github.com/aws/aws-sdk-go/aws"
+	"github.com/aws/aws-sdk-go/aws/credentials"
 	"github.com/aws/aws-sdk-go/private/protocol/json/jsonutil"
 
 	"github.com/cihub/seelog"
@@ -71,7 +72,7 @@ func New(url string,
 	doctor *doctor.Doctor,
 	disableResourceMetrics bool,
 	publishMetricsInterval time.Duration,
-	credentialCache *aws.CredentialsCache,
+	credentialProvider *credentials.Credentials,
 	rwTimeout time.Duration,
 	metricsMessages <-chan ecstcs.TelemetryMessage,
 	healthMessages <-chan ecstcs.HealthMessage,
@@ -85,14 +86,14 @@ func New(url string,
 		health:                   healthMessages,
 		disableResourceMetrics:   disableResourceMetrics,
 		ClientServerImpl: wsclient.ClientServerImpl{
-			URL:             url,
-			Cfg:             cfg,
-			CredentialCache: credentialCache,
-			RWTimeout:       rwTimeout,
-			MakeRequestHook: signRequestFunc(url, cfg.AWSRegion, credentialCache),
-			TypeDecoder:     NewTCSDecoder(),
-			RequestHandlers: make(map[string]wsclient.RequestHandler),
-			MetricsFactory:  metricsFactory,
+			URL:                url,
+			Cfg:                cfg,
+			CredentialProvider: credentialProvider,
+			RWTimeout:          rwTimeout,
+			MakeRequestHook:    signRequestFunc(url, cfg.AWSRegion, credentialProvider),
+			TypeDecoder:        NewTCSDecoder(),
+			RequestHandlers:    make(map[string]wsclient.RequestHandler),
+			MetricsFactory:     metricsFactory,
 		},
 	}
 	cs.ServiceError = &tcsError{}
@@ -367,10 +368,10 @@ func copyServiceConnectMetrics(scMetrics []*ecstcs.GeneralMetricsWrapper) []*ecs
 // copyHealthMetadata performs a deep copy of HealthMetadata object
 func copyHealthMetadata(metadata *ecstcs.HealthMetadata, fin bool) *ecstcs.HealthMetadata {
 	return &ecstcs.HealthMetadata{
-		Cluster:           aws.String(aws.ToString(metadata.Cluster)),
-		ContainerInstance: aws.String(aws.ToString(metadata.ContainerInstance)),
+		Cluster:           aws.String(aws.StringValue(metadata.Cluster)),
+		ContainerInstance: aws.String(aws.StringValue(metadata.ContainerInstance)),
 		Fin:               aws.Bool(fin),
-		MessageId:         aws.String(aws.ToString(metadata.MessageId)),
+		MessageId:         aws.String(aws.StringValue(metadata.MessageId)),
 	}
 }
 
@@ -491,7 +492,7 @@ func (cs *tcsClientServer) Close() error {
 }
 
 // signRequestFunc is a MakeRequestHookFunc that signs each generated request
-func signRequestFunc(url, region string, credentialCache *aws.CredentialsCache) wsclient.MakeRequestHookFunc {
+func signRequestFunc(url, region string, credentialProvider *credentials.Credentials) wsclient.MakeRequestHookFunc {
 	return func(payload []byte) ([]byte, error) {
 		reqBody := bytes.NewReader(payload)
 
@@ -500,7 +501,7 @@ func signRequestFunc(url, region string, credentialCache *aws.CredentialsCache) 
 			return nil, err
 		}
 
-		err = utils.SignHTTPRequest(request, region, "ecs", credentialCache, reqBody)
+		err = utils.SignHTTPRequest(request, region, "ecs", credentialProvider, reqBody)
 		if err != nil {
 			return nil, err
 		}
