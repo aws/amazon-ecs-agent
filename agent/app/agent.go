@@ -1102,7 +1102,7 @@ func (agent *ecsAgent) startACSSession(
 	acsSession := session.NewSession(agent.containerInstanceARN,
 		agent.cfg.Cluster,
 		client,
-		agent.credentialProvider,
+		agent.credentialsCache,
 		inactiveInstanceCB,
 		acsclient.NewACSClientFactory(),
 		metricsfactory.NewNopEntryFactory(),

@@ -65,7 +65,7 @@ func getTestFunc(
 		var ifaces []net.Interface
 		idx := 1
 		for _, eni := range taskPayload.ElasticNetworkInterfaces {
-			mac := aws.StringValue(eni.MacAddress)
+			mac := aws.ToString(eni.MacAddress)
 			hw, err := net.ParseMAC(mac)
 			require.NoError(t, err)
 			ifaces = append(ifaces, net.Interface{
