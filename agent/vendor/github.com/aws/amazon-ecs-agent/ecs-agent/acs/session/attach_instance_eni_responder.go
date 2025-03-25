@@ -17,7 +17,7 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/aws/aws-sdk-go/aws"
+	"github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/pkg/errors"
 
 	"github.com/aws/amazon-ecs-agent/ecs-agent/acs/model/ecsacs"
@@ -68,10 +68,10 @@ func (r *attachInstanceENIResponder) handleAttachMessage(message *ecsacs.AttachI
 	}
 
 	// Handle ENIs in the message.
-	messageID := aws.StringValue(message.MessageId)
-	clusterARN := aws.StringValue(message.ClusterArn)
-	containerInstanceARN := aws.StringValue(message.ContainerInstanceArn)
-	waitTimeoutMs := aws.Int64Value(message.WaitTimeoutMs)
+	messageID := aws.ToString(message.MessageId)
+	clusterARN := aws.ToString(message.ClusterArn)
+	containerInstanceARN := aws.ToString(message.ContainerInstanceArn)
+	waitTimeoutMs := aws.ToInt64(message.WaitTimeoutMs)
 	for _, mENI := range message.ElasticNetworkInterfaces {
 		go r.handleInstanceENIFromMessage(mENI, messageID, clusterARN, containerInstanceARN, receivedAt, waitTimeoutMs)
 	}
@@ -99,7 +99,7 @@ func (r *attachInstanceENIResponder) handleInstanceENIFromMessage(eni *ecsacs.El
 	expiresAt := receivedAt.Add(time.Duration(waitTimeoutMs) * time.Millisecond)
 	err := r.eniHandler.HandleENIAttachment(&ni.ENIAttachment{
 		AttachmentInfo: attachment.AttachmentInfo{
-			AttachmentARN:        aws.StringValue(eni.AttachmentArn),
+			AttachmentARN:        aws.ToString(eni.AttachmentArn),
 			Status:               attachment.AttachmentNone,
 			ExpiresAt:            expiresAt,
 			AttachStatusSent:     false,
@@ -107,7 +107,7 @@ func (r *attachInstanceENIResponder) handleInstanceENIFromMessage(eni *ecsacs.El
 			ContainerInstanceARN: containerInstanceARN,
 		},
 		AttachmentType: ni.ENIAttachmentTypeInstanceENI,
-		MACAddress:     aws.StringValue(eni.MacAddress),
+		MACAddress:     aws.ToString(eni.MacAddress),
 	})
 	if err != nil {
 		logger.Error(fmt.Sprintf("Unable to handle %s", AttachInstanceENIMessageName), logger.Fields{
@@ -124,22 +124,22 @@ func validateAttachInstanceNetworkInterfacesMessage(message *ecsacs.AttachInstan
 		return errors.Errorf("Message is empty")
 	}
 
-	messageID := aws.StringValue(message.MessageId)
+	messageID := aws.ToString(message.MessageId)
 	if messageID == "" {
 		return errors.Errorf("Message ID is not set")
 	}
 
-	clusterArn := aws.StringValue(message.ClusterArn)
+	clusterArn := aws.ToString(message.ClusterArn)
 	if clusterArn == "" {
 		return errors.Errorf("clusterArn is not set for message ID %s", messageID)
 	}
 
-	containerInstanceArn := aws.StringValue(message.ContainerInstanceArn)
+	containerInstanceArn := aws.ToString(message.ContainerInstanceArn)
 	if containerInstanceArn == "" {
 		return errors.Errorf("containerInstanceArn is not set for message ID %s", messageID)
 	}
 
-	timeout := aws.Int64Value(message.WaitTimeoutMs)
+	timeout := aws.ToInt64(message.WaitTimeoutMs)
 	if timeout <= 0 {
 		return errors.Errorf("Invalid timeout set for message ID %s", messageID)
 	}
