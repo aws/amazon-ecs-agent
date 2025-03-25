@@ -34,6 +34,8 @@ if ($Platform -like "windows2016") {
   $RegistryImageName="mcr.microsoft.com/windows/servercore:20H2"
 } elseif ($Platform -like "windows2022")  {
   $RegistryImageName="mcr.microsoft.com/windows/servercore:ltsc2022"
+} elseif ($Platform -like "windows2025")  {
+  $RegistryImageName="mcr.microsoft.com/windows/servercore:ltsc2025"
 } else {
   echo "Invalid platform parameter"
   exit 1

@@ -51,6 +51,7 @@ var (
 		19041: "2004",
 		19042: "20H2",
 		20348: "2022",
+		26100: "2025",
 	}
 	// windowsGetVersionFunc is the method used to obtain information about current Windows version.
 	windowsGetVersionFunc = windows.RtlGetVersion
