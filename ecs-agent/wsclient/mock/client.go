@@ -26,7 +26,7 @@ import (
 	metrics "github.com/aws/amazon-ecs-agent/ecs-agent/metrics"
 	wsclient "github.com/aws/amazon-ecs-agent/ecs-agent/wsclient"
 	wsconn "github.com/aws/amazon-ecs-agent/ecs-agent/wsclient/wsconn"
-	credentials "github.com/aws/aws-sdk-go/aws/credentials"
+	aws "github.com/aws/aws-sdk-go-v2/aws"
 	gomock "github.com/golang/mock/gomock"
 )
 
@@ -309,7 +309,7 @@ func (m *MockClientFactory) EXPECT() *MockClientFactoryMockRecorder {
 }
 
 // New mocks base method.
-func (m *MockClientFactory) New(arg0 string, arg1 *credentials.Credentials, arg2 time.Duration, arg3 *wsclient.WSClientMinAgentConfig, arg4 metrics.EntryFactory) wsclient.ClientServer {
+func (m *MockClientFactory) New(arg0 string, arg1 *aws.CredentialsCache, arg2 time.Duration, arg3 *wsclient.WSClientMinAgentConfig, arg4 metrics.EntryFactory) wsclient.ClientServer {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "New", arg0, arg1, arg2, arg3, arg4)
 	ret0, _ := ret[0].(wsclient.ClientServer)

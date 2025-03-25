@@ -24,5 +24,5 @@ import (
 // ClientFactory interface abstracts the method that creates new ClientServer
 // objects. This is helpful when writing unit tests.
 type ClientFactory interface {
-	New(url string, credentialProvider *aws.CredentialsCache, rwTimeout time.Duration, cfg *WSClientMinAgentConfig, metricsFactory metrics.EntryFactory) ClientServer
+	New(url string, credentialCache *aws.CredentialsCache, rwTimeout time.Duration, cfg *WSClientMinAgentConfig, metricsFactory metrics.EntryFactory) ClientServer
 }
