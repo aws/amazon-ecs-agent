@@ -176,9 +176,10 @@ type ClientServerImpl struct {
 	// conn holds the underlying low-level websocket connection
 	conn wsconn.WebsocketConn
 	// CredentialProvider is used to retrieve AWS credentials
-
+	// TODO: Remove this once both ACS and TCS implementations have migrated over to AWS SDK Go V2.
 	CredentialProvider *credentialsV1.Credentials
 
+	// CredentialCache is used to retrieve AWS credentials
 	CredentialCache *aws.CredentialsCache
 	// RequestHandlers is a map from message types to handler functions of the
 	// form:

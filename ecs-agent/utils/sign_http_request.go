@@ -30,6 +30,8 @@ import (
 	"github.com/pkg/errors"
 )
 
+// Hex encoding SHA256 of an empty string
+// Ref: https://github.com/aws/aws-sdk-go-v2/blob/ad4fc4c28b5e589872821d34c8e3a25cc6bfe6f3/aws/signer/v4/v4.go#L254-L260
 const emptyBodySHA256 = "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
 
 // SignHTTPRequest signs an http.Request struct with authv4 using the given region, service, and credentials.
