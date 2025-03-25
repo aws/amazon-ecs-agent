@@ -24,10 +24,9 @@ import (
 
 	"github.com/aws/amazon-ecs-agent/agent/api/serviceconnect"
 	taskresourcevolume "github.com/aws/amazon-ecs-agent/agent/taskresource/volume"
+	"github.com/aws/amazon-ecs-agent/ecs-agent/acs/model/ecsacs"
 	apiresource "github.com/aws/amazon-ecs-agent/ecs-agent/api/attachment/resource"
-
 	"github.com/aws/aws-sdk-go-v2/aws"
-	acstypes "github.com/aws/aws-sdk-go-v2/service/acs/types"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -42,16 +41,16 @@ var (
 	testIPv4CIDR                    = "127.255.0.0/16"
 	testIPv6                        = "abcd:dcba:1234:4321::"
 	testIPv6CIDR                    = "2002::1234:abcd:ffff:c0a8:101/64"
-	testIpv4ElasticNetworkInterface = acstypes.ElasticNetworkInterface{
-		Ipv4Addresses: []acstypes.IPv4AddressAssignment{
+	testIpv4ElasticNetworkInterface = &ecsacs.ElasticNetworkInterface{
+		Ipv4Addresses: []*ecsacs.IPv4AddressAssignment{
 			{
 				Primary:        aws.Bool(true),
 				PrivateAddress: aws.String(testIPv4),
 			},
 		},
 	}
-	testIpv6ElasticNetworkInterface = acstypes.ElasticNetworkInterface{
-		Ipv6Addresses: []acstypes.IPv6AddressAssignment{
+	testIpv6ElasticNetworkInterface = &ecsacs.ElasticNetworkInterface{
+		Ipv6Addresses: []*ecsacs.IPv6AddressAssignment{
 			{
 				Address: aws.String(testIPv6),
 			},
@@ -61,10 +60,10 @@ var (
 
 func stringToPointer(s string) *string { return &s }
 
-func getTestcontainerFromACS(containerName, networkMode string) acstypes.Container {
-	return acstypes.Container{
+func getTestcontainerFromACS(containerName, networkMode string) *ecsacs.Container {
+	return &ecsacs.Container{
 		Name: aws.String(containerName),
-		DockerConfig: &acstypes.DockerConfig{
+		DockerConfig: &ecsacs.DockerConfig{
 			HostConfig: aws.String(fmt.Sprintf(
 				`{"NetworkMode":"%s"}`, networkMode)),
 		},
@@ -158,15 +157,15 @@ func TestHandleTaskAttachmentsWithServiceConnectAttachment(t *testing.T) {
 
 	for _, tc := range tt {
 		t.Run(tc.testName, func(t *testing.T) {
-			testAcsTask := &acstypes.Task{
-				ElasticNetworkInterfaces: []acstypes.ElasticNetworkInterface{testIpv6ElasticNetworkInterface},
-				Containers: []acstypes.Container{
+			testAcsTask := &ecsacs.Task{
+				ElasticNetworkInterfaces: []*ecsacs.ElasticNetworkInterface{testIpv6ElasticNetworkInterface},
+				Containers: []*ecsacs.Container{
 					getTestcontainerFromACS(testSCContainerName, AWSVPCNetworkMode),
 				},
-				Attachments: []acstypes.Attachment{
+				Attachments: []*ecsacs.Attachment{
 					{
 						AttachmentArn: stringToPointer("attachmentArn"),
-						AttachmentProperties: []acstypes.AttachmentProperty{
+						AttachmentProperties: []*ecsacs.AttachmentProperty{
 							{
 								Name:  stringToPointer(serviceconnect.GetServiceConnectConfigKey()),
 								Value: stringToPointer(tc.testServiceConnectConfig),
@@ -238,15 +237,15 @@ func TestHandleTaskAttachmentWithEBSVolumeAttachment(t *testing.T) {
 
 	for _, tc := range tt {
 		t.Run(tc.testName, func(t *testing.T) {
-			testAcsTask := &acstypes.Task{
-				ElasticNetworkInterfaces: []acstypes.ElasticNetworkInterface{testIpv6ElasticNetworkInterface},
-				Containers: []acstypes.Container{
+			testAcsTask := &ecsacs.Task{
+				ElasticNetworkInterfaces: []*ecsacs.ElasticNetworkInterface{testIpv6ElasticNetworkInterface},
+				Containers: []*ecsacs.Container{
 					getTestcontainerFromACS(testSCContainerName, AWSVPCNetworkMode),
 				},
-				Attachments: []acstypes.Attachment{
+				Attachments: []*ecsacs.Attachment{
 					{
 						AttachmentArn: stringToPointer("attachmentArn"),
-						AttachmentProperties: []acstypes.AttachmentProperty{
+						AttachmentProperties: []*ecsacs.AttachmentProperty{
 							{
 								Name:  stringToPointer(apiresource.VolumeIdKey),
 								Value: stringToPointer(tc.testVolumeId),
@@ -275,10 +274,10 @@ func TestHandleTaskAttachmentWithEBSVolumeAttachment(t *testing.T) {
 						AttachmentType: stringToPointer(apiresource.EBSTaskAttach),
 					},
 				},
-				Volumes: []acstypes.Volume{
+				Volumes: []*ecsacs.Volume{
 					{
 						Name: strptr("test-volume"),
-						Type: AttachmentType,
+						Type: strptr(AttachmentType),
 					},
 				},
 			}
@@ -297,9 +296,9 @@ func TestHandleTaskAttachmentWithEBSVolumeAttachment(t *testing.T) {
 }
 
 func TestHandleTaskAttachmentsWithoutAttachment(t *testing.T) {
-	testAcsTask := &acstypes.Task{
-		ElasticNetworkInterfaces: []acstypes.ElasticNetworkInterface{testIpv4ElasticNetworkInterface},
-		Containers: []acstypes.Container{
+	testAcsTask := &ecsacs.Task{
+		ElasticNetworkInterfaces: []*ecsacs.ElasticNetworkInterface{testIpv4ElasticNetworkInterface},
+		Containers: []*ecsacs.Container{
 			getTestcontainerFromACS("C1", BridgeNetworkMode),
 		},
 		NetworkMode: stringToPointer(BridgeNetworkMode),

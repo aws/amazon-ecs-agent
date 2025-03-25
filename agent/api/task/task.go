@@ -40,6 +40,7 @@ import (
 	resourcetype "github.com/aws/amazon-ecs-agent/agent/taskresource/types"
 	taskresourcevolume "github.com/aws/amazon-ecs-agent/agent/taskresource/volume"
 	"github.com/aws/amazon-ecs-agent/agent/utils"
+	"github.com/aws/amazon-ecs-agent/ecs-agent/acs/model/ecsacs"
 	"github.com/aws/amazon-ecs-agent/ecs-agent/api/container/restart"
 	apicontainerstatus "github.com/aws/amazon-ecs-agent/ecs-agent/api/container/status"
 	apierrors "github.com/aws/amazon-ecs-agent/ecs-agent/api/errors"
@@ -55,8 +56,7 @@ import (
 	ecstypes "github.com/aws/aws-sdk-go-v2/service/ecs/types"
 
 	"github.com/aws/aws-sdk-go-v2/aws"
-	"github.com/aws/aws-sdk-go-v2/service/acs"
-	acstypes "github.com/aws/aws-sdk-go-v2/service/acs/types"
+	"github.com/aws/aws-sdk-go/private/protocol/json/jsonutil"
 	"github.com/docker/docker/api/types"
 	dockercontainer "github.com/docker/docker/api/types/container"
 	"github.com/docker/go-connections/nat"
@@ -309,10 +309,10 @@ type Task struct {
 	DefaultIfname string `json:"DefaultIfname,omitempty"`
 }
 
-// TaskFromACS translates acs.Task to apitask.Task by first marshaling the received
-// acs.Task to json and unmarshalling it as apitask.Task
-func TaskFromACS(acsTask *acstypes.Task, envelope *acs.PayloadInput) (*Task, error) {
-	data, err := json.Marshal(acsTask)
+// TaskFromACS translates ecsacs.Task to apitask.Task by first marshaling the received
+// ecsacs.Task to json and unmarshalling it as apitask.Task
+func TaskFromACS(acsTask *ecsacs.Task, envelope *ecsacs.PayloadMessage) (*Task, error) {
+	data, err := jsonutil.BuildJSON(acsTask)
 	if err != nil {
 		return nil, err
 	}

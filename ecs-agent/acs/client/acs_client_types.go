@@ -16,9 +16,6 @@ package acsclient
 import (
 	"github.com/aws/amazon-ecs-agent/ecs-agent/acs/model/ecsacs"
 	"github.com/aws/amazon-ecs-agent/ecs-agent/wsclient"
-
-	"github.com/aws/aws-sdk-go-v2/service/acs"
-	acstypes "github.com/aws/aws-sdk-go-v2/service/acs/types"
 )
 
 var acsRecognizedTypes []interface{}
@@ -32,61 +29,32 @@ func init() {
 	// reflection, but that would solve this. The alternative is to either parse
 	// the .json model or the generated struct names.
 	acsRecognizedTypes = []interface{}{
-		acs.HeartbeatInput{},
-		acs.HeartbeatOutput{},
-		acs.PayloadInput{},
-		acs.PollOutput{},
+		ecsacs.HeartbeatMessage{},
+		ecsacs.HeartbeatAckRequest{},
+		ecsacs.PayloadMessage{},
+		ecsacs.CloseMessage{},
 		ecsacs.AckRequest{},
-		acs.UpdateFailureInput{},
-		acs.PerformUpdateInput{},
-		acs.StageUpdateInput{},
-		acs.RefreshTaskIAMRoleCredentialsInput{},
-		acs.RefreshTaskIAMRoleCredentialsOutput{},
-		acstypes.ServerException{},
-		acstypes.BadRequestException{},
-		acstypes.InvalidClusterException{},
-		acstypes.InvalidInstanceException{},
-		acstypes.AccessDeniedException{},
-		acstypes.InactiveInstanceException{},
-		acs.ErrorInput{},
-		acs.AttachTaskNetworkInterfacesInput{},
-		acs.AttachInstanceNetworkInterfacesInput{},
-		acs.ConfirmAttachmentInput{},
-		acs.TaskManifestInput{},
-		acs.TaskStopVerificationOutput{},
-		acs.TaskStopVerificationInput{},
+		ecsacs.NackRequest{},
+		ecsacs.PerformUpdateMessage{},
+		ecsacs.StageUpdateMessage{},
+		ecsacs.IAMRoleCredentialsMessage{},
+		ecsacs.IAMRoleCredentialsAckRequest{},
+		ecsacs.ServerException{},
+		ecsacs.BadRequestException{},
+		ecsacs.InvalidClusterException{},
+		ecsacs.InvalidInstanceException{},
+		ecsacs.AccessDeniedException{},
+		ecsacs.InactiveInstanceException{},
+		ecsacs.ErrorMessage{},
+		ecsacs.AttachTaskNetworkInterfacesMessage{},
+		ecsacs.AttachInstanceNetworkInterfacesMessage{},
+		ecsacs.ConfirmAttachmentMessage{},
+		ecsacs.TaskManifestMessage{},
+		ecsacs.TaskStopVerificationAck{},
+		ecsacs.TaskStopVerificationMessage{},
 	}
 }
 
 func NewACSDecoder() wsclient.TypeDecoder {
-	decoder := wsclient.BuildTypeDecoder(acsRecognizedTypes)
-
-	// aliases {aliasTypeName: origTypeName}
-	// This is needed because ACS service uses different type Names as we do
-	aliasMap := map[string]string{
-		"HeartbeatMessage":                       "HeartbeatInput",
-		"HeartbeatAckRequest":                    "HeartbeatOutput",
-		"PayloadMessage":                         "PayloadInput",
-		"CloseMessage":                           "PollOutput",
-		"PerformUpdateMessage":                   "PerformUpdateInput",
-		"StageUpdateMessage":                     "StageUpdateInput",
-		"IAMRoleCredentialsMessage":              "RefreshTaskIAMRoleCredentialsInput",
-		"IAMRoleCredentialsAckRequest":           "RefreshTaskIAMRoleCredentialsOutput",
-		"ErrorMessage":                           "ErrorInput",
-		"AttachTaskNetworkInterfacesMessage":     "AttachTaskNetworkInterfacesInput",
-		"AttachInstanceNetworkInterfacesMessage": "AttachInstanceNetworkInterfacesInput",
-		"ConfirmAttachmentMessage":               "ConfirmAttachmentInput",
-		"TaskManifestMessage":                    "TaskManifestInput",
-		"TaskStopVerificationAck":                "TaskStopVerificationOutput",
-		"TaskStopVerificationMessage":            "TaskStopVerificationInput",
-	}
-
-	typeMappings := decoder.(*wsclient.TypeDecoderImpl).GetRecognizedTypes()
-	for alias, original := range aliasMap {
-		if originalType, exists := typeMappings[original]; exists {
-			typeMappings[alias] = originalType
-		}
-	}
-
-	return decoder
+	return wsclient.BuildTypeDecoder(acsRecognizedTypes)
 }

@@ -19,11 +19,10 @@ import (
 	"strings"
 	"sync"
 
+	"github.com/aws/amazon-ecs-agent/ecs-agent/acs/model/ecsacs"
 	"github.com/aws/amazon-ecs-agent/ecs-agent/logger"
 	loggerfield "github.com/aws/amazon-ecs-agent/ecs-agent/logger/field"
-
 	"github.com/aws/aws-sdk-go-v2/aws"
-	acstypes "github.com/aws/aws-sdk-go-v2/service/acs/types"
 	"github.com/pkg/errors"
 )
 
@@ -288,7 +287,7 @@ type ENIIPV6Address struct {
 }
 
 // ENIFromACS validates the given ACS ENI information and creates an ENI object from it.
-func ENIFromACS(acsENI *acstypes.ElasticNetworkInterface) (*ENI, error) {
+func ENIFromACS(acsENI *ecsacs.ElasticNetworkInterface) (*ENI, error) {
 	err := ValidateENI(acsENI)
 	if err != nil {
 		return nil, err
@@ -315,7 +314,7 @@ func ENIFromACS(acsENI *acstypes.ElasticNetworkInterface) (*ENI, error) {
 	// Read ENI association properties.
 	var interfaceVlanProperties InterfaceVlanProperties
 
-	if string(acsENI.InterfaceAssociationProtocol) == VLANInterfaceAssociationProtocol {
+	if aws.ToString(acsENI.InterfaceAssociationProtocol) == VLANInterfaceAssociationProtocol {
 		interfaceVlanProperties.TrunkInterfaceMacAddress = aws.ToString(acsENI.InterfaceVlanProperties.TrunkInterfaceMacAddress)
 		interfaceVlanProperties.VlanID = aws.ToString(acsENI.InterfaceVlanProperties.VlanId)
 	}
@@ -327,18 +326,22 @@ func ENIFromACS(acsENI *acstypes.ElasticNetworkInterface) (*ENI, error) {
 		IPV6Addresses:                ipv6Addrs,
 		SubnetGatewayIPV4Address:     aws.ToString(acsENI.SubnetGatewayIpv4Address),
 		PrivateDNSName:               aws.ToString(acsENI.PrivateDnsName),
-		InterfaceAssociationProtocol: string(acsENI.InterfaceAssociationProtocol),
+		InterfaceAssociationProtocol: aws.ToString(acsENI.InterfaceAssociationProtocol),
 		InterfaceVlanProperties:      &interfaceVlanProperties,
 	}
 
-	eni.DomainNameServers = append(eni.DomainNameServers, acsENI.DomainNameServers...)
-	eni.DomainNameSearchList = append(eni.DomainNameSearchList, acsENI.DomainName...)
+	for _, nameserverIP := range acsENI.DomainNameServers {
+		eni.DomainNameServers = append(eni.DomainNameServers, aws.ToString(nameserverIP))
+	}
+	for _, nameserverDomain := range acsENI.DomainName {
+		eni.DomainNameSearchList = append(eni.DomainNameSearchList, aws.ToString(nameserverDomain))
+	}
 
 	return eni, nil
 }
 
 // ValidateENI validates the ENI information sent from ACS.
-func ValidateENI(acsENI *acstypes.ElasticNetworkInterface) error {
+func ValidateENI(acsENI *ecsacs.ElasticNetworkInterface) error {
 	// At least one IPv4 address should be associated with the ENI.
 	if len(acsENI.Ipv4Addresses) < 1 {
 		return errors.Errorf("eni message validation: no ipv4 addresses in the message")
@@ -363,15 +366,15 @@ func ValidateENI(acsENI *acstypes.ElasticNetworkInterface) error {
 	}
 
 	// The association protocol, if specified, must be a supported value.
-	if (acsENI.InterfaceAssociationProtocol != "") &&
-		(acsENI.InterfaceAssociationProtocol != VLANInterfaceAssociationProtocol) &&
-		(acsENI.InterfaceAssociationProtocol != DefaultInterfaceAssociationProtocol) {
+	if (acsENI.InterfaceAssociationProtocol != nil) &&
+		(aws.ToString(acsENI.InterfaceAssociationProtocol) != VLANInterfaceAssociationProtocol) &&
+		(aws.ToString(acsENI.InterfaceAssociationProtocol) != DefaultInterfaceAssociationProtocol) {
 		return errors.Errorf("invalid interface association protocol: %s",
-			acsENI.InterfaceAssociationProtocol)
+			aws.ToString(acsENI.InterfaceAssociationProtocol))
 	}
 
 	// If the interface association protocol is vlan, InterfaceVlanProperties must be specified.
-	if acsENI.InterfaceAssociationProtocol == VLANInterfaceAssociationProtocol {
+	if aws.ToString(acsENI.InterfaceAssociationProtocol) == VLANInterfaceAssociationProtocol {
 		if acsENI.InterfaceVlanProperties == nil ||
 			len(aws.ToString(acsENI.InterfaceVlanProperties.VlanId)) == 0 ||
 			len(aws.ToString(acsENI.InterfaceVlanProperties.TrunkInterfaceMacAddress)) == 0 {

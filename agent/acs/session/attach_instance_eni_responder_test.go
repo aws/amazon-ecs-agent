@@ -31,23 +31,21 @@ import (
 	ni "github.com/aws/amazon-ecs-agent/ecs-agent/netlib/model/networkinterface"
 
 	"github.com/aws/aws-sdk-go-v2/aws"
-	"github.com/aws/aws-sdk-go-v2/service/acs"
-	acstypes "github.com/aws/aws-sdk-go-v2/service/acs/types"
 	"github.com/golang/mock/gomock"
 	"github.com/stretchr/testify/assert"
 )
 
-var testAttachInstanceENIMessage = &acs.AttachInstanceNetworkInterfacesInput{
+var testAttachInstanceENIMessage = &ecsacs.AttachInstanceNetworkInterfacesMessage{
 	MessageId:            aws.String(testconst.MessageID),
 	ClusterArn:           aws.String(testconst.ClusterARN),
 	ContainerInstanceArn: aws.String(testconst.ContainerInstanceARN),
-	ElasticNetworkInterfaces: []acstypes.ElasticNetworkInterface{
+	ElasticNetworkInterfaces: []*ecsacs.ElasticNetworkInterface{
 		{
 			Ec2Id:                        aws.String("1"),
 			MacAddress:                   aws.String(testconst.RandomMAC),
-			InterfaceAssociationProtocol: testconst.InterfaceProtocol,
+			InterfaceAssociationProtocol: aws.String(testconst.InterfaceProtocol),
 			SubnetGatewayIpv4Address:     aws.String(testconst.GatewayIPv4),
-			Ipv4Addresses: []acstypes.IPv4AddressAssignment{
+			Ipv4Addresses: []*ecsacs.IPv4AddressAssignment{
 				{
 					Primary:        aws.Bool(true),
 					PrivateAddress: aws.String(testconst.IPv4Address),
@@ -58,7 +56,7 @@ var testAttachInstanceENIMessage = &acs.AttachInstanceNetworkInterfacesInput{
 	WaitTimeoutMs: aws.Int64(testconst.WaitTimeoutMillis),
 }
 
-// TestInstanceENIAckHappyPath tests the happy path for a typical AttachInstanceNetworkInterfacesInput and confirms
+// TestInstanceENIAckHappyPath tests the happy path for a typical AttachInstanceNetworkInterfacesMessage and confirms
 // expected ACK request is made
 func TestInstanceENIAckHappyPath(t *testing.T) {
 	ctrl := gomock.NewController(t)
@@ -79,7 +77,7 @@ func TestInstanceENIAckHappyPath(t *testing.T) {
 		testResponseSender)
 
 	handleAttachMessage :=
-		testAttachInstanceENIResponder.HandlerFunc().(func(*acs.AttachInstanceNetworkInterfacesInput))
+		testAttachInstanceENIResponder.HandlerFunc().(func(*ecsacs.AttachInstanceNetworkInterfacesMessage))
 	go handleAttachMessage(testAttachInstanceENIMessage)
 
 	attachInstanceEniAckSent := <-ackSent
@@ -87,7 +85,7 @@ func TestInstanceENIAckHappyPath(t *testing.T) {
 }
 
 // TestInstanceENIAckSingleMessageWithDuplicateENIAttachment tests the path for an
-// AttachInstanceNetworkInterfacesInput with a duplicate expired ENI and confirms:
+// AttachInstanceNetworkInterfacesMessage with a duplicate expired ENI and confirms:
 //  1. attempt is made to start the ack timer that records the expiration of ENI attachment (i.e., ENI is not added to
 //     task engine state)
 //  2. expected ACK request is made
@@ -134,7 +132,7 @@ func TestInstanceENIAckSingleMessageWithDuplicateENIAttachment(t *testing.T) {
 		testResponseSender)
 
 	handleAttachMessage :=
-		testAttachInstanceENIResponder.HandlerFunc().(func(*acs.AttachInstanceNetworkInterfacesInput))
+		testAttachInstanceENIResponder.HandlerFunc().(func(*ecsacs.AttachInstanceNetworkInterfacesMessage))
 	go handleAttachMessage(testAttachInstanceENIMessage)
 
 	attachInstanceEniAckSent := <-ackSent

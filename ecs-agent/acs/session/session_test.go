@@ -44,130 +44,128 @@ import (
 	mock_retry "github.com/aws/amazon-ecs-agent/ecs-agent/utils/retry/mock"
 	"github.com/aws/amazon-ecs-agent/ecs-agent/wsclient"
 	mock_wsclient "github.com/aws/amazon-ecs-agent/ecs-agent/wsclient/mock"
-
-	"github.com/aws/aws-sdk-go-v2/aws"
-	"github.com/aws/aws-sdk-go-v2/credentials"
+	"github.com/aws/aws-sdk-go/aws/credentials"
 	"github.com/golang/mock/gomock"
 	"github.com/gorilla/websocket"
 	"github.com/pkg/errors"
 	"github.com/stretchr/testify/assert"
 )
 
-// samplePayloadInput, sampleRefreshCredentialsMessage, and sampleAttachResourceMessage are required to be type
+// samplePayloadMessage, sampleRefreshCredentialsMessage, and sampleAttachResourceMessage are required to be type
 // string because the channel used by the test fake ACS server to read in messages in the tests where these consts
 // are used is a string channel (i.e., not a channel of any particular message type).
 const (
-	samplePayloadInput = `
+	samplePayloadMessage = `
 {
-  "type": "PayloadInput",
+  "type": "PayloadMessage",
   "message": {
-    "MessageId": "123",
-    "Tasks": [
+    "messageId": "123",
+    "tasks": [
       {
-        "TaskDefinitionAccountId": "123",
-        "Containers": [
+        "taskDefinitionAccountId": "123",
+        "containers": [
           {
-            "Environment": {},
-            "Name": "name",
-            "Cpu": 1,
-            "Essential": true,
-            "Memory": 1,
-            "PortMappings": [],
-            "Overrides": "{}",
-            "Image": "i",
-            "MountPoints": [],
-            "VolumesFrom": []
+            "environment": {},
+            "name": "name",
+            "cpu": 1,
+            "essential": true,
+            "memory": 1,
+            "portMappings": [],
+            "overrides": "{}",
+            "image": "i",
+            "mountPoints": [],
+            "volumesFrom": []
           }
         ],
-        "ElasticNetworkInterfaces":[{
-                "AttachmentArn": "eni_attach_arn",
-                "Ec2Id": "eni_id",
-                "Ipv4Addresses":[{
-                    "Primary": true,
-                    "PrivateAddress": "ipv4"
+        "elasticNetworkInterfaces":[{
+                "attachmentArn": "eni_attach_arn",
+                "ec2Id": "eni_id",
+                "ipv4Addresses":[{
+                    "primary": true,
+                    "privateAddress": "ipv4"
                 }],
-                "Ipv6Addresses": [{
-                    "Address": "ipv6"
+                "ipv6Addresses": [{
+                    "address": "ipv6"
                 }],
-                "SubnetGatewayIpv4Address": "ipv4/20",
-                "MacAddress": "mac"
+                "subnetGatewayIpv4Address": "ipv4/20",
+                "macAddress": "mac"
         }],
-        "RoleCredentials": {
-          "CredentialsId": "credsId",
-          "AccessKeyId": "accessKeyId",
-          "Expiration": "2016-03-25T06:17:19.318+0000",
-          "RoleArn": "r1",
-          "SecretAccessKey": "secretAccessKey",
-          "SessionToken": "token"
+        "roleCredentials": {
+          "credentialsId": "credsId",
+          "accessKeyId": "accessKeyId",
+          "expiration": "2016-03-25T06:17:19.318+0000",
+          "roleArn": "r1",
+          "secretAccessKey": "secretAccessKey",
+          "sessionToken": "token"
         },
-        "Version": "3",
-        "Volumes": [],
-        "Family": "f",
-        "Arn": "arn",
-        "DesiredStatus": "RUNNING"
+        "version": "3",
+        "volumes": [],
+        "family": "f",
+        "arn": "arn",
+        "desiredStatus": "RUNNING"
       }
     ],
-    "ReneratedAt": 1,
-    "ClusterArn": "1",
-    "ContainerInstanceArn": "1",
-    "SeqNum": 1
+    "generatedAt": 1,
+    "clusterArn": "1",
+    "containerInstanceArn": "1",
+    "seqNum": 1
   }
 }
 `
 	sampleRefreshCredentialsMessage = `
 {
-  "type": "RefreshTaskIAMRoleCredentialsInput",
+  "type": "IAMRoleCredentialsMessage",
   "message": {
-    "MessageId": "123",
-    "ClusterArn": "default",
-    "TaskArn": "t1",
-    "RoleType": "TaskApplication",
-    "RoleCredentials": {
-      "CredentialsId": "credsId",
-      "AccessKeyId": "newakid",
-      "Expiration": "later",
-      "RoleArn": "r1",
-      "SecretAccessKey": "newskid",
-      "SessionToken": "newstkn"
+    "messageId": "123",
+    "clusterArn": "default",
+    "taskArn": "t1",
+    "roleType": "TaskApplication",
+    "roleCredentials": {
+      "credentialsId": "credsId",
+      "accessKeyId": "newakid",
+      "expiration": "later",
+      "roleArn": "r1",
+      "secretAccessKey": "newskid",
+      "sessionToken": "newstkn"
     }
   }
 }
 `
 	sampleAttachResourceMessage = `
 {
-  "type": "ConfirmAttachmentInput",
+  "type": "ConfirmAttachmentMessage",
   "message": {
-    "MessageId": "123",
-    "ClusterArn": "arn:aws:ecs:us-west-2:123456789012:cluster/a1b2c3d4-5678-90ab-cdef-11111EXAMPLE",
-    "ContainerInstanceArn": "arn:aws:ecs:us-west-2:123456789012:container-instance/a1b2c3d4-5678-90ab-cdef-11111EXAMPLE",
-    "TaskArn": "arn:aws:ecs:us-west-2:1234567890:task/test-cluster/abc",
-    "WaitTimeoutMs": 1000,
-    "Attachment": {
-      "AttachmentArn": "arn:aws:ecs:us-west-2:123456789012:ephemeral-storage/a1b2c3d4-5678-90ab-cdef-11111EXAMPLE",
-      "AttachmentProperties": [
+    "messageId": "123",
+    "clusterArn": "arn:aws:ecs:us-west-2:123456789012:cluster/a1b2c3d4-5678-90ab-cdef-11111EXAMPLE",
+    "containerInstanceArn": "arn:aws:ecs:us-west-2:123456789012:container-instance/a1b2c3d4-5678-90ab-cdef-11111EXAMPLE",
+    "taskArn": "arn:aws:ecs:us-west-2:1234567890:task/test-cluster/abc",
+    "waitTimeoutMs": 1000,
+    "attachment": {
+      "attachmentArn": "arn:aws:ecs:us-west-2:123456789012:ephemeral-storage/a1b2c3d4-5678-90ab-cdef-11111EXAMPLE",
+      "attachmentProperties": [
         {
-          "Name": "resourceID",
-          "Value": "id1"
+          "name": "resourceID",
+          "value": "id1"
         },
         {
-          "Name": "volumeID",
-          "Value": "id1"
+          "name": "volumeID",
+          "value": "id1"
         },
         {
-          "Name": "volumeSizeInGiB",
-          "Value": "size1"
+          "name": "volumeSizeInGiB",
+          "value": "size1"
         },
         {
-          "Name": "requestedSizeInGiB",
-          "Value": "size1"
+          "name": "requestedSizeInGiB",
+          "value": "size1"
         },
         {
-          "Name": "resourceType",
-          "Value": "EphemeralStorage"
+          "name": "resourceType",
+          "value": "EphemeralStorage"
         },
         {
-          "Name": "deviceName",
-          "Value": "device1"
+          "name": "deviceName",
+          "value": "device1"
         }
       ]
     }
@@ -182,7 +180,7 @@ const (
 
 var inactiveInstanceError = errors.New("InactiveInstanceException")
 var noopFunc = func() {}
-var testCreds = credentials.NewStaticCredentialsProvider("test-id", "test-secret", "test-token")
+var testCreds = credentials.NewStaticCredentials("test-id", "test-secret", "test-token")
 var testMinAgentConfig = &wsclient.WSClientMinAgentConfig{
 	AcceptInsecureCert: true,
 	AWSRegion:          "us-west-2",
@@ -975,7 +973,7 @@ func TestSessionDoesntLeakGoroutines(t *testing.T) {
 	go func() {
 		acsSession := session{
 			containerInstanceARN:  testconst.ContainerInstanceARN,
-			credentialsCache:      aws.NewCredentialsCache(testCreds),
+			credentialsProvider:   testCreds,
 			dockerVersion:         dockerVersion,
 			minAgentConfig:        testMinAgentConfig,
 			ecsClient:             ecsClient,
@@ -992,13 +990,13 @@ func TestSessionDoesntLeakGoroutines(t *testing.T) {
 		ended <- true
 	}()
 	// Warm it up.
-	serverIn <- `{"type":"HeartbeatInput","message":{"Healthy":true,"MessageId":"123"}}`
-	serverIn <- samplePayloadInput
+	serverIn <- `{"type":"HeartbeatMessage","message":{"healthy":true,"messageId":"123"}}`
+	serverIn <- samplePayloadMessage
 
 	beforeGoroutines := runtime.NumGoroutine()
 	for i := 0; i < 40; i++ {
-		serverIn <- `{"type":"HeartbeatInput","message":{"Healthy":true,"MessageId":"123"}}`
-		serverIn <- samplePayloadInput
+		serverIn <- `{"type":"HeartbeatMessage","message":{"healthy":true,"messageId":"123"}}`
+		serverIn <- samplePayloadMessage
 		closeWS <- true
 	}
 
@@ -1054,7 +1052,7 @@ func TestStartSessionHandlesRefreshCredentialsMessages(t *testing.T) {
 		acsSession := NewSession(testconst.ContainerInstanceARN,
 			testconst.ClusterARN,
 			ecsClient,
-			aws.NewCredentialsCache(testCreds),
+			testCreds,
 			noopFunc,
 			acsclient.NewACSClientFactory(),
 			metricsfactory.NewNopEntryFactory(),
@@ -1320,7 +1318,7 @@ func TestStartSessionHandlesAttachResourceMessages(t *testing.T) {
 		acsSession := NewSession(testconst.ContainerInstanceARN,
 			testconst.ClusterARN,
 			ecsClient,
-			aws.NewCredentialsCache(testCreds),
+			testCreds,
 			noopFunc,
 			acsclient.NewACSClientFactory(),
 			metricsfactory.NewNopEntryFactory(),

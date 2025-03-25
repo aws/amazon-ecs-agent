@@ -80,7 +80,9 @@ func (dm *daemonManager) CreateDaemonTask() (*apitask.Task, error) {
 	stringCaps := []string{}
 	if dm.managedDaemon.GetLinuxParameters() != nil {
 		caps := dm.managedDaemon.GetLinuxParameters().Capabilities.Add
-		stringCaps = append(stringCaps, caps...)
+		for _, cap := range caps {
+			stringCaps = append(stringCaps, *cap)
+		}
 	}
 	dockerHostConfig := dockercontainer.HostConfig{
 		Mounts:      []dockermount.Mount{},

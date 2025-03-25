@@ -19,10 +19,7 @@ import (
 
 	"github.com/aws/amazon-ecs-agent/ecs-agent/acs/model/ecsacs"
 	"github.com/aws/amazon-ecs-agent/ecs-agent/logger"
-	"github.com/aws/amazon-ecs-agent/ecs-agent/utils"
-
 	"github.com/aws/aws-sdk-go-v2/aws"
-	acstypes "github.com/aws/aws-sdk-go-v2/service/acs/types"
 )
 
 const (
@@ -43,7 +40,7 @@ func GetServiceConnectContainerNameKey() string {
 
 // ParseServiceConnectAttachment parses the service connect container name and service connect config value
 // from the given attachment.
-func ParseServiceConnectAttachment(scAttachment *acstypes.Attachment) (*Config, error) {
+func ParseServiceConnectAttachment(scAttachment *ecsacs.Attachment) (*Config, error) {
 	scConfigValue := &Config{}
 	containerName := ""
 	foundSCConfigKey := false
@@ -65,7 +62,7 @@ func ParseServiceConnectAttachment(scAttachment *acstypes.Attachment) (*Config, 
 			containerName = aws.ToString(property.Value)
 		default:
 			logger.Warn("Received an unrecognized attachment property", logger.Fields{
-				"attachmentProperty": utils.Prettify(property, ecsacs.SensitiveFields...),
+				"attachmentProperty": property.String(),
 			})
 		}
 	}

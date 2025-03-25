@@ -17,6 +17,7 @@ import (
 	"context"
 	"fmt"
 
+	"github.com/aws/amazon-ecs-agent/ecs-agent/acs/model/ecsacs"
 	"github.com/aws/amazon-ecs-agent/ecs-agent/logger"
 	"github.com/aws/amazon-ecs-agent/ecs-agent/metrics"
 	"github.com/aws/amazon-ecs-agent/ecs-agent/netlib/data"
@@ -26,15 +27,14 @@ import (
 	"github.com/aws/amazon-ecs-agent/ecs-agent/netlib/platform"
 	"github.com/aws/amazon-ecs-agent/ecs-agent/utils/netwrapper"
 	"github.com/aws/amazon-ecs-agent/ecs-agent/volume"
-
-	acstypes "github.com/aws/aws-sdk-go-v2/service/acs/types"
 	"github.com/aws/aws-sdk-go-v2/service/ecs/types"
+
 	multierror "github.com/hashicorp/go-multierror"
 	"github.com/pkg/errors"
 )
 
 type NetworkBuilder interface {
-	BuildTaskNetworkConfiguration(taskID string, taskPayload *acstypes.Task) (*tasknetworkconfig.TaskNetworkConfig, error)
+	BuildTaskNetworkConfiguration(taskID string, taskPayload *ecsacs.Task) (*tasknetworkconfig.TaskNetworkConfig, error)
 
 	Start(ctx context.Context, mode types.NetworkMode, taskID string, netNS *tasknetworkconfig.NetworkNamespace) error
 
@@ -72,7 +72,7 @@ func NewNetworkBuilder(
 
 // BuildTaskNetworkConfiguration builds the task's network configuration
 func (nb *networkBuilder) BuildTaskNetworkConfiguration(
-	taskID string, taskPayload *acstypes.Task) (*tasknetworkconfig.TaskNetworkConfig, error) {
+	taskID string, taskPayload *ecsacs.Task) (*tasknetworkconfig.TaskNetworkConfig, error) {
 	return nb.platformAPI.BuildTaskNetworkConfiguration(taskID, taskPayload)
 }
 

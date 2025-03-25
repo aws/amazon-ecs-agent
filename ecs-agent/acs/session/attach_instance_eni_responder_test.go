@@ -21,29 +21,27 @@ import (
 	"sync"
 	"testing"
 
+	"github.com/aws/aws-sdk-go-v2/aws"
+	"github.com/golang/mock/gomock"
+	"github.com/stretchr/testify/assert"
+
 	"github.com/aws/amazon-ecs-agent/ecs-agent/acs/model/ecsacs"
 	mock_session "github.com/aws/amazon-ecs-agent/ecs-agent/acs/session/mocks"
 	"github.com/aws/amazon-ecs-agent/ecs-agent/acs/session/testconst"
 	ni "github.com/aws/amazon-ecs-agent/ecs-agent/netlib/model/networkinterface"
-
-	"github.com/aws/aws-sdk-go-v2/aws"
-	"github.com/aws/aws-sdk-go-v2/service/acs"
-	acstypes "github.com/aws/aws-sdk-go-v2/service/acs/types"
-	"github.com/golang/mock/gomock"
-	"github.com/stretchr/testify/assert"
 )
 
-var testAttachInstanceENIMessage = &acs.AttachInstanceNetworkInterfacesInput{
+var testAttachInstanceENIMessage = &ecsacs.AttachInstanceNetworkInterfacesMessage{
 	MessageId:            aws.String(testconst.MessageID),
 	ClusterArn:           aws.String(testconst.ClusterARN),
 	ContainerInstanceArn: aws.String(testconst.ContainerInstanceARN),
-	ElasticNetworkInterfaces: []acstypes.ElasticNetworkInterface{
+	ElasticNetworkInterfaces: []*ecsacs.ElasticNetworkInterface{
 		{
 			Ec2Id:                        aws.String("1"),
 			MacAddress:                   aws.String(testconst.RandomMAC),
-			InterfaceAssociationProtocol: testconst.InterfaceProtocol,
+			InterfaceAssociationProtocol: aws.String(testconst.InterfaceProtocol),
 			SubnetGatewayIpv4Address:     aws.String(testconst.GatewayIPv4),
-			Ipv4Addresses: []acstypes.IPv4AddressAssignment{
+			Ipv4Addresses: []*ecsacs.IPv4AddressAssignment{
 				{
 					Primary:        aws.Bool(true),
 					PrivateAddress: aws.String(testconst.IPv4Address),
@@ -117,12 +115,12 @@ func TestAttachInstanceENIMessageWithNoInterfaces(t *testing.T) {
 func TestAttachInstanceENIMessageWithMultipleInterfaces(t *testing.T) {
 	testAttachInstanceENIMessage.ElasticNetworkInterfaces = append(
 		testAttachInstanceENIMessage.ElasticNetworkInterfaces,
-		acstypes.ElasticNetworkInterface{
+		&ecsacs.ElasticNetworkInterface{
 			Ec2Id:                        aws.String("2"),
 			MacAddress:                   aws.String(testconst.RandomMAC),
-			InterfaceAssociationProtocol: testconst.InterfaceProtocol,
+			InterfaceAssociationProtocol: aws.String(testconst.InterfaceProtocol),
 			SubnetGatewayIpv4Address:     aws.String(testconst.GatewayIPv4),
-			Ipv4Addresses: []acstypes.IPv4AddressAssignment{
+			Ipv4Addresses: []*ecsacs.IPv4AddressAssignment{
 				{
 					Primary:        aws.Bool(true),
 					PrivateAddress: aws.String(testconst.IPv4Address),
@@ -172,10 +170,14 @@ func TestAttachInstanceENIMessageWithInvalidNetworkDetails(t *testing.T) {
 
 	tempInterfaceAssociationProtocol :=
 		testAttachInstanceENIMessage.ElasticNetworkInterfaces[0].InterfaceAssociationProtocol
-	testAttachInstanceENIMessage.ElasticNetworkInterfaces[0].InterfaceAssociationProtocol = "unsupported"
+	unsupportedInterfaceAssociationProtocol := aws.String("unsupported")
+	testAttachInstanceENIMessage.ElasticNetworkInterfaces[0].InterfaceAssociationProtocol =
+		unsupportedInterfaceAssociationProtocol
 	err = validateAttachInstanceNetworkInterfacesMessage(testAttachInstanceENIMessage)
-	assert.EqualError(t, err, "invalid interface association protocol: unsupported")
-	testAttachInstanceENIMessage.ElasticNetworkInterfaces[0].InterfaceAssociationProtocol = ni.VLANInterfaceAssociationProtocol
+	assert.EqualError(t, err, fmt.Sprintf("invalid interface association protocol: %s",
+		aws.ToString(unsupportedInterfaceAssociationProtocol)))
+	testAttachInstanceENIMessage.ElasticNetworkInterfaces[0].InterfaceAssociationProtocol =
+		aws.String(ni.VLANInterfaceAssociationProtocol)
 	err = validateAttachInstanceNetworkInterfacesMessage(testAttachInstanceENIMessage)
 	assert.EqualError(t, err, "vlan interface properties missing")
 	testAttachInstanceENIMessage.ElasticNetworkInterfaces[0].InterfaceAssociationProtocol =
@@ -195,7 +197,7 @@ func TestAttachInstanceENIMessageWithMissingTimeout(t *testing.T) {
 	testAttachInstanceENIMessage.WaitTimeoutMs = tempWaitTimeoutMs
 }
 
-// TestInstanceENIAckHappyPath tests the happy path for a typical AttachInstanceNetworkInterfacesInput and confirms
+// TestInstanceENIAckHappyPath tests the happy path for a typical AttachInstanceNetworkInterfacesMessage and confirms
 // expected ACK request is made
 func TestInstanceENIAckHappyPath(t *testing.T) {
 	ctrl := gomock.NewController(t)
@@ -226,7 +228,7 @@ func TestInstanceENIAckHappyPath(t *testing.T) {
 		testResponseSender)
 
 	handleAttachMessage :=
-		testAttachInstanceENIResponder.HandlerFunc().(func(*acs.AttachInstanceNetworkInterfacesInput))
+		testAttachInstanceENIResponder.HandlerFunc().(func(*ecsacs.AttachInstanceNetworkInterfacesMessage))
 	go handleAttachMessage(testAttachInstanceENIMessage)
 
 	attachInstanceEniAckSent := <-ackSent

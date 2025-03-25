@@ -20,19 +20,16 @@ import (
 	"sync"
 	"testing"
 
-	"github.com/aws/amazon-ecs-agent/ecs-agent/acs/model/ecsacs"
 	mock_session "github.com/aws/amazon-ecs-agent/ecs-agent/acs/session/mocks"
-	"github.com/aws/amazon-ecs-agent/ecs-agent/acs/session/testconst"
-	"github.com/aws/amazon-ecs-agent/ecs-agent/api/attachment/resource"
 	"github.com/aws/amazon-ecs-agent/ecs-agent/metrics"
 	mock_metrics "github.com/aws/amazon-ecs-agent/ecs-agent/metrics/mocks"
-	"github.com/aws/amazon-ecs-agent/ecs-agent/utils"
-
 	"github.com/aws/aws-sdk-go-v2/aws"
-	"github.com/aws/aws-sdk-go-v2/service/acs"
-	acstypes "github.com/aws/aws-sdk-go-v2/service/acs/types"
 	"github.com/golang/mock/gomock"
 	"github.com/stretchr/testify/require"
+
+	"github.com/aws/amazon-ecs-agent/ecs-agent/acs/model/ecsacs"
+	"github.com/aws/amazon-ecs-agent/ecs-agent/acs/session/testconst"
+	"github.com/aws/amazon-ecs-agent/ecs-agent/api/attachment/resource"
 )
 
 const (
@@ -41,7 +38,7 @@ const (
 )
 
 var (
-	testAttachmentPropertiesForEBSAttach = []acstypes.AttachmentProperty{
+	testAttachmentPropertiesForEBSAttach = []*ecsacs.AttachmentProperty{
 		{
 			Name:  aws.String(resource.SourceVolumeHostPathKey),
 			Value: aws.String("taskarn-vol-id"),
@@ -68,7 +65,7 @@ var (
 		},
 	}
 
-	testAttachmentProperties = []acstypes.AttachmentProperty{
+	testAttachmentProperties = []*ecsacs.AttachmentProperty{
 		{
 			Name:  aws.String(resource.FargateResourceIdName),
 			Value: aws.String("name1"),
@@ -94,11 +91,11 @@ var (
 			Value: aws.String("device1"),
 		},
 	}
-	testAttachment = &acstypes.Attachment{
+	testAttachment = &ecsacs.Attachment{
 		AttachmentArn:        aws.String(testAttachmentArn),
 		AttachmentProperties: testAttachmentProperties,
 	}
-	testConfirmAttachmentMessage = &acs.ConfirmAttachmentInput{
+	testConfirmAttachmentMessage = &ecsacs.ConfirmAttachmentMessage{
 		Attachment:           testAttachment,
 		MessageId:            aws.String(testconst.MessageID),
 		ClusterArn:           aws.String(testClusterArn),
@@ -164,9 +161,8 @@ func testValidateAttachmentAndReturnPropertiesWithoutAttachmentType(t *testing.T
 	require.Error(t, err)
 	confirmAttachmentMessageCopy.Attachment.AttachmentArn = aws.String(testAttachmentArn)
 
-	for i, _ := range confirmAttachmentMessageCopy.Attachment.AttachmentProperties {
-		property := &confirmAttachmentMessageCopy.Attachment.AttachmentProperties[i]
-		t.Run(utils.Prettify(*property), func(t *testing.T) {
+	for _, property := range confirmAttachmentMessageCopy.Attachment.AttachmentProperties {
+		t.Run(property.String(), func(t *testing.T) {
 			originalPropertyName := property.Name
 			property.Name = aws.String("")
 			_, err := validateAttachmentAndReturnProperties(&confirmAttachmentMessageCopy)
@@ -203,9 +199,8 @@ func testValidateAttachmentAndReturnPropertiesWithAttachmentType(t *testing.T) {
 	confirmAttachmentMessageCopy.Attachment.AttachmentArn = aws.String(testAttachmentArn)
 
 	// Verify the property name & property value must be non-empty.
-	for i, _ := range confirmAttachmentMessageCopy.Attachment.AttachmentProperties {
-		property := &confirmAttachmentMessageCopy.Attachment.AttachmentProperties[i]
-		t.Run(utils.Prettify(*property), func(t *testing.T) {
+	for _, property := range confirmAttachmentMessageCopy.Attachment.AttachmentProperties {
+		t.Run(property.String(), func(t *testing.T) {
 			originalPropertyName := property.Name
 			property.Name = aws.String("")
 			_, err := validateAttachmentAndReturnProperties(&confirmAttachmentMessageCopy)
@@ -239,8 +234,7 @@ func testValidateAttachmentAndReturnPropertiesWithAttachmentType(t *testing.T) {
 	}
 	for _, requiredProperty := range requiredProperties {
 		verified := false
-		for i, _ := range confirmAttachmentMessageCopy.Attachment.AttachmentProperties {
-			property := &confirmAttachmentMessageCopy.Attachment.AttachmentProperties[i]
+		for _, property := range confirmAttachmentMessageCopy.Attachment.AttachmentProperties {
 			if requiredProperty == aws.ToString(property.Name) {
 				originalPropertyName := property.Name
 				property.Name = aws.String("")
@@ -294,7 +288,7 @@ func TestResourceAckHappyPath(t *testing.T) {
 		mockMetricsFactory,
 		testResponseSender)
 
-	handleAttachMessage := testResourceResponder.HandlerFunc().(func(*acs.ConfirmAttachmentInput))
+	handleAttachMessage := testResourceResponder.HandlerFunc().(func(*ecsacs.ConfirmAttachmentMessage))
 	go handleAttachMessage(&confirmAttachmentMessageCopy)
 
 	attachResourceAckSent := <-ackSent
@@ -310,8 +304,7 @@ func TestValidateAttachmentFilesystemProperty(t *testing.T) {
 	confirmAttachmentMessageCopy.Attachment.AttachmentProperties = testAttachmentPropertiesForEBSAttach
 
 	validFileSystems := []string{"xfs", "ext2", "ext3", "ext4", "ntfs"}
-	for i, _ := range confirmAttachmentMessageCopy.Attachment.AttachmentProperties {
-		property := &confirmAttachmentMessageCopy.Attachment.AttachmentProperties[i]
+	for _, property := range confirmAttachmentMessageCopy.Attachment.AttachmentProperties {
 		if aws.ToString(property.Name) == resource.FileSystemKey {
 			for _, fs := range validFileSystems {
 				originalPropertyValue := property.Value

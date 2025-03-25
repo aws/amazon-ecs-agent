@@ -19,8 +19,11 @@
 package wsclient
 
 import (
+	"bytes"
 	"encoding/json"
 	"reflect"
+
+	"github.com/aws/aws-sdk-go/private/protocol/json/jsonutil"
 )
 
 // DecodeData decodes a raw message into its type. E.g. An ACS message of the
@@ -45,7 +48,7 @@ func DecodeData(data []byte, dec TypeDecoder) (interface{}, string, error) {
 	if !ok {
 		return nil, raw.Type, &UnrecognizedWSRequestType{raw.Type}
 	}
-	json.Unmarshal(raw.Message, reqMessage)
+	err = jsonutil.UnmarshalJSON(reqMessage, bytes.NewReader(raw.Message))
 	return reqMessage, raw.Type, err
 }
 
@@ -81,7 +84,7 @@ func DecodeConnectionError(data []byte, dec TypeDecoder) (interface{}, string, e
 		return nil, typeStr, &UnrecognizedWSRequestType{"Pointer to non-struct kind: " + retObj.Kind().String()}
 	}
 
-	msgField := retObj.FieldByName("Message")
+	msgField := retObj.FieldByName("Message_")
 	if !msgField.IsValid() {
 		return nil, typeStr, &UnrecognizedWSRequestType{"Expected error type to have 'Message' field"}
 	}

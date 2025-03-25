@@ -17,25 +17,23 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/aws/aws-sdk-go/aws"
+	"github.com/pkg/errors"
+
 	"github.com/aws/amazon-ecs-agent/ecs-agent/acs/model/ecsacs"
 	"github.com/aws/amazon-ecs-agent/ecs-agent/api/attachment"
 	"github.com/aws/amazon-ecs-agent/ecs-agent/logger"
 	"github.com/aws/amazon-ecs-agent/ecs-agent/logger/field"
 	ni "github.com/aws/amazon-ecs-agent/ecs-agent/netlib/model/networkinterface"
 	"github.com/aws/amazon-ecs-agent/ecs-agent/wsclient"
-
-	"github.com/aws/aws-sdk-go-v2/aws"
-	"github.com/aws/aws-sdk-go-v2/service/acs"
-	acstypes "github.com/aws/aws-sdk-go-v2/service/acs/types"
-	"github.com/pkg/errors"
 )
 
 const (
-	AttachTaskENIMessageName = "AttachTaskNetworkInterfacesInput"
+	AttachTaskENIMessageName = "AttachTaskNetworkInterfacesMessage"
 )
 
 // attachTaskENIResponder implements the wsclient.RequestResponder interface for responding
-// to acs.AttachTaskNetworkInterfacesInput messages sent by ACS.
+// to ecsacs.AttachTaskNetworkInterfacesMessage messages sent by ACS.
 type attachTaskENIResponder struct {
 	eniHandler ENIHandler
 	respond    wsclient.RespondFunc
@@ -56,7 +54,7 @@ func (r *attachTaskENIResponder) HandlerFunc() wsclient.RequestHandler {
 	return r.handleAttachMessage
 }
 
-func (r *attachTaskENIResponder) handleAttachMessage(message *acs.AttachTaskNetworkInterfacesInput) {
+func (r *attachTaskENIResponder) handleAttachMessage(message *ecsacs.AttachTaskNetworkInterfacesMessage) {
 	logger.Debug(fmt.Sprintf("Handling %s", AttachTaskENIMessageName))
 	receivedAt := time.Now()
 
@@ -69,11 +67,11 @@ func (r *attachTaskENIResponder) handleAttachMessage(message *acs.AttachTaskNetw
 	}
 
 	// Handle ENIs in the message.
-	messageID := aws.ToString(message.MessageId)
-	taskARN := aws.ToString(message.TaskArn)
-	clusterARN := aws.ToString(message.ClusterArn)
-	containerInstanceARN := aws.ToString(message.ContainerInstanceArn)
-	waitTimeoutMs := aws.ToInt64(message.WaitTimeoutMs)
+	messageID := aws.StringValue(message.MessageId)
+	taskARN := aws.StringValue(message.TaskArn)
+	clusterARN := aws.StringValue(message.ClusterArn)
+	containerInstanceARN := aws.StringValue(message.ContainerInstanceArn)
+	waitTimeoutMs := aws.Int64Value(message.WaitTimeoutMs)
 	for _, mENI := range message.ElasticNetworkInterfaces {
 		go r.handleTaskENIFromMessage(mENI, messageID, taskARN, clusterARN, containerInstanceARN, receivedAt,
 			waitTimeoutMs)
@@ -96,14 +94,14 @@ func (r *attachTaskENIResponder) handleAttachMessage(message *acs.AttachTaskNetw
 }
 
 // handleTaskENIFromMessage handles the attachment of a given task ENI from an
-// AttachTaskNetworkInterfacesInput.
-func (r *attachTaskENIResponder) handleTaskENIFromMessage(eni acstypes.ElasticNetworkInterface,
+// AttachTaskNetworkInterfacesMessage.
+func (r *attachTaskENIResponder) handleTaskENIFromMessage(eni *ecsacs.ElasticNetworkInterface,
 	messageID, taskARN, clusterARN, containerInstanceARN string, receivedAt time.Time, waitTimeoutMs int64) {
 	expiresAt := receivedAt.Add(time.Duration(waitTimeoutMs) * time.Millisecond)
 	err := r.eniHandler.HandleENIAttachment(&ni.ENIAttachment{
 		AttachmentInfo: attachment.AttachmentInfo{
 			TaskARN:              taskARN,
-			AttachmentARN:        aws.ToString(eni.AttachmentArn),
+			AttachmentARN:        aws.StringValue(eni.AttachmentArn),
 			Status:               attachment.AttachmentNone,
 			ExpiresAt:            expiresAt,
 			AttachStatusSent:     false,
@@ -111,7 +109,7 @@ func (r *attachTaskENIResponder) handleTaskENIFromMessage(eni acstypes.ElasticNe
 			ContainerInstanceARN: containerInstanceARN,
 		},
 		AttachmentType: ni.ENIAttachmentTypeTaskENI,
-		MACAddress:     aws.ToString(eni.MacAddress),
+		MACAddress:     aws.StringValue(eni.MacAddress),
 	})
 	if err != nil {
 		logger.Error(fmt.Sprintf("Unable to handle %s", AttachTaskENIMessageName), logger.Fields{
@@ -122,33 +120,33 @@ func (r *attachTaskENIResponder) handleTaskENIFromMessage(eni acstypes.ElasticNe
 }
 
 // validateAttachTaskNetworkInterfacesMessage performs validation checks on the
-// AttachTaskNetworkInterfacesInput.
-func validateAttachTaskNetworkInterfacesMessage(message *acs.AttachTaskNetworkInterfacesInput) error {
+// AttachTaskNetworkInterfacesMessage.
+func validateAttachTaskNetworkInterfacesMessage(message *ecsacs.AttachTaskNetworkInterfacesMessage) error {
 	if message == nil {
 		return errors.Errorf("Message is empty")
 	}
 
-	messageID := aws.ToString(message.MessageId)
+	messageID := aws.StringValue(message.MessageId)
 	if messageID == "" {
 		return errors.Errorf("Message ID is not set")
 	}
 
-	clusterArn := aws.ToString(message.ClusterArn)
+	clusterArn := aws.StringValue(message.ClusterArn)
 	if clusterArn == "" {
 		return errors.Errorf("clusterArn is not set for message ID %s", messageID)
 	}
 
-	containerInstanceArn := aws.ToString(message.ContainerInstanceArn)
+	containerInstanceArn := aws.StringValue(message.ContainerInstanceArn)
 	if containerInstanceArn == "" {
 		return errors.Errorf("containerInstanceArn is not set for message ID %s", messageID)
 	}
 
-	taskArn := aws.ToString(message.TaskArn)
+	taskArn := aws.StringValue(message.TaskArn)
 	if taskArn == "" {
 		return errors.Errorf("taskArn is not set for message ID %s", messageID)
 	}
 
-	timeout := aws.ToInt64(message.WaitTimeoutMs)
+	timeout := aws.Int64Value(message.WaitTimeoutMs)
 	if timeout <= 0 {
 		return errors.Errorf("Invalid timeout set for message ID %s", messageID)
 	}
@@ -159,7 +157,7 @@ func validateAttachTaskNetworkInterfacesMessage(message *acs.AttachTaskNetworkIn
 	}
 
 	for _, eni := range enis {
-		err := ni.ValidateENI(&eni)
+		err := ni.ValidateENI(eni)
 		if err != nil {
 			return err
 		}

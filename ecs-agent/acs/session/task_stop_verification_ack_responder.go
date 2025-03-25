@@ -16,13 +16,12 @@ package session
 import (
 	"fmt"
 
+	"github.com/aws/amazon-ecs-agent/ecs-agent/acs/model/ecsacs"
 	"github.com/aws/amazon-ecs-agent/ecs-agent/logger"
 	"github.com/aws/amazon-ecs-agent/ecs-agent/logger/field"
 	"github.com/aws/amazon-ecs-agent/ecs-agent/metrics"
 	"github.com/aws/amazon-ecs-agent/ecs-agent/wsclient"
-
 	"github.com/aws/aws-sdk-go-v2/aws"
-	"github.com/aws/aws-sdk-go-v2/service/acs"
 	"github.com/pkg/errors"
 )
 
@@ -63,7 +62,7 @@ func (r *taskStopVerificationACKResponder) HandlerFunc() wsclient.RequestHandler
 
 // handleTaskStopVerificationACK goes through the list of verified tasks to be stopped
 // and stops each one by setting the desired status of each task to STOPPED.
-func (r *taskStopVerificationACKResponder) handleTaskStopVerificationACK(message *acs.TaskStopVerificationOutput) {
+func (r *taskStopVerificationACKResponder) handleTaskStopVerificationACK(message *ecsacs.TaskStopVerificationAck) {
 	logger.Debug(fmt.Sprintf("Handling %s", TaskStopVerificationACKMessageName))
 
 	// Ensure that message is valid and that a corresponding task manifest message has been processed before.

@@ -35,9 +35,8 @@ import (
 	"github.com/aws/amazon-ecs-agent/ecs-agent/tcs/model/ecstcs"
 	"github.com/aws/amazon-ecs-agent/ecs-agent/wsclient"
 	mock_wsconn "github.com/aws/amazon-ecs-agent/ecs-agent/wsclient/wsconn/mock"
-
-	"github.com/aws/aws-sdk-go-v2/aws"
-	"github.com/aws/aws-sdk-go-v2/credentials"
+	"github.com/aws/aws-sdk-go/aws"
+	"github.com/aws/aws-sdk-go/aws/credentials"
 	"github.com/golang/mock/gomock"
 	"github.com/stretchr/testify/assert"
 )
@@ -100,7 +99,7 @@ func (fc *falseHealthcheck) GetLastHealthcheckTime() time.Time {
 	return time.Date(1974, time.May, 19, 1, 2, 3, 4, time.UTC)
 }
 
-var testCreds = credentials.NewStaticCredentialsProvider("test-id", "test-secret", "test-token")
+var testCreds = credentials.NewStaticCredentials("test-id", "test-secret", "test-token")
 
 var emptyDoctor, _ = doctor.NewDoctor([]doctor.Healthcheck{}, "test-cluster", "this:is:an:instance:arn")
 
@@ -648,7 +647,7 @@ func testCS(conn *mock_wsconn.MockWebsocketConn, metricsMessages <-chan ecstcs.T
 		AcceptInsecureCert: true,
 	}
 	cs := New("https://aws.amazon.com/ecs", cfg, emptyDoctor, false, testPublishMetricsInterval,
-		aws.NewCredentialsCache(testCreds), rwTimeout, metricsMessages, healthMessages, metrics.NewNopEntryFactory()).(*tcsClientServer)
+		testCreds, rwTimeout, metricsMessages, healthMessages, metrics.NewNopEntryFactory()).(*tcsClientServer)
 	cs.SetConnection(conn)
 	return cs
 }
@@ -719,7 +718,7 @@ func TestHealthToPublishHealthRequests(t *testing.T) {
 		IsDocker:           true,
 	}
 
-	cs := New("", cfg, emptyDoctor, true, testPublishMetricsInterval, aws.NewCredentialsCache(testCreds), rwTimeout, nil, nil, metrics.NewNopEntryFactory())
+	cs := New("", cfg, emptyDoctor, true, testPublishMetricsInterval, testCreds, rwTimeout, nil, nil, metrics.NewNopEntryFactory())
 	cs.SetConnection(conn)
 
 	testMetadata := &ecstcs.HealthMetadata{

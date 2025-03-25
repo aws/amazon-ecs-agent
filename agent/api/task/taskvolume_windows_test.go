@@ -57,7 +57,7 @@ func TestMarshalTaskVolumeFSxWindowsFileServer(t *testing.T) {
 		"resources": null,	
 		"volumes": [
 			{
-				"FsxWindowsFileServerVolumeConfiguration": {
+				"fsxWindowsFileServerVolumeConfiguration": {
 					"authorizationConfig": {
 						"credentialsParameter": "arn",
 						"domain": "test"
@@ -66,8 +66,8 @@ func TestMarshalTaskVolumeFSxWindowsFileServer(t *testing.T) {
 					"rootDirectory": "/test",
 					"fsxWindowsFileServerHostPath": ""
 				},
-				"Name": "1",
-				"Type": "fsxWindowsFileServer"
+				"name": "1",
+				"type": "fsxWindowsFileServer"
 			}
 		],
 		"DesiredStatus": "NONE",
@@ -96,7 +96,7 @@ func TestUnmarshalTaskVolumeFSxWindowsFileServer(t *testing.T) {
 		"resources": null,	
 		"volumes": [
 			{
-				"FsxWindowsFileServerVolumeConfiguration": {
+				"fsxWindowsFileServerVolumeConfiguration": {
 					"authorizationConfig": {
 						"credentialsParameter": "arn",
 						"domain": "test"
@@ -105,8 +105,8 @@ func TestUnmarshalTaskVolumeFSxWindowsFileServer(t *testing.T) {
 					"rootDirectory": "/test",
 					"fsxWindowsFileServerHostPath": ""
 				},
-				"Name": "1",
-				"Type": "fsxWindowsFileServer"
+				"name": "1",
+				"type": "fsxWindowsFileServer"
 			}
 		],
 		"DesiredStatus": "NONE",

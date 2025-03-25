@@ -19,6 +19,7 @@ import (
 
 	netlibdata "github.com/aws/amazon-ecs-agent/ecs-agent/netlib/data"
 
+	"github.com/aws/amazon-ecs-agent/ecs-agent/acs/model/ecsacs"
 	"github.com/aws/amazon-ecs-agent/ecs-agent/logger"
 	"github.com/aws/amazon-ecs-agent/ecs-agent/netlib/model/appmesh"
 	"github.com/aws/amazon-ecs-agent/ecs-agent/netlib/model/ecscni"
@@ -28,7 +29,6 @@ import (
 	"github.com/aws/amazon-ecs-agent/ecs-agent/netlib/model/tasknetworkconfig"
 
 	"github.com/aws/aws-sdk-go-v2/aws"
-	acstypes "github.com/aws/aws-sdk-go-v2/service/acs/types"
 	"github.com/pkg/errors"
 )
 
@@ -38,7 +38,7 @@ type firecraker struct {
 
 func (f *firecraker) BuildTaskNetworkConfiguration(
 	taskID string,
-	taskPayload *acstypes.Task) (*tasknetworkconfig.TaskNetworkConfig, error) {
+	taskPayload *ecsacs.Task) (*tasknetworkconfig.TaskNetworkConfig, error) {
 
 	// On Firecracker, there is always only one task network namespace on the bare metal host.
 	// Inside the microVM, a dedicated netns will also be created to separate primary interface
@@ -129,7 +129,7 @@ func (f *firecraker) configureSecondaryDNSConfig(taskID string, netNS *tasknetwo
 
 // assignInterfacesToNamespaces computes how many network namespaces the task needs and assigns
 // each network interface to a network namespace.
-func assignInterfacesToNamespaces(taskPayload *acstypes.Task) (map[string]string, error) {
+func assignInterfacesToNamespaces(taskPayload *ecsacs.Task) (map[string]string, error) {
 	// The task payload has a list of containers, a list of network interface names, and a list of
 	// which interface(s) each container should have access to. For this schema to work, the set of
 	// interface(s) used by one or more containers need to be grouped into network namespaces. Then
@@ -147,7 +147,8 @@ func assignInterfacesToNamespaces(taskPayload *acstypes.Task) (map[string]string
 		// containerNetNS keeps track of the netns assigned to this container.
 		containerNetNS := ""
 
-		for _, ifName := range c.NetworkInterfaceNames {
+		for _, i := range c.NetworkInterfaceNames {
+			ifName := aws.ToString(i)
 
 			netnsName, ok := i2n[ifName]
 			if !ok {
@@ -177,7 +178,7 @@ func assignInterfacesToNamespaces(taskPayload *acstypes.Task) (map[string]string
 	// The logic above names each netns after the first network interface placed in it. However the
 	// first (primary) netns should always be named "" so that it maps to the default netns.
 	for _, e := range taskPayload.ElasticNetworkInterfaces {
-		if *e.Index == int32(0) {
+		if *e.Index == int64(0) {
 			for ifName, netNSName := range i2n {
 				if netNSName == aws.ToString(e.Name) {
 					i2n[ifName] = ""

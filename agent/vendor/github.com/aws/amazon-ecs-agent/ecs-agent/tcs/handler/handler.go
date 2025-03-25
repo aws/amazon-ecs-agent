@@ -30,8 +30,7 @@ import (
 	"github.com/aws/amazon-ecs-agent/ecs-agent/tcs/model/ecstcs"
 	"github.com/aws/amazon-ecs-agent/ecs-agent/utils/retry"
 	"github.com/aws/amazon-ecs-agent/ecs-agent/wsclient"
-
-	"github.com/aws/aws-sdk-go-v2/aws"
+	"github.com/aws/aws-sdk-go/aws/credentials"
 	"github.com/cihub/seelog"
 )
 
@@ -62,7 +61,7 @@ type telemetrySession struct {
 	agentHash                     string
 	containerRuntimeVersion       string
 	disableMetrics                bool
-	credentialsCache              *aws.CredentialsCache
+	credentialsProvider           *credentials.Credentials
 	cfg                           *wsclient.WSClientMinAgentConfig
 	deregisterInstanceEventStream *eventstream.EventStream
 	heartbeatTimeout              time.Duration
@@ -83,7 +82,7 @@ func NewTelemetrySession(
 	agentHash string,
 	containerRuntimeVersion string,
 	disableMetrics bool,
-	credentialsCache *aws.CredentialsCache,
+	credentialsProvider *credentials.Credentials,
 	cfg *wsclient.WSClientMinAgentConfig,
 	deregisterInstanceEventStream *eventstream.EventStream,
 	heartbeatTimeout time.Duration,
@@ -103,7 +102,7 @@ func NewTelemetrySession(
 		agentHash:                     agentHash,
 		containerRuntimeVersion:       containerRuntimeVersion,
 		disableMetrics:                disableMetrics,
-		credentialsCache:              credentialsCache,
+		credentialsProvider:           credentialsProvider,
 		cfg:                           cfg,
 		deregisterInstanceEventStream: deregisterInstanceEventStream,
 		metricsChannel:                metricsChannel,
@@ -159,7 +158,7 @@ func (session *telemetrySession) StartTelemetrySession(ctx context.Context) erro
 	tcsEndpointUrl := formatURL(endpoint, session.cluster, session.containerInstanceArn, session.agentVersion,
 		session.agentHash, containerRuntime, session.containerRuntimeVersion)
 	client := tcsclient.New(tcsEndpointUrl, session.cfg, session.doctor, session.disableMetrics, tcsclient.DefaultContainerMetricsPublishInterval,
-		session.credentialsCache, wsRWTimeout, session.metricsChannel, session.healthChannel, session.metricsFactory)
+		session.credentialsProvider, wsRWTimeout, session.metricsChannel, session.healthChannel, session.metricsFactory)
 	defer client.Close()
 
 	if session.deregisterInstanceEventStream != nil {

@@ -18,11 +18,9 @@ import (
 
 	"github.com/aws/amazon-ecs-agent/agent/data"
 	"github.com/aws/amazon-ecs-agent/agent/engine"
+	"github.com/aws/amazon-ecs-agent/ecs-agent/acs/model/ecsacs"
 	apitaskstatus "github.com/aws/amazon-ecs-agent/ecs-agent/api/task/status"
-
 	"github.com/aws/aws-sdk-go-v2/aws"
-	"github.com/aws/aws-sdk-go-v2/service/acs"
-	acstypes "github.com/aws/aws-sdk-go-v2/service/acs/types"
 )
 
 // taskComparer implements the TaskComparer interface defined in ecs-agent module.
@@ -55,13 +53,13 @@ func NewSequenceNumberAccessor(latestSeqNumberTaskManifest *int64, dataClient da
 // tasks running on the instance. It returns all the tasks that are running on the instance but not present in task
 // manifest message task list.
 func (tc *taskComparer) CompareRunningTasksOnInstanceWithManifest(
-	message *acs.TaskManifestInput) ([]acstypes.TaskIdentifier, error) {
+	message *ecsacs.TaskManifestMessage) ([]*ecsacs.TaskIdentifier, error) {
 	tasksOnInstance, err := tc.taskEngine.ListTasks()
 	if err != nil {
 		return nil, err
 	}
 
-	tasksToBeKilled := make([]acstypes.TaskIdentifier, 0)
+	tasksToBeKilled := make([]*ecsacs.TaskIdentifier, 0)
 	for _, task := range tasksOnInstance {
 		// For every task running on the instance check if the task is present in the task manifest with
 		// the DesiredStatus of running. If not, add them to the list of tasks that need to be stopped.
@@ -76,7 +74,7 @@ func (tc *taskComparer) CompareRunningTasksOnInstanceWithManifest(
 				}
 			}
 			if !taskPresent {
-				tasksToBeKilled = append(tasksToBeKilled, acstypes.TaskIdentifier{
+				tasksToBeKilled = append(tasksToBeKilled, &ecsacs.TaskIdentifier{
 					DesiredStatus:  aws.String(apitaskstatus.TaskStoppedString),
 					TaskArn:        aws.String(task.Arn),
 					TaskClusterArn: message.ClusterArn,

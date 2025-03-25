@@ -22,18 +22,15 @@ import (
 	"github.com/aws/amazon-ecs-agent/ecs-agent/acs/model/ecsacs"
 	mock_session "github.com/aws/amazon-ecs-agent/ecs-agent/acs/session/mocks"
 	"github.com/aws/amazon-ecs-agent/ecs-agent/acs/session/testconst"
-
 	"github.com/aws/aws-sdk-go-v2/aws"
-	"github.com/aws/aws-sdk-go-v2/service/acs"
-	acstypes "github.com/aws/aws-sdk-go-v2/service/acs/types"
 	"github.com/golang/mock/gomock"
 	"github.com/stretchr/testify/assert"
 )
 
 // defaultPayloadMessage returns a baseline payload message to be used in testing.
-func defaultPayloadMessage() *acs.PayloadInput {
-	return &acs.PayloadInput{
-		Tasks:                []acstypes.Task{{}},
+func defaultPayloadMessage() *ecsacs.PayloadMessage {
+	return &ecsacs.PayloadMessage{
+		Tasks:                []*ecsacs.Task{{}},
 		MessageId:            aws.String(testconst.MessageID),
 		ClusterArn:           aws.String(testconst.ClusterARN),
 		ContainerInstanceArn: aws.String(testconst.ContainerInstanceARN),
@@ -51,47 +48,47 @@ func TestValidatePayloadMessageWithNilMessage(t *testing.T) {
 func TestValidateInvalidPayloadMessages(t *testing.T) {
 	testCases := []struct {
 		name            string
-		messageMutation func(message *acs.PayloadInput)
+		messageMutation func(message *ecsacs.PayloadMessage)
 		failureMsg      string
 	}{
 		{
 			name: "nil message ID",
-			messageMutation: func(message *acs.PayloadInput) {
+			messageMutation: func(message *ecsacs.PayloadMessage) {
 				message.MessageId = nil
 			},
 			failureMsg: "Expected validation error validating a message with no message ID",
 		},
 		{
 			name: "empty message ID",
-			messageMutation: func(message *acs.PayloadInput) {
+			messageMutation: func(message *ecsacs.PayloadMessage) {
 				message.MessageId = aws.String("")
 			},
 			failureMsg: "Expected validation error validating a message with empty message ID",
 		},
 		{
 			name: "nil cluster ARN",
-			messageMutation: func(message *acs.PayloadInput) {
+			messageMutation: func(message *ecsacs.PayloadMessage) {
 				message.ClusterArn = nil
 			},
 			failureMsg: "Expected validation error validating a message with no cluster ARN",
 		},
 		{
 			name: "empty cluster ARN",
-			messageMutation: func(message *acs.PayloadInput) {
+			messageMutation: func(message *ecsacs.PayloadMessage) {
 				message.ClusterArn = aws.String("")
 			},
 			failureMsg: "Expected validation error validating a message with empty cluster ARN",
 		},
 		{
 			name: "nil container instance ARN",
-			messageMutation: func(message *acs.PayloadInput) {
+			messageMutation: func(message *ecsacs.PayloadMessage) {
 				message.ContainerInstanceArn = nil
 			},
 			failureMsg: "Expected validation error validating a message with no container instance ARN",
 		},
 		{
 			name: "empty container instance ARN",
-			messageMutation: func(message *acs.PayloadInput) {
+			messageMutation: func(message *ecsacs.PayloadMessage) {
 				message.ContainerInstanceArn = aws.String("")
 			},
 			failureMsg: "Expected validation error validating a message with empty container instance ARN",
@@ -115,16 +112,16 @@ func TestValidatePayloadMessageSuccess(t *testing.T) {
 	assert.NoError(t, err, "Error validating payload message: %w", err)
 }
 
-// TestPayloadAckHappyPath tests the happy path for a typical PayloadInput and confirms that the payload responder
+// TestPayloadAckHappyPath tests the happy path for a typical PayloadMessage and confirms that the payload responder
 // generates the expected ACK after processing a payload message when the payload message contains a task
 // with an IAM Role. It also tests if the expected credentials ACK is generated.
 func TestPayloadAckHappyPath(t *testing.T) {
 	payloadAckSent := make(chan *ecsacs.AckRequest)
-	credentialsAckSent := make(chan *acs.RefreshTaskIAMRoleCredentialsOutput)
+	credentialsAckSent := make(chan *ecsacs.IAMRoleCredentialsAckRequest)
 	testResponseSender := func(response interface{}) error {
-		var credentialsResp *acs.RefreshTaskIAMRoleCredentialsOutput
+		var credentialsResp *ecsacs.IAMRoleCredentialsAckRequest
 		var payloadMessageResp *ecsacs.AckRequest
-		credentialsResp, ok := response.(*acs.RefreshTaskIAMRoleCredentialsOutput)
+		credentialsResp, ok := response.(*ecsacs.IAMRoleCredentialsAckRequest)
 		if ok {
 			credentialsAckSent <- credentialsResp
 		} else {
@@ -132,7 +129,7 @@ func TestPayloadAckHappyPath(t *testing.T) {
 			if ok {
 				payloadAckSent <- payloadMessageResp
 			} else {
-				t.Fatal("response does not hold type acs.RefreshTaskIAMRoleCredentialsOutput or ecsacs.AckRequest")
+				t.Fatal("response does not hold type ecsacs.IAMRoleCredentialsAckRequest or ecsacs.AckRequest")
 			}
 		}
 		return nil
@@ -150,10 +147,10 @@ func TestPayloadAckHappyPath(t *testing.T) {
 	credentialsSessionToken := "token"
 	credentialsId := "credsid"
 	testMessage := defaultPayloadMessage()
-	testMessage.Tasks = []acstypes.Task{
+	testMessage.Tasks = []*ecsacs.Task{
 		{
 			Arn: aws.String(taskArn),
-			RoleCredentials: &acstypes.IAMRoleCredentials{
+			RoleCredentials: &ecsacs.IAMRoleCredentials{
 				AccessKeyId:     aws.String(credentialsAccessKey),
 				Expiration:      aws.String(credentialsExpiration),
 				RoleArn:         aws.String(credentialsRoleArn),
@@ -168,15 +165,15 @@ func TestPayloadAckHappyPath(t *testing.T) {
 	testPayloadResponder := NewPayloadResponder(mockPayloadMsgHandler, testResponseSender)
 	mockPayloadMsgHandler.EXPECT().
 		ProcessMessage(gomock.Any(), gomock.Any()).
-		Do(func(message *acs.PayloadInput,
-			ackFunc func(*ecsacs.AckRequest, []*acs.RefreshTaskIAMRoleCredentialsOutput)) {
+		Do(func(message *ecsacs.PayloadMessage,
+			ackFunc func(*ecsacs.AckRequest, []*ecsacs.IAMRoleCredentialsAckRequest)) {
 			assert.NotNil(t, message.Tasks)
 			assert.Equal(t, 1, len(message.Tasks))
 			ackFunc(&ecsacs.AckRequest{
 				MessageId:         message.MessageId,
 				Cluster:           message.ClusterArn,
 				ContainerInstance: message.ContainerInstanceArn,
-			}, []*acs.RefreshTaskIAMRoleCredentialsOutput{
+			}, []*ecsacs.IAMRoleCredentialsAckRequest{
 				{
 					MessageId:     message.MessageId,
 					Expiration:    message.Tasks[0].RoleCredentials.Expiration,
@@ -188,7 +185,7 @@ func TestPayloadAckHappyPath(t *testing.T) {
 
 	// Send a payload message.
 	handlePayloadMessage :=
-		testPayloadResponder.HandlerFunc().(func(message *acs.PayloadInput))
+		testPayloadResponder.HandlerFunc().(func(message *ecsacs.PayloadMessage))
 	handlePayloadMessage(testMessage)
 
 	// Verify that payload message ACK is sent and is as expected.
@@ -201,7 +198,7 @@ func TestPayloadAckHappyPath(t *testing.T) {
 	assert.Equal(t, expectedPayloadAck, actualPayloadAck)
 
 	// Verify the credentials ACK for the payload message is sent and is as expected.
-	expectedCredentialsAck := &acs.RefreshTaskIAMRoleCredentialsOutput{
+	expectedCredentialsAck := &ecsacs.IAMRoleCredentialsAckRequest{
 		MessageId:     aws.String(testconst.MessageID),
 		Expiration:    aws.String(credentialsExpiration),
 		CredentialsId: aws.String(credentialsId),

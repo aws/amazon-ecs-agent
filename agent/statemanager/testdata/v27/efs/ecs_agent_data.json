@@ -397,7 +397,7 @@
           },
           "volumes": [
             {
-              "EfsVolumeConfiguration": {
+              "efsVolumeConfiguration": {
                 "autoprovision": false,
                 "dockerVolumeName": "ecs-test-efs-creds-ap-awsvpc-2-efs-html-xxx",
                 "driver": "amazon-ecs-volume-plugin",
@@ -410,8 +410,8 @@
                 "mountPoint": "mpabc",
                 "scope": "task"
               },
-              "Name": "efs-html",
-              "Type": "efs"
+              "name": "efs-html",
+              "type": "efs"
             }
           ]
         }

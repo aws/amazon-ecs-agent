@@ -32,8 +32,7 @@ import (
 	"github.com/aws/amazon-ecs-agent/ecs-agent/utils/retry"
 	"github.com/aws/amazon-ecs-agent/ecs-agent/utils/ttime"
 	"github.com/aws/amazon-ecs-agent/ecs-agent/wsclient"
-
-	"github.com/aws/aws-sdk-go-v2/aws"
+	"github.com/aws/aws-sdk-go/aws/credentials"
 )
 
 const (
@@ -72,7 +71,7 @@ type Session interface {
 type session struct {
 	containerInstanceARN           string
 	cluster                        string
-	credentialsCache               *aws.CredentialsCache
+	credentialsProvider            *credentials.Credentials
 	ecsClient                      ecs.ECSClient
 	inactiveInstanceCB             func()
 	agentVersion                   string
@@ -107,7 +106,7 @@ type session struct {
 func NewSession(containerInstanceARN string,
 	cluster string,
 	ecsClient ecs.ECSClient,
-	credentialsCache *aws.CredentialsCache,
+	credentialsProvider *credentials.Credentials,
 	inactiveInstanceCB func(),
 	clientFactory wsclient.ClientFactory,
 	metricsFactory metrics.EntryFactory,
@@ -133,7 +132,7 @@ func NewSession(containerInstanceARN string,
 		containerInstanceARN:           containerInstanceARN,
 		cluster:                        cluster,
 		ecsClient:                      ecsClient,
-		credentialsCache:               credentialsCache,
+		credentialsProvider:            credentialsProvider,
 		inactiveInstanceCB:             inactiveInstanceCB,
 		clientFactory:                  clientFactory,
 		metricsFactory:                 metricsFactory,
@@ -248,7 +247,7 @@ func (s *session) startSessionOnce(ctx context.Context) error {
 
 	client := s.clientFactory.New(
 		s.acsURL(acsEndpoint),
-		s.credentialsCache,
+		s.credentialsProvider,
 		wsRWTimeout,
 		s.minAgentConfig,
 		s.metricsFactory)

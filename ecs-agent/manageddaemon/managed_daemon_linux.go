@@ -21,7 +21,7 @@ import (
 	"os"
 	"path/filepath"
 
-	ecstypes "github.com/aws/aws-sdk-go-v2/service/ecs/types"
+	"github.com/aws/amazon-ecs-agent/ecs-agent/acs/model/ecsacs"
 )
 
 const (
@@ -87,9 +87,9 @@ func defaultImportAll() ([]*ManagedDaemon, error) {
 	thisCommand = append(thisCommand, "--log_file_max_size=20")
 	thisCommand = append(thisCommand, "--logtostderr=false")
 	sysAdmin := "SYS_ADMIN"
-	addCapabilities := []string{sysAdmin}
-	kernelCapabilities := ecstypes.KernelCapabilities{Add: addCapabilities}
-	ebsLinuxParams := ecstypes.LinuxParameters{Capabilities: &kernelCapabilities}
+	addCapabilities := []*string{&sysAdmin}
+	kernelCapabilities := ecsacs.KernelCapabilities{Add: addCapabilities}
+	ebsLinuxParams := ecsacs.LinuxParameters{Capabilities: &kernelCapabilities}
 	ebsManagedDaemon.linuxParameters = &ebsLinuxParams
 
 	ebsManagedDaemon.command = thisCommand

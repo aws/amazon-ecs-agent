@@ -22,9 +22,9 @@ import (
 	context "context"
 	reflect "reflect"
 
+	ecsacs "github.com/aws/amazon-ecs-agent/ecs-agent/acs/model/ecsacs"
 	tasknetworkconfig "github.com/aws/amazon-ecs-agent/ecs-agent/netlib/model/tasknetworkconfig"
-	types "github.com/aws/aws-sdk-go-v2/service/acs/types"
-	types0 "github.com/aws/aws-sdk-go-v2/service/ecs/types"
+	types "github.com/aws/aws-sdk-go-v2/service/ecs/types"
 	gomock "github.com/golang/mock/gomock"
 )
 
@@ -52,7 +52,7 @@ func (m *MockNetworkBuilder) EXPECT() *MockNetworkBuilderMockRecorder {
 }
 
 // BuildTaskNetworkConfiguration mocks base method.
-func (m *MockNetworkBuilder) BuildTaskNetworkConfiguration(arg0 string, arg1 *types.Task) (*tasknetworkconfig.TaskNetworkConfig, error) {
+func (m *MockNetworkBuilder) BuildTaskNetworkConfiguration(arg0 string, arg1 *ecsacs.Task) (*tasknetworkconfig.TaskNetworkConfig, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "BuildTaskNetworkConfiguration", arg0, arg1)
 	ret0, _ := ret[0].(*tasknetworkconfig.TaskNetworkConfig)
@@ -67,7 +67,7 @@ func (mr *MockNetworkBuilderMockRecorder) BuildTaskNetworkConfiguration(arg0, ar
 }
 
 // Start mocks base method.
-func (m *MockNetworkBuilder) Start(arg0 context.Context, arg1 types0.NetworkMode, arg2 string, arg3 *tasknetworkconfig.NetworkNamespace) error {
+func (m *MockNetworkBuilder) Start(arg0 context.Context, arg1 types.NetworkMode, arg2 string, arg3 *tasknetworkconfig.NetworkNamespace) error {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "Start", arg0, arg1, arg2, arg3)
 	ret0, _ := ret[0].(error)
@@ -81,7 +81,7 @@ func (mr *MockNetworkBuilderMockRecorder) Start(arg0, arg1, arg2, arg3 interface
 }
 
 // Stop mocks base method.
-func (m *MockNetworkBuilder) Stop(arg0 context.Context, arg1 types0.NetworkMode, arg2 string, arg3 *tasknetworkconfig.NetworkNamespace) error {
+func (m *MockNetworkBuilder) Stop(arg0 context.Context, arg1 types.NetworkMode, arg2 string, arg3 *tasknetworkconfig.NetworkNamespace) error {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "Stop", arg0, arg1, arg2, arg3)
 	ret0, _ := ret[0].(error)
