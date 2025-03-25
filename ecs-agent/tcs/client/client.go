@@ -501,7 +501,7 @@ func signRequestFunc(url, region string, credentialProvider *credentials.Credent
 			return nil, err
 		}
 
-		err = utils.SignHTTPRequest(request, region, "ecs", credentialProvider, reqBody)
+		err = utils.SignHTTPRequestV1(request, region, "ecs", credentialProvider, reqBody)
 		if err != nil {
 			return nil, err
 		}
