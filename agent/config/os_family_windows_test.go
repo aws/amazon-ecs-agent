@@ -50,7 +50,7 @@ func TestGetOSFamilyForWS2025Full(t *testing.T) {
 	windowsGetVersionFunc = fakeWindowsGetVersionFunc(26100)
 	mockKey := getMockWindowsRegistryKey(ctrl)
 	gomock.InOrder(
-		mockKey.EXPECT().GetStringValue("InstallationType").Return(`Server Core`, uint32(0), nil),
+		mockKey.EXPECT().GetStringValue("InstallationType").Return(`Server`, uint32(0), nil),
 		mockKey.EXPECT().Close(),
 	)
 
@@ -64,7 +64,7 @@ func TestGetOSFamilyForWS2025Core(t *testing.T) {
 	windowsGetVersionFunc = fakeWindowsGetVersionFunc(26100)
 	mockKey := getMockWindowsRegistryKey(ctrl)
 	gomock.InOrder(
-		mockKey.EXPECT().GetStringValue("InstallationType").Return(`Server`, uint32(0), nil),
+		mockKey.EXPECT().GetStringValue("InstallationType").Return(`Server Core`, uint32(0), nil),
 		mockKey.EXPECT().Close(),
 	)
 
