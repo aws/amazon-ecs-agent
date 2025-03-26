@@ -47,7 +47,7 @@ func TestGetOSFamilyForWS2025Full(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
 
-	windowsGetVersionFunc = fakeWindowsGetVersionFunc(20348)
+	windowsGetVersionFunc = fakeWindowsGetVersionFunc(26100)
 	mockKey := getMockWindowsRegistryKey(ctrl)
 	gomock.InOrder(
 		mockKey.EXPECT().GetStringValue("InstallationType").Return(`Server Core`, uint32(0), nil),
@@ -61,10 +61,10 @@ func TestGetOSFamilyForWS2025Core(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
 
-	windowsGetVersionFunc = fakeWindowsGetVersionFunc(20348)
+	windowsGetVersionFunc = fakeWindowsGetVersionFunc(26100)
 	mockKey := getMockWindowsRegistryKey(ctrl)
 	gomock.InOrder(
-		mockKey.EXPECT().GetStringValue("InstallationType").Return(`Server Core`, uint32(0), nil),
+		mockKey.EXPECT().GetStringValue("InstallationType").Return(`Server`, uint32(0), nil),
 		mockKey.EXPECT().Close(),
 	)
 
