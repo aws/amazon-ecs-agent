@@ -21,23 +21,23 @@ import (
 	"reflect"
 	"testing"
 
-	"github.com/aws/amazon-ecs-agent/ecs-agent/api/ecs/model/ecs"
+	"github.com/aws/aws-sdk-go-v2/service/ecs/types"
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/stretchr/testify/assert"
 )
 
-var devices = []*ecs.PlatformDevice{
+var devices = []types.PlatformDevice{
 	{
 		Id:   aws.String("id1"),
-		Type: aws.String(ecs.PlatformDeviceTypeGpu),
+		Type: types.PlatformDeviceTypeGpu,
 	},
 	{
 		Id:   aws.String("id2"),
-		Type: aws.String(ecs.PlatformDeviceTypeGpu),
+		Type: types.PlatformDeviceTypeGpu,
 	},
 	{
 		Id:   aws.String("id3"),
-		Type: aws.String(ecs.PlatformDeviceTypeGpu),
+		Type: types.PlatformDeviceTypeGpu,
 	},
 }
 
