@@ -45,7 +45,7 @@ import (
 
 const (
 	ecsMaxImageDigestLength     = 255
-	ecsMaxContainerReasonLength = 255
+	ecsMaxContainerReasonLength = 1024
 	ecsMaxTaskReasonLength      = 1024
 	ecsMaxRuntimeIDLength       = 255
 	defaultPollEndpointCacheTTL = 12 * time.Hour
