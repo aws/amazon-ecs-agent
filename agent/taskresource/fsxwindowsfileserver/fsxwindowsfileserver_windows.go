@@ -532,7 +532,11 @@ func (fv *FSxWindowsFileServerResource) retrieveASMCredentials(credentialsParame
 
 func (fv *FSxWindowsFileServerResource) retrieveFileSystemDNSName(fileSystemId string, iamCredentials credentials.IAMRoleCredentials) error {
 	fileSystemIds := []string{fileSystemId}
-	fsxClient := fv.fsxClientCreator.NewFSxClient(fv.region, iamCredentials)
+	fsxClient, err := fv.fsxClientCreator.NewFSxClient(fv.region, iamCredentials)
+	if err != nil {
+		fv.setTerminalReason(err.Error())
+		return err
+	}
 	fileSystemDNSMap, err := fsx.GetFileSystemDNSNames(fileSystemIds, fsxClient)
 	if err != nil {
 		fv.setTerminalReason(err.Error())

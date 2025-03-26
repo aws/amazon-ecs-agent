@@ -14,8 +14,10 @@
 package fsx
 
 import (
-	"github.com/aws/aws-sdk-go/aws"
-	"github.com/aws/aws-sdk-go/service/fsx"
+	"context"
+
+	"github.com/aws/aws-sdk-go-v2/aws"
+	"github.com/aws/aws-sdk-go-v2/service/fsx"
 	"github.com/pkg/errors"
 )
 
@@ -29,7 +31,7 @@ func GetFileSystemDNSNames(fileSystemIds []string, client FSxClient) (map[string
 
 	fileSystemDNSMap := make(map[string]string)
 	for _, filesystem := range out.FileSystems {
-		fileSystemDNSMap[aws.StringValue(filesystem.FileSystemId)] = aws.StringValue(filesystem.DNSName)
+		fileSystemDNSMap[aws.ToString(filesystem.FileSystemId)] = aws.ToString(filesystem.DNSName)
 	}
 
 	return fileSystemDNSMap, nil
@@ -37,16 +39,11 @@ func GetFileSystemDNSNames(fileSystemIds []string, client FSxClient) (map[string
 
 // describeFileSystems makes the api call to the AWS FSx service to retrieve filesystems info
 func describeFileSystems(fileSystemIds []string, client FSxClient) (*fsx.DescribeFileSystemsOutput, error) {
-	var IDs []*string
-	for _, id := range fileSystemIds {
-		IDs = append(IDs, aws.String(id))
-	}
-
 	in := &fsx.DescribeFileSystemsInput{
-		FileSystemIds: IDs,
+		FileSystemIds: fileSystemIds,
 	}
 
-	out, err := client.DescribeFileSystems(in)
+	out, err := client.DescribeFileSystems(context.TODO(), in)
 	if err != nil {
 		return nil, errors.Wrapf(err, "fsx describing filesystem(s) from the service for %v", fileSystemIds)
 	}
