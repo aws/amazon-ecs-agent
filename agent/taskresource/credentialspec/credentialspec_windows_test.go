@@ -36,8 +36,9 @@ import (
 	apitaskstatus "github.com/aws/amazon-ecs-agent/ecs-agent/api/task/status"
 	"github.com/aws/amazon-ecs-agent/ecs-agent/credentials"
 	mock_credentials "github.com/aws/amazon-ecs-agent/ecs-agent/credentials/mocks"
-	"github.com/aws/aws-sdk-go/aws"
-	"github.com/aws/aws-sdk-go/service/ssm"
+	"github.com/aws/aws-sdk-go-v2/aws"
+	"github.com/aws/aws-sdk-go-v2/service/ssm"
+	ssmtypes "github.com/aws/aws-sdk-go-v2/service/ssm/types"
 	"github.com/golang/mock/gomock"
 	"github.com/pkg/errors"
 	"github.com/stretchr/testify/assert"
@@ -467,9 +468,9 @@ func TestHandleSSMCredentialspecFile(t *testing.T) {
 
 			testData := "test-cred-spec-data"
 			ssmClientOutput := &ssm.GetParametersOutput{
-				InvalidParameters: []*string{},
-				Parameters: []*ssm.Parameter{
-					&ssm.Parameter{
+				InvalidParameters: []string{},
+				Parameters: []ssmtypes.Parameter{
+					ssmtypes.Parameter{
 						Name:  aws.String(tc.ssmParameterName),
 						Value: aws.String(testData),
 					},
@@ -477,8 +478,8 @@ func TestHandleSSMCredentialspecFile(t *testing.T) {
 			}
 
 			gomock.InOrder(
-				ssmClientCreator.EXPECT().NewSSMClient(gomock.Any(), gomock.Any()).Return(mockSSMClient),
-				mockSSMClient.EXPECT().GetParameters(gomock.Any()).Return(ssmClientOutput, nil).Times(1),
+				ssmClientCreator.EXPECT().NewSSMClient(gomock.Any(), gomock.Any()).Return(mockSSMClient, nil),
+				mockSSMClient.EXPECT().GetParameters(gomock.Any(), gomock.Any()).Return(ssmClientOutput, nil).Times(1),
 				mockIO.EXPECT().WriteFile(gomock.Any(), gomock.Any(), gomock.Any()).Return(nil),
 			)
 
@@ -564,8 +565,8 @@ func TestHandleSSMCredentialspecFileGetSSMParamErr(t *testing.T) {
 	}, apitaskstatus.TaskStatusNone, apitaskstatus.TaskRunning)
 
 	gomock.InOrder(
-		ssmClientCreator.EXPECT().NewSSMClient(gomock.Any(), gomock.Any()).Return(mockSSMClient),
-		mockSSMClient.EXPECT().GetParameters(gomock.Any()).Return(nil, errors.New("test-error")).Times(1),
+		ssmClientCreator.EXPECT().NewSSMClient(gomock.Any(), gomock.Any()).Return(mockSSMClient, nil),
+		mockSSMClient.EXPECT().GetParameters(gomock.Any(), gomock.Any()).Return(nil, errors.New("test-error")).Times(1),
 	)
 
 	err := cs.handleSSMCredentialspecFile(ssmCredentialSpec, credentialSpecSSMARN, iamCredentials)
@@ -609,9 +610,9 @@ func TestHandleSSMCredentialspecFileIOErr(t *testing.T) {
 
 	testData := "test-cred-spec-data"
 	ssmClientOutput := &ssm.GetParametersOutput{
-		InvalidParameters: []*string{},
-		Parameters: []*ssm.Parameter{
-			&ssm.Parameter{
+		InvalidParameters: []string{},
+		Parameters: []ssmtypes.Parameter{
+			ssmtypes.Parameter{
 				Name:  aws.String("test"),
 				Value: aws.String(testData),
 			},
@@ -619,8 +620,8 @@ func TestHandleSSMCredentialspecFileIOErr(t *testing.T) {
 	}
 
 	gomock.InOrder(
-		ssmClientCreator.EXPECT().NewSSMClient(gomock.Any(), gomock.Any()).Return(mockSSMClient),
-		mockSSMClient.EXPECT().GetParameters(gomock.Any()).Return(ssmClientOutput, nil).Times(1),
+		ssmClientCreator.EXPECT().NewSSMClient(gomock.Any(), gomock.Any()).Return(mockSSMClient, nil),
+		mockSSMClient.EXPECT().GetParameters(gomock.Any(), gomock.Any()).Return(ssmClientOutput, nil).Times(1),
 		mockIO.EXPECT().WriteFile(gomock.Any(), gomock.Any(), gomock.Any()).Return(errors.New("test-error")),
 	)
 
@@ -947,9 +948,9 @@ func TestCreateSSM(t *testing.T) {
 
 	testData := "test-cred-spec-data"
 	ssmClientOutput := &ssm.GetParametersOutput{
-		InvalidParameters: []*string{},
-		Parameters: []*ssm.Parameter{
-			&ssm.Parameter{
+		InvalidParameters: []string{},
+		Parameters: []ssmtypes.Parameter{
+			ssmtypes.Parameter{
 				Name:  aws.String("test"),
 				Value: aws.String(testData),
 			},
@@ -966,8 +967,8 @@ func TestCreateSSM(t *testing.T) {
 
 	gomock.InOrder(
 		credentialsManager.EXPECT().GetTaskCredentials(gomock.Any()).Return(creds, true),
-		ssmClientCreator.EXPECT().NewSSMClient(gomock.Any(), gomock.Any()).Return(mockSSMClient),
-		mockSSMClient.EXPECT().GetParameters(gomock.Any()).Return(ssmClientOutput, nil).Times(1),
+		ssmClientCreator.EXPECT().NewSSMClient(gomock.Any(), gomock.Any()).Return(mockSSMClient, nil),
+		mockSSMClient.EXPECT().GetParameters(gomock.Any(), gomock.Any()).Return(ssmClientOutput, nil).Times(1),
 		mockIO.EXPECT().WriteFile(gomock.Any(), gomock.Any(), gomock.Any()).Return(nil),
 	)
 
