@@ -27,7 +27,7 @@ import (
 	"github.com/aws/amazon-ecs-agent/agent/asm"
 	"github.com/aws/amazon-ecs-agent/agent/ssm"
 	"github.com/aws/amazon-ecs-agent/agent/utils"
-	"github.com/aws/aws-sdk-go/aws/arn"
+	"github.com/aws/aws-sdk-go-v2/aws/arn"
 
 	apicontainer "github.com/aws/amazon-ecs-agent/agent/api/container"
 	asmfactory "github.com/aws/amazon-ecs-agent/agent/asm/factory"
@@ -529,7 +529,11 @@ func (fv *FSxWindowsFileServerResource) retrieveASMCredentials(credentialsParame
 
 func (fv *FSxWindowsFileServerResource) retrieveFileSystemDNSName(fileSystemId string, iamCredentials credentials.IAMRoleCredentials) error {
 	fileSystemIds := []string{fileSystemId}
-	fsxClient := fv.fsxClientCreator.NewFSxClient(fv.region, iamCredentials)
+	fsxClient, err := fv.fsxClientCreator.NewFSxClient(fv.region, iamCredentials)
+	if err != nil {
+		fv.setTerminalReason(err.Error())
+		return err
+	}
 	fileSystemDNSMap, err := fsx.GetFileSystemDNSNames(fileSystemIds, fsxClient)
 	if err != nil {
 		fv.setTerminalReason(err.Error())

@@ -325,7 +325,7 @@ func TestRetrieveFSxWindowsFileServerDNSName(t *testing.T) {
 	}
 
 	gomock.InOrder(
-		fsxClientCreator.EXPECT().NewFSxClient(gomock.Any(), gomock.Any()).Return(mockFSxClient),
+		fsxClientCreator.EXPECT().NewFSxClient(gomock.Any(), gomock.Any()).Return(mockFSxClient, nil),
 		mockFSxClient.EXPECT().DescribeFileSystems(gomock.Any()).Return(fsxClientOutput, nil).Times(1),
 	)
 
@@ -555,7 +555,7 @@ func TestCreateUnavailableLocalPath(t *testing.T) {
 		credentialsManager.EXPECT().GetTaskCredentials(gomock.Any()).Return(creds, true),
 		ssmClientCreator.EXPECT().NewSSMClient(gomock.Any(), gomock.Any()).Return(mockSSMClient),
 		mockSSMClient.EXPECT().GetParameters(gomock.Any()).Return(ssmClientOutput, nil).Times(1),
-		fsxClientCreator.EXPECT().NewFSxClient(gomock.Any(), gomock.Any()).Return(mockFSxClient),
+		fsxClientCreator.EXPECT().NewFSxClient(gomock.Any(), gomock.Any()).Return(mockFSxClient, nil),
 		mockFSxClient.EXPECT().DescribeFileSystems(gomock.Any()).Return(fsxClientOutput, nil).Times(1),
 	)
 
@@ -640,7 +640,7 @@ func TestCreateSSM(t *testing.T) {
 		credentialsManager.EXPECT().GetTaskCredentials(gomock.Any()).Return(creds, true),
 		ssmClientCreator.EXPECT().NewSSMClient(gomock.Any(), gomock.Any()).Return(mockSSMClient),
 		mockSSMClient.EXPECT().GetParameters(gomock.Any()).Return(ssmClientOutput, nil).Times(1),
-		fsxClientCreator.EXPECT().NewFSxClient(gomock.Any(), gomock.Any()).Return(mockFSxClient),
+		fsxClientCreator.EXPECT().NewFSxClient(gomock.Any(), gomock.Any()).Return(mockFSxClient, nil),
 		mockFSxClient.EXPECT().DescribeFileSystems(gomock.Any()).Return(fsxClientOutput, nil).Times(1),
 	)
 
@@ -723,7 +723,7 @@ func TestCreateASM(t *testing.T) {
 		mockASMClient.EXPECT().GetSecretValue(gomock.Any()).Do(func(in *secretsmanager.GetSecretValueInput) {
 			assert.Equal(t, aws.StringValue(in.SecretId), credentialsParameter)
 		}).Return(asmClientOutput, nil),
-		fsxClientCreator.EXPECT().NewFSxClient(gomock.Any(), gomock.Any()).Return(mockFSxClient),
+		fsxClientCreator.EXPECT().NewFSxClient(gomock.Any(), gomock.Any()).Return(mockFSxClient, nil),
 		mockFSxClient.EXPECT().DescribeFileSystems(gomock.Any()).Return(fsxClientOutput, nil).Times(1),
 	)
 

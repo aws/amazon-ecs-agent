@@ -14,6 +14,7 @@
 package factory
 
 import (
+	"context"
 	"time"
 
 	"github.com/aws/amazon-ecs-agent/agent/config"
@@ -21,10 +22,10 @@ import (
 	agentversion "github.com/aws/amazon-ecs-agent/agent/version"
 	"github.com/aws/amazon-ecs-agent/ecs-agent/credentials"
 	"github.com/aws/amazon-ecs-agent/ecs-agent/httpclient"
-	"github.com/aws/aws-sdk-go/aws"
-	awscreds "github.com/aws/aws-sdk-go/aws/credentials"
-	"github.com/aws/aws-sdk-go/aws/session"
-	"github.com/aws/aws-sdk-go/service/fsx"
+	awscreds "github.com/aws/aws-sdk-go-v2/credentials"
+	"github.com/aws/aws-sdk-go-v2/service/fsx"
+
+	awsconfig "github.com/aws/aws-sdk-go-v2/config"
 )
 
 const (
@@ -32,7 +33,7 @@ const (
 )
 
 type FSxClientCreator interface {
-	NewFSxClient(region string, creds credentials.IAMRoleCredentials) fsxclient.FSxClient
+	NewFSxClient(region string, creds credentials.IAMRoleCredentials) (fsxclient.FSxClient, error)
 }
 
 func NewFSxClientCreator() FSxClientCreator {
@@ -42,13 +43,27 @@ func NewFSxClientCreator() FSxClientCreator {
 type fsxClientCreator struct{}
 
 func (*fsxClientCreator) NewFSxClient(region string,
-	creds credentials.IAMRoleCredentials) fsxclient.FSxClient {
-	cfg := aws.NewConfig().
-		WithHTTPClient(httpclient.New(roundtripTimeout, false, agentversion.String(), config.OSType)).
-		WithRegion(region).
-		WithCredentials(
-			awscreds.NewStaticCredentials(creds.AccessKeyID, creds.SecretAccessKey,
-				creds.SessionToken))
-	sess := session.Must(session.NewSession(cfg))
-	return fsx.New(sess)
+	creds credentials.IAMRoleCredentials) (fsxclient.FSxClient, error) {
+
+	// cfg := aws.NewConfig().
+	// 	WithHTTPClient(httpclient.New(roundtripTimeout, false, agentversion.String(), config.OSType)).
+	// 	WithRegion(region).
+	// 	WithCredentials(
+	// 		awscreds.NewStaticCredentials(creds.AccessKeyID, creds.SecretAccessKey,
+	// 			creds.SessionToken))
+
+	cfg, err := awsconfig.LoadDefaultConfig(
+		context.TODO(),
+		awsconfig.WithHTTPClient(httpclient.New(roundtripTimeout, false, agentversion.String(), config.OSType)),
+		awsconfig.WithRegion(region),
+		awsconfig.WithCredentialsProvider(
+			awscreds.NewStaticCredentialsProvider(creds.AccessKeyID, creds.SecretAccessKey, creds.SessionToken),
+		),
+	)
+	if err != nil {
+		return nil, err
+	}
+
+	return fsx.NewFromConfig(cfg), nil
+
 }
