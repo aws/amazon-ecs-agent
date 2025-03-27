@@ -14,9 +14,11 @@
 package ssm
 
 import (
-	"github.com/aws/aws-sdk-go/service/ssm"
+	"context"
+
+	"github.com/aws/aws-sdk-go-v2/service/ssm"
 )
 
 type SSMClient interface {
-	GetParameters(*ssm.GetParametersInput) (*ssm.GetParametersOutput, error)
+	GetParameters(context.Context, *ssm.GetParametersInput, ...func(*ssm.Options)) (*ssm.GetParametersOutput, error)
 }

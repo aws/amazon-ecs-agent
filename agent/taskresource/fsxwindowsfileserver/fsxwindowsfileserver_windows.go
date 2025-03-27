@@ -27,7 +27,7 @@ import (
 	"github.com/aws/amazon-ecs-agent/agent/asm"
 	"github.com/aws/amazon-ecs-agent/agent/ssm"
 	"github.com/aws/amazon-ecs-agent/agent/utils"
-	"github.com/aws/aws-sdk-go/aws/arn"
+	"github.com/aws/aws-sdk-go-v2/aws/arn"
 
 	apicontainer "github.com/aws/amazon-ecs-agent/agent/api/container"
 	asmfactory "github.com/aws/amazon-ecs-agent/agent/asm/factory"
@@ -477,7 +477,10 @@ func (fv *FSxWindowsFileServerResource) retrieveSSMCredentials(credentialsParame
 		return err
 	}
 
-	ssmClient := fv.ssmClientCreator.NewSSMClient(fv.region, iamCredentials)
+	ssmClient, err := fv.ssmClientCreator.NewSSMClient(fv.region, iamCredentials)
+	if err != nil {
+		return err
+	}
 	// parsedARN.Resource looks like "arn:aws:ssm:us-west-2:123456789012:parameter/sample1/sample2/parameter1"
 	// We cut by parameter and get "arn:aws:ssm:us-west-2:123456789012:parameter", "/sample1/sample2/parameter1", True/False
 	_, ssmParamName, found := strings.Cut(parsedARN.Resource, "parameter")
