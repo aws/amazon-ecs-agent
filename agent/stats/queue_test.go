@@ -22,7 +22,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/aws/amazon-ecs-agent/ecs-agent/tcs/model/ecstcs"
+	tcstypes "github.com/aws/aws-sdk-go-v2/service/tcs/types"
 	"github.com/docker/docker/api/types"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -263,7 +263,7 @@ func TestQueueWithRestartStats(t *testing.T) {
 	require.NoError(t, err)
 	require.NotNil(t, restartStats)
 	require.NotNil(t, restartStats.RestartCount)
-	require.Equal(t, int64(3), *restartStats.RestartCount)
+	require.Equal(t, int32(3), restartStats.RestartCount)
 
 	// after resetting the queue, there are no metrics to send and getting stats sets should error again:
 	queue.Reset()
@@ -277,7 +277,7 @@ func TestQueueWithRestartStats(t *testing.T) {
 	require.NoError(t, err)
 	require.NotNil(t, restartStats)
 	require.NotNil(t, restartStats.RestartCount)
-	require.Equal(t, int64(1), *restartStats.RestartCount)
+	require.Equal(t, int32(1), restartStats.RestartCount)
 
 	// add a stat with a lower restart count, and verify that this returns an error
 	queue.add(stats[2])
@@ -295,7 +295,7 @@ func TestQueueWithRestartStats(t *testing.T) {
 	require.NotNil(t, restartStats)
 	require.NotNil(t, restartStats.RestartCount)
 	// expect count to be length of queue (10) minus 1
-	require.Equal(t, int64(9), *restartStats.RestartCount)
+	require.Equal(t, int32(9), restartStats.RestartCount)
 }
 
 func TestQueueAddRemove(t *testing.T) {
@@ -315,88 +315,88 @@ func TestQueueAddRemove(t *testing.T) {
 
 	cpuStatsSet, err := queue.GetCPUStatsSet()
 	require.NoError(t, err)
-	require.NotEqual(t, math.MaxFloat64, *cpuStatsSet.Min)
-	require.NotEqual(t, math.NaN(), *cpuStatsSet.Min)
-	require.NotEqual(t, -math.MaxFloat64, *cpuStatsSet.Max)
-	require.NotEqual(t, math.NaN(), *cpuStatsSet.Max)
-	require.Equal(t, int64(queueLength), *cpuStatsSet.SampleCount)
-	require.Equal(t, int(554), int(*cpuStatsSet.Sum))
+	require.NotEqual(t, math.MaxFloat64, cpuStatsSet.Min)
+	require.NotEqual(t, math.NaN(), cpuStatsSet.Min)
+	require.NotEqual(t, -math.MaxFloat64, cpuStatsSet.Max)
+	require.NotEqual(t, math.NaN(), cpuStatsSet.Max)
+	require.Equal(t, int32(queueLength), cpuStatsSet.SampleCount)
+	require.Equal(t, int(554), int(cpuStatsSet.Sum))
 
 	memStatsSet, err := queue.GetMemoryStatsSet()
 	require.NoError(t, err)
-	require.NotEqual(t, math.MaxFloat64, *memStatsSet.Min)
-	require.NotEqual(t, math.NaN(), *memStatsSet.Min)
-	require.NotEqual(t, -math.MaxFloat64, *memStatsSet.Max)
-	require.NotEqual(t, math.NaN(), *memStatsSet.Max)
-	require.Equal(t, int64(queueLength), *memStatsSet.SampleCount)
-	require.Equal(t, int(12), int(*memStatsSet.Sum))
+	require.NotEqual(t, math.MaxFloat64, memStatsSet.Min)
+	require.NotEqual(t, math.NaN(), memStatsSet.Min)
+	require.NotEqual(t, -math.MaxFloat64, memStatsSet.Max)
+	require.NotEqual(t, math.NaN(), memStatsSet.Max)
+	require.Equal(t, int32(queueLength), memStatsSet.SampleCount)
+	require.Equal(t, int(12), int(memStatsSet.Sum))
 
 	storageStatsSet, err := queue.GetStorageStatsSet()
 	require.NoError(t, err)
 	// assuming min is initialized to math.MaxUint64 then truncated
 	storageReadStatsSet := storageStatsSet.ReadSizeBytes
-	require.NotEqual(t, math.MaxInt64, *storageReadStatsSet.Min)
-	require.NotEqual(t, math.MaxInt64, *storageReadStatsSet.OverflowMin)
-	require.NotEqual(t, 0, *storageReadStatsSet.Max)
-	require.Equal(t, int64(queueLength), *storageReadStatsSet.SampleCount)
-	require.Equal(t, int64(12467777475), *storageReadStatsSet.Sum)
+	require.NotEqual(t, math.MaxInt64, storageReadStatsSet.Min)
+	require.NotEqual(t, math.MaxInt64, storageReadStatsSet.OverflowMin)
+	require.NotEqual(t, 0, storageReadStatsSet.Max)
+	require.Equal(t, int64(queueLength), storageReadStatsSet.SampleCount)
+	require.Equal(t, int64(12467777475), storageReadStatsSet.Sum)
 
 	storageWriteStatsSet := storageStatsSet.WriteSizeBytes
-	require.NotEqual(t, math.MaxInt64, *storageWriteStatsSet.Min)
-	require.NotEqual(t, 0, *storageWriteStatsSet.Max)
-	require.Equal(t, int64(queueLength), *storageWriteStatsSet.SampleCount)
-	require.Equal(t, int64(12467777475), *storageWriteStatsSet.Sum)
+	require.NotEqual(t, math.MaxInt64, storageWriteStatsSet.Min)
+	require.NotEqual(t, 0, storageWriteStatsSet.Max)
+	require.Equal(t, int64(queueLength), storageWriteStatsSet.SampleCount)
+	require.Equal(t, int64(12467777475), storageWriteStatsSet.Sum)
 
 	netStatsSet, err := queue.GetNetworkStatsSet()
 	require.NoError(t, err, "error getting network stats set")
 	validateNetStatsSet(t, netStatsSet, queueLength)
 }
 
-func validateNetStatsSet(t *testing.T, netStats *ecstcs.NetworkStatsSet, queueLen int) {
+func validateNetStatsSet(t *testing.T, netStats *tcstypes.NetworkStatsSet, queueLen int) {
 	// checking only the fields RxBytes, RxDropped, TxBytes, TxErrors since others are similar
-	assert.NotEqual(t, int64(math.MaxInt64), *netStats.RxBytes.Min, "incorrect rxbytes min")
-	assert.Equal(t, int64(0), *netStats.RxBytes.OverflowMin, "incorrect rxbytes overlfowMin")
-	assert.NotEqual(t, int64(0), *netStats.RxBytes.Max, "incorrect rxbytes max")
-	assert.Equal(t, int64(0), *netStats.RxBytes.OverflowMax, "incorrect rxbytes overlfowMax")
-	assert.Equal(t, int64(queueLen), *netStats.RxBytes.SampleCount, "incorrect rxbytes sampleCount")
-	assert.NotEqual(t, int64(0), *netStats.RxBytes.Sum, "incorrect rxbytes sum")
-	assert.Equal(t, int64(0), *netStats.RxBytes.OverflowSum, "incorrect rxbytes overlfowSum")
+	assert.NotEqual(t, int64(math.MaxInt64), netStats.RxBytes.Min, "incorrect rxbytes min")
+	assert.Equal(t, int64(0), netStats.RxBytes.OverflowMin, "incorrect rxbytes overlfowMin")
+	assert.NotEqual(t, int64(0), netStats.RxBytes.Max, "incorrect rxbytes max")
+	assert.Equal(t, int64(0), netStats.RxBytes.OverflowMax, "incorrect rxbytes overlfowMax")
+	assert.Equal(t, int64(queueLen), netStats.RxBytes.SampleCount, "incorrect rxbytes sampleCount")
+	assert.NotEqual(t, int64(0), netStats.RxBytes.Sum, "incorrect rxbytes sum")
+	assert.Equal(t, int64(0), netStats.RxBytes.OverflowSum, "incorrect rxbytes overlfowSum")
 
-	assert.Equal(t, int64(0), *netStats.RxDropped.Min, "incorrect RxDropped min")
-	assert.Equal(t, int64(0), *netStats.RxDropped.OverflowMin, "incorrect RxDropped overlfowMin")
-	assert.Equal(t, int64(0), *netStats.RxDropped.Max, "incorrect RxDropped max")
-	assert.Equal(t, int64(0), *netStats.RxDropped.OverflowMax, "incorrect RxDropped overlfowMax")
-	assert.Equal(t, int64(queueLen), *netStats.RxDropped.SampleCount, "incorrect RxDropped sampleCount")
-	assert.Equal(t, int64(0), *netStats.RxDropped.Sum, "incorrect RxDropped sum")
-	assert.Equal(t, int64(0), *netStats.RxDropped.OverflowSum, "incorrect RxDropped overlfowSum")
+	assert.Equal(t, int64(0), netStats.RxDropped.Min, "incorrect RxDropped min")
+	assert.Equal(t, int64(0), netStats.RxDropped.OverflowMin, "incorrect RxDropped overlfowMin")
+	assert.Equal(t, int64(0), netStats.RxDropped.Max, "incorrect RxDropped max")
+	assert.Equal(t, int64(0), netStats.RxDropped.OverflowMax, "incorrect RxDropped overlfowMax")
+	assert.Equal(t, int64(queueLen), netStats.RxDropped.SampleCount, "incorrect RxDropped sampleCount")
+	assert.Equal(t, int64(0), netStats.RxDropped.Sum, "incorrect RxDropped sum")
+	assert.Equal(t, int64(0), netStats.RxDropped.OverflowSum, "incorrect RxDropped overlfowSum")
 
-	assert.NotEqual(t, int64(math.MaxInt64), *netStats.TxBytes.Min, "incorrect TxBytes min")
-	assert.Equal(t, int64(0), *netStats.TxBytes.OverflowMin, "incorrect TxBytes overlfowMin")
-	assert.NotEqual(t, int64(0), *netStats.TxBytes.Max, "incorrect TxBytes max")
-	assert.Equal(t, int64(0), *netStats.TxBytes.OverflowMax, "incorrect TxBytes overlfowMax")
-	assert.Equal(t, int64(queueLen), *netStats.TxBytes.SampleCount, "incorrect TxBytes sampleCount")
-	assert.NotEqual(t, int64(0), *netStats.TxBytes.Sum, "incorrect TxBytes sum")
-	assert.Equal(t, int64(0), *netStats.TxBytes.OverflowSum, "incorrect TxBytes overlfowSum")
+	assert.NotEqual(t, int64(math.MaxInt64), netStats.TxBytes.Min, "incorrect TxBytes min")
+	assert.Equal(t, int64(0), netStats.TxBytes.OverflowMin, "incorrect TxBytes overlfowMin")
+	assert.NotEqual(t, int64(0), netStats.TxBytes.Max, "incorrect TxBytes max")
+	assert.Equal(t, int64(0), netStats.TxBytes.OverflowMax, "incorrect TxBytes overlfowMax")
+	assert.Equal(t, int64(queueLen), netStats.TxBytes.SampleCount, "incorrect TxBytes sampleCount")
+	assert.NotEqual(t, int64(0), netStats.TxBytes.Sum, "incorrect TxBytes sum")
+	assert.Equal(t, int64(0), netStats.TxBytes.OverflowSum, "incorrect TxBytes overlfowSum")
 
-	assert.Equal(t, int64(0), *netStats.TxErrors.Min, "incorrect TxErrors min")
-	assert.Equal(t, int64(0), *netStats.TxErrors.OverflowMin, "incorrect TxErrors overlfowMin")
-	assert.Equal(t, int64(0), *netStats.TxErrors.Max, "incorrect TxErrors max")
-	assert.Equal(t, int64(0), *netStats.TxErrors.OverflowMax, "incorrect TxErrors overlfowMax")
-	assert.Equal(t, int64(queueLen), *netStats.TxErrors.SampleCount, "incorrect TxErrors sampleCount")
-	assert.Equal(t, int64(0), *netStats.TxErrors.Sum, "incorrect TxErrors sum")
-	assert.Equal(t, int64(0), *netStats.TxErrors.OverflowSum, "incorrect TxErrors overlfowSum")
+	assert.Equal(t, int64(0), netStats.TxErrors.Min, "incorrect TxErrors min")
+	assert.Equal(t, int64(0), netStats.TxErrors.OverflowMin, "incorrect TxErrors overlfowMin")
+	assert.Equal(t, int64(0), netStats.TxErrors.Max, "incorrect TxErrors max")
+	assert.Equal(t, int64(0), netStats.TxErrors.OverflowMax, "incorrect TxErrors overlfowMax")
+	assert.Equal(t, int64(queueLen), netStats.TxErrors.SampleCount, "incorrect TxErrors sampleCount")
+	assert.Equal(t, int64(0), netStats.TxErrors.Sum, "incorrect TxErrors sum")
+	assert.Equal(t, int64(0), netStats.TxErrors.OverflowSum, "incorrect TxErrors overlfowSum")
 
 	assert.NotNil(t, *netStats.RxBytesPerSecond, "incorrect RxBytesPerSecond set")
-	assert.Equal(t, float64(1.26999248e+08), *netStats.RxBytesPerSecond.Min, "incorrect RxBytesPerSecond min")
-	assert.Equal(t, float64(1.373376384e+09), *netStats.RxBytesPerSecond.Max, "incorrect RxBytesPerSecond max")
-	assert.Equal(t, int64(queueLen), *netStats.RxBytesPerSecond.SampleCount, "incorrect RxBytesPerSecond sampleCount")
-	assert.Equal(t, float64(5.540383824e+09), *netStats.RxBytesPerSecond.Sum, "incorrect RxBytesPerSecond sum")
+	assert.Equal(t, float64(1.26999248e+08), netStats.RxBytesPerSecond.Min, "incorrect RxBytesPerSecond min")
+	assert.Equal(t, float64(1.373376384e+09), netStats.RxBytesPerSecond.Max, "incorrect RxBytesPerSecond max")
+	assert.Equal(t, int32(queueLen), netStats.RxBytesPerSecond.SampleCount, "incorrect RxBytesPerSecond sampleCount")
+	assert.Equal(t, float64(5.540383824e+09), netStats.RxBytesPerSecond.Sum, "incorrect RxBytesPerSecond sum")
 
 	assert.NotNil(t, *netStats.TxBytesPerSecond, "incorrect TxBytesPerSecond set")
-	assert.Equal(t, float64(1.26999248e+08), *netStats.TxBytesPerSecond.Min, "incorrect TxBytesPerSecond min")
-	assert.Equal(t, float64(1.373376384e+09), *netStats.TxBytesPerSecond.Max, "incorrect TxBytesPerSecond max")
-	assert.Equal(t, int64(queueLen), *netStats.TxBytesPerSecond.SampleCount, "incorrect TxBytesPerSecond sampleCount")
-	assert.Equal(t, float64(5.540383824e+09), *netStats.TxBytesPerSecond.Sum, "incorrect TxBytesPerSecond sum")
+	assert.Equal(t, float64(1.26999248e+08), netStats.TxBytesPerSecond.Min, "incorrect TxBytesPerSecond min")
+	assert.Equal(t, float64(1.373376384e+09), netStats.TxBytesPerSecond.Max, "incorrect TxBytesPerSecond max")
+	assert.Equal(t, int32(queueLen), netStats.TxBytesPerSecond.SampleCount, "incorrect TxBytesPerSecond sampleCount")
+	assert.Equal(t, float64(5.540383824e+09), netStats.TxBytesPerSecond.Sum, "incorrect TxBytesPerSecond sum")
 }
 
 func TestQueueUintStats(t *testing.T) {
@@ -416,15 +416,15 @@ func TestQueueUintStats(t *testing.T) {
 	// assuming min is initialized to math.MaxUint64 then truncated
 	// min/max should be the same as predictableInt64Overflow
 	// their overflow should be 0
-	assert.Equal(t, *storageReadStatsSet.Min, predictableInt64Overflow)
-	assert.Equal(t, *storageReadStatsSet.OverflowMin, int64(0))
-	assert.Equal(t, *storageReadStatsSet.Max, predictableInt64Overflow)
-	assert.Equal(t, *storageReadStatsSet.OverflowMax, int64(0))
+	assert.Equal(t, storageReadStatsSet.Min, predictableInt64Overflow)
+	assert.Equal(t, storageReadStatsSet.OverflowMin, int64(0))
+	assert.Equal(t, storageReadStatsSet.Max, predictableInt64Overflow)
+	assert.Equal(t, storageReadStatsSet.OverflowMax, int64(0))
 	// the sum of three predictableInt64Overflow should be equal to MaxInt64
 	// with an overflow of predictableInt64Overflow - 1
 	// (see the definition of predictableInt64Overflow for why -1)
-	assert.Equal(t, *storageReadStatsSet.Sum, int64(math.MaxInt64))
-	assert.Equal(t, *storageReadStatsSet.OverflowSum, predictableInt64Overflow-1)
+	assert.Equal(t, storageReadStatsSet.Sum, int64(math.MaxInt64))
+	assert.Equal(t, storageReadStatsSet.OverflowSum, predictableInt64Overflow-1)
 }
 
 func TestQueueAddPredictableHighMemoryUtilization(t *testing.T) {
@@ -452,10 +452,10 @@ func TestQueueAddPredictableHighMemoryUtilization(t *testing.T) {
 	// Also test if sum  == queue length * 7035
 	expectedMemoryUsageInMiB := float64(predictableHighMemoryUtilizationInMiB)
 	expectedMemoryUsageInMiBSum := expectedMemoryUsageInMiB * float64(queueLength)
-	require.Equal(t, *memStatsSet.Min, expectedMemoryUsageInMiB)
-	require.Equal(t, *memStatsSet.Max, expectedMemoryUsageInMiB)
-	require.Equal(t, *memStatsSet.SampleCount, int64(queueLength))
-	require.Equal(t, *memStatsSet.Sum, expectedMemoryUsageInMiBSum)
+	require.Equal(t, memStatsSet.Min, expectedMemoryUsageInMiB)
+	require.Equal(t, memStatsSet.Max, expectedMemoryUsageInMiB)
+	require.Equal(t, memStatsSet.SampleCount, int32(queueLength))
+	require.Equal(t, memStatsSet.Sum, expectedMemoryUsageInMiBSum)
 }
 
 // tests just below and just above the threshold (+/- 1) of int64
@@ -501,10 +501,10 @@ func TestCpuStatsSetNotSetToInfinity(t *testing.T) {
 	if err != nil {
 		t.Errorf("Error getting cpu stats set: %v", err)
 	}
-	require.Equal(t, float64(1000), *cpuStatsSet.Max)
-	require.Equal(t, float64(1000), *cpuStatsSet.Min)
-	require.Equal(t, float64(1000), *cpuStatsSet.Sum)
-	require.Equal(t, int64(1), *cpuStatsSet.SampleCount)
+	require.Equal(t, float64(1000), cpuStatsSet.Max)
+	require.Equal(t, float64(1000), cpuStatsSet.Min)
+	require.Equal(t, float64(1000), cpuStatsSet.Sum)
+	require.Equal(t, int32(1), cpuStatsSet.SampleCount)
 }
 
 func TestCPUStatSetFailsWhenSampleCountIsZero(t *testing.T) {
@@ -561,10 +561,10 @@ func TestCPUStatsWithIdenticalTimestampsGetSameUsagePercent(t *testing.T) {
 	// a valid CpuStatsSet, and this function call should fail.
 	statSet, err := queue.GetCPUStatsSet()
 	require.NoError(t, err)
-	require.Equal(t, float64(200), *statSet.Max)
-	require.Equal(t, float64(100), *statSet.Min)
-	require.Equal(t, int64(3), *statSet.SampleCount)
-	require.Equal(t, float64(500), *statSet.Sum)
+	require.Equal(t, float64(200), statSet.Max)
+	require.Equal(t, float64(100), statSet.Min)
+	require.Equal(t, int32(3), statSet.SampleCount)
+	require.Equal(t, float64(500), statSet.Sum)
 }
 
 func TestHugeCPUUsagePercentDoesntGetCapped(t *testing.T) {
@@ -588,10 +588,10 @@ func TestHugeCPUUsagePercentDoesntGetCapped(t *testing.T) {
 
 	statSet, err := queue.GetCPUStatsSet()
 	require.NoError(t, err)
-	require.Equal(t, float64(30000001024), *statSet.Max)
-	require.Equal(t, float64(100), *statSet.Min)
-	require.Equal(t, int64(2), *statSet.SampleCount)
-	require.Equal(t, float64(30000001124), *statSet.Sum)
+	require.Equal(t, float64(30000001024), statSet.Max)
+	require.Equal(t, float64(100), statSet.Min)
+	require.Equal(t, int32(2), statSet.SampleCount)
+	require.Equal(t, float64(30000001124), statSet.Sum)
 }
 
 // If there are only 2 datapoints, and both have the same timestamp,
@@ -918,7 +918,7 @@ func TestQueueAdd(t *testing.T) {
 				require.NoError(t, err)
 				require.NotNil(t, restartStats)
 				require.NotNil(t, restartStats.RestartCount)
-				require.Equal(t, int64(queueMaxSize-1), *restartStats.RestartCount)
+				require.Equal(t, int32(queueMaxSize-1), restartStats.RestartCount)
 			} else {
 				require.Error(t, err)
 				require.Nil(t, restartStats)
