@@ -14,11 +14,12 @@
 package ssm
 
 import (
+	"context"
 	"fmt"
 	"strings"
 
-	"github.com/aws/aws-sdk-go/aws"
-	"github.com/aws/aws-sdk-go/service/ssm"
+	"github.com/aws/aws-sdk-go-v2/aws"
+	"github.com/aws/aws-sdk-go-v2/service/ssm"
 	"github.com/pkg/errors"
 )
 
@@ -35,17 +36,12 @@ func GetParametersFromSSM(names []string, client SSMClient) (map[string]string, 
 }
 
 func getParameters(names []string, client SSMClient, withDecryption bool) (map[string]string, error) {
-	var params []*string
-	for _, name := range names {
-		params = append(params, aws.String(name))
-	}
-
 	in := &ssm.GetParametersInput{
-		Names:          params,
+		Names:          names,
 		WithDecryption: aws.Bool(withDecryption),
 	}
 
-	out, err := client.GetParameters(in)
+	out, err := client.GetParameters(context.TODO(), in)
 	if err != nil {
 		return nil, err
 	}
@@ -60,17 +56,13 @@ func extractSSMValues(out *ssm.GetParametersOutput) (map[string]string, error) {
 	}
 
 	if len(out.InvalidParameters) != 0 {
-		var stringValues []string
-		for _, invalid := range out.InvalidParameters {
-			stringValues = append(stringValues, aws.StringValue(invalid))
-		}
 		return nil, fmt.Errorf(
-			"invalid parameters: %s", strings.Join(stringValues, ","))
+			"invalid parameters: %s", strings.Join(out.InvalidParameters, ","))
 	}
 
 	parameterValues := make(map[string]string)
 	for _, parameter := range out.Parameters {
-		parameterValues[aws.StringValue(parameter.Name)] = aws.StringValue(parameter.Value)
+		parameterValues[aws.ToString(parameter.Name)] = aws.ToString(parameter.Value)
 	}
 
 	return parameterValues, nil

@@ -71,7 +71,8 @@ import (
 
 	"github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/aws/aws-sdk-go-v2/service/secretsmanager"
-	"github.com/aws/aws-sdk-go/service/ssm"
+	"github.com/aws/aws-sdk-go-v2/service/ssm"
+	ssmtypes "github.com/aws/aws-sdk-go-v2/service/ssm/types"
 	cniTypesCurrent "github.com/containernetworking/cni/pkg/types/100"
 	"github.com/docker/docker/api/types"
 	dockercontainer "github.com/docker/docker/api/types/container"
@@ -2906,9 +2907,9 @@ func TestTaskSecretsEnvironmentVariables(t *testing.T) {
 			}
 
 			ssmClientOutput := &ssm.GetParametersOutput{
-				InvalidParameters: []*string{},
-				Parameters: []*ssm.Parameter{
-					&ssm.Parameter{
+				InvalidParameters: []string{},
+				Parameters: []ssmtypes.Parameter{
+					ssmtypes.Parameter{
 						Name:  aws.String(ssmSecretValueFrom),
 						Value: aws.String(ssmSecretRetrievedValue),
 					},
@@ -2919,13 +2920,13 @@ func TestTaskSecretsEnvironmentVariables(t *testing.T) {
 				SecretString: aws.String(asmSecretRetrievedValue),
 			}
 
-			reqSecretNames := []*string{aws.String(ssmSecretValueFrom)}
+			reqSecretNames := []string{ssmSecretValueFrom}
 
 			credentialsManager.EXPECT().GetTaskCredentials(credentialsID).Return(taskIAMcreds, true).Times(2)
-			ssmClientCreator.EXPECT().NewSSMClient(region, executionRoleCredentials).Return(mockSSMClient)
+			ssmClientCreator.EXPECT().NewSSMClient(region, executionRoleCredentials).Return(mockSSMClient, nil)
 			asmClientCreator.EXPECT().NewASMClient(region, executionRoleCredentials).Return(mockASMClient, nil)
 
-			mockSSMClient.EXPECT().GetParameters(gomock.Any()).Do(func(in *ssm.GetParametersInput) {
+			mockSSMClient.EXPECT().GetParameters(gomock.Any(), gomock.Any()).Do(func(ctx context.Context, in *ssm.GetParametersInput, optFns ...func(*ssm.Options)) {
 				assert.Equal(t, in.Names, reqSecretNames)
 			}).Return(ssmClientOutput, nil).Times(1)
 

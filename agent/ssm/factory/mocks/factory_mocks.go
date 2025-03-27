@@ -50,11 +50,12 @@ func (m *MockSSMClientCreator) EXPECT() *MockSSMClientCreatorMockRecorder {
 }
 
 // NewSSMClient mocks base method.
-func (m *MockSSMClientCreator) NewSSMClient(arg0 string, arg1 credentials.IAMRoleCredentials) ssm.SSMClient {
+func (m *MockSSMClientCreator) NewSSMClient(arg0 string, arg1 credentials.IAMRoleCredentials) (ssm.SSMClient, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "NewSSMClient", arg0, arg1)
 	ret0, _ := ret[0].(ssm.SSMClient)
-	return ret0
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
 }
 
 // NewSSMClient indicates an expected call of NewSSMClient.

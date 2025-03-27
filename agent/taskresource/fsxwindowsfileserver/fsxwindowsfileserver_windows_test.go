@@ -42,8 +42,9 @@ import (
 
 	"github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/aws/aws-sdk-go-v2/service/secretsmanager"
+	"github.com/aws/aws-sdk-go-v2/service/ssm"
+	ssmtypes "github.com/aws/aws-sdk-go-v2/service/ssm/types"
 	"github.com/aws/aws-sdk-go/service/fsx"
-	"github.com/aws/aws-sdk-go/service/ssm"
 	"github.com/golang/mock/gomock"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -145,9 +146,9 @@ func TestRetrieveCredentials(t *testing.T) {
 
 	ssmTestData := "{\n\"username\": \"user\", \n\"password\": \"pass\"\n}"
 	ssmClientOutput := &ssm.GetParametersOutput{
-		InvalidParameters: []*string{},
-		Parameters: []*ssm.Parameter{
-			&ssm.Parameter{
+		InvalidParameters: []string{},
+		Parameters: []ssmtypes.Parameter{
+			ssmtypes.Parameter{
 				Name:  aws.String("/test"),
 				Value: aws.String(ssmTestData),
 			},
@@ -159,8 +160,8 @@ func TestRetrieveCredentials(t *testing.T) {
 	}
 
 	gomock.InOrder(
-		ssmClientCreator.EXPECT().NewSSMClient(gomock.Any(), gomock.Any()).Return(mockSSMClient),
-		mockSSMClient.EXPECT().GetParameters(gomock.Any()).Return(ssmClientOutput, nil).Times(1),
+		ssmClientCreator.EXPECT().NewSSMClient(gomock.Any(), gomock.Any()).Return(mockSSMClient, nil),
+		mockSSMClient.EXPECT().GetParameters(gomock.Any(), gomock.Any()).Return(ssmClientOutput, nil).Times(1),
 	)
 
 	err := fv.retrieveCredentials(credentialsParameterARN, iamCredentials)
@@ -210,9 +211,9 @@ func TestRetrieveSSMCredentials(t *testing.T) {
 
 			ssmTestData := "{\n\"username\": \"user\", \n\"password\": \"pass\"\n}"
 			ssmClientOutput := &ssm.GetParametersOutput{
-				InvalidParameters: []*string{},
-				Parameters: []*ssm.Parameter{
-					&ssm.Parameter{
+				InvalidParameters: []string{},
+				Parameters: []ssmtypes.Parameter{
+					ssmtypes.Parameter{
 						Name:  aws.String(tc.CredentialsParameterName),
 						Value: aws.String(ssmTestData),
 					},
@@ -224,9 +225,9 @@ func TestRetrieveSSMCredentials(t *testing.T) {
 			}
 
 			gomock.InOrder(
-				ssmClientCreator.EXPECT().NewSSMClient(gomock.Any(), gomock.Any()).Return(mockSSMClient),
-				mockSSMClient.EXPECT().GetParameters(&ssm.GetParametersInput{
-					Names:          []*string{&tc.CredentialsParameterName},
+				ssmClientCreator.EXPECT().NewSSMClient(gomock.Any(), gomock.Any()).Return(mockSSMClient, nil),
+				mockSSMClient.EXPECT().GetParameters(gomock.Any(), &ssm.GetParametersInput{
+					Names:          []string{tc.CredentialsParameterName},
 					WithDecryption: aws.Bool(false),
 				}).Return(ssmClientOutput, nil).Times(1),
 			)
@@ -536,9 +537,9 @@ func TestCreateUnavailableLocalPath(t *testing.T) {
 
 	ssmTestData := "{\n\"username\": \"user\", \n\"password\": \"pass\"\n}"
 	ssmClientOutput := &ssm.GetParametersOutput{
-		InvalidParameters: []*string{},
-		Parameters: []*ssm.Parameter{
-			&ssm.Parameter{
+		InvalidParameters: []string{},
+		Parameters: []ssmtypes.Parameter{
+			ssmtypes.Parameter{
 				Name:  aws.String("/test"),
 				Value: aws.String(ssmTestData),
 			},
@@ -564,8 +565,8 @@ func TestCreateUnavailableLocalPath(t *testing.T) {
 
 	gomock.InOrder(
 		credentialsManager.EXPECT().GetTaskCredentials(gomock.Any()).Return(creds, true),
-		ssmClientCreator.EXPECT().NewSSMClient(gomock.Any(), gomock.Any()).Return(mockSSMClient),
-		mockSSMClient.EXPECT().GetParameters(gomock.Any()).Return(ssmClientOutput, nil).Times(1),
+		ssmClientCreator.EXPECT().NewSSMClient(gomock.Any(), gomock.Any()).Return(mockSSMClient, nil),
+		mockSSMClient.EXPECT().GetParameters(gomock.Any(), gomock.Any()).Return(ssmClientOutput, nil).Times(1),
 		fsxClientCreator.EXPECT().NewFSxClient(gomock.Any(), gomock.Any()).Return(mockFSxClient),
 		mockFSxClient.EXPECT().DescribeFileSystems(gomock.Any()).Return(fsxClientOutput, nil).Times(1),
 	)
@@ -623,9 +624,9 @@ func TestCreateSSM(t *testing.T) {
 
 	ssmTestData := "{\n\"username\": \"user\", \n\"password\": \"pass\"\n}"
 	ssmClientOutput := &ssm.GetParametersOutput{
-		InvalidParameters: []*string{},
-		Parameters: []*ssm.Parameter{
-			&ssm.Parameter{
+		InvalidParameters: []string{},
+		Parameters: []ssmtypes.Parameter{
+			ssmtypes.Parameter{
 				Name:  aws.String("/test"),
 				Value: aws.String(ssmTestData),
 			},
@@ -651,8 +652,8 @@ func TestCreateSSM(t *testing.T) {
 
 	gomock.InOrder(
 		credentialsManager.EXPECT().GetTaskCredentials(gomock.Any()).Return(creds, true),
-		ssmClientCreator.EXPECT().NewSSMClient(gomock.Any(), gomock.Any()).Return(mockSSMClient),
-		mockSSMClient.EXPECT().GetParameters(gomock.Any()).Return(ssmClientOutput, nil).Times(1),
+		ssmClientCreator.EXPECT().NewSSMClient(gomock.Any(), gomock.Any()).Return(mockSSMClient, nil),
+		mockSSMClient.EXPECT().GetParameters(gomock.Any(), gomock.Any()).Return(ssmClientOutput, nil).Times(1),
 		fsxClientCreator.EXPECT().NewFSxClient(gomock.Any(), gomock.Any()).Return(mockFSxClient),
 		mockFSxClient.EXPECT().DescribeFileSystems(gomock.Any()).Return(fsxClientOutput, nil).Times(1),
 	)
