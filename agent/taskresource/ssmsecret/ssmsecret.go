@@ -335,7 +335,11 @@ func (secret *SSMSecretResource) retrieveSSMSecretValuesByRegion(region string, 
 func (secret *SSMSecretResource) retrieveSSMSecretValues(region string, names []string, iamCredentials credentials.IAMRoleCredentials, wg *sync.WaitGroup, errorEvents chan error) {
 	defer wg.Done()
 
-	ssmClient := secret.ssmClientCreator.NewSSMClient(region, iamCredentials)
+	ssmClient, err := secret.ssmClientCreator.NewSSMClient(region, iamCredentials)
+	if err != nil {
+		errorEvents <- fmt.Errorf("unable to create SSM client in %s: %v", region, err)
+		return
+	}
 	seelog.Debugf("ssm secret resource: retrieving resource for secrets %v in region [%s] in task: [%s]", names, region, secret.taskARN)
 	secValueMap, err := ssm.GetSecretsFromSSM(names, ssmClient)
 	if err != nil {

@@ -36,9 +36,11 @@ import (
 	apitaskstatus "github.com/aws/amazon-ecs-agent/ecs-agent/api/task/status"
 	"github.com/aws/amazon-ecs-agent/ecs-agent/credentials"
 	mockcredentials "github.com/aws/amazon-ecs-agent/ecs-agent/credentials/mocks"
+
+	"github.com/aws/aws-sdk-go-v2/aws"
 	s3sdk "github.com/aws/aws-sdk-go-v2/service/s3"
-	"github.com/aws/aws-sdk-go/aws"
-	"github.com/aws/aws-sdk-go/service/ssm"
+	"github.com/aws/aws-sdk-go-v2/service/ssm"
+	ssmtypes "github.com/aws/aws-sdk-go-v2/service/ssm/types"
 	"github.com/golang/mock/gomock"
 	"github.com/pkg/errors"
 	"github.com/stretchr/testify/assert"
@@ -155,8 +157,8 @@ func TestHandleSSMCredentialspecFile(t *testing.T) {
 
 	testData := "{\"CmsPlugins\":[\"ActiveDirectory\"],\"DomainJoinConfig\":{\"Sid\":\"S-1-5-21-4217655605-3681839426-3493040985\",\"MachineAccountName\":\"WebApp01\",\"Guid\":\"af602f85-d754-4eea-9fa8-fd76810485f1\",\"DnsTreeName\":\"contoso.com\",\"DnsName\":\"contoso.com\",\"NetBiosName\":\"contoso\"},\"ActiveDirectoryConfig\":{\"GroupManagedServiceAccounts\":[{\"Name\":\"WebApp01\",\"Scope\":\"contoso.com\"},{\"Name\":\"WebApp01\",\"Scope\":\"contoso\"}]}}"
 	ssmClientOutput := &ssm.GetParametersOutput{
-		InvalidParameters: []*string{},
-		Parameters: []*ssm.Parameter{
+		InvalidParameters: []string{},
+		Parameters: []ssmtypes.Parameter{
 			{
 				Name:  aws.String("/test"),
 				Value: aws.String(testData),
@@ -166,8 +168,8 @@ func TestHandleSSMCredentialspecFile(t *testing.T) {
 	expectedKerberosTicketPath := "/var/credentials-fetcher/krbdir/123456/webapp01"
 
 	gomock.InOrder(
-		ssmClientCreator.EXPECT().NewSSMClient(gomock.Any(), gomock.Any()).Return(mockSSMClient),
-		mockSSMClient.EXPECT().GetParameters(gomock.Any()).Return(ssmClientOutput, nil).Times(1),
+		ssmClientCreator.EXPECT().NewSSMClient(gomock.Any(), gomock.Any()).Return(mockSSMClient, nil),
+		mockSSMClient.EXPECT().GetParameters(gomock.Any(), gomock.Any()).Return(ssmClientOutput, nil).Times(1),
 	)
 
 	var wg sync.WaitGroup
@@ -230,8 +232,8 @@ func TestHandleSSMDomainlessCredentialspecFile(t *testing.T) {
 
 	testData := "{ \"CmsPlugins\": [ \"ActiveDirectory\" ], \"DomainJoinConfig\": { \"Sid\": \"S-1-5-21-4066351383-705263209-1606769140\", \"MachineAccountName\": \"WebApp01\", \"Guid\": \"ac822f13-583e-49f7-aa7b-284f9a8c97b6\", \"DnsTreeName\": \"contoso.com\", \"DnsName\": \"contoso.com\", \"NetBiosName\": \"contoso\" }, \"ActiveDirectoryConfig\": { \"GroupManagedServiceAccounts\": [ { \"Name\": \"WebApp01\", \"Scope\": \"contoso.com\" }, { \"Name\": \"WebApp01\", \"Scope\": \"contoso\" } ], \"HostAccountConfig\": { \"PortableCcgVersion\": \"1\", \"PluginGUID\": \"{859E1386-BDB4-49E8-85C7-3070B13920E1}\", \"PluginInput\": {\"CredentialArn\": \"arn:aws:secretsmanager:us-west-2:123456789:secret:gMSAUserSecret-PwmPaO\"} } }}"
 	ssmClientOutput := &ssm.GetParametersOutput{
-		InvalidParameters: []*string{},
-		Parameters: []*ssm.Parameter{
+		InvalidParameters: []string{},
+		Parameters: []ssmtypes.Parameter{
 			{
 				Name:  aws.String("/test"),
 				Value: aws.String(testData),
@@ -241,8 +243,8 @@ func TestHandleSSMDomainlessCredentialspecFile(t *testing.T) {
 	expectedKerberosTicketPath := "/var/credentials-fetcher/krbdir/123456/webapp01"
 
 	gomock.InOrder(
-		ssmClientCreator.EXPECT().NewSSMClient(gomock.Any(), gomock.Any()).Return(mockSSMClient),
-		mockSSMClient.EXPECT().GetParameters(gomock.Any()).Return(ssmClientOutput, nil).Times(1),
+		ssmClientCreator.EXPECT().NewSSMClient(gomock.Any(), gomock.Any()).Return(mockSSMClient, nil),
+		mockSSMClient.EXPECT().GetParameters(gomock.Any(), gomock.Any()).Return(ssmClientOutput, nil).Times(1),
 	)
 
 	var wg sync.WaitGroup
@@ -331,8 +333,8 @@ func TestHandleSSMCredentialspecFileGetSSMParamErr(t *testing.T) {
 		}, apitaskstatus.TaskStatusNone, apitaskstatus.TaskRunning)
 
 	gomock.InOrder(
-		ssmClientCreator.EXPECT().NewSSMClient(gomock.Any(), gomock.Any()).Return(mockSSMClient),
-		mockSSMClient.EXPECT().GetParameters(gomock.Any()).Return(nil, errors.New("test-error")).Times(1),
+		ssmClientCreator.EXPECT().NewSSMClient(gomock.Any(), gomock.Any()).Return(mockSSMClient, nil),
+		mockSSMClient.EXPECT().GetParameters(gomock.Any(), gomock.Any()).Return(nil, errors.New("test-error")).Times(1),
 	)
 
 	var wg sync.WaitGroup
@@ -940,8 +942,8 @@ func TestSkipCredentialFetcherInvocation(t *testing.T) {
 
 	testData := "{\"CmsPlugins\":[\"ActiveDirectory\"],\"DomainJoinConfig\":{\"Sid\":\"S-1-5-21-4217655605-3681839426-3493040985\",\"MachineAccountName\":\"WebApp01\",\"Guid\":\"af602f85-d754-4eea-9fa8-fd76810485f1\",\"DnsTreeName\":\"contoso.com\",\"DnsName\":\"contoso.com\",\"NetBiosName\":\"contoso\"},\"ActiveDirectoryConfig\":{\"GroupManagedServiceAccounts\":[{\"Name\":\"WebApp01\",\"Scope\":\"contoso.com\"},{\"Name\":\"WebApp01\",\"Scope\":\"contoso\"}]}}"
 	ssmClientOutput := &ssm.GetParametersOutput{
-		InvalidParameters: []*string{},
-		Parameters: []*ssm.Parameter{
+		InvalidParameters: []string{},
+		Parameters: []ssmtypes.Parameter{
 			{
 				Name:  aws.String("/test"),
 				Value: aws.String(testData),
@@ -952,8 +954,8 @@ func TestSkipCredentialFetcherInvocation(t *testing.T) {
 
 	gomock.InOrder(
 		credentialsManager.EXPECT().GetTaskCredentials(gomock.Any()).Return(taskRoleCredentials, true).Times(1),
-		ssmClientCreator.EXPECT().NewSSMClient(gomock.Any(), gomock.Any()).Return(mockSSMClient),
-		mockSSMClient.EXPECT().GetParameters(gomock.Any()).Return(ssmClientOutput, nil).Times(1),
+		ssmClientCreator.EXPECT().NewSSMClient(gomock.Any(), gomock.Any()).Return(mockSSMClient, nil),
+		mockSSMClient.EXPECT().GetParameters(gomock.Any(), gomock.Any()).Return(ssmClientOutput, nil).Times(1),
 	)
 
 	err := cs.Create()

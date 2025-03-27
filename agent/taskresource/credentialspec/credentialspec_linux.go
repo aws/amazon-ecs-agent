@@ -30,15 +30,15 @@ import (
 	asmfactory "github.com/aws/amazon-ecs-agent/agent/asm/factory"
 	"github.com/aws/amazon-ecs-agent/agent/config/ipcompatibility"
 	"github.com/aws/amazon-ecs-agent/agent/s3"
-	"github.com/aws/amazon-ecs-agent/agent/ssm"
-	"github.com/aws/amazon-ecs-agent/agent/utils"
-	"github.com/aws/aws-sdk-go/aws/arn"
-	"github.com/cihub/seelog"
-
 	s3factory "github.com/aws/amazon-ecs-agent/agent/s3/factory"
+	"github.com/aws/amazon-ecs-agent/agent/ssm"
 	ssmfactory "github.com/aws/amazon-ecs-agent/agent/ssm/factory"
+	"github.com/aws/amazon-ecs-agent/agent/utils"
 	"github.com/aws/amazon-ecs-agent/ecs-agent/credentials"
 	credentialsfetcherclient "github.com/aws/amazon-ecs-agent/ecs-agent/gmsacredclient"
+
+	"github.com/aws/aws-sdk-go-v2/aws/arn"
+	"github.com/cihub/seelog"
 	"github.com/pkg/errors"
 )
 
@@ -501,7 +501,11 @@ func (cs *CredentialSpecResource) handleSSMCredentialspecFile(originalCredential
 	}
 	ssmParams := []string{ssmParam[1]}
 
-	ssmClient := cs.ssmClientCreator.NewSSMClient(cs.region, iamCredentials)
+	ssmClient, err := cs.ssmClientCreator.NewSSMClient(cs.region, iamCredentials)
+	if err != nil {
+		errorEvents <- fmt.Errorf("unable to create SSM client: %v", err)
+		return
+	}
 	seelog.Errorf("ssm secret resource: retrieving resource for secrets %v in region [%s] in task: [%s]", cs.region, ssmParams)
 	ssmParamMap, err := ssm.GetSecretsFromSSM(ssmParams, ssmClient)
 	if err != nil {

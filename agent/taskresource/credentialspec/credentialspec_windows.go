@@ -305,7 +305,11 @@ func (cs *CredentialSpecResource) handleSSMCredentialspecFile(originalCredential
 		return err
 	}
 
-	ssmClient := cs.ssmClientCreator.NewSSMClient(cs.region, iamCredentials)
+	ssmClient, err := cs.ssmClientCreator.NewSSMClient(cs.region, iamCredentials)
+	if err != nil {
+		cs.setTerminalReason(err.Error())
+		return err
+	}
 
 	// An SSM ARN is in the form of arn:aws:ssm:us-west-2:123456789012:parameter/a/b. The parsed ARN value
 	// would be parameter/a/b. The following code gets the SSM parameter by passing "/a/b" value to the
