@@ -17,10 +17,12 @@
 package ssm
 
 import (
+	"context"
 	"testing"
 
-	"github.com/aws/aws-sdk-go/aws"
-	"github.com/aws/aws-sdk-go/service/ssm"
+	"github.com/aws/aws-sdk-go-v2/aws"
+	"github.com/aws/aws-sdk-go-v2/service/ssm"
+	ssmtypes "github.com/aws/aws-sdk-go-v2/service/ssm/types"
 	"github.com/stretchr/testify/assert"
 )
 
@@ -35,12 +37,12 @@ type mockGetParameters struct {
 	Resp ssm.GetParametersOutput
 }
 
-func (m mockGetParameters) GetParameters(input *ssm.GetParametersInput) (*ssm.GetParametersOutput, error) {
+func (m mockGetParameters) GetParameters(ctx context.Context, input *ssm.GetParametersInput, optFns ...func(*ssm.Options)) (*ssm.GetParametersOutput, error) {
 	return &m.Resp, nil
 }
 
 func TestGetSecretsFromSSM(t *testing.T) {
-	param1 := ssm.Parameter{
+	param1 := ssmtypes.Parameter{
 		Name:  aws.String(validParam1),
 		Value: aws.String(validValue1),
 	}
@@ -53,16 +55,16 @@ func TestGetSecretsFromSSM(t *testing.T) {
 		{
 			Name: "SuccessWithNoInvalidParameters",
 			Resp: ssm.GetParametersOutput{
-				InvalidParameters: []*string{},
-				Parameters:        []*ssm.Parameter{&param1},
+				InvalidParameters: []string{},
+				Parameters:        []ssmtypes.Parameter{param1},
 			},
 			ShouldError: false,
 		},
 		{
 			Name: "ErrorWithInvalidParameters",
 			Resp: ssm.GetParametersOutput{
-				InvalidParameters: []*string{aws.String(invalidParam1)},
-				Parameters:        []*ssm.Parameter{&param1},
+				InvalidParameters: []string{invalidParam1},
+				Parameters:        []ssmtypes.Parameter{param1},
 			},
 			ShouldError: true,
 		},
@@ -84,7 +86,7 @@ func TestGetSecretsFromSSM(t *testing.T) {
 }
 
 func TestGetParametersFromSSM(t *testing.T) {
-	param1 := ssm.Parameter{
+	param1 := ssmtypes.Parameter{
 		Name:  aws.String(validParam1),
 		Value: aws.String(validValue1),
 	}
@@ -97,16 +99,16 @@ func TestGetParametersFromSSM(t *testing.T) {
 		{
 			Name: "SuccessWithNoInvalidParameters",
 			Resp: ssm.GetParametersOutput{
-				InvalidParameters: []*string{},
-				Parameters:        []*ssm.Parameter{&param1},
+				InvalidParameters: []string{},
+				Parameters:        []ssmtypes.Parameter{param1},
 			},
 			ShouldError: false,
 		},
 		{
 			Name: "ErrorWithInvalidParameters",
 			Resp: ssm.GetParametersOutput{
-				InvalidParameters: []*string{aws.String(invalidParam1)},
-				Parameters:        []*ssm.Parameter{&param1},
+				InvalidParameters: []string{invalidParam1},
+				Parameters:        []ssmtypes.Parameter{param1},
 			},
 			ShouldError: true,
 		},

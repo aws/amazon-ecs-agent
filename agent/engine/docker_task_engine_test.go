@@ -68,9 +68,10 @@ import (
 	ni "github.com/aws/amazon-ecs-agent/ecs-agent/netlib/model/networkinterface"
 	mock_ttime "github.com/aws/amazon-ecs-agent/ecs-agent/utils/ttime/mocks"
 
-	"github.com/aws/aws-sdk-go/aws"
+	"github.com/aws/aws-sdk-go-v2/aws"
+	"github.com/aws/aws-sdk-go-v2/service/ssm"
+	ssmtypes "github.com/aws/aws-sdk-go-v2/service/ssm/types"
 	"github.com/aws/aws-sdk-go/service/secretsmanager"
-	"github.com/aws/aws-sdk-go/service/ssm"
 	cniTypesCurrent "github.com/containernetworking/cni/pkg/types/100"
 	"github.com/docker/docker/api/types"
 	dockercontainer "github.com/docker/docker/api/types/container"
@@ -2904,9 +2905,9 @@ func TestTaskSecretsEnvironmentVariables(t *testing.T) {
 			}
 
 			ssmClientOutput := &ssm.GetParametersOutput{
-				InvalidParameters: []*string{},
-				Parameters: []*ssm.Parameter{
-					&ssm.Parameter{
+				InvalidParameters: []string{},
+				Parameters: []ssmtypes.Parameter{
+					ssmtypes.Parameter{
 						Name:  aws.String(ssmSecretValueFrom),
 						Value: aws.String(ssmSecretRetrievedValue),
 					},
@@ -2917,18 +2918,18 @@ func TestTaskSecretsEnvironmentVariables(t *testing.T) {
 				SecretString: aws.String(asmSecretRetrievedValue),
 			}
 
-			reqSecretNames := []*string{aws.String(ssmSecretValueFrom)}
+			reqSecretNames := []string{ssmSecretValueFrom}
 
 			credentialsManager.EXPECT().GetTaskCredentials(credentialsID).Return(taskIAMcreds, true).Times(2)
-			ssmClientCreator.EXPECT().NewSSMClient(region, executionRoleCredentials).Return(mockSSMClient)
+			ssmClientCreator.EXPECT().NewSSMClient(region, executionRoleCredentials).Return(mockSSMClient, nil)
 			asmClientCreator.EXPECT().NewASMClient(region, executionRoleCredentials).Return(mockASMClient)
 
-			mockSSMClient.EXPECT().GetParameters(gomock.Any()).Do(func(in *ssm.GetParametersInput) {
+			mockSSMClient.EXPECT().GetParameters(gomock.Any(), gomock.Any()).Do(func(ctx context.Context, in *ssm.GetParametersInput, optFns ...func(*ssm.Options)) {
 				assert.Equal(t, in.Names, reqSecretNames)
 			}).Return(ssmClientOutput, nil).Times(1)
 
 			mockASMClient.EXPECT().GetSecretValue(gomock.Any()).Do(func(in *secretsmanager.GetSecretValueInput) {
-				assert.Equal(t, asmSecretValueFrom, aws.StringValue(in.SecretId))
+				assert.Equal(t, asmSecretValueFrom, aws.ToString(in.SecretId))
 			}).Return(asmClientOutput, nil).Times(1)
 
 			require.NoError(t, ssmSecretRes.Create())
