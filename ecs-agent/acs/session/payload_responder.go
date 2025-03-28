@@ -20,7 +20,7 @@ import (
 	"github.com/aws/amazon-ecs-agent/ecs-agent/logger"
 	"github.com/aws/amazon-ecs-agent/ecs-agent/logger/field"
 	"github.com/aws/amazon-ecs-agent/ecs-agent/wsclient"
-	"github.com/aws/aws-sdk-go/aws"
+	"github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/pkg/errors"
 )
 
@@ -71,7 +71,7 @@ func (r *payloadResponder) handlePayloadMessage(message *ecsacs.PayloadMessage) 
 	err := r.payloadMessageHandler.ProcessMessage(message, r.ackFunc)
 	if err != nil {
 		logger.Critical(fmt.Sprintf("Unable to handle %s", PayloadMessageName), logger.Fields{
-			field.MessageID: aws.StringValue(message.MessageId),
+			field.MessageID: aws.ToString(message.MessageId),
 			field.Error:     err,
 		})
 	}
@@ -102,14 +102,14 @@ func (r *payloadResponder) sendAck(ackRequest interface{}) {
 	credentialsAck, ok := ackRequest.(*ecsacs.IAMRoleCredentialsAckRequest)
 	if ok {
 		logger.Debug(fmt.Sprintf("ACKing credentials associated with %s", PayloadMessageName), logger.Fields{
-			field.CredentialsID: aws.StringValue(credentialsAck.CredentialsId),
-			field.MessageID:     aws.StringValue(credentialsAck.MessageId),
+			field.CredentialsID: aws.ToString(credentialsAck.CredentialsId),
+			field.MessageID:     aws.ToString(credentialsAck.MessageId),
 		})
 	} else {
 		payloadMessageAck, ok = ackRequest.(*ecsacs.AckRequest)
 		if ok {
 			logger.Debug(fmt.Sprintf("ACKing %s", PayloadMessageName), logger.Fields{
-				field.MessageID: aws.StringValue(payloadMessageAck.MessageId),
+				field.MessageID: aws.ToString(payloadMessageAck.MessageId),
 			})
 		} else {
 			logger.Error(fmt.Sprintf("Error sending acknowledgement: %s",
@@ -124,13 +124,13 @@ func (r *payloadResponder) sendAck(ackRequest interface{}) {
 		if credentialsAck != nil {
 			logger.Warn(fmt.Sprintf("Error acknowledging credentials associated with %s",
 				PayloadMessageName), logger.Fields{
-				field.CredentialsID: aws.StringValue(credentialsAck.CredentialsId),
-				field.MessageID:     aws.StringValue(credentialsAck.MessageId),
+				field.CredentialsID: aws.ToString(credentialsAck.CredentialsId),
+				field.MessageID:     aws.ToString(credentialsAck.MessageId),
 				field.Error:         err,
 			})
 		} else if payloadMessageAck != nil {
 			logger.Warn(fmt.Sprintf("Error acknowledging %s", PayloadMessageName), logger.Fields{
-				field.MessageID: aws.StringValue(payloadMessageAck.MessageId),
+				field.MessageID: aws.ToString(payloadMessageAck.MessageId),
 				field.Error:     err,
 			})
 		} else {
@@ -150,17 +150,17 @@ func validatePayloadMessage(message *ecsacs.PayloadMessage) error {
 		return errors.Errorf("Message is empty")
 	}
 
-	messageID := aws.StringValue(message.MessageId)
+	messageID := aws.ToString(message.MessageId)
 	if messageID == "" {
 		return errors.Errorf("Message ID is not set")
 	}
 
-	clusterArn := aws.StringValue(message.ClusterArn)
+	clusterArn := aws.ToString(message.ClusterArn)
 	if clusterArn == "" {
 		return errors.Errorf("clusterArn is not set for message ID %s", messageID)
 	}
 
-	containerInstanceArn := aws.StringValue(message.ContainerInstanceArn)
+	containerInstanceArn := aws.ToString(message.ContainerInstanceArn)
 	if containerInstanceArn == "" {
 		return errors.Errorf("containerInstanceArn is not set for message ID %s", messageID)
 	}

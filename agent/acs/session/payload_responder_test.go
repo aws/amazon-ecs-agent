@@ -40,7 +40,7 @@ import (
 	ni "github.com/aws/amazon-ecs-agent/ecs-agent/netlib/model/networkinterface"
 	"github.com/aws/amazon-ecs-agent/ecs-agent/wsclient"
 
-	"github.com/aws/aws-sdk-go/aws"
+	"github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/golang/mock/gomock"
 	"github.com/pkg/errors"
 	"github.com/stretchr/testify/assert"
@@ -404,7 +404,7 @@ func TestHandlePayloadMessageCredentialsAckedWhenTaskAddedMultipleTasks(t *testi
 		var payloadMessageResp *ecsacs.AckRequest
 		credentialsResp, ok := response.(*ecsacs.IAMRoleCredentialsAckRequest)
 		if ok {
-			switch aws.StringValue(credentialsResp.CredentialsId) {
+			switch aws.ToString(credentialsResp.CredentialsId) {
 			case firstTaskCredentialsId:
 				firstCredentialsAckSent <- credentialsResp
 			case secondTaskCredentialsId:
@@ -649,12 +649,12 @@ func TestHandlePayloadMessageAddedENIToTask(t *testing.T) {
 	// Validate the added task has the ENI information as expected.
 	expectedENI := testPayloadMessage.Tasks[0].ElasticNetworkInterfaces[0]
 	taskeni := addedTask.GetPrimaryENI()
-	assert.Equal(t, aws.StringValue(expectedENI.Ec2Id), taskeni.ID)
-	assert.Equal(t, aws.StringValue(expectedENI.MacAddress), taskeni.MacAddress)
+	assert.Equal(t, aws.ToString(expectedENI.Ec2Id), taskeni.ID)
+	assert.Equal(t, aws.ToString(expectedENI.MacAddress), taskeni.MacAddress)
 	assert.Equal(t, 1, len(taskeni.IPV4Addresses))
 	assert.Equal(t, 1, len(taskeni.IPV6Addresses))
-	assert.Equal(t, aws.StringValue(expectedENI.Ipv4Addresses[0].PrivateAddress), taskeni.IPV4Addresses[0].Address)
-	assert.Equal(t, aws.StringValue(expectedENI.Ipv6Addresses[0].Address), taskeni.IPV6Addresses[0].Address)
+	assert.Equal(t, aws.ToString(expectedENI.Ipv4Addresses[0].PrivateAddress), taskeni.IPV4Addresses[0].Address)
+	assert.Equal(t, aws.ToString(expectedENI.Ipv6Addresses[0].Address), taskeni.IPV6Addresses[0].Address)
 }
 
 func TestHandlePayloadMessageAddedEBSToTask(t *testing.T) {
@@ -949,9 +949,9 @@ func TestHandlePayloadMessageAddedECRAuthData(t *testing.T) {
 	actual := addedTask.Containers[0].RegistryAuthentication
 	assert.NotNil(t, actual.ECRAuthData)
 	assert.Nil(t, actual.ASMAuthData)
-	assert.Equal(t, aws.StringValue(expected.Type), actual.Type)
-	assert.Equal(t, aws.StringValue(expected.EcrAuthData.Region), actual.ECRAuthData.Region)
-	assert.Equal(t, aws.StringValue(expected.EcrAuthData.RegistryId), actual.ECRAuthData.RegistryID)
+	assert.Equal(t, aws.ToString(expected.Type), actual.Type)
+	assert.Equal(t, aws.ToString(expected.EcrAuthData.Region), actual.ECRAuthData.Region)
+	assert.Equal(t, aws.ToString(expected.EcrAuthData.RegistryId), actual.ECRAuthData.RegistryID)
 }
 
 func TestHandlePayloadMessageAddedASMAuthData(t *testing.T) {
@@ -1001,9 +1001,9 @@ func TestHandlePayloadMessageAddedASMAuthData(t *testing.T) {
 	actual := addedTask.Containers[0].RegistryAuthentication
 	assert.NotNil(t, actual.ASMAuthData)
 	assert.Nil(t, actual.ECRAuthData)
-	assert.Equal(t, aws.StringValue(expected.Type), actual.Type)
-	assert.Equal(t, aws.StringValue(expected.AsmAuthData.Region), actual.ASMAuthData.Region)
-	assert.Equal(t, aws.StringValue(expected.AsmAuthData.CredentialsParameter), actual.ASMAuthData.CredentialsParameter)
+	assert.Equal(t, aws.ToString(expected.Type), actual.Type)
+	assert.Equal(t, aws.ToString(expected.AsmAuthData.Region), actual.ASMAuthData.Region)
+	assert.Equal(t, aws.ToString(expected.AsmAuthData.CredentialsParameter), actual.ASMAuthData.CredentialsParameter)
 }
 
 func TestHandlePayloadMessageAddedFirelensData(t *testing.T) {
@@ -1050,9 +1050,9 @@ func TestHandlePayloadMessageAddedFirelensData(t *testing.T) {
 	// Validate the pieces of the Firelens container.
 	expected := testPayloadMessage.Tasks[0].Containers[0].FirelensConfiguration
 	actual := addedTask.Containers[0].FirelensConfig
-	assert.Equal(t, aws.StringValue(expected.Type), actual.Type)
+	assert.Equal(t, aws.ToString(expected.Type), actual.Type)
 	assert.NotNil(t, actual.Options)
-	assert.Equal(t, aws.StringValue(expected.Options["enable-ecs-log-metadata"]),
+	assert.Equal(t, aws.ToString(expected.Options["enable-ecs-log-metadata"]),
 		actual.Options["enable-ecs-log-metadata"])
 }
 

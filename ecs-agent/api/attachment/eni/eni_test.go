@@ -20,7 +20,7 @@ import (
 	"net"
 	"testing"
 
-	"github.com/aws/aws-sdk-go/aws"
+	"github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/pkg/errors"
 	"github.com/stretchr/testify/assert"
 
@@ -182,21 +182,21 @@ func TestENIFromACS(t *testing.T) {
 	eni, err := ENIFromACS(acsENI)
 	assert.NoError(t, err)
 	assert.NotNil(t, eni)
-	assert.Equal(t, aws.StringValue(acsENI.Ec2Id), eni.ID)
+	assert.Equal(t, aws.ToString(acsENI.Ec2Id), eni.ID)
 	assert.Len(t, eni.IPV4Addresses, 1)
 	assert.Len(t, eni.GetIPV4Addresses(), 1)
-	assert.Equal(t, aws.StringValue(acsENI.Ipv4Addresses[0].PrivateAddress), eni.IPV4Addresses[0].Address)
-	assert.Equal(t, aws.BoolValue(acsENI.Ipv4Addresses[0].Primary), eni.IPV4Addresses[0].Primary)
-	assert.Equal(t, aws.StringValue(acsENI.MacAddress), eni.MacAddress)
+	assert.Equal(t, aws.ToString(acsENI.Ipv4Addresses[0].PrivateAddress), eni.IPV4Addresses[0].Address)
+	assert.Equal(t, aws.ToBool(acsENI.Ipv4Addresses[0].Primary), eni.IPV4Addresses[0].Primary)
+	assert.Equal(t, aws.ToString(acsENI.MacAddress), eni.MacAddress)
 	assert.Len(t, eni.IPV6Addresses, 1)
 	assert.Len(t, eni.GetIPV6Addresses(), 1)
-	assert.Equal(t, aws.StringValue(acsENI.Ipv6Addresses[0].Address), eni.IPV6Addresses[0].Address)
+	assert.Equal(t, aws.ToString(acsENI.Ipv6Addresses[0].Address), eni.IPV6Addresses[0].Address)
 	assert.Len(t, eni.DomainNameServers, 2)
 	assert.Equal(t, defaultDNS, eni.DomainNameServers[0])
 	assert.Equal(t, customDNS, eni.DomainNameServers[1])
 	assert.Len(t, eni.DomainNameSearchList, 1)
 	assert.Equal(t, customSearchDomain, eni.DomainNameSearchList[0])
-	assert.Equal(t, aws.StringValue(acsENI.PrivateDnsName), eni.PrivateDNSName)
+	assert.Equal(t, aws.ToString(acsENI.PrivateDnsName), eni.PrivateDNSName)
 }
 
 // TestValidateENIFromACS tests the validation of enis from acs

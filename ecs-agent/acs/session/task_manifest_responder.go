@@ -22,7 +22,7 @@ import (
 	"github.com/aws/amazon-ecs-agent/ecs-agent/logger/field"
 	"github.com/aws/amazon-ecs-agent/ecs-agent/metrics"
 	"github.com/aws/amazon-ecs-agent/ecs-agent/wsclient"
-	"github.com/aws/aws-sdk-go/aws"
+	"github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/pkg/errors"
 )
 
@@ -80,7 +80,7 @@ func (tmr *taskManifestResponder) HandlerFunc() wsclient.RequestHandler {
 // handleTaskManifestMessage is the high level caller to handle a task manifest message from ACS.
 // It will kick off the call stack of processTaskManifestMessage calling ack and send TaskManifestMessage
 func (tmr *taskManifestResponder) handleTaskManifestMessage(message *ecsacs.TaskManifestMessage) {
-	messageID := aws.StringValue(message.MessageId)
+	messageID := aws.ToString(message.MessageId)
 	logger.Debug(fmt.Sprintf("Processing %s", TaskManifestMessageName), logger.Fields{
 		field.MessageID: messageID,
 	})
@@ -100,8 +100,8 @@ func (tmr *taskManifestResponder) handleTaskManifestMessage(message *ecsacs.Task
 // list of stop candidates.
 func (tmr *taskManifestResponder) processTaskManifestMessage(
 	message *ecsacs.TaskManifestMessage) error {
-	messageID := aws.StringValue(message.MessageId)
-	manifestSeqNum := aws.Int64Value(message.Timeline)
+	messageID := aws.ToString(message.MessageId)
+	manifestSeqNum := aws.ToInt64(message.Timeline)
 	agentLatestSeqNum := tmr.snAccessor.GetLatestSequenceNumber()
 
 	// Verify that task manifest isn't stale.
@@ -155,7 +155,7 @@ func (tmr *taskManifestResponder) processTaskManifestMessage(
 }
 
 func (tmr *taskManifestResponder) ackTaskManifestMessage(message *ecsacs.TaskManifestMessage) {
-	messageID := aws.StringValue(message.MessageId)
+	messageID := aws.ToString(message.MessageId)
 	logger.Debug(fmt.Sprintf("acknowledging %s", TaskManifestMessageName), logger.Fields{field.MessageID: messageID})
 	err := tmr.respond(&ecsacs.AckRequest{
 		Cluster:           message.ClusterArn,
@@ -172,14 +172,14 @@ func (tmr *taskManifestResponder) ackTaskManifestMessage(message *ecsacs.TaskMan
 
 // If there are stop candidates, send a TaskStopVerificationMessage to ACS and log each stop candidate.
 func (tmr *taskManifestResponder) sendTaskStopVerification(message *ecsacs.TaskManifestMessage, tasksToStop []*ecsacs.TaskIdentifier) {
-	messageID := aws.StringValue(message.MessageId)
+	messageID := aws.ToString(message.MessageId)
 	if len(tasksToStop) == 0 {
 		return
 	}
 	// Create a list of stop candidates to send one debug message.
 	var taskARNList []string
 	for _, task := range tasksToStop {
-		taskARNList = append(taskARNList, aws.StringValue(task.TaskArn))
+		taskARNList = append(taskARNList, aws.ToString(task.TaskArn))
 	}
 	logger.Debug(fmt.Sprintf("Sending task stop verification message for %d tasks", len(taskARNList)), logger.Fields{
 		field.MessageID: messageID,

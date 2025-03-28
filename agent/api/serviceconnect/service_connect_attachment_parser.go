@@ -19,7 +19,7 @@ import (
 
 	"github.com/aws/amazon-ecs-agent/ecs-agent/acs/model/ecsacs"
 	"github.com/aws/amazon-ecs-agent/ecs-agent/logger"
-	"github.com/aws/aws-sdk-go/aws"
+	"github.com/aws/aws-sdk-go-v2/aws"
 )
 
 const (
@@ -47,19 +47,19 @@ func ParseServiceConnectAttachment(scAttachment *ecsacs.Attachment) (*Config, er
 	foundSCContainerNameKey := false
 
 	for _, property := range scAttachment.AttachmentProperties {
-		switch aws.StringValue(property.Name) {
+		switch aws.ToString(property.Name) {
 		case serviceConnectConfigKey:
 			foundSCConfigKey = true
 			// extract service connect config value from the attachment property,
 			// and translate the attachment property value to Config
-			data := aws.StringValue(property.Value)
+			data := aws.ToString(property.Value)
 			if err := json.Unmarshal([]byte(data), scConfigValue); err != nil {
 				return nil, fmt.Errorf("failed to unmarshal service connect attachment property value: %w", err)
 			}
 		case serviceConnectContainerNameKey:
 			foundSCContainerNameKey = true
 			// extract service connect container name from the attachment property
-			containerName = aws.StringValue(property.Value)
+			containerName = aws.ToString(property.Value)
 		default:
 			logger.Warn("Received an unrecognized attachment property", logger.Fields{
 				"attachmentProperty": property.String(),

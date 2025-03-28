@@ -23,7 +23,7 @@ import (
 	mock_session "github.com/aws/amazon-ecs-agent/ecs-agent/acs/session/mocks"
 	"github.com/aws/amazon-ecs-agent/ecs-agent/metrics"
 	mock_metrics "github.com/aws/amazon-ecs-agent/ecs-agent/metrics/mocks"
-	"github.com/aws/aws-sdk-go/aws"
+	"github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/golang/mock/gomock"
 	"github.com/stretchr/testify/require"
 
@@ -175,7 +175,7 @@ func testValidateAttachmentAndReturnPropertiesWithoutAttachmentType(t *testing.T
 			require.Error(t, err)
 			property.Value = originalPropertyValue
 
-			if aws.StringValue(originalPropertyName) == resource.ResourceTypeName {
+			if aws.ToString(originalPropertyName) == resource.ResourceTypeName {
 				property.Name = aws.String("not resourceType")
 				_, err = validateAttachmentAndReturnProperties(&confirmAttachmentMessageCopy)
 				require.Error(t, err)
@@ -235,7 +235,7 @@ func testValidateAttachmentAndReturnPropertiesWithAttachmentType(t *testing.T) {
 	for _, requiredProperty := range requiredProperties {
 		verified := false
 		for _, property := range confirmAttachmentMessageCopy.Attachment.AttachmentProperties {
-			if requiredProperty == aws.StringValue(property.Name) {
+			if requiredProperty == aws.ToString(property.Name) {
 				originalPropertyName := property.Name
 				property.Name = aws.String("")
 				_, err := validateAttachmentAndReturnProperties(&confirmAttachmentMessageCopy)
@@ -293,7 +293,7 @@ func TestResourceAckHappyPath(t *testing.T) {
 
 	attachResourceAckSent := <-ackSent
 	wg.Wait()
-	require.Equal(t, aws.StringValue(attachResourceAckSent.MessageId), testconst.MessageID)
+	require.Equal(t, aws.ToString(attachResourceAckSent.MessageId), testconst.MessageID)
 }
 
 func TestValidateAttachmentFilesystemProperty(t *testing.T) {
@@ -305,7 +305,7 @@ func TestValidateAttachmentFilesystemProperty(t *testing.T) {
 
 	validFileSystems := []string{"xfs", "ext2", "ext3", "ext4", "ntfs"}
 	for _, property := range confirmAttachmentMessageCopy.Attachment.AttachmentProperties {
-		if aws.StringValue(property.Name) == resource.FileSystemKey {
+		if aws.ToString(property.Name) == resource.FileSystemKey {
 			for _, fs := range validFileSystems {
 				originalPropertyValue := property.Value
 				property.Value = aws.String(fs)

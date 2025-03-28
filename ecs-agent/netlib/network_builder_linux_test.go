@@ -35,8 +35,8 @@ import (
 	mock_platform "github.com/aws/amazon-ecs-agent/ecs-agent/netlib/platform/mocks"
 	mock_netwrapper "github.com/aws/amazon-ecs-agent/ecs-agent/utils/netwrapper/mocks"
 
+	"github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/aws/aws-sdk-go-v2/service/ecs/types"
-	"github.com/aws/aws-sdk-go/aws"
 	"github.com/golang/mock/gomock"
 	"github.com/stretchr/testify/require"
 )
@@ -110,9 +110,9 @@ func getTestFunc(
 			// use VLAN ID), the agent expects to find a trunk interface with the MAC
 			// address specified in the VLAN properties of the ACS ENI.
 			if eni.InterfaceVlanProperties == nil {
-				mac = aws.StringValue(eni.MacAddress)
+				mac = aws.ToString(eni.MacAddress)
 			} else {
-				mac = aws.StringValue(eni.InterfaceVlanProperties.TrunkInterfaceMacAddress)
+				mac = aws.ToString(eni.InterfaceVlanProperties.TrunkInterfaceMacAddress)
 			}
 			// Veth and V2N interfaces will not have a MAC address associated with them.
 			if mac == "" {

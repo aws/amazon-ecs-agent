@@ -21,7 +21,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/aws/aws-sdk-go/aws"
+	"github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/golang/mock/gomock"
 	"github.com/stretchr/testify/assert"
 
@@ -81,7 +81,7 @@ func TestTaskENIAckHappyPath(t *testing.T) {
 	go handleAttachMessage(testAttachTaskENIMessage)
 
 	attachTaskEniAckSent := <-ackSent
-	assert.Equal(t, aws.StringValue(attachTaskEniAckSent.MessageId), testconst.MessageID)
+	assert.Equal(t, aws.ToString(attachTaskEniAckSent.MessageId), testconst.MessageID)
 }
 
 // TestTaskENIAckSingleMessageWithDuplicateENIAttachment tests the path for an
@@ -136,5 +136,5 @@ func TestTaskENIAckSingleMessageWithDuplicateENIAttachment(t *testing.T) {
 
 	attachTaskEniAckSent := <-ackSent
 	wg.Wait()
-	assert.Equal(t, aws.StringValue(attachTaskEniAckSent.MessageId), testconst.MessageID)
+	assert.Equal(t, aws.ToString(attachTaskEniAckSent.MessageId), testconst.MessageID)
 }

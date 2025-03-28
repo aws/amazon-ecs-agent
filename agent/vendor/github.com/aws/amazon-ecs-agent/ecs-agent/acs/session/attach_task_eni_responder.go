@@ -17,7 +17,7 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/aws/aws-sdk-go/aws"
+	"github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/pkg/errors"
 
 	"github.com/aws/amazon-ecs-agent/ecs-agent/acs/model/ecsacs"
@@ -67,11 +67,11 @@ func (r *attachTaskENIResponder) handleAttachMessage(message *ecsacs.AttachTaskN
 	}
 
 	// Handle ENIs in the message.
-	messageID := aws.StringValue(message.MessageId)
-	taskARN := aws.StringValue(message.TaskArn)
-	clusterARN := aws.StringValue(message.ClusterArn)
-	containerInstanceARN := aws.StringValue(message.ContainerInstanceArn)
-	waitTimeoutMs := aws.Int64Value(message.WaitTimeoutMs)
+	messageID := aws.ToString(message.MessageId)
+	taskARN := aws.ToString(message.TaskArn)
+	clusterARN := aws.ToString(message.ClusterArn)
+	containerInstanceARN := aws.ToString(message.ContainerInstanceArn)
+	waitTimeoutMs := aws.ToInt64(message.WaitTimeoutMs)
 	for _, mENI := range message.ElasticNetworkInterfaces {
 		go r.handleTaskENIFromMessage(mENI, messageID, taskARN, clusterARN, containerInstanceARN, receivedAt,
 			waitTimeoutMs)
@@ -101,7 +101,7 @@ func (r *attachTaskENIResponder) handleTaskENIFromMessage(eni *ecsacs.ElasticNet
 	err := r.eniHandler.HandleENIAttachment(&ni.ENIAttachment{
 		AttachmentInfo: attachment.AttachmentInfo{
 			TaskARN:              taskARN,
-			AttachmentARN:        aws.StringValue(eni.AttachmentArn),
+			AttachmentARN:        aws.ToString(eni.AttachmentArn),
 			Status:               attachment.AttachmentNone,
 			ExpiresAt:            expiresAt,
 			AttachStatusSent:     false,
@@ -109,7 +109,7 @@ func (r *attachTaskENIResponder) handleTaskENIFromMessage(eni *ecsacs.ElasticNet
 			ContainerInstanceARN: containerInstanceARN,
 		},
 		AttachmentType: ni.ENIAttachmentTypeTaskENI,
-		MACAddress:     aws.StringValue(eni.MacAddress),
+		MACAddress:     aws.ToString(eni.MacAddress),
 	})
 	if err != nil {
 		logger.Error(fmt.Sprintf("Unable to handle %s", AttachTaskENIMessageName), logger.Fields{
@@ -126,27 +126,27 @@ func validateAttachTaskNetworkInterfacesMessage(message *ecsacs.AttachTaskNetwor
 		return errors.Errorf("Message is empty")
 	}
 
-	messageID := aws.StringValue(message.MessageId)
+	messageID := aws.ToString(message.MessageId)
 	if messageID == "" {
 		return errors.Errorf("Message ID is not set")
 	}
 
-	clusterArn := aws.StringValue(message.ClusterArn)
+	clusterArn := aws.ToString(message.ClusterArn)
 	if clusterArn == "" {
 		return errors.Errorf("clusterArn is not set for message ID %s", messageID)
 	}
 
-	containerInstanceArn := aws.StringValue(message.ContainerInstanceArn)
+	containerInstanceArn := aws.ToString(message.ContainerInstanceArn)
 	if containerInstanceArn == "" {
 		return errors.Errorf("containerInstanceArn is not set for message ID %s", messageID)
 	}
 
-	taskArn := aws.StringValue(message.TaskArn)
+	taskArn := aws.ToString(message.TaskArn)
 	if taskArn == "" {
 		return errors.Errorf("taskArn is not set for message ID %s", messageID)
 	}
 
-	timeout := aws.Int64Value(message.WaitTimeoutMs)
+	timeout := aws.ToInt64(message.WaitTimeoutMs)
 	if timeout <= 0 {
 		return errors.Errorf("Invalid timeout set for message ID %s", messageID)
 	}

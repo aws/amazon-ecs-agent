@@ -25,7 +25,7 @@ import (
 	"github.com/aws/amazon-ecs-agent/ecs-agent/metrics"
 	mock_metrics "github.com/aws/amazon-ecs-agent/ecs-agent/metrics/mocks"
 
-	"github.com/aws/aws-sdk-go/aws"
+	"github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/golang/mock/gomock"
 	"github.com/stretchr/testify/require"
 )
@@ -58,13 +58,13 @@ func TestManifestAckHappyPath(t *testing.T) {
 		ackRequest, isAckRequest := response.(*ecsacs.AckRequest)
 		if isAckRequest {
 			// Validate ack request fields when happy path is reached.
-			require.Equal(t, aws.StringValue(ackRequest.MessageId), testconst.MessageID)
+			require.Equal(t, aws.ToString(ackRequest.MessageId), testconst.MessageID)
 		} else {
 			stopVerification, isStopVerification := response.(*ecsacs.TaskStopVerificationMessage)
 			if isStopVerification {
 				// We expect only one task marked for termination.
 				require.Equal(t, len(stopVerification.StopCandidates), 1)
-				require.Equal(t, aws.StringValue(stopVerification.StopCandidates[0].TaskArn), testconst.TaskARN)
+				require.Equal(t, aws.ToString(stopVerification.StopCandidates[0].TaskArn), testconst.TaskARN)
 			}
 		}
 		return nil

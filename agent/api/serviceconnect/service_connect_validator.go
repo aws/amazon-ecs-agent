@@ -20,7 +20,7 @@ import (
 
 	"github.com/aws/amazon-ecs-agent/ecs-agent/acs/model/ecsacs"
 	"github.com/aws/amazon-ecs-agent/ecs-agent/logger"
-	"github.com/aws/aws-sdk-go/aws"
+	"github.com/aws/aws-sdk-go-v2/aws"
 )
 
 const (
@@ -50,7 +50,7 @@ func validateContainerName(scContainerName string, taskContainers []*ecsacs.Cont
 	// validate the specified service connect container name exists in the task
 	numOfFoundScContainer := 0
 	for _, container := range taskContainers {
-		if aws.StringValue(container.Name) == scContainerName {
+		if aws.ToString(container.Name) == scContainerName {
 			numOfFoundScContainer += 1
 		}
 	}
@@ -195,14 +195,14 @@ func validateIngressConfigEntry(scIngressConfigList []IngressConfigEntry, networ
 			logger.Warn(warningMsg, logger.Fields{
 				"listenerName":  entry.ListenerName,
 				"listenerPort":  entry.ListenerPort,
-				"hostPort":      aws.Uint16Value(entry.HostPort),
-				"interceptPort": aws.Uint16Value(entry.InterceptPort),
+				"hostPort":      aws.ToUint16(entry.HostPort),
+				"interceptPort": aws.ToUint16(entry.InterceptPort),
 			})
 		}
 
 		// verify the intercept port for awsvpc mode
 		if entry.InterceptPort != nil && networkMode == AWSVPCNetworkMode {
-			interceptPortValue = aws.Uint16Value(entry.InterceptPort)
+			interceptPortValue = aws.ToUint16(entry.InterceptPort)
 			if err := validateInterceptPort(interceptPortValue, entry.ListenerName, interceptAndListenerPortsMap); err != nil {
 				return err
 			}
@@ -222,7 +222,7 @@ func validateIngressConfigEntry(scIngressConfigList []IngressConfigEntry, networ
 
 		// verify the host port for bridge mode
 		if entry.HostPort != nil && networkMode == BridgeNetworkMode {
-			hostPortValue = aws.Uint16Value(entry.HostPort)
+			hostPortValue = aws.ToUint16(entry.HostPort)
 			if err := validateHostPort(hostPortValue, entry.ListenerName, hostPortsMap); err != nil {
 				return err
 			}
