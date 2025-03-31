@@ -25,7 +25,7 @@ import (
 	"github.com/aws/amazon-ecs-agent/ecs-agent/credentials"
 	"github.com/aws/amazon-ecs-agent/ecs-agent/metrics"
 	mock_metrics "github.com/aws/amazon-ecs-agent/ecs-agent/metrics/mocks"
-	"github.com/aws/aws-sdk-go/aws"
+	"github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/golang/mock/gomock"
 	"github.com/pkg/errors"
 	"github.com/stretchr/testify/assert"
@@ -195,12 +195,12 @@ func TestRefreshCredentialsAckHappyPath(t *testing.T) {
 
 			handleCredentialsMessage(testMessage)
 
-			assert.Equal(t, aws.StringValue(testMessage.MessageId),
-				aws.StringValue(ackSent.MessageId))
+			assert.Equal(t, aws.ToString(testMessage.MessageId),
+				aws.ToString(ackSent.MessageId))
 
 			creds, exist := credentialsManager.GetTaskCredentials(testconst.CredentialsID)
 			assert.True(t, exist, "Expected credentials to exist for the task")
-			assert.Equal(t, aws.StringValue(testMessage.RoleCredentials.CredentialsId),
+			assert.Equal(t, aws.ToString(testMessage.RoleCredentials.CredentialsId),
 				creds.IAMRoleCredentials.CredentialsID)
 		})
 	}

@@ -27,7 +27,7 @@ import (
 	"github.com/aws/amazon-ecs-agent/ecs-agent/netlib/platform"
 	mock_netwrapper "github.com/aws/amazon-ecs-agent/ecs-agent/utils/netwrapper/mocks"
 
-	"github.com/aws/aws-sdk-go/aws"
+	"github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/golang/mock/gomock"
 	"github.com/stretchr/testify/require"
 )
@@ -65,7 +65,7 @@ func getTestFunc(
 		var ifaces []net.Interface
 		idx := 1
 		for _, eni := range taskPayload.ElasticNetworkInterfaces {
-			mac := aws.StringValue(eni.MacAddress)
+			mac := aws.ToString(eni.MacAddress)
 			hw, err := net.ParseMAC(mac)
 			require.NoError(t, err)
 			ifaces = append(ifaces, net.Interface{

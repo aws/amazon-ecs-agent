@@ -21,7 +21,7 @@ import (
 	"github.com/aws/amazon-ecs-agent/ecs-agent/logger/field"
 	"github.com/aws/amazon-ecs-agent/ecs-agent/metrics"
 	"github.com/aws/amazon-ecs-agent/ecs-agent/wsclient"
-	"github.com/aws/aws-sdk-go/aws"
+	"github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/pkg/errors"
 )
 
@@ -66,7 +66,7 @@ func (r *taskStopVerificationACKResponder) handleTaskStopVerificationACK(message
 	logger.Debug(fmt.Sprintf("Handling %s", TaskStopVerificationACKMessageName))
 
 	// Ensure that message is valid and that a corresponding task manifest message has been processed before.
-	ackMessageID := aws.StringValue(message.MessageId)
+	ackMessageID := aws.ToString(message.MessageId)
 	manifestMessageID := r.messageIDAccessor.GetMessageID()
 	if ackMessageID == "" || ackMessageID != manifestMessageID {
 		logger.Error(fmt.Sprintf("Error validating %s received from ECS", TaskStopVerificationACKMessageName),
@@ -83,9 +83,9 @@ func (r *taskStopVerificationACKResponder) handleTaskStopVerificationACK(message
 	// Loop through all tasks in the verified stop list and set the desired status of each one to STOPPED.
 	tasksToStop := message.StopTasks
 	for _, task := range tasksToStop {
-		taskARN := aws.StringValue(task.TaskArn)
+		taskARN := aws.ToString(task.TaskArn)
 		metricFields := logger.Fields{
-			field.MessageID: aws.StringValue(message.MessageId),
+			field.MessageID: aws.ToString(message.MessageId),
 			field.TaskARN:   taskARN,
 		}
 		r.metricsFactory.New(metrics.TaskStoppedMetricName).WithFields(metricFields).Done(nil)

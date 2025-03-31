@@ -20,7 +20,7 @@ import (
 	"github.com/aws/amazon-ecs-agent/ecs-agent/acs/session/testconst"
 	"github.com/aws/amazon-ecs-agent/ecs-agent/metrics"
 	mock_metrics "github.com/aws/amazon-ecs-agent/ecs-agent/metrics/mocks"
-	"github.com/aws/aws-sdk-go/aws"
+	"github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/golang/mock/gomock"
 	"github.com/stretchr/testify/assert"
 )
@@ -56,7 +56,7 @@ func TestTaskStopVerificationAckResponderStopsTasks(t *testing.T) {
 		manifestMessageIDAccessor.EXPECT().GetMessageID().Return(testconst.MessageID),
 		manifestMessageIDAccessor.EXPECT().SetMessageID(""),
 		metricsFactory.EXPECT().New(metrics.TaskStoppedMetricName).Return(mockEntry),
-		taskStopper.EXPECT().StopTask(aws.StringValue(testStopVerificationAck.StopTasks[0].TaskArn)).
+		taskStopper.EXPECT().StopTask(aws.ToString(testStopVerificationAck.StopTasks[0].TaskArn)).
 			Do(func(interface{}) {
 				taskStopVerificationAckTaskHasBeenStopped = true
 			}),
@@ -101,5 +101,5 @@ func TestTaskStopVerificationAckResponderInvalidAck(t *testing.T) {
 		taskStopVerificationAckResponder.HandlerFunc().(func(message *ecsacs.TaskStopVerificationAck))
 	handleTaskStopVerificationAck(testStopVerificationAck)
 
-	assert.NotEqual(t, aws.StringValue(testStopVerificationAck.MessageId), differentMessageID)
+	assert.NotEqual(t, aws.ToString(testStopVerificationAck.MessageId), differentMessageID)
 }

@@ -501,7 +501,8 @@ func signRequestFunc(url, region string, credentialProvider *credentials.Credent
 			return nil, err
 		}
 
-		err = utils.SignHTTPRequest(request, region, "ecs", credentialProvider, reqBody)
+		// TODO: Modify this to use SignHTTPRequest() once TCS has been migrated to use AWS SDK Go V2
+		err = utils.SignHTTPRequestV1(request, region, "ecs", credentialProvider, reqBody)
 		if err != nil {
 			return nil, err
 		}

@@ -21,7 +21,7 @@ import (
 	"sync"
 	"testing"
 
-	"github.com/aws/aws-sdk-go/aws"
+	"github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/golang/mock/gomock"
 	"github.com/stretchr/testify/assert"
 
@@ -79,7 +79,7 @@ func TestAttachInstanceENIMessageWithNoClusterArn(t *testing.T) {
 
 	err := validateAttachInstanceNetworkInterfacesMessage(testAttachInstanceENIMessage)
 	assert.EqualError(t, err, fmt.Sprintf("clusterArn is not set for message ID %s",
-		aws.StringValue(testAttachInstanceENIMessage.MessageId)))
+		aws.ToString(testAttachInstanceENIMessage.MessageId)))
 
 	testAttachInstanceENIMessage.ClusterArn = tempClusterArn
 }
@@ -92,7 +92,7 @@ func TestAttachInstanceENIMessageWithNoContainerInstanceArn(t *testing.T) {
 
 	err := validateAttachInstanceNetworkInterfacesMessage(testAttachInstanceENIMessage)
 	assert.EqualError(t, err, fmt.Sprintf("containerInstanceArn is not set for message ID %s",
-		aws.StringValue(testAttachInstanceENIMessage.MessageId)))
+		aws.ToString(testAttachInstanceENIMessage.MessageId)))
 
 	testAttachInstanceENIMessage.ContainerInstanceArn = tempContainerInstanceArn
 }
@@ -105,7 +105,7 @@ func TestAttachInstanceENIMessageWithNoInterfaces(t *testing.T) {
 
 	err := validateAttachInstanceNetworkInterfacesMessage(testAttachInstanceENIMessage)
 	assert.EqualError(t, err, fmt.Sprintf("No ENIs for message ID %s",
-		aws.StringValue(testAttachInstanceENIMessage.MessageId)))
+		aws.ToString(testAttachInstanceENIMessage.MessageId)))
 
 	testAttachInstanceENIMessage.ElasticNetworkInterfaces = tempENIs
 }
@@ -153,7 +153,7 @@ func TestAttachInstanceENIMessageWithInvalidNetworkDetails(t *testing.T) {
 	testAttachInstanceENIMessage.ElasticNetworkInterfaces[0].SubnetGatewayIpv4Address = invalidSubnetGatewayIpv4Address
 	err = validateAttachInstanceNetworkInterfacesMessage(testAttachInstanceENIMessage)
 	assert.EqualError(t, err, fmt.Sprintf("eni message validation: invalid subnet gateway ipv4 address %s",
-		aws.StringValue(invalidSubnetGatewayIpv4Address)))
+		aws.ToString(invalidSubnetGatewayIpv4Address)))
 	testAttachInstanceENIMessage.ElasticNetworkInterfaces[0].SubnetGatewayIpv4Address = tempSubnetGatewayIpv4Address
 
 	tempMacAddress := testAttachInstanceENIMessage.ElasticNetworkInterfaces[0].MacAddress
@@ -175,7 +175,7 @@ func TestAttachInstanceENIMessageWithInvalidNetworkDetails(t *testing.T) {
 		unsupportedInterfaceAssociationProtocol
 	err = validateAttachInstanceNetworkInterfacesMessage(testAttachInstanceENIMessage)
 	assert.EqualError(t, err, fmt.Sprintf("invalid interface association protocol: %s",
-		aws.StringValue(unsupportedInterfaceAssociationProtocol)))
+		aws.ToString(unsupportedInterfaceAssociationProtocol)))
 	testAttachInstanceENIMessage.ElasticNetworkInterfaces[0].InterfaceAssociationProtocol =
 		aws.String(ni.VLANInterfaceAssociationProtocol)
 	err = validateAttachInstanceNetworkInterfacesMessage(testAttachInstanceENIMessage)
@@ -192,7 +192,7 @@ func TestAttachInstanceENIMessageWithMissingTimeout(t *testing.T) {
 
 	err := validateAttachInstanceNetworkInterfacesMessage(testAttachInstanceENIMessage)
 	assert.EqualError(t, err, fmt.Sprintf("Invalid timeout set for message ID %s",
-		aws.StringValue(testAttachInstanceENIMessage.MessageId)))
+		aws.ToString(testAttachInstanceENIMessage.MessageId)))
 
 	testAttachInstanceENIMessage.WaitTimeoutMs = tempWaitTimeoutMs
 }
@@ -233,5 +233,5 @@ func TestInstanceENIAckHappyPath(t *testing.T) {
 
 	attachInstanceEniAckSent := <-ackSent
 	wg.Wait()
-	assert.Equal(t, aws.StringValue(attachInstanceEniAckSent.MessageId), testconst.MessageID)
+	assert.Equal(t, aws.ToString(attachInstanceEniAckSent.MessageId), testconst.MessageID)
 }
