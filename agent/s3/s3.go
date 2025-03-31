@@ -19,8 +19,8 @@ import (
 	"regexp"
 	"time"
 
-	"github.com/aws/aws-sdk-go/aws"
-	"github.com/aws/aws-sdk-go/service/s3"
+	"github.com/aws/aws-sdk-go-v2/aws"
+	"github.com/aws/aws-sdk-go-v2/service/s3"
 	"github.com/pkg/errors"
 )
 
@@ -37,7 +37,7 @@ func DownloadFile(bucket, key string, timeout time.Duration, w io.WriterAt, clie
 	ctx, cancel := context.WithTimeout(context.Background(), timeout)
 	defer cancel()
 
-	_, err := client.DownloadWithContext(ctx, w, input)
+	_, err := client.Download(ctx, w, input)
 	return err
 }
 
@@ -57,7 +57,7 @@ func GetObject(bucket string, key string, client S3Client) (string, error) {
 		Key:    aws.String(key),
 	}
 
-	result, err := client.GetObject(requestInput)
+	result, err := client.GetObject(context.TODO(), requestInput)
 	if err != nil {
 		return "", err
 	}
