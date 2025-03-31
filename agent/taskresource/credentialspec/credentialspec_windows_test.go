@@ -774,7 +774,7 @@ func TestHandleS3CredentialspecFile(t *testing.T) {
 			gomock.InOrder(
 				s3ClientCreator.EXPECT().NewS3ManagerClient(gomock.Any(), gomock.Any(), gomock.Any(), testConfig.InstanceIPCompatibility).Return(mockS3Client, nil),
 				mockIO.EXPECT().TempFile(gomock.Any(), gomock.Any()).Return(mockFile, nil),
-				mockS3Client.EXPECT().DownloadWithContext(gomock.Any(), mockFile, gomock.Any()).Return(int64(0), nil),
+				mockS3Client.EXPECT().Download(gomock.Any(), mockFile, gomock.Any()).Return(int64(0), nil),
 			)
 
 			handleNonFileDomainlessGMSACredSpecImpl = func(originalCredSpec, localCredSpecFilePath, taskARN string) error {
@@ -919,7 +919,7 @@ func TestHandleS3CredentialspecFileWriteErr(t *testing.T) {
 	gomock.InOrder(
 		s3ClientCreator.EXPECT().NewS3ManagerClient(gomock.Any(), gomock.Any(), gomock.Any(), testConfig.InstanceIPCompatibility).Return(mockS3Client, nil),
 		mockIO.EXPECT().TempFile(gomock.Any(), gomock.Any()).Return(mockFile, nil),
-		mockS3Client.EXPECT().DownloadWithContext(gomock.Any(), mockFile, gomock.Any()).Return(int64(0), nil),
+		mockS3Client.EXPECT().Download(gomock.Any(), mockFile, gomock.Any()).Return(int64(0), nil),
 	)
 
 	err := cs.handleS3CredentialspecFile(s3CredentialSpec, credentialSpecS3ARN, iamCredentials)
@@ -1049,7 +1049,7 @@ func TestCreateS3(t *testing.T) {
 		credentialsManager.EXPECT().GetTaskCredentials(gomock.Any()).Return(creds, true),
 		s3ClientCreator.EXPECT().NewS3ManagerClient(gomock.Any(), gomock.Any(), gomock.Any(), testConfig.InstanceIPCompatibility).Return(mockS3Client, nil),
 		mockIO.EXPECT().TempFile(gomock.Any(), gomock.Any()).Return(mockFile, nil),
-		mockS3Client.EXPECT().DownloadWithContext(gomock.Any(), mockFile, gomock.Any()).Return(int64(0), nil),
+		mockS3Client.EXPECT().Download(gomock.Any(), mockFile, gomock.Any()).Return(int64(0), nil),
 	)
 
 	assert.NoError(t, cs.Create())
