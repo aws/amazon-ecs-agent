@@ -16,78 +16,101 @@
 package factory
 
 import (
+	"context"
 	"testing"
 
 	"github.com/aws/amazon-ecs-agent/ecs-agent/credentials"
-	"github.com/aws/aws-sdk-go/aws"
-	"github.com/aws/aws-sdk-go/aws/endpoints"
+	"github.com/aws/aws-sdk-go-v2/aws"
+	"github.com/aws/aws-sdk-go-v2/service/s3"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
+)
+
+const (
+	accessKeyId     = "dummyAccessKeyID"
+	secretAccessKey = "dummySecretAccessKey"
+	sessionToken    = "dummySessionToken"
+)
+
+var (
+	creds = credentials.IAMRoleCredentials{
+		AccessKeyID:     accessKeyId,
+		SecretAccessKey: secretAccessKey,
+		SessionToken:    sessionToken,
+	}
 )
 
 func TestCreateAWSConfig(t *testing.T) {
-	testCreds := credentials.IAMRoleCredentials{
-		AccessKeyID:     "dummyAccessKeyID",
-		SecretAccessKey: "dummySecretAccessKey",
-		SessionToken:    "dummySessionToken",
-	}
-
-	testRegion := "us-west-2"
-
 	tests := []struct {
-		name                   string
-		useFIPSEndpoint        bool
-		useDualStackEndpoint   bool
-		fipsEndpointState      endpoints.FIPSEndpointState
-		dualStackEndpointState endpoints.DualStackEndpointState
+		name                    string
+		region                  string
+		useFIPSEndpoint         bool
+		useDualStackEndpoint    bool
+		dualStackEndpointState  aws.DualStackEndpointState
+		expectedUseFIPSEndpoint aws.FIPSEndpointState
+		expectedUsePathStyle    bool
 	}{
 		{
-			name:                   "Default endpoint configuration",
-			useFIPSEndpoint:        false,
-			useDualStackEndpoint:   false,
-			fipsEndpointState:      endpoints.FIPSEndpointStateUnset,
-			dualStackEndpointState: endpoints.DualStackEndpointStateUnset,
+			name:                    "Default endpoint configuration",
+			region:                  "us-west-2",
+			useFIPSEndpoint:         false,
+			useDualStackEndpoint:    false,
+			expectedUseFIPSEndpoint: aws.FIPSEndpointStateUnset,
+			dualStackEndpointState:  aws.DualStackEndpointStateUnset,
+			expectedUsePathStyle:    false,
 		},
 		{
-			name:                   "FIPS enabled",
-			useFIPSEndpoint:        true,
-			useDualStackEndpoint:   false,
-			fipsEndpointState:      endpoints.FIPSEndpointStateEnabled,
-			dualStackEndpointState: endpoints.DualStackEndpointStateUnset,
+			name:                    "FIPS enabled only",
+			region:                  "us-gov-west-1",
+			useFIPSEndpoint:         true,
+			useDualStackEndpoint:    false,
+			expectedUseFIPSEndpoint: aws.FIPSEndpointStateEnabled,
+			dualStackEndpointState:  aws.DualStackEndpointStateUnset,
+			expectedUsePathStyle:    false,
 		},
 		{
-			name:                   "Dualstack enabled",
-			useFIPSEndpoint:        false,
-			useDualStackEndpoint:   true,
-			fipsEndpointState:      endpoints.FIPSEndpointStateUnset,
-			dualStackEndpointState: endpoints.DualStackEndpointStateEnabled,
+			name:                    "Dualstack enabled only",
+			region:                  "us-west-2",
+			useFIPSEndpoint:         false,
+			useDualStackEndpoint:    true,
+			expectedUseFIPSEndpoint: aws.FIPSEndpointStateUnset,
+			dualStackEndpointState:  aws.DualStackEndpointStateEnabled,
+			expectedUsePathStyle:    false,
 		},
 		{
-			name:                   "DualStack and FIPS enabled",
-			useFIPSEndpoint:        true,
-			useDualStackEndpoint:   true,
-			fipsEndpointState:      endpoints.FIPSEndpointStateEnabled,
-			dualStackEndpointState: endpoints.DualStackEndpointStateEnabled,
+			name:                    "DualStack and FIPS enabled",
+			region:                  "us-gov-west-1",
+			useFIPSEndpoint:         true,
+			useDualStackEndpoint:    true,
+			expectedUseFIPSEndpoint: aws.FIPSEndpointStateEnabled,
+			dualStackEndpointState:  aws.DualStackEndpointStateEnabled,
+			expectedUsePathStyle:    false,
 		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			cfg := createAWSConfig(testRegion, testCreds, tt.useFIPSEndpoint, tt.useDualStackEndpoint)
+			cfg, err := createAWSConfig(tt.region, creds, tt.useFIPSEndpoint, tt.useDualStackEndpoint)
+			require.NoError(t, err)
 
-			// Verify common configurations
-			assert.Equal(t, roundtripTimeout, cfg.HTTPClient.Timeout)
-			assert.Equal(t, testRegion, aws.StringValue(cfg.Region))
-			verifyCredentials(t, cfg, testCreds)
+			// Creating a new S3 client off of the AWS config object
+			client := s3.NewFromConfig(cfg)
+			// Obtain a copy of the options of the S3 client
+			clientOpts := client.Options()
+
+			assert.Equal(t, tt.region, clientOpts.Region)
+			verifyCredentials(t, clientOpts, creds)
 
 			// Verify endpoint configurations
-			assert.Equal(t, tt.fipsEndpointState, cfg.UseFIPSEndpoint)
-			assert.Equal(t, tt.dualStackEndpointState, cfg.UseDualStackEndpoint)
+			assert.Equal(t, tt.expectedUseFIPSEndpoint, clientOpts.EndpointOptions.GetUseFIPSEndpoint())
+			assert.Equal(t, tt.expectedUsePathStyle, clientOpts.UsePathStyle)
+			assert.Equal(t, tt.dualStackEndpointState, clientOpts.EndpointOptions.GetUseDualStackEndpoint())
 		})
 	}
 }
 
-func verifyCredentials(t *testing.T, cfg *aws.Config, expected credentials.IAMRoleCredentials) {
-	credsValue, err := cfg.Credentials.Get()
+func verifyCredentials(t *testing.T, clientOpts s3.Options, expected credentials.IAMRoleCredentials) {
+	credsValue, err := clientOpts.Credentials.Retrieve(context.TODO())
 	assert.NoError(t, err)
 	assert.Equal(t, expected.AccessKeyID, credsValue.AccessKeyID)
 	assert.Equal(t, expected.SecretAccessKey, credsValue.SecretAccessKey)

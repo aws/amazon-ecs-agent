@@ -17,6 +17,7 @@
 package envFiles
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"io"
@@ -37,9 +38,9 @@ import (
 	"github.com/aws/amazon-ecs-agent/ecs-agent/api/task/status"
 	"github.com/aws/amazon-ecs-agent/ecs-agent/credentials"
 	mock_credentials "github.com/aws/amazon-ecs-agent/ecs-agent/credentials/mocks"
-	"github.com/aws/aws-sdk-go/aws"
-	"github.com/aws/aws-sdk-go/service/s3"
-	"github.com/aws/aws-sdk-go/service/s3/s3manager"
+	"github.com/aws/aws-sdk-go-v2/aws"
+	s3manager "github.com/aws/aws-sdk-go-v2/feature/s3/manager"
+	"github.com/aws/aws-sdk-go-v2/service/s3"
 	"github.com/golang/mock/gomock"
 	"github.com/stretchr/testify/assert"
 )
@@ -153,12 +154,12 @@ func TestCreateWithEnvVarFile(t *testing.T) {
 		mockCredentialsManager.EXPECT().GetTaskCredentials(executionCredentialsID).Return(creds, true),
 		mockS3ClientCreator.EXPECT().NewS3ManagerClient(s3Bucket, region, creds.IAMRoleCredentials, testIPCompatibility).Return(mockS3Client, nil),
 		mockIOUtil.EXPECT().TempFile(resourceDir, gomock.Any()).Return(mockFile, nil),
-		mockS3Client.EXPECT().DownloadWithContext(
+		mockS3Client.EXPECT().Download(
 			gomock.Any(), mockFile, gomock.Any(), gomock.Any(),
 		).Do(
-			func(ctx aws.Context, w io.WriterAt, input *s3.GetObjectInput, options ...func(*s3manager.Downloader)) {
-				assert.Equal(t, s3Bucket, aws.StringValue(input.Bucket))
-				assert.Equal(t, s3Key, aws.StringValue(input.Key))
+			func(ctx context.Context, w io.WriterAt, input *s3.GetObjectInput, options ...func(*s3manager.Downloader)) {
+				assert.Equal(t, s3Bucket, aws.ToString(input.Bucket))
+				assert.Equal(t, s3Key, aws.ToString(input.Key))
 			}).Return(int64(0), nil),
 	)
 
@@ -209,7 +210,7 @@ func TestCreateUnableToRetrieveDataFromS3(t *testing.T) {
 		mockCredentialsManager.EXPECT().GetTaskCredentials(executionCredentialsID).Return(creds, true),
 		mockS3ClientCreator.EXPECT().NewS3ManagerClient(s3Bucket, region, creds.IAMRoleCredentials, testIPCompatibility).Return(mockS3Client, nil),
 		mockIOUtil.EXPECT().TempFile(resourceDir, gomock.Any()).Return(mockFile, nil),
-		mockS3Client.EXPECT().DownloadWithContext(gomock.Any(), mockFile, gomock.Any()).Return(int64(0), errors.New("error response")),
+		mockS3Client.EXPECT().Download(gomock.Any(), mockFile, gomock.Any()).Return(int64(0), errors.New("error response")),
 	)
 
 	assert.Error(t, envfileResource.Create())
@@ -272,7 +273,7 @@ func TestCreateRenameFileError(t *testing.T) {
 		mockCredentialsManager.EXPECT().GetTaskCredentials(executionCredentialsID).Return(creds, true),
 		mockS3ClientCreator.EXPECT().NewS3ManagerClient(s3Bucket, region, creds.IAMRoleCredentials, testIPCompatibility).Return(mockS3Client, nil),
 		mockIOUtil.EXPECT().TempFile(resourceDir, gomock.Any()).Return(mockFile, nil),
-		mockS3Client.EXPECT().DownloadWithContext(gomock.Any(), mockFile, gomock.Any()).Return(int64(0), nil),
+		mockS3Client.EXPECT().Download(gomock.Any(), mockFile, gomock.Any()).Return(int64(0), nil),
 	)
 
 	assert.Error(t, envfileResource.Create())
