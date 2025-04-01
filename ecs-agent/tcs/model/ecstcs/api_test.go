@@ -18,7 +18,6 @@ package ecstcs
 import (
 	"testing"
 
-	"github.com/aws/amazon-ecs-agent/ecs-agent/tcs/model/ecstcs"
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/aws/request"
 	"github.com/aws/aws-sdk-go/private/protocol/json/jsonutil"
@@ -27,9 +26,9 @@ import (
 )
 
 // Populate a ULongStatsSet with dummy value
-func getDummyULongStatsSet() *ecstcs.ULongStatsSet {
+func getDummyULongStatsSet() *ULongStatsSet {
 	dummy := aws.Int64(0)
-	return &ecstcs.ULongStatsSet{
+	return &ULongStatsSet{
 		Max:         dummy,
 		OverflowMax: dummy,
 		Min:         dummy,
@@ -50,7 +49,7 @@ const sampleCountField = "sampleCount"
 const sumField = "sum"
 
 /*
-Tests cases of TestULongStatsSet that do not raise an error during validate():
+Tests cases of ULongStatsSet that do not raise an error during validate():
  1. Non-nil StatsSet
  3. Non-nil StatsSet with "some" nil values
     a. Nil OverflowMax
@@ -60,7 +59,7 @@ Tests cases of TestULongStatsSet that do not raise an error during validate():
 func TestULongStatsSet(t *testing.T) {
 	cases := []struct {
 		Name     string
-		StatsSet *ecstcs.ULongStatsSet
+		StatsSet *ULongStatsSet
 	}{
 		{
 			Name:     "happy case",
@@ -68,7 +67,7 @@ func TestULongStatsSet(t *testing.T) {
 		},
 		{
 			Name: "nil OverflowMax",
-			StatsSet: func() *ecstcs.ULongStatsSet {
+			StatsSet: func() *ULongStatsSet {
 				s := getDummyULongStatsSet()
 				s.OverflowMax = nil
 				return s
@@ -76,7 +75,7 @@ func TestULongStatsSet(t *testing.T) {
 		},
 		{
 			Name: "nil OverflowMin",
-			StatsSet: func() *ecstcs.ULongStatsSet {
+			StatsSet: func() *ULongStatsSet {
 				s := getDummyULongStatsSet()
 				s.OverflowMin = nil
 				return s
@@ -84,7 +83,7 @@ func TestULongStatsSet(t *testing.T) {
 		},
 		{
 			Name: "nil OverflowSum",
-			StatsSet: func() *ecstcs.ULongStatsSet {
+			StatsSet: func() *ULongStatsSet {
 				s := getDummyULongStatsSet()
 				s.OverflowSum = nil
 				return s
@@ -136,12 +135,12 @@ func TestULongStatsSetNilValues(t *testing.T) {
 	cases := []struct {
 		Name     string
 		Field    string
-		StatsSet *ecstcs.ULongStatsSet
+		StatsSet *ULongStatsSet
 	}{
 		{
 			Name:  "nil Max",
 			Field: "Max",
-			StatsSet: func() *ecstcs.ULongStatsSet {
+			StatsSet: func() *ULongStatsSet {
 				s := getDummyULongStatsSet()
 				s.Max = nil
 				return s
@@ -150,7 +149,7 @@ func TestULongStatsSetNilValues(t *testing.T) {
 		{
 			Name:  "nil Min",
 			Field: "Min",
-			StatsSet: func() *ecstcs.ULongStatsSet {
+			StatsSet: func() *ULongStatsSet {
 				s := getDummyULongStatsSet()
 				s.Min = nil
 				return s
@@ -159,7 +158,7 @@ func TestULongStatsSetNilValues(t *testing.T) {
 		{
 			Name:  "nil SampleCount",
 			Field: "SampleCount",
-			StatsSet: func() *ecstcs.ULongStatsSet {
+			StatsSet: func() *ULongStatsSet {
 				s := getDummyULongStatsSet()
 				s.SampleCount = nil
 				return s
@@ -168,7 +167,7 @@ func TestULongStatsSetNilValues(t *testing.T) {
 		{
 			Name:  "nil Sum",
 			Field: "Sum",
-			StatsSet: func() *ecstcs.ULongStatsSet {
+			StatsSet: func() *ULongStatsSet {
 				s := getDummyULongStatsSet()
 				s.Sum = nil
 				return s
@@ -197,7 +196,7 @@ Tests cases of EphemeralStorageMetrics that do not raise an error during validat
 func TestEphemeralStorageMetrics(t *testing.T) {
 	cases := []struct {
 		Name     string
-		StatsSet *ecstcs.ULongStatsSet
+		StatsSet *ULongStatsSet
 	}{
 		{
 			Name:     "happy case",
@@ -212,7 +211,7 @@ func TestEphemeralStorageMetrics(t *testing.T) {
 	for _, test := range cases {
 		t.Run(test.Name, func(t *testing.T) {
 			// Construct EphemeralStorageMetrics
-			metrics := ecstcs.EphemeralStorageMetrics{
+			metrics := EphemeralStorageMetrics{
 				BytesUtilized: test.StatsSet,
 			}
 			// Marshal to JSON (bytes)
@@ -245,11 +244,11 @@ Tests cases of EphemeralStorageMetrics that do raise an error during validate():
 func TestEphemeralStorageMetricsNilValues(t *testing.T) {
 	cases := []struct {
 		Name     string
-		StatsSet *ecstcs.ULongStatsSet
+		StatsSet *ULongStatsSet
 	}{
 		{
 			Name: "nil Max",
-			StatsSet: func() *ecstcs.ULongStatsSet {
+			StatsSet: func() *ULongStatsSet {
 				s := getDummyULongStatsSet()
 				s.Max = nil
 				return s
@@ -257,7 +256,7 @@ func TestEphemeralStorageMetricsNilValues(t *testing.T) {
 		},
 		{
 			Name: "nil Min",
-			StatsSet: func() *ecstcs.ULongStatsSet {
+			StatsSet: func() *ULongStatsSet {
 				s := getDummyULongStatsSet()
 				s.Min = nil
 				return s
@@ -265,7 +264,7 @@ func TestEphemeralStorageMetricsNilValues(t *testing.T) {
 		},
 		{
 			Name: "nil SampleCount",
-			StatsSet: func() *ecstcs.ULongStatsSet {
+			StatsSet: func() *ULongStatsSet {
 				s := getDummyULongStatsSet()
 				s.SampleCount = nil
 				return s
@@ -273,7 +272,7 @@ func TestEphemeralStorageMetricsNilValues(t *testing.T) {
 		},
 		{
 			Name: "nil Sum",
-			StatsSet: func() *ecstcs.ULongStatsSet {
+			StatsSet: func() *ULongStatsSet {
 				s := getDummyULongStatsSet()
 				s.Sum = nil
 				return s
@@ -284,7 +283,7 @@ func TestEphemeralStorageMetricsNilValues(t *testing.T) {
 	for _, test := range cases {
 		t.Run(test.Name, func(t *testing.T) {
 			// Construct EphemeralStorageMetrics
-			metrics := ecstcs.EphemeralStorageMetrics{
+			metrics := EphemeralStorageMetrics{
 				BytesUtilized: test.StatsSet,
 			}
 			// Build error object for comparison
