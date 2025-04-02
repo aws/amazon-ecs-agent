@@ -86,6 +86,7 @@ func createAWSConfig(region string, creds credentials.IAMRoleCredentials, useFIP
 			),
 			awsconfig.WithRegion(region),
 			awsconfig.WithUseFIPSEndpoint(aws.FIPSEndpointStateEnabled),
+			awsconfig.WithClientLogMode(aws.LogRequest),
 		)
 	} else {
 		return awsconfig.LoadDefaultConfig(
@@ -95,6 +96,8 @@ func createAWSConfig(region string, creds credentials.IAMRoleCredentials, useFIP
 				awscreds.NewStaticCredentialsProvider(creds.AccessKeyID, creds.SecretAccessKey, creds.SessionToken),
 			),
 			awsconfig.WithRegion(region),
+			awsconfig.WithUseFIPSEndpoint(aws.FIPSEndpointStateUnset),
+			awsconfig.WithClientLogMode(aws.LogRequest),
 		)
 	}
 
@@ -123,6 +126,7 @@ func (*s3ClientCreator) NewS3ManagerClient(bucket, region string, creds credenti
 		return nil, err
 	}
 	client := s3.NewFromConfig(cfg)
+	client.Options().EndpointOptions.GetUseFIPSEndpoint()
 	bucketRegion, err := getRegionFromBucket(client, bucket)
 	if err != nil {
 		return nil, err

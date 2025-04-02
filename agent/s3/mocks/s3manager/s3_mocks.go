@@ -23,8 +23,8 @@ import (
 	io "io"
 	reflect "reflect"
 
-	s3 "github.com/aws/aws-sdk-go/service/s3"
-	s3manager "github.com/aws/aws-sdk-go/service/s3/s3manager"
+	manager "github.com/aws/aws-sdk-go-v2/feature/s3/manager"
+	s3 "github.com/aws/aws-sdk-go-v2/service/s3"
 	gomock "github.com/golang/mock/gomock"
 )
 
@@ -51,22 +51,22 @@ func (m *MockS3ManagerClient) EXPECT() *MockS3ManagerClientMockRecorder {
 	return m.recorder
 }
 
-// DownloadWithContext mocks base method.
-func (m *MockS3ManagerClient) DownloadWithContext(arg0 context.Context, arg1 io.WriterAt, arg2 *s3.GetObjectInput, arg3 ...func(*s3manager.Downloader)) (int64, error) {
+// Download mocks base method.
+func (m *MockS3ManagerClient) Download(arg0 context.Context, arg1 io.WriterAt, arg2 *s3.GetObjectInput, arg3 ...func(*manager.Downloader)) (int64, error) {
 	m.ctrl.T.Helper()
 	varargs := []interface{}{arg0, arg1, arg2}
 	for _, a := range arg3 {
 		varargs = append(varargs, a)
 	}
-	ret := m.ctrl.Call(m, "DownloadWithContext", varargs...)
+	ret := m.ctrl.Call(m, "Download", varargs...)
 	ret0, _ := ret[0].(int64)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
-// DownloadWithContext indicates an expected call of DownloadWithContext.
-func (mr *MockS3ManagerClientMockRecorder) DownloadWithContext(arg0, arg1, arg2 interface{}, arg3 ...interface{}) *gomock.Call {
+// Download indicates an expected call of Download.
+func (mr *MockS3ManagerClientMockRecorder) Download(arg0, arg1, arg2 interface{}, arg3 ...interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	varargs := append([]interface{}{arg0, arg1, arg2}, arg3...)
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "DownloadWithContext", reflect.TypeOf((*MockS3ManagerClient)(nil).DownloadWithContext), varargs...)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Download", reflect.TypeOf((*MockS3ManagerClient)(nil).Download), varargs...)
 }

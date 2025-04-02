@@ -16,56 +16,83 @@
 package factory
 
 import (
+	"context"
 	"testing"
 
 	"github.com/aws/amazon-ecs-agent/agent/config"
 	"github.com/aws/amazon-ecs-agent/ecs-agent/credentials"
-	"github.com/aws/aws-sdk-go/aws"
-	"github.com/aws/aws-sdk-go/aws/endpoints"
+	"github.com/aws/aws-sdk-go-v2/aws"
+	"github.com/aws/aws-sdk-go-v2/service/s3"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
-func TestCreateAWSConfig(t *testing.T) {
-	creds := credentials.IAMRoleCredentials{
-		AccessKeyID:     "dummyAccessKeyID",
-		SecretAccessKey: "dummySecretAccessKey",
-		SessionToken:    "dummySessionToken",
+const (
+	accessKeyId     = "dummyAccessKeyID"
+	secretAccessKey = "dummySecretAccessKey"
+	sessionToken    = "dummySessionToken"
+)
+
+var (
+	creds = credentials.IAMRoleCredentials{
+		AccessKeyID:     accessKeyId,
+		SecretAccessKey: secretAccessKey,
+		SessionToken:    sessionToken,
 	}
-	region := "us-west-2"
-	// Test without FIPS enabled
-	config.SetFIPSEnabled(false)
-	cfg := createAWSConfig(region, creds, false)
-	assert.Equal(t, roundtripTimeout, cfg.HTTPClient.Timeout, "HTTPClient timeout should be set")
-	assert.Equal(t, region, aws.StringValue(cfg.Region), "Region should be set")
-	credsValue, err := cfg.Credentials.Get()
-	assert.NoError(t, err)
-	assert.Equal(t, "dummyAccessKeyID", credsValue.AccessKeyID, "AccessKeyID should be set")
-	assert.Equal(t, "dummySecretAccessKey", credsValue.SecretAccessKey, "SecretAccessKey should be set")
-	assert.Equal(t, "dummySessionToken", credsValue.SessionToken, "SessionToken should be set")
-	assert.Equal(t, endpoints.FIPSEndpointStateUnset, cfg.UseFIPSEndpoint, "UseFIPSEndpoint should not be set")
-	assert.Nil(t, cfg.S3ForcePathStyle, "S3ForcePathStyle should not be set")
-	// Test with FIPS enabled in a non-FIPS compliant region
-	config.SetFIPSEnabled(true)
-	cfg = createAWSConfig(region, creds, false)
-	assert.Equal(t, roundtripTimeout, cfg.HTTPClient.Timeout, "HTTPClient timeout should be set")
-	assert.Equal(t, region, aws.StringValue(cfg.Region), "Region should be set")
-	credsValue, err = cfg.Credentials.Get()
-	assert.NoError(t, err)
-	assert.Equal(t, "dummyAccessKeyID", credsValue.AccessKeyID, "AccessKeyID should be set")
-	assert.Equal(t, "dummySecretAccessKey", credsValue.SecretAccessKey, "SecretAccessKey should be set")
-	assert.Equal(t, "dummySessionToken", credsValue.SessionToken, "SessionToken should be set")
-	assert.Equal(t, endpoints.FIPSEndpointStateUnset, cfg.UseFIPSEndpoint, "UseFIPSEndpoint should not be set")
-	assert.Nil(t, cfg.S3ForcePathStyle, "S3ForcePathStyle should not be set")
-	// Test with FIPS enabled in a FIPS compliant region
-	fipsRegion := "us-gov-west-1"
-	cfg = createAWSConfig(fipsRegion, creds, true)
-	assert.Equal(t, roundtripTimeout, cfg.HTTPClient.Timeout, "HTTPClient timeout should be set")
-	assert.Equal(t, fipsRegion, aws.StringValue(cfg.Region), "Region should be set")
-	credsValue, err = cfg.Credentials.Get()
-	assert.NoError(t, err)
-	assert.Equal(t, "dummyAccessKeyID", credsValue.AccessKeyID, "AccessKeyID should be set")
-	assert.Equal(t, "dummySecretAccessKey", credsValue.SecretAccessKey, "SecretAccessKey should be set")
-	assert.Equal(t, "dummySessionToken", credsValue.SessionToken, "SessionToken should be set")
-	assert.Equal(t, endpoints.FIPSEndpointStateEnabled, cfg.UseFIPSEndpoint, "UseFIPSEndpoint should be set to FIPSEndpointStateEnabled")
-	assert.False(t, aws.BoolValue(cfg.S3ForcePathStyle), "S3ForcePathStyle should be set to false")
+)
+
+func TestCreateAWSConfigForS3Client(t *testing.T) {
+	tcs := []struct {
+		name                    string
+		region                  string
+		useFIPSEndpoint         bool
+		expectedUseFIPSEndpoint aws.FIPSEndpointState
+		expectedUsePathStyle    bool
+	}{
+		{
+			name:                    "config without FIPS enabled",
+			region:                  "us-west-2",
+			useFIPSEndpoint:         false,
+			expectedUseFIPSEndpoint: aws.FIPSEndpointStateUnset,
+			expectedUsePathStyle:    false,
+		},
+		{
+			name:                    "config with FIPS enabled in a non-FIPS compliant region",
+			region:                  "us-west-2",
+			useFIPSEndpoint:         true,
+			expectedUseFIPSEndpoint: aws.FIPSEndpointStateEnabled,
+			expectedUsePathStyle:    false,
+		},
+		{
+			name:                    "config with FIPS enabled",
+			region:                  "us-gov-west-1",
+			useFIPSEndpoint:         true,
+			expectedUseFIPSEndpoint: aws.FIPSEndpointStateEnabled,
+			expectedUsePathStyle:    false,
+		},
+	}
+
+	for _, tc := range tcs {
+		t.Run(tc.name, func(t *testing.T) {
+			config.SetFIPSEnabled(tc.useFIPSEndpoint)
+
+			// Creating the AWS Config object
+			cfg, err := createAWSConfig(tc.region, creds, tc.useFIPSEndpoint)
+			require.NoError(t, err)
+			assert.Equal(t, tc.region, cfg.Region, "Region should be set")
+
+			// Creating a new S3 client off of the AWS config object
+			client := s3.NewFromConfig(cfg)
+			// Obtain a copy of the options of the S3 client
+			clientOpts := client.Options()
+
+			credsValue, err := clientOpts.Credentials.Retrieve(context.TODO())
+			require.NoError(t, err)
+			assert.Equal(t, accessKeyId, credsValue.AccessKeyID, "AccessKeyID should be set")
+			assert.Equal(t, secretAccessKey, credsValue.SecretAccessKey, "SecretAccessKey should be set")
+			assert.Equal(t, sessionToken, credsValue.SessionToken, "SessionToken should be set")
+			assert.Equal(t, tc.expectedUseFIPSEndpoint, clientOpts.EndpointOptions.GetUseFIPSEndpoint())
+			assert.Equal(t, tc.expectedUsePathStyle, clientOpts.UsePathStyle)
+		})
+	}
 }
