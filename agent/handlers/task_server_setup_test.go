@@ -3408,7 +3408,7 @@ func TestGetTaskProtection(t *testing.T) {
 				}, nil),
 			expectedStatusCode: http.StatusOK,
 			expectedResponseBody: tptypes.TaskProtectionResponse{
-				Failure: ecstypes.Failure{
+				Failure: &ecstypes.Failure{
 					Arn:    aws.String(taskARN),
 					Reason: aws.String("ecs failure"),
 				},
@@ -3451,7 +3451,7 @@ func TestGetTaskProtection(t *testing.T) {
 			setTaskProtectionClientFactoryExpectations: taskProtectionClientFactoryExpectations(&ecsOutput, nil),
 			expectedStatusCode:                         http.StatusOK,
 			expectedResponseBody: tptypes.TaskProtectionResponse{
-				Protection: protectedTask,
+				Protection: &protectedTask,
 			},
 		})
 	})
@@ -3684,7 +3684,7 @@ func TestUpdateTaskProtection(t *testing.T) {
 			}, nil),
 		expectedStatusCode: http.StatusOK,
 		expectedResponseBody: tptypes.TaskProtectionResponse{
-			Failure: ecstypes.Failure{
+			Failure: &ecstypes.Failure{
 				Arn:    aws.String(taskARN),
 				Reason: aws.String("ecs failure"),
 			},
@@ -3772,7 +3772,7 @@ func TestUpdateTaskProtection(t *testing.T) {
 		setTaskProtectionClientFactoryExpectations: taskProtectionClientFactoryExpectations(&ecsOutput, nil),
 		expectedStatusCode:                         http.StatusOK,
 		expectedResponseBody: tptypes.TaskProtectionResponse{
-			Protection: protectedTask,
+			Protection: &protectedTask,
 		},
 	}))
 }
