@@ -1300,6 +1300,7 @@ func (dg *dockerGoClient) Version(ctx context.Context, timeout time.Duration) (s
 	}
 
 	version = info.Version
+	seelog.Debugf("Determined the Docker server version: %s", version)
 	dg.setDaemonVersion(version)
 	return version, nil
 }

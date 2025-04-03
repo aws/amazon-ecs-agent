@@ -115,6 +115,7 @@ const (
 	serviceConnectContainerName = "service-connect"
 	mediaTypeManifestV2         = "application/vnd.docker.distribution.manifest.v2+json"
 	defaultIfname               = "eth0"
+	testDockerServerVersion     = "25.0.8"
 )
 
 var (
@@ -3321,7 +3322,7 @@ func TestCreateContainerAddFirelensLogDriverConfig(t *testing.T) {
 		expectedLogConfigType          string
 		expectedLogConfigTag           string
 		expectedLogConfigFluentAddress string
-		expectedFluentdAsyncConnect    string
+		expectedFluentdAsync           string
 		expectedSubSecondPrecision     string
 		expectedBufferLimit            string
 		expectedIPAddress              string
@@ -3333,7 +3334,7 @@ func TestCreateContainerAddFirelensLogDriverConfig(t *testing.T) {
 			enableServiceConnect:           false,
 			expectedLogConfigType:          logDriverTypeFluentd,
 			expectedLogConfigTag:           taskName + "-firelens-" + taskID,
-			expectedFluentdAsyncConnect:    strconv.FormatBool(true),
+			expectedFluentdAsync:           strconv.FormatBool(true),
 			expectedSubSecondPrecision:     strconv.FormatBool(true),
 			expectedBufferLimit:            "10000",
 			expectedLogConfigFluentAddress: socketPathPrefix + filepath.Join(defaultConfig.DataDirOnHost, dataLogDriverPath, taskID, dataLogDriverSocketPath),
@@ -3346,7 +3347,7 @@ func TestCreateContainerAddFirelensLogDriverConfig(t *testing.T) {
 			enableServiceConnect:           false,
 			expectedLogConfigType:          logDriverTypeFluentd,
 			expectedLogConfigTag:           taskName + "-firelens-" + taskID,
-			expectedFluentdAsyncConnect:    strconv.FormatBool(true),
+			expectedFluentdAsync:           strconv.FormatBool(true),
 			expectedSubSecondPrecision:     strconv.FormatBool(true),
 			expectedBufferLimit:            "10000",
 			expectedLogConfigFluentAddress: socketPathPrefix + filepath.Join(defaultConfig.DataDirOnHost, dataLogDriverPath, taskID, dataLogDriverSocketPath),
@@ -3359,7 +3360,7 @@ func TestCreateContainerAddFirelensLogDriverConfig(t *testing.T) {
 			enableServiceConnect:           true,
 			expectedLogConfigType:          logDriverTypeFluentd,
 			expectedLogConfigTag:           taskName + "-firelens-" + taskID,
-			expectedFluentdAsyncConnect:    strconv.FormatBool(true),
+			expectedFluentdAsync:           strconv.FormatBool(true),
 			expectedSubSecondPrecision:     strconv.FormatBool(true),
 			expectedBufferLimit:            "10000",
 			expectedLogConfigFluentAddress: socketPathPrefix + filepath.Join(defaultConfig.DataDirOnHost, dataLogDriverPath, taskID, dataLogDriverSocketPath),
@@ -3372,7 +3373,7 @@ func TestCreateContainerAddFirelensLogDriverConfig(t *testing.T) {
 			enableServiceConnect:           false,
 			expectedLogConfigType:          logDriverTypeFluentd,
 			expectedLogConfigTag:           taskName + "-firelens-" + taskID,
-			expectedFluentdAsyncConnect:    strconv.FormatBool(true),
+			expectedFluentdAsync:           strconv.FormatBool(true),
 			expectedSubSecondPrecision:     strconv.FormatBool(true),
 			expectedBufferLimit:            "",
 			expectedLogConfigFluentAddress: socketPathPrefix + filepath.Join(defaultConfig.DataDirOnHost, dataLogDriverPath, taskID, dataLogDriverSocketPath),
@@ -3388,6 +3389,7 @@ func TestCreateContainerAddFirelensLogDriverConfig(t *testing.T) {
 			ctrl, client, _, taskEngine, _, _, _, serviceConnectManager := mocks(t, ctx, &defaultConfig)
 			defer ctrl.Finish()
 
+			client.EXPECT().Version(gomock.Any(), gomock.Any()).Return(testDockerServerVersion, nil).Times(1)
 			client.EXPECT().APIVersion().Return(defaultDockerClientAPIVersion, nil).AnyTimes()
 			if tc.enableServiceConnect {
 				serviceConnectManager.EXPECT().AugmentTaskContainer(gomock.Any(), gomock.Any(), gomock.Any()).Return(nil).Times(1)
@@ -3401,7 +3403,7 @@ func TestCreateContainerAddFirelensLogDriverConfig(t *testing.T) {
 					assert.Equal(t, tc.expectedLogConfigType, hostConfig.LogConfig.Type)
 					assert.Equal(t, tc.expectedLogConfigTag, hostConfig.LogConfig.Config["tag"])
 					assert.Equal(t, tc.expectedLogConfigFluentAddress, hostConfig.LogConfig.Config["fluentd-address"])
-					assert.Equal(t, tc.expectedFluentdAsyncConnect, hostConfig.LogConfig.Config["fluentd-async-connect"])
+					assert.Equal(t, tc.expectedFluentdAsync, hostConfig.LogConfig.Config["fluentd-async"])
 					assert.Equal(t, tc.expectedSubSecondPrecision, hostConfig.LogConfig.Config["fluentd-sub-second-precision"])
 					assert.Equal(t, tc.expectedBufferLimit, hostConfig.LogConfig.Config["fluentd-buffer-limit"])
 					assert.Contains(t, config.Env, tc.expectedIPAddress)
@@ -5211,8 +5213,102 @@ func TestGetFirelensConfigWithAsyncEnabledConfigOption(t *testing.T) {
 			cfg := &config.Config{
 				FirelensAsyncEnabled: asyncEnabled,
 			}
-			logConfig := getFirelensLogConfig(task, appContainer, rawHostConfigInput, cfg)
-			assert.Equal(t, tc.isFirelensAsyncEnabled, logConfig.Config[logDriverAsyncConnect])
+			logConfig, err := getFirelensLogConfig(task, appContainer, rawHostConfigInput, cfg,
+				testDockerServerVersion)
+			assert.NoError(t, err)
+			assert.Equal(t, tc.isFirelensAsyncEnabled, logConfig.Config[logDriverAsync])
+		})
+	}
+}
+
+// TestGetFirelensConfigBasedOnDockerServerVersion validates that GetFirelensConfig populates the correct fluentd async
+// option depending on the Docker Server version provided.
+func TestGetFirelensConfigBasedOnDockerServerVersion(t *testing.T) {
+	rawHostConfigInput := &dockercontainer.HostConfig{
+		LogConfig: dockercontainer.LogConfig{
+			Type: "awsfirelens",
+			Config: map[string]string{
+				"log-driver-buffer-limit": "10000",
+			},
+		},
+	}
+
+	rawHostConfig, err := json.Marshal(&rawHostConfigInput)
+	require.NoError(t, err)
+	hostConfig := func() *string {
+		s := string(rawHostConfig)
+		return &s
+	}()
+
+	appContainer := &apicontainer.Container{
+		Name: "app",
+		DockerConfig: apicontainer.DockerConfig{
+			HostConfig: hostConfig,
+		},
+	}
+
+	firelensContainer := &apicontainer.Container{
+		Name: "firelens",
+		FirelensConfig: &apicontainer.FirelensConfig{
+			Type: "fluentbit",
+		},
+	}
+
+	task := &apitask.Task{
+		Arn: "arn:aws:ecs:region:account-id:task/task-id",
+		Containers: []*apicontainer.Container{
+			appContainer,
+			firelensContainer,
+		},
+	}
+
+	testCases := []struct {
+		name                string
+		dockerServerVersion string
+		expectError         bool
+		includedAsyncOption string
+		excludedAsyncOption string
+	}{
+		{
+			name:                "use fluentd-async",
+			dockerServerVersion: testDockerServerVersion,
+			expectError:         false,
+			includedAsyncOption: logDriverAsync,
+			excludedAsyncOption: logDriverAsyncConnect,
+		},
+		{
+			name:                "use fluentd-async-connect",
+			dockerServerVersion: "19.03.13-ce",
+			expectError:         false,
+			includedAsyncOption: logDriverAsyncConnect,
+			excludedAsyncOption: logDriverAsync,
+		},
+		{
+			name:                "error while determining Docker server version",
+			dockerServerVersion: "",
+			expectError:         true,
+			includedAsyncOption: "",
+			excludedAsyncOption: "",
+		},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+
+			cfg := &config.Config{
+				FirelensAsyncEnabled: config.BooleanDefaultTrue{Value: config.ExplicitlyEnabled},
+			}
+			logConfig, configError := getFirelensLogConfig(task, appContainer, rawHostConfigInput, cfg,
+				tc.dockerServerVersion)
+			assert.Equal(t, tc.expectError, configError != nil)
+			// Verify whether the logConfig.Config map contains the right fluentd async key and value
+			if tc.includedAsyncOption != "" {
+				assert.Contains(t, logConfig.Config, tc.includedAsyncOption)
+				assert.Equal(t, "true", logConfig.Config[tc.includedAsyncOption])
+			} else {
+				assert.NotContains(t, logConfig.Config, tc.includedAsyncOption)
+			}
+			assert.NotContains(t, logConfig.Config, tc.excludedAsyncOption)
 		})
 	}
 }
