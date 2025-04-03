@@ -137,7 +137,7 @@ func GetTaskProtectionHandler(
 
 		// ECS call was successful
 		utils.WriteJSONResponse(w, http.StatusOK,
-			types.NewTaskProtectionResponseProtection(responseBody.ProtectedTasks[0]), requestType)
+			types.NewTaskProtectionResponseProtection(&responseBody.ProtectedTasks[0]), requestType)
 		successMetric.WithCount(1).Done(nil)
 	}
 }
@@ -251,7 +251,7 @@ func UpdateTaskProtectionHandler(
 
 		// ECS call was successful
 		utils.WriteJSONResponse(w, http.StatusOK,
-			types.NewTaskProtectionResponseProtection(response.ProtectedTasks[0]), requestType)
+			types.NewTaskProtectionResponseProtection(&response.ProtectedTasks[0]), requestType)
 		successMetric.WithCount(1).Done(nil)
 	}
 }
@@ -351,7 +351,7 @@ func logAndValidateECSResponse(
 			return http.StatusInternalServerError, &response
 		}
 
-		response := types.NewTaskProtectionResponseFailure(failures[0])
+		response := types.NewTaskProtectionResponseFailure(&failures[0])
 		return http.StatusOK, &response
 	}
 

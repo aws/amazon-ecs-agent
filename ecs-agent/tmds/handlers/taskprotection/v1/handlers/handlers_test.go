@@ -50,11 +50,26 @@ import (
 )
 
 const (
-	cluster         = "cluster"
-	endpointId      = "endpointId"
-	ecsCallTimeout  = 5 * time.Second
-	taskARN         = "taskARN"
-	taskRoleCredsID = "taskRoleCredsID"
+	cluster                         = "cluster"
+	endpointId                      = "endpointId"
+	ecsCallTimeout                  = 5 * time.Second
+	taskARN                         = "taskARN"
+	taskRoleCredsID                 = "taskRoleCredsID"
+	updateTaskProtectionDecodeError = "UpdateTaskProtection: failed to decode request"
+)
+
+var (
+	taskMetadataErrorResponse          = `{"error":{"Code":"ServerException","Message":"Failed to find a task for the request"}}`
+	noCredentialsErrorResponse         = fmt.Sprintf(`{"error":{"Arn":"%s","Code":"AccessDeniedException","Message":"Invalid Request: no task IAM role credentials available for task"}}`, taskARN)
+	requestFailureErrorResponse        = `{"requestID":"%s","error":{"Arn":"%s","Code":"AccessDeniedException","Message":"%s"}}`
+	timeoutErrorResponse               = fmt.Sprintf(`{"error":{"Arn":"%s","Code":"RequestCanceled","Message":"Timed out calling ECS Task Protection API"}}`, taskARN)
+	nonRequestAWSErrorResponse         = `{"error":{"Arn":"%s","Code":"InvalidParameterException","Message":"%s"}}`
+	nonAWSErrorResponse                = `{"error":{"Arn":"%s","Code":"ServerException","Message":"%s"}}`
+	ecsErrorResponse                   = fmt.Sprintf(`{"failure":{"Arn":"%s","Detail":null,"Reason":"ecs failure 1"}}`, taskARN)
+	multipleECSErrorResponse           = fmt.Sprintf(`{"error":{"Arn":"%s","Code":"ServerException","Message":"Unexpected error occurred"}}`, taskARN)
+	happyEnabledTaskProtectionResponse = fmt.Sprintf(`{"protection":{"ExpirationDate":null,"ProtectionEnabled":true,"TaskArn":"%s"}}`, taskARN)
+	malformedRequestResponse           = `{"error":{"Code":"InvalidParameterException","Message":"%s"}}`
+	missingTaskProtectionFieldResponse = fmt.Sprintf(`{"error":{"Arn":"%s","Code":"InvalidParameterException","Message":"Invalid request: does not contain 'ProtectionEnabled' field"}}`, taskARN)
 )
 
 // Tests the path for UpdateTaskProtection API
@@ -70,6 +85,7 @@ type TestCase struct {
 	setMetricsExpectations      func(ctrl *gomock.Controller, metricsFactory *mock_metrics.MockEntryFactory)
 	expectedStatusCode          int
 	expectedResponseBody        types.TaskProtectionResponse
+	expectedResonseBodyJSON     string
 }
 
 func testTaskProtectionRequest(t *testing.T, tc TestCase) {
@@ -127,6 +143,7 @@ func testTaskProtectionRequest(t *testing.T, tc TestCase) {
 	var actualResponseBody types.TaskProtectionResponse
 	err = json.Unmarshal(recorder.Body.Bytes(), &actualResponseBody)
 	require.NoError(t, err)
+	assert.Equal(t, tc.expectedResonseBodyJSON, recorder.Body.String())
 
 	// Assert status code and body
 	assert.Equal(t, tc.expectedStatusCode, recorder.Code)
@@ -162,12 +179,12 @@ func TestGetTaskProtection(t *testing.T) {
 		testTaskProtectionRequest(t, taskMetadataFetchErrorCase(
 			state.NewErrorMetadataFetchFailure(""), metricName, nil))
 	})
-	t.Run("task metadata uknown error", func(t *testing.T) {
+	t.Run("task metadata unknown error", func(t *testing.T) {
 		testTaskProtectionRequest(t, taskMetadataFetchErrorCase(
 			errors.New("unknown"), metricName, nil))
 	})
 	t.Run("task role creds not found", func(t *testing.T) {
-		testTaskProtectionRequest(t, taskRoleCredsNotFoundCase(metricName, nil))
+		testTaskProtectionRequest(t, taskRoleCredsNotFoundCase(metricName, nil, noCredentialsErrorResponse))
 	})
 	t.Run("request failure", func(t *testing.T) {
 		ecsRequestID := "reqID"
@@ -198,6 +215,7 @@ func TestGetTaskProtection(t *testing.T) {
 					Message: ecsErrMessage,
 				},
 			},
+			expectedResonseBodyJSON: fmt.Sprintf(requestFailureErrorResponse, ecsRequestID, taskARN, ecsErrMessage),
 		})
 	})
 	t.Run("agent timeout", func(t *testing.T) {
@@ -216,6 +234,7 @@ func TestGetTaskProtection(t *testing.T) {
 					Message: "Timed out calling ECS Task Protection API",
 				},
 			},
+			expectedResonseBodyJSON: timeoutErrorResponse,
 		})
 	})
 	t.Run("non-request-failure aws error", func(t *testing.T) {
@@ -234,6 +253,7 @@ func TestGetTaskProtection(t *testing.T) {
 					Message: ecsErrMessage,
 				},
 			},
+			expectedResonseBodyJSON: fmt.Sprintf(nonRequestAWSErrorResponse, taskARN, ecsErrMessage),
 		})
 	})
 	t.Run("non-aws error", func(t *testing.T) {
@@ -249,6 +269,7 @@ func TestGetTaskProtection(t *testing.T) {
 					Arn: taskARN, Code: apierrors.ErrCodeServerException, Message: err.Error(),
 				},
 			},
+			expectedResonseBodyJSON: fmt.Sprintf(nonAWSErrorResponse, taskARN, err.Error()),
 		})
 	})
 	t.Run("ecs failure", func(t *testing.T) {
@@ -262,8 +283,9 @@ func TestGetTaskProtection(t *testing.T) {
 			setMetricsExpectations: metricsExpectations(metricName, 0),
 			expectedStatusCode:     http.StatusOK,
 			expectedResponseBody: types.TaskProtectionResponse{
-				Failure: ecsFailure,
+				Failure: &ecsFailure,
 			},
+			expectedResonseBodyJSON: ecsErrorResponse,
 		})
 	})
 	t.Run("more than one ecs failure", func(t *testing.T) {
@@ -282,6 +304,7 @@ func TestGetTaskProtection(t *testing.T) {
 					Message: "Unexpected error occurred",
 				},
 			},
+			expectedResonseBodyJSON: multipleECSErrorResponse,
 		})
 	})
 	t.Run("happy case", func(t *testing.T) {
@@ -292,9 +315,10 @@ func TestGetTaskProtection(t *testing.T) {
 			setFactoryExpectations: factoryExpectations(happyECSInput, &ecs.GetTaskProtectionOutput{
 				ProtectedTasks: []ecstypes.ProtectedTask{protectedTask},
 			}, nil),
-			setMetricsExpectations: metricsExpectations(metricName, 1),
-			expectedStatusCode:     http.StatusOK,
-			expectedResponseBody:   types.TaskProtectionResponse{Protection: protectedTask},
+			setMetricsExpectations:  metricsExpectations(metricName, 1),
+			expectedStatusCode:      http.StatusOK,
+			expectedResponseBody:    types.TaskProtectionResponse{Protection: &protectedTask},
+			expectedResonseBodyJSON: happyEnabledTaskProtectionResponse,
 		})
 	})
 }
@@ -351,9 +375,10 @@ func TestUpdateTaskProtection(t *testing.T) {
 			expectedResponseBody: types.TaskProtectionResponse{
 				Error: &types.ErrorResponse{
 					Code:    apierrors.ErrCodeInvalidParameterException,
-					Message: "UpdateTaskProtection: failed to decode request",
+					Message: updateTaskProtectionDecodeError,
 				},
 			},
+			expectedResonseBodyJSON: fmt.Sprintf(malformedRequestResponse, updateTaskProtectionDecodeError),
 		})
 	})
 	t.Run("invalid type in the request", func(t *testing.T) {
@@ -364,9 +389,10 @@ func TestUpdateTaskProtection(t *testing.T) {
 			expectedResponseBody: types.TaskProtectionResponse{
 				Error: &types.ErrorResponse{
 					Code:    apierrors.ErrCodeInvalidParameterException,
-					Message: "UpdateTaskProtection: failed to decode request",
+					Message: updateTaskProtectionDecodeError,
 				},
 			},
+			expectedResonseBodyJSON: fmt.Sprintf(malformedRequestResponse, updateTaskProtectionDecodeError),
 		})
 	})
 	t.Run("ProtectionEnabled field not found on the request", func(t *testing.T) {
@@ -386,10 +412,11 @@ func TestUpdateTaskProtection(t *testing.T) {
 					Message: "Invalid request: does not contain 'ProtectionEnabled' field",
 				},
 			},
+			expectedResonseBodyJSON: missingTaskProtectionFieldResponse,
 		})
 	})
 	t.Run("task role creds not found", func(t *testing.T) {
-		testTaskProtectionRequest(t, taskRoleCredsNotFoundCase(metricName, happyRequestBody))
+		testTaskProtectionRequest(t, taskRoleCredsNotFoundCase(metricName, happyRequestBody, noCredentialsErrorResponse))
 	})
 	t.Run("request failure", func(t *testing.T) {
 		ecsRequestID := "reqID"
@@ -421,6 +448,7 @@ func TestUpdateTaskProtection(t *testing.T) {
 					Message: ecsErrMessage,
 				},
 			},
+			expectedResonseBodyJSON: fmt.Sprintf(requestFailureErrorResponse, ecsRequestID, taskARN, ecsErrMessage),
 		})
 	})
 	t.Run("agent timeout", func(t *testing.T) {
@@ -440,6 +468,7 @@ func TestUpdateTaskProtection(t *testing.T) {
 					Message: "Timed out calling ECS Task Protection API",
 				},
 			},
+			expectedResonseBodyJSON: timeoutErrorResponse,
 		})
 	})
 	t.Run("non-request-failure aws error", func(t *testing.T) {
@@ -459,6 +488,7 @@ func TestUpdateTaskProtection(t *testing.T) {
 					Message: ecsErrMessage,
 				},
 			},
+			expectedResonseBodyJSON: fmt.Sprintf(nonRequestAWSErrorResponse, taskARN, ecsErrMessage),
 		})
 	})
 	t.Run("non-aws error", func(t *testing.T) {
@@ -475,6 +505,7 @@ func TestUpdateTaskProtection(t *testing.T) {
 					Arn: taskARN, Code: apierrors.ErrCodeServerException, Message: err.Error(),
 				},
 			},
+			expectedResonseBodyJSON: fmt.Sprintf(nonAWSErrorResponse, taskARN, err.Error()),
 		})
 	})
 	t.Run("ecs failure", func(t *testing.T) {
@@ -489,8 +520,9 @@ func TestUpdateTaskProtection(t *testing.T) {
 			setMetricsExpectations: metricsExpectations(metricName, 0),
 			expectedStatusCode:     http.StatusOK,
 			expectedResponseBody: types.TaskProtectionResponse{
-				Failure: ecsFailure,
+				Failure: &ecsFailure,
 			},
+			expectedResonseBodyJSON: ecsErrorResponse,
 		})
 	})
 	t.Run("more than one ecs failure", func(t *testing.T) {
@@ -510,6 +542,7 @@ func TestUpdateTaskProtection(t *testing.T) {
 					Message: "Unexpected error occurred",
 				},
 			},
+			expectedResonseBodyJSON: multipleECSErrorResponse,
 		})
 	})
 	t.Run("happy case", func(t *testing.T) {
@@ -521,9 +554,10 @@ func TestUpdateTaskProtection(t *testing.T) {
 			setFactoryExpectations: factoryExpectations(happyECSInput, &ecs.UpdateTaskProtectionOutput{
 				ProtectedTasks: []ecstypes.ProtectedTask{protectedTask},
 			}, nil),
-			setMetricsExpectations: metricsExpectations(metricName, 1),
-			expectedStatusCode:     http.StatusOK,
-			expectedResponseBody:   types.TaskProtectionResponse{Protection: protectedTask},
+			setMetricsExpectations:  metricsExpectations(metricName, 1),
+			expectedStatusCode:      http.StatusOK,
+			expectedResponseBody:    types.TaskProtectionResponse{Protection: &protectedTask},
+			expectedResonseBodyJSON: happyEnabledTaskProtectionResponse,
 		})
 	})
 }
@@ -582,6 +616,7 @@ func taskMetadataFetchErrorCase(err error, metricName string, reqBody interface{
 				Message: "Failed to find a task for the request",
 			},
 		},
+		expectedResonseBodyJSON: taskMetadataErrorResponse,
 	}
 }
 
@@ -604,11 +639,12 @@ func taskMetadataLookupFailureCase(metricName string, reqBody interface{}) TestC
 				Message: "Failed to find a task for the request",
 			},
 		},
+		expectedResonseBodyJSON: `{"error":{"Code":"ResourceNotFoundException","Message":"Failed to find a task for the request"}}`,
 	}
 }
 
 // Creates a test case for Task Role credentials not found case.
-func taskRoleCredsNotFoundCase(metricName string, reqBody interface{}) TestCase {
+func taskRoleCredsNotFoundCase(metricName string, reqBody interface{}, expectedResponseJSON string) TestCase {
 	return TestCase{
 		setAgentStateExpectations: happyStateExpectations,
 		setCredsManagerExpectations: func(credsManager *mock_credentials.MockManager) {
@@ -625,6 +661,7 @@ func taskRoleCredsNotFoundCase(metricName string, reqBody interface{}) TestCase 
 				Message: "Invalid Request: no task IAM role credentials available for task",
 			},
 		},
+		expectedResonseBodyJSON: expectedResponseJSON,
 	}
 }
 
