@@ -96,7 +96,7 @@ const (
 	maxBufferSizeDefault        = "10m"
 	logDriverFluentdAddress     = "fluentd-address"
 	dataLogDriverPath           = "/data/firelens/"
-	logDriverAsyncConnect       = "fluentd-async-connect"
+	logDriverAsync              = "fluentd-async"
 	logDriverSubSecondPrecision = "fluentd-sub-second-precision"
 	logDriverBufferLimit        = "fluentd-buffer-limit"
 	dataLogDriverSocketPath     = "/socket/fluent.sock"
@@ -2106,7 +2106,7 @@ func getFirelensLogConfig(task *apitask.Task, container *apicontainer.Container,
 	logConfig.Config = make(map[string]string)
 	logConfig.Config[logDriverTag] = tag
 	logConfig.Config[logDriverFluentdAddress] = fluentd
-	logConfig.Config[logDriverAsyncConnect] = strconv.FormatBool(cfg.FirelensAsyncEnabled.Enabled())
+	logConfig.Config[logDriverAsync] = strconv.FormatBool(cfg.FirelensAsyncEnabled.Enabled())
 	logConfig.Config[logDriverSubSecondPrecision] = strconv.FormatBool(true)
 	if bufferLimitExists {
 		logConfig.Config[logDriverBufferLimit] = bufferLimit
