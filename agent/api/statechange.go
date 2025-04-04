@@ -521,7 +521,7 @@ func buildContainerStateChangePayload(change ContainerStateChange) (*types.Conta
 		stat != apicontainerstatus.ContainerStopped &&
 		stat != apicontainerstatus.ContainerRunning {
 		logger.Warn("Not submitting unsupported upstream container state", logger.Fields{
-			field.Status:        stat,
+			field.Status:        stat.String(),
 			field.ContainerName: change.ContainerName,
 			field.TaskARN:       change.TaskArn,
 		})

@@ -129,7 +129,7 @@ func (pmHandler *payloadMessageHandler) addPayloadTasks(payload *ecsacs.PayloadM
 		logger.Info("Received task payload from ACS", logger.Fields{
 			loggerfield.TaskARN:       apiTask.Arn,
 			loggerfield.TaskVersion:   apiTask.Version,
-			loggerfield.DesiredStatus: apiTask.GetDesiredStatus(),
+			loggerfield.DesiredStatus: apiTask.GetDesiredStatus().String(),
 		})
 
 		if apiTask.IsFaultInjectionEnabled() {

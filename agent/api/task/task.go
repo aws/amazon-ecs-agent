@@ -1702,8 +1702,8 @@ func (task *Task) updateTaskKnownStatus() (newStatus apitaskstatus.TaskStatus) {
 	logger.Debug("Found container with earliest known status", logger.Fields{
 		field.TaskID:        task.GetID(),
 		field.Container:     earliestKnownStatusContainer.Name,
-		field.KnownStatus:   earliestKnownStatusContainer.GetKnownStatus(),
-		field.DesiredStatus: earliestKnownStatusContainer.GetDesiredStatus(),
+		field.KnownStatus:   earliestKnownStatusContainer.GetKnownStatus().String(),
+		field.DesiredStatus: earliestKnownStatusContainer.GetDesiredStatus().String(),
 	})
 	// If the essential container is stopped while other containers may be running
 	// don't update the task status until the other containers are stopped.
