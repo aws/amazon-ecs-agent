@@ -106,3 +106,9 @@ func WithMetricsFactory(metricsFactory metrics.EntryFactory) ECSClientOption {
 		client.metricsFactory = metricsFactory
 	}
 }
+
+func WithAvailableMemoryProvider(availableMemoryProvider func() int64) ECSClientOption {
+	return func(client *ecsClient) {
+		client.availableMemoryProvider = availableMemoryProvider
+	}
+}

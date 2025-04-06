@@ -97,6 +97,7 @@ type ecsClient struct {
 	stscAttachmentCustomRetryBackoff func(func() error) error
 	metricsFactory                   metrics.EntryFactory
 	rciRetryBackoff                  *retry.ExponentialBackoff
+	availableMemoryProvider          func() int64
 }
 
 // NewECSClient creates a new ECSClient interface object.
@@ -135,6 +136,9 @@ func NewECSClient(
 	}
 	if client.rciRetryBackoff == nil {
 		client.rciRetryBackoff = retry.NewExponentialBackoff(rciMinBackoff, rciMaxBackoff, rciRetryJitter, rciRetryMultiple)
+	}
+	if client.availableMemoryProvider == nil {
+		client.availableMemoryProvider = getHostMemoryInMiB
 	}
 
 	return client, nil
@@ -432,8 +436,9 @@ func (client *ecsClient) getResources() ([]types.Resource, error) {
 	integerStr := "INTEGER"
 	stringSetStr := "STRINGSET"
 
-	cpu, mem := getCpuAndMemory()
-	remainingMem := mem - int32(client.configAccessor.ReservedMemory())
+	cpu := getCpu()
+	mem := client.availableMemoryProvider()
+	remainingMem := mem - int64(client.configAccessor.ReservedMemory())
 	logger.Info("Remaining memory", logger.Fields{
 		"remainingMemory": remainingMem,
 	})
@@ -485,7 +490,12 @@ func (client *ecsClient) GetHostResources() (map[string]types.Resource, error) {
 	return resourceMap, nil
 }
 
-func getCpuAndMemory() (int32, int32) {
+func getCpu() int32 {
+	cpu := utils.GetNumCPU() * 1024
+	return int32(cpu)
+}
+
+func getHostMemoryInMiB() int32 {
 	memInfo, err := meminfo.Read()
 	mem := int32(0)
 	if err == nil {
@@ -496,9 +506,7 @@ func getCpuAndMemory() (int32, int32) {
 		})
 	}
 
-	cpu := utils.GetNumCPU() * 1024
-
-	return int32(cpu), mem
+	return mem
 }
 
 func validateRegisteredAttributes(expectedAttributes, actualAttributes []types.Attribute) error {
