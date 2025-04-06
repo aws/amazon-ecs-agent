@@ -110,3 +110,12 @@ func TestWithMetricsFactory(t *testing.T) {
 	option(client)
 	assert.NotNil(t, client.metricsFactory)
 }
+
+func TestWithAvailableMemoryProvider(t *testing.T) {
+	client := &ecsClient{}
+	option := WithAvailableMemoryProvider(func() int32 {
+		return int32(1)
+	})
+	option(client)
+	assert.NotNil(t, client.availableMemoryProvider)
+}
