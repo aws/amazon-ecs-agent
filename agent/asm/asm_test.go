@@ -21,9 +21,11 @@ import (
 	"testing"
 
 	mocks "github.com/aws/amazon-ecs-agent/agent/asm/mocks"
-	"github.com/aws/aws-sdk-go/aws"
-	"github.com/aws/aws-sdk-go/aws/awserr"
-	"github.com/aws/aws-sdk-go/service/secretsmanager"
+
+	"github.com/aws/aws-sdk-go-v2/aws"
+	"github.com/aws/aws-sdk-go-v2/service/secretsmanager"
+	"github.com/aws/aws-sdk-go-v2/service/secretsmanager/types"
+	"github.com/aws/smithy-go"
 	"github.com/golang/mock/gomock"
 	"github.com/pkg/errors"
 	"github.com/stretchr/testify/assert"
@@ -244,15 +246,18 @@ func TestGetSecretFromASMWithInputErrorMessageKnownError(t *testing.T) {
 	mockSecretsManager := mocks.NewMockSecretsManagerAPI(ctrl)
 	mockSecretsManager.EXPECT().
 		GetSecretValue(gomock.Any()).
-		Return(nil, awserr.New(secretsmanager.ErrCodeResourceNotFoundException, "Secrets Manager can't find the specified secret.", nil))
+		Return(nil, &types.ResourceNotFoundException{
+			Message: aws.String("Secrets Manager can't find the specified secret"),
+		})
 
 	secretValueInput := createSecretValueInput(toPtr(valueFrom), toPtr(versionID), nil)
 	_, err := GetSecretFromASMWithInput(secretValueInput, mockSecretsManager, jsonKey)
 
 	assert.Error(t, err)
-	aerr, ok := errors.Cause(err).(awserr.Error)
-	require.True(t, ok, "error is not of type awserr.Error")
-	assert.Equal(t, secretsmanager.ErrCodeResourceNotFoundException, aerr.Code())
+	var ae smithy.APIError
+	ok := errors.As(err, &ae)
+	require.True(t, ok, "error is not of type smithy.APIError")
+	assert.Equal(t, (&types.ResourceNotFoundException{}).ErrorCode(), ae.ErrorCode())
 	assert.Contains(t, err.Error(), fmt.Sprintf("ResourceNotFoundException: The task can't retrieve the secret with ARN '%s' from AWS Secrets Manager. Check whether the secret exists in the specified Region", valueFrom))
 }
 
@@ -263,14 +268,18 @@ func TestGetSecretFromASMWithInputErrorMessageUnknownError(t *testing.T) {
 	mockSecretsManager := mocks.NewMockSecretsManagerAPI(ctrl)
 	mockSecretsManager.EXPECT().
 		GetSecretValue(gomock.Any()).
-		Return(nil, awserr.New(secretsmanager.ErrCodeInternalServiceError, "uhoh", nil))
+		Return(nil, &types.InternalServiceError{
+			Message: aws.String("uhoh"),
+		})
 
 	secretValueInput := createSecretValueInput(toPtr(valueFrom), toPtr(versionID), nil)
 	_, err := GetSecretFromASMWithInput(secretValueInput, mockSecretsManager, jsonKey)
 
 	assert.Error(t, err)
-	aerr, ok := errors.Cause(err).(awserr.Error)
-	require.True(t, ok, "error is not of type awserr.Error")
-	assert.Equal(t, secretsmanager.ErrCodeInternalServiceError, aerr.Code())
+	var ae smithy.APIError
+	ok := errors.As(err, &ae)
+	require.True(t, ok, "error is not of type smithy.APIError")
+
+	assert.Equal(t, (&types.InternalServiceError{}).ErrorCode(), ae.ErrorCode())
 	assert.Contains(t, err.Error(), fmt.Sprintf("secret %s: InternalServiceError: uhoh", valueFrom))
 }
