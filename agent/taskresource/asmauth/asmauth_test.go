@@ -17,6 +17,7 @@
 package asmauth
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"testing"
@@ -31,8 +32,9 @@ import (
 	apitaskstatus "github.com/aws/amazon-ecs-agent/ecs-agent/api/task/status"
 	"github.com/aws/amazon-ecs-agent/ecs-agent/credentials"
 	mock_credentials "github.com/aws/amazon-ecs-agent/ecs-agent/credentials/mocks"
-	"github.com/aws/aws-sdk-go/aws"
-	"github.com/aws/aws-sdk-go/service/secretsmanager"
+
+	"github.com/aws/aws-sdk-go-v2/aws"
+	"github.com/aws/aws-sdk-go-v2/service/secretsmanager"
 	"github.com/golang/mock/gomock"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -84,8 +86,12 @@ func TestCreateAndGet(t *testing.T) {
 	gomock.InOrder(
 		credentialsManager.EXPECT().GetTaskCredentials(executionCredentialsID).Return(creds, true),
 		asmClientCreator.EXPECT().NewASMClient(region, iamRoleCreds).Return(mockASMClient),
-		mockASMClient.EXPECT().GetSecretValue(gomock.Any()).Do(func(in *secretsmanager.GetSecretValueInput) {
-			assert.Equal(t, aws.StringValue(in.SecretId), secretID)
+		mockASMClient.EXPECT().GetSecretValue(
+			gomock.Any(),
+			gomock.Any(),
+			gomock.Any(),
+		).Do(func(ctx context.Context, in *secretsmanager.GetSecretValueInput, opts ...func(*secretsmanager.Options)) {
+			assert.Equal(t, aws.ToString(in.SecretId), secretID)
 		}).Return(asmSecretValue, nil),
 	)
 	asmRes := &ASMAuthResource{

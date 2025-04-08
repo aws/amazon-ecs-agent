@@ -111,7 +111,7 @@ func TestASMGetAuthConfig(t *testing.T) {
 		t.Run(c.Name, func(t *testing.T) {
 			mockSecretsManager := mocks.NewMockSecretsManagerAPI(ctrl)
 			mockSecretsManager.EXPECT().
-				GetSecretValue(gomock.Any()).
+				GetSecretValue(gomock.Any(), gomock.Any(), gomock.Any()).
 				Return(c.Resp, nil)
 
 			_, err := GetDockerAuthFromASM("secret-value-id", mockSecretsManager)
@@ -131,7 +131,7 @@ func TestGetSecretFromASM(t *testing.T) {
 
 	mockSecretsManager := mocks.NewMockSecretsManagerAPI(ctrl)
 	mockSecretsManager.EXPECT().
-		GetSecretValue(gomock.Any()).
+		GetSecretValue(gomock.Any(), gomock.Any(), gomock.Any()).
 		Return(&secretsmanager.GetSecretValueOutput{
 			SecretString: aws.String(secretValue),
 		}, nil)
@@ -146,7 +146,7 @@ func TestGetSecretFromASMWithJsonKey(t *testing.T) {
 
 	mockSecretsManager := mocks.NewMockSecretsManagerAPI(ctrl)
 	mockSecretsManager.EXPECT().
-		GetSecretValue(gomock.Any()).
+		GetSecretValue(gomock.Any(), gomock.Any(), gomock.Any()).
 		Return(&secretsmanager.GetSecretValueOutput{
 			SecretString: aws.String(jsonSecretValue),
 		}, nil)
@@ -162,7 +162,7 @@ func TestGetSecretFromASMWithMalformedJSON(t *testing.T) {
 
 	mockSecretsManager := mocks.NewMockSecretsManagerAPI(ctrl)
 	mockSecretsManager.EXPECT().
-		GetSecretValue(gomock.Any()).
+		GetSecretValue(gomock.Any(), gomock.Any(), gomock.Any()).
 		Return(&secretsmanager.GetSecretValueOutput{
 			SecretString: aws.String(malformedJsonSecretValue),
 		}, nil)
@@ -179,7 +179,7 @@ func TestGetSecretFromASMWithJSONKeyNotFound(t *testing.T) {
 
 	mockSecretsManager := mocks.NewMockSecretsManagerAPI(ctrl)
 	mockSecretsManager.EXPECT().
-		GetSecretValue(gomock.Any()).
+		GetSecretValue(gomock.Any(), gomock.Any(), gomock.Any()).
 		Return(&secretsmanager.GetSecretValueOutput{
 			SecretString: aws.String(jsonSecretValue),
 		}, nil)
@@ -196,7 +196,7 @@ func TestGetSecretFromASMWithVersionID(t *testing.T) {
 
 	mockSecretsManager := mocks.NewMockSecretsManagerAPI(ctrl)
 	mockSecretsManager.EXPECT().
-		GetSecretValue(gomock.Any()).
+		GetSecretValue(gomock.Any(), gomock.Any(), gomock.Any()).
 		Return(&secretsmanager.GetSecretValueOutput{
 			SecretString: aws.String(secretValue),
 		}, nil)
@@ -213,7 +213,7 @@ func TestGetSecretFromASMWithVersionIDAndStage(t *testing.T) {
 
 	mockSecretsManager := mocks.NewMockSecretsManagerAPI(ctrl)
 	mockSecretsManager.EXPECT().
-		GetSecretValue(gomock.Any()).
+		GetSecretValue(gomock.Any(), gomock.Any(), gomock.Any()).
 		Return(&secretsmanager.GetSecretValueOutput{
 			SecretString: aws.String(secretValue),
 		}, nil)
@@ -245,7 +245,7 @@ func TestGetSecretFromASMWithInputErrorMessageKnownError(t *testing.T) {
 
 	mockSecretsManager := mocks.NewMockSecretsManagerAPI(ctrl)
 	mockSecretsManager.EXPECT().
-		GetSecretValue(gomock.Any()).
+		GetSecretValue(gomock.Any(), gomock.Any(), gomock.Any()).
 		Return(nil, &types.ResourceNotFoundException{
 			Message: aws.String("Secrets Manager can't find the specified secret"),
 		})
@@ -267,7 +267,7 @@ func TestGetSecretFromASMWithInputErrorMessageUnknownError(t *testing.T) {
 
 	mockSecretsManager := mocks.NewMockSecretsManagerAPI(ctrl)
 	mockSecretsManager.EXPECT().
-		GetSecretValue(gomock.Any()).
+		GetSecretValue(gomock.Any(), gomock.Any(), gomock.Any()).
 		Return(nil, &types.InternalServiceError{
 			Message: aws.String("uhoh"),
 		})
