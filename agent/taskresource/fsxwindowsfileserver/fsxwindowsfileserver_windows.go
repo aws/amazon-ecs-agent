@@ -512,7 +512,10 @@ func (fv *FSxWindowsFileServerResource) retrieveASMCredentials(credentialsParame
 		return err
 	}
 
-	asmClient := fv.asmClientCreator.NewASMClient(fv.region, iamCredentials)
+	asmClient, err := fv.asmClientCreator.NewASMClient(fv.region, iamCredentials)
+	if err != nil {
+		return err
+	}
 	asmData, err := asm.GetSecretFromASM(credentialsParameterARN, asmClient)
 	if err != nil {
 		return err

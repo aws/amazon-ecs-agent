@@ -85,7 +85,7 @@ func TestCreateAndGet(t *testing.T) {
 	}
 	gomock.InOrder(
 		credentialsManager.EXPECT().GetTaskCredentials(executionCredentialsID).Return(creds, true),
-		asmClientCreator.EXPECT().NewASMClient(region, iamRoleCreds).Return(mockASMClient),
+		asmClientCreator.EXPECT().NewASMClient(region, iamRoleCreds).Return(mockASMClient, nil),
 		mockASMClient.EXPECT().GetSecretValue(
 			gomock.Any(),
 			gomock.Any(),

@@ -276,7 +276,10 @@ func (auth *ASMAuthResource) retrieveASMDockerAuthData(asmAuthData *apicontainer
 		return errors.New("asm resource: unable to find execution role credentials")
 	}
 	iamCredentials := executionCredentials.GetIAMRoleCredentials()
-	asmClient := auth.asmClientCreator.NewASMClient(asmAuthData.Region, iamCredentials)
+	asmClient, err := auth.asmClientCreator.NewASMClient(asmAuthData.Region, iamCredentials)
+	if err != nil {
+		return errors.Errorf("unable to create ASM client: %v", err)
+	}
 	seelog.Debugf("ASM Auth: Retrieving resource with ID [%s] in task: [%s]", secretID, auth.taskARN)
 	dac, err := asm.GetDockerAuthFromASM(secretID, asmClient)
 	if err != nil {

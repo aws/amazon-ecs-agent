@@ -33,7 +33,7 @@ const (
 )
 
 type ClientCreator interface {
-	NewASMClient(region string, creds credentials.IAMRoleCredentials) asm.SecretsManagerAPI
+	NewASMClient(region string, creds credentials.IAMRoleCredentials) (asm.SecretsManagerAPI, error)
 }
 
 func NewClientCreator() ClientCreator {
@@ -43,8 +43,9 @@ func NewClientCreator() ClientCreator {
 type asmClientCreator struct{}
 
 func (*asmClientCreator) NewASMClient(region string,
-	creds credentials.IAMRoleCredentials) asm.SecretsManagerAPI {
-	opts := []func(*awsconfig.LoadOptions) error{
+	creds credentials.IAMRoleCredentials) (asm.SecretsManagerAPI, error) {
+	cfg, err := awsconfig.LoadDefaultConfig(
+		context.TODO(),
 		awsconfig.WithRegion(region),
 		awsconfig.WithHTTPClient(httpclient.New(roundtripTimeout, false, agentversion.String(), config.OSType)),
 		awsconfig.WithCredentialsProvider(
@@ -54,7 +55,10 @@ func (*asmClientCreator) NewASMClient(region string,
 				creds.SessionToken,
 			),
 		),
+	)
+
+	if err != nil {
+		return nil, err
 	}
-	cfg, _ := awsconfig.LoadDefaultConfig(context.TODO(), opts...)
-	return secretsmanager.NewFromConfig(cfg)
+	return secretsmanager.NewFromConfig(cfg), nil
 }

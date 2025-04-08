@@ -50,11 +50,12 @@ func (m *MockClientCreator) EXPECT() *MockClientCreatorMockRecorder {
 }
 
 // NewASMClient mocks base method.
-func (m *MockClientCreator) NewASMClient(arg0 string, arg1 credentials.IAMRoleCredentials) asm.SecretsManagerAPI {
+func (m *MockClientCreator) NewASMClient(arg0 string, arg1 credentials.IAMRoleCredentials) (asm.SecretsManagerAPI, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "NewASMClient", arg0, arg1)
 	ret0, _ := ret[0].(asm.SecretsManagerAPI)
-	return ret0
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
 }
 
 // NewASMClient indicates an expected call of NewASMClient.

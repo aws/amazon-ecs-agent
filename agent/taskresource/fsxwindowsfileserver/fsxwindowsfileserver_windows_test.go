@@ -249,7 +249,7 @@ func TestRetrieveASMCredentials(t *testing.T) {
 	}
 
 	gomock.InOrder(
-		asmClientCreator.EXPECT().NewASMClient(gomock.Any(), gomock.Any()).Return(mockASMClient),
+		asmClientCreator.EXPECT().NewASMClient(gomock.Any(), gomock.Any()).Return(mockASMClient, nil),
 		mockASMClient.EXPECT().GetSecretValue(
 			gomock.Any(),
 			gomock.Any(),
@@ -725,7 +725,7 @@ func TestCreateASM(t *testing.T) {
 
 	gomock.InOrder(
 		credentialsManager.EXPECT().GetTaskCredentials(gomock.Any()).Return(creds, true),
-		asmClientCreator.EXPECT().NewASMClient(gomock.Any(), gomock.Any()).Return(mockASMClient),
+		asmClientCreator.EXPECT().NewASMClient(gomock.Any(), gomock.Any()).Return(mockASMClient, nil),
 		mockASMClient.EXPECT().GetSecretValue(
 			gomock.Any(),
 			gomock.Any(),

@@ -86,8 +86,8 @@ func TestCreateWithMultipleASMCall(t *testing.T) {
 	}
 
 	credentialsManager.EXPECT().GetTaskCredentials(executionCredentialsID).Return(creds, true)
-	asmClientCreator.EXPECT().NewASMClient(region1, iamRoleCreds).Return(mockASMClient)
-	asmClientCreator.EXPECT().NewASMClient(region2, iamRoleCreds).Return(mockASMClient)
+	asmClientCreator.EXPECT().NewASMClient(region1, iamRoleCreds).Return(mockASMClient, nil)
+	asmClientCreator.EXPECT().NewASMClient(region2, iamRoleCreds).Return(mockASMClient, nil)
 	mockASMClient.EXPECT().GetSecretValue(
 		gomock.Any(),
 		gomock.Any(),
@@ -135,8 +135,8 @@ func TestCreateReturnMultipleErrors(t *testing.T) {
 	asmSecretValue := &secretsmanager.GetSecretValueOutput{}
 
 	credentialsManager.EXPECT().GetTaskCredentials(executionCredentialsID).Return(creds, true)
-	asmClientCreator.EXPECT().NewASMClient(region1, iamRoleCreds).Return(mockASMClient)
-	asmClientCreator.EXPECT().NewASMClient(region2, iamRoleCreds).Return(mockASMClient)
+	asmClientCreator.EXPECT().NewASMClient(region1, iamRoleCreds).Return(mockASMClient, nil)
+	asmClientCreator.EXPECT().NewASMClient(region2, iamRoleCreds).Return(mockASMClient, nil)
 	mockASMClient.EXPECT().GetSecretValue(
 		gomock.Any(),
 		gomock.Any(),
@@ -178,7 +178,7 @@ func TestCreateReturnError(t *testing.T) {
 
 	gomock.InOrder(
 		credentialsManager.EXPECT().GetTaskCredentials(executionCredentialsID).Return(creds, true),
-		asmClientCreator.EXPECT().NewASMClient(region1, iamRoleCreds).Return(mockASMClient),
+		asmClientCreator.EXPECT().NewASMClient(region1, iamRoleCreds).Return(mockASMClient, nil),
 		mockASMClient.EXPECT().GetSecretValue(
 			gomock.Any(),
 			gomock.Any(),
@@ -280,7 +280,7 @@ func TestCreateWithASMParametersWrongFormat(t *testing.T) {
 	}
 
 	credentialsManager.EXPECT().GetTaskCredentials(executionCredentialsID).Return(creds, true)
-	asmClientCreator.EXPECT().NewASMClient(region1, iamRoleCreds).Return(mockASMClient)
+	asmClientCreator.EXPECT().NewASMClient(region1, iamRoleCreds).Return(mockASMClient, nil)
 
 	asmRes := &ASMSecretResource{
 		executionCredentialsID: executionCredentialsID,
@@ -317,7 +317,7 @@ func TestCreateWithASMParametersJSONKeySpecified(t *testing.T) {
 	}
 
 	credentialsManager.EXPECT().GetTaskCredentials(executionCredentialsID).Return(creds, true)
-	asmClientCreator.EXPECT().NewASMClient(region1, iamRoleCreds).Return(mockASMClient)
+	asmClientCreator.EXPECT().NewASMClient(region1, iamRoleCreds).Return(mockASMClient, nil)
 	mockASMClient.EXPECT().GetSecretValue(
 		gomock.Any(),
 		gomock.Any(),
