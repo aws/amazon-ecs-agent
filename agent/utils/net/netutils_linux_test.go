@@ -394,7 +394,7 @@ func TestIsDefaultRoute(t *testing.T) {
 			expected: false,
 		},
 		{
-			name: "ALL family accepts both IPv4",
+			name: "ALL family accepts IPv4",
 			route: netlink.Route{
 				Gw:  ipv4Gateway,
 				Dst: ipv4DefaultDst,
@@ -403,7 +403,7 @@ func TestIsDefaultRoute(t *testing.T) {
 			expected: true,
 		},
 		{
-			name: "ALL family accepts both IPv6",
+			name: "ALL family accepts IPv6",
 			route: netlink.Route{
 				Gw:  ipv6Gateway,
 				Dst: ipv6DefaultDst,
