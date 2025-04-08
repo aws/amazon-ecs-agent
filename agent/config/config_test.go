@@ -1096,13 +1096,39 @@ func TestSetIPCompatibilityToV4Only(t *testing.T) {
 	instanceIsIPv6Compatible = false
 
 	// Reset after
-	defer func() {
-		instanceIsIPv4Compatible = false
-		instanceIsIPv6Compatible = false
-	}()
+	defer resetIPCompatibilityVariables()()
 
 	// Test
 	SetIPCompatibilityToV4Only()
 	assert.Equal(t, true, instanceIsIPv4Compatible)
 	assert.Equal(t, false, instanceIsIPv6Compatible)
+}
+
+func TestInstanceIsIPv4Compatible(t *testing.T) {
+	defer resetIPCompatibilityVariables()()
+	assert.False(t, InstanceIsIPv4Compatible())
+	instanceIsIPv4Compatible = true
+	assert.True(t, InstanceIsIPv4Compatible())
+}
+
+func TestInstanceIsIPv6Compatible(t *testing.T) {
+	defer resetIPCompatibilityVariables()()
+	assert.False(t, InstanceIsIPv6Compatible())
+	instanceIsIPv6Compatible = true
+	assert.True(t, InstanceIsIPv6Compatible())
+}
+
+// Resets IP compatibility variables to false and also returns
+// a function that does the same.
+//
+// Usage: `defer resetIPCompatibilityVariables()()`
+func resetIPCompatibilityVariables() func() {
+	// Reset before
+	instanceIsIPv4Compatible = false
+	instanceIsIPv6Compatible = false
+
+	return func() {
+		instanceIsIPv4Compatible = false
+		instanceIsIPv6Compatible = false
+	}
 }
