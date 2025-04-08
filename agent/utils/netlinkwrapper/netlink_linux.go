@@ -22,6 +22,7 @@ import "github.com/vishvananda/netlink"
 type NetLink interface {
 	LinkByName(name string) (netlink.Link, error)
 	LinkList() ([]netlink.Link, error)
+	RouteList(link netlink.Link, family int) ([]netlink.Route, error)
 }
 
 // NetLinkClient helps invoke the actual netlink methods
@@ -40,4 +41,8 @@ func (NetLinkClient) LinkByName(name string) (netlink.Link, error) {
 // LinkList gets a list of link devices. Equivalent to: `ip link show`
 func (NetLinkClient) LinkList() ([]netlink.Link, error) {
 	return netlink.LinkList()
+}
+
+func (NetLinkClient) RouteList(link netlink.Link, family int) ([]netlink.Route, error) {
+	return netlink.RouteList(link, family)
 }

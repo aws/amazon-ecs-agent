@@ -25,6 +25,7 @@ import (
 
 	"github.com/aws/amazon-ecs-agent/agent/dockerclient"
 	"github.com/aws/amazon-ecs-agent/agent/utils"
+	"github.com/aws/amazon-ecs-agent/ecs-agent/logger"
 	"github.com/aws/amazon-ecs-agent/ecs-agent/tmds"
 
 	"github.com/cihub/seelog"
@@ -256,4 +257,10 @@ func getConfigFileName() (string, error) {
 		}
 	}
 	return fileName, nil
+}
+
+func DetermineIPCompatibility(mac string) error {
+	logger.Info("IPv6-only environments are not supported on Windows. Setting IP compatibility to default.")
+	SetDefaultIPCompatibility()
+	return nil
 }
