@@ -21,8 +21,8 @@ package mock_factory
 import (
 	reflect "reflect"
 
+	asm "github.com/aws/amazon-ecs-agent/agent/asm"
 	credentials "github.com/aws/amazon-ecs-agent/ecs-agent/credentials"
-	secretsmanageriface "github.com/aws/aws-sdk-go/service/secretsmanager/secretsmanageriface"
 	gomock "github.com/golang/mock/gomock"
 )
 
@@ -50,11 +50,12 @@ func (m *MockClientCreator) EXPECT() *MockClientCreatorMockRecorder {
 }
 
 // NewASMClient mocks base method.
-func (m *MockClientCreator) NewASMClient(arg0 string, arg1 credentials.IAMRoleCredentials) secretsmanageriface.SecretsManagerAPI {
+func (m *MockClientCreator) NewASMClient(arg0 string, arg1 credentials.IAMRoleCredentials) (asm.SecretsManagerAPI, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "NewASMClient", arg0, arg1)
-	ret0, _ := ret[0].(secretsmanageriface.SecretsManagerAPI)
-	return ret0
+	ret0, _ := ret[0].(asm.SecretsManagerAPI)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
 }
 
 // NewASMClient indicates an expected call of NewASMClient.

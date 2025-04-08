@@ -59,7 +59,7 @@ import (
 
 	"github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/aws/aws-sdk-go-v2/service/ecs/types"
-	"github.com/aws/aws-sdk-go/service/secretsmanager"
+	"github.com/aws/aws-sdk-go-v2/service/secretsmanager"
 	dockercontainer "github.com/docker/docker/api/types/container"
 	"github.com/docker/docker/api/types/volume"
 	"github.com/docker/go-connections/nat"
@@ -2716,8 +2716,8 @@ func TestPopulateASMAuthData(t *testing.T) {
 				ARN:                "",
 				IAMRoleCredentials: executionRoleCredentials,
 			}, true),
-		asmClientCreator.EXPECT().NewASMClient(region, executionRoleCredentials).Return(mockASMClient),
-		mockASMClient.EXPECT().GetSecretValue(gomock.Any()).Return(asmSecretValue, nil),
+		asmClientCreator.EXPECT().NewASMClient(region, executionRoleCredentials).Return(mockASMClient, nil),
+		mockASMClient.EXPECT().GetSecretValue(gomock.Any(), gomock.Any(), gomock.Any()).Return(asmSecretValue, nil),
 	)
 
 	// create resource

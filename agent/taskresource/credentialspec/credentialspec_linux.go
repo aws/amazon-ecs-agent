@@ -265,7 +265,10 @@ func (cs *CredentialSpecResource) handleDomainlessKerberosTicketCreation() error
 				iamCredentials = executionCredentials.GetIAMRoleCredentials()
 			}
 
-			asmClient := cs.secretsmanagerClientCreator.NewASMClient(cs.region, iamCredentials)
+			asmClient, err := cs.secretsmanagerClientCreator.NewASMClient(cs.region, iamCredentials)
+			if err != nil {
+				return fmt.Errorf("unable to create ASM client: %v", err)
+			}
 
 			asmSecretData, err := asm.GetSecretFromASM(v.domainlessGmsaUserArn, asmClient)
 			if err != nil {
@@ -318,7 +321,10 @@ func (cs *CredentialSpecResource) HandleDomainlessKerberosTicketRenewal(iamCrede
 				visitedDomainlessUser[v.domainlessGmsaUserArn] = true
 
 				// get domain-user credentials from secrets manager
-				asmClient := cs.secretsmanagerClientCreator.NewASMClient(cs.region, iamCredentials)
+				asmClient, err := cs.secretsmanagerClientCreator.NewASMClient(cs.region, iamCredentials)
+				if err != nil {
+					return fmt.Errorf("unable to create ASM client: %v", err)
+				}
 
 				asmSecretData, err := asm.GetSecretFromASM(v.domainlessGmsaUserArn, asmClient)
 				if err != nil {

@@ -31,9 +31,10 @@ import (
 	apicontainerstatus "github.com/aws/amazon-ecs-agent/ecs-agent/api/container/status"
 	"github.com/aws/amazon-ecs-agent/ecs-agent/api/task/status"
 	"github.com/aws/amazon-ecs-agent/ecs-agent/credentials"
-	"github.com/aws/aws-sdk-go/aws"
-	"github.com/aws/aws-sdk-go/aws/arn"
-	"github.com/aws/aws-sdk-go/service/secretsmanager"
+
+	"github.com/aws/aws-sdk-go-v2/aws"
+	"github.com/aws/aws-sdk-go-v2/aws/arn"
+	"github.com/aws/aws-sdk-go-v2/service/secretsmanager"
 )
 
 const (
@@ -299,7 +300,11 @@ func (secret *ASMSecretResource) Create() error {
 func (secret *ASMSecretResource) retrieveASMSecretValue(apiSecret apicontainer.Secret, iamCredentials credentials.IAMRoleCredentials, wg *sync.WaitGroup, errorEvents chan error) {
 	defer wg.Done()
 
-	asmClient := secret.asmClientCreator.NewASMClient(apiSecret.Region, iamCredentials)
+	asmClient, err := secret.asmClientCreator.NewASMClient(apiSecret.Region, iamCredentials)
+	if err != nil {
+		errorEvents <- fmt.Errorf("unable to create ASM client: %v", err)
+		return
+	}
 	seelog.Debugf("ASM secret resource: retrieving resource for secret %v in region %s for task: [%s]", apiSecret.ValueFrom, apiSecret.Region, secret.taskARN)
 	input, jsonKey, err := getASMParametersFromInput(apiSecret.ValueFrom)
 	if err != nil {
