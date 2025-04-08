@@ -24,6 +24,7 @@ import (
 	mock_netlinkwrapper "github.com/aws/amazon-ecs-agent/agent/utils/netlinkwrapper/mocks"
 	"github.com/golang/mock/gomock"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 	"github.com/vishvananda/netlink"
 )
 
@@ -114,96 +115,6 @@ func TestFindLinkByMac(t *testing.T) {
 				assert.NoError(t, err)
 				assert.Equal(t, tt.expectedLink, actualLink)
 			}
-		})
-	}
-}
-
-// Tests for isDefaultRoute and isNotDefaultRoute functions
-func TestDefaultRoute(t *testing.T) {
-	// Setup some IP addresses for testing
-	ipv4Gateway := net.ParseIP("192.168.1.1")
-	ipv6Gateway := net.ParseIP("2001:db8::1")
-
-	// Setup some CIDR blocks
-	_, ipv4Network, _ := net.ParseCIDR("0.0.0.0/0")
-	_, ipv6Network, _ := net.ParseCIDR("::/0")
-	_, nonDefaultNetwork, _ := net.ParseCIDR("192.168.1.0/24")
-
-	tests := []struct {
-		name     string
-		route    netlink.Route
-		expected bool
-	}{
-		{
-			name: "IPv4 default route with 0.0.0.0/0",
-			route: netlink.Route{
-				Gw:  ipv4Gateway,
-				Dst: ipv4Network,
-			},
-			expected: true,
-		},
-		{
-			name: "IPv6 default route with ::/0",
-			route: netlink.Route{
-				Gw:  ipv6Gateway,
-				Dst: ipv6Network,
-			},
-			expected: true,
-		},
-		{
-			name: "Default route with nil destination",
-			route: netlink.Route{
-				Gw:  ipv4Gateway,
-				Dst: nil,
-			},
-			expected: true,
-		},
-		{
-			name: "Non-default route - has gateway but specific network",
-			route: netlink.Route{
-				Gw:  ipv4Gateway,
-				Dst: nonDefaultNetwork,
-			},
-			expected: false,
-		},
-		{
-			name: "Non-default route - no gateway",
-			route: netlink.Route{
-				Gw:  nil,
-				Dst: ipv4Network,
-			},
-			expected: false,
-		},
-		{
-			name: "Non-default route - no gateway and no destination",
-			route: netlink.Route{
-				Gw:  nil,
-				Dst: nil,
-			},
-			expected: false,
-		},
-		{
-			name: "Non-default route - no gateway but specific network",
-			route: netlink.Route{
-				Gw:  nil,
-				Dst: nonDefaultNetwork,
-			},
-			expected: false,
-		},
-		{
-			name: "IPv4 mapped to IPv6",
-			route: netlink.Route{
-				Gw:  ipv6Gateway,
-				Dst: &net.IPNet{IP: net.ParseIP("::ffff:0.0.0.0"), Mask: net.CIDRMask(0, 32)},
-			},
-			expected: true,
-		},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			result := isDefaultRoute(tt.route)
-			assert.Equal(t, tt.expected, result)
 		})
 	}
 }
@@ -300,6 +211,212 @@ func TestHasDefaultRoute(t *testing.T) {
 				assert.NoError(t, err)
 			}
 			assert.Equal(t, tt.expected, actual)
+		})
+	}
+}
+
+func TestIsFullRangeIPv4(t *testing.T) {
+	tests := []struct {
+		name     string
+		ipnet    *net.IPNet
+		expected bool
+	}{
+		{
+			name: "Full IPv4 range",
+			ipnet: func() *net.IPNet {
+				_, ipnet, err := net.ParseCIDR("0.0.0.0/0")
+				require.NoError(t, err)
+				return ipnet
+			}(),
+			expected: true,
+		},
+		{
+			name: "Non-zero IP address",
+			// Need to construct IPNet directly as ParseCIDR applies the mask
+			ipnet: &net.IPNet{
+				IP:   net.ParseIP("10.0.0.0").To4(),
+				Mask: make([]byte, net.IPv4len),
+			},
+			expected: false,
+		},
+		{
+			name: "Non-zero mask",
+			ipnet: func() *net.IPNet {
+				_, ipnet, err := net.ParseCIDR("10.0.0.0/8")
+				require.NoError(t, err)
+				return ipnet
+			}(),
+			expected: false,
+		},
+		{
+			name: "IPv6 address",
+			ipnet: func() *net.IPNet {
+				_, ipnet, err := net.ParseCIDR("::/0")
+				require.NoError(t, err)
+				return ipnet
+			}(),
+			expected: false,
+		},
+		{
+			name:     "IPv4 mapped to IPv6",
+			ipnet:    &net.IPNet{IP: net.ParseIP("::ffff:0.0.0.0"), Mask: net.CIDRMask(0, 32)},
+			expected: true,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			result := isFullRangeIPv4(tt.ipnet)
+			assert.Equal(t, tt.expected, result, "isFullRangeIPv4(%+v)", tt.ipnet)
+		})
+	}
+}
+
+func TestIsFullRangeIPv6(t *testing.T) {
+	tests := []struct {
+		name     string
+		ipnet    *net.IPNet
+		expected bool
+	}{
+		{
+			name: "Full IPv6 range",
+			ipnet: func() *net.IPNet {
+				_, ipnet, err := net.ParseCIDR("::/0")
+				require.NoError(t, err)
+				return ipnet
+			}(),
+			expected: true,
+		},
+		{
+			name: "Non-zero IP address",
+			ipnet: &net.IPNet{
+				IP:   net.ParseIP("2001:db8:1::1"),
+				Mask: make([]byte, net.IPv6len),
+			},
+			expected: false,
+		},
+		{
+			name: "Non-zero mask",
+			ipnet: func() *net.IPNet {
+				_, ipnet, err := net.ParseCIDR("::/8")
+				require.NoError(t, err)
+				return ipnet
+			}(),
+			expected: false,
+		},
+		{
+			name: "IPv4 address",
+			ipnet: func() *net.IPNet {
+				_, ipnet, err := net.ParseCIDR("1.2.3.4/0")
+				require.NoError(t, err)
+				return ipnet
+			}(),
+			expected: false,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			result := isFullRangeIPv6(tt.ipnet)
+			assert.Equal(t, tt.expected, result, "isFullRangeIPv6(%+v)", tt.ipnet)
+		})
+	}
+}
+
+func TestIsDefaultRoute(t *testing.T) {
+	ipv4Gateway := net.ParseIP("192.0.2.1")
+	ipv6Gateway := net.ParseIP("2001:db8::1")
+
+	_, ipv4DefaultDst, err := net.ParseCIDR("0.0.0.0/0")
+	require.NoError(t, err)
+
+	_, ipv6DefaultDst, err := net.ParseCIDR("::/0")
+	require.NoError(t, err)
+
+	tests := []struct {
+		name     string
+		route    netlink.Route
+		ipFamily int
+		expected bool
+	}{
+		{
+			name: "IPv4 default route with nil destination",
+			route: netlink.Route{
+				Gw:  ipv4Gateway,
+				Dst: nil,
+			},
+			ipFamily: netlink.FAMILY_V4,
+			expected: true,
+		},
+		{
+			name: "IPv4 default route with 0.0.0.0/0",
+			route: netlink.Route{
+				Gw:  ipv4Gateway,
+				Dst: ipv4DefaultDst,
+			},
+			ipFamily: netlink.FAMILY_V4,
+			expected: true,
+		},
+		{
+			name: "IPv6 default route with ::/0",
+			route: netlink.Route{
+				Gw:  ipv6Gateway,
+				Dst: ipv6DefaultDst,
+			},
+			ipFamily: netlink.FAMILY_V6,
+			expected: true,
+		},
+		{
+			name: "IPv6 route with IPv4 family specified",
+			route: netlink.Route{
+				Gw:  ipv6Gateway,
+				Dst: ipv6DefaultDst,
+			},
+			ipFamily: netlink.FAMILY_V4,
+			expected: false,
+		},
+		{
+			name: "IPv4 route with IPv6 family specified",
+			route: netlink.Route{
+				Gw:  ipv4Gateway,
+				Dst: ipv4DefaultDst,
+			},
+			ipFamily: netlink.FAMILY_V6,
+			expected: false,
+		},
+		{
+			name: "Route without gateway",
+			route: netlink.Route{
+				Gw:  nil,
+				Dst: ipv4DefaultDst,
+			},
+			ipFamily: netlink.FAMILY_V4,
+			expected: false,
+		},
+		{
+			name: "ALL family accepts both IPv4",
+			route: netlink.Route{
+				Gw:  ipv4Gateway,
+				Dst: ipv4DefaultDst,
+			},
+			ipFamily: netlink.FAMILY_ALL,
+			expected: true,
+		},
+		{
+			name: "ALL family accepts both IPv6",
+			route: netlink.Route{
+				Gw:  ipv6Gateway,
+				Dst: ipv6DefaultDst,
+			},
+			ipFamily: netlink.FAMILY_ALL,
+			expected: true,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			result := isDefaultRoute(tt.route, tt.ipFamily)
+			assert.Equal(t, tt.expected, result, "isDefaultRoute(%+v, %d)", tt.route, tt.ipFamily)
 		})
 	}
 }

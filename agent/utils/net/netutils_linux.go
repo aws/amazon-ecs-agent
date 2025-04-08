@@ -22,8 +22,6 @@ import (
 	"fmt"
 	"net"
 
-	"slices"
-
 	"github.com/aws/amazon-ecs-agent/agent/utils/netlinkwrapper"
 	"github.com/vishvananda/netlink"
 )
@@ -61,17 +59,21 @@ func HasDefaultRoute(
 	if err != nil {
 		return false, fmt.Errorf("failed to list routes: %w", err)
 	}
-	if slices.ContainsFunc(routes, isDefaultRoute) {
-		return true, nil
+
+	for _, route := range routes {
+		if isDefaultRoute(route, ipFamily) {
+			return true, nil
+		}
 	}
+
 	return false, nil
 }
 
-// Checks if the provided route is a default route.
+// Checks if the provided route is a default route for the specified IP Family.
 //
 // A default route is defined here as a route with a Gateway and all IP addresses covered
-// in its destination.
-func isDefaultRoute(route netlink.Route) bool {
+// in its destination (0.0.0.0/0 or ::/0).
+func isDefaultRoute(route netlink.Route, ipFamily int) bool {
 	// Must have a gateway
 	if route.Gw == nil {
 		return false
@@ -82,22 +84,35 @@ func isDefaultRoute(route netlink.Route) bool {
 		return true
 	}
 
-	mask := route.Dst.Mask
+	switch ipFamily {
+	case netlink.FAMILY_V4:
+		return isFullRangeIPv4(route.Dst)
+	case netlink.FAMILY_V6:
+		return isFullRangeIPv6(route.Dst)
+	default:
+		return isFullRangeIPv4(route.Dst) || isFullRangeIPv6(route.Dst)
+	}
+}
 
-	// If destination is IPv4
-	ipv4 := route.Dst.IP.To4()
+// Checks if the provided IPNet is 0.0.0.0/0
+func isFullRangeIPv4(ipnet *net.IPNet) bool {
+	mask := ipnet.Mask
+	ipv4 := ipnet.IP.To4()
 	if ipv4 != nil {
 		// IP and mask both should be zero to cover all destinations
 		return ipv4.Equal(net.IPv4zero) && len(mask) == net.IPv4len && allZeros(mask)
 	}
+	return false
+}
 
-	// If destination is IPv6
-	ipv6 := route.Dst.IP.To16()
+// Checks if the provided IPNet is ::/0
+func isFullRangeIPv6(ipnet *net.IPNet) bool {
+	mask := ipnet.Mask
+	ipv6 := ipnet.IP.To16()
 	if ipv6 != nil {
 		// IP and mask both should be zero to cover all destinations
 		return ipv6.Equal(net.IPv6zero) && len(mask) == net.IPv6len && allZeros(mask)
 	}
-
 	return false
 }
 
