@@ -261,6 +261,6 @@ func getConfigFileName() (string, error) {
 
 func DetermineIPCompatibility(mac string) error {
 	logger.Info("IPv6-only environments are not supported on Windows. Setting IP compatibility to default.")
-	SetDefaultIPCompatibility()
+	SetIPCompatibilityToV4Only()
 	return nil
 }
