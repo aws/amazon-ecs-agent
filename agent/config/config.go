@@ -680,17 +680,17 @@ func SetFIPSEnabled(enabled bool) {
 	isFIPSEnabled = enabled
 }
 
-// Is the container instance on an IPv4 compatible network.
+// Is the container instance on an IPv4 compatible network?
 func InstanceIsIPv4Compatible() bool {
 	return instanceIsIPv4Compatible
 }
 
-// Is the container instance on an IPv6 compatible network.
+// Is the container instance on an IPv6 compatible network?
 func InstanceIsIPv6Compatible() bool {
 	return instanceIsIPv6Compatible
 }
 
-// Is the container instance on an IPv4-only network.
+// Is the container instance on an IPv6-only network?
 func InstanceIsIPv6Only() bool {
 	return InstanceIsIPv6Compatible() && !InstanceIsIPv4Compatible()
 }
@@ -702,7 +702,7 @@ func InstanceIsIPv6Only() bool {
 // This function is a fallback to revert Agent to its IPv4-only state
 // to help with graceful adoption of Agent in IPv6-only environments
 // without disrupting existing environments.
-func SetDefaultIPCompatibility() {
+func SetIPCompatibilityToV4Only() {
 	instanceIsIPv4Compatible = true
 	instanceIsIPv6Compatible = false
 	logger.Info("Set IP version compatibility to its default state",

@@ -1280,6 +1280,6 @@ func initializeIPCompatibility(mac string) {
 	if err := config.DetermineIPCompatibility(mac); err != nil {
 		logger.Warn("Could not determine IPv4 and IPv6 compatibility, falling back to defaults",
 			logger.Fields{field.Error: err})
-		config.SetDefaultIPCompatibility()
+		config.SetIPCompatibilityToV4Only()
 	}
 }

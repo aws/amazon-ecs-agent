@@ -1068,9 +1068,9 @@ func TestInstanceIsIPv6Only(t *testing.T) {
 			expectedResult: false,
 		},
 		{
-			name: "Default settings",
+			name: "Set to IPv4 only using SetIPCompatibilityToV4Only function",
 			setupIPCompatibility: func() {
-				SetDefaultIPCompatibility()
+				SetIPCompatibilityToV4Only()
 			},
 			expectedResult: false,
 		},
@@ -1090,7 +1090,7 @@ func TestInstanceIsIPv6Only(t *testing.T) {
 	}
 }
 
-func TestSetDefaultIPCompatibility(t *testing.T) {
+func TestSetIPCompatibilityToV4Only(t *testing.T) {
 	// Reset before
 	instanceIsIPv4Compatible = false
 	instanceIsIPv6Compatible = false
@@ -1102,7 +1102,7 @@ func TestSetDefaultIPCompatibility(t *testing.T) {
 	}()
 
 	// Test
-	SetDefaultIPCompatibility()
+	SetIPCompatibilityToV4Only()
 	assert.Equal(t, true, instanceIsIPv4Compatible)
 	assert.Equal(t, false, instanceIsIPv6Compatible)
 }
