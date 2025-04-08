@@ -444,5 +444,5 @@ func redactEcrUrls(overrideStr string, err error) error {
 	}
 	urlRegex := regexp.MustCompile(`\"?https[^\s]+starport-layer-bucket[^\s]+`)
 	redactedStr := urlRegex.ReplaceAllString(err.Error(), fmt.Sprintf("REDACTED ECR URL related to %s", overrideStr))
-	return fmt.Errorf(redactedStr)
+	return errors.New(redactedStr)
 }

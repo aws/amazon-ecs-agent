@@ -130,7 +130,7 @@ func (request NetworkLatencyRequest) ValidateRequest() error {
 	if request.JitterMilliseconds == nil {
 		return fmt.Errorf(missingRequiredFieldError, "JitterMilliseconds")
 	}
-	if request.Sources == nil || len(request.Sources) == 0 {
+	if len(request.Sources) == 0 {
 		return fmt.Errorf(missingRequiredFieldError, "Sources")
 	}
 	if err := validateNetworkFaultRequestSources(request.Sources, "Sources"); err != nil {
@@ -169,7 +169,7 @@ func (request NetworkPacketLossRequest) ValidateRequest() error {
 	if *request.LossPercent < 1 || *request.LossPercent > 100 {
 		return fmt.Errorf(invalidValueError, strconv.Itoa(int(*request.LossPercent)), "LossPercent")
 	}
-	if request.Sources == nil || len(request.Sources) == 0 {
+	if len(request.Sources) == 0 {
 		return fmt.Errorf(missingRequiredFieldError, "Sources")
 	}
 	if err := validateNetworkFaultRequestSources(request.Sources, "Sources"); err != nil {

@@ -25,6 +25,7 @@ import (
 	"github.com/aws/amazon-ecs-agent/ecs-agent/tcs/model/ecstcs"
 	"github.com/cihub/seelog"
 	"github.com/docker/docker/api/types"
+	"github.com/pkg/errors"
 )
 
 const (
@@ -198,7 +199,7 @@ func (queue *Queue) GetStorageStatsSet() (*ecstcs.StorageStatsSet, error) {
 	}
 	var errOut error
 	if len(errStr) > 0 {
-		errOut = fmt.Errorf(errStr)
+		errOut = errors.New(errStr)
 	}
 	return storageStatsSet, errOut
 }
@@ -317,7 +318,7 @@ func (queue *Queue) GetNetworkStatsSet() (*ecstcs.NetworkStatsSet, error) {
 	}
 	var errOut error
 	if len(errStr) > 0 {
-		errOut = fmt.Errorf(errStr)
+		errOut = errors.New(errStr)
 	}
 	return networkStatsSet, errOut
 }
