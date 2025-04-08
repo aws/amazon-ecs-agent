@@ -22,9 +22,10 @@ import (
 	"fmt"
 	"net"
 
+	"slices"
+
 	"github.com/aws/amazon-ecs-agent/agent/utils/netlinkwrapper"
 	"github.com/vishvananda/netlink"
-	"slices"
 )
 
 // Finds a link by provided mac address.
