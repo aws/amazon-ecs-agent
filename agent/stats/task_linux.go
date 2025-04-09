@@ -23,8 +23,8 @@ import (
 
 	"github.com/aws/amazon-ecs-agent/agent/api/task"
 	"github.com/aws/amazon-ecs-agent/agent/ecscni"
-	"github.com/aws/amazon-ecs-agent/agent/eni/netlinkwrapper"
 	"github.com/aws/amazon-ecs-agent/agent/stats/resolver"
+	"github.com/aws/amazon-ecs-agent/agent/utils/netlinkwrapper"
 	"github.com/aws/amazon-ecs-agent/agent/utils/nswrapper"
 
 	"github.com/containernetworking/plugins/pkg/ns"
