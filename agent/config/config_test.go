@@ -1028,3 +1028,107 @@ func setTestEnv(k, v string) func() {
 		os.Unsetenv(k)
 	}
 }
+
+func TestInstanceIsIPv6Only(t *testing.T) {
+	tests := []struct {
+		name                 string
+		setupIPCompatibility func()
+		expectedResult       bool
+	}{
+		{
+			name: "IPv6 only network",
+			setupIPCompatibility: func() {
+				instanceIsIPv4Compatible = false
+				instanceIsIPv6Compatible = true
+			},
+			expectedResult: true,
+		},
+		{
+			name: "IPv4 only network",
+			setupIPCompatibility: func() {
+				instanceIsIPv4Compatible = true
+				instanceIsIPv6Compatible = false
+			},
+			expectedResult: false,
+		},
+		{
+			name: "Dual stack network",
+			setupIPCompatibility: func() {
+				instanceIsIPv4Compatible = true
+				instanceIsIPv6Compatible = true
+			},
+			expectedResult: false,
+		},
+		{
+			name: "No network connectivity",
+			setupIPCompatibility: func() {
+				instanceIsIPv4Compatible = false
+				instanceIsIPv6Compatible = false
+			},
+			expectedResult: false,
+		},
+		{
+			name: "Set to IPv4 only using SetIPCompatibilityToV4Only function",
+			setupIPCompatibility: func() {
+				SetIPCompatibilityToV4Only()
+			},
+			expectedResult: false,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			// Reset after test
+			defer func() {
+				instanceIsIPv4Compatible = false
+				instanceIsIPv6Compatible = false
+			}()
+
+			tt.setupIPCompatibility()
+			assert.Equal(t, tt.expectedResult, InstanceIsIPv6Only())
+		})
+	}
+}
+
+func TestSetIPCompatibilityToV4Only(t *testing.T) {
+	// Reset before
+	instanceIsIPv4Compatible = false
+	instanceIsIPv6Compatible = false
+
+	// Reset after
+	defer resetIPCompatibilityVariables()()
+
+	// Test
+	SetIPCompatibilityToV4Only()
+	assert.Equal(t, true, instanceIsIPv4Compatible)
+	assert.Equal(t, false, instanceIsIPv6Compatible)
+}
+
+func TestInstanceIsIPv4Compatible(t *testing.T) {
+	defer resetIPCompatibilityVariables()()
+	assert.False(t, InstanceIsIPv4Compatible())
+	instanceIsIPv4Compatible = true
+	assert.True(t, InstanceIsIPv4Compatible())
+}
+
+func TestInstanceIsIPv6Compatible(t *testing.T) {
+	defer resetIPCompatibilityVariables()()
+	assert.False(t, InstanceIsIPv6Compatible())
+	instanceIsIPv6Compatible = true
+	assert.True(t, InstanceIsIPv6Compatible())
+}
+
+// Resets IP compatibility variables to false and also returns
+// a function that does the same.
+//
+// Usage: `defer resetIPCompatibilityVariables()()`
+func resetIPCompatibilityVariables() func() {
+	// Reset before
+	instanceIsIPv4Compatible = false
+	instanceIsIPv6Compatible = false
+
+	return func() {
+		instanceIsIPv4Compatible = false
+		instanceIsIPv6Compatible = false
+	}
+}

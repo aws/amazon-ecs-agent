@@ -13,4 +13,4 @@
 
 package netlinkwrapper
 
-//go:generate mockgen -destination=mocks/mock_netlinkwrapper_linux.go -copyright_file=../../../scripts/copyright_file github.com/aws/amazon-ecs-agent/agent/eni/netlinkwrapper NetLink
+//go:generate mockgen -destination=mocks/mock_netlinkwrapper_linux.go -copyright_file=../../../scripts/copyright_file github.com/aws/amazon-ecs-agent/agent/utils/netlinkwrapper NetLink
