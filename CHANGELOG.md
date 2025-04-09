@@ -1,4 +1,17 @@
 # Changelog
+# 1.92.0
+* Enhancement - Migrate ECS client to aws-sdk-go-v2 [#4447](https://github.com/aws/amazon-ecs-agent/pull/4447)
+* Enhancement - Update tcs api model to rename osFilesystem to rootFileSystem. [#4525](https://github.com/aws/amazon-ecs-agent/pull/4525)
+* Enhancement - Enhance unit test TestSetInstanceIdentity [#4533](https://github.com/aws/amazon-ecs-agent/pull/4533)
+* Enhancement - Increased container exit reason message size from 255 to 1024 characters [#4545](https://github.com/aws/amazon-ecs-agent/pull/4545)
+* Enhancement - Bump golang.org/x/net from 0.33.0 to 0.36.0 in /agent [#4532](https://github.com/aws/amazon-ecs-agent/pull/4532)
+* Enhancement - Migrate ACS over to AWS SDK Go V2 [#4534](https://github.com/aws/amazon-ecs-agent/pull/4534)
+* Enhancement - Migrate ASM to aws-sdk-go-v2 [#4556](https://github.com/aws/amazon-ecs-agent/pull/4556)
+* Enhancement - Add IPv4 and IPv6 detection to Agent [#4561](https://github.com/aws/amazon-ecs-agent/pull/4561)
+* Enhancement - Update Agent build golang version to 1.23.7 [#4563](https://github.com/aws/amazon-ecs-agent/pull/4563)
+* Bugfix - Update tcs api model to rename BytesUtilized to bytesUtilized [#4537](https://github.com/aws/amazon-ecs-agent/pull/4537)
+* Bugfix - Change back to having struct field pointers within TaskProtectionResponse [#4559](https://github.com/aws/amazon-ecs-agent/pull/4559)
+
 # 1.91.2
 * Bugfix - Revert "Migrate ECR client to aws-sdk-go-v2". [4539](https://github.com/aws/amazon-ecs-agent/pull/4539)
 
