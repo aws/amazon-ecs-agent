@@ -1486,7 +1486,7 @@ func (c *Container) getCredentialSpecFromCredentialSpecsContainerField() (string
 	c.lock.RLock()
 	defer c.lock.RUnlock()
 
-	if c.CredentialSpecs == nil || len(c.CredentialSpecs) == 0 {
+	if len(c.CredentialSpecs) == 0 {
 		return "", errors.New("empty container credentialSpecs")
 	}
 

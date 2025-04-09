@@ -201,7 +201,7 @@ func getHostPortRange(numberOfPorts, start, end int, protocol string) (string, i
 	}
 
 	if n != numberOfPorts {
-		errMsg := fmt.Errorf(portNotFoundErrMsg)
+		errMsg := errors.New(portNotFoundErrMsg)
 		if numberOfPorts > 1 {
 			errMsg = fmt.Errorf(portsNotFoundErrMsg, numberOfPorts)
 		}
