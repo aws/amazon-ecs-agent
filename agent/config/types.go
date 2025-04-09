@@ -14,7 +14,6 @@
 package config
 
 import (
-	"sync"
 	"time"
 
 	cniTypes "github.com/containernetworking/cni/pkg/types"
