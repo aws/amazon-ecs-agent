@@ -1928,6 +1928,10 @@ func (engine *DockerTaskEngine) createContainer(task *apitask.Task, container *a
 		}
 	}
 
+	if len(hostConfig.LogConfig.Type) > 0 && engine.cfg.ForceNonBlockingLogDriverMode {
+		hostConfig.LogConfig.Config[logDriverMode] = string(dockercontainer.LogModeNonBlock)
+	}
+
 	// If the container has mode=non-blocking set, and the max-buffer-size field is
 	// unset, then default to maxBufferSizeDefault.
 	if mode, ok := hostConfig.LogConfig.Config[logDriverMode]; ok {
