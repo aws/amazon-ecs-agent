@@ -40,8 +40,9 @@ import (
 	mock_credentials "github.com/aws/amazon-ecs-agent/ecs-agent/credentials/mocks"
 
 	"github.com/aws/aws-sdk-go-v2/aws"
+	"github.com/aws/aws-sdk-go-v2/service/fsx"
+	"github.com/aws/aws-sdk-go-v2/service/fsx/types"
 	"github.com/aws/aws-sdk-go-v2/service/secretsmanager"
-	"github.com/aws/aws-sdk-go/service/fsx"
 	"github.com/aws/aws-sdk-go/service/ssm"
 	"github.com/golang/mock/gomock"
 	"github.com/stretchr/testify/assert"
@@ -322,7 +323,7 @@ func TestRetrieveASMCredentialsARNParseErr(t *testing.T) {
 func TestRetrieveFSxWindowsFileServerDNSName(t *testing.T) {
 	fv, _, _, _, fsxClientCreator, _, _, mockFSxClient := setup(t)
 	fsxClientOutput := &fsx.DescribeFileSystemsOutput{
-		FileSystems: []*fsx.FileSystem{
+		FileSystems: []types.FileSystem{
 			{
 				FileSystemId: aws.String(fileSystemId),
 				DNSName:      aws.String("test"),
@@ -331,8 +332,8 @@ func TestRetrieveFSxWindowsFileServerDNSName(t *testing.T) {
 	}
 
 	gomock.InOrder(
-		fsxClientCreator.EXPECT().NewFSxClient(gomock.Any(), gomock.Any()).Return(mockFSxClient),
-		mockFSxClient.EXPECT().DescribeFileSystems(gomock.Any()).Return(fsxClientOutput, nil).Times(1),
+		fsxClientCreator.EXPECT().NewFSxClient(gomock.Any(), gomock.Any()).Return(mockFSxClient, nil),
+		mockFSxClient.EXPECT().DescribeFileSystems(gomock.Any(), gomock.Any()).Return(fsxClientOutput, nil).Times(1),
 	)
 
 	iamCredentials := credentials.IAMRoleCredentials{
@@ -541,7 +542,7 @@ func TestCreateUnavailableLocalPath(t *testing.T) {
 	}
 
 	fsxClientOutput := &fsx.DescribeFileSystemsOutput{
-		FileSystems: []*fsx.FileSystem{
+		FileSystems: []types.FileSystem{
 			{
 				FileSystemId: aws.String(fileSystemId),
 				DNSName:      aws.String("test"),
@@ -561,8 +562,8 @@ func TestCreateUnavailableLocalPath(t *testing.T) {
 		credentialsManager.EXPECT().GetTaskCredentials(gomock.Any()).Return(creds, true),
 		ssmClientCreator.EXPECT().NewSSMClient(gomock.Any(), gomock.Any()).Return(mockSSMClient),
 		mockSSMClient.EXPECT().GetParameters(gomock.Any()).Return(ssmClientOutput, nil).Times(1),
-		fsxClientCreator.EXPECT().NewFSxClient(gomock.Any(), gomock.Any()).Return(mockFSxClient),
-		mockFSxClient.EXPECT().DescribeFileSystems(gomock.Any()).Return(fsxClientOutput, nil).Times(1),
+		fsxClientCreator.EXPECT().NewFSxClient(gomock.Any(), gomock.Any()).Return(mockFSxClient, nil),
+		mockFSxClient.EXPECT().DescribeFileSystems(gomock.Any(), gomock.Any()).Return(fsxClientOutput, nil).Times(1),
 	)
 
 	DriveLetterAvailable = func(string) bool {
@@ -626,7 +627,7 @@ func TestCreateSSM(t *testing.T) {
 	}
 
 	fsxClientOutput := &fsx.DescribeFileSystemsOutput{
-		FileSystems: []*fsx.FileSystem{
+		FileSystems: []types.FileSystem{
 			{
 				FileSystemId: aws.String(fileSystemId),
 				DNSName:      aws.String("test"),
@@ -646,8 +647,8 @@ func TestCreateSSM(t *testing.T) {
 		credentialsManager.EXPECT().GetTaskCredentials(gomock.Any()).Return(creds, true),
 		ssmClientCreator.EXPECT().NewSSMClient(gomock.Any(), gomock.Any()).Return(mockSSMClient),
 		mockSSMClient.EXPECT().GetParameters(gomock.Any()).Return(ssmClientOutput, nil).Times(1),
-		fsxClientCreator.EXPECT().NewFSxClient(gomock.Any(), gomock.Any()).Return(mockFSxClient),
-		mockFSxClient.EXPECT().DescribeFileSystems(gomock.Any()).Return(fsxClientOutput, nil).Times(1),
+		fsxClientCreator.EXPECT().NewFSxClient(gomock.Any(), gomock.Any()).Return(mockFSxClient, nil),
+		mockFSxClient.EXPECT().DescribeFileSystems(gomock.Any(), gomock.Any()).Return(fsxClientOutput, nil).Times(1),
 	)
 
 	DriveLetterAvailable = func(string) bool {
@@ -707,7 +708,7 @@ func TestCreateASM(t *testing.T) {
 	}
 
 	fsxClientOutput := &fsx.DescribeFileSystemsOutput{
-		FileSystems: []*fsx.FileSystem{
+		FileSystems: []types.FileSystem{
 			{
 				FileSystemId: aws.String(fileSystemId),
 				DNSName:      aws.String("test"),
@@ -733,8 +734,8 @@ func TestCreateASM(t *testing.T) {
 		).Do(func(ctx context.Context, in *secretsmanager.GetSecretValueInput, opts ...func(*secretsmanager.Options)) {
 			assert.Equal(t, aws.ToString(in.SecretId), credentialsParameter)
 		}).Return(asmClientOutput, nil),
-		fsxClientCreator.EXPECT().NewFSxClient(gomock.Any(), gomock.Any()).Return(mockFSxClient),
-		mockFSxClient.EXPECT().DescribeFileSystems(gomock.Any()).Return(fsxClientOutput, nil).Times(1),
+		fsxClientCreator.EXPECT().NewFSxClient(gomock.Any(), gomock.Any()).Return(mockFSxClient, nil),
+		mockFSxClient.EXPECT().DescribeFileSystems(gomock.Any(), gomock.Any()).Return(fsxClientOutput, nil).Times(1),
 	)
 
 	DriveLetterAvailable = func(string) bool {

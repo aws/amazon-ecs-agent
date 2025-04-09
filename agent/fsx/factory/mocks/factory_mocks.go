@@ -50,11 +50,12 @@ func (m *MockFSxClientCreator) EXPECT() *MockFSxClientCreatorMockRecorder {
 }
 
 // NewFSxClient mocks base method.
-func (m *MockFSxClientCreator) NewFSxClient(arg0 string, arg1 credentials.IAMRoleCredentials) fsx.FSxClient {
+func (m *MockFSxClientCreator) NewFSxClient(arg0 string, arg1 credentials.IAMRoleCredentials) (fsx.FSxClient, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "NewFSxClient", arg0, arg1)
 	ret0, _ := ret[0].(fsx.FSxClient)
-	return ret0
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
 }
 
 // NewFSxClient indicates an expected call of NewFSxClient.

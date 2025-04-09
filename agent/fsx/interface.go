@@ -13,8 +13,12 @@
 
 package fsx
 
-import "github.com/aws/aws-sdk-go/service/fsx"
+import (
+	"context"
+
+	"github.com/aws/aws-sdk-go-v2/service/fsx"
+)
 
 type FSxClient interface {
-	DescribeFileSystems(*fsx.DescribeFileSystemsInput) (*fsx.DescribeFileSystemsOutput, error)
+	DescribeFileSystems(context.Context, *fsx.DescribeFileSystemsInput, ...func(*fsx.Options)) (*fsx.DescribeFileSystemsOutput, error)
 }
