@@ -26,7 +26,6 @@ import (
 
 	"github.com/aws/amazon-ecs-agent/agent/dockerclient"
 	ec2testutil "github.com/aws/amazon-ecs-agent/agent/utils/test/ec2util"
-	"github.com/aws/amazon-ecs-agent/ecs-agent/ec2"
 	"github.com/aws/amazon-ecs-agent/ecs-agent/tmds"
 
 	"github.com/hectane/go-acl/api"
