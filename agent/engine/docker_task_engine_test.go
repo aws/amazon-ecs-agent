@@ -3316,7 +3316,7 @@ func TestCreateContainerAddFirelensLogDriverConfig(t *testing.T) {
 		expectedLogConfigType          string
 		expectedLogConfigTag           string
 		expectedLogConfigFluentAddress string
-		expectedFluentdAsyncConnect    string
+		expectedFluentdAsync           string
 		expectedSubSecondPrecision     string
 		expectedBufferLimit            string
 		expectedIPAddress              string
@@ -3328,7 +3328,7 @@ func TestCreateContainerAddFirelensLogDriverConfig(t *testing.T) {
 			enableServiceConnect:           false,
 			expectedLogConfigType:          logDriverTypeFluentd,
 			expectedLogConfigTag:           taskName + "-firelens-" + taskID,
-			expectedFluentdAsyncConnect:    strconv.FormatBool(true),
+			expectedFluentdAsync:           strconv.FormatBool(true),
 			expectedSubSecondPrecision:     strconv.FormatBool(true),
 			expectedBufferLimit:            "10000",
 			expectedLogConfigFluentAddress: socketPathPrefix + filepath.Join(defaultConfig.DataDirOnHost, dataLogDriverPath, taskID, dataLogDriverSocketPath),
@@ -3341,7 +3341,7 @@ func TestCreateContainerAddFirelensLogDriverConfig(t *testing.T) {
 			enableServiceConnect:           false,
 			expectedLogConfigType:          logDriverTypeFluentd,
 			expectedLogConfigTag:           taskName + "-firelens-" + taskID,
-			expectedFluentdAsyncConnect:    strconv.FormatBool(true),
+			expectedFluentdAsync:           strconv.FormatBool(true),
 			expectedSubSecondPrecision:     strconv.FormatBool(true),
 			expectedBufferLimit:            "10000",
 			expectedLogConfigFluentAddress: socketPathPrefix + filepath.Join(defaultConfig.DataDirOnHost, dataLogDriverPath, taskID, dataLogDriverSocketPath),
@@ -3354,7 +3354,7 @@ func TestCreateContainerAddFirelensLogDriverConfig(t *testing.T) {
 			enableServiceConnect:           true,
 			expectedLogConfigType:          logDriverTypeFluentd,
 			expectedLogConfigTag:           taskName + "-firelens-" + taskID,
-			expectedFluentdAsyncConnect:    strconv.FormatBool(true),
+			expectedFluentdAsync:           strconv.FormatBool(true),
 			expectedSubSecondPrecision:     strconv.FormatBool(true),
 			expectedBufferLimit:            "10000",
 			expectedLogConfigFluentAddress: socketPathPrefix + filepath.Join(defaultConfig.DataDirOnHost, dataLogDriverPath, taskID, dataLogDriverSocketPath),
@@ -3367,7 +3367,7 @@ func TestCreateContainerAddFirelensLogDriverConfig(t *testing.T) {
 			enableServiceConnect:           false,
 			expectedLogConfigType:          logDriverTypeFluentd,
 			expectedLogConfigTag:           taskName + "-firelens-" + taskID,
-			expectedFluentdAsyncConnect:    strconv.FormatBool(true),
+			expectedFluentdAsync:           strconv.FormatBool(true),
 			expectedSubSecondPrecision:     strconv.FormatBool(true),
 			expectedBufferLimit:            "",
 			expectedLogConfigFluentAddress: socketPathPrefix + filepath.Join(defaultConfig.DataDirOnHost, dataLogDriverPath, taskID, dataLogDriverSocketPath),
@@ -3396,7 +3396,7 @@ func TestCreateContainerAddFirelensLogDriverConfig(t *testing.T) {
 					assert.Equal(t, tc.expectedLogConfigType, hostConfig.LogConfig.Type)
 					assert.Equal(t, tc.expectedLogConfigTag, hostConfig.LogConfig.Config["tag"])
 					assert.Equal(t, tc.expectedLogConfigFluentAddress, hostConfig.LogConfig.Config["fluentd-address"])
-					assert.Equal(t, tc.expectedFluentdAsyncConnect, hostConfig.LogConfig.Config["fluentd-async-connect"])
+					assert.Equal(t, tc.expectedFluentdAsync, hostConfig.LogConfig.Config["fluentd-async"])
 					assert.Equal(t, tc.expectedSubSecondPrecision, hostConfig.LogConfig.Config["fluentd-sub-second-precision"])
 					assert.Equal(t, tc.expectedBufferLimit, hostConfig.LogConfig.Config["fluentd-buffer-limit"])
 					assert.Contains(t, config.Env, tc.expectedIPAddress)
@@ -5207,7 +5207,7 @@ func TestGetFirelensConfigWithAsyncEnabledConfigOption(t *testing.T) {
 				FirelensAsyncEnabled: asyncEnabled,
 			}
 			logConfig := getFirelensLogConfig(task, appContainer, rawHostConfigInput, cfg)
-			assert.Equal(t, tc.isFirelensAsyncEnabled, logConfig.Config[logDriverAsyncConnect])
+			assert.Equal(t, tc.isFirelensAsyncEnabled, logConfig.Config[logDriverAsync])
 		})
 	}
 }

@@ -97,6 +97,7 @@ const (
 	logDriverFluentdAddress     = "fluentd-address"
 	dataLogDriverPath           = "/data/firelens/"
 	logDriverAsyncConnect       = "fluentd-async-connect"
+	logDriverAsync              = "fluentd-async"
 	logDriverSubSecondPrecision = "fluentd-sub-second-precision"
 	logDriverBufferLimit        = "fluentd-buffer-limit"
 	dataLogDriverSocketPath     = "/socket/fluent.sock"
@@ -1860,7 +1861,35 @@ func (engine *DockerTaskEngine) createContainer(task *apitask.Task, container *a
 	// Update the environment variables FLUENT_HOST and FLUENT_PORT depending on the supported network modes - bridge
 	// and awsvpc. For reference - https://docs.docker.com/config/containers/logging/fluentd/.
 	if hostConfig.LogConfig.Type == logDriverTypeFirelens {
-		hostConfig.LogConfig = getFirelensLogConfig(task, container, hostConfig, engine.cfg)
+		// We need to determine the Docker server version in order to generate the appropriate firelens log config
+		dockerServerVersion, err := engine.Version()
+		if err != nil {
+			logger.Error("Failed to determine Docker server version for Firelens log config generation", logger.Fields{
+				field.TaskID:    task.GetID(),
+				field.Container: container.Name,
+				field.Error:     err,
+			})
+			return dockerapi.DockerContainerMetadata{
+				Error: dockerapi.CannotCreateContainerError{FromError: errors.Wrapf(versionErr,
+					"failed to create container - container uses awsfirelens log driver but we failed to "+
+						"determine the Docker server version")},
+			}
+		}
+		logConfig, err := getFirelensLogConfig(task, container, hostConfig, engine.cfg, dockerServerVersion)
+		if err != nil {
+			logger.Error("Failed to generate the Firelens log config", logger.Fields{
+				field.TaskID:    task.GetID(),
+				field.Container: container.Name,
+				field.Error:     err,
+			})
+			return dockerapi.DockerContainerMetadata{
+				Error: dockerapi.CannotCreateContainerError{FromError: errors.Wrapf(err,
+					"failed to create container - container uses awsfirelens log driver but we failed to "+
+						"generate the Firelens log config")},
+			}
+		}
+		hostConfig.LogConfig = logConfig
+
 		if task.IsNetworkModeAWSVPC() {
 			container.MergeEnvironmentVariables(map[string]string{
 				fluentNetworkHost: FluentAWSVPCHostValue,
@@ -2094,29 +2123,60 @@ func (engine *DockerTaskEngine) createContainer(task *apitask.Task, container *a
 	return metadata
 }
 
-func getFirelensLogConfig(task *apitask.Task, container *apicontainer.Container,
-	hostConfig *dockercontainer.HostConfig, cfg *config.Config) dockercontainer.LogConfig {
+func getFirelensLogConfig(task *apitask.Task,
+	container *apicontainer.Container,
+	hostConfig *dockercontainer.HostConfig,
+	cfg *config.Config, dockerServerVersion string) (dockercontainer.LogConfig, error) {
+	// Start from the existing host config
+	logConfig := hostConfig.LogConfig
+	// Set the log driver type
+	logConfig.Type = logDriverTypeFluentd
+	// Initialize a config to store the different log driver options
+	logConfig.Config = make(map[string]string)
+	// Generate the tag based on the task ID
 	fields := strings.Split(task.Arn, "/")
 	taskID := fields[len(fields)-1]
 	tag := fmt.Sprintf(fluentTagDockerFormat, container.Name, taskID)
-	fluentd := socketPathPrefix + filepath.Join(cfg.DataDirOnHost, dataLogDriverPath, taskID, dataLogDriverSocketPath)
-	logConfig := hostConfig.LogConfig
-	bufferLimit, bufferLimitExists := logConfig.Config[apitask.FirelensLogDriverBufferLimitOption]
-	logConfig.Type = logDriverTypeFluentd
-	logConfig.Config = make(map[string]string)
 	logConfig.Config[logDriverTag] = tag
+	// Construct the fluent socket address
+	fluentd := socketPathPrefix + filepath.Join(cfg.DataDirOnHost, dataLogDriverPath, taskID, dataLogDriverSocketPath)
 	logConfig.Config[logDriverFluentdAddress] = fluentd
-	logConfig.Config[logDriverAsyncConnect] = strconv.FormatBool(cfg.FirelensAsyncEnabled.Enabled())
+	// Enable subsecond precision
 	logConfig.Config[logDriverSubSecondPrecision] = strconv.FormatBool(true)
+	// Set the log driver buffer limit if passed via the task payload
+	bufferLimit, bufferLimitExists := logConfig.Config[apitask.FirelensLogDriverBufferLimitOption]
 	if bufferLimitExists {
 		logConfig.Config[logDriverBufferLimit] = bufferLimit
 	}
+	// Determine whether the fluentd async option should be enabled or not.
+	// "fluentd-async-connect" option was deprecated in Docker v20.10.0 and removed in v28.0.0.
+	// It was replaced with the "fluentd-async" option starting Docker v20.10.0.
+	// Docker v20.10.0 release notes: https://docs.docker.com/engine/release-notes/20.10/#logging-2
+	// Docker v28.0.0 release notes: https://docs.docker.com/engine/release-notes/28/#removed
+	// This change is not versioned and applies to all docker API versions. Hence, in order to preserve backwards-compatibility
+	// with docker server versions older than v20.10.0, we need to continue using the older fluentd-async-connect option.
+	isAtLeast20_10_0, err := utils.Version(dockerServerVersion).Matches(">=20.10.0")
+	if err != nil {
+		logger.Error("Unable to determine whether the Docker server version is at least 20.10.0", logger.Fields{
+			field.TaskID:    task.GetID(),
+			field.Container: container.Name,
+			field.Error:     err,
+		})
+		return dockercontainer.LogConfig{}, errors.Wrapf(err,
+			"unable to determine whether the Docker server version is at least 20.10.0")
+	}
+	if isAtLeast20_10_0 {
+		logConfig.Config[logDriverAsync] = strconv.FormatBool(cfg.FirelensAsyncEnabled.Enabled())
+	} else {
+		logConfig.Config[logDriverAsyncConnect] = strconv.FormatBool(cfg.FirelensAsyncEnabled.Enabled())
+	}
+
 	logger.Debug("Applying firelens log config for container", logger.Fields{
 		field.TaskID:    task.GetID(),
 		field.Container: container.Name,
 		"config":        logConfig,
 	})
-	return logConfig
+	return logConfig, nil
 }
 
 func (engine *DockerTaskEngine) startContainer(task *apitask.Task, container *apicontainer.Container) dockerapi.DockerContainerMetadata {
