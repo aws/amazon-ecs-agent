@@ -125,7 +125,21 @@ const (
 	mediaTypeSignedManifestV1 = "application/vnd.docker.distribution.manifest.v1+prettyjws"
 )
 
-var newExponentialBackoff = retry.NewExponentialBackoff
+var (
+	newExponentialBackoff = retry.NewExponentialBackoff
+
+	// List of isolated regions where AWS SDK Go V1 cannot resolve the endpoints for.
+	// This is a short term solution only for specific regions and ideally we should not be keeping a list of hardcoded regions.
+	unresolvedIsolatedRegions = map[string]bool{
+		"us-isob-east-1":  true,
+		"us-iso-east-1":   true,
+		"us-iso-west-1":   true,
+		"eu-isoe-west-1":  true,
+		"us-isof-south-1": true,
+		"us-isof-east-1":  true,
+		"us-isob-west-1":  true,
+	}
+)
 
 // DockerTaskEngine is a state machine for managing a task and its containers
 // in ECS.
@@ -1903,7 +1917,7 @@ func (engine *DockerTaskEngine) createContainer(task *apitask.Task, container *a
 	// This is a short term solution only for specific regions
 	if hostConfig.LogConfig.Type == logDriverTypeAwslogs {
 		region := engine.cfg.AWSRegion
-		if region == "us-isob-east-1" || region == "us-iso-east-1" || region == "us-iso-west-1" || region == "eu-isoe-west-1" || region == "us-isof-south-1" || region == "us-isof-east-1" {
+		if _, ok := unresolvedIsolatedRegions[region]; ok {
 			endpoint := ""
 			dnsSuffix := ""
 			partition, ok := ep.PartitionForRegion(ep.DefaultPartitions(), region)
