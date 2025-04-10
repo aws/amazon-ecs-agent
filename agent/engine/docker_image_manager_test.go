@@ -32,7 +32,7 @@ import (
 	mock_dockerapi "github.com/aws/amazon-ecs-agent/agent/dockerclient/dockerapi/mocks"
 	"github.com/aws/amazon-ecs-agent/agent/engine/dockerstate"
 	"github.com/aws/amazon-ecs-agent/agent/engine/image"
-	"github.com/aws/amazon-ecs-agent/ecs-agent/ec2"
+	ec2testutil "github.com/aws/amazon-ecs-agent/agent/utils/test/ec2util"
 
 	"github.com/docker/docker/api/types"
 	"github.com/golang/mock/gomock"
@@ -41,7 +41,7 @@ import (
 )
 
 func defaultTestConfig() *config.Config {
-	cfg, _ := config.NewConfig(ec2.NewBlackholeEC2MetadataClient())
+	cfg, _ := config.NewConfig(ec2testutil.FakeEC2MetadataClient{})
 	return cfg
 }
 
