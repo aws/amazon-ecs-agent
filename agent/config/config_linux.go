@@ -48,11 +48,11 @@ func (c *Config) DetermineIPCompatibility(mac string) error {
 	if err != nil {
 		return err
 	}
-	instanceIPCompatibility.SetIPv4Compatible(ipv4Compatible)
-	instanceIPCompatibility.SetIPv6Compatible(ipv6Compatible)
+	c.InstanceIPCompatibility.SetIPv4Compatible(ipv4Compatible)
+	c.InstanceIPCompatibility.SetIPv6Compatible(ipv6Compatible)
 	logger.Info("IPv4 and IPv6 compatibility determined", logger.Fields{
-		"IPv4": instanceIPCompatibility.IsIPv4Compatible(),
-		"IPv6": instanceIPCompatibility.IsIPv6Compatible(),
+		"IPv4": c.InstanceIPCompatibility.IsIPv4Compatible(),
+		"IPv6": c.InstanceIPCompatibility.IsIPv6Compatible(),
 	})
 	return nil
 }

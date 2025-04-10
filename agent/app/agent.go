@@ -465,8 +465,6 @@ func (agent *ecsAgent) doStart(containerChangeEventStream *eventstream.EventStre
 		}
 	}
 
-	initializeIPCompatibility(agent.mac)
-
 	// Register the container instance
 	err = agent.registerContainerInstance(client, vpcSubnetAttributes)
 	if err != nil {
@@ -1270,16 +1268,4 @@ func contains(capabilities []string, capability string) bool {
 	}
 
 	return false
-}
-
-// Determines and sets IPv4 and IPv6 compatibility for the container instance.
-//
-// If there was a failure in determining IP compatibility then this function falls back
-// to default settings, that is, IPv4 compatible but IPv6 incompatible.
-func initializeIPCompatibility(mac string) {
-	if err := config.DetermineIPCompatibility(mac); err != nil {
-		logger.Warn("Could not determine IPv4 and IPv6 compatibility, falling back to defaults",
-			logger.Fields{field.Error: err})
-		config.SetIPCompatibilityToV4Only()
-	}
 }
