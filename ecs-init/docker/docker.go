@@ -130,6 +130,8 @@ const (
 	// fault inject functionality. Ref: https://man7.org/linux/man-pages/man8/modinfo.8.html
 	modInfoSbinDir    = "/sbin/modinfo"
 	modInfoUsrSbinDir = "/usr/sbin/modinfo"
+
+	customDockerConfigFile = "/etc/docker/daemon.json"
 )
 
 // Do NOT include "CAP_" in capability string
@@ -360,6 +362,10 @@ func (c *client) getContainerConfig(envVarsFromFiles map[string]string) *godocke
 		envVariables["ECS_EBSTA_SUPPORTED"] = "false"
 	}
 
+	if customDockerConfigNonBlocking() {
+		envVariables["ECS_FORCE_NON_BLOCKING"] = "true"
+	}
+
 	var env []string
 	for envKey, envValue := range envVariables {
 		env = append(env, envKey+"="+envValue)
@@ -370,6 +376,38 @@ func (c *client) getContainerConfig(envVarsFromFiles map[string]string) *godocke
 	}
 	setLabels(cfg, envVariables["ECS_AGENT_LABELS"])
 	return cfg
+}
+
+func customDockerConfigNonBlocking() bool {
+	// Define the structure for Docker daemon configuration
+	type LogOpts struct {
+		Mode string `json:"mode"`
+	}
+
+	type DaemonConfig struct {
+		LogOpts *LogOpts `json:"log-opts"`
+	}
+
+	// Read the daemon.json file
+	data, err := os.ReadFile(customDockerConfigFile)
+	if err != nil {
+		// If file doesn't exist or can't be read, return false
+		return false
+	}
+
+	// Parse the JSON configuration
+	var config DaemonConfig
+	if err := json.Unmarshal(data, &config); err != nil {
+		// If JSON parsing fails, return false
+		return false
+	}
+
+	// Check if log-opts exists and mode is set to "non-blocking"
+	if config.LogOpts != nil && config.LogOpts.Mode == "non-blocking" {
+		return true
+	}
+
+	return false
 }
 
 func setLabels(cfg *godocker.Config, labelsStringRaw string) {

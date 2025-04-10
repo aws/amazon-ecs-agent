@@ -398,4 +398,9 @@ type Config struct {
 	// FirelensAsyncEnabled specifies whether the agent should enable the async connect option of the
 	// fluentd log driver. Ref: https://docs.docker.com/engine/logging/drivers/fluentd/#fluentd-async
 	FirelensAsyncEnabled BooleanDefaultTrue
+
+	// ForceNonBlockingLogDriverMode specifies whether the ecs-agent should force
+	// that all containers be created with the NonBlocking log driver mode, no matter
+	// what the ECS task payload specifies.
+	ForceNonBlockingLogDriverMode bool
 }

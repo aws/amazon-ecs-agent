@@ -595,6 +595,7 @@ func environmentConfig() (Config, error) {
 		DisableDockerHealthCheck:            parseBooleanDefaultFalseConfig("ECS_DISABLE_DOCKER_HEALTH_CHECK"),
 		GPUSupportEnabled:                   utils.ParseBool(os.Getenv("ECS_ENABLE_GPU_SUPPORT"), false),
 		EBSTASupportEnabled:                 utils.ParseBool(os.Getenv("ECS_EBSTA_SUPPORTED"), true),
+		ForceNonBlockingLogDriverMode:       utils.ParseBool(os.Getenv("ECS_FORCE_NON_BLOCKING"), false),
 		InferentiaSupportEnabled:            utils.ParseBool(os.Getenv("ECS_ENABLE_INF_SUPPORT"), false),
 		NvidiaRuntime:                       os.Getenv("ECS_NVIDIA_RUNTIME"),
 		TaskMetadataAZDisabled:              utils.ParseBool(os.Getenv("ECS_DISABLE_TASK_METADATA_AZ"), false),
