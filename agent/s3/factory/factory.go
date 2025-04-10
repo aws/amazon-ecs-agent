@@ -41,8 +41,8 @@ type S3ClientCreator interface {
 }
 
 // NewS3ClientCreator provides 2 implementations
-// NewS3ManagerClient implements methods from aws-sdk-go/service/s3manager.
-// NewS3Client implements methods from aws-sdk-go/service/s3.
+// NewS3ManagerClient implements methods from S3 manger of the AWS SDK Go.
+// NewS3Client implements methods from S3 service of the AWS SDK Go.
 func NewS3ClientCreator() S3ClientCreator {
 	return &s3ClientCreator{}
 }

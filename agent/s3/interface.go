@@ -19,17 +19,16 @@ import (
 
 	s3manager "github.com/aws/aws-sdk-go-v2/feature/s3/manager"
 	"github.com/aws/aws-sdk-go-v2/service/s3"
-	"github.com/aws/aws-sdk-go/aws"
 )
 
 // S3ManagerClient interface wraps the S3Manager APIs.
-// Any method that belongs aws-sdk-go/service/s3manager goes here.
+// Any method that belongs in the S3 manager of AWS SDK Go goes here.
 type S3ManagerClient interface {
-	Download(ctx aws.Context, w io.WriterAt, input *s3.GetObjectInput, options ...func(*s3manager.Downloader)) (n int64, err error)
+	Download(ctx context.Context, w io.WriterAt, input *s3.GetObjectInput, options ...func(*s3manager.Downloader)) (n int64, err error)
 }
 
 // S3Client interface wraps the generic S3 APIs.
-// Any method that belongs to aws-sdk-go/service/s3 goes here.
+// Any method that belongs to S3 service of AWS SDK Go goes here.
 type S3Client interface {
 	GetObject(context.Context, *s3.GetObjectInput, ...func(*s3.Options)) (*s3.GetObjectOutput, error)
 }
