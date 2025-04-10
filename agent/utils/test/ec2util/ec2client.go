@@ -24,10 +24,6 @@ import (
 // for the most typical Agent configuration.
 type FakeEC2MetadataClient struct{}
 
-func NewBlackholeEC2MetadataClient() ec2.EC2MetadataClient {
-	return FakeEC2MetadataClient{}
-}
-
 func (FakeEC2MetadataClient) DefaultCredentials() (*ec2.RoleCredentials, error) {
 	return nil, errors.New("not implemented")
 }
