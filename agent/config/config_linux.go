@@ -43,14 +43,16 @@ func init() {
 // exist for each. Mac address of a network interface can be provided optionally to restrict
 // compatibility checks to that particular network interface. If no mac address is provided
 // then compatibility checks are performed for all network interfaces on the instance.
-func DetermineIPCompatibility(mac string) error {
-	instanceIsIPv4Compatible, instanceIsIPv6Compatible, err := determineIPCompatibility(nlWrapper, mac)
+func (c *Config) DetermineIPCompatibility(mac string) error {
+	ipv4Compatible, ipv6Compatible, err := determineIPCompatibility(nlWrapper, mac)
 	if err != nil {
 		return err
 	}
+	instanceIPCompatibility.SetIPv4Compatible(ipv4Compatible)
+	instanceIPCompatibility.SetIPv6Compatible(ipv6Compatible)
 	logger.Info("IPv4 and IPv6 compatibility determined", logger.Fields{
-		"IPv4": instanceIsIPv4Compatible,
-		"IPv6": instanceIsIPv6Compatible,
+		"IPv4": instanceIPCompatibility.IsIPv4Compatible(),
+		"IPv6": instanceIPCompatibility.IsIPv6Compatible(),
 	})
 	return nil
 }

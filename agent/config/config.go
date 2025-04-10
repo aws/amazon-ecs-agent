@@ -28,6 +28,7 @@ import (
 	apierrors "github.com/aws/amazon-ecs-agent/ecs-agent/api/errors"
 	"github.com/aws/amazon-ecs-agent/ecs-agent/ec2"
 	"github.com/aws/amazon-ecs-agent/ecs-agent/logger"
+	"github.com/aws/amazon-ecs-agent/ecs-agent/logger/field"
 	commonutils "github.com/aws/amazon-ecs-agent/ecs-agent/utils"
 	"github.com/cihub/seelog"
 )
@@ -192,12 +193,6 @@ var (
 
 	// isFIPSEnabled indicates whether FIPS mode is enabled on the host
 	isFIPSEnabled = false
-
-	// Indicates whether the container instance's default network supports IPv4
-	instanceIsIPv4Compatible = false
-
-	// Indicates whether the container instance's default network supports IPv6
-	instanceIsIPv6Compatible = false
 )
 
 // Merge merges two config files, preferring the ones on the left. Any nil or
@@ -244,6 +239,24 @@ func NewConfig(ec2client ec2.EC2MetadataClient) (*Config, error) {
 		}
 		// Use fake ec2 metadata client if on prem config is set.
 		ec2client = ec2.NewBlackholeEC2MetadataClient()
+	}
+
+	// Load primary ENI's MAC address on EC2 Launch Type
+	var primaryENIMAC string
+	if !config.External.Enabled() {
+		var err error
+		primaryENIMAC, err = ec2client.PrimaryENIMAC()
+		if err != nil {
+			return nil, fmt.Errorf("unable to get mac address of instance's primary ENI from instance metadata: %v", err)
+		}
+	}
+
+	// Determine IP version compatibility for the container instance
+	if err := config.DetermineIPCompatibility(primaryENIMAC); err != nil {
+		logger.Warn(
+			"Could not determine IPv4 and IPv6 compatibility, falling back to IPv4-only as a default",
+			logger.Fields{field.Error: err})
+		config.SetIPCompatibilityToV4Only()
 	}
 
 	if config.complete() {
@@ -680,21 +693,6 @@ func SetFIPSEnabled(enabled bool) {
 	isFIPSEnabled = enabled
 }
 
-// Is the container instance on an IPv4 compatible network?
-func InstanceIsIPv4Compatible() bool {
-	return instanceIsIPv4Compatible
-}
-
-// Is the container instance on an IPv6 compatible network?
-func InstanceIsIPv6Compatible() bool {
-	return instanceIsIPv6Compatible
-}
-
-// Is the container instance on an IPv6-only network?
-func InstanceIsIPv6Only() bool {
-	return InstanceIsIPv6Compatible() && !InstanceIsIPv4Compatible()
-}
-
 // Sets IP version compatibility configuration to its default state -
 // * IPv4 compatible
 // * IPv6 incompatible
@@ -702,9 +700,11 @@ func InstanceIsIPv6Only() bool {
 // This function is a fallback to revert Agent to its IPv4-only state
 // to help with graceful adoption of Agent in IPv6-only environments
 // without disrupting existing environments.
-func SetIPCompatibilityToV4Only() {
-	instanceIsIPv4Compatible = true
-	instanceIsIPv6Compatible = false
-	logger.Info("Set IP version compatibility to its default state",
-		logger.Fields{"IPv4": instanceIsIPv4Compatible, "IPv6": instanceIsIPv6Compatible})
+func (c *Config) SetIPCompatibilityToV4Only() {
+	c.InstanceIPCompatibility.SetIPv4Compatible(true)
+	c.InstanceIPCompatibility.SetIPv6Compatible(false)
+	logger.Info("Set IP version compatibility to IPv4-only", logger.Fields{
+		"IPv4": c.InstanceIPCompatibility.IsIPv4Compatible(),
+		"IPv6": c.InstanceIPCompatibility.IsIPv6Compatible(),
+	})
 }
