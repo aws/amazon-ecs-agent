@@ -84,6 +84,22 @@ func TestBrokenEC2Metadata(t *testing.T) {
 	assert.Error(t, err, "Expected error when region isn't set and metadata doesn't work")
 }
 
+// Tests that IPCompatibility defaults to IPv4-only when determining IP compatibility of
+// the container instance fails due to some error.
+func TestIPCompatibilityFallback(t *testing.T) {
+	defer setTestRegion()()
+	ctrl := gomock.NewController(t)
+	mockEc2Metadata := mock_ec2.NewMockEC2MetadataClient(ctrl)
+
+	mockEc2Metadata.EXPECT().PrimaryENIMAC().Return("invalid", nil) // fails to parse
+	mockEc2Metadata.EXPECT().GetUserData()
+
+	config, err := NewConfig(mockEc2Metadata)
+	assert.NoError(t, err)
+	assert.Equal(t, config.InstanceIPCompatibility.IsIPv4Compatible(), true)
+	assert.Equal(t, config.InstanceIPCompatibility.IsIPv6Compatible(), false)
+}
+
 func TestBrokenEC2MetadataEndpoint(t *testing.T) {
 	defer setTestRegion()()
 	ctrl := gomock.NewController(t)
