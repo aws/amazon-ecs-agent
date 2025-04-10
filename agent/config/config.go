@@ -254,7 +254,7 @@ func NewConfig(ec2client ec2.EC2MetadataClient) (*Config, error) {
 
 	// Determine IP version compatibility for the container instance
 	if err := config.DetermineIPCompatibility(primaryENIMAC); err != nil {
-		logger.Error(
+		logger.Warn(
 			"Could not determine IPv4 and IPv6 compatibility, falling back to IPv4-only as a default",
 			logger.Fields{field.Error: err})
 		config.SetIPCompatibilityToV4Only()
