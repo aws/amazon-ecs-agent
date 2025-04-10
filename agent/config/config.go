@@ -244,6 +244,7 @@ func NewConfig(ec2client ec2.EC2MetadataClient) (*Config, error) {
 	// Load primary ENI's MAC address on EC2 Launch Type
 	var primaryENIMAC string
 	if !config.External.Enabled() {
+		logger.Info("Calling IMDS to fetch mac address of the primary ENI")
 		var err error
 		primaryENIMAC, err = ec2client.PrimaryENIMAC()
 		if err != nil {
@@ -253,7 +254,7 @@ func NewConfig(ec2client ec2.EC2MetadataClient) (*Config, error) {
 
 	// Determine IP version compatibility for the container instance
 	if err := config.DetermineIPCompatibility(primaryENIMAC); err != nil {
-		logger.Warn(
+		logger.Error(
 			"Could not determine IPv4 and IPv6 compatibility, falling back to IPv4-only as a default",
 			logger.Fields{field.Error: err})
 		config.SetIPCompatibilityToV4Only()

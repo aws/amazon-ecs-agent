@@ -260,7 +260,7 @@ func getConfigFileName() (string, error) {
 }
 
 func (c *Config) DetermineIPCompatibility(mac string) error {
-	logger.Info("IPv6-only environments are not supported on Windows. Setting IP compatibility to default.")
+	logger.Info("IPv6-only environments are not supported on Windows. Setting IP compatibility to IPv4-only.")
 	c.SetIPCompatibilityToV4Only()
 	return nil
 }
