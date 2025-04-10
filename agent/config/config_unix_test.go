@@ -28,14 +28,14 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/aws/amazon-ecs-agent/agent/dockerclient"
-	"github.com/aws/amazon-ecs-agent/ecs-agent/ec2"
+	ec2testutil "github.com/aws/amazon-ecs-agent/agent/utils/test/ec2util"
 )
 
 func TestConfigDefault(t *testing.T) {
 	defer setTestRegion()()
 	os.Unsetenv("ECS_HOST_DATA_DIR")
 
-	cfg, err := NewConfig(ec2.NewBlackholeEC2MetadataClient())
+	cfg, err := NewConfig(ec2testutil.FakeEC2MetadataClient{})
 	require.NoError(t, err)
 
 	assert.Equal(t, "unix:///var/run/docker.sock", cfg.DockerEndpoint, "Default docker endpoint set incorrectly")
@@ -169,7 +169,7 @@ func TestDockerAuthMergeFromFile(t *testing.T) {
 	defer setTestEnv("ECS_AGENT_CONFIG_FILE_PATH", filePath)()
 	defer setTestEnv("AWS_DEFAULT_REGION", "us-west-2")()
 
-	cfg, err := NewConfig(ec2.NewBlackholeEC2MetadataClient())
+	cfg, err := NewConfig(ec2testutil.FakeEC2MetadataClient{})
 	assert.NoError(t, err, "create configuration failed")
 
 	assert.Equal(t, cluster, cfg.Cluster, "cluster name not as expected from environment variable")
@@ -191,13 +191,13 @@ func TestBadFileContent(t *testing.T) {
 	os.Setenv("ECS_AGENT_CONFIG_FILE_PATH", filePath)
 	defer os.Unsetenv("ECS_AGENT_CONFIG_FILE_PATH")
 
-	_, err := NewConfig(ec2.NewBlackholeEC2MetadataClient())
+	_, err := NewConfig(ec2testutil.FakeEC2MetadataClient{})
 	assert.Error(t, err, "create configuration should fail")
 }
 
 func TestPrometheusMetricsPlatformOverrides(t *testing.T) {
 	defer setTestRegion()()
-	cfg, err := NewConfig(ec2.NewBlackholeEC2MetadataClient())
+	cfg, err := NewConfig(ec2testutil.FakeEC2MetadataClient{})
 	require.NoError(t, err)
 
 	defer setTestEnv("ECS_ENABLE_PROMETHEUS_METRICS", "true")()
@@ -210,7 +210,7 @@ func TestPrometheusMetricsPlatformOverrides(t *testing.T) {
 func TestENITrunkingEnabled(t *testing.T) {
 	defer setTestRegion()()
 	defer setTestEnv("ECS_ENABLE_TASK_ENI", "true")()
-	cfg, err := NewConfig(ec2.NewBlackholeEC2MetadataClient())
+	cfg, err := NewConfig(ec2testutil.FakeEC2MetadataClient{})
 	require.NoError(t, err)
 
 	cfg.platformOverrides()
@@ -221,7 +221,7 @@ func TestENITrunkingEnabled(t *testing.T) {
 func TestENITrunkingDisabled(t *testing.T) {
 	defer setTestRegion()()
 	defer setTestEnv("ECS_ENABLE_TASK_ENI", "true")()
-	cfg, err := NewConfig(ec2.NewBlackholeEC2MetadataClient())
+	cfg, err := NewConfig(ec2testutil.FakeEC2MetadataClient{})
 	require.NoError(t, err)
 
 	defer setTestEnv("ECS_ENABLE_HIGH_DENSITY_ENI", "false")()
@@ -243,7 +243,7 @@ func setupFileConfiguration(t *testing.T, configContent string) string {
 func TestEmptyNvidiaRuntime(t *testing.T) {
 	defer setTestRegion()()
 	defer setTestEnv("ECS_NVIDIA_RUNTIME", "")()
-	cfg, err := NewConfig(ec2.NewBlackholeEC2MetadataClient())
+	cfg, err := NewConfig(ec2testutil.FakeEC2MetadataClient{})
 	assert.NoError(t, err)
 	assert.Equal(t, DefaultNvidiaRuntime, cfg.NvidiaRuntime, "Wrong value for NvidiaRuntime")
 }
@@ -282,7 +282,7 @@ func TestCPUPeriodSettings(t *testing.T) {
 			defer os.Setenv("ECS_CGROUP_CPU_PERIOD", "100ms")
 
 			os.Setenv("ECS_CGROUP_CPU_PERIOD", c.Env)
-			conf, err := NewConfig(ec2.NewBlackholeEC2MetadataClient())
+			conf, err := NewConfig(ec2testutil.FakeEC2MetadataClient{})
 
 			assert.NoError(t, err)
 			assert.Equal(t, c.Response, conf.CgroupCPUPeriod, "Wrong value for CgroupCPUPeriod")
