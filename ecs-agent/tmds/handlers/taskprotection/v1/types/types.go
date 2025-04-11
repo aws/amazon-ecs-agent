@@ -17,7 +17,7 @@ import (
 	"encoding/json"
 	"fmt"
 
-	"github.com/aws/amazon-ecs-agent/ecs-agent/api/ecs/model/ecs"
+	"github.com/aws/aws-sdk-go-v2/service/ecs/types"
 )
 
 // taskProtection is type of Protection for a Task
@@ -69,19 +69,19 @@ func (taskProtection *taskProtection) String() string {
 
 // TaskProtectionResponse is response type for all Update/GetTaskProtection requests
 type TaskProtectionResponse struct {
-	RequestID  *string            `json:"requestID,omitempty"`
-	Protection *ecs.ProtectedTask `json:"protection,omitempty"`
-	Failure    *ecs.Failure       `json:"failure,omitempty"`
-	Error      *ErrorResponse     `json:"error,omitempty"`
+	RequestID  *string              `json:"requestID,omitempty"`
+	Protection *types.ProtectedTask `json:"protection,omitempty"`
+	Failure    *types.Failure       `json:"failure,omitempty"`
+	Error      *ErrorResponse       `json:"error,omitempty"`
 }
 
 // NewTaskProtectionResponseProtection creates a TaskProtectionResponse when it is a successful response (has protection)
-func NewTaskProtectionResponseProtection(protection *ecs.ProtectedTask) TaskProtectionResponse {
+func NewTaskProtectionResponseProtection(protection *types.ProtectedTask) TaskProtectionResponse {
 	return TaskProtectionResponse{Protection: protection}
 }
 
 // NewTaskProtectionResponseFailure creates a TaskProtectionResponse when there is a failed response with failure
-func NewTaskProtectionResponseFailure(failure *ecs.Failure) TaskProtectionResponse {
+func NewTaskProtectionResponseFailure(failure *types.Failure) TaskProtectionResponse {
 	return TaskProtectionResponse{Failure: failure}
 }
 

@@ -22,7 +22,7 @@ import (
 	"github.com/aws/amazon-ecs-agent/agent/config"
 	"github.com/aws/amazon-ecs-agent/agent/ecscni"
 	"github.com/aws/amazon-ecs-agent/agent/taskresource/volume"
-	"github.com/aws/amazon-ecs-agent/ecs-agent/api/ecs/model/ecs"
+	"github.com/aws/aws-sdk-go-v2/service/ecs/types"
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/cihub/seelog"
 )
@@ -51,64 +51,64 @@ var (
 	}
 )
 
-func (agent *ecsAgent) appendVolumeDriverCapabilities(capabilities []*ecs.Attribute) []*ecs.Attribute {
+func (agent *ecsAgent) appendVolumeDriverCapabilities(capabilities []types.Attribute) []types.Attribute {
 	// "local" is default docker driver
 	return appendNameOnlyAttribute(capabilities, attributePrefix+capabilityDockerPluginInfix+volume.DockerLocalVolumeDriver)
 }
 
-func (agent *ecsAgent) appendNvidiaDriverVersionAttribute(capabilities []*ecs.Attribute) []*ecs.Attribute {
+func (agent *ecsAgent) appendNvidiaDriverVersionAttribute(capabilities []types.Attribute) []types.Attribute {
 	return capabilities
 }
 
-func (agent *ecsAgent) appendENITrunkingCapabilities(capabilities []*ecs.Attribute) []*ecs.Attribute {
+func (agent *ecsAgent) appendENITrunkingCapabilities(capabilities []types.Attribute) []types.Attribute {
 	return capabilities
 }
 
-func (agent *ecsAgent) appendPIDAndIPCNamespaceSharingCapabilities(capabilities []*ecs.Attribute) []*ecs.Attribute {
+func (agent *ecsAgent) appendPIDAndIPCNamespaceSharingCapabilities(capabilities []types.Attribute) []types.Attribute {
 	return capabilities
 }
 
-func (agent *ecsAgent) appendAppMeshCapabilities(capabilities []*ecs.Attribute) []*ecs.Attribute {
+func (agent *ecsAgent) appendAppMeshCapabilities(capabilities []types.Attribute) []types.Attribute {
 	return capabilities
 }
 
-func (agent *ecsAgent) appendTaskEIACapabilities(capabilities []*ecs.Attribute) []*ecs.Attribute {
+func (agent *ecsAgent) appendTaskEIACapabilities(capabilities []types.Attribute) []types.Attribute {
 	return capabilities
 }
 
-func (agent *ecsAgent) appendFirelensFluentdCapabilities(capabilities []*ecs.Attribute) []*ecs.Attribute {
+func (agent *ecsAgent) appendFirelensFluentdCapabilities(capabilities []types.Attribute) []types.Attribute {
 	return capabilities
 }
 
-func (agent *ecsAgent) appendFirelensFluentbitCapabilities(capabilities []*ecs.Attribute) []*ecs.Attribute {
+func (agent *ecsAgent) appendFirelensFluentbitCapabilities(capabilities []types.Attribute) []types.Attribute {
 	return capabilities
 }
 
-func (agent *ecsAgent) appendEFSCapabilities(capabilities []*ecs.Attribute) []*ecs.Attribute {
+func (agent *ecsAgent) appendEFSCapabilities(capabilities []types.Attribute) []types.Attribute {
 	return capabilities
 }
 
-func (agent *ecsAgent) appendFirelensLoggingDriverCapabilities(capabilities []*ecs.Attribute) []*ecs.Attribute {
+func (agent *ecsAgent) appendFirelensLoggingDriverCapabilities(capabilities []types.Attribute) []types.Attribute {
 	return capabilities
 }
 
-func (agent *ecsAgent) appendFirelensLoggingDriverConfigCapabilities(capabilities []*ecs.Attribute) []*ecs.Attribute {
+func (agent *ecsAgent) appendFirelensLoggingDriverConfigCapabilities(capabilities []types.Attribute) []types.Attribute {
 	return capabilities
 }
 
-func (agent *ecsAgent) appendFirelensConfigCapabilities(capabilities []*ecs.Attribute) []*ecs.Attribute {
+func (agent *ecsAgent) appendFirelensConfigCapabilities(capabilities []types.Attribute) []types.Attribute {
 	return capabilities
 }
 
-func (agent *ecsAgent) appendEFSVolumePluginCapabilities(capabilities []*ecs.Attribute, pluginCapability string) []*ecs.Attribute {
+func (agent *ecsAgent) appendEFSVolumePluginCapabilities(capabilities []types.Attribute, pluginCapability string) []types.Attribute {
 	return capabilities
 }
 
-func (agent *ecsAgent) appendIPv6Capability(capabilities []*ecs.Attribute) []*ecs.Attribute {
+func (agent *ecsAgent) appendIPv6Capability(capabilities []types.Attribute) []types.Attribute {
 	return capabilities
 }
 
-func (agent *ecsAgent) appendFSxWindowsFileServerCapabilities(capabilities []*ecs.Attribute) []*ecs.Attribute {
+func (agent *ecsAgent) appendFSxWindowsFileServerCapabilities(capabilities []types.Attribute) []types.Attribute {
 	if agent.cfg.FSxWindowsFileServerCapable.Enabled() {
 		return appendNameOnlyAttribute(capabilities, attributePrefix+capabilityFSxWindowsFileServer)
 	}
@@ -119,16 +119,16 @@ func (agent *ecsAgent) appendFSxWindowsFileServerCapabilities(capabilities []*ec
 // getTaskENIPluginVersionAttribute returns the version information of the ECS
 // CNI plugins. It just executes the vpc-eni plugin to get the Version information.
 // Currently, only this plugin is used by ECS Windows for awsvpc mode.
-func (agent *ecsAgent) getTaskENIPluginVersionAttribute() (*ecs.Attribute, error) {
+func (agent *ecsAgent) getTaskENIPluginVersionAttribute() (types.Attribute, error) {
 	version, err := agent.cniClient.Version(ecscni.ECSVPCENIPluginExecutable)
 	if err != nil {
 		seelog.Warnf(
 			"Unable to determine the version of the plugin '%s': %v",
 			ecscni.VPCENIPluginName, err)
-		return nil, err
+		return types.Attribute{}, err
 	}
 
-	return &ecs.Attribute{
+	return types.Attribute{
 		Name:  aws.String(attributePrefix + cniPluginVersionSuffix),
 		Value: aws.String(version),
 	}, nil

@@ -43,7 +43,6 @@ import (
 	"github.com/aws/amazon-ecs-agent/ecs-agent/acs/model/ecsacs"
 	"github.com/aws/amazon-ecs-agent/ecs-agent/api/container/restart"
 	apicontainerstatus "github.com/aws/amazon-ecs-agent/ecs-agent/api/container/status"
-	"github.com/aws/amazon-ecs-agent/ecs-agent/api/ecs/model/ecs"
 	apierrors "github.com/aws/amazon-ecs-agent/ecs-agent/api/errors"
 	apitaskstatus "github.com/aws/amazon-ecs-agent/ecs-agent/api/task/status"
 	"github.com/aws/amazon-ecs-agent/ecs-agent/credentials"
@@ -54,8 +53,9 @@ import (
 	commonutils "github.com/aws/amazon-ecs-agent/ecs-agent/utils"
 	"github.com/aws/amazon-ecs-agent/ecs-agent/utils/arn"
 	"github.com/aws/amazon-ecs-agent/ecs-agent/utils/ttime"
+	ecstypes "github.com/aws/aws-sdk-go-v2/service/ecs/types"
 
-	"github.com/aws/aws-sdk-go/aws"
+	"github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/aws/aws-sdk-go/private/protocol/json/jsonutil"
 	"github.com/docker/docker/api/types"
 	dockercontainer "github.com/docker/docker/api/types/container"
@@ -322,7 +322,7 @@ func TaskFromACS(acsTask *ecsacs.Task, envelope *ecsacs.PayloadMessage) (*Task, 
 	}
 
 	// Set the EnableFaultInjection field if present
-	task.EnableFaultInjection = aws.BoolValue(acsTask.EnableFaultInjection)
+	task.EnableFaultInjection = aws.ToBool(acsTask.EnableFaultInjection)
 
 	// Overrides the container command if it's set
 	for _, container := range task.Containers {
@@ -521,7 +521,7 @@ func (task *Task) initializeCredentialSpecResource(config *config.Config, creden
 // ACS is streaming down this value with task payload. In case of docker bridge mode task, this value might be left empty
 // as it's the default task network mode.
 func (task *Task) initNetworkMode(acsTaskNetworkMode *string) {
-	switch aws.StringValue(acsTaskNetworkMode) {
+	switch aws.ToString(acsTaskNetworkMode) {
 	case AWSVPCNetworkMode:
 		task.NetworkMode = AWSVPCNetworkMode
 	case HostNetworkMode:
@@ -533,7 +533,7 @@ func (task *Task) initNetworkMode(acsTaskNetworkMode *string) {
 	default:
 		logger.Warn("Unmapped task network mode", logger.Fields{
 			field.TaskID:      task.GetID(),
-			field.NetworkMode: aws.StringValue(acsTaskNetworkMode),
+			field.NetworkMode: aws.ToString(acsTaskNetworkMode),
 		})
 	}
 }
@@ -1487,7 +1487,7 @@ func (task *Task) addNetworkResourceProvisioningDependencyAwsvpc(cfg *config.Con
 				return errors.Errorf("user needs to be specified for proxy container")
 			}
 			containerConfig := &dockercontainer.Config{}
-			if err := json.Unmarshal([]byte(aws.StringValue(container.DockerConfig.Config)), &containerConfig); err != nil {
+			if err := json.Unmarshal([]byte(aws.ToString(container.DockerConfig.Config)), &containerConfig); err != nil {
 				return errors.Errorf("unable to decode given docker config: %s", err.Error())
 			}
 
@@ -1702,8 +1702,8 @@ func (task *Task) updateTaskKnownStatus() (newStatus apitaskstatus.TaskStatus) {
 	logger.Debug("Found container with earliest known status", logger.Fields{
 		field.TaskID:        task.GetID(),
 		field.Container:     earliestKnownStatusContainer.Name,
-		field.KnownStatus:   earliestKnownStatusContainer.GetKnownStatus(),
-		field.DesiredStatus: earliestKnownStatusContainer.GetDesiredStatus(),
+		field.KnownStatus:   earliestKnownStatusContainer.GetKnownStatus().String(),
+		field.DesiredStatus: earliestKnownStatusContainer.GetDesiredStatus().String(),
 	})
 	// If the essential container is stopped while other containers may be running
 	// don't update the task status until the other containers are stopped.
@@ -1792,7 +1792,7 @@ func (task *Task) dockerConfig(container *apicontainer.Container, apiVersion doc
 	}
 
 	if container.DockerConfig.Config != nil {
-		if err := json.Unmarshal([]byte(aws.StringValue(container.DockerConfig.Config)), &containerConfig); err != nil {
+		if err := json.Unmarshal([]byte(aws.ToString(container.DockerConfig.Config)), &containerConfig); err != nil {
 			return nil, &apierrors.DockerClientConfigError{Msg: "Unable decode given docker config: " + err.Error()}
 		}
 	}
@@ -3617,42 +3617,42 @@ func (task *Task) IsLaunchTypeFargate() bool {
 //
 // * GPU
 //   - Concatenate each container's gpu ids
-func (task *Task) ToHostResources() map[string]*ecs.Resource {
-	resources := make(map[string]*ecs.Resource)
+func (task *Task) ToHostResources() map[string]ecstypes.Resource {
+	resources := make(map[string]ecstypes.Resource)
 	// CPU
 	if task.CPU > 0 {
 		// cpu unit is vcpu at task level
 		// convert to cpushares
-		taskCPUint64 := int64(task.CPU * 1024)
-		resources["CPU"] = &ecs.Resource{
+		taskCPUint32 := int32(task.CPU * 1024)
+		resources["CPU"] = ecstypes.Resource{
 			Name:         utils.Strptr("CPU"),
 			Type:         utils.Strptr("INTEGER"),
-			IntegerValue: &taskCPUint64,
+			IntegerValue: taskCPUint32,
 		}
 	} else {
 		// cpu unit is cpushares at container level
-		containerCPUint64 := int64(0)
+		containerCPUint32 := int32(0)
 		for _, container := range task.Containers {
-			containerCPUint64 += int64(container.CPU)
+			containerCPUint32 += int32(container.CPU)
 		}
-		resources["CPU"] = &ecs.Resource{
+		resources["CPU"] = ecstypes.Resource{
 			Name:         utils.Strptr("CPU"),
 			Type:         utils.Strptr("INTEGER"),
-			IntegerValue: &containerCPUint64,
+			IntegerValue: containerCPUint32,
 		}
 	}
 
 	// Memory
 	if task.Memory > 0 {
 		// memory unit is MiB at task level
-		taskMEMint64 := task.Memory
-		resources["MEMORY"] = &ecs.Resource{
+		taskMEMint32 := int32(task.Memory)
+		resources["MEMORY"] = ecstypes.Resource{
 			Name:         utils.Strptr("MEMORY"),
 			Type:         utils.Strptr("INTEGER"),
-			IntegerValue: &taskMEMint64,
+			IntegerValue: taskMEMint32,
 		}
 	} else {
-		containerMEMint64 := int64(0)
+		containerMEMint32 := int32(0)
 
 		for _, c := range task.Containers {
 			// To parse memory reservation / soft limit
@@ -3662,21 +3662,21 @@ func (task *Task) ToHostResources() map[string]*ecs.Resource {
 				err := json.Unmarshal([]byte(*c.DockerConfig.HostConfig), hostConfig)
 				if err != nil || hostConfig.MemoryReservation <= 0 {
 					// container memory unit is MiB, keeping as is
-					containerMEMint64 += int64(c.Memory)
+					containerMEMint32 += int32(c.Memory)
 				} else {
 					// Soft limit is specified in MiB units but translated to bytes while being transferred to Agent
 					// Converting back to MiB
-					containerMEMint64 += hostConfig.MemoryReservation / (1024 * 1024)
+					containerMEMint32 += int32(hostConfig.MemoryReservation / (1024 * 1024))
 				}
 			} else {
 				// container memory unit is MiB, keeping as is
-				containerMEMint64 += int64(c.Memory)
+				containerMEMint32 += int32(c.Memory)
 			}
 		}
-		resources["MEMORY"] = &ecs.Resource{
+		resources["MEMORY"] = ecstypes.Resource{
 			Name:         utils.Strptr("MEMORY"),
 			Type:         utils.Strptr("INTEGER"),
-			IntegerValue: &containerMEMint64,
+			IntegerValue: containerMEMint32,
 		}
 	}
 
@@ -3699,34 +3699,34 @@ func (task *Task) ToHostResources() map[string]*ecs.Resource {
 			}
 		}
 	}
-	resources["PORTS_TCP"] = &ecs.Resource{
+	resources["PORTS_TCP"] = ecstypes.Resource{
 		Name:           utils.Strptr("PORTS_TCP"),
 		Type:           utils.Strptr("STRINGSET"),
 		StringSetValue: commonutils.Uint16SliceToStringSlice(tcpPortSet),
 	}
-	resources["PORTS_UDP"] = &ecs.Resource{
+	resources["PORTS_UDP"] = ecstypes.Resource{
 		Name:           utils.Strptr("PORTS_UDP"),
 		Type:           utils.Strptr("STRINGSET"),
 		StringSetValue: commonutils.Uint16SliceToStringSlice(udpPortSet),
 	}
 
 	// GPU
-	var gpus []*string
+	var gpus []string
 	for _, c := range task.Containers {
-		gpus = append(gpus, aws.StringSlice(c.GPUIDs)...)
+		gpus = append(gpus, c.GPUIDs...)
 	}
-	resources["GPU"] = &ecs.Resource{
+	resources["GPU"] = ecstypes.Resource{
 		Name:           utils.Strptr("GPU"),
 		Type:           utils.Strptr("STRINGSET"),
 		StringSetValue: gpus,
 	}
 	logger.Debug("Task host resources to account for", logger.Fields{
 		"taskArn":   task.Arn,
-		"CPU":       *resources["CPU"].IntegerValue,
-		"MEMORY":    *resources["MEMORY"].IntegerValue,
-		"PORTS_TCP": aws.StringValueSlice(resources["PORTS_TCP"].StringSetValue),
-		"PORTS_UDP": aws.StringValueSlice(resources["PORTS_UDP"].StringSetValue),
-		"GPU":       aws.StringValueSlice(resources["GPU"].StringSetValue),
+		"CPU":       resources["CPU"].IntegerValue,
+		"MEMORY":    resources["MEMORY"].IntegerValue,
+		"PORTS_TCP": resources["PORTS_TCP"].StringSetValue,
+		"PORTS_UDP": resources["PORTS_UDP"].StringSetValue,
+		"GPU":       resources["GPU"].StringSetValue,
 	})
 	return resources
 }

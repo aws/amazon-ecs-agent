@@ -30,7 +30,7 @@ import (
 	"github.com/aws/amazon-ecs-agent/ecs-agent/api/attachment"
 	ni "github.com/aws/amazon-ecs-agent/ecs-agent/netlib/model/networkinterface"
 
-	"github.com/aws/aws-sdk-go/aws"
+	"github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/golang/mock/gomock"
 	"github.com/stretchr/testify/assert"
 )
@@ -81,7 +81,7 @@ func TestInstanceENIAckHappyPath(t *testing.T) {
 	go handleAttachMessage(testAttachInstanceENIMessage)
 
 	attachInstanceEniAckSent := <-ackSent
-	assert.Equal(t, aws.StringValue(attachInstanceEniAckSent.MessageId), testconst.MessageID)
+	assert.Equal(t, aws.ToString(attachInstanceEniAckSent.MessageId), testconst.MessageID)
 }
 
 // TestInstanceENIAckSingleMessageWithDuplicateENIAttachment tests the path for an
@@ -137,5 +137,5 @@ func TestInstanceENIAckSingleMessageWithDuplicateENIAttachment(t *testing.T) {
 
 	attachInstanceEniAckSent := <-ackSent
 	wg.Wait()
-	assert.Equal(t, aws.StringValue(attachInstanceEniAckSent.MessageId), testconst.MessageID)
+	assert.Equal(t, aws.ToString(attachInstanceEniAckSent.MessageId), testconst.MessageID)
 }

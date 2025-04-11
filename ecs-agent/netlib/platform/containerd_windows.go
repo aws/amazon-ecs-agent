@@ -20,7 +20,6 @@ import (
 	"context"
 
 	"github.com/aws/amazon-ecs-agent/ecs-agent/acs/model/ecsacs"
-	"github.com/aws/amazon-ecs-agent/ecs-agent/api/ecs/model/ecs"
 	"github.com/aws/amazon-ecs-agent/ecs-agent/logger"
 	netlibdata "github.com/aws/amazon-ecs-agent/ecs-agent/netlib/data"
 	"github.com/aws/amazon-ecs-agent/ecs-agent/netlib/model/appmesh"
@@ -34,7 +33,8 @@ import (
 	"github.com/aws/amazon-ecs-agent/ecs-agent/utils/retry"
 	"github.com/aws/amazon-ecs-agent/ecs-agent/volume"
 
-	"github.com/aws/aws-sdk-go/aws"
+	"github.com/aws/aws-sdk-go-v2/aws"
+	ecstypes "github.com/aws/aws-sdk-go-v2/service/ecs/types"
 	"github.com/containernetworking/cni/pkg/types"
 	"github.com/pkg/errors"
 )
@@ -85,9 +85,9 @@ func NewPlatform(
 func (c *containerd) BuildTaskNetworkConfiguration(
 	taskID string,
 	taskPayload *ecsacs.Task) (*tasknetworkconfig.TaskNetworkConfig, error) {
-	mode := aws.StringValue(taskPayload.NetworkMode)
+	mode := ecstypes.NetworkMode(aws.ToString(taskPayload.NetworkMode))
 	switch mode {
-	case ecs.NetworkModeAwsvpc:
+	case ecstypes.NetworkModeAwsvpc:
 		return c.buildAWSVPCNetworkConfig(taskID, taskPayload)
 	default:
 		return nil, errors.New("invalid network mode")
@@ -107,7 +107,7 @@ func (c *containerd) buildAWSVPCNetworkConfig(
 	// Find primary network interface in order to build the task netns name.
 	var primaryIF *ecsacs.ElasticNetworkInterface
 	for _, eni := range taskPayload.ElasticNetworkInterfaces {
-		if aws.Int64Value(eni.Index) == 0 {
+		if aws.ToInt64(eni.Index) == 0 {
 			primaryIF = eni
 		}
 	}
@@ -155,7 +155,7 @@ func (c *containerd) buildAWSVPCNetworkConfig(
 		NetworkNamespaces: []*tasknetworkconfig.NetworkNamespace{
 			netNS,
 		},
-		NetworkMode: ecs.NetworkModeAwsvpc,
+		NetworkMode: ecstypes.NetworkModeAwsvpc,
 	}, nil
 }
 

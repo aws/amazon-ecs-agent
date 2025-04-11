@@ -14,18 +14,24 @@
 package asm
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 
 	"github.com/aws/amazon-ecs-agent/ecs-agent/logger"
-	"github.com/aws/aws-sdk-go/aws"
-	"github.com/aws/aws-sdk-go/aws/awserr"
-	"github.com/aws/aws-sdk-go/service/secretsmanager"
-	"github.com/aws/aws-sdk-go/service/secretsmanager/secretsmanageriface"
+
+	"github.com/aws/aws-sdk-go-v2/aws"
+	"github.com/aws/aws-sdk-go-v2/service/secretsmanager"
+	"github.com/aws/aws-sdk-go-v2/service/secretsmanager/types"
 	"github.com/cihub/seelog"
 	"github.com/docker/docker/api/types/registry"
 	"github.com/pkg/errors"
 )
+
+// For mocking purpose
+type SecretsManagerAPI interface {
+	GetSecretValue(ctx context.Context, params *secretsmanager.GetSecretValueInput, optFns ...func(*secretsmanager.Options)) (*secretsmanager.GetSecretValueOutput, error)
+}
 
 // AuthDataValue is the schema for
 // the SecretStringValue returned by ASM
@@ -46,14 +52,10 @@ func augmentErrMsg(secretID string, err error) string {
 		logger.Warn("augmentErrMsg: SecretID is empty (which is unexpected)")
 	}
 
-	if aerr, ok := err.(awserr.Error); ok {
-		switch aerr.Code() {
-		case secretsmanager.ErrCodeResourceNotFoundException:
-			secretID = "'" + secretID + "' "
-			return resourceInitializationErrMsg(secretID)
-		default:
-			return fmt.Sprintf("secret %s: %s", secretID, err.Error())
-		}
+	var rnfe *types.ResourceNotFoundException
+	if errors.As(err, &rnfe) {
+		secretID = "'" + secretID + "' "
+		return resourceInitializationErrMsg(secretID)
 	} else {
 		return fmt.Sprintf("secret %s: %s", secretID, err.Error())
 	}
@@ -61,12 +63,12 @@ func augmentErrMsg(secretID string, err error) string {
 
 // GetDockerAuthFromASM makes the api call to the AWS Secrets Manager service to
 // retrieve the docker auth data
-func GetDockerAuthFromASM(secretID string, client secretsmanageriface.SecretsManagerAPI) (registry.AuthConfig, error) {
+func GetDockerAuthFromASM(secretID string, client SecretsManagerAPI) (registry.AuthConfig, error) {
 	in := &secretsmanager.GetSecretValueInput{
 		SecretId: aws.String(secretID),
 	}
 
-	out, err := client.GetSecretValue(in)
+	out, err := client.GetSecretValue(context.TODO(), in)
 	if err != nil {
 		return registry.AuthConfig{}, errors.Wrapf(err,
 			"asm fetching secret from the service for %s", secretID)
@@ -81,7 +83,7 @@ func extractASMValue(out *secretsmanager.GetSecretValueOutput) (registry.AuthCon
 			"asm fetching authorization data: empty response")
 	}
 
-	secretValue := aws.StringValue(out.SecretString)
+	secretValue := aws.ToString(out.SecretString)
 	if secretValue == "" {
 		return registry.AuthConfig{}, errors.New(
 			"asm fetching authorization data: empty secrets value")
@@ -95,8 +97,8 @@ func extractASMValue(out *secretsmanager.GetSecretValueOutput) (registry.AuthCon
 			"asm fetching authorization data: unable to unmarshal secret value, invalid schema")
 	}
 
-	username := aws.StringValue(authDataValue.Username)
-	password := aws.StringValue(authDataValue.Password)
+	username := aws.ToString(authDataValue.Username)
+	password := aws.ToString(authDataValue.Password)
 
 	if username == "" {
 		return registry.AuthConfig{}, errors.New(
@@ -117,15 +119,15 @@ func extractASMValue(out *secretsmanager.GetSecretValueOutput) (registry.AuthCon
 }
 
 func GetSecretFromASMWithInput(input *secretsmanager.GetSecretValueInput,
-	client secretsmanageriface.SecretsManagerAPI, jsonKey string) (string, error) {
+	client SecretsManagerAPI, jsonKey string) (string, error) {
 	secretID := *input.SecretId
-	out, err := client.GetSecretValue(input)
+	out, err := client.GetSecretValue(context.TODO(), input)
 	if err != nil {
 		return "", errors.Wrap(err, augmentErrMsg(secretID, err))
 	}
 
 	if jsonKey == "" {
-		return aws.StringValue(out.SecretString), nil
+		return aws.ToString(out.SecretString), nil
 	}
 
 	secretMap := make(map[string]interface{})
@@ -146,15 +148,15 @@ func GetSecretFromASMWithInput(input *secretsmanager.GetSecretValueInput,
 
 // GetSecretFromASM makes the api call to the AWS Secrets Manager service to
 // retrieve the secret value
-func GetSecretFromASM(secretID string, client secretsmanageriface.SecretsManagerAPI) (string, error) {
+func GetSecretFromASM(secretID string, client SecretsManagerAPI) (string, error) {
 	in := &secretsmanager.GetSecretValueInput{
 		SecretId: aws.String(secretID),
 	}
 
-	out, err := client.GetSecretValue(in)
+	out, err := client.GetSecretValue(context.TODO(), in)
 	if err != nil {
 		return "", errors.Wrapf(err, "secret %s", secretID)
 	}
 
-	return aws.StringValue(out.SecretString), nil
+	return aws.ToString(out.SecretString), nil
 }

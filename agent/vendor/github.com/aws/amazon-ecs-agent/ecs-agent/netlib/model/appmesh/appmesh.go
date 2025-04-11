@@ -18,7 +18,7 @@ import (
 	"strings"
 
 	"github.com/aws/amazon-ecs-agent/ecs-agent/acs/model/ecsacs"
-	"github.com/aws/aws-sdk-go/aws"
+	"github.com/aws/aws-sdk-go-v2/aws"
 )
 
 const (
@@ -63,11 +63,11 @@ func AppMeshFromACS(proxyConfig *ecsacs.ProxyConfiguration) (*AppMesh, error) {
 	}
 
 	return &AppMesh{
-		ContainerName:      aws.StringValue(proxyConfig.ContainerName),
-		IgnoredUID:         aws.StringValue(proxyConfig.Properties[ignoredUID]),
-		IgnoredGID:         aws.StringValue(proxyConfig.Properties[ignoredGID]),
-		ProxyIngressPort:   aws.StringValue(proxyConfig.Properties[proxyIngressPort]),
-		ProxyEgressPort:    aws.StringValue(proxyConfig.Properties[proxyEgressPort]),
+		ContainerName:      aws.ToString(proxyConfig.ContainerName),
+		IgnoredUID:         aws.ToString(proxyConfig.Properties[ignoredUID]),
+		IgnoredGID:         aws.ToString(proxyConfig.Properties[ignoredGID]),
+		ProxyIngressPort:   aws.ToString(proxyConfig.Properties[proxyIngressPort]),
+		ProxyEgressPort:    aws.ToString(proxyConfig.Properties[proxyEgressPort]),
 		AppPorts:           buildAppPorts(proxyConfig),
 		EgressIgnoredIPs:   buildEgressIgnoredIPs(proxyConfig),
 		EgressIgnoredPorts: buildEgressIgnoredPorts(proxyConfig),

@@ -14,17 +14,18 @@
 package factory
 
 import (
+	"context"
 	"time"
 
+	"github.com/aws/amazon-ecs-agent/agent/asm"
 	"github.com/aws/amazon-ecs-agent/agent/config"
 	agentversion "github.com/aws/amazon-ecs-agent/agent/version"
 	"github.com/aws/amazon-ecs-agent/ecs-agent/credentials"
 	"github.com/aws/amazon-ecs-agent/ecs-agent/httpclient"
-	"github.com/aws/aws-sdk-go/aws"
-	awscreds "github.com/aws/aws-sdk-go/aws/credentials"
-	"github.com/aws/aws-sdk-go/aws/session"
-	"github.com/aws/aws-sdk-go/service/secretsmanager"
-	"github.com/aws/aws-sdk-go/service/secretsmanager/secretsmanageriface"
+
+	awsconfig "github.com/aws/aws-sdk-go-v2/config"
+	awscreds "github.com/aws/aws-sdk-go-v2/credentials"
+	"github.com/aws/aws-sdk-go-v2/service/secretsmanager"
 )
 
 const (
@@ -32,7 +33,7 @@ const (
 )
 
 type ClientCreator interface {
-	NewASMClient(region string, creds credentials.IAMRoleCredentials) secretsmanageriface.SecretsManagerAPI
+	NewASMClient(region string, creds credentials.IAMRoleCredentials) (asm.SecretsManagerAPI, error)
 }
 
 func NewClientCreator() ClientCreator {
@@ -42,13 +43,22 @@ func NewClientCreator() ClientCreator {
 type asmClientCreator struct{}
 
 func (*asmClientCreator) NewASMClient(region string,
-	creds credentials.IAMRoleCredentials) secretsmanageriface.SecretsManagerAPI {
-	cfg := aws.NewConfig().
-		WithHTTPClient(httpclient.New(roundtripTimeout, false, agentversion.String(), config.OSType)).
-		WithRegion(region).
-		WithCredentials(
-			awscreds.NewStaticCredentials(creds.AccessKeyID, creds.SecretAccessKey,
-				creds.SessionToken))
-	sess := session.Must(session.NewSession(cfg))
-	return secretsmanager.New(sess)
+	creds credentials.IAMRoleCredentials) (asm.SecretsManagerAPI, error) {
+	cfg, err := awsconfig.LoadDefaultConfig(
+		context.TODO(),
+		awsconfig.WithRegion(region),
+		awsconfig.WithHTTPClient(httpclient.New(roundtripTimeout, false, agentversion.String(), config.OSType)),
+		awsconfig.WithCredentialsProvider(
+			awscreds.NewStaticCredentialsProvider(
+				creds.AccessKeyID,
+				creds.SecretAccessKey,
+				creds.SessionToken,
+			),
+		),
+	)
+
+	if err != nil {
+		return nil, err
+	}
+	return secretsmanager.NewFromConfig(cfg), nil
 }

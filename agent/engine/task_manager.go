@@ -920,7 +920,7 @@ func (mtask *managedTask) handleEventError(containerChange dockerContainerChange
 				field.Image:     container.Image,
 				field.Container: container.Name,
 				field.Error:     event.Error,
-				field.Status:    event.Status,
+				field.Status:    event.Status.String(),
 			})
 			// The task should be stopped regardless of whether this container is
 			// essential or non-essential.
@@ -937,7 +937,7 @@ func (mtask *managedTask) handleEventError(containerChange dockerContainerChange
 			field.Image:     container.Image,
 			field.Container: container.Name,
 			field.Error:     event.Error,
-			field.Status:    event.Status,
+			field.Status:    event.Status.String(),
 		})
 		// proceed anyway
 		return true

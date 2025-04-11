@@ -21,7 +21,7 @@ import (
 	"net/http"
 	"time"
 
-	"github.com/aws/amazon-ecs-agent/ecs-agent/api/ecs/model/ecs"
+	apierrors "github.com/aws/amazon-ecs-agent/ecs-agent/api/errors"
 	"github.com/aws/amazon-ecs-agent/ecs-agent/credentials"
 	"github.com/aws/amazon-ecs-agent/ecs-agent/logger"
 	"github.com/aws/amazon-ecs-agent/ecs-agent/logger/field"
@@ -30,10 +30,15 @@ import (
 	"github.com/aws/amazon-ecs-agent/ecs-agent/tmds/handlers/utils"
 	v4 "github.com/aws/amazon-ecs-agent/ecs-agent/tmds/handlers/v4"
 	"github.com/aws/amazon-ecs-agent/ecs-agent/tmds/handlers/v4/state"
+	commonutils "github.com/aws/amazon-ecs-agent/ecs-agent/utils"
 
+	awshttp "github.com/aws/aws-sdk-go-v2/aws/transport/http"
+	"github.com/aws/aws-sdk-go-v2/service/ecs"
+	ecstypes "github.com/aws/aws-sdk-go-v2/service/ecs/types"
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/aws/awserr"
 	"github.com/aws/aws-sdk-go/aws/request"
+	"github.com/aws/smithy-go"
 	"github.com/gorilla/mux"
 )
 
@@ -54,6 +59,12 @@ func TaskProtectionPath() string {
 type TaskProtectionRequest struct {
 	ProtectionEnabled *bool
 	ExpiresInMinutes  *int64
+}
+
+// CanceledError is an interface that defines a method to check if an error is a cancellation error.
+// https://pkg.go.dev/github.com/aws/smithy-go#CanceledError.CanceledError
+type CanceledError interface {
+	CanceledError() bool
 }
 
 // GetTaskProtectionHandler returns a handler function for GetTaskProtection API
@@ -94,12 +105,19 @@ func GetTaskProtectionHandler(
 		}
 
 		// Call ECS TaskProtection API
-		ecsClient := factory.NewTaskProtectionClient(*taskCreds)
+		ecsClient, err := factory.NewTaskProtectionClient(*taskCreds)
+		if err != nil {
+			errResponseCode, errResponseBody := logAndHandleECSError(err, *task, requestType)
+			utils.WriteJSONResponse(w, errResponseCode, errResponseBody, requestType)
+			successMetric.WithCount(0).Done(nil)
+			return
+		}
+
 		ctx, cancel := context.WithTimeout(r.Context(), ecsCallTimeout)
 		defer cancel()
-		responseBody, err := ecsClient.GetTaskProtectionWithContext(ctx, &ecs.GetTaskProtectionInput{
+		responseBody, err := ecsClient.GetTaskProtection(ctx, &ecs.GetTaskProtectionInput{
 			Cluster: aws.String(cluster),
-			Tasks:   aws.StringSlice([]string{task.TaskARN}),
+			Tasks:   []string{task.TaskARN},
 		})
 		if err != nil {
 			errResponseCode, errResponseBody := logAndHandleECSError(err, *task, requestType)
@@ -119,7 +137,7 @@ func GetTaskProtectionHandler(
 
 		// ECS call was successful
 		utils.WriteJSONResponse(w, http.StatusOK,
-			types.NewTaskProtectionResponseProtection(responseBody.ProtectedTasks[0]), requestType)
+			types.NewTaskProtectionResponseProtection(&responseBody.ProtectedTasks[0]), requestType)
 		successMetric.WithCount(1).Done(nil)
 	}
 }
@@ -147,7 +165,7 @@ func UpdateTaskProtectionHandler(
 			utils.WriteJSONResponse(w, http.StatusBadRequest,
 				types.NewTaskProtectionResponseError(types.NewErrorResponsePtr(
 					"",
-					ecs.ErrCodeInvalidParameterException,
+					apierrors.ErrCodeInvalidParameterException,
 					"UpdateTaskProtection: failed to decode request",
 				), nil),
 				requestType)
@@ -173,7 +191,7 @@ func UpdateTaskProtectionHandler(
 
 		// Validate the request
 		if request.ProtectionEnabled == nil {
-			responseErr := types.NewErrorResponsePtr(task.TaskARN, ecs.ErrCodeInvalidParameterException,
+			responseErr := types.NewErrorResponsePtr(task.TaskARN, apierrors.ErrCodeInvalidParameterException,
 				"Invalid request: does not contain 'ProtectionEnabled' field")
 			response := types.NewTaskProtectionResponseError(responseErr, nil)
 			utils.WriteJSONResponse(w, http.StatusBadRequest, response, requestType)
@@ -198,14 +216,22 @@ func UpdateTaskProtectionHandler(
 		}
 
 		// Call ECS TaskProtection API
-		ecsClient := factory.NewTaskProtectionClient(*taskCreds)
+		ecsClient, err := factory.NewTaskProtectionClient(*taskCreds)
+		if err != nil {
+			errResponseCode, errResponseBody := logAndHandleECSError(err, *task, requestType)
+			utils.WriteJSONResponse(w, errResponseCode, errResponseBody, requestType)
+			successMetric.WithCount(0).Done(nil)
+			return
+		}
+
 		ctx, cancel := context.WithTimeout(r.Context(), ecsCallTimeout)
 		defer cancel()
-		response, err := ecsClient.UpdateTaskProtectionWithContext(ctx, &ecs.UpdateTaskProtectionInput{
+
+		response, err := ecsClient.UpdateTaskProtection(ctx, &ecs.UpdateTaskProtectionInput{
 			Cluster:           aws.String(cluster),
-			ExpiresInMinutes:  taskProtection.GetExpiresInMinutes(),
-			ProtectionEnabled: aws.Bool(taskProtection.GetProtectionEnabled()),
-			Tasks:             aws.StringSlice([]string{task.TaskARN}),
+			ExpiresInMinutes:  commonutils.Int64PtrToInt32Ptr(taskProtection.GetExpiresInMinutes()),
+			ProtectionEnabled: taskProtection.GetProtectionEnabled(),
+			Tasks:             []string{task.TaskARN},
 		})
 		if err != nil {
 			errResponseCode, errResponseBody := logAndHandleECSError(err, *task, requestType)
@@ -225,7 +251,7 @@ func UpdateTaskProtectionHandler(
 
 		// ECS call was successful
 		utils.WriteJSONResponse(w, http.StatusOK,
-			types.NewTaskProtectionResponseProtection(response.ProtectedTasks[0]), requestType)
+			types.NewTaskProtectionResponseProtection(&response.ProtectedTasks[0]), requestType)
 		successMetric.WithCount(1).Done(nil)
 	}
 }
@@ -262,7 +288,7 @@ func getTaskCredentials(
 	if !ok {
 		errMsg := "Invalid Request: no task IAM role credentials available for task"
 		logger.Error(errMsg, logger.Fields{field.TaskARN: task.TaskARN})
-		responseErr := types.NewErrorResponsePtr(task.TaskARN, ecs.ErrCodeAccessDeniedException, errMsg)
+		responseErr := types.NewErrorResponsePtr(task.TaskARN, apierrors.ErrCodeAccessDeniedException, errMsg)
 		response := types.NewTaskProtectionResponseError(responseErr, nil)
 		return nil, http.StatusForbidden, &response
 	}
@@ -299,8 +325,8 @@ func logAndHandleECSError(
 
 // Helper function for logging and validating ECS TaskProtection API response
 func logAndValidateECSResponse(
-	protectedTasks []*ecs.ProtectedTask,
-	failures []*ecs.Failure,
+	protectedTasks []ecstypes.ProtectedTask,
+	failures []ecstypes.Failure,
 	task state.TaskResponse,
 	requestType string,
 ) (int, *types.TaskProtectionResponse) {
@@ -320,12 +346,12 @@ func logAndValidateECSResponse(
 				field.RequestType: requestType,
 			})
 			responseErr := types.NewErrorResponsePtr(
-				task.TaskARN, ecs.ErrCodeServerException, "Unexpected error occurred")
+				task.TaskARN, apierrors.ErrCodeServerException, "Unexpected error occurred")
 			response := types.NewTaskProtectionResponseError(responseErr, nil)
 			return http.StatusInternalServerError, &response
 		}
 
-		response := types.NewTaskProtectionResponseFailure(failures[0])
+		response := types.NewTaskProtectionResponseFailure(&failures[0])
 		return http.StatusOK, &response
 	}
 
@@ -340,7 +366,7 @@ func logAndValidateECSResponse(
 		})
 
 		responseErr := types.NewErrorResponsePtr(
-			task.TaskARN, ecs.ErrCodeServerException, "Unexpected error occurred")
+			task.TaskARN, apierrors.ErrCodeServerException, "Unexpected error occurred")
 		response := types.NewTaskProtectionResponseError(responseErr, nil)
 		return http.StatusInternalServerError, &response
 	}
@@ -357,14 +383,14 @@ func getTaskMetadataErrorResponse(
 	var errContainerLookupFailed *state.ErrorLookupFailure
 	if errors.As(err, &errContainerLookupFailed) {
 		responseErr := types.NewErrorResponsePtr(
-			"", ecs.ErrCodeResourceNotFoundException, taskMetadataFetchFailureMsg)
+			"", apierrors.ErrCodeResourceNotFoundException, taskMetadataFetchFailureMsg)
 		return http.StatusNotFound, types.NewTaskProtectionResponseError(responseErr, nil)
 	}
 
 	var errFailedToGetContainerMetadata *state.ErrorMetadataFetchFailure
 	if errors.As(err, &errFailedToGetContainerMetadata) {
 		responseErr := types.NewErrorResponsePtr(
-			"", ecs.ErrCodeServerException, taskMetadataFetchFailureMsg)
+			"", apierrors.ErrCodeServerException, taskMetadataFetchFailureMsg)
 		return http.StatusInternalServerError, types.NewTaskProtectionResponseError(responseErr, nil)
 	}
 
@@ -373,7 +399,7 @@ func getTaskMetadataErrorResponse(
 		field.RequestType: requestType,
 	})
 
-	responseErr := types.NewErrorResponsePtr("", ecs.ErrCodeServerException, taskMetadataFetchFailureMsg)
+	responseErr := types.NewErrorResponsePtr("", apierrors.ErrCodeServerException, taskMetadataFetchFailureMsg)
 	return http.StatusInternalServerError, types.NewTaskProtectionResponseError(responseErr, nil)
 }
 
@@ -392,12 +418,33 @@ func getErrorCodeAndStatusCode(err error) (string, string, int, *string) {
 			return aerr.Code(), ecsCallTimedOutError, http.StatusGatewayTimeout, nil
 		} else {
 			logger.Error(fmt.Sprintf(
-				"got an exception that does not implement RequestFailure interface but is an aws error. This should not happen, return statusCode 500 for whatever errorCode. Original err: %v.",
+				"Got an exception that does not implement RequestFailure interface but is an aws error. This should not happen, return statusCode 500 for whatever errorCode. Original err: %v.",
 				err))
 			return awsErr.Code(), msg, http.StatusInternalServerError, nil
 		}
-	} else {
-		logger.Error(fmt.Sprintf("non aws error received: %v", err))
-		return ecs.ErrCodeServerException, msg, http.StatusInternalServerError, nil
 	}
+
+	// below is the aws-sdk-go-v2 error handling and the above v1 error handling will be removed once we complete aws-sdk-go-v2 migration
+	var ce CanceledError
+	if errors.As(err, &ce) {
+		return apierrors.ErrCodeRequestCanceled, ecsCallTimedOutError, http.StatusGatewayTimeout, nil
+	}
+
+	var apiErr smithy.APIError
+	if errors.As(err, &apiErr) {
+		msg = apiErr.ErrorMessage()
+
+		var re *awshttp.ResponseError
+		if errors.As(err, &re) {
+			return apiErr.ErrorCode(), msg, re.HTTPStatusCode(), &re.RequestID
+		}
+
+		logger.Error(fmt.Sprintf(
+			"Got an exception that does not implement ResponseError. This should not happen, return statusCode 500 for whatever errorCode. Original err: %v.",
+			err))
+		return apiErr.ErrorCode(), msg, http.StatusInternalServerError, nil
+	}
+
+	logger.Error(fmt.Sprintf("Non aws error received: %v", err))
+	return apierrors.ErrCodeServerException, msg, http.StatusInternalServerError, nil
 }

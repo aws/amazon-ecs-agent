@@ -55,7 +55,6 @@ import (
 	"github.com/aws/amazon-ecs-agent/ecs-agent/acs/session"
 	"github.com/aws/amazon-ecs-agent/ecs-agent/api/ecs"
 	ecsclient "github.com/aws/amazon-ecs-agent/ecs-agent/api/ecs/client"
-	ecsmodel "github.com/aws/amazon-ecs-agent/ecs-agent/api/ecs/model/ecs"
 	apierrors "github.com/aws/amazon-ecs-agent/ecs-agent/api/errors"
 	"github.com/aws/amazon-ecs-agent/ecs-agent/credentials"
 	"github.com/aws/amazon-ecs-agent/ecs-agent/credentials/instancecreds"
@@ -69,11 +68,12 @@ import (
 	"github.com/aws/amazon-ecs-agent/ecs-agent/tcs/model/ecstcs"
 	"github.com/aws/amazon-ecs-agent/ecs-agent/utils/retry"
 	"github.com/aws/amazon-ecs-agent/ecs-agent/wsclient"
+
 	awsv2 "github.com/aws/aws-sdk-go-v2/aws"
+	"github.com/aws/aws-sdk-go-v2/service/ecs/types"
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/aws/awserr"
 	aws_credentials "github.com/aws/aws-sdk-go/aws/credentials"
-
 	"github.com/cihub/seelog"
 	"github.com/pborman/uuid"
 )
@@ -324,7 +324,7 @@ func (agent *ecsAgent) start() int {
 		})
 		return exitcodes.ExitError
 	}
-	clientFactory := ecsclient.NewECSClientFactory(agent.credentialProvider, cfgAccessor, agent.ec2MetadataClient,
+	clientFactory := ecsclient.NewECSClientFactory(agent.credentialsCache, cfgAccessor, agent.ec2MetadataClient,
 		version.String(), ecsclient.WithIPv6PortBindingExcluded(true))
 	client, err := clientFactory.NewClient()
 	if err != nil {
@@ -373,16 +373,16 @@ func (agent *ecsAgent) doStart(containerChangeEventStream *eventstream.EventStre
 		// Find GPUs (if any) on the instance
 		platformDevices := agent.getPlatformDevices()
 		for _, device := range platformDevices {
-			if *device.Type == ecsmodel.PlatformDeviceTypeGpu {
+			if device.Type == types.PlatformDeviceTypeGpu {
 				gpuIDs = append(gpuIDs, *device.Id)
 			}
 		}
 	}
 
-	hostResources["GPU"] = &ecsmodel.Resource{
+	hostResources["GPU"] = types.Resource{
 		Name:           utils.Strptr("GPU"),
 		Type:           utils.Strptr("STRINGSET"),
-		StringSetValue: aws.StringSlice(gpuIDs),
+		StringSetValue: gpuIDs,
 	}
 
 	// Create the task engine
@@ -411,7 +411,7 @@ func (agent *ecsAgent) doStart(containerChangeEventStream *eventstream.EventStre
 		seelog.Errorf("Failed to load pause container: %v", loadPauseErr)
 	}
 
-	var vpcSubnetAttributes []*ecsmodel.Attribute
+	var vpcSubnetAttributes []types.Attribute
 	// Check if Task ENI is enabled
 	if agent.cfg.TaskENIEnabled.Enabled() {
 		// check pause container image load
@@ -464,6 +464,8 @@ func (agent *ecsAgent) doStart(containerChangeEventStream *eventstream.EventStre
 			return exitcodes.ExitError
 		}
 	}
+
+	initializeIPCompatibility(agent.mac)
 
 	// Register the container instance
 	err = agent.registerContainerInstance(client, vpcSubnetAttributes)
@@ -603,7 +605,7 @@ func (agent *ecsAgent) newTaskEngine(containerChangeEventStream *eventstream.Eve
 	credentialsManager credentials.Manager,
 	state dockerstate.TaskEngineState,
 	imageManager engine.ImageManager,
-	hostResources map[string]*ecsmodel.Resource,
+	hostResources map[string]types.Resource,
 	execCmdMgr execcmd.Manager,
 	serviceConnectManager engineserviceconnect.Manager,
 	daemonManagers map[string]dm.DaemonManager) (engine.TaskEngine, string, error) {
@@ -766,8 +768,8 @@ func (agent *ecsAgent) newStateManager(
 
 // constructVPCSubnetAttributes returns vpc and subnet IDs of the instance as
 // an attribute list
-func (agent *ecsAgent) constructVPCSubnetAttributes() []*ecsmodel.Attribute {
-	return []*ecsmodel.Attribute{
+func (agent *ecsAgent) constructVPCSubnetAttributes() []types.Attribute {
+	return []types.Attribute{
 		{
 			Name:  aws.String(vpcIDAttributeName),
 			Value: aws.String(agent.vpc),
@@ -814,7 +816,7 @@ func (agent *ecsAgent) loadManagedDaemonImage(dm dm.DaemonManager, imageManager 
 // registerContainerInstance registers the container instance ID for the ECS Agent
 func (agent *ecsAgent) registerContainerInstance(
 	client ecs.ECSClient,
-	additionalAttributes []*ecsmodel.Attribute) error {
+	additionalAttributes []types.Attribute) error {
 	// Preflight request to make sure they're good
 	if preflightCreds, err := agent.credentialsCache.Retrieve(context.TODO()); err != nil || !preflightCreds.HasKeys() {
 		seelog.Errorf("Error getting valid credentials: %s", err)
@@ -862,13 +864,13 @@ func (agent *ecsAgent) registerContainerInstance(
 		if retriable, ok := err.(apierrors.Retriable); ok && !retriable.Retry() {
 			return terminalError{err}
 		}
-		if utils.IsAWSErrorCodeEqual(err, ecsmodel.ErrCodeInvalidParameterException) {
+		if utils.IsAWSErrorCodeEqual(err, apierrors.ErrCodeInvalidParameterException) {
 			logger.Critical("Instance registration attempt with an invalid parameter", logger.Fields{
 				field.Error: err,
 			})
 			return terminalError{err}
 		}
-		if utils.IsAWSErrorCodeEqual(err, ecsmodel.ErrCodeClientException) {
+		if utils.IsAWSErrorCodeEqual(err, apierrors.ErrCodeClientException) {
 			logger.Critical("Instance registration attempt with client performing invalid action", logger.Fields{
 				field.Error: err,
 			})
@@ -898,8 +900,8 @@ func (agent *ecsAgent) registerContainerInstance(
 // reregisterContainerInstance registers a container instance that has already been
 // registered with ECS. This is for cases where the ECS Agent is being restored
 // from a check point.
-func (agent *ecsAgent) reregisterContainerInstance(client ecs.ECSClient, capabilities []*ecsmodel.Attribute,
-	tags []*ecsmodel.Tag, registrationToken string, platformDevices []*ecsmodel.PlatformDevice, outpostARN string) error {
+func (agent *ecsAgent) reregisterContainerInstance(client ecs.ECSClient, capabilities []types.Attribute,
+	tags []types.Tag, registrationToken string, platformDevices []types.PlatformDevice, outpostARN string) error {
 	_, availabilityZone, err := client.RegisterContainerInstance(agent.containerInstanceARN, capabilities, tags,
 		registrationToken, platformDevices, outpostARN)
 
@@ -916,13 +918,13 @@ func (agent *ecsAgent) reregisterContainerInstance(client ecs.ECSClient, capabil
 		seelog.Criticalf(instanceTypeMismatchErrorFormat, err)
 		return terminalError{err}
 	}
-	if utils.IsAWSErrorCodeEqual(err, ecsmodel.ErrCodeInvalidParameterException) {
+	if utils.IsAWSErrorCodeEqual(err, apierrors.ErrCodeInvalidParameterException) {
 		logger.Critical("Instance re-registration attempt with an invalid parameter", logger.Fields{
 			field.Error: err,
 		})
 		return terminalError{err}
 	}
-	if utils.IsAWSErrorCodeEqual(err, ecsmodel.ErrCodeClientException) {
+	if utils.IsAWSErrorCodeEqual(err, apierrors.ErrCodeClientException) {
 		logger.Critical("Instance re-registration attempt with client performing invalid action", logger.Fields{
 			field.Error: err,
 		})
@@ -1042,7 +1044,7 @@ func (agent *ecsAgent) spotInstanceDrainingPoller(client ecs.ECSClient) bool {
 		}
 
 		seelog.Infof("Received a spot interruption (%s) scheduled for %s, setting state to DRAINING", ia.Action, ia.Time)
-		err = client.UpdateContainerInstancesState(agent.containerInstanceARN, "DRAINING")
+		err = client.UpdateContainerInstancesState(agent.containerInstanceARN, types.ContainerInstanceStatusDraining)
 		if err != nil {
 			seelog.Errorf("Error setting instance [ARN: %s] state to DRAINING: %s", agent.containerInstanceARN, err)
 		} else {
@@ -1102,7 +1104,7 @@ func (agent *ecsAgent) startACSSession(
 	acsSession := session.NewSession(agent.containerInstanceARN,
 		agent.cfg.Cluster,
 		client,
-		agent.credentialProvider,
+		agent.credentialsCache,
 		inactiveInstanceCB,
 		acsclient.NewACSClientFactory(),
 		metricsfactory.NewNopEntryFactory(),
@@ -1155,7 +1157,7 @@ func (agent *ecsAgent) verifyRequiredDockerVersion() (int, bool) {
 }
 
 // getContainerInstanceTagsFromEC2API will retrieve the tags of this instance remotely.
-func (agent *ecsAgent) getContainerInstanceTagsFromEC2API() ([]*ecsmodel.Tag, error) {
+func (agent *ecsAgent) getContainerInstanceTagsFromEC2API() ([]types.Tag, error) {
 	// Get instance ID from ec2 metadata client.
 	instanceID, err := agent.ec2MetadataClient.InstanceID()
 	if err != nil {
@@ -1167,7 +1169,7 @@ func (agent *ecsAgent) getContainerInstanceTagsFromEC2API() ([]*ecsmodel.Tag, er
 
 // mergeTags will merge the local tags and ec2 tags, for the overlap part, ec2 tags
 // will be overridden by local tags.
-func mergeTags(localTags []*ecsmodel.Tag, ec2Tags []*ecsmodel.Tag) []*ecsmodel.Tag {
+func mergeTags(localTags []types.Tag, ec2Tags []types.Tag) []types.Tag {
 	tagsMap := make(map[string]string)
 
 	for _, ec2Tag := range ec2Tags {
@@ -1268,4 +1270,16 @@ func contains(capabilities []string, capability string) bool {
 	}
 
 	return false
+}
+
+// Determines and sets IPv4 and IPv6 compatibility for the container instance.
+//
+// If there was a failure in determining IP compatibility then this function falls back
+// to default settings, that is, IPv4 compatible but IPv6 incompatible.
+func initializeIPCompatibility(mac string) {
+	if err := config.DetermineIPCompatibility(mac); err != nil {
+		logger.Warn("Could not determine IPv4 and IPv6 compatibility, falling back to defaults",
+			logger.Fields{field.Error: err})
+		config.SetIPCompatibilityToV4Only()
+	}
 }

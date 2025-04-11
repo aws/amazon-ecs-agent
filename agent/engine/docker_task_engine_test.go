@@ -68,8 +68,8 @@ import (
 	ni "github.com/aws/amazon-ecs-agent/ecs-agent/netlib/model/networkinterface"
 	mock_ttime "github.com/aws/amazon-ecs-agent/ecs-agent/utils/ttime/mocks"
 
-	"github.com/aws/aws-sdk-go/aws"
-	"github.com/aws/aws-sdk-go/service/secretsmanager"
+	"github.com/aws/aws-sdk-go-v2/aws"
+	"github.com/aws/aws-sdk-go-v2/service/secretsmanager"
 	"github.com/aws/aws-sdk-go/service/ssm"
 	cniTypesCurrent "github.com/containernetworking/cni/pkg/types/100"
 	"github.com/docker/docker/api/types"
@@ -2013,8 +2013,8 @@ func TestTaskUseExecutionRolePullPrivateRegistryImage(t *testing.T) {
 				ARN:                "",
 				IAMRoleCredentials: executionRoleCredentials,
 			}, true),
-		asmClientCreator.EXPECT().NewASMClient(region, executionRoleCredentials).Return(mockASMClient),
-		mockASMClient.EXPECT().GetSecretValue(gomock.Any()).Return(asmSecretValue, nil),
+		asmClientCreator.EXPECT().NewASMClient(region, executionRoleCredentials).Return(mockASMClient, nil),
+		mockASMClient.EXPECT().GetSecretValue(gomock.Any(), gomock.Any(), gomock.Any()).Return(asmSecretValue, nil),
 	)
 	require.NoError(t, asmAuthRes.Create())
 	container := testTask.Containers[0]
@@ -2921,14 +2921,18 @@ func TestTaskSecretsEnvironmentVariables(t *testing.T) {
 
 			credentialsManager.EXPECT().GetTaskCredentials(credentialsID).Return(taskIAMcreds, true).Times(2)
 			ssmClientCreator.EXPECT().NewSSMClient(region, executionRoleCredentials).Return(mockSSMClient)
-			asmClientCreator.EXPECT().NewASMClient(region, executionRoleCredentials).Return(mockASMClient)
+			asmClientCreator.EXPECT().NewASMClient(region, executionRoleCredentials).Return(mockASMClient, nil)
 
 			mockSSMClient.EXPECT().GetParameters(gomock.Any()).Do(func(in *ssm.GetParametersInput) {
 				assert.Equal(t, in.Names, reqSecretNames)
 			}).Return(ssmClientOutput, nil).Times(1)
 
-			mockASMClient.EXPECT().GetSecretValue(gomock.Any()).Do(func(in *secretsmanager.GetSecretValueInput) {
-				assert.Equal(t, asmSecretValueFrom, aws.StringValue(in.SecretId))
+			mockASMClient.EXPECT().GetSecretValue(
+				gomock.Any(),
+				gomock.Any(),
+				gomock.Any(),
+			).Do(func(ctx context.Context, in *secretsmanager.GetSecretValueInput, opts ...func(*secretsmanager.Options)) {
+				assert.Equal(t, asmSecretValueFrom, aws.ToString(in.SecretId))
 			}).Return(asmClientOutput, nil).Times(1)
 
 			require.NoError(t, ssmSecretRes.Create())

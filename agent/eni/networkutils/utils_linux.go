@@ -23,7 +23,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/aws/amazon-ecs-agent/agent/eni/netlinkwrapper"
+	"github.com/aws/amazon-ecs-agent/agent/utils/netlinkwrapper"
 	apierrors "github.com/aws/amazon-ecs-agent/ecs-agent/api/errors"
 	"github.com/aws/amazon-ecs-agent/ecs-agent/utils/retry"
 	"github.com/pkg/errors"
