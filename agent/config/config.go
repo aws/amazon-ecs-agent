@@ -23,6 +23,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/aws/amazon-ecs-agent/agent/config/ipcompatibility"
 	"github.com/aws/amazon-ecs-agent/agent/dockerclient"
 	"github.com/aws/amazon-ecs-agent/agent/utils"
 	apierrors "github.com/aws/amazon-ecs-agent/ecs-agent/api/errors"
@@ -254,10 +255,15 @@ func NewConfig(ec2client ec2.EC2MetadataClient) (*Config, error) {
 
 	// Determine IP version compatibility for the container instance
 	if err := config.DetermineIPCompatibility(primaryENIMAC); err != nil {
+		// Failed to deterrmine IP compatibility of the container instance.
+		// Default to IPv4-only compatibility status which is the original expectation of ECS
+		// container instances.
+		// This is a fallback to help with graceful adoption of Agent in IPv6-only environments
+		// without disrupting existing environments.
 		logger.Warn(
 			"Could not determine IPv4 and IPv6 compatibility, falling back to IPv4-only as a default",
 			logger.Fields{field.Error: err})
-		config.SetIPCompatibilityToV4Only()
+		config.InstanceIPCompatibility = ipcompatibility.NewIPv4OnlyCompatibility()
 	}
 
 	if config.complete() {
@@ -692,20 +698,4 @@ func IsFIPSEnabled() bool {
 // that is used in s3/factory/factory_test.go
 func SetFIPSEnabled(enabled bool) {
 	isFIPSEnabled = enabled
-}
-
-// Sets IP version compatibility configuration to its default state -
-// * IPv4 compatible
-// * IPv6 incompatible
-//
-// This function is a fallback to revert Agent to its IPv4-only state
-// to help with graceful adoption of Agent in IPv6-only environments
-// without disrupting existing environments.
-func (c *Config) SetIPCompatibilityToV4Only() {
-	c.InstanceIPCompatibility.SetIPv4Compatible(true)
-	c.InstanceIPCompatibility.SetIPv6Compatible(false)
-	logger.Info("Set IP version compatibility to IPv4-only", logger.Fields{
-		"IPv4": c.InstanceIPCompatibility.IsIPv4Compatible(),
-		"IPv6": c.InstanceIPCompatibility.IsIPv6Compatible(),
-	})
 }

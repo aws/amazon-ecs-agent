@@ -19,6 +19,16 @@ type IPCompatibility struct {
 	ipv6Compatible bool
 }
 
+// Returns a new IPCompatibility instance.
+func NewIPCompatibility(ipv4Compatible, ipv6Compatible bool) IPCompatibility {
+	return IPCompatibility{ipv4Compatible: ipv4Compatible, ipv6Compatible: ipv6Compatible}
+}
+
+// Returns an IPv4-only IPCompatibility instance.
+func NewIPv4OnlyCompatibility() IPCompatibility {
+	return NewIPCompatibility(true, false)
+}
+
 // SetIPv4Compatible sets the IPv4 compatibility status.
 func (ic *IPCompatibility) SetIPv4Compatible(compatibility bool) {
 	ic.ipv4Compatible = compatibility

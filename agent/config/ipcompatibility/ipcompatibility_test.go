@@ -21,7 +21,7 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
-func TestIpCompatibility(t *testing.T) {
+func TestIPCompatibility(t *testing.T) {
 	ic := IPCompatibility{}
 
 	t.Run("IPv4 Compatibility", func(t *testing.T) {
@@ -39,4 +39,51 @@ func TestIpCompatibility(t *testing.T) {
 		ic.SetIPv6Compatible(false)
 		assert.False(t, ic.IsIPv6Compatible(), "IPv6 should be incompatible")
 	})
+}
+
+func TestIPv4OnlyCompatibility(t *testing.T) {
+	c := NewIPv4OnlyCompatibility()
+	assert.True(t, c.IsIPv4Compatible())
+	assert.False(t, c.IsIPv6Compatible())
+}
+
+func TestIsIPv6Only(t *testing.T) {
+	tests := []struct {
+		name           string
+		ipv4Compatible bool
+		ipv6Compatible bool
+		expected       bool
+	}{
+		{
+			name:           "IPv6 only network",
+			ipv4Compatible: false,
+			ipv6Compatible: true,
+			expected:       true,
+		},
+		{
+			name:           "Dual stack network",
+			ipv4Compatible: true,
+			ipv6Compatible: true,
+			expected:       false,
+		},
+		{
+			name:           "IPv4 only network",
+			ipv4Compatible: true,
+			ipv6Compatible: false,
+			expected:       false,
+		},
+		{
+			name:           "No IP support",
+			ipv4Compatible: false,
+			ipv6Compatible: false,
+			expected:       false,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			ic := NewIPCompatibility(tt.ipv4Compatible, tt.ipv6Compatible)
+			assert.Equal(t, tt.expected, ic.IsIPv6Only())
+		})
+	}
 }
