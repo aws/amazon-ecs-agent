@@ -43,6 +43,34 @@ func getMockWindowsRegistryKey(ctrl *gomock.Controller) *mock_dependencies.MockR
 	return mockKey
 }
 
+func TestGetOSFamilyForWS2025Full(t *testing.T) {
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+
+	windowsGetVersionFunc = fakeWindowsGetVersionFunc(26100)
+	mockKey := getMockWindowsRegistryKey(ctrl)
+	gomock.InOrder(
+		mockKey.EXPECT().GetStringValue("InstallationType").Return(`Server`, uint32(0), nil),
+		mockKey.EXPECT().Close(),
+	)
+
+	assert.Equal(t, "WINDOWS_SERVER_2025_FULL", GetOSFamily())
+}
+
+func TestGetOSFamilyForWS2025Core(t *testing.T) {
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+
+	windowsGetVersionFunc = fakeWindowsGetVersionFunc(26100)
+	mockKey := getMockWindowsRegistryKey(ctrl)
+	gomock.InOrder(
+		mockKey.EXPECT().GetStringValue("InstallationType").Return(`Server Core`, uint32(0), nil),
+		mockKey.EXPECT().Close(),
+	)
+
+	assert.Equal(t, "WINDOWS_SERVER_2025_CORE", GetOSFamily())
+}
+
 func TestGetOSFamilyForWS2022Core(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
