@@ -23,8 +23,10 @@ import (
 
 	"golang.org/x/sys/windows"
 
+	"github.com/aws/amazon-ecs-agent/agent/config/ipcompatibility"
 	"github.com/aws/amazon-ecs-agent/agent/dockerclient"
 	"github.com/aws/amazon-ecs-agent/agent/utils"
+	"github.com/aws/amazon-ecs-agent/ecs-agent/ec2"
 	"github.com/aws/amazon-ecs-agent/ecs-agent/logger"
 	"github.com/aws/amazon-ecs-agent/ecs-agent/tmds"
 
@@ -259,8 +261,7 @@ func getConfigFileName() (string, error) {
 	return fileName, nil
 }
 
-func DetermineIPCompatibility(mac string) error {
-	logger.Info("IPv6-only environments are not supported on Windows. Setting IP compatibility to default.")
-	SetIPCompatibilityToV4Only()
-	return nil
+func (c *Config) determineIPCompatibility(ec2client ec2.EC2MetadataClient) {
+	logger.Info("IPv6-only environments are not supported on Windows. Setting IP compatibility to IPv4-only.")
+	c.InstanceIPCompatibility = ipcompatibility.NewIPv4OnlyCompatibility()
 }

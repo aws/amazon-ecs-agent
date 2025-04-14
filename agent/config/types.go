@@ -18,6 +18,7 @@ import (
 
 	cniTypes "github.com/containernetworking/cni/pkg/types"
 
+	"github.com/aws/amazon-ecs-agent/agent/config/ipcompatibility"
 	"github.com/aws/amazon-ecs-agent/agent/dockerclient"
 )
 
@@ -398,4 +399,7 @@ type Config struct {
 	// FirelensAsyncEnabled specifies whether the agent should enable the async connect option of the
 	// fluentd log driver. Ref: https://docs.docker.com/engine/logging/drivers/fluentd/#fluentd-async
 	FirelensAsyncEnabled BooleanDefaultTrue
+
+	// IP version compatibility for the container instance's default network
+	InstanceIPCompatibility ipcompatibility.IPCompatibility
 }

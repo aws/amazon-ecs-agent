@@ -25,7 +25,7 @@ import (
 	"golang.org/x/sys/windows"
 
 	"github.com/aws/amazon-ecs-agent/agent/dockerclient"
-	"github.com/aws/amazon-ecs-agent/ecs-agent/ec2"
+	ec2testutil "github.com/aws/amazon-ecs-agent/agent/utils/test/ec2util"
 	"github.com/aws/amazon-ecs-agent/ecs-agent/tmds"
 
 	"github.com/hectane/go-acl/api"
@@ -37,7 +37,7 @@ func TestConfigDefault(t *testing.T) {
 	defer setTestRegion()()
 	os.Unsetenv("ECS_HOST_DATA_DIR")
 
-	cfg, err := NewConfig(ec2.NewBlackholeEC2MetadataClient())
+	cfg, err := NewConfig(ec2testutil.FakeEC2MetadataClient{})
 	require.NoError(t, err)
 
 	assert.Equal(t, "npipe:////./pipe/docker_engine", cfg.DockerEndpoint, "Default docker endpoint set incorrectly")
@@ -82,7 +82,7 @@ func TestConfigIAMTaskRolesReserves80(t *testing.T) {
 	defer setTestRegion()()
 	defer setTestEnv("ECS_ENABLE_TASK_IAM_ROLE", "true")()
 
-	cfg, err := NewConfig(ec2.NewBlackholeEC2MetadataClient())
+	cfg, err := NewConfig(ec2testutil.FakeEC2MetadataClient{})
 	assert.NoError(t, err)
 	assert.Equal(t, []uint16{
 		DockerReservedPort,
@@ -100,7 +100,7 @@ func TestConfigIAMTaskRolesReserves80(t *testing.T) {
 	}, cfg.ReservedPorts)
 
 	defer setTestEnv("ECS_RESERVED_PORTS", "[1]")()
-	cfg, err = NewConfig(ec2.NewBlackholeEC2MetadataClient())
+	cfg, err = NewConfig(ec2testutil.FakeEC2MetadataClient{})
 	assert.NoError(t, err)
 	assert.Equal(t, []uint16{1, httpPort}, cfg.ReservedPorts)
 }
@@ -108,7 +108,7 @@ func TestConfigIAMTaskRolesReserves80(t *testing.T) {
 func TestTaskResourceLimitPlatformOverrideDisabled(t *testing.T) {
 	defer setTestRegion()()
 	defer setTestEnv("ECS_ENABLE_TASK_CPU_MEM_LIMIT", "true")()
-	cfg, err := NewConfig(ec2.NewBlackholeEC2MetadataClient())
+	cfg, err := NewConfig(ec2testutil.FakeEC2MetadataClient{})
 	cfg.platformOverrides()
 	assert.NoError(t, err)
 	assert.False(t, cfg.TaskCPUMemLimit.Enabled())
@@ -117,7 +117,7 @@ func TestTaskResourceLimitPlatformOverrideDisabled(t *testing.T) {
 func TestCPUUnboundedSet(t *testing.T) {
 	defer setTestRegion()()
 	defer setTestEnv("ECS_ENABLE_CPU_UNBOUNDED_WINDOWS_WORKAROUND", "true")()
-	cfg, err := NewConfig(ec2.NewBlackholeEC2MetadataClient())
+	cfg, err := NewConfig(ec2testutil.FakeEC2MetadataClient{})
 	cfg.platformOverrides()
 	assert.NoError(t, err)
 	assert.True(t, cfg.PlatformVariables.CPUUnbounded.Enabled())
@@ -125,7 +125,7 @@ func TestCPUUnboundedSet(t *testing.T) {
 
 func TestCPUUnboundedWindowsDisabled(t *testing.T) {
 	defer setTestRegion()()
-	cfg, err := NewConfig(ec2.NewBlackholeEC2MetadataClient())
+	cfg, err := NewConfig(ec2testutil.FakeEC2MetadataClient{})
 	cfg.platformOverrides()
 	assert.NoError(t, err)
 	assert.False(t, cfg.PlatformVariables.CPUUnbounded.Enabled())
@@ -134,7 +134,7 @@ func TestCPUUnboundedWindowsDisabled(t *testing.T) {
 func TestMemoryUnboundedSet(t *testing.T) {
 	defer setTestRegion()()
 	defer setTestEnv("ECS_ENABLE_MEMORY_UNBOUNDED_WINDOWS_WORKAROUND", "true")()
-	cfg, err := NewConfig(ec2.NewBlackholeEC2MetadataClient())
+	cfg, err := NewConfig(ec2testutil.FakeEC2MetadataClient{})
 	cfg.platformOverrides()
 	assert.NoError(t, err)
 	assert.True(t, cfg.PlatformVariables.MemoryUnbounded.Enabled())
@@ -142,7 +142,7 @@ func TestMemoryUnboundedSet(t *testing.T) {
 
 func TestMemoryUnboundedWindowsDisabled(t *testing.T) {
 	defer setTestRegion()()
-	cfg, err := NewConfig(ec2.NewBlackholeEC2MetadataClient())
+	cfg, err := NewConfig(ec2testutil.FakeEC2MetadataClient{})
 	cfg.platformOverrides()
 	assert.NoError(t, err)
 	assert.False(t, cfg.PlatformVariables.MemoryUnbounded.Enabled())

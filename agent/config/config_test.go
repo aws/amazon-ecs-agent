@@ -26,7 +26,7 @@ import (
 
 	"github.com/aws/amazon-ecs-agent/agent/dockerclient"
 	"github.com/aws/amazon-ecs-agent/agent/utils"
-	"github.com/aws/amazon-ecs-agent/ecs-agent/ec2"
+	ec2testutil "github.com/aws/amazon-ecs-agent/agent/utils/test/ec2util"
 	mock_ec2 "github.com/aws/amazon-ecs-agent/ecs-agent/ec2/mocks"
 	"github.com/aws/aws-sdk-go-v2/feature/ec2/imds"
 
@@ -76,6 +76,7 @@ func TestBooleanMergeNotSetOverridden(t *testing.T) {
 func TestBrokenEC2Metadata(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	mockEc2Metadata := mock_ec2.NewMockEC2MetadataClient(ctrl)
+	mockEc2Metadata.EXPECT().PrimaryENIMAC().Return("mac", nil).MaxTimes(1) // Only called on Linux
 	mockEc2Metadata.EXPECT().InstanceIdentityDocument().Return(imds.InstanceIdentityDocument{}, errors.New("err"))
 	mockEc2Metadata.EXPECT().GetUserData()
 
@@ -88,6 +89,7 @@ func TestBrokenEC2MetadataEndpoint(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	mockEc2Metadata := mock_ec2.NewMockEC2MetadataClient(ctrl)
 
+	mockEc2Metadata.EXPECT().PrimaryENIMAC().Return("mac", nil).MaxTimes(1) // Only called on Linux
 	mockEc2Metadata.EXPECT().GetUserData()
 
 	config, err := NewConfig(mockEc2Metadata)
@@ -106,6 +108,7 @@ func TestGetRegionWithNoIID(t *testing.T) {
 		"APIEndpoint":"https://some-endpoint.com",
 		"NoIID":true
 	}}`
+	mockEc2Metadata.EXPECT().PrimaryENIMAC().Return("mac", nil).MaxTimes(1) // Only called on Linux
 	mockEc2Metadata.EXPECT().GetUserData().Return(userDataResponse, nil)
 	mockEc2Metadata.EXPECT().Region().Return("us-east-1", nil)
 
@@ -233,7 +236,7 @@ func TestTrimWhitespaceWhenCreating(t *testing.T) {
 	defer setTestEnv("ECS_CLUSTER", "default \r")()
 	defer setTestEnv("ECS_ENGINE_AUTH_TYPE", "dockercfg\r")()
 
-	cfg, err := NewConfig(ec2.NewBlackholeEC2MetadataClient())
+	cfg, err := NewConfig(ec2testutil.FakeEC2MetadataClient{})
 	assert.NoError(t, err)
 	assert.Equal(t, "default", cfg.Cluster, "Wrong cluster")
 	assert.Equal(t, "dockercfg", cfg.EngineAuthType, "Wrong auth type")
@@ -255,7 +258,7 @@ func TestConfigBoolean(t *testing.T) {
 	defer setTestEnv("ECS_DISABLE_DOCKER_HEALTH_CHECK", "true")()
 	defer setTestEnv("ECS_DISABLE_METRICS", "true")()
 	defer setTestEnv("ECS_ENABLE_SPOT_INSTANCE_DRAINING", "true")()
-	cfg, err := NewConfig(ec2.NewBlackholeEC2MetadataClient())
+	cfg, err := NewConfig(ec2testutil.FakeEC2MetadataClient{})
 	assert.NoError(t, err)
 	assert.True(t, cfg.DisableMetrics.Enabled())
 	assert.True(t, cfg.DisableDockerHealthCheck.Enabled())
@@ -328,7 +331,7 @@ func TestCheckpointWithoutECSDataDir(t *testing.T) {
 func TestInvalidFormatDockerStopTimeout(t *testing.T) {
 	defer setTestRegion()()
 	defer setTestEnv("ECS_CONTAINER_STOP_TIMEOUT", "invalid")()
-	conf, err := NewConfig(ec2.NewBlackholeEC2MetadataClient())
+	conf, err := NewConfig(ec2testutil.FakeEC2MetadataClient{})
 	assert.NoError(t, err)
 	assert.Equal(t, conf.DockerStopTimeout, defaultDockerStopTimeout, "Wrong value for DockerStopTimeout")
 }
@@ -336,7 +339,7 @@ func TestInvalidFormatDockerStopTimeout(t *testing.T) {
 func TestZeroValueDockerStopTimeout(t *testing.T) {
 	defer setTestRegion()()
 	defer setTestEnv("ECS_CONTAINER_STOP_TIMEOUT", "0s")()
-	conf, err := NewConfig(ec2.NewBlackholeEC2MetadataClient())
+	conf, err := NewConfig(ec2testutil.FakeEC2MetadataClient{})
 	assert.NoError(t, err)
 	assert.Equal(t, defaultDockerStopTimeout, conf.DockerStopTimeout, "Wrong value for DockerStopTimeout")
 }
@@ -344,7 +347,7 @@ func TestZeroValueDockerStopTimeout(t *testing.T) {
 func TestInvalidValueDockerStopTimeout(t *testing.T) {
 	defer setTestRegion()()
 	defer setTestEnv("ECS_CONTAINER_STOP_TIMEOUT", "-10s")()
-	conf, err := NewConfig(ec2.NewBlackholeEC2MetadataClient())
+	conf, err := NewConfig(ec2testutil.FakeEC2MetadataClient{})
 	assert.NoError(t, err)
 	assert.Equal(t, minimumDockerStopTimeout, conf.DockerStopTimeout, "Wrong value for DockerStopTimeout")
 }
@@ -352,7 +355,7 @@ func TestInvalidValueDockerStopTimeout(t *testing.T) {
 func TestInvalidFormatContainerStartTimeout(t *testing.T) {
 	defer setTestRegion()()
 	defer setTestEnv("ECS_CONTAINER_START_TIMEOUT", "invalid")()
-	conf, err := NewConfig(ec2.NewBlackholeEC2MetadataClient())
+	conf, err := NewConfig(ec2testutil.FakeEC2MetadataClient{})
 	assert.NoError(t, err)
 	assert.Equal(t, defaultContainerStartTimeout, conf.ContainerStartTimeout, "Wrong value for ContainerStartTimeout")
 }
@@ -360,7 +363,7 @@ func TestInvalidFormatContainerStartTimeout(t *testing.T) {
 func TestInvalidFormatContainerCreateTimeout(t *testing.T) {
 	defer setTestRegion()()
 	defer setTestEnv("ECS_CONTAINER_CREATE_TIMEOUT", "invalid")()
-	conf, err := NewConfig(ec2.NewBlackholeEC2MetadataClient())
+	conf, err := NewConfig(ec2testutil.FakeEC2MetadataClient{})
 	assert.NoError(t, err)
 	assert.Equal(t, defaultContainerCreateTimeout, conf.ContainerCreateTimeout, "Wrong value for ContainerCreateTimeout")
 }
@@ -368,7 +371,7 @@ func TestInvalidFormatContainerCreateTimeout(t *testing.T) {
 func TestInvalidFormatManifestPullTimeout(t *testing.T) {
 	defer setTestRegion()()
 	defer setTestEnv("ECS_MANIFEST_PULL_TIMEOUT", "invalid")()
-	conf, err := NewConfig(ec2.NewBlackholeEC2MetadataClient())
+	conf, err := NewConfig(ec2testutil.FakeEC2MetadataClient{})
 	assert.NoError(t, err)
 	assert.Equal(t, defaultManifestPullTimeout, conf.ManifestPullTimeout)
 }
@@ -376,7 +379,7 @@ func TestInvalidFormatManifestPullTimeout(t *testing.T) {
 func TestInvalidFormatDockerInactivityTimeout(t *testing.T) {
 	defer setTestRegion()()
 	defer setTestEnv("ECS_IMAGE_PULL_INACTIVITY_TIMEOUT", "invalid")()
-	conf, err := NewConfig(ec2.NewBlackholeEC2MetadataClient())
+	conf, err := NewConfig(ec2testutil.FakeEC2MetadataClient{})
 	assert.NoError(t, err)
 	assert.Equal(t, defaultImagePullInactivityTimeout, conf.ImagePullInactivityTimeout, "Wrong value for ImagePullInactivityTimeout")
 }
@@ -384,7 +387,7 @@ func TestInvalidFormatDockerInactivityTimeout(t *testing.T) {
 func TestTooSmallDockerInactivityTimeout(t *testing.T) {
 	defer setTestRegion()()
 	defer setTestEnv("ECS_IMAGE_PULL_INACTIVITY_TIMEOUT", "5s")()
-	conf, err := NewConfig(ec2.NewBlackholeEC2MetadataClient())
+	conf, err := NewConfig(ec2testutil.FakeEC2MetadataClient{})
 	assert.NoError(t, err)
 	assert.Equal(t, minimumImagePullInactivityTimeout, conf.ImagePullInactivityTimeout, "Wrong value for ImagePullInactivityTimeout")
 }
@@ -392,7 +395,7 @@ func TestTooSmallDockerInactivityTimeout(t *testing.T) {
 func TestNegativeValueDockerInactivityTimeout(t *testing.T) {
 	defer setTestRegion()()
 	defer setTestEnv("ECS_IMAGE_PULL_INACTIVITY_TIMEOUT", "-10s")()
-	conf, err := NewConfig(ec2.NewBlackholeEC2MetadataClient())
+	conf, err := NewConfig(ec2testutil.FakeEC2MetadataClient{})
 	assert.NoError(t, err)
 	assert.Equal(t, minimumImagePullInactivityTimeout, conf.ImagePullInactivityTimeout, "Wrong value for ImagePullInactivityTimeout")
 }
@@ -401,7 +404,7 @@ func TestNegativeValueDockerInactivityTimeout(t *testing.T) {
 func TestZeroValueContainerStartTimeout(t *testing.T) {
 	defer setTestRegion()()
 	defer setTestEnv("ECS_CONTAINER_START_TIMEOUT", "0s")()
-	conf, err := NewConfig(ec2.NewBlackholeEC2MetadataClient())
+	conf, err := NewConfig(ec2testutil.FakeEC2MetadataClient{})
 	assert.NoError(t, err)
 	assert.Equal(t, defaultContainerStartTimeout, conf.ContainerStartTimeout, "Wrong value for ContainerStartTimeout")
 }
@@ -409,7 +412,7 @@ func TestZeroValueContainerStartTimeout(t *testing.T) {
 func TestZeroValueContainerCreateTimeout(t *testing.T) {
 	defer setTestRegion()()
 	defer setTestEnv("ECS_CONTAINER_CREATE_TIMEOUT", "0s")()
-	conf, err := NewConfig(ec2.NewBlackholeEC2MetadataClient())
+	conf, err := NewConfig(ec2testutil.FakeEC2MetadataClient{})
 	assert.NoError(t, err)
 	assert.Equal(t, defaultContainerCreateTimeout, conf.ContainerCreateTimeout, "Wrong value for ContainerCreateTimeout")
 }
@@ -417,7 +420,7 @@ func TestZeroValueContainerCreateTimeout(t *testing.T) {
 func TestZeroValueManifestPullTimeout(t *testing.T) {
 	defer setTestRegion()()
 	defer setTestEnv("ECS_MANIFEST_PULL_TIMEOUT", "0s")()
-	conf, err := NewConfig(ec2.NewBlackholeEC2MetadataClient())
+	conf, err := NewConfig(ec2testutil.FakeEC2MetadataClient{})
 	assert.NoError(t, err)
 	assert.Equal(t, defaultManifestPullTimeout, conf.ManifestPullTimeout)
 }
@@ -425,7 +428,7 @@ func TestZeroValueManifestPullTimeout(t *testing.T) {
 func TestInvalidValueContainerStartTimeout(t *testing.T) {
 	defer setTestRegion()()
 	defer setTestEnv("ECS_CONTAINER_START_TIMEOUT", "-10s")()
-	conf, err := NewConfig(ec2.NewBlackholeEC2MetadataClient())
+	conf, err := NewConfig(ec2testutil.FakeEC2MetadataClient{})
 	assert.NoError(t, err)
 	assert.Equal(t, minimumContainerStartTimeout, conf.ContainerStartTimeout, "Wrong value for ContainerStartTimeout")
 }
@@ -433,7 +436,7 @@ func TestInvalidValueContainerStartTimeout(t *testing.T) {
 func TestInvalidValueContainerCreateTimeout(t *testing.T) {
 	defer setTestRegion()()
 	defer setTestEnv("ECS_CONTAINER_CREATE_TIMEOUT", "-10s")()
-	conf, err := NewConfig(ec2.NewBlackholeEC2MetadataClient())
+	conf, err := NewConfig(ec2testutil.FakeEC2MetadataClient{})
 	assert.NoError(t, err)
 	assert.Equal(t, minimumContainerCreateTimeout, conf.ContainerCreateTimeout, "Wrong value for ContainerCreataeTimeout")
 }
@@ -441,7 +444,7 @@ func TestInvalidValueContainerCreateTimeout(t *testing.T) {
 func TestInvalidValueManifestPullTimeout(t *testing.T) {
 	defer setTestRegion()()
 	defer setTestEnv("ECS_MANIFEST_PULL_TIMEOUT", "-10s")()
-	conf, err := NewConfig(ec2.NewBlackholeEC2MetadataClient())
+	conf, err := NewConfig(ec2testutil.FakeEC2MetadataClient{})
 	assert.NoError(t, err)
 	assert.Equal(t, minimumManifestPullTimeout, conf.ManifestPullTimeout)
 }
@@ -449,7 +452,7 @@ func TestInvalidValueManifestPullTimeout(t *testing.T) {
 func TestZeroValueDockerPullInactivityTimeout(t *testing.T) {
 	defer setTestRegion()()
 	defer setTestEnv("ECS_DOCKER_PULL_INACTIVITY_TIMEOUT", "0s")()
-	conf, err := NewConfig(ec2.NewBlackholeEC2MetadataClient())
+	conf, err := NewConfig(ec2testutil.FakeEC2MetadataClient{})
 	assert.NoError(t, err)
 	assert.Equal(t, defaultImagePullInactivityTimeout, conf.ImagePullInactivityTimeout, "Wrong value for ImagePullInactivityTimeout")
 }
@@ -457,7 +460,7 @@ func TestZeroValueDockerPullInactivityTimeout(t *testing.T) {
 func TestInvalidValueDockerPullInactivityTimeout(t *testing.T) {
 	defer setTestRegion()()
 	defer setTestEnv("ECS_DOCKER_PULL_INACTIVITY_TIMEOUT", "-10s")()
-	conf, err := NewConfig(ec2.NewBlackholeEC2MetadataClient())
+	conf, err := NewConfig(ec2testutil.FakeEC2MetadataClient{})
 	assert.NoError(t, err)
 	assert.Equal(t, defaultImagePullInactivityTimeout, conf.ImagePullInactivityTimeout, "Wrong value for ImagePullInactivityTimeout")
 }
@@ -466,7 +469,7 @@ func TestInvalidValueMaxPollingMetricsWaitDuration(t *testing.T) {
 	defer setTestRegion()()
 	defer setTestEnv("ECS_POLL_METRICS", "true")()
 	defer setTestEnv("ECS_POLLING_METRICS_WAIT_DURATION", "21s")()
-	conf, err := NewConfig(ec2.NewBlackholeEC2MetadataClient())
+	conf, err := NewConfig(ec2testutil.FakeEC2MetadataClient{})
 	assert.NoError(t, err)
 	assert.Equal(t, maximumPollingMetricsWaitDuration, conf.PollingMetricsWaitDuration, "Wrong value for PollingMetricsWaitDuration")
 }
@@ -475,7 +478,7 @@ func TestInvalidValueMinPollingMetricsWaitDuration(t *testing.T) {
 	defer setTestRegion()()
 	defer setTestEnv("ECS_POLL_METRICS", "true")()
 	defer setTestEnv("ECS_POLLING_METRICS_WAIT_DURATION", "1s")()
-	conf, err := NewConfig(ec2.NewBlackholeEC2MetadataClient())
+	conf, err := NewConfig(ec2testutil.FakeEC2MetadataClient{})
 	assert.NoError(t, err)
 	assert.Equal(t, minimumPollingMetricsWaitDuration, conf.PollingMetricsWaitDuration, "Wrong value for PollingMetricsWaitDuration")
 }
@@ -484,7 +487,7 @@ func TestInvalidValuePollingMetricsWaitDuration(t *testing.T) {
 	defer setTestRegion()()
 	defer setTestEnv("ECS_POLL_METRICS", "true")()
 	defer setTestEnv("ECS_POLLING_METRICS_WAIT_DURATION", "0s")()
-	conf, err := NewConfig(ec2.NewBlackholeEC2MetadataClient())
+	conf, err := NewConfig(ec2testutil.FakeEC2MetadataClient{})
 	assert.NoError(t, err)
 	assert.Equal(t, DefaultPollingMetricsWaitDuration, conf.PollingMetricsWaitDuration, "Wrong value for PollingMetricsWaitDuration")
 }
@@ -591,7 +594,7 @@ func TestParseDynamicHostPortRange(t *testing.T) {
 func TestInvalidTaskCleanupTimeoutOverridesToThreeHours(t *testing.T) {
 	defer setTestRegion()()
 	setTestEnv("ECS_ENGINE_TASK_CLEANUP_WAIT_DURATION", "1ms")
-	cfg, err := NewConfig(ec2.NewBlackholeEC2MetadataClient())
+	cfg, err := NewConfig(ec2testutil.FakeEC2MetadataClient{})
 	assert.NoError(t, err)
 
 	// If an invalid value is set, the config should pick up the default value for
@@ -602,7 +605,7 @@ func TestInvalidTaskCleanupTimeoutOverridesToThreeHours(t *testing.T) {
 func TestTaskCleanupTimeout(t *testing.T) {
 	defer setTestRegion()()
 	defer setTestEnv("ECS_ENGINE_TASK_CLEANUP_WAIT_DURATION", "10m")()
-	cfg, err := NewConfig(ec2.NewBlackholeEC2MetadataClient())
+	cfg, err := NewConfig(ec2testutil.FakeEC2MetadataClient{})
 	assert.NoError(t, err)
 	assert.Equal(t, 10*time.Minute, cfg.TaskCleanupWaitDuration, "Task cleanup wait duration set incorrectly")
 }
@@ -610,7 +613,7 @@ func TestTaskCleanupTimeout(t *testing.T) {
 func TestInvalidReservedMemoryOverridesToZero(t *testing.T) {
 	defer setTestRegion()()
 	defer setTestEnv("ECS_RESERVED_MEMORY", "-1")()
-	cfg, err := NewConfig(ec2.NewBlackholeEC2MetadataClient())
+	cfg, err := NewConfig(ec2testutil.FakeEC2MetadataClient{})
 	assert.NoError(t, err)
 	// If an invalid value is set, the config should pick up the default value for
 	// reserved memory, which is 0.
@@ -620,7 +623,7 @@ func TestInvalidReservedMemoryOverridesToZero(t *testing.T) {
 func TestReservedMemory(t *testing.T) {
 	defer setTestRegion()()
 	defer setTestEnv("ECS_RESERVED_MEMORY", "1")()
-	cfg, err := NewConfig(ec2.NewBlackholeEC2MetadataClient())
+	cfg, err := NewConfig(ec2testutil.FakeEC2MetadataClient{})
 	assert.NoError(t, err)
 	assert.Equal(t, uint16(1), cfg.ReservedMemory, "Wrong value for ReservedMemory.")
 }
@@ -628,7 +631,7 @@ func TestReservedMemory(t *testing.T) {
 func TestTaskIAMRoleEnabled(t *testing.T) {
 	defer setTestRegion()()
 	defer setTestEnv("ECS_ENABLE_TASK_IAM_ROLE", "true")()
-	cfg, err := NewConfig(ec2.NewBlackholeEC2MetadataClient())
+	cfg, err := NewConfig(ec2testutil.FakeEC2MetadataClient{})
 	assert.NoError(t, err)
 	assert.True(t, cfg.TaskIAMRoleEnabled.Enabled(), "Wrong value for TaskIAMRoleEnabled")
 }
@@ -636,7 +639,7 @@ func TestTaskIAMRoleEnabled(t *testing.T) {
 func TestDeleteNonECSImagesEnabled(t *testing.T) {
 	defer setTestRegion()()
 	defer setTestEnv("ECS_ENABLE_UNTRACKED_IMAGE_CLEANUP", "true")()
-	cfg, err := NewConfig(ec2.NewBlackholeEC2MetadataClient())
+	cfg, err := NewConfig(ec2testutil.FakeEC2MetadataClient{})
 	assert.NoError(t, err)
 	assert.Equal(t, ExplicitlyEnabled, cfg.DeleteNonECSImagesEnabled.Value, "Wrong value for DeleteNonECSImagesEnabled")
 }
@@ -644,7 +647,7 @@ func TestDeleteNonECSImagesEnabled(t *testing.T) {
 func TestTaskIAMRoleForHostNetworkEnabled(t *testing.T) {
 	defer setTestRegion()()
 	defer setTestEnv("ECS_ENABLE_TASK_IAM_ROLE_NETWORK_HOST", "true")()
-	cfg, err := NewConfig(ec2.NewBlackholeEC2MetadataClient())
+	cfg, err := NewConfig(ec2testutil.FakeEC2MetadataClient{})
 	assert.NoError(t, err)
 	assert.True(t, cfg.TaskIAMRoleEnabledForNetworkHost, "Wrong value for TaskIAMRoleEnabledForNetworkHost")
 }
@@ -653,7 +656,7 @@ func TestCredentialsAuditLogFile(t *testing.T) {
 	defer setTestRegion()()
 	dummyLocation := "/foo/bar.log"
 	defer setTestEnv("ECS_AUDIT_LOGFILE", dummyLocation)()
-	cfg, err := NewConfig(ec2.NewBlackholeEC2MetadataClient())
+	cfg, err := NewConfig(ec2testutil.FakeEC2MetadataClient{})
 	assert.NoError(t, err)
 	assert.Equal(t, dummyLocation, cfg.CredentialsAuditLogFile, "Wrong value for CredentialsAuditLogFile")
 }
@@ -661,7 +664,7 @@ func TestCredentialsAuditLogFile(t *testing.T) {
 func TestCredentialsAuditLogDisabled(t *testing.T) {
 	defer setTestRegion()()
 	defer setTestEnv("ECS_AUDIT_LOGFILE_DISABLED", "true")()
-	cfg, err := NewConfig(ec2.NewBlackholeEC2MetadataClient())
+	cfg, err := NewConfig(ec2testutil.FakeEC2MetadataClient{})
 	assert.NoError(t, err)
 	assert.True(t, cfg.CredentialsAuditLogDisabled, "Wrong value for CredentialsAuditLogDisabled")
 }
@@ -669,7 +672,7 @@ func TestCredentialsAuditLogDisabled(t *testing.T) {
 func TestImageCleanupMinimumInterval(t *testing.T) {
 	defer setTestRegion()()
 	defer setTestEnv("ECS_IMAGE_CLEANUP_INTERVAL", "1m")()
-	cfg, err := NewConfig(ec2.NewBlackholeEC2MetadataClient())
+	cfg, err := NewConfig(ec2testutil.FakeEC2MetadataClient{})
 	assert.NoError(t, err)
 	assert.Equal(t, DefaultImageCleanupTimeInterval, cfg.ImageCleanupInterval, "Wrong value for ImageCleanupInterval")
 }
@@ -677,7 +680,7 @@ func TestImageCleanupMinimumInterval(t *testing.T) {
 func TestImageCleanupMinimumNumImagesToDeletePerCycle(t *testing.T) {
 	defer setTestRegion()()
 	defer setTestEnv("ECS_NUM_IMAGES_DELETE_PER_CYCLE", "-1")()
-	cfg, err := NewConfig(ec2.NewBlackholeEC2MetadataClient())
+	cfg, err := NewConfig(ec2testutil.FakeEC2MetadataClient{})
 	assert.NoError(t, err)
 	assert.Equal(t, DefaultNumImagesToDeletePerCycle, cfg.NumImagesToDeletePerCycle, "Wrong value for NumImagesToDeletePerCycle")
 }
@@ -685,7 +688,7 @@ func TestImageCleanupMinimumNumImagesToDeletePerCycle(t *testing.T) {
 func TestInvalidImagePullBehavior(t *testing.T) {
 	defer setTestRegion()()
 	defer setTestEnv("ECS_IMAGE_PULL_BEHAVIOR", "invalid")()
-	cfg, err := NewConfig(ec2.NewBlackholeEC2MetadataClient())
+	cfg, err := NewConfig(ec2testutil.FakeEC2MetadataClient{})
 	assert.NoError(t, err)
 	assert.Equal(t, ImagePullDefaultBehavior, cfg.ImagePullBehavior, "Wrong value for ImagePullBehavior")
 }
@@ -693,7 +696,7 @@ func TestInvalidImagePullBehavior(t *testing.T) {
 func TestSharedVolumeMatchFullConfigEnabled(t *testing.T) {
 	defer setTestRegion()()
 	defer setTestEnv("ECS_SHARED_VOLUME_MATCH_FULL_CONFIG", "true")()
-	cfg, err := NewConfig(ec2.NewBlackholeEC2MetadataClient())
+	cfg, err := NewConfig(ec2testutil.FakeEC2MetadataClient{})
 	assert.NoError(t, err)
 	assert.True(t, cfg.SharedVolumeMatchFullConfig.Enabled(), "Wrong value for SharedVolumeMatchFullConfig")
 }
@@ -701,7 +704,7 @@ func TestSharedVolumeMatchFullConfigEnabled(t *testing.T) {
 func TestEnableRuntimeStatsConfigEnabled(t *testing.T) {
 	defer setTestRegion()()
 	defer setTestEnv("ECS_ENABLE_RUNTIME_STATS", "true")()
-	cfg, err := NewConfig(ec2.NewBlackholeEC2MetadataClient())
+	cfg, err := NewConfig(ec2testutil.FakeEC2MetadataClient{})
 	assert.NoError(t, err)
 	assert.True(t, cfg.EnableRuntimeStats.Enabled(), "Wrong value for EnableRuntimeStats")
 }
@@ -751,7 +754,7 @@ func TestParseImagePullBehavior(t *testing.T) {
 func TestTaskResourceLimitsOverride(t *testing.T) {
 	defer setTestRegion()()
 	defer setTestEnv("ECS_ENABLE_TASK_CPU_MEM_LIMIT", "false")()
-	cfg, err := NewConfig(ec2.NewBlackholeEC2MetadataClient())
+	cfg, err := NewConfig(ec2testutil.FakeEC2MetadataClient{})
 	assert.NoError(t, err)
 	assert.False(t, cfg.TaskCPUMemLimit.Enabled(), "Task cpu and memory limits should be overridden to false")
 	assert.Equal(t, ExplicitlyDisabled, cfg.TaskCPUMemLimit.Value, "Task cpu and memory limits should be explicitly set")
@@ -760,7 +763,7 @@ func TestTaskResourceLimitsOverride(t *testing.T) {
 func TestAWSVPCBlockInstanceMetadata(t *testing.T) {
 	defer setTestEnv("ECS_AWSVPC_BLOCK_IMDS", "true")()
 	defer setTestRegion()()
-	cfg, err := NewConfig(ec2.NewBlackholeEC2MetadataClient())
+	cfg, err := NewConfig(ec2testutil.FakeEC2MetadataClient{})
 	assert.NoError(t, err)
 	assert.True(t, cfg.AWSVPCBlockInstanceMetdata.Enabled())
 }
@@ -839,7 +842,7 @@ func TestTaskMetadataRPSLimits(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			defer setTestEnv("ECS_TASK_METADATA_RPS_LIMIT", tc.envVarVal)()
 			defer setTestRegion()()
-			cfg, err := NewConfig(ec2.NewBlackholeEC2MetadataClient())
+			cfg, err := NewConfig(ec2testutil.FakeEC2MetadataClient{})
 			assert.NoError(t, err)
 			assert.Equal(t, tc.expectedSteadyStateRate, cfg.TaskMetadataSteadyStateRate)
 			assert.Equal(t, tc.expectedBurstRate, cfg.TaskMetadataBurstRate)
@@ -931,7 +934,7 @@ func TestContainerInstancePropagateTagsFrom(t *testing.T) {
 			assert.Equal(t, parseContainerInstancePropagateTagsFrom(), tc.expectedContainerInstancePropagateTagsFrom,
 				"Wrong value from parseContainerInstancePropagateTagsFrom")
 
-			cfg, err := NewConfig(ec2.NewBlackholeEC2MetadataClient())
+			cfg, err := NewConfig(ec2testutil.FakeEC2MetadataClient{})
 			assert.NoError(t, err)
 			assert.Equal(t, cfg.ContainerInstancePropagateTagsFrom, tc.expectedContainerInstancePropagateTagsFrom,
 				"Wrong value for ContainerInstancePropagateTagsFrom")
@@ -942,7 +945,7 @@ func TestContainerInstancePropagateTagsFrom(t *testing.T) {
 func TestGPUSupportEnabled(t *testing.T) {
 	defer setTestRegion()()
 	defer setTestEnv("ECS_ENABLE_GPU_SUPPORT", "true")()
-	cfg, err := NewConfig(ec2.NewBlackholeEC2MetadataClient())
+	cfg, err := NewConfig(ec2testutil.FakeEC2MetadataClient{})
 	assert.NoError(t, err)
 	assert.True(t, cfg.GPUSupportEnabled, "Wrong value for GPUSupportEnabled")
 }
@@ -950,7 +953,7 @@ func TestGPUSupportEnabled(t *testing.T) {
 func TestInferentiaSupportEnabled(t *testing.T) {
 	defer setTestRegion()()
 	defer setTestEnv("ECS_ENABLE_INF_SUPPORT", "true")()
-	cfg, err := NewConfig(ec2.NewBlackholeEC2MetadataClient())
+	cfg, err := NewConfig(ec2testutil.FakeEC2MetadataClient{})
 	assert.NoError(t, err)
 	assert.True(t, cfg.InferentiaSupportEnabled, "Wrong value for InferentiaSupportEnabled")
 }
@@ -958,7 +961,7 @@ func TestInferentiaSupportEnabled(t *testing.T) {
 func TestTaskMetadataAZDisabled(t *testing.T) {
 	defer setTestRegion()()
 	defer setTestEnv("ECS_DISABLE_TASK_METADATA_AZ", "true")()
-	cfg, err := NewConfig(ec2.NewBlackholeEC2MetadataClient())
+	cfg, err := NewConfig(ec2testutil.FakeEC2MetadataClient{})
 	assert.NoError(t, err)
 	assert.True(t, cfg.TaskMetadataAZDisabled, "Wrong value for TaskMetadataAZDisabled")
 }
@@ -966,14 +969,14 @@ func TestTaskMetadataAZDisabled(t *testing.T) {
 func TestExternalConfig(t *testing.T) {
 	defer setTestRegion()()
 	defer setTestEnv("ECS_EXTERNAL", "true")()
-	cfg, err := NewConfig(ec2.NewBlackholeEC2MetadataClient())
+	cfg, err := NewConfig(ec2testutil.FakeEC2MetadataClient{})
 	require.NoError(t, err)
 	assert.True(t, cfg.External.Enabled())
 }
 
 func TestExternalConfigMissingRegion(t *testing.T) {
 	defer setTestEnv("ECS_EXTERNAL", "true")()
-	_, err := NewConfig(ec2.NewBlackholeEC2MetadataClient())
+	_, err := NewConfig(ec2testutil.FakeEC2MetadataClient{})
 	assert.Error(t, err)
 }
 
@@ -1011,7 +1014,7 @@ func TestFirelensAsyncEnabled(t *testing.T) {
 			if tc.envVarValue != "" {
 				t.Setenv("ECS_ENABLE_FIRELENS_ASYNC", tc.envVarValue)
 			}
-			cfg, err := NewConfig(ec2.NewBlackholeEC2MetadataClient())
+			cfg, err := NewConfig(ec2testutil.FakeEC2MetadataClient{})
 			assert.NoError(t, err)
 			assert.Equal(t, tc.expectedResult, cfg.FirelensAsyncEnabled.Enabled())
 		})
@@ -1026,109 +1029,5 @@ func setTestEnv(k, v string) func() {
 	os.Setenv(k, v)
 	return func() {
 		os.Unsetenv(k)
-	}
-}
-
-func TestInstanceIsIPv6Only(t *testing.T) {
-	tests := []struct {
-		name                 string
-		setupIPCompatibility func()
-		expectedResult       bool
-	}{
-		{
-			name: "IPv6 only network",
-			setupIPCompatibility: func() {
-				instanceIsIPv4Compatible = false
-				instanceIsIPv6Compatible = true
-			},
-			expectedResult: true,
-		},
-		{
-			name: "IPv4 only network",
-			setupIPCompatibility: func() {
-				instanceIsIPv4Compatible = true
-				instanceIsIPv6Compatible = false
-			},
-			expectedResult: false,
-		},
-		{
-			name: "Dual stack network",
-			setupIPCompatibility: func() {
-				instanceIsIPv4Compatible = true
-				instanceIsIPv6Compatible = true
-			},
-			expectedResult: false,
-		},
-		{
-			name: "No network connectivity",
-			setupIPCompatibility: func() {
-				instanceIsIPv4Compatible = false
-				instanceIsIPv6Compatible = false
-			},
-			expectedResult: false,
-		},
-		{
-			name: "Set to IPv4 only using SetIPCompatibilityToV4Only function",
-			setupIPCompatibility: func() {
-				SetIPCompatibilityToV4Only()
-			},
-			expectedResult: false,
-		},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			// Reset after test
-			defer func() {
-				instanceIsIPv4Compatible = false
-				instanceIsIPv6Compatible = false
-			}()
-
-			tt.setupIPCompatibility()
-			assert.Equal(t, tt.expectedResult, InstanceIsIPv6Only())
-		})
-	}
-}
-
-func TestSetIPCompatibilityToV4Only(t *testing.T) {
-	// Reset before
-	instanceIsIPv4Compatible = false
-	instanceIsIPv6Compatible = false
-
-	// Reset after
-	defer resetIPCompatibilityVariables()()
-
-	// Test
-	SetIPCompatibilityToV4Only()
-	assert.Equal(t, true, instanceIsIPv4Compatible)
-	assert.Equal(t, false, instanceIsIPv6Compatible)
-}
-
-func TestInstanceIsIPv4Compatible(t *testing.T) {
-	defer resetIPCompatibilityVariables()()
-	assert.False(t, InstanceIsIPv4Compatible())
-	instanceIsIPv4Compatible = true
-	assert.True(t, InstanceIsIPv4Compatible())
-}
-
-func TestInstanceIsIPv6Compatible(t *testing.T) {
-	defer resetIPCompatibilityVariables()()
-	assert.False(t, InstanceIsIPv6Compatible())
-	instanceIsIPv6Compatible = true
-	assert.True(t, InstanceIsIPv6Compatible())
-}
-
-// Resets IP compatibility variables to false and also returns
-// a function that does the same.
-//
-// Usage: `defer resetIPCompatibilityVariables()()`
-func resetIPCompatibilityVariables() func() {
-	// Reset before
-	instanceIsIPv4Compatible = false
-	instanceIsIPv6Compatible = false
-
-	return func() {
-		instanceIsIPv4Compatible = false
-		instanceIsIPv6Compatible = false
 	}
 }

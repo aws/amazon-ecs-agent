@@ -17,25 +17,32 @@
 package config
 
 import (
+	"errors"
 	"fmt"
 	"io/ioutil"
+	"net"
 	"os"
 	"testing"
 	"time"
 
+	mock_netlinkwrapper "github.com/aws/amazon-ecs-agent/agent/utils/netlinkwrapper/mocks"
+	mock_ec2 "github.com/aws/amazon-ecs-agent/ecs-agent/ec2/mocks"
 	cniTypes "github.com/containernetworking/cni/pkg/types"
+	"github.com/golang/mock/gomock"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	"github.com/vishvananda/netlink"
 
+	"github.com/aws/amazon-ecs-agent/agent/config/ipcompatibility"
 	"github.com/aws/amazon-ecs-agent/agent/dockerclient"
-	"github.com/aws/amazon-ecs-agent/ecs-agent/ec2"
+	ec2testutil "github.com/aws/amazon-ecs-agent/agent/utils/test/ec2util"
 )
 
 func TestConfigDefault(t *testing.T) {
 	defer setTestRegion()()
 	os.Unsetenv("ECS_HOST_DATA_DIR")
 
-	cfg, err := NewConfig(ec2.NewBlackholeEC2MetadataClient())
+	cfg, err := NewConfig(ec2testutil.FakeEC2MetadataClient{})
 	require.NoError(t, err)
 
 	assert.Equal(t, "unix:///var/run/docker.sock", cfg.DockerEndpoint, "Default docker endpoint set incorrectly")
@@ -169,7 +176,7 @@ func TestDockerAuthMergeFromFile(t *testing.T) {
 	defer setTestEnv("ECS_AGENT_CONFIG_FILE_PATH", filePath)()
 	defer setTestEnv("AWS_DEFAULT_REGION", "us-west-2")()
 
-	cfg, err := NewConfig(ec2.NewBlackholeEC2MetadataClient())
+	cfg, err := NewConfig(ec2testutil.FakeEC2MetadataClient{})
 	assert.NoError(t, err, "create configuration failed")
 
 	assert.Equal(t, cluster, cfg.Cluster, "cluster name not as expected from environment variable")
@@ -191,13 +198,13 @@ func TestBadFileContent(t *testing.T) {
 	os.Setenv("ECS_AGENT_CONFIG_FILE_PATH", filePath)
 	defer os.Unsetenv("ECS_AGENT_CONFIG_FILE_PATH")
 
-	_, err := NewConfig(ec2.NewBlackholeEC2MetadataClient())
+	_, err := NewConfig(ec2testutil.FakeEC2MetadataClient{})
 	assert.Error(t, err, "create configuration should fail")
 }
 
 func TestPrometheusMetricsPlatformOverrides(t *testing.T) {
 	defer setTestRegion()()
-	cfg, err := NewConfig(ec2.NewBlackholeEC2MetadataClient())
+	cfg, err := NewConfig(ec2testutil.FakeEC2MetadataClient{})
 	require.NoError(t, err)
 
 	defer setTestEnv("ECS_ENABLE_PROMETHEUS_METRICS", "true")()
@@ -210,7 +217,7 @@ func TestPrometheusMetricsPlatformOverrides(t *testing.T) {
 func TestENITrunkingEnabled(t *testing.T) {
 	defer setTestRegion()()
 	defer setTestEnv("ECS_ENABLE_TASK_ENI", "true")()
-	cfg, err := NewConfig(ec2.NewBlackholeEC2MetadataClient())
+	cfg, err := NewConfig(ec2testutil.FakeEC2MetadataClient{})
 	require.NoError(t, err)
 
 	cfg.platformOverrides()
@@ -221,7 +228,7 @@ func TestENITrunkingEnabled(t *testing.T) {
 func TestENITrunkingDisabled(t *testing.T) {
 	defer setTestRegion()()
 	defer setTestEnv("ECS_ENABLE_TASK_ENI", "true")()
-	cfg, err := NewConfig(ec2.NewBlackholeEC2MetadataClient())
+	cfg, err := NewConfig(ec2testutil.FakeEC2MetadataClient{})
 	require.NoError(t, err)
 
 	defer setTestEnv("ECS_ENABLE_HIGH_DENSITY_ENI", "false")()
@@ -243,7 +250,7 @@ func setupFileConfiguration(t *testing.T, configContent string) string {
 func TestEmptyNvidiaRuntime(t *testing.T) {
 	defer setTestRegion()()
 	defer setTestEnv("ECS_NVIDIA_RUNTIME", "")()
-	cfg, err := NewConfig(ec2.NewBlackholeEC2MetadataClient())
+	cfg, err := NewConfig(ec2testutil.FakeEC2MetadataClient{})
 	assert.NoError(t, err)
 	assert.Equal(t, DefaultNvidiaRuntime, cfg.NvidiaRuntime, "Wrong value for NvidiaRuntime")
 }
@@ -282,10 +289,110 @@ func TestCPUPeriodSettings(t *testing.T) {
 			defer os.Setenv("ECS_CGROUP_CPU_PERIOD", "100ms")
 
 			os.Setenv("ECS_CGROUP_CPU_PERIOD", c.Env)
-			conf, err := NewConfig(ec2.NewBlackholeEC2MetadataClient())
+			conf, err := NewConfig(ec2testutil.FakeEC2MetadataClient{})
 
 			assert.NoError(t, err)
 			assert.Equal(t, c.Response, conf.CgroupCPUPeriod, "Wrong value for CgroupCPUPeriod")
 		})
 	}
+}
+
+func TestDetermineIPCompatibility(t *testing.T) {
+	mac, err := net.ParseMAC("02:34:80:c5:c0:e1")
+	require.NoError(t, err)
+	macLink := &netlink.Dummy{LinkAttrs: netlink.LinkAttrs{HardwareAddr: mac}}
+	ipv6Gw := net.ParseIP("1:2:3:4::")
+	require.NotNil(t, ipv6Gw)
+	ipv6DefaultRoute := netlink.Route{Gw: ipv6Gw, Dst: nil}
+
+	testCases := []struct {
+		name            string
+		externalMode    BooleanDefaultFalse
+		setExpectations func(*mock_ec2.MockEC2MetadataClient, *mock_netlinkwrapper.MockNetLink)
+		expected        ipcompatibility.IPCompatibility
+	}{
+		{
+			name: "external disabled, IP compatibility determined successfully",
+			setExpectations: func(ec2c *mock_ec2.MockEC2MetadataClient, nl *mock_netlinkwrapper.MockNetLink) {
+				ec2c.EXPECT().PrimaryENIMAC().Return(mac.String(), nil)
+				nl.EXPECT().LinkList().Return([]netlink.Link{macLink}, nil)
+				nl.EXPECT().RouteList(macLink, netlink.FAMILY_V4).Return([]netlink.Route{}, nil)
+				nl.EXPECT().RouteList(macLink, netlink.FAMILY_V6).Return([]netlink.Route{ipv6DefaultRoute}, nil)
+			},
+			expected: ipcompatibility.NewIPCompatibility(false, true),
+		},
+		{
+			name: "external disabled, IP compatibility could not be determined",
+			setExpectations: func(ec2c *mock_ec2.MockEC2MetadataClient, nl *mock_netlinkwrapper.MockNetLink) {
+				ec2c.EXPECT().PrimaryENIMAC().Return(mac.String(), nil)
+				nl.EXPECT().LinkList().Return(nil, errors.New("some error"))
+			},
+			expected: ipcompatibility.NewIPv4OnlyCompatibility(),
+		},
+		{
+			name: "external disabled, primary ENI's mac could not be fetched",
+			setExpectations: func(ec2c *mock_ec2.MockEC2MetadataClient, nl *mock_netlinkwrapper.MockNetLink) {
+				ec2c.EXPECT().PrimaryENIMAC().Return("", errors.New("some error"))
+			},
+			expected: ipcompatibility.NewIPv4OnlyCompatibility(),
+		},
+		{
+			name:         "external enabled, IP compatibility determined successfully",
+			externalMode: BooleanDefaultFalse{Value: ExplicitlyEnabled},
+			setExpectations: func(ec2c *mock_ec2.MockEC2MetadataClient, nl *mock_netlinkwrapper.MockNetLink) {
+				nl.EXPECT().RouteList(nil, netlink.FAMILY_V4).Return([]netlink.Route{}, nil)
+				nl.EXPECT().RouteList(nil, netlink.FAMILY_V6).Return([]netlink.Route{ipv6DefaultRoute}, nil)
+			},
+			expected: ipcompatibility.NewIPCompatibility(false, true),
+		},
+		{
+			name:         "external enabled, IP compatibility could not be determined",
+			externalMode: BooleanDefaultFalse{Value: ExplicitlyEnabled},
+			setExpectations: func(ec2c *mock_ec2.MockEC2MetadataClient, nl *mock_netlinkwrapper.MockNetLink) {
+				nl.EXPECT().RouteList(nil, netlink.FAMILY_V4).Return(nil, errors.New("some error"))
+			},
+			expected: ipcompatibility.NewIPv4OnlyCompatibility(),
+		},
+	}
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			// Init mock
+			ctrl := gomock.NewController(t)
+			defer ctrl.Finish()
+
+			imdsClient := mock_ec2.NewMockEC2MetadataClient(ctrl)
+			mockNLWrapper := mock_netlinkwrapper.NewMockNetLink(ctrl)
+
+			// Set up mock netlink wrapper
+			ogNLWrapper := nlWrapper
+			defer func() {
+				nlWrapper = ogNLWrapper
+			}()
+			nlWrapper = mockNLWrapper
+
+			// Set up mock expectations
+			tc.setExpectations(imdsClient, mockNLWrapper)
+
+			// Run the test
+			cfg := Config{External: tc.externalMode}
+			cfg.determineIPCompatibility(imdsClient)
+			assert.Equal(t, tc.expected, cfg.InstanceIPCompatibility)
+		})
+	}
+}
+
+// Tests that IPCompatibility defaults to IPv4-only when determining IP compatibility of
+// the container instance fails due to some error.
+func TestIPCompatibilityFallback(t *testing.T) {
+	defer setTestRegion()()
+	ctrl := gomock.NewController(t)
+	mockEc2Metadata := mock_ec2.NewMockEC2MetadataClient(ctrl)
+
+	mockEc2Metadata.EXPECT().PrimaryENIMAC().Return("invalid", nil) // fails to parse
+	mockEc2Metadata.EXPECT().GetUserData()
+
+	config, err := NewConfig(mockEc2Metadata)
+	assert.NoError(t, err)
+	assert.Equal(t, config.InstanceIPCompatibility.IsIPv4Compatible(), true)
+	assert.Equal(t, config.InstanceIPCompatibility.IsIPv6Compatible(), false)
 }
