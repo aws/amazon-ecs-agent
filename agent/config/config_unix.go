@@ -21,8 +21,15 @@ import (
 	"os"
 	"time"
 
+	"github.com/aws/amazon-ecs-agent/agent/config/ipcompatibility"
 	"github.com/aws/amazon-ecs-agent/agent/dockerclient"
 	"github.com/aws/amazon-ecs-agent/agent/utils"
+	netutils "github.com/aws/amazon-ecs-agent/agent/utils/net"
+	"github.com/aws/amazon-ecs-agent/agent/utils/netlinkwrapper"
+
+	"github.com/aws/amazon-ecs-agent/ecs-agent/ec2"
+	"github.com/aws/amazon-ecs-agent/ecs-agent/logger"
+	"github.com/aws/amazon-ecs-agent/ecs-agent/logger/field"
 	"github.com/aws/amazon-ecs-agent/ecs-agent/tmds"
 )
 
@@ -151,4 +158,44 @@ func (cfg *Config) platformString() string {
 
 func getConfigFileName() (string, error) {
 	return utils.DefaultIfBlank(os.Getenv("ECS_AGENT_CONFIG_FILE_PATH"), defaultConfigFileName), nil
+}
+
+// Determines and sets IP Compatibility of the container instance.
+//
+// Fails back to IPv4-only instance IP compatibility status in case there was an issue
+// determining the IP compatibility of the container instance.
+// This is a fallback to help with graceful adoption of Agent in IPv6-only environments
+// without disrupting existing environments.
+func (c *Config) determineIPCompatibility(
+	ec2client ec2.EC2MetadataClient, nlWrapper netlinkwrapper.NetLink,
+) {
+	// Load primary ENI's MAC address on EC2 Launch Type
+	var primaryENIMAC string
+	if !c.External.Enabled() {
+		logger.Info("Calling IMDS to fetch mac address of the primary ENI")
+		var eniMACFetchErr error
+		primaryENIMAC, eniMACFetchErr = ec2client.PrimaryENIMAC()
+		if eniMACFetchErr != nil {
+			logger.Warn("Failed to fetch primary ENI's mac address from IMDS."+
+				" Failing back instance IP compatibility to IPv4-only.",
+				logger.Fields{field.Error: eniMACFetchErr})
+			c.InstanceIPCompatibility = ipcompatibility.NewIPv4OnlyCompatibility()
+			return
+		}
+	}
+
+	var err error
+	c.InstanceIPCompatibility, err = netutils.DetermineIPCompatibility(nlWrapper, primaryENIMAC)
+	if err != nil {
+		logger.Warn("Failed to determine instance IP compatibility."+
+			" Failing back instance IP compatibility to IPv4-only.",
+			logger.Fields{field.Error: err})
+		c.InstanceIPCompatibility = ipcompatibility.NewIPv4OnlyCompatibility()
+		return
+	}
+
+	logger.Info("Successfully determined IP compatibilty of the container instance", logger.Fields{
+		"IPv4": c.InstanceIPCompatibility.IsIPv4Compatible(),
+		"IPv6": c.InstanceIPCompatibility.IsIPv6Compatible(),
+	})
 }

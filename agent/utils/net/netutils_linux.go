@@ -22,6 +22,7 @@ import (
 	"fmt"
 	"net"
 
+	"github.com/aws/amazon-ecs-agent/agent/config/ipcompatibility"
 	"github.com/aws/amazon-ecs-agent/agent/utils/netlinkwrapper"
 	"github.com/vishvananda/netlink"
 )
@@ -124,4 +125,39 @@ func allZeros(mask net.IPMask) bool {
 		}
 	}
 	return true
+}
+
+// This function determines IPv4 and IPv6 compatibility by checking if default routes
+// exist for each. Mac address of a network interface can be provided optionally to restrict
+// compatibility checks to that particular network interface. If no mac address is provided
+// then compatibility checks are performed for all network interfaces on the instance.
+func DetermineIPCompatibility(
+	nlWrapper netlinkwrapper.NetLink, mac string,
+) (ipcompatibility.IPCompatibility, error) {
+	// Find link for the mac if provided
+	var link netlink.Link
+	if mac != "" {
+		var err error
+		link, err = FindLinkByMac(nlWrapper, mac)
+		if err != nil {
+			return ipcompatibility.NewIPCompatibility(false, false),
+				fmt.Errorf("failed to find link for mac '%s': %w", mac, err)
+		}
+	}
+
+	// Determine IPv4 compatibility
+	ipv4Compatible, err := HasDefaultRoute(nlWrapper, link, netlink.FAMILY_V4)
+	if err != nil {
+		return ipcompatibility.NewIPCompatibility(false, false),
+			fmt.Errorf("failed to determine IPv4 compatibility: %w", err)
+	}
+
+	// Determine IPv6 compatibility
+	ipv6Compatible, err := HasDefaultRoute(nlWrapper, link, netlink.FAMILY_V6)
+	if err != nil {
+		return ipcompatibility.NewIPCompatibility(false, false),
+			fmt.Errorf("failed to determine IPv6 compatibility: %w", err)
+	}
+
+	return ipcompatibility.NewIPCompatibility(ipv4Compatible, ipv6Compatible), nil
 }

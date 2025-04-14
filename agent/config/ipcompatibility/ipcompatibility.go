@@ -29,16 +29,6 @@ func NewIPv4OnlyCompatibility() IPCompatibility {
 	return NewIPCompatibility(true, false)
 }
 
-// SetIPv4Compatible sets the IPv4 compatibility status.
-func (ic *IPCompatibility) SetIPv4Compatible(compatibility bool) {
-	ic.ipv4Compatible = compatibility
-}
-
-// SetIPv6Compatible sets the IPv6 compatibility status.
-func (ic *IPCompatibility) SetIPv6Compatible(compatibility bool) {
-	ic.ipv6Compatible = compatibility
-}
-
 // IsIPv4Compatible returns the current IPv4 compatibility status.
 func (ic *IPCompatibility) IsIPv4Compatible() bool {
 	return ic.ipv4Compatible

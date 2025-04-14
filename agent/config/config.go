@@ -23,13 +23,10 @@ import (
 	"strings"
 	"time"
 
-	"github.com/aws/amazon-ecs-agent/agent/config/ipcompatibility"
 	"github.com/aws/amazon-ecs-agent/agent/dockerclient"
 	"github.com/aws/amazon-ecs-agent/agent/utils"
 	apierrors "github.com/aws/amazon-ecs-agent/ecs-agent/api/errors"
 	"github.com/aws/amazon-ecs-agent/ecs-agent/ec2"
-	"github.com/aws/amazon-ecs-agent/ecs-agent/logger"
-	"github.com/aws/amazon-ecs-agent/ecs-agent/logger/field"
 	commonutils "github.com/aws/amazon-ecs-agent/ecs-agent/utils"
 	"github.com/cihub/seelog"
 )
@@ -242,29 +239,7 @@ func NewConfig(ec2client ec2.EC2MetadataClient) (*Config, error) {
 		ec2client = ec2.NewBlackholeEC2MetadataClient()
 	}
 
-	// Load primary ENI's MAC address on EC2 Launch Type
-	var primaryENIMAC string
-	if !config.External.Enabled() {
-		logger.Info("Calling IMDS to fetch mac address of the primary ENI")
-		var err error
-		primaryENIMAC, err = ec2client.PrimaryENIMAC()
-		if err != nil {
-			return nil, fmt.Errorf("unable to get mac address of instance's primary ENI from instance metadata: %v", err)
-		}
-	}
-
-	// Determine IP version compatibility for the container instance
-	if err := config.DetermineIPCompatibility(primaryENIMAC); err != nil {
-		// Failed to deterrmine IP compatibility of the container instance.
-		// Default to IPv4-only compatibility status which is the original expectation of ECS
-		// container instances.
-		// This is a fallback to help with graceful adoption of Agent in IPv6-only environments
-		// without disrupting existing environments.
-		logger.Warn(
-			"Could not determine IPv4 and IPv6 compatibility, falling back to IPv4-only as a default",
-			logger.Fields{field.Error: err})
-		config.InstanceIPCompatibility = ipcompatibility.NewIPv4OnlyCompatibility()
-	}
+	config.determineIPCompatibility(ec2client, nlWrapper)
 
 	if config.complete() {
 		// No need to do file / network IO

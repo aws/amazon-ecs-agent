@@ -2,7 +2,6 @@
 // +build unit,linux
 
 // Copyright Amazon.com Inc. or its affiliates. All Rights Reserved.
-//
 // Licensed under the Apache License, Version 2.0 (the "License"). You may
 // not use this file except in compliance with the License. A copy of the
 // License is located at
@@ -22,21 +21,19 @@ import (
 )
 
 func TestIPCompatibility(t *testing.T) {
-	ic := IPCompatibility{}
-
 	t.Run("IPv4 Compatibility", func(t *testing.T) {
-		ic.SetIPv4Compatible(true)
+		ic := NewIPCompatibility(true, false)
 		assert.True(t, ic.IsIPv4Compatible(), "IPv4 should be compatible")
 
-		ic.SetIPv4Compatible(false)
+		ic = NewIPCompatibility(false, false)
 		assert.False(t, ic.IsIPv4Compatible(), "IPv4 should be incompatible")
 	})
 
 	t.Run("IPv6 Compatibility", func(t *testing.T) {
-		ic.SetIPv6Compatible(true)
+		ic := NewIPCompatibility(false, true)
 		assert.True(t, ic.IsIPv6Compatible(), "IPv6 should be compatible")
 
-		ic.SetIPv6Compatible(false)
+		ic = NewIPCompatibility(true, false)
 		assert.False(t, ic.IsIPv6Compatible(), "IPv6 should be incompatible")
 	})
 }
@@ -49,41 +46,35 @@ func TestIPv4OnlyCompatibility(t *testing.T) {
 
 func TestIsIPv6Only(t *testing.T) {
 	tests := []struct {
-		name           string
-		ipv4Compatible bool
-		ipv6Compatible bool
-		expected       bool
+		name     string
+		ipCompat IPCompatibility
+		expected bool
 	}{
 		{
-			name:           "IPv6 only network",
-			ipv4Compatible: false,
-			ipv6Compatible: true,
-			expected:       true,
+			name:     "IPv6 only network",
+			ipCompat: IPCompatibility{false, true},
+			expected: true,
 		},
 		{
-			name:           "Dual stack network",
-			ipv4Compatible: true,
-			ipv6Compatible: true,
-			expected:       false,
+			name:     "Dual stack network",
+			ipCompat: IPCompatibility{true, true},
+			expected: false,
 		},
 		{
-			name:           "IPv4 only network",
-			ipv4Compatible: true,
-			ipv6Compatible: false,
-			expected:       false,
+			name:     "IPv4 only network",
+			ipCompat: IPCompatibility{true, false},
+			expected: false,
 		},
 		{
-			name:           "No IP support",
-			ipv4Compatible: false,
-			ipv6Compatible: false,
-			expected:       false,
+			name:     "No IP support",
+			ipCompat: IPCompatibility{false, false},
+			expected: false,
 		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			ic := NewIPCompatibility(tt.ipv4Compatible, tt.ipv6Compatible)
-			assert.Equal(t, tt.expected, ic.IsIPv6Only())
+			assert.Equal(t, tt.expected, tt.ipCompat.IsIPv6Only())
 		})
 	}
 }

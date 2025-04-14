@@ -17,16 +17,23 @@
 package config
 
 import (
+	"errors"
 	"fmt"
 	"io/ioutil"
+	"net"
 	"os"
 	"testing"
 	"time"
 
+	mock_netlinkwrapper "github.com/aws/amazon-ecs-agent/agent/utils/netlinkwrapper/mocks"
+	mock_ec2 "github.com/aws/amazon-ecs-agent/ecs-agent/ec2/mocks"
 	cniTypes "github.com/containernetworking/cni/pkg/types"
+	"github.com/golang/mock/gomock"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	"github.com/vishvananda/netlink"
 
+	"github.com/aws/amazon-ecs-agent/agent/config/ipcompatibility"
 	"github.com/aws/amazon-ecs-agent/agent/dockerclient"
 	ec2testutil "github.com/aws/amazon-ecs-agent/agent/utils/test/ec2util"
 )
@@ -286,6 +293,80 @@ func TestCPUPeriodSettings(t *testing.T) {
 
 			assert.NoError(t, err)
 			assert.Equal(t, c.Response, conf.CgroupCPUPeriod, "Wrong value for CgroupCPUPeriod")
+		})
+	}
+}
+
+func TestDetermineIPCompatibility(t *testing.T) {
+	mac, err := net.ParseMAC("02:34:80:c5:c0:e1")
+	require.NoError(t, err)
+	macLink := &netlink.Dummy{LinkAttrs: netlink.LinkAttrs{HardwareAddr: mac}}
+	ipv6Gw := net.ParseIP("1:2:3:4::")
+	require.NotNil(t, ipv6Gw)
+	ipv6DefaultRoute := netlink.Route{Gw: ipv6Gw, Dst: nil}
+
+	testCases := []struct {
+		name            string
+		externalMode    BooleanDefaultFalse
+		setExpectations func(*mock_ec2.MockEC2MetadataClient, *mock_netlinkwrapper.MockNetLink)
+		expected        ipcompatibility.IPCompatibility
+	}{
+		{
+			name: "external disabled, IP compatibility determined successfully",
+			setExpectations: func(ec2c *mock_ec2.MockEC2MetadataClient, nl *mock_netlinkwrapper.MockNetLink) {
+				ec2c.EXPECT().PrimaryENIMAC().Return(mac.String(), nil)
+				nl.EXPECT().LinkList().Return([]netlink.Link{macLink}, nil)
+				nl.EXPECT().RouteList(macLink, netlink.FAMILY_V4).Return([]netlink.Route{}, nil)
+				nl.EXPECT().RouteList(macLink, netlink.FAMILY_V6).Return([]netlink.Route{ipv6DefaultRoute}, nil)
+			},
+			expected: ipcompatibility.NewIPCompatibility(false, true),
+		},
+		{
+			name: "external disabled, IP compatibility could not be determined",
+			setExpectations: func(ec2c *mock_ec2.MockEC2MetadataClient, nl *mock_netlinkwrapper.MockNetLink) {
+				ec2c.EXPECT().PrimaryENIMAC().Return(mac.String(), nil)
+				nl.EXPECT().LinkList().Return(nil, errors.New("some error"))
+			},
+			expected: ipcompatibility.NewIPv4OnlyCompatibility(),
+		},
+		{
+			name: "external disabled, primary ENI's mac could not be fetched",
+			setExpectations: func(ec2c *mock_ec2.MockEC2MetadataClient, nl *mock_netlinkwrapper.MockNetLink) {
+				ec2c.EXPECT().PrimaryENIMAC().Return("", errors.New("some error"))
+			},
+			expected: ipcompatibility.NewIPv4OnlyCompatibility(),
+		},
+		{
+			name:         "external enabled, IP compatibility determined successfully",
+			externalMode: BooleanDefaultFalse{Value: ExplicitlyEnabled},
+			setExpectations: func(ec2c *mock_ec2.MockEC2MetadataClient, nl *mock_netlinkwrapper.MockNetLink) {
+				nl.EXPECT().RouteList(nil, netlink.FAMILY_V4).Return([]netlink.Route{}, nil)
+				nl.EXPECT().RouteList(nil, netlink.FAMILY_V6).Return([]netlink.Route{ipv6DefaultRoute}, nil)
+			},
+			expected: ipcompatibility.NewIPCompatibility(false, true),
+		},
+		{
+			name:         "external enabled, IP compatibility could not be determined",
+			externalMode: BooleanDefaultFalse{Value: ExplicitlyEnabled},
+			setExpectations: func(ec2c *mock_ec2.MockEC2MetadataClient, nl *mock_netlinkwrapper.MockNetLink) {
+				nl.EXPECT().RouteList(nil, netlink.FAMILY_V4).Return(nil, errors.New("some error"))
+			},
+			expected: ipcompatibility.NewIPv4OnlyCompatibility(),
+		},
+	}
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			ctrl := gomock.NewController(t)
+			defer ctrl.Finish()
+
+			imdsClient := mock_ec2.NewMockEC2MetadataClient(ctrl)
+			nlWrapper := mock_netlinkwrapper.NewMockNetLink(ctrl)
+
+			tc.setExpectations(imdsClient, nlWrapper)
+
+			cfg := Config{External: tc.externalMode}
+			cfg.determineIPCompatibility(imdsClient, nlWrapper)
+			assert.Equal(t, tc.expected, cfg.InstanceIPCompatibility)
 		})
 	}
 }
