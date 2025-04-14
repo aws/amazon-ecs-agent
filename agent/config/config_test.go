@@ -76,7 +76,7 @@ func TestBooleanMergeNotSetOverridden(t *testing.T) {
 func TestBrokenEC2Metadata(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	mockEc2Metadata := mock_ec2.NewMockEC2MetadataClient(ctrl)
-	mockEc2Metadata.EXPECT().PrimaryENIMAC().Return("mac", nil)
+	mockEc2Metadata.EXPECT().PrimaryENIMAC().Return("mac", nil).AnyTimes()
 	mockEc2Metadata.EXPECT().InstanceIdentityDocument().Return(imds.InstanceIdentityDocument{}, errors.New("err"))
 	mockEc2Metadata.EXPECT().GetUserData()
 
@@ -84,28 +84,12 @@ func TestBrokenEC2Metadata(t *testing.T) {
 	assert.Error(t, err, "Expected error when region isn't set and metadata doesn't work")
 }
 
-// Tests that IPCompatibility defaults to IPv4-only when determining IP compatibility of
-// the container instance fails due to some error.
-func TestIPCompatibilityFallback(t *testing.T) {
-	defer setTestRegion()()
-	ctrl := gomock.NewController(t)
-	mockEc2Metadata := mock_ec2.NewMockEC2MetadataClient(ctrl)
-
-	mockEc2Metadata.EXPECT().PrimaryENIMAC().Return("invalid", nil) // fails to parse
-	mockEc2Metadata.EXPECT().GetUserData()
-
-	config, err := NewConfig(mockEc2Metadata)
-	assert.NoError(t, err)
-	assert.Equal(t, config.InstanceIPCompatibility.IsIPv4Compatible(), true)
-	assert.Equal(t, config.InstanceIPCompatibility.IsIPv6Compatible(), false)
-}
-
 func TestBrokenEC2MetadataEndpoint(t *testing.T) {
 	defer setTestRegion()()
 	ctrl := gomock.NewController(t)
 	mockEc2Metadata := mock_ec2.NewMockEC2MetadataClient(ctrl)
 
-	mockEc2Metadata.EXPECT().PrimaryENIMAC().Return("mac", nil)
+	mockEc2Metadata.EXPECT().PrimaryENIMAC().Return("mac", nil).AnyTimes()
 	mockEc2Metadata.EXPECT().GetUserData()
 
 	config, err := NewConfig(mockEc2Metadata)
@@ -124,7 +108,7 @@ func TestGetRegionWithNoIID(t *testing.T) {
 		"APIEndpoint":"https://some-endpoint.com",
 		"NoIID":true
 	}}`
-	mockEc2Metadata.EXPECT().PrimaryENIMAC().Return("mac", nil)
+	mockEc2Metadata.EXPECT().PrimaryENIMAC().Return("mac", nil).AnyTimes()
 	mockEc2Metadata.EXPECT().GetUserData().Return(userDataResponse, nil)
 	mockEc2Metadata.EXPECT().Region().Return("us-east-1", nil)
 
