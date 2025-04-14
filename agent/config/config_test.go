@@ -76,7 +76,7 @@ func TestBooleanMergeNotSetOverridden(t *testing.T) {
 func TestBrokenEC2Metadata(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	mockEc2Metadata := mock_ec2.NewMockEC2MetadataClient(ctrl)
-	mockEc2Metadata.EXPECT().PrimaryENIMAC().Return("mac", nil).AnyTimes()
+	mockEc2Metadata.EXPECT().PrimaryENIMAC().Return("mac", nil).MaxTimes(1) // Only called on Linux
 	mockEc2Metadata.EXPECT().InstanceIdentityDocument().Return(imds.InstanceIdentityDocument{}, errors.New("err"))
 	mockEc2Metadata.EXPECT().GetUserData()
 
@@ -89,7 +89,7 @@ func TestBrokenEC2MetadataEndpoint(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	mockEc2Metadata := mock_ec2.NewMockEC2MetadataClient(ctrl)
 
-	mockEc2Metadata.EXPECT().PrimaryENIMAC().Return("mac", nil).AnyTimes()
+	mockEc2Metadata.EXPECT().PrimaryENIMAC().Return("mac", nil).MaxTimes(1) // Only called on Linux
 	mockEc2Metadata.EXPECT().GetUserData()
 
 	config, err := NewConfig(mockEc2Metadata)
@@ -108,7 +108,7 @@ func TestGetRegionWithNoIID(t *testing.T) {
 		"APIEndpoint":"https://some-endpoint.com",
 		"NoIID":true
 	}}`
-	mockEc2Metadata.EXPECT().PrimaryENIMAC().Return("mac", nil).AnyTimes()
+	mockEc2Metadata.EXPECT().PrimaryENIMAC().Return("mac", nil).MaxTimes(1) // Only called on Linux
 	mockEc2Metadata.EXPECT().GetUserData().Return(userDataResponse, nil)
 	mockEc2Metadata.EXPECT().Region().Return("us-east-1", nil)
 
