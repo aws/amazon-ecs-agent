@@ -356,16 +356,26 @@ func TestDetermineIPCompatibility(t *testing.T) {
 	}
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
+			// Init mock
 			ctrl := gomock.NewController(t)
 			defer ctrl.Finish()
 
 			imdsClient := mock_ec2.NewMockEC2MetadataClient(ctrl)
-			nlWrapper := mock_netlinkwrapper.NewMockNetLink(ctrl)
+			mockNLWrapper := mock_netlinkwrapper.NewMockNetLink(ctrl)
 
-			tc.setExpectations(imdsClient, nlWrapper)
+			// Set up mock netlink wrapper
+			ogNLWrapper := nlWrapper
+			defer func() {
+				nlWrapper = ogNLWrapper
+			}()
+			nlWrapper = mockNLWrapper
 
+			// Set up mock expectations
+			tc.setExpectations(imdsClient, mockNLWrapper)
+
+			// Run the test
 			cfg := Config{External: tc.externalMode}
-			cfg.determineIPCompatibility(imdsClient, nlWrapper)
+			cfg.determineIPCompatibility(imdsClient)
 			assert.Equal(t, tc.expected, cfg.InstanceIPCompatibility)
 		})
 	}

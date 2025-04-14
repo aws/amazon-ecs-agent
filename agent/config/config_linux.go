@@ -17,13 +17,7 @@
 package config
 
 import (
-	"github.com/aws/amazon-ecs-agent/agent/utils/netlinkwrapper"
-
 	"github.com/containerd/cgroups/v3"
-)
-
-var (
-	nlWrapper = netlinkwrapper.New()
 )
 
 func init() {

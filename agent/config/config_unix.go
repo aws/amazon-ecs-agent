@@ -75,6 +75,10 @@ const (
 	nodeUnstageTimeout = 30 * time.Second
 )
 
+var (
+	nlWrapper = netlinkwrapper.New()
+)
+
 // DefaultConfig returns the default configuration for Linux
 func DefaultConfig() Config {
 	return Config{
@@ -166,9 +170,7 @@ func getConfigFileName() (string, error) {
 // determining the IP compatibility of the container instance.
 // This is a fallback to help with graceful adoption of Agent in IPv6-only environments
 // without disrupting existing environments.
-func (c *Config) determineIPCompatibility(
-	ec2client ec2.EC2MetadataClient, nlWrapper netlinkwrapper.NetLink,
-) {
+func (c *Config) determineIPCompatibility(ec2client ec2.EC2MetadataClient) {
 	// Load primary ENI's MAC address on EC2 Launch Type
 	var primaryENIMAC string
 	if !c.External.Enabled() {
