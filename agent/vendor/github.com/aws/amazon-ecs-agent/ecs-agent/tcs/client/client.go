@@ -157,7 +157,7 @@ func (cs *tcsClientServer) publishMetricsOnce(message ecstcs.TelemetryMessage) e
 
 	// Make the publish metrics request to the backend.
 	for _, request := range requests {
-		logger.Debug("making publish metrics request")
+		logger.Debug(fmt.Sprintf("making publish metrics request %s", request.String()))
 		err = cs.MakeRequest(request)
 		if err != nil {
 			return err
