@@ -239,7 +239,8 @@ func NewConfig(ec2client ec2.EC2MetadataClient) (*Config, error) {
 		ec2client = ec2.NewBlackholeEC2MetadataClient()
 	}
 
-	config.determineIPCompatibility(ec2client)
+	// TODO feat:IPv6-only - Enable when launching IPv6-only support
+	// config.determineIPCompatibility(ec2client)
 
 	if config.complete() {
 		// No need to do file / network IO
