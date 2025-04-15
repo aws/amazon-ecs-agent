@@ -384,7 +384,7 @@ func TestDetermineIPCompatibility(t *testing.T) {
 // Tests that IPCompatibility defaults to IPv4-only when determining IP compatibility of
 // the container instance fails due to some error.
 func TestIPCompatibilityFallback(t *testing.T) {
-	// TODO: Remove skip
+	// TODO feat:IPv6-only - Remove skip
 	t.Skip("Enable when launching IPv6-only support")
 	defer setTestRegion()()
 	ctrl := gomock.NewController(t)
