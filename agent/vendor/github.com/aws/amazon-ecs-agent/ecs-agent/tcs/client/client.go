@@ -156,7 +156,7 @@ func (cs *tcsClientServer) publishMetricsOnce(message ecstcs.TelemetryMessage) e
 
 	// Make the publish metrics request to the backend.
 	for _, request := range requests {
-		logger.Debug("making publish metrics request")
+		logger.Debug(fmt.Sprintf("making publish metrics request %s", request.String()))
 		err = cs.MakeRequest(request)
 		if err != nil {
 			return err
@@ -500,7 +500,6 @@ func signRequestFunc(url, region string, credentialsCache *aws.CredentialsCache)
 			return nil, err
 		}
 
-		// TODO: Modify this to use SignHTTPRequest() once TCS has been migrated to use AWS SDK Go V2
 		err = utils.SignHTTPRequest(request, region, "ecs", credentialsCache, reqBody)
 		if err != nil {
 			return nil, err
