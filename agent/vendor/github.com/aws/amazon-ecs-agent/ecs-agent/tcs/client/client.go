@@ -150,6 +150,7 @@ func (cs *tcsClientServer) publishMessages(ctx context.Context) {
 // publishMetricsOnce is invoked by the ticker to periodically publish metrics to backend.
 func (cs *tcsClientServer) publishMetricsOnce(message ecstcs.TelemetryMessage) error {
 	// Get the list of objects to send to backend.
+	logger.Debug(fmt.Sprintf("metrics message: %+v", message))
 	requests, err := cs.metricsToPublishMetricRequests(message)
 	if err != nil {
 		return err
