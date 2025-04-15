@@ -157,6 +157,22 @@ func (cs *tcsClientServer) publishMetricsOnce(message ecstcs.TelemetryMessage) e
 
 	// Make the publish metrics request to the backend.
 	for _, request := range requests {
+		if request == nil {
+			logger.Debug("making publish metrics request was nil")
+		} else {
+			if request.InstanceMetrics == nil {
+				logger.Debug("InstanceMetrics nil")
+			}
+			if request.Metadata == nil {
+				logger.Debug("Metadata nil")
+			}
+			if request.TaskMetrics == nil {
+				logger.Debug("TaskMetrics nil")
+			}
+			if request.Timestamp == nil {
+				logger.Debug("Timestamp nil")
+			}
+		}
 		logger.Debug(fmt.Sprintf("making publish metrics request %s", request.String()))
 		err = cs.MakeRequest(request)
 		if err != nil {
