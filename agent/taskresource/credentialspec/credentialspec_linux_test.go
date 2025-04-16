@@ -34,8 +34,8 @@ import (
 	apitaskstatus "github.com/aws/amazon-ecs-agent/ecs-agent/api/task/status"
 	"github.com/aws/amazon-ecs-agent/ecs-agent/credentials"
 	mockcredentials "github.com/aws/amazon-ecs-agent/ecs-agent/credentials/mocks"
+	s3sdk "github.com/aws/aws-sdk-go-v2/service/s3"
 	"github.com/aws/aws-sdk-go/aws"
-	s3sdk "github.com/aws/aws-sdk-go/service/s3"
 	"github.com/aws/aws-sdk-go/service/ssm"
 	"github.com/golang/mock/gomock"
 	"github.com/pkg/errors"
@@ -375,7 +375,7 @@ func TestHandleS3CredentialSpecFileGetS3SecretValue(t *testing.T) {
 	}
 	gomock.InOrder(
 		s3ClientCreator.EXPECT().NewS3Client(gomock.Any(), gomock.Any(), gomock.Any()).Return(mockS3Client, nil),
-		mockS3Client.EXPECT().GetObject(gomock.Any()).Return(s3GetObjectResponse, nil).Times(1),
+		mockS3Client.EXPECT().GetObject(gomock.Any(), gomock.Any(), gomock.Any()).Return(s3GetObjectResponse, nil).Times(1),
 	)
 
 	var wg sync.WaitGroup
@@ -440,7 +440,7 @@ func TestHandleS3DomainlessCredentialSpecFileGetS3SecretValue(t *testing.T) {
 	}
 	gomock.InOrder(
 		s3ClientCreator.EXPECT().NewS3Client(gomock.Any(), gomock.Any(), gomock.Any()).Return(mockS3Client, nil),
-		mockS3Client.EXPECT().GetObject(gomock.Any()).Return(s3GetObjectResponse, nil).Times(1),
+		mockS3Client.EXPECT().GetObject(gomock.Any(), gomock.Any(), gomock.Any()).Return(s3GetObjectResponse, nil).Times(1),
 	)
 
 	var wg sync.WaitGroup
@@ -502,7 +502,7 @@ func TestHandleS3CredentialSpecFileGetS3SecretValueErr(t *testing.T) {
 
 	gomock.InOrder(
 		s3ClientCreator.EXPECT().NewS3Client(gomock.Any(), gomock.Any(), gomock.Any()).Return(mockS3Client, nil),
-		mockS3Client.EXPECT().GetObject(gomock.Any()).Return(nil, errors.New("test-error")).Times(1),
+		mockS3Client.EXPECT().GetObject(gomock.Any(), gomock.Any(), gomock.Any()).Return(nil, errors.New("test-error")).Times(1),
 	)
 
 	var wg sync.WaitGroup
