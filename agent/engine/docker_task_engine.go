@@ -56,8 +56,10 @@ import (
 	"github.com/aws/amazon-ecs-agent/ecs-agent/logger/field"
 	"github.com/aws/amazon-ecs-agent/ecs-agent/utils/retry"
 	"github.com/aws/amazon-ecs-agent/ecs-agent/utils/ttime"
+	"github.com/aws/aws-sdk-go-v2/service/cloudwatchlogs"
 	"github.com/aws/aws-sdk-go/aws"
 	ep "github.com/aws/aws-sdk-go/aws/endpoints"
+	"github.com/aws/smithy-go/ptr"
 	"github.com/docker/docker/api/types"
 	dockercontainer "github.com/docker/docker/api/types/container"
 	"github.com/docker/docker/api/types/registry"
@@ -89,6 +91,8 @@ const (
 	logDriverTypeFirelens = "awsfirelens"
 	logDriverTypeFluentd  = "fluentd"
 	logDriverTypeAwslogs  = "awslogs"
+	awsLogsEndpointKey    = "awslogs-endpoint"
+	awsLogsRegionKey      = "awslogs-region"
 	logDriverTag          = "tag"
 	logDriverMode         = "mode"
 	logDriverBufferSize   = "max-buffer-size"
@@ -1945,29 +1949,33 @@ func (engine *DockerTaskEngine) createContainer(task *apitask.Task, container *a
 
 	// This is a short term solution only for specific regions
 	if hostConfig.LogConfig.Type == logDriverTypeAwslogs {
-		region := engine.cfg.AWSRegion
-		if _, ok := unresolvedIsolatedRegions[region]; ok {
-			endpoint := ""
-			dnsSuffix := ""
-			partition, ok := ep.PartitionForRegion(ep.DefaultPartitions(), region)
-			if !ok {
-				logger.Warn("No partition resolved for region. Using AWS default", logger.Fields{
-					"region":           region,
-					"defaultDNSSuffix": ep.AwsPartition().DNSSuffix(),
-				})
-				dnsSuffix = ep.AwsPartition().DNSSuffix()
-			} else {
-				resolvedEndpoint, err := partition.EndpointFor("logs", region)
-				if err == nil {
-					endpoint = resolvedEndpoint.URL
+		if engine.cfg.InstanceIPCompatibility.IsIPv6Only() {
+			setAWSLogsDualStackEndpoint(hostConfig)
+		} else {
+			region := engine.cfg.AWSRegion
+			if _, ok := unresolvedIsolatedRegions[region]; ok {
+				endpoint := ""
+				dnsSuffix := ""
+				partition, ok := ep.PartitionForRegion(ep.DefaultPartitions(), region)
+				if !ok {
+					logger.Warn("No partition resolved for region. Using AWS default", logger.Fields{
+						"region":           region,
+						"defaultDNSSuffix": ep.AwsPartition().DNSSuffix(),
+					})
+					dnsSuffix = ep.AwsPartition().DNSSuffix()
 				} else {
-					dnsSuffix = partition.DNSSuffix()
+					resolvedEndpoint, err := partition.EndpointFor("logs", region)
+					if err == nil {
+						endpoint = resolvedEndpoint.URL
+					} else {
+						dnsSuffix = partition.DNSSuffix()
+					}
 				}
+				if endpoint == "" {
+					endpoint = fmt.Sprintf("https://logs.%s.%s", region, dnsSuffix)
+				}
+				hostConfig.LogConfig.Config["awslogs-endpoint"] = endpoint
 			}
-			if endpoint == "" {
-				endpoint = fmt.Sprintf("https://logs.%s.%s", region, dnsSuffix)
-			}
-			hostConfig.LogConfig.Config["awslogs-endpoint"] = endpoint
 		}
 	}
 
@@ -2945,4 +2953,56 @@ func (engine *DockerTaskEngine) getDockerID(task *apitask.Task, container *apico
 		return dockerContainer.DockerName, nil
 	}
 	return dockerContainer.DockerID, nil
+}
+
+// Sets CloudWatch Logs dual stack endpoint as awslogs-endpoint option in logging config.
+// This is needed because awslogs driver that we consume from Docker does not support
+// dual stack endpoints.
+func setAWSLogsDualStackEndpoint(hostConfig *dockercontainer.HostConfig) {
+	if hostConfig.LogConfig.Config[awsLogsEndpointKey] != "" {
+		// Endpoint already configured
+		logger.Info(fmt.Sprintf(
+			"%s is already set in awslogs config, skip resolving dual stack endpoint",
+			awsLogsEndpointKey,
+		))
+		return
+	}
+
+	region := hostConfig.LogConfig.Config[awsLogsRegionKey]
+	if region == "" {
+		logger.Warn(fmt.Sprintf(
+			"%s not found in awslogs config, skip resolving dual stack endpoint", awsLogsRegionKey,
+		))
+		return
+	}
+
+	endpoint, err := getAWSLogsDualStackEndpoint(region)
+	if err != nil {
+		logger.Error(
+			"Failed to get CloudWatch Logs dual stack endpoint. Skipping setting it.",
+			logger.Fields{
+				field.Region: region,
+				field.Error:  err,
+			})
+		return
+	}
+
+	logger.Info("Resolved dual stack endpoint", logger.Fields{
+		field.Endpoint: endpoint,
+		field.Region:   region,
+	})
+	hostConfig.LogConfig.Config[awsLogsEndpointKey] = endpoint
+}
+
+// Returns CloudWatch Logs dual stack endpoint for the given region.
+func getAWSLogsDualStackEndpoint(region string) (string, error) {
+	endpoint, err := cloudwatchlogs.NewDefaultEndpointResolverV2().ResolveEndpoint(context.TODO(),
+		cloudwatchlogs.EndpointParameters{
+			UseDualStack: ptr.Bool(true),
+			Region:       ptr.String(region),
+		})
+	if err != nil {
+		return "", fmt.Errorf("failed to resolve CloudWatch Logs endpoint for region '%s': %w", region, err)
+	}
+	return endpoint.URI.String(), nil
 }

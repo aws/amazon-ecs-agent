@@ -24,9 +24,14 @@ func NewIPCompatibility(ipv4Compatible, ipv6Compatible bool) IPCompatibility {
 	return IPCompatibility{ipv4Compatible: ipv4Compatible, ipv6Compatible: ipv6Compatible}
 }
 
-// Returns an IPv4-only IPCompatibility instance.
+// Returns an IPv4-only IPCompatibility value.
 func NewIPv4OnlyCompatibility() IPCompatibility {
 	return NewIPCompatibility(true, false)
+}
+
+// Returns an IPv6-only IPCompatibility value.
+func NewIPv6OnlyCompatibility() IPCompatibility {
+	return NewIPCompatibility(false, true)
 }
 
 // IsIPv4Compatible returns the current IPv4 compatibility status.

@@ -72,4 +72,5 @@ const (
 	CommandOutput           = "commandOutput"
 	RegistryID              = "registryID"
 	ExecutionStoppedAt      = "executionStoppedAt"
+	Region                  = "region"
 )

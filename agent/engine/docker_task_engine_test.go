@@ -37,6 +37,7 @@ import (
 	mock_asm_factory "github.com/aws/amazon-ecs-agent/agent/asm/factory/mocks"
 	mock_secretsmanageriface "github.com/aws/amazon-ecs-agent/agent/asm/mocks"
 	"github.com/aws/amazon-ecs-agent/agent/config"
+	"github.com/aws/amazon-ecs-agent/agent/config/ipcompatibility"
 	mock_containermetadata "github.com/aws/amazon-ecs-agent/agent/containermetadata/mocks"
 	"github.com/aws/amazon-ecs-agent/agent/dockerclient"
 	"github.com/aws/amazon-ecs-agent/agent/dockerclient/dockerapi"
@@ -2958,6 +2959,7 @@ func TestCreateContainerAwslogsLogDriver(t *testing.T) {
 		name                      string
 		region                    string
 		expectedLogConfigEndpoint string
+		instanceIPCompatibility   ipcompatibility.IPCompatibility
 	}{
 		{
 			name:                      "test container that uses awslogs log driver in IAD",
@@ -2999,12 +3001,80 @@ func TestCreateContainerAwslogsLogDriver(t *testing.T) {
 			region:                    "us-isob-west-1",
 			expectedLogConfigEndpoint: "https://logs.us-isob-west-1.sc2s.sgov.gov",
 		},
+		{
+			name:                      "test container that uses awslogs log driver in IAD - IPv6",
+			region:                    "us-east-1",
+			expectedLogConfigEndpoint: "https://logs.us-east-1.api.aws",
+			instanceIPCompatibility:   ipcompatibility.NewIPv6OnlyCompatibility(),
+		},
+		{
+			name:                      "test container that uses awslogs log driver in BKK - IPv6",
+			region:                    "ap-southeast-7",
+			expectedLogConfigEndpoint: "https://logs.ap-southeast-7.api.aws",
+			instanceIPCompatibility:   ipcompatibility.NewIPv6OnlyCompatibility(),
+		},
+		{
+			name:                      "test container that uses awslogs log driver in ZHY - IPv6",
+			region:                    "cn-northwest-1",
+			expectedLogConfigEndpoint: "https://logs.cn-northwest-1.api.amazonwebservices.com.cn",
+			instanceIPCompatibility:   ipcompatibility.NewIPv6OnlyCompatibility(),
+		},
+		{
+			name:                      "test container that uses awslogs log driver in OSU - IPv6",
+			region:                    "us-gov-east-1",
+			expectedLogConfigEndpoint: "https://logs.us-gov-east-1.api.aws",
+			instanceIPCompatibility:   ipcompatibility.NewIPv6OnlyCompatibility(),
+		},
+		{
+			name:                      "test container that uses awslogs log driver in NCL",
+			region:                    "eu-isoe-west-1",
+			expectedLogConfigEndpoint: "", // dual stack endpoint not supported
+			instanceIPCompatibility:   ipcompatibility.NewIPv6OnlyCompatibility(),
+		},
+		{
+			name:                      "test container that uses awslogs log driver in ALE",
+			region:                    "us-isof-south-1",
+			expectedLogConfigEndpoint: "", // dual stack endpoint not supported
+			instanceIPCompatibility:   ipcompatibility.NewIPv6OnlyCompatibility(),
+		},
+		{
+			name:                      "test container that uses awslogs log driver in LTW",
+			region:                    "us-isof-east-1",
+			expectedLogConfigEndpoint: "", // dual stack endpoint not supported
+			instanceIPCompatibility:   ipcompatibility.NewIPv6OnlyCompatibility(),
+		},
+		{
+			name:                      "test container that uses awslogs log driver in LCK",
+			region:                    "us-isob-east-1",
+			expectedLogConfigEndpoint: "", // dual stack endpoint not supported
+			instanceIPCompatibility:   ipcompatibility.NewIPv6OnlyCompatibility(),
+		},
+		{
+			name:                      "test container that uses awslogs log driver in DCA",
+			region:                    "us-iso-east-1",
+			expectedLogConfigEndpoint: "", // dual stack endpoint not supported
+			instanceIPCompatibility:   ipcompatibility.NewIPv6OnlyCompatibility(),
+		},
+		{
+			name:                      "test container that uses awslogs log driver in APA",
+			region:                    "us-iso-west-1",
+			expectedLogConfigEndpoint: "", // dual stack endpoint not supported
+			instanceIPCompatibility:   ipcompatibility.NewIPv6OnlyCompatibility(),
+		},
+		{
+			name:                      "test container that uses awslogs log driver in FFZ - IPv6",
+			region:                    "us-isob-west-1",
+			expectedLogConfigEndpoint: "", // dual stack endpoint not supported
+			instanceIPCompatibility:   ipcompatibility.NewIPv6OnlyCompatibility(),
+		},
 	}
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
 			ctx, cancel := context.WithCancel(context.TODO())
 			defer cancel()
-			ctrl, client, _, taskEngine, _, _, _, _ := mocks(t, ctx, &defaultConfig)
+			cfg := config.DefaultConfig()
+			cfg.InstanceIPCompatibility = tc.instanceIPCompatibility
+			ctrl, client, _, taskEngine, _, _, _, _ := mocks(t, ctx, &cfg)
 			defer ctrl.Finish()
 
 			taskEngine.(*DockerTaskEngine).cfg.AWSRegion = tc.region
@@ -3012,7 +3082,7 @@ func TestCreateContainerAwslogsLogDriver(t *testing.T) {
 			rawHostConfigInput := dockercontainer.HostConfig{
 				LogConfig: dockercontainer.LogConfig{
 					Type:   "awslogs",
-					Config: map[string]string{},
+					Config: map[string]string{"awslogs-region": tc.region},
 				},
 			}
 			rawHostConfig, err := json.Marshal(&rawHostConfigInput)
@@ -5309,6 +5379,83 @@ func TestGetFirelensConfigBasedOnDockerServerVersion(t *testing.T) {
 				assert.NotContains(t, logConfig.Config, tc.includedAsyncOption)
 			}
 			assert.NotContains(t, logConfig.Config, tc.excludedAsyncOption)
+		})
+	}
+}
+
+func TestSetAWSLogsDualStackEndpoint(t *testing.T) {
+	tests := []struct {
+		name           string
+		hostConfig     *dockercontainer.HostConfig
+		expectedConfig map[string]string
+	}{
+		{
+			name:           "empty config",
+			hostConfig:     &dockercontainer.HostConfig{},
+			expectedConfig: nil,
+		},
+		{
+			name: "endpoint already configured",
+			hostConfig: &dockercontainer.HostConfig{
+				LogConfig: dockercontainer.LogConfig{
+					Config: map[string]string{
+						awsLogsEndpointKey: "existing-endpoint",
+						awsLogsRegionKey:   "us-west-2",
+					},
+				},
+			},
+			expectedConfig: map[string]string{
+				awsLogsEndpointKey: "existing-endpoint",
+				awsLogsRegionKey:   "us-west-2",
+			},
+		},
+		{
+			name: "missing region",
+			hostConfig: &dockercontainer.HostConfig{
+				LogConfig: dockercontainer.LogConfig{
+					Config: map[string]string{},
+				},
+			},
+			expectedConfig: map[string]string{},
+		},
+		{
+			name: "empty region",
+			hostConfig: &dockercontainer.HostConfig{
+				LogConfig: dockercontainer.LogConfig{
+					Config: map[string]string{awsLogsRegionKey: ""},
+				},
+			},
+			expectedConfig: map[string]string{awsLogsRegionKey: ""},
+		},
+		{
+			name: "endpoint resoultion failure",
+			hostConfig: &dockercontainer.HostConfig{
+				LogConfig: dockercontainer.LogConfig{
+					Config: map[string]string{
+						awsLogsRegionKey: "bad region",
+					},
+				},
+			},
+			expectedConfig: map[string]string{awsLogsRegionKey: "bad region"},
+		},
+		{
+			name: "successful endpoint resolution",
+			hostConfig: &dockercontainer.HostConfig{
+				LogConfig: dockercontainer.LogConfig{
+					Config: map[string]string{awsLogsRegionKey: "us-west-2"},
+				},
+			},
+			expectedConfig: map[string]string{
+				awsLogsRegionKey:   "us-west-2",
+				awsLogsEndpointKey: "https://logs.us-west-2.api.aws",
+			},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			setAWSLogsDualStackEndpoint(tt.hostConfig)
+			assert.Equal(t, tt.expectedConfig, tt.hostConfig.LogConfig.Config)
 		})
 	}
 }
