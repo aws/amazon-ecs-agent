@@ -202,10 +202,28 @@ func (ni *NetworkInterface) GetIPV6Addresses() []string {
 	return addresses
 }
 
+// IPv6Only returns the bool value that indicates if the NetworkInterface has IPv6 addresses only.
+func (ni *NetworkInterface) IPv6Only() bool {
+	return len(ni.GetIPV4Addresses()) == 0 && len(ni.GetIPV6Addresses()) > 0
+}
+
 // GetPrimaryIPv4Address returns the primary IPv4 address assigned to the NetworkInterface.
 func (ni *NetworkInterface) GetPrimaryIPv4Address() string {
 	var primaryAddr string
 	for _, addr := range ni.IPV4Addresses {
+		if addr.Primary {
+			primaryAddr = addr.Address
+			break
+		}
+	}
+
+	return primaryAddr
+}
+
+// GetPrimaryIPv6Address returns the primary IPv6 address assigned to the NetworkInterface.
+func (ni *NetworkInterface) GetPrimaryIPv6Address() string {
+	var primaryAddr string
+	for _, addr := range ni.IPV6Addresses {
 		if addr.Primary {
 			primaryAddr = addr.Address
 			break
@@ -371,6 +389,8 @@ type IPV4Address struct {
 
 // IPV6Address is the ipv6 information of the eni
 type IPV6Address struct {
+	// Primary indicates whether the ip address is primary
+	Primary bool
 	// Address is the ipv6 address associated with eni
 	Address string
 }
@@ -394,10 +414,14 @@ func InterfaceFromACS(acsENI *ecsacs.ElasticNetworkInterface) (*NetworkInterface
 	}
 
 	// Read IPv6 address information of the NetworkInterface.
+	firstIpv6 := true
 	for _, ec2Ipv6 := range acsENI.Ipv6Addresses {
 		ipv6Addrs = append(ipv6Addrs, &IPV6Address{
+			// TODO: Primary field is not available yet so set the first one to be primary for now.
+			Primary: firstIpv6,
 			Address: aws.ToString(ec2Ipv6.Address),
 		})
+		firstIpv6 = false
 	}
 
 	ni := &NetworkInterface{
@@ -431,19 +455,24 @@ func InterfaceFromACS(acsENI *ecsacs.ElasticNetworkInterface) (*NetworkInterface
 
 // ValidateENI validates the NetworkInterface information sent from ACS.
 func ValidateENI(acsENI *ecsacs.ElasticNetworkInterface) error {
-	// At least one IPv4 address should be associated with the NetworkInterface.
-	if len(acsENI.Ipv4Addresses) < 1 {
-		return errors.Errorf("eni message validation: no ipv4 addresses in the message")
-	}
+	ipv6OnlyTask := len(acsENI.Ipv6Addresses) > 0 && len(acsENI.Ipv4Addresses) == 0
+	if ipv6OnlyTask {
+		// TODO: check subnet gateway for IPv6
+	} else {
+		// At least one IPv4 address should be associated with the NetworkInterface.
+		if len(acsENI.Ipv4Addresses) < 1 {
+			return errors.Errorf("eni message validation: no ipv4 addresses in the message")
+		}
 
-	if acsENI.SubnetGatewayIpv4Address == nil {
-		return errors.Errorf("eni message validation: no subnet gateway ipv4 address in the message")
-	}
-	gwIPv4Addr := aws.ToString(acsENI.SubnetGatewayIpv4Address)
-	s := strings.Split(gwIPv4Addr, "/")
-	if len(s) != 2 {
-		return errors.Errorf(
-			"eni message validation: invalid subnet gateway ipv4 address %s", gwIPv4Addr)
+		if acsENI.SubnetGatewayIpv4Address == nil {
+			return errors.Errorf("eni message validation: no subnet gateway ipv4 address in the message")
+		}
+		gwIPv4Addr := aws.ToString(acsENI.SubnetGatewayIpv4Address)
+		s := strings.Split(gwIPv4Addr, "/")
+		if len(s) != 2 {
+			return errors.Errorf(
+				"eni message validation: invalid subnet gateway ipv4 address %s", gwIPv4Addr)
+		}
 	}
 
 	if acsENI.MacAddress == nil {
