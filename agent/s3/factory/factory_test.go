@@ -18,7 +18,6 @@ package factory
 import (
 	"testing"
 
-	"github.com/aws/amazon-ecs-agent/agent/config"
 	"github.com/aws/amazon-ecs-agent/ecs-agent/credentials"
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/aws/endpoints"
@@ -26,46 +25,71 @@ import (
 )
 
 func TestCreateAWSConfig(t *testing.T) {
-	creds := credentials.IAMRoleCredentials{
+	testCreds := credentials.IAMRoleCredentials{
 		AccessKeyID:     "dummyAccessKeyID",
 		SecretAccessKey: "dummySecretAccessKey",
 		SessionToken:    "dummySessionToken",
 	}
-	region := "us-west-2"
-	// Test without FIPS enabled
-	config.SetFIPSEnabled(false)
-	cfg := createAWSConfig(region, creds, false)
-	assert.Equal(t, roundtripTimeout, cfg.HTTPClient.Timeout, "HTTPClient timeout should be set")
-	assert.Equal(t, region, aws.StringValue(cfg.Region), "Region should be set")
+
+	testRegion := "us-west-2"
+
+	tests := []struct {
+		name                   string
+		useFIPSEndpoint        bool
+		useDualStackEndpoint   bool
+		fipsEndpointState      endpoints.FIPSEndpointState
+		dualStackEndpointState endpoints.DualStackEndpointState
+	}{
+		{
+			name:                   "Default endpoint configuration",
+			useFIPSEndpoint:        false,
+			useDualStackEndpoint:   false,
+			fipsEndpointState:      endpoints.FIPSEndpointStateUnset,
+			dualStackEndpointState: endpoints.DualStackEndpointStateUnset,
+		},
+		{
+			name:                   "FIPS enabled",
+			useFIPSEndpoint:        true,
+			useDualStackEndpoint:   false,
+			fipsEndpointState:      endpoints.FIPSEndpointStateEnabled,
+			dualStackEndpointState: endpoints.DualStackEndpointStateUnset,
+		},
+		{
+			name:                   "Dualstack enabled",
+			useFIPSEndpoint:        false,
+			useDualStackEndpoint:   true,
+			fipsEndpointState:      endpoints.FIPSEndpointStateUnset,
+			dualStackEndpointState: endpoints.DualStackEndpointStateEnabled,
+		},
+		{
+			name:                   "DualStack and FIPS enabled",
+			useFIPSEndpoint:        true,
+			useDualStackEndpoint:   true,
+			fipsEndpointState:      endpoints.FIPSEndpointStateEnabled,
+			dualStackEndpointState: endpoints.DualStackEndpointStateEnabled,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			cfg := createAWSConfig(testRegion, testCreds, tt.useFIPSEndpoint, tt.useDualStackEndpoint)
+
+			// Verify common configurations
+			assert.Equal(t, roundtripTimeout, cfg.HTTPClient.Timeout)
+			assert.Equal(t, testRegion, aws.StringValue(cfg.Region))
+			verifyCredentials(t, cfg, testCreds)
+
+			// Verify endpoint configurations
+			assert.Equal(t, tt.fipsEndpointState, cfg.UseFIPSEndpoint)
+			assert.Equal(t, tt.dualStackEndpointState, cfg.UseDualStackEndpoint)
+		})
+	}
+}
+
+func verifyCredentials(t *testing.T, cfg *aws.Config, expected credentials.IAMRoleCredentials) {
 	credsValue, err := cfg.Credentials.Get()
 	assert.NoError(t, err)
-	assert.Equal(t, "dummyAccessKeyID", credsValue.AccessKeyID, "AccessKeyID should be set")
-	assert.Equal(t, "dummySecretAccessKey", credsValue.SecretAccessKey, "SecretAccessKey should be set")
-	assert.Equal(t, "dummySessionToken", credsValue.SessionToken, "SessionToken should be set")
-	assert.Equal(t, endpoints.FIPSEndpointStateUnset, cfg.UseFIPSEndpoint, "UseFIPSEndpoint should not be set")
-	assert.Nil(t, cfg.S3ForcePathStyle, "S3ForcePathStyle should not be set")
-	// Test with FIPS enabled in a non-FIPS compliant region
-	config.SetFIPSEnabled(true)
-	cfg = createAWSConfig(region, creds, false)
-	assert.Equal(t, roundtripTimeout, cfg.HTTPClient.Timeout, "HTTPClient timeout should be set")
-	assert.Equal(t, region, aws.StringValue(cfg.Region), "Region should be set")
-	credsValue, err = cfg.Credentials.Get()
-	assert.NoError(t, err)
-	assert.Equal(t, "dummyAccessKeyID", credsValue.AccessKeyID, "AccessKeyID should be set")
-	assert.Equal(t, "dummySecretAccessKey", credsValue.SecretAccessKey, "SecretAccessKey should be set")
-	assert.Equal(t, "dummySessionToken", credsValue.SessionToken, "SessionToken should be set")
-	assert.Equal(t, endpoints.FIPSEndpointStateUnset, cfg.UseFIPSEndpoint, "UseFIPSEndpoint should not be set")
-	assert.Nil(t, cfg.S3ForcePathStyle, "S3ForcePathStyle should not be set")
-	// Test with FIPS enabled in a FIPS compliant region
-	fipsRegion := "us-gov-west-1"
-	cfg = createAWSConfig(fipsRegion, creds, true)
-	assert.Equal(t, roundtripTimeout, cfg.HTTPClient.Timeout, "HTTPClient timeout should be set")
-	assert.Equal(t, fipsRegion, aws.StringValue(cfg.Region), "Region should be set")
-	credsValue, err = cfg.Credentials.Get()
-	assert.NoError(t, err)
-	assert.Equal(t, "dummyAccessKeyID", credsValue.AccessKeyID, "AccessKeyID should be set")
-	assert.Equal(t, "dummySecretAccessKey", credsValue.SecretAccessKey, "SecretAccessKey should be set")
-	assert.Equal(t, "dummySessionToken", credsValue.SessionToken, "SessionToken should be set")
-	assert.Equal(t, endpoints.FIPSEndpointStateEnabled, cfg.UseFIPSEndpoint, "UseFIPSEndpoint should be set to FIPSEndpointStateEnabled")
-	assert.False(t, aws.BoolValue(cfg.S3ForcePathStyle), "S3ForcePathStyle should be set to false")
+	assert.Equal(t, expected.AccessKeyID, credsValue.AccessKeyID)
+	assert.Equal(t, expected.SecretAccessKey, credsValue.SecretAccessKey)
+	assert.Equal(t, expected.SessionToken, credsValue.SessionToken)
 }
