@@ -1950,7 +1950,7 @@ func (engine *DockerTaskEngine) createContainer(task *apitask.Task, container *a
 	// This is a short term solution only for specific regions
 	if hostConfig.LogConfig.Type == logDriverTypeAwslogs {
 		if engine.cfg.InstanceIPCompatibility.IsIPv6Only() {
-			setAWSLogsDualStackEndpoint(hostConfig)
+			setAWSLogsDualStackEndpoint(task, container, hostConfig)
 		} else {
 			region := engine.cfg.AWSRegion
 			if _, ok := unresolvedIsolatedRegions[region]; ok {
@@ -2958,21 +2958,28 @@ func (engine *DockerTaskEngine) getDockerID(task *apitask.Task, container *apico
 // Sets CloudWatch Logs dual stack endpoint as awslogs-endpoint option in logging config.
 // This is needed because awslogs driver that we consume from Docker does not support
 // dual stack endpoints.
-func setAWSLogsDualStackEndpoint(hostConfig *dockercontainer.HostConfig) {
+func setAWSLogsDualStackEndpoint(
+	task *apitask.Task, container *apicontainer.Container, hostConfig *dockercontainer.HostConfig,
+) {
 	if hostConfig.LogConfig.Config[awsLogsEndpointKey] != "" {
 		// Endpoint already configured
-		logger.Info(fmt.Sprintf(
-			"%s is already set in awslogs config, skip resolving dual stack endpoint",
-			awsLogsEndpointKey,
-		))
+		logger.Info(
+			fmt.Sprintf(
+				"%s is already set in awslogs config, skip resolving dual stack endpoint",
+				awsLogsEndpointKey),
+			logger.Fields{field.TaskARN: task.Arn, field.ContainerName: container.Name},
+		)
 		return
 	}
 
 	region := hostConfig.LogConfig.Config[awsLogsRegionKey]
 	if region == "" {
-		logger.Warn(fmt.Sprintf(
-			"%s not found in awslogs config, skip resolving dual stack endpoint", awsLogsRegionKey,
-		))
+		logger.Warn(
+			fmt.Sprintf(
+				"%s not found in awslogs config, skip resolving dual stack endpoint",
+				awsLogsRegionKey),
+			logger.Fields{field.TaskARN: task.Arn, field.ContainerName: container.Name},
+		)
 		return
 	}
 
@@ -2981,15 +2988,19 @@ func setAWSLogsDualStackEndpoint(hostConfig *dockercontainer.HostConfig) {
 		logger.Error(
 			"Failed to get CloudWatch Logs dual stack endpoint. Skipping setting it.",
 			logger.Fields{
-				field.Region: region,
-				field.Error:  err,
+				field.TaskARN:       task.Arn,
+				field.ContainerName: container.Name,
+				field.Region:        region,
+				field.Error:         err,
 			})
 		return
 	}
 
 	logger.Info("Resolved dual stack endpoint", logger.Fields{
-		field.Endpoint: endpoint,
-		field.Region:   region,
+		field.TaskARN:       task.Arn,
+		field.ContainerName: container.Name,
+		field.Endpoint:      endpoint,
+		field.Region:        region,
 	})
 	hostConfig.LogConfig.Config[awsLogsEndpointKey] = endpoint
 }

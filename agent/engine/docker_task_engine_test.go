@@ -5454,7 +5454,9 @@ func TestSetAWSLogsDualStackEndpoint(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			setAWSLogsDualStackEndpoint(tt.hostConfig)
+			container := &apicontainer.Container{}
+			task := &apitask.Task{Containers: []*apicontainer.Container{container}}
+			setAWSLogsDualStackEndpoint(task, container, tt.hostConfig)
 			assert.Equal(t, tt.expectedConfig, tt.hostConfig.LogConfig.Config)
 		})
 	}
