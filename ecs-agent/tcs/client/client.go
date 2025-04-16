@@ -525,7 +525,15 @@ func signRequestFunc(url, region string, credentialProvider *credentials.Credent
 		if err != nil {
 			return nil, err
 		}
-
+		// Add detailed debug logging
+		logger.Debug("TCS succeed SignHTTP debug information", logger.Fields{
+			"headers":       request.Header,
+			"hasCredential": credentialProvider != nil,
+			"hasBody":       reqBody != nil,
+			"requestURL":    request.URL.String(),
+			"requestMethod": request.Method,
+			"authHeader":    request.Header.Get("Authorization"),
+		})
 		request.Header.Add("Host", request.Host)
 		var dataBuffer bytes.Buffer
 		request.Header.Write(&dataBuffer)
