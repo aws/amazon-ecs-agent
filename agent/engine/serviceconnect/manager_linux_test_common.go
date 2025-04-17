@@ -16,8 +16,10 @@ import (
 	"time"
 
 	"github.com/aws/amazon-ecs-agent/agent/config"
+	"github.com/aws/amazon-ecs-agent/agent/config/ipcompatibility"
 	ni "github.com/aws/amazon-ecs-agent/ecs-agent/netlib/model/networkinterface"
 
+	"github.com/aws/amazon-ecs-agent/agent/api/task"
 	apitask "github.com/aws/amazon-ecs-agent/agent/api/task"
 	"github.com/aws/amazon-ecs-agent/agent/engine/testdata"
 	apicontainerstatus "github.com/aws/amazon-ecs-agent/ecs-agent/api/container/status"
@@ -27,6 +29,7 @@ import (
 	"github.com/aws/amazon-ecs-agent/agent/api/serviceconnect"
 	dockercontainer "github.com/docker/docker/api/types/container"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 const (
@@ -62,6 +65,7 @@ func mockMkdirAllAndChown(path string, perm fs.FileMode, uid, gid int) error {
 
 func getAWSVPCTask(t *testing.T) (*apitask.Task, *apicontainer.Container, *apicontainer.Container) {
 	sleepTask := testdata.LoadTask("sleep5TwoContainers")
+	sleepTask.NetworkMode = task.AWSVPCNetworkMode
 
 	sleepTask.ServiceConnectConfig = &serviceconnect.Config{
 		ContainerName: "service-connect",
@@ -141,12 +145,19 @@ func testAgentContainerModificationsForServiceConnect(t *testing.T, privilegedMo
 		fmt.Sprintf("%s/relay:%s", tempDir, "/not/var/run"),
 		fmt.Sprintf("%s/log/%s:%s", tempDir, scTask.GetID(), "/some/other/log"),
 	}
+	containerIPMapping := map[string]string{
+		"sleep5":   "127.0.0.1",
+		"sleep5-2": "127.0.0.1",
+	}
+	containerIPMappingJSON, err := json.Marshal(containerIPMapping)
+	require.NoError(t, err)
 	expectedENVs := map[string]string{
 		"ReLaYgOeShErE":                 "unix:///not/var/run/relay_file_of_holiness",
 		"StAtUsGoEsHeRe":                "/some/other/run/status_file_of_holiness",
 		"APPNET_AGENT_ADMIN_MODE":       "uds",
 		"ENVOY_ENABLE_IAM_AUTH_FOR_XDS": "0",
 		"APPNET_ENVOY_LOG_DESTINATION":  "/some/other/log",
+		"APPNET_CONTAINER_IP_MAPPING":   string(containerIPMappingJSON),
 	}
 
 	type testCase struct {
@@ -261,7 +272,8 @@ func testAgentContainerModificationsForServiceConnect(t *testing.T, privilegedMo
 		t.Run(tc.name, func(t *testing.T) {
 			hostConfig := &dockercontainer.HostConfig{}
 			scManager.containerInstanceARN = tc.containerInstanceARN
-			err := scManager.AugmentTaskContainer(scTask, tc.container, hostConfig)
+			err := scManager.AugmentTaskContainer(scTask, tc.container, hostConfig,
+				ipcompatibility.NewIPCompatibility(true, false))
 			if err != nil {
 				t.Fatal(err)
 			}

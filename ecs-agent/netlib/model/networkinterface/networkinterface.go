@@ -215,6 +215,12 @@ func (ni *NetworkInterface) GetPrimaryIPv4Address() string {
 	return primaryAddr
 }
 
+// IsIPv6Only checks if the network interface is IPv6-only. An IPv6-only interface is defined
+// as one having only IPv6 addresses and no IPv4 addresses.
+func (ni *NetworkInterface) IsIPv6Only() bool {
+	return len(ni.GetIPV6Addresses()) > 0 && len(ni.GetIPV4Addresses()) == 0
+}
+
 // GetPrimaryIPv4AddressWithPrefixLength returns the primary IPv4 address assigned to the NetworkInterface with
 // its subnet prefix length.
 func (ni *NetworkInterface) GetPrimaryIPv4AddressWithPrefixLength() string {

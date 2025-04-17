@@ -3392,7 +3392,7 @@ func TestCreateContainerAddFirelensLogDriverConfig(t *testing.T) {
 			client.EXPECT().Version(gomock.Any(), gomock.Any()).Return(testDockerServerVersion, nil).Times(1)
 			client.EXPECT().APIVersion().Return(defaultDockerClientAPIVersion, nil).AnyTimes()
 			if tc.enableServiceConnect {
-				serviceConnectManager.EXPECT().AugmentTaskContainer(gomock.Any(), gomock.Any(), gomock.Any()).Return(nil).Times(1)
+				serviceConnectManager.EXPECT().AugmentTaskContainer(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).Return(nil).Times(1)
 			}
 			client.EXPECT().CreateContainer(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).Do(
 				func(ctx context.Context,

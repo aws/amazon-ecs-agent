@@ -27,6 +27,7 @@ import (
 	apicontainer "github.com/aws/amazon-ecs-agent/agent/api/container"
 	"github.com/aws/amazon-ecs-agent/agent/api/serviceconnect"
 	"github.com/aws/amazon-ecs-agent/agent/config"
+	"github.com/aws/amazon-ecs-agent/agent/config/ipcompatibility"
 	"github.com/aws/amazon-ecs-agent/agent/dockerclient"
 	"github.com/aws/amazon-ecs-agent/agent/dockerclient/dockerapi"
 	"github.com/aws/amazon-ecs-agent/agent/taskresource"
@@ -161,6 +162,9 @@ const (
 	serviceConnectContainerMappingEnvVar    = "APPNET_CONTAINER_IP_MAPPING"
 	// ServiceConnectAttachmentType specifies attachment type for service connect
 	serviceConnectAttachmentType = "serviceconnectdetail"
+
+	ipv4LoopbackAddress = "127.0.0.1"
+	ipv6LoopbackAddress = "::1"
 )
 
 // TaskOverrides are the overrides applied to a task
@@ -3528,10 +3532,11 @@ func (task *Task) IsServiceConnectBridgeModeApplicationContainer(container *apic
 	return container.GetNetworkModeFromHostConfig() == "container" && task.IsServiceConnectEnabled()
 }
 
-// PopulateServiceConnectContainerMappingEnvVar populates APPNET_CONTAINER_IP_MAPPING env var for AppNet Agent container
-// aka SC container
-func (task *Task) PopulateServiceConnectContainerMappingEnvVar() error {
-	envVars := make(map[string]string)
+// PopulateServiceConnectContainerMappingEnvVarBridge populates APPNET_CONTAINER_IP_MAPPING
+// env var for AppNet Agent container aka SC container for bridge network mode tasks.
+func (task *Task) PopulateServiceConnectContainerMappingEnvVarBridge(
+	instanceIPCompatibility ipcompatibility.IPCompatibility,
+) error {
 	containerMapping := make(map[string]string)
 	for _, c := range task.Containers {
 		if c.Type != apicontainer.ContainerCNIPause {
@@ -3541,14 +3546,53 @@ func (task *Task) PopulateServiceConnectContainerMappingEnvVar() error {
 		if err != nil {
 			return fmt.Errorf("error retrieving task container for pause container %s: %+v", c.Name, err)
 		}
-		containerMapping[taskContainer.Name] = c.GetNetworkSettings().IPAddress
+		if instanceIPCompatibility.IsIPv6Only() && c.GetNetworkSettings().GlobalIPv6Address != "" {
+			containerMapping[taskContainer.Name] = c.GetNetworkSettings().GlobalIPv6Address
+		} else {
+			containerMapping[taskContainer.Name] = c.GetNetworkSettings().IPAddress
+		}
 	}
+	return task.setContainerMappingForServiceConnectContainer(containerMapping)
+}
+
+// PopulateServiceConnectContainerMappingEnvVarAwsvpc populates APPNET_CONTAINER_IP_MAPPING
+// environment variable for the AppNet Agent container (aka Service Connect container) for
+// awsvpc network mode tasks.
+// Application containers are expected to be bound to loopback address(es).
+func (task *Task) PopulateServiceConnectContainerMappingEnvVarAwsvpc() error {
+	primaryENI := task.GetPrimaryENI()
+	if primaryENI == nil {
+		return errors.New("no primary ENI found in task")
+	}
+
+	containerAddress := ipv4LoopbackAddress
+	if primaryENI.IsIPv6Only() {
+		containerAddress = ipv6LoopbackAddress
+	}
+
+	containerMapping := make(map[string]string)
+	for _, c := range task.Containers {
+		if c == task.GetServiceConnectContainer() || c.IsInternal() {
+			continue
+		}
+		containerMapping[c.Name] = containerAddress
+	}
+
+	return task.setContainerMappingForServiceConnectContainer(containerMapping)
+}
+
+func (task *Task) setContainerMappingForServiceConnectContainer(containerMapping map[string]string) error {
+	envVars := make(map[string]string)
 	containerMappingJson, err := json.Marshal(containerMapping)
 	if err != nil {
 		return fmt.Errorf("error injecting required env vars APPNET_CONTAINER_MAPPING to Service Connect container: %w", err)
 	}
 	envVars[serviceConnectContainerMappingEnvVar] = string(containerMappingJson)
-	task.GetServiceConnectContainer().MergeEnvironmentVariables(envVars)
+	scContainer := task.GetServiceConnectContainer()
+	if scContainer == nil {
+		return fmt.Errorf("service connect container not found in task")
+	}
+	scContainer.MergeEnvironmentVariables(envVars)
 	return nil
 }
 
