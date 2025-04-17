@@ -16,7 +16,7 @@ import (
 	"reflect"
 	"strconv"
 
-	"github.com/aws/aws-sdk-go/aws"
+	"github.com/aws/aws-sdk-go-v2/aws"
 	"golang.org/x/exp/constraints"
 )
 
@@ -58,7 +58,7 @@ func Int32PtrToIntPtr(int32ptr *int32) *int {
 	if int32ptr == nil {
 		return nil
 	}
-	return aws.Int(int(aws.Int32Value(int32ptr)))
+	return aws.Int(int(aws.ToInt32(int32ptr)))
 }
 
 // Int64PtrToInt32Ptr converts a *int64 to *int32.
@@ -66,7 +66,7 @@ func Int64PtrToInt32Ptr(int64ptr *int64) *int32 {
 	if int64ptr == nil {
 		return nil
 	}
-	return aws.Int32(int32(aws.Int64Value(int64ptr)))
+	return aws.Int32(int32(aws.ToInt64(int64ptr)))
 }
 
 // MaxNum returns the maximum value between two numbers.

@@ -23,7 +23,7 @@ import (
 	"net/http/httptest"
 	"testing"
 
-	"github.com/aws/aws-sdk-go/aws"
+	"github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/gorilla/mux"
 	prometheus "github.com/prometheus/client_model/go"
 	"github.com/stretchr/testify/assert"

@@ -39,7 +39,6 @@ import (
 	awshttp "github.com/aws/aws-sdk-go-v2/aws/transport/http"
 	"github.com/aws/aws-sdk-go-v2/service/ecs"
 	ecstypes "github.com/aws/aws-sdk-go-v2/service/ecs/types"
-	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/aws/request"
 	smithyhttp "github.com/aws/smithy-go/transport/http"
 
@@ -153,7 +152,7 @@ func testTaskProtectionRequest(t *testing.T, tc TestCase) {
 func TestGetTaskProtection(t *testing.T) {
 	// Initialize some data common to the test cases
 	happyECSInput := ecs.GetTaskProtectionInput{
-		Cluster: aws.String(cluster),
+		Cluster: awsv2.String(cluster),
 		Tasks:   []string{taskARN},
 	}
 	metricName := metrics.GetTaskProtectionMetricName
@@ -329,12 +328,12 @@ func TestUpdateTaskProtection(t *testing.T) {
 	expiresInMinutes := 5
 	protectionEnabled := true
 	happyRequestBody := &TaskProtectionRequest{
-		ProtectionEnabled: aws.Bool(protectionEnabled), ExpiresInMinutes: aws.Int64(int64(expiresInMinutes)),
+		ProtectionEnabled: awsv2.Bool(protectionEnabled), ExpiresInMinutes: awsv2.Int64(int64(expiresInMinutes)),
 	}
 	happyECSInput := ecs.UpdateTaskProtectionInput{
-		Cluster:           aws.String(cluster),
+		Cluster:           awsv2.String(cluster),
 		Tasks:             []string{taskARN},
-		ExpiresInMinutes:  aws.Int32(int32(expiresInMinutes)),
+		ExpiresInMinutes:  awsv2.Int32(int32(expiresInMinutes)),
 		ProtectionEnabled: protectionEnabled,
 	}
 
@@ -397,7 +396,7 @@ func TestUpdateTaskProtection(t *testing.T) {
 	})
 	t.Run("ProtectionEnabled field not found on the request", func(t *testing.T) {
 		testTaskProtectionRequest(t, TestCase{
-			requestBody:               &TaskProtectionRequest{ExpiresInMinutes: aws.Int64(int64(expiresInMinutes))},
+			requestBody:               &TaskProtectionRequest{ExpiresInMinutes: awsv2.Int64(int64(expiresInMinutes))},
 			setAgentStateExpectations: happyStateExpectations,
 			setMetricsExpectations: func(ctrl *gomock.Controller, metricsFactory *mock_metrics.MockEntryFactory) {
 				// expecting entry creation but no publish
@@ -565,8 +564,8 @@ func TestUpdateTaskProtection(t *testing.T) {
 // Returns an ECS Failure with the given reason. Uses standard Task ARN.
 func makeECSFailure(reason string) ecstypes.Failure {
 	return ecstypes.Failure{
-		Arn:    aws.String(taskARN),
-		Reason: aws.String("ecs failure 1"),
+		Arn:    awsv2.String(taskARN),
+		Reason: awsv2.String("ecs failure 1"),
 	}
 }
 
@@ -574,7 +573,7 @@ func makeECSFailure(reason string) ecstypes.Failure {
 func ecsProtectedTask() ecstypes.ProtectedTask {
 	return ecstypes.ProtectedTask{
 		ProtectionEnabled: true,
-		TaskArn:           aws.String(taskARN),
+		TaskArn:           awsv2.String(taskARN),
 	}
 }
 
