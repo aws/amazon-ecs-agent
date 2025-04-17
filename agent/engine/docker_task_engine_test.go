@@ -3111,6 +3111,7 @@ func TestCreateContainerAwslogsLogDriver(t *testing.T) {
 					timeout time.Duration) {
 					assert.Equal(t, tc.expectedLogConfigEndpoint, hostConfig.LogConfig.Config["awslogs-endpoint"])
 				})
+			client.EXPECT().WithVersion(dockerclient.Version_1_39).Return(nil, nil).MaxTimes(1)
 
 			ret := taskEngine.(*DockerTaskEngine).createContainer(testTask, testTask.Containers[0])
 			assert.NoError(t, ret.Error)
