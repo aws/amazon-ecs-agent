@@ -43,17 +43,19 @@ const (
 
 func TestLinuxTaskNetworkStatsSet(t *testing.T) {
 	var networkModes = []struct {
-		ENIs        []*ni.NetworkInterface
-		NetworkMode string
-		StatsEmpty  bool
+		ENIs                   []*ni.NetworkInterface
+		NetworkMode            string
+		NetworkMetricsDisabled bool
+		StatsEmpty             bool
 	}{
-		{[]*ni.NetworkInterface{{ID: "ec2Id"}}, "awsvpc", true},
-		{nil, "host", true},
-		{nil, "bridge", false},
-		{nil, "none", true},
+		{[]*ni.NetworkInterface{{ID: "ec2Id"}}, "awsvpc", false, true},
+		{nil, "host", false, true},
+		{nil, "bridge", false, false},
+		{nil, "bridge", true, true},
+		{nil, "none", false, true},
 	}
 	for _, tc := range networkModes {
-		testNetworkModeStats(t, tc.NetworkMode, tc.ENIs, false, tc.StatsEmpty)
+		testNetworkModeStats(t, tc.NetworkMode, tc.ENIs, false, tc.NetworkMetricsDisabled, tc.StatsEmpty)
 	}
 }
 
