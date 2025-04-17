@@ -1950,7 +1950,7 @@ func (engine *DockerTaskEngine) createContainer(task *apitask.Task, container *a
 	// This is a short term solution only for specific regions
 	if hostConfig.LogConfig.Type == logDriverTypeAwslogs {
 		if engine.cfg.InstanceIPCompatibility.IsIPv6Only() {
-			setAWSLogsDualStackEndpoint(task, container, hostConfig)
+			engine.setAWSLogsDualStackEndpoint(task, container, hostConfig)
 		} else {
 			region := engine.cfg.AWSRegion
 			if _, ok := unresolvedIsolatedRegions[region]; ok {
@@ -2958,50 +2958,67 @@ func (engine *DockerTaskEngine) getDockerID(task *apitask.Task, container *apico
 // Sets CloudWatch Logs dual stack endpoint as awslogs-endpoint option in logging config.
 // This is needed because awslogs driver that we consume from Docker does not support
 // dual stack endpoints.
-func setAWSLogsDualStackEndpoint(
+func (engine *DockerTaskEngine) setAWSLogsDualStackEndpoint(
 	task *apitask.Task, container *apicontainer.Container, hostConfig *dockercontainer.HostConfig,
 ) {
+	// Helper function to populate common logger.Fields
+	withAdditionalLoggerFields := func(additionalFields logger.Fields) logger.Fields {
+		fields := logger.Fields{field.TaskARN: task.Arn, field.ContainerName: container.Name}
+		for k, v := range additionalFields {
+			fields[k] = v
+		}
+		return fields
+	}
+
+	// Do nothing if endpoint is already set
 	if hostConfig.LogConfig.Config[awsLogsEndpointKey] != "" {
-		// Endpoint already configured
 		logger.Info(
 			fmt.Sprintf(
-				"%s is already set in awslogs config, skip resolving dual stack endpoint",
+				"%s is already set in awslogs config, skip resolving dual stack CloudWatch Logs endpoint",
 				awsLogsEndpointKey),
-			logger.Fields{field.TaskARN: task.Arn, field.ContainerName: container.Name},
+			withAdditionalLoggerFields(logger.Fields{}),
 		)
 		return
 	}
 
+	// Region is required to resolve endpoint
 	region := hostConfig.LogConfig.Config[awsLogsRegionKey]
 	if region == "" {
 		logger.Warn(
 			fmt.Sprintf(
-				"%s not found in awslogs config, skip resolving dual stack endpoint",
+				"%s not found in awslogs config, skip resolving dual stack CloudWatch Logs endpoint",
 				awsLogsRegionKey),
-			logger.Fields{field.TaskARN: task.Arn, field.ContainerName: container.Name},
+			withAdditionalLoggerFields(logger.Fields{}),
 		)
 		return
 	}
 
+	// Docker versions older than 18.09 (max API Version 1.39) do not support awslogs-endpoint
+	// option. So, skip endpoint resolution for those Docker versions.
+	// See version compatibility matrix - https://docs.docker.com/reference/api/engine/
+	if !engine.apiVersionIsAtLeast(dockerclient.Version_1_39) {
+		logger.Warn(
+			fmt.Sprintf(
+				"Docker version does not support %s option. Skip resolving dual stack CloudWatch Logs endpoint.",
+				awsLogsEndpointKey),
+			withAdditionalLoggerFields(logger.Fields{}),
+		)
+		return
+	}
+
+	// Resolve the endpoint
 	endpoint, err := getAWSLogsDualStackEndpoint(region)
 	if err != nil {
 		logger.Error(
 			"Failed to get CloudWatch Logs dual stack endpoint. Skipping setting it.",
-			logger.Fields{
-				field.TaskARN:       task.Arn,
-				field.ContainerName: container.Name,
-				field.Region:        region,
-				field.Error:         err,
-			})
+			withAdditionalLoggerFields(logger.Fields{field.Region: region, field.Error: err}))
 		return
 	}
 
-	logger.Info("Resolved dual stack endpoint", logger.Fields{
-		field.TaskARN:       task.Arn,
-		field.ContainerName: container.Name,
-		field.Endpoint:      endpoint,
-		field.Region:        region,
-	})
+	logger.Info("Resolved dual stack endpoint", withAdditionalLoggerFields(logger.Fields{
+		field.Endpoint: endpoint,
+		field.Region:   region,
+	}))
 	hostConfig.LogConfig.Config[awsLogsEndpointKey] = endpoint
 }
 
@@ -3016,4 +3033,17 @@ func getAWSLogsDualStackEndpoint(region string) (string, error) {
 		return "", fmt.Errorf("failed to resolve CloudWatch Logs endpoint for region '%s': %w", region, err)
 	}
 	return endpoint.URI.String(), nil
+}
+
+func (engine *DockerTaskEngine) apiVersionIsAtLeast(apiVersion dockerclient.DockerVersion) bool {
+	supportedAPIVersion := dockerclient.GetSupportedDockerAPIVersion(apiVersion)
+	_, err := engine.client.WithVersion(supportedAPIVersion)
+	if err != nil {
+		logger.Debug("Docker API version is not at least", logger.Fields{
+			"thresholdVersion":    apiVersion,
+			"supportedAPIVersion": supportedAPIVersion,
+			field.Error:           err,
+		})
+	}
+	return err == nil
 }

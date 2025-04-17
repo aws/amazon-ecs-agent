@@ -73,4 +73,5 @@ const (
 	RegistryID              = "registryID"
 	ExecutionStoppedAt      = "executionStoppedAt"
 	Region                  = "region"
+	DockerVersion           = "dockerVersion"
 )
