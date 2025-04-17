@@ -2955,9 +2955,10 @@ func (engine *DockerTaskEngine) getDockerID(task *apitask.Task, container *apico
 	return dockerContainer.DockerID, nil
 }
 
-// Sets CloudWatch Logs dual stack endpoint as awslogs-endpoint option in logging config.
+// Sets CloudWatch Logs dual stack endpoint as "awslogs-endpoint" option in the logging config.
 // This is needed because awslogs driver that we consume from Docker does not support
-// dual stack endpoints.
+// an option to enable dual stack endpoints, so customers have no way to enable dual stack endpoints
+// that are needed in an IPv6-only environment.
 func (engine *DockerTaskEngine) setAWSLogsDualStackEndpoint(
 	task *apitask.Task, container *apicontainer.Container, hostConfig *dockercontainer.HostConfig,
 ) {
