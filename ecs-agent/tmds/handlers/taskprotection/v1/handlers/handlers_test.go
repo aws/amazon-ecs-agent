@@ -35,11 +35,10 @@ import (
 	v2 "github.com/aws/amazon-ecs-agent/ecs-agent/tmds/handlers/v2"
 	"github.com/aws/amazon-ecs-agent/ecs-agent/tmds/handlers/v4/state"
 	mock_state "github.com/aws/amazon-ecs-agent/ecs-agent/tmds/handlers/v4/state/mocks"
-	awsv2 "github.com/aws/aws-sdk-go-v2/aws"
+	"github.com/aws/aws-sdk-go-v2/aws"
 	awshttp "github.com/aws/aws-sdk-go-v2/aws/transport/http"
 	"github.com/aws/aws-sdk-go-v2/service/ecs"
 	ecstypes "github.com/aws/aws-sdk-go-v2/service/ecs/types"
-	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/aws/request"
 	smithyhttp "github.com/aws/smithy-go/transport/http"
 
@@ -223,7 +222,7 @@ func TestGetTaskProtection(t *testing.T) {
 			setAgentStateExpectations:   happyStateExpectations,
 			setCredsManagerExpectations: happyCredsManagerExpectations,
 			setFactoryExpectations: factoryExpectations(happyECSInput, nil,
-				&awsv2.RequestCanceledError{Err: context.Canceled},
+				&aws.RequestCanceledError{Err: context.Canceled},
 			),
 			setMetricsExpectations: metricsExpectations(metricName, 0),
 			expectedStatusCode:     http.StatusGatewayTimeout,
@@ -457,7 +456,7 @@ func TestUpdateTaskProtection(t *testing.T) {
 			setAgentStateExpectations:   happyStateExpectations,
 			setCredsManagerExpectations: happyCredsManagerExpectations,
 			setFactoryExpectations: factoryExpectations(happyECSInput, nil,
-				&awsv2.RequestCanceledError{Err: context.Canceled},
+				&aws.RequestCanceledError{Err: context.Canceled},
 			),
 			setMetricsExpectations: metricsExpectations(metricName, 0),
 			expectedStatusCode:     http.StatusGatewayTimeout,
