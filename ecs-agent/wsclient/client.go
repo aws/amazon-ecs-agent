@@ -43,6 +43,8 @@ import (
 	"github.com/aws/amazon-ecs-agent/ecs-agent/utils/retry"
 	"github.com/aws/amazon-ecs-agent/ecs-agent/wsclient/wsconn"
 
+	credentialsV1 "github.com/aws/aws-sdk-go/aws/credentials"
+
 	"github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/aws/aws-sdk-go/private/protocol/json/jsonutil"
 	"github.com/gorilla/websocket"
@@ -173,6 +175,10 @@ type ClientServerImpl struct {
 	Cfg *WSClientMinAgentConfig
 	// conn holds the underlying low-level websocket connection
 	conn wsconn.WebsocketConn
+	// CredentialProvider is used to retrieve AWS credentials
+	// TODO: Remove this once both ACS and TCS implementations have migrated over to AWS SDK Go V2.
+	CredentialProvider *credentialsV1.Credentials
+
 	// CredentialCache is used to retrieve AWS credentials
 	CredentialsCache *aws.CredentialsCache
 	// RequestHandlers is a map from message types to handler functions of the
@@ -230,10 +236,18 @@ func (cs *ClientServerImpl) Connect(disconnectMetricName string,
 	// it did above
 	request, _ := http.NewRequest("GET", parsedURL.String(), nil)
 
-	// Sign the request; we'll send its headers via the websocket client which includes the signature
-	err = utils.SignHTTPRequest(request, cs.Cfg.AWSRegion, ServiceName, cs.CredentialsCache, nil)
-	if err != nil {
-		return nil, err
+	if cs.CredentialProvider != nil {
+		// Sign the request; we'll send its headers via the websocket client which includes the signature
+		err = utils.SignHTTPRequestV1(request, cs.Cfg.AWSRegion, ServiceName, cs.CredentialProvider, nil)
+		if err != nil {
+			return nil, err
+		}
+	} else {
+		// Sign the request; we'll send its headers via the websocket client which includes the signature
+		err = utils.SignHTTPRequest(request, cs.Cfg.AWSRegion, ServiceName, cs.CredentialsCache, nil)
+		if err != nil {
+			return nil, err
+		}
 	}
 
 	timeoutDialer := &net.Dialer{Timeout: wsConnectTimeout}
