@@ -3005,7 +3005,7 @@ func (engine *DockerTaskEngine) setAWSLogsDualStackEndpoint(
 	const thresholdVersion = "18.09.0"
 	dockerVersionIsCompatible, err := utils.Version(dockerVersion).Matches(">=" + thresholdVersion)
 	if err != nil {
-		logger.Error("Failed to determine if docker vesion is high enough",
+		logger.Error("Failed to determine if docker version is high enough",
 			withAdditionalLoggerFields(logger.Fields{
 				field.Error:         err,
 				field.DockerVersion: dockerVersion,
