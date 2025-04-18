@@ -32,7 +32,6 @@ import (
 	"github.com/aws/amazon-ecs-agent/ecs-agent/wsclient"
 
 	"github.com/aws/aws-sdk-go-v2/aws"
-	awscreds "github.com/aws/aws-sdk-go/aws/credentials"
 )
 
 const (
@@ -69,9 +68,6 @@ func NewDockerTelemetrySession(
 	}
 
 	agentVersion, agentHash, containerRuntimeVersion := generateVersionInfo(taskEngine)
-	// hack to get v2 creds into v1 object :)
-	credentialsProvider, _ := credentialsCache.Retrieve(context.TODO())
-	creds := awscreds.NewStaticCredentials(credentialsProvider.AccessKeyID, credentialsProvider.SecretAccessKey, credentialsProvider.SessionToken)
 
 	session := tcshandler.NewTelemetrySession(
 		containerInstanceArn,
@@ -80,7 +76,7 @@ func NewDockerTelemetrySession(
 		agentHash,
 		containerRuntimeVersion,
 		cfg.DisableMetrics.Enabled(),
-		creds,
+		credentialsCache,
 		&wsclient.WSClientMinAgentConfig{
 			AWSRegion:          cfg.AWSRegion,
 			AcceptInsecureCert: cfg.AcceptInsecureCert,
