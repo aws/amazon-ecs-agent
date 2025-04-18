@@ -1974,7 +1974,7 @@ func (engine *DockerTaskEngine) createContainer(task *apitask.Task, container *a
 				if endpoint == "" {
 					endpoint = fmt.Sprintf("https://logs.%s.%s", region, dnsSuffix)
 				}
-				hostConfig.LogConfig.Config["awslogs-endpoint"] = endpoint
+				hostConfig.LogConfig.Config[awsLogsEndpointKey] = endpoint
 			}
 		}
 	}
@@ -3048,7 +3048,7 @@ func getAWSLogsDualStackEndpoint(region string) (string, error) {
 			Region:       ptr.String(region),
 		})
 	if err != nil {
-		return "", fmt.Errorf("failed to resolve CloudWatch Logs endpoint for region '%s': %w", region, err)
+		return "", fmt.Errorf("failed to resolve dual stack CloudWatch Logs endpoint for region '%s': %w", region, err)
 	}
 	return endpoint.URI.String(), nil
 }
