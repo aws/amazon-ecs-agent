@@ -44,6 +44,12 @@ func TestIPv4OnlyCompatibility(t *testing.T) {
 	assert.False(t, c.IsIPv6Compatible())
 }
 
+func TestIPv6OnlyCompatibility(t *testing.T) {
+	c := NewIPv6OnlyCompatibility()
+	assert.True(t, c.IsIPv6Compatible())
+	assert.False(t, c.IsIPv4Compatible())
+}
+
 func TestIsIPv6Only(t *testing.T) {
 	tests := []struct {
 		name     string
