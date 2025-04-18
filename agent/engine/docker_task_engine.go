@@ -3018,7 +3018,10 @@ func (engine *DockerTaskEngine) setAWSLogsDualStackEndpoint(
 			fmt.Sprintf(
 				"Docker version does not support %s option. Skip resolving dual stack CloudWatch Logs endpoint.",
 				awsLogsEndpointKey),
-			withAdditionalLoggerFields(logger.Fields{}),
+			withAdditionalLoggerFields(logger.Fields{
+				field.DockerVersion: dockerVersion,
+				"thresholdVersion":  thresholdVersion,
+			}),
 		)
 		return
 	}
