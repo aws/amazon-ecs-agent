@@ -180,7 +180,7 @@ type ClientServerImpl struct {
 	CredentialProvider *credentialsV1.Credentials
 
 	// CredentialCache is used to retrieve AWS credentials
-	CredentialCache *aws.CredentialsCache
+	CredentialsCache *aws.CredentialsCache
 	// RequestHandlers is a map from message types to handler functions of the
 	// form:
 	//     "FooMessage": func(message *ecsacs.FooMessage)
@@ -244,7 +244,7 @@ func (cs *ClientServerImpl) Connect(disconnectMetricName string,
 		}
 	} else {
 		// Sign the request; we'll send its headers via the websocket client which includes the signature
-		err = utils.SignHTTPRequest(request, cs.Cfg.AWSRegion, ServiceName, cs.CredentialCache, nil)
+		err = utils.SignHTTPRequest(request, cs.Cfg.AWSRegion, ServiceName, cs.CredentialsCache, nil)
 		if err != nil {
 			return nil, err
 		}

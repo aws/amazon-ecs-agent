@@ -70,6 +70,7 @@ func SignHTTPRequest(req *http.Request, region, service string, creds *aws.Crede
 		logger.Warn(fmt.Sprintf("Signing HTTP request failed: %v", err))
 		return errors.Wrap(err, "aws sdk http signer: failed to sign http request")
 	}
+	logger.Warn(fmt.Sprintf("X-Amz-Content-Sha256: %s", req.Header["X-Amz-Content-Sha256"]))
 	return nil
 }
 
@@ -82,5 +83,6 @@ func SignHTTPRequestV1(req *http.Request, region, service string, creds *credent
 		logger.Warn(fmt.Sprintf("Signing HTTP request failed: %v", err))
 		return errors.Wrap(err, "aws sdk http signer: failed to sign http request")
 	}
+	logger.Warn(fmt.Sprintf("X-Amz-Content-Sha256: %s", req.Header["X-Amz-Content-Sha256"]))
 	return nil
 }
