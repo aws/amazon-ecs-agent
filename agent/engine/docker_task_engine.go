@@ -3032,10 +3032,11 @@ func (engine *DockerTaskEngine) setAWSLogsDualStackEndpoint(
 		return
 	}
 
-	logger.Info("Resolved dual stack endpoint", withAdditionalLoggerFields(logger.Fields{
-		field.Endpoint: endpoint,
-		field.Region:   region,
-	}))
+	logger.Info("Resolved CloudWatch Logs dual stack endpoint",
+		withAdditionalLoggerFields(logger.Fields{
+			field.Endpoint: endpoint,
+			field.Region:   region,
+		}))
 	hostConfig.LogConfig.Config[awsLogsEndpointKey] = endpoint
 }
 
