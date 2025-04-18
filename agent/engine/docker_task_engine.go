@@ -2994,10 +2994,26 @@ func (engine *DockerTaskEngine) setAWSLogsDualStackEndpoint(
 		return
 	}
 
-	// Docker versions older than 18.09 (max API Version 1.39) do not support awslogs-endpoint
+	// Docker versions older than 18.09.0 do not support awslogs-endpoint
 	// option. So, skip endpoint resolution for those Docker versions.
-	// See version compatibility matrix - https://docs.docker.com/reference/api/engine/
-	if !engine.apiVersionIsAtLeast(dockerclient.Version_1_39) {
+	dockerVersion, err := engine.Version()
+	if err != nil {
+		logger.Error("Failed to get Docker engine version. Skip resolving dual stack CloudWatch Logs endpoint.",
+			withAdditionalLoggerFields(logger.Fields{field.Error: err}))
+		return
+	}
+	const thresholdVersion = "18.09.0"
+	dockerVersionIsCompatible, err := utils.Version(dockerVersion).Matches(">=" + thresholdVersion)
+	if err != nil {
+		logger.Error("Failed to determine if docker vesion is high enough",
+			withAdditionalLoggerFields(logger.Fields{
+				field.Error:         err,
+				field.DockerVersion: dockerVersion,
+				"thresholdVersion":  thresholdVersion,
+			}))
+		return
+	}
+	if !dockerVersionIsCompatible {
 		logger.Warn(
 			fmt.Sprintf(
 				"Docker version does not support %s option. Skip resolving dual stack CloudWatch Logs endpoint.",
@@ -3034,17 +3050,4 @@ func getAWSLogsDualStackEndpoint(region string) (string, error) {
 		return "", fmt.Errorf("failed to resolve CloudWatch Logs endpoint for region '%s': %w", region, err)
 	}
 	return endpoint.URI.String(), nil
-}
-
-func (engine *DockerTaskEngine) apiVersionIsAtLeast(apiVersion dockerclient.DockerVersion) bool {
-	supportedAPIVersion := dockerclient.GetSupportedDockerAPIVersion(apiVersion)
-	_, err := engine.client.WithVersion(supportedAPIVersion)
-	if err != nil {
-		logger.Debug("Docker API version is not at least", logger.Fields{
-			"thresholdVersion":    apiVersion,
-			"supportedAPIVersion": supportedAPIVersion,
-			field.Error:           err,
-		})
-	}
-	return err == nil
 }

@@ -5430,6 +5430,30 @@ func TestSetAWSLogsDualStackEndpoint(t *testing.T) {
 			expectedConfig: map[string]string{awsLogsRegionKey: ""},
 		},
 		{
+			name: "failure in getting docker version",
+			hostConfig: &dockercontainer.HostConfig{
+				LogConfig: dockercontainer.LogConfig{
+					Config: map[string]string{awsLogsRegionKey: "us-west-2"},
+				},
+			},
+			setDockerClientExpectations: func(mdc *mock_dockerapi.MockDockerClient) {
+				mdc.EXPECT().Version(gomock.Any(), gomock.Any()).Return("", errors.New("error"))
+			},
+			expectedConfig: map[string]string{awsLogsRegionKey: "us-west-2"},
+		},
+		{
+			name: "invalid docker version",
+			hostConfig: &dockercontainer.HostConfig{
+				LogConfig: dockercontainer.LogConfig{
+					Config: map[string]string{awsLogsRegionKey: "us-west-2"},
+				},
+			},
+			setDockerClientExpectations: func(mdc *mock_dockerapi.MockDockerClient) {
+				mdc.EXPECT().Version(gomock.Any(), gomock.Any()).Return("bad version", nil)
+			},
+			expectedConfig: map[string]string{awsLogsRegionKey: "us-west-2"},
+		},
+		{
 			name: "docker too old",
 			hostConfig: &dockercontainer.HostConfig{
 				LogConfig: dockercontainer.LogConfig{
@@ -5437,9 +5461,7 @@ func TestSetAWSLogsDualStackEndpoint(t *testing.T) {
 				},
 			},
 			setDockerClientExpectations: func(mdc *mock_dockerapi.MockDockerClient) {
-				mdc.EXPECT().
-					WithVersion(dockerclient.Version_1_39).
-					Return(nil, errors.New("unsupported"))
+				mdc.EXPECT().Version(gomock.Any(), gomock.Any()).Return("17.1.2", nil)
 			},
 			expectedConfig: map[string]string{awsLogsRegionKey: "us-west-2"},
 		},
@@ -5452,7 +5474,7 @@ func TestSetAWSLogsDualStackEndpoint(t *testing.T) {
 			},
 			setDockerClientExpectations: func(mdc *mock_dockerapi.MockDockerClient) {
 				// no error
-				mdc.EXPECT().WithVersion(dockerclient.Version_1_39).Return(nil, nil)
+				mdc.EXPECT().Version(gomock.Any(), gomock.Any()).Return("25.0.6", nil)
 			},
 			expectedConfig: map[string]string{awsLogsRegionKey: "bad region"},
 		},
@@ -5465,7 +5487,7 @@ func TestSetAWSLogsDualStackEndpoint(t *testing.T) {
 			},
 			setDockerClientExpectations: func(mdc *mock_dockerapi.MockDockerClient) {
 				// no error
-				mdc.EXPECT().WithVersion(dockerclient.Version_1_39).Return(nil, nil)
+				mdc.EXPECT().Version(gomock.Any(), gomock.Any()).Return("25.0.6", nil)
 			},
 			expectedConfig: map[string]string{
 				awsLogsRegionKey:   "us-west-2",
@@ -5492,54 +5514,6 @@ func TestSetAWSLogsDualStackEndpoint(t *testing.T) {
 			task := &apitask.Task{Containers: []*apicontainer.Container{container}}
 			taskEngine.(*DockerTaskEngine).setAWSLogsDualStackEndpoint(task, container, tt.hostConfig)
 			assert.Equal(t, tt.expectedConfig, tt.hostConfig.LogConfig.Config)
-		})
-	}
-}
-
-func TestAPIVersionIsAtLeast(t *testing.T) {
-	tests := []struct {
-		name                        string
-		setDockerClientExpectations func(*mock_dockerapi.MockDockerClient)
-		thresholdVersion            dockerclient.DockerVersion
-		expectedResult              bool
-	}{
-		{
-			name: "threshold version client exists",
-			setDockerClientExpectations: func(mdc *mock_dockerapi.MockDockerClient) {
-				mdc.EXPECT().WithVersion(dockerclient.Version_1_35).Return(nil, nil)
-			},
-			thresholdVersion: dockerclient.Version_1_35,
-			expectedResult:   true,
-		},
-		{
-			name: "threshold version client does not exist",
-			setDockerClientExpectations: func(mdc *mock_dockerapi.MockDockerClient) {
-				mdc.EXPECT().WithVersion(dockerclient.Version_1_35).Return(nil, errors.New("unsupported"))
-			},
-			thresholdVersion: dockerclient.Version_1_35,
-			expectedResult:   false,
-		},
-		{
-			name: "minimum supported version is newer than threshold",
-			setDockerClientExpectations: func(mdc *mock_dockerapi.MockDockerClient) {
-				// Threshold replaced with minimum supported version
-				mdc.EXPECT().WithVersion(dockerclient.Version_1_21).Return(nil, nil)
-			},
-			thresholdVersion: dockerclient.Version_1_17,
-			expectedResult:   true, // Assumes that API versions are backwards-compatible
-		},
-	}
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			// Set up config and task engine
-			cfg := config.DefaultConfig()
-			ctrl, client, _, taskEngine, _, _, _, _ := mocks(t, context.TODO(), &cfg)
-			defer ctrl.Finish()
-
-			tt.setDockerClientExpectations(client)
-
-			result := taskEngine.(*DockerTaskEngine).apiVersionIsAtLeast(tt.thresholdVersion)
-			assert.Equal(t, result, tt.expectedResult)
 		})
 	}
 }
