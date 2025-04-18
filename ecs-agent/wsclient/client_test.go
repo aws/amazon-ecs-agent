@@ -141,7 +141,7 @@ func getTestClientServer(url string, msgType []interface{}, rwTimeout time.Durat
 
 	if useV2 {
 		// Use this once both ACS and TCS implementations have migrated over to AWS SDK Go V2.
-		clientServerImpl.CredentialCache = aws.NewCredentialsCache(credentials.NewStaticCredentialsProvider("test-id", "test-secret", "test-token"))
+		clientServerImpl.CredentialsCache = aws.NewCredentialsCache(credentials.NewStaticCredentialsProvider("test-id", "test-secret", "test-token"))
 	} else {
 		// TODO: Remove this once both ACS and TCS implementations have migrated over to AWS SDK Go V2.
 		clientServerImpl.CredentialProvider = credentialsV1.NewStaticCredentials("test-id", "test-secret", "test-token")
