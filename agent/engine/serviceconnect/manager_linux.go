@@ -33,6 +33,7 @@ import (
 	apiserviceconnect "github.com/aws/amazon-ecs-agent/agent/api/serviceconnect"
 	apitask "github.com/aws/amazon-ecs-agent/agent/api/task"
 	"github.com/aws/amazon-ecs-agent/agent/config"
+	"github.com/aws/amazon-ecs-agent/agent/config/ipcompatibility"
 	"github.com/aws/amazon-ecs-agent/agent/dockerclient/dockerapi"
 	"github.com/aws/amazon-ecs-agent/agent/taskresource"
 	"github.com/aws/amazon-ecs-agent/agent/utils/loader"
@@ -156,12 +157,14 @@ func (m *manager) SetECSClient(client ecs.ECSClient, containerInstanceARN string
 	m.containerInstanceARN = containerInstanceARN
 }
 
-func (m *manager) augmentAgentContainer(task *apitask.Task, container *apicontainer.Container, hostConfig *dockercontainer.HostConfig) error {
-	if task.IsNetworkModeBridge() {
-		err := m.initServiceConnectContainerMapping(task, container, hostConfig)
-		if err != nil {
-			return err
-		}
+func (m *manager) augmentAgentContainer(
+	task *apitask.Task, container *apicontainer.Container, hostConfig *dockercontainer.HostConfig,
+	instanceIPCompatibility ipcompatibility.IPCompatibility,
+) error {
+	err := m.initServiceConnectContainerMapping(task, container, hostConfig,
+		instanceIPCompatibility)
+	if err != nil {
+		return err
 	}
 	adminPath, err := m.initAgentDirectoryMounts(task.GetID(), container, hostConfig)
 	if err != nil {
@@ -308,9 +311,17 @@ func (m *manager) initRelayEnvironment(config *config.Config, container *apicont
 	container.MergeEnvironmentVariables(scEnv)
 }
 
-func (m *manager) initServiceConnectContainerMapping(task *apitask.Task, container *apicontainer.Container, hostConfig *dockercontainer.HostConfig) error {
+func (m *manager) initServiceConnectContainerMapping(
+	task *apitask.Task, container *apicontainer.Container, hostConfig *dockercontainer.HostConfig,
+	instanceIPCompatibility ipcompatibility.IPCompatibility,
+) error {
 	// TODO [SC] - Move the function here
-	return task.PopulateServiceConnectContainerMappingEnvVar()
+	if task.IsNetworkModeBridge() {
+		return task.PopulateServiceConnectContainerMappingEnvVarBridge(instanceIPCompatibility)
+	} else if task.IsNetworkModeAWSVPC() {
+		return task.PopulateServiceConnectContainerMappingEnvVarAwsvpc()
+	}
+	return nil
 }
 
 // DNSConfigToDockerExtraHostsFormat converts a []DNSConfigEntry slice to a list of ExtraHost entries that Docker will
@@ -326,7 +337,10 @@ func DNSConfigToDockerExtraHostsFormat(dnsConfigs []apiserviceconnect.DNSConfigE
 	return hosts
 }
 
-func (m *manager) AugmentTaskContainer(task *apitask.Task, container *apicontainer.Container, hostConfig *dockercontainer.HostConfig) error {
+func (m *manager) AugmentTaskContainer(
+	task *apitask.Task, container *apicontainer.Container, hostConfig *dockercontainer.HostConfig,
+	instanceIPCompatibility ipcompatibility.IPCompatibility,
+) error {
 	var err error
 	// Add SC VIPs to pause container's known hosts
 	if container.Type == apicontainer.ContainerCNIPause {
@@ -334,7 +348,7 @@ func (m *manager) AugmentTaskContainer(task *apitask.Task, container *apicontain
 			DNSConfigToDockerExtraHostsFormat(task.ServiceConnectConfig.DNSConfig)...)
 	}
 	if container == task.GetServiceConnectContainer() {
-		m.augmentAgentContainer(task, container, hostConfig)
+		m.augmentAgentContainer(task, container, hostConfig, instanceIPCompatibility)
 	}
 	return err
 }

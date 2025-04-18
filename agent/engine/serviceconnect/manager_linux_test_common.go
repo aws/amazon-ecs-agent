@@ -16,6 +16,7 @@ import (
 	"time"
 
 	"github.com/aws/amazon-ecs-agent/agent/config"
+	"github.com/aws/amazon-ecs-agent/agent/config/ipcompatibility"
 	ni "github.com/aws/amazon-ecs-agent/ecs-agent/netlib/model/networkinterface"
 
 	apitask "github.com/aws/amazon-ecs-agent/agent/api/task"
@@ -261,7 +262,8 @@ func testAgentContainerModificationsForServiceConnect(t *testing.T, privilegedMo
 		t.Run(tc.name, func(t *testing.T) {
 			hostConfig := &dockercontainer.HostConfig{}
 			scManager.containerInstanceARN = tc.containerInstanceARN
-			err := scManager.AugmentTaskContainer(scTask, tc.container, hostConfig)
+			err := scManager.AugmentTaskContainer(scTask, tc.container, hostConfig,
+				ipcompatibility.NewIPv4OnlyCompatibility())
 			if err != nil {
 				t.Fatal(err)
 			}
