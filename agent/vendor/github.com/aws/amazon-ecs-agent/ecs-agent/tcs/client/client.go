@@ -26,11 +26,9 @@ import (
 	"github.com/aws/amazon-ecs-agent/ecs-agent/logger/field"
 	"github.com/aws/amazon-ecs-agent/ecs-agent/metrics"
 	"github.com/aws/amazon-ecs-agent/ecs-agent/tcs/model/ecstcs"
-	"github.com/aws/amazon-ecs-agent/ecs-agent/utils"
 	"github.com/aws/amazon-ecs-agent/ecs-agent/wsclient"
 
 	"github.com/aws/aws-sdk-go-v2/aws"
-	awscreds "github.com/aws/aws-sdk-go/aws/credentials"
 	"github.com/aws/aws-sdk-go/private/protocol/json/jsonutil"
 	"github.com/cihub/seelog"
 	"github.com/pborman/uuid"
@@ -501,14 +499,7 @@ func signRequestFunc(url, region string, credentialsCache *aws.CredentialsCache)
 			return nil, err
 		}
 
-		// hack to get v2 creds into v1 object :)
-		credentialsProvider, _ := credentialsCache.Retrieve(context.TODO())
-		creds := awscreds.NewStaticCredentials(credentialsProvider.AccessKeyID, credentialsProvider.SecretAccessKey, credentialsProvider.SessionToken)
-		// TODO: Modify this to use SignHTTPRequest() once TCS has been migrated to use AWS SDK Go V2
-		err = utils.SignHTTPRequestV1(request, region, "ecs", creds, reqBody)
-		if err != nil {
-			return nil, err
-		}
+		// no signing http request?
 
 		request.Header.Add("Host", request.Host)
 		var dataBuffer bytes.Buffer
