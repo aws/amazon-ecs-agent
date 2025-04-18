@@ -1056,7 +1056,7 @@ func setupMockSCTaskContainer(
 	createContainer, startContainer, inspectContainer, stopContainer := setupMockSCPauseContainer(name, expectedId, expectedPid, networkMode, dockerClient, settings)
 
 	// A task container differs from Pause by having a specific call to AugmentTaskContainer
-	augmentTask := serviceConnectManager.EXPECT().AugmentTaskContainer(gomock.Any(), container, gomock.Any()).Return(nil).Times(1)
+	augmentTask := serviceConnectManager.EXPECT().AugmentTaskContainer(gomock.Any(), container, gomock.Any(), gomock.Any()).Return(nil).Times(1)
 	gomock.InOrder(
 		augmentTask,
 		createContainer,
@@ -1137,7 +1137,7 @@ func TestContainersWithServiceConnect(t *testing.T) {
 	// Pause container will be launched first
 	internalCreate, _, internalInspect, internalStop := setupMockSCPauseContainer("internalecspause", pauseContainerID, containerPid, containerNetNS, dockerClient, nil)
 	gomock.InOrder(
-		serviceConnectManager.EXPECT().AugmentTaskContainer(gomock.Any(), gomock.Any(), gomock.Any()),
+		serviceConnectManager.EXPECT().AugmentTaskContainer(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()),
 		internalInspect,
 	)
 	cniClient.EXPECT().SetupNS(gomock.Any(), gomock.Any(), gomock.Any()).Return(nsResult, nil)
@@ -1293,7 +1293,7 @@ func TestContainersWithServiceConnect_BridgeMode(t *testing.T) {
 	scPauseContainerID := "pauseContainerID"
 
 	// For both pause containers
-	serviceConnectManager.EXPECT().AugmentTaskContainer(gomock.Any(), gomock.Any(), gomock.Any()).Return(nil).Times(2)
+	serviceConnectManager.EXPECT().AugmentTaskContainer(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).Return(nil).Times(2)
 	dockerClient.EXPECT().APIVersion().Return(defaultDockerClientAPIVersion, nil).Times(2)
 
 	internalCreate, internalStart, _, _ := setupMockSCPauseContainer("internalecspause-sleep5", sleepPauseContainerID, containerPid, containerNetNS, dockerClient,
