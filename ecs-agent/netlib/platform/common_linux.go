@@ -52,7 +52,8 @@ const (
 	networkConfigHostnameFilePath = "/etc/hostname"
 	networkConfigFileMode         = 0644
 	taskDNSConfigFileMode         = 0666
-	HostsLocalhostEntry           = "127.0.0.1 localhost"
+	HostsLocalhostEntryIPv4       = "127.0.0.1 localhost"
+	HostsLocalhostEntryIPv6       = "::1 localhost"
 
 	// DNS related configuration.
 	HostnameFileName    = "hostname"
@@ -607,10 +608,15 @@ func (c *common) createHostsFile(netNSName string, iface *networkinterface.Netwo
 	})
 
 	var contents bytes.Buffer
-	// \n is used as line separater for hosts file. Therefore we add \n at the end.
-	// Ref: https://github.com/moby/libnetwork/blob/v0.5.6/resolvconf/resolvconf.go#L209-L237
-	fmt.Fprintf(&contents, "%s\n%s %s\n",
-		HostsLocalhostEntry, iface.GetPrimaryIPv4Address(), iface.GetHostname())
+	if iface.IPv6Only() {
+		fmt.Fprintf(&contents, "%s\n%s %s\n",
+			HostsLocalhostEntryIPv6, iface.GetPrimaryIPv6Address(), iface.GetHostname())
+	} else {
+		// \n is used as line separater for hosts file. Therefore we add \n at the end.
+		// Ref: https://github.com/moby/libnetwork/blob/v0.5.6/resolvconf/resolvconf.go#L209-L237
+		fmt.Fprintf(&contents, "%s\n%s %s\n",
+			HostsLocalhostEntryIPv4, iface.GetPrimaryIPv4Address(), iface.GetHostname())
+	}
 
 	// Add any additional DNS entries associated with the ENI. This is required
 	// for service connect enabled tasks.

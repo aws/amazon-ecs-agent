@@ -242,6 +242,7 @@ func getTestInterfacesData_Containerd() ([]*ecsacs.ElasticNetworkInterface, []ne
 			},
 			IPV6Addresses: []*networkinterface.IPV6Address{
 				{
+					Primary: true,
 					Address: ipv6Addr,
 				},
 			},
@@ -268,6 +269,7 @@ func getTestInterfacesData_Containerd() ([]*ecsacs.ElasticNetworkInterface, []ne
 			},
 			IPV6Addresses: []*networkinterface.IPV6Address{
 				{
+					Primary: true,
 					Address: ipv6Addr2,
 				},
 			},
@@ -397,6 +399,7 @@ func getTestInterfacesData_Firecracker() ([]*ecsacs.ElasticNetworkInterface, []*
 			},
 			IPV6Addresses: []*networkinterface.IPV6Address{
 				{
+					Primary: true,
 					Address: ipv6Addr,
 				},
 			},

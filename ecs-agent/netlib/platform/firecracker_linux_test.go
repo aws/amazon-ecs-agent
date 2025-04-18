@@ -43,7 +43,7 @@ func TestFirecracker_CreateDNSConfig(t *testing.T) {
 	defer ctrl.Finish()
 
 	taskID := "task-id"
-	iface := getTestInterface()
+	iface := getTestIPv4OnlyInterface()
 	primaryNetNSName := networkinterface.NetNSName(taskID, iface.Name)
 	primaryNetNSPath := "/etc/netns/" + primaryNetNSName
 
@@ -75,7 +75,7 @@ func TestFirecracker_CreateDNSConfig(t *testing.T) {
 
 	// Test creation of hosts file.
 	primaryHostsData := fmt.Sprintf("%s\n%s %s\n%s %s\n%s %s\n",
-		HostsLocalhostEntry,
+		HostsLocalhostEntryIPv4,
 		ipv4Addr, dnsName,
 		addr, hostName,
 		addr2, hostName2,
@@ -88,7 +88,7 @@ func TestFirecracker_CreateDNSConfig(t *testing.T) {
 	primaryHostnameData := fmt.Sprintf("%s\n", iface.GetHostname())
 
 	secondaryHostsData := fmt.Sprintf("%s\n%s %s\n",
-		HostsLocalhostEntry,
+		HostsLocalhostEntryIPv4,
 		networkinterface.DefaultGeneveInterfaceIPAddress, "",
 	)
 	secondaryResolvData := fmt.Sprintf("nameserver %s\nsearch %s\n",

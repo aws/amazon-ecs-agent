@@ -106,68 +106,95 @@ func TestCommon_CreateDNSFiles(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
 
-	netNSName := "netns-name"
-	netNSPath := "/etc/netns/" + netNSName
-	iface := getTestInterface()
+	for _, cs := range []struct {
+		iface             *networkinterface.NetworkInterface
+		expectedHostsData string
+	}{
+		{
+			iface:             getTestIPv4OnlyInterface(),
+			expectedHostsData: getIPv4HostsData(),
+		},
+		{
+			iface:             getTestIPv6OnlyInterface(),
+			expectedHostsData: getIPv6HostsData(),
+		},
+		{
+			iface:             getTestDualStackInterface(),
+			expectedHostsData: getIPv4HostsData(),
+		},
+	} {
+		netNSName := "netns-name"
+		netNSPath := "/etc/netns/" + netNSName
+		netns := &tasknetworkconfig.NetworkNamespace{
+			Name:              netNSName,
+			Path:              netNSPath,
+			NetworkInterfaces: []*networkinterface.NetworkInterface{cs.iface},
+		}
 
-	netns := &tasknetworkconfig.NetworkNamespace{
-		Name:              netNSName,
-		Path:              netNSPath,
-		NetworkInterfaces: []*networkinterface.NetworkInterface{iface},
+		ioutil := mock_ioutilwrapper.NewMockIOUtil(ctrl)
+		nsUtil := mock_ecscni.NewMockNetNSUtil(ctrl)
+		osWrapper := mock_oswrapper.NewMockOS(ctrl)
+		mockFile := mock_oswrapper.NewMockFile(ctrl)
+		volumeAccessor := mock_volume.NewMockTaskVolumeAccessor(ctrl)
+		commonPlatform := &common{
+			ioutil:            ioutil,
+			nsUtil:            nsUtil,
+			os:                osWrapper,
+			dnsVolumeAccessor: volumeAccessor,
+		}
+
+		resolvData := fmt.Sprintf("nameserver %s\nnameserver %s\nsearch %s\n",
+			nameServer,
+			nameServer2,
+			searchDomainName+" "+searchDomainName2,
+		)
+		hostnameData := fmt.Sprintf("%s\n", cs.iface.GetHostname())
+
+		taskID := "taskID"
+		gomock.InOrder(
+			// Creation of netns path.
+			osWrapper.EXPECT().Stat(netNSPath).Return(nil, os.ErrNotExist).Times(1),
+			osWrapper.EXPECT().IsNotExist(os.ErrNotExist).Return(true).Times(1),
+			osWrapper.EXPECT().MkdirAll(netNSPath, fs.FileMode(0644)),
+
+			// Creation of resolv.conf file.
+			nsUtil.EXPECT().BuildResolvConfig(cs.iface.DomainNameServers, cs.iface.DomainNameSearchList).Return(resolvData).Times(1),
+			ioutil.EXPECT().WriteFile(netNSPath+"/resolv.conf", []byte(resolvData), fs.FileMode(0644)),
+
+			// Creation of hostname file.
+			ioutil.EXPECT().WriteFile(netNSPath+"/hostname", []byte(hostnameData), fs.FileMode(0644)),
+			osWrapper.EXPECT().OpenFile("/etc/hostname", os.O_RDONLY|os.O_CREATE, fs.FileMode(0644)).Return(mockFile, nil).Times(1),
+
+			// Creation of hosts file.
+			mockFile.EXPECT().Close().Times(1),
+			ioutil.EXPECT().WriteFile(netNSPath+"/hosts", []byte(cs.expectedHostsData), fs.FileMode(0644)),
+
+			// CopyToVolume created files into task volume.
+			volumeAccessor.EXPECT().CopyToVolume(taskID, netNSPath+"/hosts", "hosts", fs.FileMode(0644)).Return(nil).Times(1),
+			volumeAccessor.EXPECT().CopyToVolume(taskID, netNSPath+"/resolv.conf", "resolv.conf", fs.FileMode(0644)).Return(nil).Times(1),
+			volumeAccessor.EXPECT().CopyToVolume(taskID, netNSPath+"/hostname", "hostname", fs.FileMode(0644)).Return(nil).Times(1),
+		)
+		err := commonPlatform.createDNSConfig(taskID, false, netns)
+		require.NoError(t, err)
 	}
+}
 
-	ioutil := mock_ioutilwrapper.NewMockIOUtil(ctrl)
-	nsUtil := mock_ecscni.NewMockNetNSUtil(ctrl)
-	osWrapper := mock_oswrapper.NewMockOS(ctrl)
-	mockFile := mock_oswrapper.NewMockFile(ctrl)
-	volumeAccessor := mock_volume.NewMockTaskVolumeAccessor(ctrl)
-	commonPlatform := &common{
-		ioutil:            ioutil,
-		nsUtil:            nsUtil,
-		os:                osWrapper,
-		dnsVolumeAccessor: volumeAccessor,
-	}
-
-	// Test creation of hosts file.
-	hostsData := fmt.Sprintf("%s\n%s %s\n%s %s\n%s %s\n",
-		HostsLocalhostEntry,
+func getIPv4HostsData() string {
+	return fmt.Sprintf("%s\n%s %s\n%s %s\n%s %s\n",
+		HostsLocalhostEntryIPv4,
 		ipv4Addr, dnsName,
 		addr, hostName,
 		addr2, hostName2,
 	)
-	resolvData := fmt.Sprintf("nameserver %s\nnameserver %s\nsearch %s\n",
-		nameServer,
-		nameServer2,
-		searchDomainName+" "+searchDomainName2,
+}
+
+func getIPv6HostsData() string {
+	return fmt.Sprintf("%s\n%s %s\n%s %s\n%s %s\n",
+		HostsLocalhostEntryIPv6,
+		ipv6Addr, dnsName,
+		addr, hostName,
+		addr2, hostName2,
 	)
-	hostnameData := fmt.Sprintf("%s\n", iface.GetHostname())
-
-	taskID := "taskID"
-	gomock.InOrder(
-		// Creation of netns path.
-		osWrapper.EXPECT().Stat(netNSPath).Return(nil, os.ErrNotExist).Times(1),
-		osWrapper.EXPECT().IsNotExist(os.ErrNotExist).Return(true).Times(1),
-		osWrapper.EXPECT().MkdirAll(netNSPath, fs.FileMode(0644)),
-
-		// Creation of resolv.conf file.
-		nsUtil.EXPECT().BuildResolvConfig(iface.DomainNameServers, iface.DomainNameSearchList).Return(resolvData).Times(1),
-		ioutil.EXPECT().WriteFile(netNSPath+"/resolv.conf", []byte(resolvData), fs.FileMode(0644)),
-
-		// Creation of hostname file.
-		ioutil.EXPECT().WriteFile(netNSPath+"/hostname", []byte(hostnameData), fs.FileMode(0644)),
-		osWrapper.EXPECT().OpenFile("/etc/hostname", os.O_RDONLY|os.O_CREATE, fs.FileMode(0644)).Return(mockFile, nil).Times(1),
-
-		// Creation of hosts file.
-		mockFile.EXPECT().Close().Times(1),
-		ioutil.EXPECT().WriteFile(netNSPath+"/hosts", []byte(hostsData), fs.FileMode(0644)),
-
-		// CopyToVolume created files into task volume.
-		volumeAccessor.EXPECT().CopyToVolume(taskID, netNSPath+"/hosts", "hosts", fs.FileMode(0644)).Return(nil).Times(1),
-		volumeAccessor.EXPECT().CopyToVolume(taskID, netNSPath+"/resolv.conf", "resolv.conf", fs.FileMode(0644)).Return(nil).Times(1),
-		volumeAccessor.EXPECT().CopyToVolume(taskID, netNSPath+"/hostname", "hostname", fs.FileMode(0644)).Return(nil).Times(1),
-	)
-	err := commonPlatform.createDNSConfig(taskID, false, netns)
-	require.NoError(t, err)
 }
 
 func TestCommon_CreateDNSFilesForDebug(t *testing.T) {
@@ -184,7 +211,7 @@ func TestCommon_CreateDNSFilesForDebug(t *testing.T) {
 		t.Run(testCase.name, func(t *testing.T) {
 			netNSName := "netns-name"
 			netNSPath := "/etc/netns/" + netNSName
-			iface := getTestInterface()
+			iface := getTestIPv4OnlyInterface()
 
 			netns := &tasknetworkconfig.NetworkNamespace{
 				Name:              netNSName,
