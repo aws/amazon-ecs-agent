@@ -1961,8 +1961,10 @@ func (engine *DockerTaskEngine) createContainer(task *apitask.Task, container *a
 					})
 				if err != nil {
 					logger.Warn("failed to resolve CloudWatch Logs endpoint for region", logger.Fields{
-						field.Region: region,
-						field.Error:  err,
+						field.TaskARN:   task.Arn,
+						field.Container: container.Name,
+						field.Region:    region,
+						field.Error:     err,
 					})
 				} else {
 					hostConfig.LogConfig.Config[awsLogsEndpointKey] = resolvedEndpoint.URI.String()
