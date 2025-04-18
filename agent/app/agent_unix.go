@@ -176,6 +176,7 @@ func (agent *ecsAgent) initializeResourceFields(credentialsManager credentials.M
 			S3ClientCreator:    s3factory.NewS3ClientCreator(),
 			CredentialsManager: credentialsManager,
 			EC2InstanceID:      agent.getEC2InstanceID(),
+			IPCompatibility:    agent.getConfig().InstanceIPCompatibility,
 		},
 		Ctx:              agent.ctx,
 		DockerClient:     agent.dockerClient,

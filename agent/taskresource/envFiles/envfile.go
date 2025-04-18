@@ -23,6 +23,7 @@ import (
 	"time"
 
 	apicontainer "github.com/aws/amazon-ecs-agent/agent/api/container"
+	"github.com/aws/amazon-ecs-agent/agent/config/ipcompatibility"
 	"github.com/aws/amazon-ecs-agent/agent/s3"
 	"github.com/aws/amazon-ecs-agent/agent/s3/factory"
 	"github.com/aws/amazon-ecs-agent/agent/taskresource"
@@ -73,6 +74,7 @@ type EnvironmentFileResource struct {
 	s3ClientCreator        factory.S3ClientCreator
 	ioutil                 ioutilwrapper.IOUtil
 	bufio                  bufiowrapper.Bufio
+	ipCompatibility        ipcompatibility.IPCompatibility
 
 	// Fields for the common functionality of task resource. Access to these fields are protected by lock.
 	createdAtUnsafe      time.Time
@@ -87,7 +89,7 @@ type EnvironmentFileResource struct {
 
 // NewEnvironmentFileResource creates a new EnvironmentFileResource object
 func NewEnvironmentFileResource(cluster, taskARN, region, dataDir, containerName string, envfiles []apicontainer.EnvironmentFile,
-	credentialsManager credentials.Manager, executionCredentialsID string) (*EnvironmentFileResource, error) {
+	credentialsManager credentials.Manager, executionCredentialsID string, ipCompatibility ipcompatibility.IPCompatibility) (*EnvironmentFileResource, error) {
 	envfileResource := &EnvironmentFileResource{
 		cluster:                cluster,
 		taskARN:                taskARN,
@@ -99,6 +101,7 @@ func NewEnvironmentFileResource(cluster, taskARN, region, dataDir, containerName
 		s3ClientCreator:        factory.NewS3ClientCreator(),
 		executionCredentialsID: executionCredentialsID,
 		credentialsManager:     credentialsManager,
+		ipCompatibility:        ipCompatibility,
 	}
 
 	taskARNFields := strings.Split(taskARN, "/")
@@ -121,6 +124,7 @@ func (envfile *EnvironmentFileResource) Initialize(resourceFields *taskresource.
 	envfile.s3ClientCreator = factory.NewS3ClientCreator()
 	envfile.ioutil = ioutilwrapper.NewIOUtil()
 	envfile.bufio = bufiowrapper.NewBufio()
+	envfile.ipCompatibility = resourceFields.IPCompatibility
 	envfile.lock.Unlock()
 
 	// if task isn't in 'created' status and desired status is 'running',
@@ -354,7 +358,7 @@ func (envfile *EnvironmentFileResource) downloadEnvfileFromS3(envFilePath string
 		return
 	}
 
-	s3Client, err := envfile.s3ClientCreator.NewS3ManagerClient(bucket, envfile.region, iamCredentials)
+	s3Client, err := envfile.s3ClientCreator.NewS3ManagerClient(bucket, envfile.region, iamCredentials, envfile.ipCompatibility)
 	if err != nil {
 		errorEvents <- fmt.Errorf("unable to initialize s3 client for bucket %s, error: %v", bucket, err)
 		return
