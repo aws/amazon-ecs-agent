@@ -66,6 +66,7 @@ import (
 	smithy "github.com/aws/smithy-go"
 	smithyhttp "github.com/aws/smithy-go/transport/http"
 	"github.com/docker/docker/api/types"
+	"github.com/docker/docker/api/types/network"
 	"github.com/golang/mock/gomock"
 	"github.com/gorilla/mux"
 	"github.com/stretchr/testify/assert"
@@ -540,6 +541,90 @@ func standardHostTask() *apitask.Task {
 	task.ENIs = nil
 	task.NetworkMode = apitask.HostNetworkMode
 	return task
+}
+
+func standardBridgeTask() *apitask.Task {
+	container1 = &apicontainer.Container{
+		Name:                containerName,
+		Image:               imageName,
+		ImageID:             imageID,
+		DesiredStatusUnsafe: apicontainerstatus.ContainerRunning,
+		KnownStatusUnsafe:   apicontainerstatus.ContainerRunning,
+		CPU:                 cpu,
+		Memory:              memory,
+		Type:                apicontainer.ContainerNormal,
+		KnownPortBindingsUnsafe: []apicontainer.PortBinding{
+			{
+				ContainerPort: containerPort,
+				Protocol:      apicontainer.TransportProtocolTCP,
+			},
+		},
+		NetworkModeUnsafe: bridgeMode,
+		NetworkSettingsUnsafe: &types.NetworkSettings{
+			DefaultNetworkSettings: types.DefaultNetworkSettings{
+				IPAddress: bridgeIPAddr,
+			},
+		},
+	}
+	container1.SetLabels(labels)
+	return &apitask.Task{
+		Arn:                      taskARN,
+		Associations:             []apitask.Association{association},
+		Containers:               []*apicontainer.Container{container1},
+		Family:                   family,
+		Version:                  version,
+		DesiredStatusUnsafe:      apitaskstatus.TaskRunning,
+		KnownStatusUnsafe:        apitaskstatus.TaskRunning,
+		CPU:                      cpu,
+		Memory:                   memory,
+		PullStartedAtUnsafe:      now,
+		PullStoppedAtUnsafe:      now,
+		ExecutionStoppedAtUnsafe: now,
+		LaunchType:               "EC2",
+		NetworkMode:              bridgeMode,
+	}
+}
+
+func standardBridgeDockerContainer() *apicontainer.DockerContainer {
+	return &apicontainer.DockerContainer{
+		DockerID:   containerID,
+		DockerName: containerName,
+		Container:  standardBridgeTask().Containers[0],
+	}
+}
+
+func standardV4BridgeContainerResponse() *v4.ContainerResponse {
+	return &v4.ContainerResponse{
+		ContainerResponse: &v2.ContainerResponse{ID: containerID,
+			Name:          containerName,
+			DockerName:    containerName,
+			Image:         imageName,
+			ImageID:       imageID,
+			DesiredStatus: statusRunning,
+			KnownStatus:   statusRunning,
+			Limits: v2.LimitsResponse{
+				CPU:    aws.Float64(cpu),
+				Memory: aws.Int64(memory),
+			},
+			Type:   containerType,
+			Labels: labels,
+			Ports: []tmdsresponse.PortResponse{
+				{
+					ContainerPort: containerPort,
+					Protocol:      containerPortProtocol,
+				},
+			},
+		},
+		Networks: []v4.Network{
+			{
+				Network: tmdsresponse.Network{
+					NetworkMode:   bridgeMode,
+					IPv4Addresses: []string{bridgeIPAddr},
+				},
+				NetworkInterfaceProperties: v4.NetworkInterfaceProperties{},
+			},
+		},
+	}
 }
 
 // Returns a standard v2 task response. This getter function protects against tests mutating the
@@ -2000,6 +2085,55 @@ func TestV4ContainerMetadata(t *testing.T) {
 			},
 			expectedStatusCode:   http.StatusOK,
 			expectedResponseBody: expectedV4BridgeContainerResponse,
+		})
+	})
+	t.Run("happy case bridge mode including IPv6 from network settings", func(t *testing.T) {
+		bridgeTask := standardBridgeTask()
+		bridgeContainer := standardBridgeDockerContainer()
+		networkSettings := bridgeContainer.Container.GetNetworkSettings()
+		networkSettings.GlobalIPv6Address = "5:6:7:8::"
+		bridgeContainer.Container.SetNetworkSettings(networkSettings)
+
+		expectedResponse := standardV4BridgeContainerResponse()
+		expectedNetwork := expectedResponse.Networks[0]
+		expectedNetwork.Network.IPv6Addresses = []string{"5:6:7:8::"}
+		expectedResponse.Networks = []v4.Network{{Network: expectedNetwork.Network}}
+
+		testTMDSRequest(t, TMDSTestCase[v4.ContainerResponse]{
+			path: v4BasePath + v3EndpointID,
+			setStateExpectations: func(state *mock_dockerstate.MockTaskEngineState) {
+				state.EXPECT().ContainerByID(containerID).Return(bridgeContainer, true).AnyTimes()
+				state.EXPECT().DockerIDByV3EndpointID(v3EndpointID).Return(containerID, true)
+				state.EXPECT().TaskByID(containerID).Return(bridgeTask, true)
+			},
+			expectedStatusCode:   http.StatusOK,
+			expectedResponseBody: *expectedResponse,
+		})
+	})
+	t.Run("happy case bridge mode including IPv6 from docker networks", func(t *testing.T) {
+		bridgeTask := standardBridgeTask()
+		bridgeContainer := standardBridgeDockerContainer()
+		bridgeContainer.Container.SetNetworkSettings(&types.NetworkSettings{
+			Networks: map[string]*network.EndpointSettings{
+				"bridge": {IPAddress: "1.2.3.4", GlobalIPv6Address: "5:6:7:8::"},
+			},
+		})
+
+		expectedResponse := standardV4BridgeContainerResponse()
+		expectedNetwork := expectedResponse.Networks[0]
+		expectedNetwork.Network.IPv4Addresses = []string{"1.2.3.4"}
+		expectedNetwork.Network.IPv6Addresses = []string{"5:6:7:8::"}
+		expectedResponse.Networks = []v4.Network{{Network: expectedNetwork.Network}}
+
+		testTMDSRequest(t, TMDSTestCase[v4.ContainerResponse]{
+			path: v4BasePath + v3EndpointID,
+			setStateExpectations: func(state *mock_dockerstate.MockTaskEngineState) {
+				state.EXPECT().ContainerByID(containerID).Return(bridgeContainer, true).AnyTimes()
+				state.EXPECT().DockerIDByV3EndpointID(v3EndpointID).Return(containerID, true)
+				state.EXPECT().TaskByID(containerID).Return(bridgeTask, true)
+			},
+			expectedStatusCode:   http.StatusOK,
+			expectedResponseBody: *expectedResponse,
 		})
 	})
 }
