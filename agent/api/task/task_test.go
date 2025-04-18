@@ -33,6 +33,7 @@ import (
 	mock_factory "github.com/aws/amazon-ecs-agent/agent/asm/factory/mocks"
 	mock_secretsmanageriface "github.com/aws/amazon-ecs-agent/agent/asm/mocks"
 	"github.com/aws/amazon-ecs-agent/agent/config"
+	"github.com/aws/amazon-ecs-agent/agent/config/ipcompatibility"
 	"github.com/aws/amazon-ecs-agent/agent/dockerclient"
 	"github.com/aws/amazon-ecs-agent/agent/dockerclient/dockerapi"
 	mock_dockerapi "github.com/aws/amazon-ecs-agent/agent/dockerclient/dockerapi/mocks"
@@ -3981,7 +3982,8 @@ func TestInitializeAndGetEnvfilesResource(t *testing.T) {
 	defer ctrl.Finish()
 
 	cfg := &config.Config{
-		DataDir: "/ecs/data",
+		DataDir:                 "/ecs/data",
+		InstanceIPCompatibility: ipcompatibility.NewIPCompatibility(true, true),
 	}
 	credentialsManager := mock_credentials.NewMockManager(ctrl)
 
@@ -5010,6 +5012,7 @@ func TestInitializeAndGetCredentialSpecResource(t *testing.T) {
 			CredentialsManager: credentialsManager,
 			S3ClientCreator:    s3ClientCreator,
 			ASMClientCreator:   asmClientCreator,
+			IPCompatibility:    ipcompatibility.NewIPCompatibility(true, true),
 		},
 	}
 

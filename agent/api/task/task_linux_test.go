@@ -23,6 +23,7 @@ import (
 	"time"
 
 	"github.com/aws/amazon-ecs-agent/agent/api/serviceconnect"
+	"github.com/aws/amazon-ecs-agent/agent/config/ipcompatibility"
 
 	apicontainer "github.com/aws/amazon-ecs-agent/agent/api/container"
 	"github.com/aws/amazon-ecs-agent/agent/config"
@@ -80,6 +81,7 @@ const (
 
 var (
 	scPauseContainerName = fmt.Sprintf(ServiceConnectPauseContainerNameFormat, scContainerName)
+	testIPCompatibility  = ipcompatibility.NewIPCompatibility(true, true)
 )
 
 func getExpectedCgroupRoot() string {
@@ -863,9 +865,10 @@ func TestGetFirelensContainer(t *testing.T) {
 
 func TestInitializeFirelensResource(t *testing.T) {
 	cfg := &config.Config{
-		DataDir:   testDataDir,
-		Cluster:   testCluster,
-		AWSRegion: testRegion,
+		DataDir:                 testDataDir,
+		Cluster:                 testCluster,
+		AWSRegion:               testRegion,
+		InstanceIPCompatibility: testIPCompatibility,
 	}
 	resourceFields := &taskresource.ResourceFields{
 		ResourceFieldsCommon: &taskresource.ResourceFieldsCommon{
@@ -996,9 +999,10 @@ func TestInitializeFirelensResource(t *testing.T) {
 
 func TestInitializeFirelensResourceWithExternalConfig(t *testing.T) {
 	cfg := &config.Config{
-		DataDir:   testDataDir,
-		Cluster:   testCluster,
-		AWSRegion: testRegion,
+		DataDir:                 testDataDir,
+		Cluster:                 testCluster,
+		AWSRegion:               testRegion,
+		InstanceIPCompatibility: testIPCompatibility,
 	}
 	resourceFields := &taskresource.ResourceFields{
 		ResourceFieldsCommon: &taskresource.ResourceFieldsCommon{

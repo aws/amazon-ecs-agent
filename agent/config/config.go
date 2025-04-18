@@ -192,9 +192,6 @@ var (
 
 	// isFIPSEnabled indicates whether FIPS mode is enabled on the host
 	isFIPSEnabled = false
-
-	// IsIpv6Compatible - instances are not compatible with ipv6 by default
-	IsIpv6Compatible = false
 )
 
 // Merge merges two config files, preferring the ones on the left. Any nil or
@@ -244,7 +241,6 @@ func NewConfig(ec2client ec2.EC2MetadataClient) (*Config, error) {
 	}
 
 	config.determineIPCompatibility(ec2client)
-	IsIpv6Compatible = config.InstanceIPCompatibility.IsIPv6Compatible()
 
 	if config.complete() {
 		// No need to do file / network IO

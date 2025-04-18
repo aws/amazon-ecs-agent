@@ -25,6 +25,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/aws/amazon-ecs-agent/agent/config/ipcompatibility"
 	"github.com/cihub/seelog"
 	"github.com/pkg/errors"
 
@@ -84,6 +85,7 @@ type FirelensResource struct {
 	ioutil                 ioutilwrapper.IOUtil
 	s3ClientCreator        factory.S3ClientCreator
 	containerMemoryLimit   int64
+	ipCompatibility        ipcompatibility.IPCompatibility
 
 	// Fields for the common functionality of task resource. Access to these fields are protected by lock.
 	createdAtUnsafe     time.Time
@@ -99,7 +101,7 @@ type FirelensResource struct {
 // NewFirelensResource returns a new FirelensResource.
 func NewFirelensResource(cluster, taskARN, taskDefinition, ec2InstanceID, dataDir, firelensConfigType, region, networkMode string,
 	firelensOptions map[string]string, containerToLogOptions map[string]map[string]string, credentialsManager credentials.Manager,
-	executionCredentialsID string, containerMemoryLimit int64) (*FirelensResource, error) {
+	executionCredentialsID string, containerMemoryLimit int64, ipCompatibility ipcompatibility.IPCompatibility) (*FirelensResource, error) {
 	firelensResource := &FirelensResource{
 		cluster:                cluster,
 		taskARN:                taskARN,
@@ -114,6 +116,7 @@ func NewFirelensResource(cluster, taskARN, taskDefinition, ec2InstanceID, dataDi
 		executionCredentialsID: executionCredentialsID,
 		credentialsManager:     credentialsManager,
 		containerMemoryLimit:   containerMemoryLimit,
+		ipCompatibility:        ipCompatibility,
 	}
 
 	fields := strings.Split(taskARN, "/")
@@ -220,6 +223,7 @@ func (firelens *FirelensResource) Initialize(resourceFields *taskresource.Resour
 	firelens.ioutil = ioutilwrapper.NewIOUtil()
 	firelens.s3ClientCreator = factory.NewS3ClientCreator()
 	firelens.credentialsManager = resourceFields.CredentialsManager
+	firelens.ipCompatibility = resourceFields.IPCompatibility
 }
 
 // GetNetworkMode returns the network mode of the task.
@@ -496,7 +500,7 @@ func (firelens *FirelensResource) downloadConfigFromS3() error {
 		return errors.Wrap(err, "unable to parse bucket and key from s3 arn")
 	}
 
-	s3Client, err := firelens.s3ClientCreator.NewS3ManagerClient(bucket, firelens.region, creds.GetIAMRoleCredentials())
+	s3Client, err := firelens.s3ClientCreator.NewS3ManagerClient(bucket, firelens.region, creds.GetIAMRoleCredentials(), firelens.ipCompatibility)
 	if err != nil {
 		return errors.Wrapf(err, "unable to initialize s3 client for bucket %s", bucket)
 	}

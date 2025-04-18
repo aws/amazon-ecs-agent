@@ -20,6 +20,7 @@ import (
 	"github.com/pkg/errors"
 
 	apitask "github.com/aws/amazon-ecs-agent/agent/api/task"
+	"github.com/aws/amazon-ecs-agent/agent/config/ipcompatibility"
 	"github.com/aws/amazon-ecs-agent/agent/engine"
 	"github.com/aws/amazon-ecs-agent/ecs-agent/acs/model/ecsacs"
 	"github.com/aws/amazon-ecs-agent/ecs-agent/credentials"
@@ -32,13 +33,15 @@ var (
 
 // credentialsMetadataSetter struct implements CredentialsMetadataSetter interface defined in ecs-agent module.
 type credentialsMetadataSetter struct {
-	taskEngine engine.TaskEngine
+	taskEngine      engine.TaskEngine
+	ipCompatibility ipcompatibility.IPCompatibility
 }
 
 // NewCredentialsMetadataSetter creates a new credentialsMetadataSetter.
-func NewCredentialsMetadataSetter(taskEngine engine.TaskEngine) *credentialsMetadataSetter {
+func NewCredentialsMetadataSetter(taskEngine engine.TaskEngine, ipCompatibility ipcompatibility.IPCompatibility) *credentialsMetadataSetter {
 	return &credentialsMetadataSetter{
-		taskEngine: taskEngine,
+		taskEngine:      taskEngine,
+		ipCompatibility: ipCompatibility,
 	}
 }
 
@@ -62,7 +65,7 @@ func (cmSetter *credentialsMetadataSetter) SetExecRoleCredentialsMetadata(
 
 	// Refresh domainless gMSA plugin credentials if needed.
 	err = checkAndSetDomainlessGMSATaskExecutionRoleCredentialsImpl(credentials.IAMRoleCredentialsFromACS(
-		message.RoleCredentials, aws.ToString(message.RoleType)), task)
+		message.RoleCredentials, aws.ToString(message.RoleType)), task, cmSetter.ipCompatibility)
 	if err != nil {
 		return errors.Wrap(err, fmt.Sprintf("unable to set %s for task with ARN %s",
 			"DomainlessGMSATaskExecutionRoleCredentials", aws.ToString(message.TaskArn)))
