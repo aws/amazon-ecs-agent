@@ -35,9 +35,8 @@ import (
 	"github.com/aws/amazon-ecs-agent/ecs-agent/tcs/model/ecstcs"
 	"github.com/aws/amazon-ecs-agent/ecs-agent/wsclient"
 	wsmock "github.com/aws/amazon-ecs-agent/ecs-agent/wsclient/mock/utils"
-
-	"github.com/aws/aws-sdk-go-v2/aws"
-	"github.com/aws/aws-sdk-go-v2/credentials"
+	"github.com/aws/aws-sdk-go/aws"
+	"github.com/aws/aws-sdk-go/aws/credentials"
 	"github.com/golang/mock/gomock"
 	"github.com/gorilla/websocket"
 	"github.com/stretchr/testify/assert"
@@ -68,7 +67,7 @@ type mockStatsSource struct {
 	publishMetricsTicker *time.Ticker
 }
 
-var testCreds = credentials.NewStaticCredentialsProvider("test-id", "test-secret", "test-token")
+var testCreds = credentials.NewStaticCredentials("test-id", "test-secret", "test-token")
 
 var testCfg = &wsclient.WSClientMinAgentConfig{
 	AWSRegion:          "us-east-1",
@@ -197,7 +196,7 @@ func TestStartTelemetrySession(t *testing.T) {
 		testAgentHash,
 		testContainerRuntimeVersion,
 		false,
-		aws.NewCredentialsCache(testCreds),
+		testCreds,
 		testCfg,
 		deregisterInstanceEventStream,
 		testHeartbeatTimeout,
@@ -291,7 +290,7 @@ func TestSessionConnectionClosedByRemote(t *testing.T) {
 		testAgentHash,
 		testContainerRuntimeVersion,
 		false,
-		aws.NewCredentialsCache(testCreds),
+		testCreds,
 		testCfg,
 		deregisterInstanceEventStream,
 		testHeartbeatTimeout,
@@ -354,7 +353,7 @@ func TestConnectionInactiveTimeout(t *testing.T) {
 		testAgentHash,
 		testContainerRuntimeVersion,
 		false,
-		aws.NewCredentialsCache(testCreds),
+		testCreds,
 		testCfg,
 		deregisterInstanceEventStream,
 		5*time.Second,
@@ -419,7 +418,7 @@ func TestClientReconnectsAfterInactiveTimeout(t *testing.T) {
 		testAgentHash,
 		testContainerRuntimeVersion,
 		false,
-		aws.NewCredentialsCache(testCreds),
+		testCreds,
 		testCfg,
 		deregisterInstanceEventStream,
 		50*time.Millisecond,
@@ -530,7 +529,7 @@ func TestStartTelemetrySessionMetricsChannelPauseWhenClientClosed(t *testing.T) 
 		testAgentHash,
 		testContainerRuntimeVersion,
 		false,
-		aws.NewCredentialsCache(testCreds),
+		testCreds,
 		testCfg,
 		deregisterInstanceEventStream,
 		testHeartbeatTimeout,
@@ -610,7 +609,7 @@ func TestPeriodicDisconnectonTCSClient(t *testing.T) {
 		testAgentHash,
 		testContainerRuntimeVersion,
 		false,
-		aws.NewCredentialsCache(testCreds),
+		testCreds,
 		testCfg,
 		deregisterInstanceEventStream,
 		testHeartbeatTimeout,
