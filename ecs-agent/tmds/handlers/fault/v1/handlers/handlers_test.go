@@ -35,7 +35,7 @@ import (
 	mock_state "github.com/aws/amazon-ecs-agent/ecs-agent/tmds/handlers/v4/state/mocks"
 	"github.com/aws/amazon-ecs-agent/ecs-agent/tmds/utils/netconfig"
 	mock_execwrapper "github.com/aws/amazon-ecs-agent/ecs-agent/utils/execwrapper/mocks"
-	"github.com/aws/aws-sdk-go/aws"
+	"github.com/aws/aws-sdk-go-v2/aws"
 
 	"github.com/golang/mock/gomock"
 	"github.com/gorilla/mux"
