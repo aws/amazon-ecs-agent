@@ -33,6 +33,7 @@ import (
 	mock_factory "github.com/aws/amazon-ecs-agent/agent/asm/factory/mocks"
 	mock_secretsmanageriface "github.com/aws/amazon-ecs-agent/agent/asm/mocks"
 	"github.com/aws/amazon-ecs-agent/agent/config"
+	"github.com/aws/amazon-ecs-agent/agent/config/ipcompatibility"
 	"github.com/aws/amazon-ecs-agent/agent/dockerclient"
 	"github.com/aws/amazon-ecs-agent/agent/dockerclient/dockerapi"
 	mock_dockerapi "github.com/aws/amazon-ecs-agent/agent/dockerclient/dockerapi/mocks"
@@ -56,6 +57,7 @@ import (
 	mock_credentials "github.com/aws/amazon-ecs-agent/ecs-agent/credentials/mocks"
 	ni "github.com/aws/amazon-ecs-agent/ecs-agent/netlib/model/networkinterface"
 	commonutils "github.com/aws/amazon-ecs-agent/ecs-agent/utils"
+	dockertypes "github.com/docker/docker/api/types"
 
 	"github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/aws/aws-sdk-go-v2/service/ecs/types"
@@ -5486,4 +5488,311 @@ func TestHasAContainerWithResolvedDigest(t *testing.T) {
 		}
 		assert.True(t, task.HasAContainerWithResolvedDigest())
 	})
+}
+
+func TestPopulateServiceConnectContainerMappingEnvVarBridge(t *testing.T) {
+	tcs := []struct {
+		name                     string
+		task                     *Task
+		instanceIPCompat         ipcompatibility.IPCompatibility
+		expectedError            string
+		expectedContainerMapping map[string]string
+	}{
+		{
+			name:          "service connect container not found",
+			task:          &Task{},
+			expectedError: "service connect container not found in task",
+		},
+		{
+			name: "bridge mode task container not found",
+			task: &Task{
+				Containers: []*apicontainer.Container{
+					{
+						Type: apicontainer.ContainerCNIPause,
+						Name: "invalid",
+					},
+				},
+			},
+			expectedError: "error retrieving task container for pause container invalid: SC bridge mode pause container invalid does not conform to ~internal~ecs~pause-$TASK_CONTAINER_NAME format",
+		},
+		{
+			name: "ipv4",
+			task: &Task{
+				Containers: []*apicontainer.Container{
+					{
+						Type: apicontainer.ContainerCNIPause,
+						Name: "~internal~ecs~pause-web",
+						NetworkSettingsUnsafe: &dockertypes.NetworkSettings{
+							DefaultNetworkSettings: dockertypes.DefaultNetworkSettings{
+								IPAddress:         "1.2.3.4",
+								GlobalIPv6Address: "5:6:7:8::",
+							},
+						},
+					},
+					{
+						Type: apicontainer.ContainerNormal,
+						Name: "web",
+					},
+					{
+						Name: "sc-container",
+					},
+				},
+				ServiceConnectConfig: &serviceconnect.Config{ContainerName: "sc-container"},
+			},
+			instanceIPCompat: ipcompatibility.NewIPCompatibility(true, false),
+			expectedContainerMapping: map[string]string{
+				"APPNET_CONTAINER_IP_MAPPING": `{"web":"1.2.3.4"}`,
+			},
+		},
+		{
+			name: "ipv6 only",
+			task: &Task{
+				Containers: []*apicontainer.Container{
+					{
+						Type: apicontainer.ContainerCNIPause,
+						Name: "~internal~ecs~pause-web",
+						NetworkSettingsUnsafe: &dockertypes.NetworkSettings{
+							DefaultNetworkSettings: dockertypes.DefaultNetworkSettings{
+								IPAddress:         "1.2.3.4",
+								GlobalIPv6Address: "5:6:7:8::",
+							},
+						},
+					},
+					{
+						Type: apicontainer.ContainerNormal,
+						Name: "web",
+					},
+					{
+						Name: "sc-container",
+					},
+				},
+				ServiceConnectConfig: &serviceconnect.Config{ContainerName: "sc-container"},
+			},
+			instanceIPCompat: ipcompatibility.NewIPCompatibility(false, true),
+			expectedContainerMapping: map[string]string{
+				"APPNET_CONTAINER_IP_MAPPING": `{"web":"5:6:7:8::"}`,
+			},
+		},
+		{
+			name: "ipv6 only but no IPv6 address found",
+			task: &Task{
+				Containers: []*apicontainer.Container{
+					{
+						Type: apicontainer.ContainerCNIPause,
+						Name: "~internal~ecs~pause-web",
+						NetworkSettingsUnsafe: &dockertypes.NetworkSettings{
+							DefaultNetworkSettings: dockertypes.DefaultNetworkSettings{
+								IPAddress: "1.2.3.4",
+							},
+						},
+					},
+					{
+						Type: apicontainer.ContainerNormal,
+						Name: "web",
+					},
+					{
+						Name: "sc-container",
+					},
+				},
+				ServiceConnectConfig: &serviceconnect.Config{ContainerName: "sc-container"},
+			},
+			instanceIPCompat: ipcompatibility.NewIPCompatibility(false, true),
+			expectedContainerMapping: map[string]string{
+				"APPNET_CONTAINER_IP_MAPPING": `{"web":"1.2.3.4"}`,
+			},
+		},
+		{
+			name: "dual stack",
+			task: &Task{
+				Containers: []*apicontainer.Container{
+					{
+						Type: apicontainer.ContainerCNIPause,
+						Name: "~internal~ecs~pause-web",
+						NetworkSettingsUnsafe: &dockertypes.NetworkSettings{
+							DefaultNetworkSettings: dockertypes.DefaultNetworkSettings{
+								IPAddress:         "1.2.3.4",
+								GlobalIPv6Address: "5:6:7:8::",
+							},
+						},
+					},
+					{
+						Type: apicontainer.ContainerNormal,
+						Name: "web",
+					},
+					{
+						Name: "sc-container",
+					},
+				},
+				ServiceConnectConfig: &serviceconnect.Config{ContainerName: "sc-container"},
+			},
+			instanceIPCompat: ipcompatibility.NewIPCompatibility(true, true),
+			expectedContainerMapping: map[string]string{
+				"APPNET_CONTAINER_IP_MAPPING": `{"web":"1.2.3.4"}`,
+			},
+		},
+		{
+			name: "multiple containers",
+			task: &Task{
+				Containers: []*apicontainer.Container{
+					{
+						Type: apicontainer.ContainerCNIPause,
+						Name: "~internal~ecs~pause-web",
+						NetworkSettingsUnsafe: &dockertypes.NetworkSettings{
+							DefaultNetworkSettings: dockertypes.DefaultNetworkSettings{
+								IPAddress:         "1.2.3.4",
+								GlobalIPv6Address: "5:6:7:8::",
+							},
+						},
+					},
+					{
+						Type: apicontainer.ContainerNormal,
+						Name: "web",
+					},
+					{
+						Type: apicontainer.ContainerCNIPause,
+						Name: "~internal~ecs~pause-client",
+						NetworkSettingsUnsafe: &dockertypes.NetworkSettings{
+							DefaultNetworkSettings: dockertypes.DefaultNetworkSettings{
+								IPAddress:         "8.8.8.8",
+								GlobalIPv6Address: "9:9:9:9::",
+							},
+						},
+					},
+					{
+						Type: apicontainer.ContainerNormal,
+						Name: "client",
+					},
+					{
+						Name: "sc-container",
+					},
+				},
+				ServiceConnectConfig: &serviceconnect.Config{ContainerName: "sc-container"},
+			},
+			instanceIPCompat: ipcompatibility.NewIPCompatibility(true, false),
+			expectedContainerMapping: map[string]string{
+				"APPNET_CONTAINER_IP_MAPPING": `{"client":"8.8.8.8","web":"1.2.3.4"}`,
+			},
+		},
+	}
+	for _, tc := range tcs {
+		t.Run(tc.name, func(t *testing.T) {
+			err := tc.task.PopulateServiceConnectContainerMappingEnvVarBridge(tc.instanceIPCompat)
+			if tc.expectedError != "" {
+				assert.EqualError(t, err, tc.expectedError)
+			} else {
+				require.NoError(t, err)
+				container := tc.task.GetServiceConnectContainer()
+				assert.Equal(t, tc.expectedContainerMapping, container.Environment)
+			}
+		})
+	}
+}
+
+func TestPopulateServiceConnectContainerMappingEnvVarAwsvpc(t *testing.T) {
+	tcs := []struct {
+		name                     string
+		task                     *Task
+		expectedError            string
+		expectedContainerMapping map[string]string
+	}{
+		{
+			name:          "service connect container not found",
+			task:          &Task{},
+			expectedError: "no primary ENI found in task",
+		},
+		{
+			name: "multiple containers",
+			task: &Task{
+				Containers: []*apicontainer.Container{
+					{
+						Type: apicontainer.ContainerCNIPause,
+					},
+					{
+						Type: apicontainer.ContainerNormal,
+						Name: "web",
+					},
+					{
+						Type: apicontainer.ContainerNormal,
+						Name: "client",
+					},
+					{
+						Name: "sc-container",
+						Type: apicontainer.ContainerCNIPause,
+					},
+				},
+				ServiceConnectConfig: &serviceconnect.Config{ContainerName: "sc-container"},
+				ENIs: []*ni.NetworkInterface{
+					{IPV6Addresses: []*ni.IPV6Address{{Address: "1:2:3:4::"}}},
+				},
+			},
+			expectedContainerMapping: map[string]string{
+				"APPNET_CONTAINER_IP_MAPPING": `{"client":"::1","web":"::1"}`,
+			},
+		},
+		{
+			name: "not ipv6 only",
+			task: &Task{
+				Containers: []*apicontainer.Container{
+					{
+						Type: apicontainer.ContainerCNIPause,
+					},
+					{
+						Type: apicontainer.ContainerNormal,
+						Name: "web",
+					},
+					{
+						Name: "sc-container",
+						Type: apicontainer.ContainerCNIPause,
+					},
+				},
+				ServiceConnectConfig: &serviceconnect.Config{ContainerName: "sc-container"},
+				ENIs: []*ni.NetworkInterface{
+					{
+						IPV4Addresses: []*ni.IPV4Address{{Primary: true, Address: "1.2.3.4"}},
+						IPV6Addresses: []*ni.IPV6Address{{Address: "5:5:5:5::"}},
+					},
+				},
+			},
+			expectedContainerMapping: nil,
+		},
+		{
+			name: "ipv6 only",
+			task: &Task{
+				Containers: []*apicontainer.Container{
+					{
+						Type: apicontainer.ContainerCNIPause,
+					},
+					{
+						Type: apicontainer.ContainerNormal,
+						Name: "web",
+					},
+					{
+						Name: "sc-container",
+						Type: apicontainer.ContainerCNIPause,
+					},
+				},
+				ServiceConnectConfig: &serviceconnect.Config{ContainerName: "sc-container"},
+				ENIs: []*ni.NetworkInterface{
+					{
+						IPV6Addresses: []*ni.IPV6Address{{Address: "5:5:5:5::"}},
+					},
+				},
+			},
+			expectedContainerMapping: map[string]string{
+				"APPNET_CONTAINER_IP_MAPPING": `{"web":"::1"}`,
+			},
+		},
+	}
+	for _, tc := range tcs {
+		t.Run(tc.name, func(t *testing.T) {
+			err := tc.task.PopulateServiceConnectContainerMappingEnvVarAwsvpc()
+			if tc.expectedError != "" {
+				assert.EqualError(t, err, tc.expectedError)
+			} else {
+				require.NoError(t, err)
+				container := tc.task.GetServiceConnectContainer()
+				assert.Equal(t, tc.expectedContainerMapping, container.Environment)
+			}
+		})
+	}
 }
