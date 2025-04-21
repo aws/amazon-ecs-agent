@@ -23,6 +23,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/aws/amazon-ecs-agent/agent/config/ipcompatibility"
 	"github.com/aws/amazon-ecs-agent/agent/dockerclient"
 	"github.com/aws/amazon-ecs-agent/agent/utils"
 	apierrors "github.com/aws/amazon-ecs-agent/ecs-agent/api/errors"
@@ -242,6 +243,9 @@ func NewConfig(ec2client ec2.EC2MetadataClient) (*Config, error) {
 
 	// TODO feat:IPv6-only - Enable when launching IPv6-only support
 	// config.determineIPCompatibility(ec2client)
+
+	// Testing only
+	config.InstanceIPCompatibility = ipcompatibility.NewIPv6OnlyCompatibility()
 
 	if config.complete() {
 		// No need to do file / network IO

@@ -72,7 +72,8 @@ func createAWSConfig(region string, creds credentials.IAMRoleCredentials, useFIP
 		WithHTTPClient(httpclient.New(roundtripTimeout, false, agentversion.String(), config.OSType)).
 		WithCredentials(
 			awscreds.NewStaticCredentials(creds.AccessKeyID, creds.SecretAccessKey, creds.SessionToken)).
-		WithRegion(region)
+		WithRegion(region).
+		WithLogLevel(aws.LogDebug)
 
 	switch {
 	case useFIPSEndpoint && useDualStackEndpoint:
