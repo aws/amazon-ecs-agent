@@ -37,6 +37,7 @@ func GetContainerNetworkMetadata(containerID string, state dockerstate.TaskEngin
 	// We get the NetworkMode (Network interface name) from the HostConfig because this
 	// this is the network with which the container is created
 	ipv4AddressFromSettings := settings.IPAddress
+	ipv6AddressFromSettings := settings.GlobalIPv6Address
 	networkModeFromHostConfig := dockerContainer.Container.GetNetworkMode()
 
 	// Extensive Network information is not available for Docker API versions 1.17-1.20
@@ -46,12 +47,32 @@ func GetContainerNetworkMetadata(containerID string, state dockerstate.TaskEngin
 		for modeFromSettings, containerNetwork := range settings.Networks {
 			networkMode := modeFromSettings
 			ipv4Addresses := []string{containerNetwork.IPAddress}
-			network := tmdsv4.Network{Network: tmdsresponse.Network{NetworkMode: networkMode, IPv4Addresses: ipv4Addresses}}
+			var ipv6Addresses []string
+			if containerNetwork.GlobalIPv6Address != "" {
+				ipv6Addresses = []string{containerNetwork.GlobalIPv6Address}
+			}
+			network := tmdsv4.Network{
+				Network: tmdsresponse.Network{
+					NetworkMode:   networkMode,
+					IPv4Addresses: ipv4Addresses,
+					IPv6Addresses: ipv6Addresses,
+				},
+			}
 			networks = append(networks, network)
 		}
 	} else {
 		ipv4Addresses := []string{ipv4AddressFromSettings}
-		network := tmdsv4.Network{Network: tmdsresponse.Network{NetworkMode: networkModeFromHostConfig, IPv4Addresses: ipv4Addresses}}
+		var ipv6Addresses []string
+		if ipv6AddressFromSettings != "" {
+			ipv6Addresses = []string{ipv6AddressFromSettings}
+		}
+		network := tmdsv4.Network{
+			Network: tmdsresponse.Network{
+				NetworkMode:   networkModeFromHostConfig,
+				IPv4Addresses: ipv4Addresses,
+				IPv6Addresses: ipv6Addresses,
+			},
+		}
 		networks = append(networks, network)
 	}
 	return networks, nil
