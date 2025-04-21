@@ -192,9 +192,6 @@ var (
 
 	// isFIPSEnabled indicates whether FIPS mode is enabled on the host
 	isFIPSEnabled = false
-
-	// IsIpv6Compatible - instances are not compatible with ipv6 by default
-	IsIpv6Compatible = false
 )
 
 // Merge merges two config files, preferring the ones on the left. Any nil or
