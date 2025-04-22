@@ -27,8 +27,8 @@ import (
 	"github.com/aws/amazon-ecs-agent/ecs-agent/netlib/platform"
 	"github.com/aws/amazon-ecs-agent/ecs-agent/utils/netwrapper"
 	"github.com/aws/amazon-ecs-agent/ecs-agent/volume"
-	"github.com/aws/aws-sdk-go-v2/service/ecs/types"
 
+	"github.com/aws/aws-sdk-go-v2/service/ecs/types"
 	multierror "github.com/hashicorp/go-multierror"
 	"github.com/pkg/errors"
 )
@@ -175,7 +175,6 @@ func (nb *networkBuilder) startAWSVPC(ctx context.Context, taskID string, netNS 
 	if err != nil {
 		return err
 	}
-
 	// Configure AppMesh and service connect rules in the netns.
 	if netNS.KnownState == status.NetworkReadyPull &&
 		netNS.DesiredState == status.NetworkReady {

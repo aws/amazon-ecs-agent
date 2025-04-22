@@ -47,7 +47,7 @@ func TestConfigureENISuccessWithoutRetry(t *testing.T) {
 	mockCNIClient := mock_ecscni2.NewMockCNI(ctrl)
 	os := mock_oswrapper.NewMockOS(ctrl)
 
-	iface := getTestInterface()
+	iface := getTestIPv4OnlyInterface()
 	testC := &containerd{
 		common{
 			cniClient: mockCNIClient,
@@ -73,7 +73,7 @@ func TestConfigureENISuccessWithoutRetry(t *testing.T) {
 				assert.Len(t, pluginConfig.ENIIPAddresses, 1)
 				assert.Equal(t, ipv4Addr, strings.Split(pluginConfig.ENIIPAddresses[0], "/")[0])
 				assert.Len(t, pluginConfig.GatewayIPAddresses, 1)
-				assert.Equal(t, strings.Split(subnetGatewayCIDR, "/")[0], pluginConfig.GatewayIPAddresses[0])
+				assert.Equal(t, strings.Split(subnetGatewayIPv4CIDR, "/")[0], pluginConfig.GatewayIPAddresses[0])
 				assert.True(t, pluginConfig.BlockIMDS)
 				assert.False(t, pluginConfig.UseExistingNetwork)
 			}).Return(nil, nil),
@@ -109,7 +109,7 @@ func TestConfigureInterfaceSuccessWithRetry(t *testing.T) {
 	cniClient := mock_ecscni2.NewMockCNI(ctrl)
 	os := mock_oswrapper.NewMockOS(ctrl)
 
-	iface := getTestInterface()
+	iface := getTestIPv4OnlyInterface()
 	testC := &containerd{
 		common{
 			cniClient: cniClient,
