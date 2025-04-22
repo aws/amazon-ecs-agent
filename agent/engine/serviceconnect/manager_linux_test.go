@@ -23,6 +23,7 @@ import (
 
 	apicontainer "github.com/aws/amazon-ecs-agent/agent/api/container"
 	"github.com/aws/amazon-ecs-agent/agent/api/serviceconnect"
+	"github.com/aws/amazon-ecs-agent/agent/config/ipcompatibility"
 	dockercontainer "github.com/docker/docker/api/types/container"
 	"github.com/stretchr/testify/assert"
 )
@@ -101,7 +102,8 @@ func TestPauseContainerModificationsForServiceConnect(t *testing.T) {
 				agentContainerImageName: "container_image",
 				agentContainerTag:       "tag",
 			}
-			err := scManager.AugmentTaskContainer(scTask, tc.container, hostConfig)
+			err := scManager.AugmentTaskContainer(scTask, tc.container, hostConfig,
+				ipcompatibility.NewIPv4OnlyCompatibility())
 			if err != nil {
 				t.Fatal(err)
 			}

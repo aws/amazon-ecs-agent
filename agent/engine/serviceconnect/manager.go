@@ -17,6 +17,7 @@ import (
 	apicontainer "github.com/aws/amazon-ecs-agent/agent/api/container"
 	apitask "github.com/aws/amazon-ecs-agent/agent/api/task"
 	"github.com/aws/amazon-ecs-agent/agent/config"
+	"github.com/aws/amazon-ecs-agent/agent/config/ipcompatibility"
 	"github.com/aws/amazon-ecs-agent/agent/utils/loader"
 	"github.com/aws/amazon-ecs-agent/ecs-agent/api/ecs"
 	dockercontainer "github.com/docker/docker/api/types/container"
@@ -26,7 +27,12 @@ type Manager interface {
 	loader.Loader
 
 	GetLoadedImageName() string
-	AugmentTaskContainer(task *apitask.Task, container *apicontainer.Container, hostConfig *dockercontainer.HostConfig) error
+	AugmentTaskContainer(
+		task *apitask.Task,
+		container *apicontainer.Container,
+		hostConfig *dockercontainer.HostConfig,
+		instanceIPCompatibility ipcompatibility.IPCompatibility,
+	) error
 	CreateInstanceTask(config *config.Config) (*apitask.Task, error)
 	AugmentInstanceContainer(task *apitask.Task, container *apicontainer.Container, hostConfig *dockercontainer.HostConfig) error
 	SetECSClient(client ecs.ECSClient, containerInstanceARN string)
