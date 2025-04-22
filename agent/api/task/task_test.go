@@ -5516,7 +5516,7 @@ func TestPopulateServiceConnectContainerMappingEnvVarBridge(t *testing.T) {
 			expectedError: "error retrieving task container for pause container invalid: SC bridge mode pause container invalid does not conform to ~internal~ecs~pause-$TASK_CONTAINER_NAME format",
 		},
 		{
-			name: "ipv4",
+			name: "instance ipv4 only",
 			task: &Task{
 				Containers: []*apicontainer.Container{
 					{
@@ -5524,8 +5524,7 @@ func TestPopulateServiceConnectContainerMappingEnvVarBridge(t *testing.T) {
 						Name: "~internal~ecs~pause-web",
 						NetworkSettingsUnsafe: &dockertypes.NetworkSettings{
 							DefaultNetworkSettings: dockertypes.DefaultNetworkSettings{
-								IPAddress:         "1.2.3.4",
-								GlobalIPv6Address: "5:6:7:8::",
+								IPAddress: "1.2.3.4",
 							},
 						},
 					},
@@ -5534,18 +5533,27 @@ func TestPopulateServiceConnectContainerMappingEnvVarBridge(t *testing.T) {
 						Name: "web",
 					},
 					{
+						Type: apicontainer.ContainerCNIPause,
+						Name: "~internal~ecs~pause-sc-container",
+						NetworkSettingsUnsafe: &dockertypes.NetworkSettings{
+							DefaultNetworkSettings: dockertypes.DefaultNetworkSettings{
+								IPAddress: "1.2.3.5",
+							},
+						},
+					},
+					{
 						Name: "sc-container",
 					},
 				},
 				ServiceConnectConfig: &serviceconnect.Config{ContainerName: "sc-container"},
 			},
-			instanceIPCompat: ipcompatibility.NewIPCompatibility(true, false),
+			instanceIPCompat: ipcompatibility.NewIPv4OnlyCompatibility(),
 			expectedContainerMapping: map[string]string{
-				"APPNET_CONTAINER_IP_MAPPING": `{"web":"1.2.3.4"}`,
+				"APPNET_CONTAINER_IP_MAPPING": `{"sc-container":"1.2.3.5","web":"1.2.3.4"}`,
 			},
 		},
 		{
-			name: "ipv6 only",
+			name: "instance is ipv6 only",
 			task: &Task{
 				Containers: []*apicontainer.Container{
 					{
@@ -5563,14 +5571,24 @@ func TestPopulateServiceConnectContainerMappingEnvVarBridge(t *testing.T) {
 						Name: "web",
 					},
 					{
+						Type: apicontainer.ContainerCNIPause,
+						Name: "~internal~ecs~pause-sc-container",
+						NetworkSettingsUnsafe: &dockertypes.NetworkSettings{
+							DefaultNetworkSettings: dockertypes.DefaultNetworkSettings{
+								IPAddress:         "1.2.3.5",
+								GlobalIPv6Address: "5:6:7:9::",
+							},
+						},
+					},
+					{
 						Name: "sc-container",
 					},
 				},
 				ServiceConnectConfig: &serviceconnect.Config{ContainerName: "sc-container"},
 			},
-			instanceIPCompat: ipcompatibility.NewIPCompatibility(false, true),
+			instanceIPCompat: ipcompatibility.NewIPv6OnlyCompatibility(),
 			expectedContainerMapping: map[string]string{
-				"APPNET_CONTAINER_IP_MAPPING": `{"web":"5:6:7:8::"}`,
+				"APPNET_CONTAINER_IP_MAPPING": `{"sc-container":"5:6:7:9::","web":"5:6:7:8::"}`,
 			},
 		},
 		{
@@ -5590,16 +5608,11 @@ func TestPopulateServiceConnectContainerMappingEnvVarBridge(t *testing.T) {
 						Type: apicontainer.ContainerNormal,
 						Name: "web",
 					},
-					{
-						Name: "sc-container",
-					},
 				},
 				ServiceConnectConfig: &serviceconnect.Config{ContainerName: "sc-container"},
 			},
 			instanceIPCompat: ipcompatibility.NewIPCompatibility(false, true),
-			expectedContainerMapping: map[string]string{
-				"APPNET_CONTAINER_IP_MAPPING": `{"web":"1.2.3.4"}`,
-			},
+			expectedError:    "instance is IPv6-only but no IPv6 address found for container 'web'",
 		},
 		{
 			name: "dual stack",
@@ -5620,6 +5633,16 @@ func TestPopulateServiceConnectContainerMappingEnvVarBridge(t *testing.T) {
 						Name: "web",
 					},
 					{
+						Type: apicontainer.ContainerCNIPause,
+						Name: "~internal~ecs~pause-sc-container",
+						NetworkSettingsUnsafe: &dockertypes.NetworkSettings{
+							DefaultNetworkSettings: dockertypes.DefaultNetworkSettings{
+								IPAddress:         "1.2.3.5",
+								GlobalIPv6Address: "5:6:7:9::",
+							},
+						},
+					},
+					{
 						Name: "sc-container",
 					},
 				},
@@ -5627,7 +5650,7 @@ func TestPopulateServiceConnectContainerMappingEnvVarBridge(t *testing.T) {
 			},
 			instanceIPCompat: ipcompatibility.NewIPCompatibility(true, true),
 			expectedContainerMapping: map[string]string{
-				"APPNET_CONTAINER_IP_MAPPING": `{"web":"1.2.3.4"}`,
+				"APPNET_CONTAINER_IP_MAPPING": `{"sc-container":"1.2.3.5","web":"1.2.3.4"}`,
 			},
 		},
 		{
@@ -5663,6 +5686,16 @@ func TestPopulateServiceConnectContainerMappingEnvVarBridge(t *testing.T) {
 						Name: "client",
 					},
 					{
+						Type: apicontainer.ContainerCNIPause,
+						Name: "~internal~ecs~pause-sc-container",
+						NetworkSettingsUnsafe: &dockertypes.NetworkSettings{
+							DefaultNetworkSettings: dockertypes.DefaultNetworkSettings{
+								IPAddress:         "1.2.3.5",
+								GlobalIPv6Address: "5:6:7:9::",
+							},
+						},
+					},
+					{
 						Name: "sc-container",
 					},
 				},
@@ -5670,7 +5703,7 @@ func TestPopulateServiceConnectContainerMappingEnvVarBridge(t *testing.T) {
 			},
 			instanceIPCompat: ipcompatibility.NewIPCompatibility(true, false),
 			expectedContainerMapping: map[string]string{
-				"APPNET_CONTAINER_IP_MAPPING": `{"client":"8.8.8.8","web":"1.2.3.4"}`,
+				"APPNET_CONTAINER_IP_MAPPING": `{"client":"8.8.8.8","sc-container":"1.2.3.5","web":"1.2.3.4"}`,
 			},
 		},
 	}

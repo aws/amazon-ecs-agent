@@ -3545,7 +3545,12 @@ func (task *Task) PopulateServiceConnectContainerMappingEnvVarBridge(
 		if err != nil {
 			return fmt.Errorf("error retrieving task container for pause container %s: %+v", c.Name, err)
 		}
-		if instanceIPCompatibility.IsIPv6Only() && c.GetNetworkSettings().GlobalIPv6Address != "" {
+		if instanceIPCompatibility.IsIPv6Only() {
+			if c.GetNetworkSettings().GlobalIPv6Address == "" {
+				return fmt.Errorf(
+					"instance is IPv6-only but no IPv6 address found for container '%s'",
+					taskContainer.Name)
+			}
 			containerMapping[taskContainer.Name] = c.GetNetworkSettings().GlobalIPv6Address
 		} else {
 			containerMapping[taskContainer.Name] = c.GetNetworkSettings().IPAddress
