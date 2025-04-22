@@ -3563,7 +3563,7 @@ func (task *Task) PopulateServiceConnectContainerMappingEnvVarAwsvpc() error {
 	if primaryENI == nil {
 		return errors.New("no primary ENI found in task")
 	}
-	if !primaryENI.IsIPv6Only() {
+	if !primaryENI.IPv6Only() {
 		// Explicit container address mapping is needed only for IPv6-only case.
 		// Service Connect sidecar defaults to IPv4 loopback in other cases.
 		return nil
