@@ -5768,7 +5768,7 @@ func TestPopulateServiceConnectContainerMappingEnvVarAwsvpc(t *testing.T) {
 					},
 					{
 						Name: "sc-container",
-						Type: apicontainer.ContainerCNIPause,
+						Type: apicontainer.ContainerNormal,
 					},
 				},
 				ServiceConnectConfig: &serviceconnect.Config{ContainerName: "sc-container"},
@@ -5779,7 +5779,7 @@ func TestPopulateServiceConnectContainerMappingEnvVarAwsvpc(t *testing.T) {
 				},
 			},
 			expectedContainerMapping: map[string]string{
-				"APPNET_CONTAINER_IP_MAPPING": `{"web":"::1"}`,
+				"APPNET_CONTAINER_IP_MAPPING": `{"sc-container":"::1","web":"::1"}`,
 			},
 		},
 	}

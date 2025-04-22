@@ -3571,7 +3571,7 @@ func (task *Task) PopulateServiceConnectContainerMappingEnvVarAwsvpc() error {
 
 	containerMapping := make(map[string]string)
 	for _, c := range task.Containers {
-		if c == task.GetServiceConnectContainer() || c.IsInternal() {
+		if c.IsInternal() {
 			continue
 		}
 		containerMapping[c.Name] = ipv6LoopbackAddress
