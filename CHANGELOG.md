@@ -1,4 +1,14 @@
 # Changelog
+# 1.93.0
+* Enhancement - Add visibility to the ECS Agent for the upcoming release of Windows Server 2025 ECS AMIs and adds integration test support for Windows Server 2025 [#4547](https://github.com/aws/amazon-ecs-agent/pull/4547)
+* Enhancement - Modify CW endpoint short term solution to include more regions [#4569](https://github.com/aws/amazon-ecs-agent/pull/4569)
+* Enhancement - Determine the fluentd log driver's async option based on Docker server version [#4558](https://github.com/aws/amazon-ecs-agent/pull/4558)
+* Enhancement - Agent resolves CloudWatch Logs dual stack endpoint on IPv6-only instances and sets it as awslogs-endpoint option for awslogs logging driver [#4577](https://github.com/aws/amazon-ecs-agent/pull/4577)
+* Enhancement - Include container IPv6 addresses (if available) in container and task metadata v4 responses for bridge mode tasks [#4581](https://github.com/aws/amazon-ecs-agent/pull/4581)
+* Enhancement - Changes to support for Service Connect in IPv6-only environments [#4584](https://github.com/aws/amazon-ecs-agent/pull/4584)
+* Enhancement - Update Go version to 1.23.8 [#4587](https://github.com/aws/amazon-ecs-agent/pull/4587)
+* Bugfix - Surface task augmentation errors for Service Connect tasks [#4588](https://github.com/aws/amazon-ecs-agent/pull/4588)
+
 # 1.92.0
 * Enhancement - Migrate ECS client to aws-sdk-go-v2 [#4447](https://github.com/aws/amazon-ecs-agent/pull/4447)
 * Enhancement - Update tcs api model to rename osFilesystem to rootFileSystem. [#4525](https://github.com/aws/amazon-ecs-agent/pull/4525)
