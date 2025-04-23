@@ -23,7 +23,10 @@ import (
 
 	apicontainer "github.com/aws/amazon-ecs-agent/agent/api/container"
 	"github.com/aws/amazon-ecs-agent/agent/api/serviceconnect"
+	apitask "github.com/aws/amazon-ecs-agent/agent/api/task"
 	"github.com/aws/amazon-ecs-agent/agent/config/ipcompatibility"
+	"github.com/aws/amazon-ecs-agent/agent/dockerclient/dockerapi"
+	dockertypes "github.com/docker/docker/api/types"
 	dockercontainer "github.com/docker/docker/api/types/container"
 	"github.com/stretchr/testify/assert"
 )
@@ -310,4 +313,50 @@ func TestIsIsoRegion(t *testing.T) {
 			assert.Equal(t, tt.expectedResult, result, "Unexpected result for region: %s", tt.region)
 		})
 	}
+}
+
+// Tests that AugmentTaskContainer returns an error if it fails.
+func TestAugmentTaskContainerError(t *testing.T) {
+	t.Run("returns an error if container IP mapping could not be generated", func(t *testing.T) {
+		// Task containers do not have an IPv6 address
+		task := &apitask.Task{
+			NetworkMode: apitask.BridgeNetworkMode,
+			Containers: []*apicontainer.Container{
+				{
+					Type: apicontainer.ContainerCNIPause,
+					Name: "~internal~ecs~pause-web",
+					NetworkSettingsUnsafe: &dockertypes.NetworkSettings{
+						DefaultNetworkSettings: dockertypes.DefaultNetworkSettings{
+							IPAddress: "1.2.3.4",
+						},
+					},
+				},
+				{
+					Type: apicontainer.ContainerNormal,
+					Name: "web",
+				},
+				{
+					Type: apicontainer.ContainerCNIPause,
+					Name: "~internal~ecs~pause-sc-container",
+					NetworkSettingsUnsafe: &dockertypes.NetworkSettings{
+						DefaultNetworkSettings: dockertypes.DefaultNetworkSettings{
+							IPAddress: "1.2.3.5",
+						},
+					},
+				},
+				{
+					Type: apicontainer.ContainerNormal,
+					Name: "sc-container",
+				},
+			},
+			ServiceConnectConfig: &serviceconnect.Config{ContainerName: "sc-container"},
+		}
+		scManager := &manager{}
+
+		// Instance has IPv6-only compatibility
+		err := scManager.AugmentTaskContainer(task, task.Containers[3], nil, ipcompatibility.NewIPv6OnlyCompatibility())
+		namedErr, ok := err.(dockerapi.CannotCreateContainerError)
+		assert.True(t, ok)
+		assert.EqualError(t, namedErr, "instance is IPv6-only but no IPv6 address found for container 'web'")
+	})
 }

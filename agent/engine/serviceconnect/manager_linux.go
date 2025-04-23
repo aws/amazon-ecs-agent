@@ -348,9 +348,12 @@ func (m *manager) AugmentTaskContainer(
 			DNSConfigToDockerExtraHostsFormat(task.ServiceConnectConfig.DNSConfig)...)
 	}
 	if container == task.GetServiceConnectContainer() {
-		m.augmentAgentContainer(task, container, hostConfig, instanceIPCompatibility)
+		err = m.augmentAgentContainer(task, container, hostConfig, instanceIPCompatibility)
 	}
-	return err
+	if err != nil {
+		return dockerapi.CannotCreateContainerError{FromError: err}
+	}
+	return nil
 }
 
 func (m *manager) CreateInstanceTask(cfg *config.Config) (*apitask.Task, error) {
