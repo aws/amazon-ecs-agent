@@ -14,11 +14,12 @@
 package ecr
 
 import (
+	"context"
 	"fmt"
 	"time"
 
-	ecrapi "github.com/aws/amazon-ecs-agent/agent/ecr/model/ecr"
-	"github.com/aws/aws-sdk-go/aws"
+	ecrservice "github.com/aws/aws-sdk-go-v2/service/ecr"
+	"github.com/aws/aws-sdk-go-v2/service/ecr/types"
 	log "github.com/cihub/seelog"
 )
 
@@ -29,14 +30,14 @@ const (
 
 // ECRClient wrapper interface for mocking
 type ECRClient interface {
-	GetAuthorizationToken(registryId string) (*ecrapi.AuthorizationData, error)
+	GetAuthorizationToken(registryId string) (*types.AuthorizationData, error)
 }
 
 // ECRSDK is an interface that specifies the subset of the AWS Go SDK's ECR
 // client that the Agent uses.  This interface is meant to allow injecting a
 // mock for testing.
 type ECRSDK interface {
-	GetAuthorizationToken(*ecrapi.GetAuthorizationTokenInput) (*ecrapi.GetAuthorizationTokenOutput, error)
+	GetAuthorizationToken(context.Context, *ecrservice.GetAuthorizationTokenInput, ...func(*ecrservice.Options)) (*ecrservice.GetAuthorizationTokenOutput, error)
 }
 
 type ecrClient struct {
@@ -51,11 +52,11 @@ func NewECRClient(sdkClient ECRSDK) ECRClient {
 }
 
 // GetAuthorizationToken calls the ecr api to get the docker auth for the specified registry
-func (client *ecrClient) GetAuthorizationToken(registryId string) (*ecrapi.AuthorizationData, error) {
+func (client *ecrClient) GetAuthorizationToken(registryId string) (*types.AuthorizationData, error) {
 	log.Debugf("Calling GetAuthorizationToken for %q", registryId)
 
-	output, err := client.sdkClient.GetAuthorizationToken(&ecrapi.GetAuthorizationTokenInput{
-		RegistryIds: []*string{aws.String(registryId)},
+	output, err := client.sdkClient.GetAuthorizationToken(context.TODO(), &ecrservice.GetAuthorizationTokenInput{
+		RegistryIds: []string{registryId},
 	})
 
 	if err != nil {
@@ -65,5 +66,5 @@ func (client *ecrClient) GetAuthorizationToken(registryId string) (*ecrapi.Autho
 	if len(output.AuthorizationData) != 1 {
 		return nil, fmt.Errorf("unexpected number of results in AuthorizationData (%d)", len(output.AuthorizationData))
 	}
-	return output.AuthorizationData[0], nil
+	return &output.AuthorizationData[0], nil
 }

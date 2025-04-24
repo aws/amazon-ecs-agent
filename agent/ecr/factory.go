@@ -15,21 +15,26 @@
 package ecr
 
 import (
+	"context"
 	"fmt"
 	"net/http"
+	"strings"
 	"time"
 
 	apicontainer "github.com/aws/amazon-ecs-agent/agent/api/container"
 	"github.com/aws/amazon-ecs-agent/agent/config"
-	ecrapi "github.com/aws/amazon-ecs-agent/agent/ecr/model/ecr"
 	agentversion "github.com/aws/amazon-ecs-agent/agent/version"
 	"github.com/aws/amazon-ecs-agent/ecs-agent/credentials"
-	"github.com/aws/amazon-ecs-agent/ecs-agent/credentials/instancecreds"
+	"github.com/aws/amazon-ecs-agent/ecs-agent/credentials/providers"
 	"github.com/aws/amazon-ecs-agent/ecs-agent/httpclient"
-	"github.com/aws/aws-sdk-go/aws"
-	awscreds "github.com/aws/aws-sdk-go/aws/credentials"
-	"github.com/aws/aws-sdk-go/aws/session"
+
+	"github.com/aws/aws-sdk-go-v2/aws"
+	awsconfig "github.com/aws/aws-sdk-go-v2/config"
+	awscreds "github.com/aws/aws-sdk-go-v2/credentials"
+	ecrservice "github.com/aws/aws-sdk-go-v2/service/ecr"
 )
+
+const httpsPrefix = "https://"
 
 // ECRFactory defines the interface to produce an ECR SDK client
 type ECRFactory interface {
@@ -63,27 +68,53 @@ func (factory *ecrFactory) GetClient(authData *apicontainer.ECRAuthData) (ECRCli
 
 // getClientConfig returns the config for the ecr client based on authData
 func getClientConfig(httpClient *http.Client, authData *apicontainer.ECRAuthData) (*aws.Config, error) {
-	cfg := aws.NewConfig().WithRegion(authData.Region).WithHTTPClient(httpClient)
-	if authData.EndpointOverride != "" {
-		cfg.Endpoint = aws.String(authData.EndpointOverride)
+	opts := []func(*awsconfig.LoadOptions) error{
+		awsconfig.WithRegion(authData.Region),
+		awsconfig.WithHTTPClient(httpClient),
 	}
 
+	if authData.EndpointOverride != "" {
+		endpoint := authData.EndpointOverride
+		if !strings.HasPrefix(endpoint, httpsPrefix) {
+			endpoint = httpsPrefix + endpoint
+		}
+		opts = append(opts, awsconfig.WithBaseEndpoint(endpoint))
+	}
+
+	var credentialsOpt awsconfig.LoadOptionsFunc
 	if authData.UseExecutionRole {
 		if authData.GetPullCredentials() == (credentials.IAMRoleCredentials{}) {
 			return nil, fmt.Errorf("container uses execution credentials, but the credentials are empty")
 		}
-		creds := awscreds.NewStaticCredentials(authData.GetPullCredentials().AccessKeyID,
-			authData.GetPullCredentials().SecretAccessKey,
-			authData.GetPullCredentials().SessionToken)
-		cfg = cfg.WithCredentials(creds)
+		credentialsOpt = awsconfig.WithCredentialsProvider(
+			awscreds.NewStaticCredentialsProvider(
+				authData.GetPullCredentials().AccessKeyID,
+				authData.GetPullCredentials().SecretAccessKey,
+				authData.GetPullCredentials().SessionToken,
+			),
+		)
 	} else {
-		cfg = cfg.WithCredentials(instancecreds.GetCredentials(false))
+		credentialsOpt = awsconfig.WithCredentialsProvider(
+			providers.NewInstanceCredentialsCache(
+				false,
+				providers.NewRotatingSharedCredentialsProviderV2(),
+				nil,
+			),
+		)
+	}
+	opts = append(opts, credentialsOpt)
+
+	// Load the config with the options
+	cfg, err := awsconfig.LoadDefaultConfig(context.TODO(), opts...)
+
+	if err != nil {
+		return nil, err
 	}
 
-	return cfg, nil
+	return &cfg, nil
 }
 
 func (factory *ecrFactory) newClient(cfg *aws.Config) ECRClient {
-	sdkClient := ecrapi.New(session.New(cfg))
-	return NewECRClient(sdkClient)
+	ecrClient := ecrservice.NewFromConfig(*cfg)
+	return NewECRClient(ecrClient)
 }
