@@ -85,6 +85,7 @@ var (
 	testListenerPort              = uint16(8080)
 	testBridgeDefaultListenerPort = uint16(15000)
 	testEBSReadOnly               = false
+	testIPCompatibility           = ipcompatibility.NewIPCompatibility(true, true)
 )
 
 func TestDockerConfigPortBinding(t *testing.T) {
@@ -3984,7 +3985,7 @@ func TestInitializeAndGetEnvfilesResource(t *testing.T) {
 
 	cfg := &config.Config{
 		DataDir:                 "/ecs/data",
-		InstanceIPCompatibility: ipcompatibility.NewIPCompatibility(true, true),
+		InstanceIPCompatibility: testIPCompatibility,
 	}
 	credentialsManager := mock_credentials.NewMockManager(ctrl)
 
@@ -4999,7 +5000,8 @@ func TestInitializeAndGetCredentialSpecResource(t *testing.T) {
 	defer ctrl.Finish()
 
 	cfg := &config.Config{
-		AWSRegion: "test-aws-region",
+		AWSRegion:               "test-aws-region",
+		InstanceIPCompatibility: testIPCompatibility,
 	}
 
 	credentialsManager := mock_credentials.NewMockManager(ctrl)
@@ -5013,7 +5015,6 @@ func TestInitializeAndGetCredentialSpecResource(t *testing.T) {
 			CredentialsManager: credentialsManager,
 			S3ClientCreator:    s3ClientCreator,
 			ASMClientCreator:   asmClientCreator,
-			IPCompatibility:    ipcompatibility.NewIPCompatibility(true, true),
 		},
 	}
 

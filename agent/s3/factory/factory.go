@@ -15,6 +15,7 @@ package factory
 
 import (
 	"context"
+	"fmt"
 	"time"
 
 	"github.com/aws/amazon-ecs-agent/agent/config"
@@ -74,20 +75,20 @@ func createAWSConfig(region string, creds credentials.IAMRoleCredentials, useFIP
 			awscreds.NewStaticCredentials(creds.AccessKeyID, creds.SecretAccessKey, creds.SessionToken)).
 		WithRegion(region)
 
-	switch {
-	case useFIPSEndpoint && useDualStackEndpoint:
-		logger.Debug("FIPS mode detected, using DualStack FIPS-compliant S3 endpoint in supported regions")
-		cfg.UseFIPSEndpoint = endpoints.FIPSEndpointStateEnabled
+	endpointTypeMsg := ""
+	if useDualStackEndpoint {
 		cfg.UseDualStackEndpoint = endpoints.DualStackEndpointStateEnabled
-	case useFIPSEndpoint:
-		logger.Debug("FIPS mode detected, using FIPS-compliant S3 endpoint in supported regions")
-		cfg.UseFIPSEndpoint = endpoints.FIPSEndpointStateEnabled
-	case useDualStackEndpoint:
-		logger.Debug("Using DualStack S3 endpoint")
-		cfg.UseDualStackEndpoint = endpoints.DualStackEndpointStateEnabled
-	default:
-		logger.Debug("Using default S3 endpoint")
+		endpointTypeMsg += "DualStack "
 	}
+	if useFIPSEndpoint {
+		cfg.UseFIPSEndpoint = endpoints.FIPSEndpointStateEnabled
+		endpointTypeMsg += "FIPS-compliant "
+	}
+
+	if endpointTypeMsg == "" {
+		endpointTypeMsg = "default "
+	}
+	logger.Debug(fmt.Sprintf("Using %sS3 endpoint", endpointTypeMsg))
 
 	return cfg
 }

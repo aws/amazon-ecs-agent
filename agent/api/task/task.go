@@ -501,7 +501,7 @@ func (task *Task) initializeCredentialSpecResource(config *config.Config, creden
 	resourceFields *taskresource.ResourceFields) error {
 	credspecContainerMapping := task.GetAllCredentialSpecRequirements()
 	credentialspecResource, err := credentialspec.NewCredentialSpecResource(task.Arn, config.AWSRegion, task.ExecutionCredentialsID,
-		credentialsManager, resourceFields.SSMClientCreator, resourceFields.S3ClientCreator, resourceFields.ASMClientCreator, credspecContainerMapping, resourceFields.IPCompatibility)
+		credentialsManager, resourceFields.SSMClientCreator, resourceFields.S3ClientCreator, resourceFields.ASMClientCreator, credspecContainerMapping, config.InstanceIPCompatibility)
 	if err != nil {
 		return err
 	}

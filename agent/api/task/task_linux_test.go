@@ -23,7 +23,6 @@ import (
 	"time"
 
 	"github.com/aws/amazon-ecs-agent/agent/api/serviceconnect"
-	"github.com/aws/amazon-ecs-agent/agent/config/ipcompatibility"
 
 	apicontainer "github.com/aws/amazon-ecs-agent/agent/api/container"
 	"github.com/aws/amazon-ecs-agent/agent/config"
@@ -81,7 +80,6 @@ const (
 
 var (
 	scPauseContainerName = fmt.Sprintf(ServiceConnectPauseContainerNameFormat, scContainerName)
-	testIPCompatibility  = ipcompatibility.NewIPCompatibility(true, true)
 )
 
 func getExpectedCgroupRoot() string {
