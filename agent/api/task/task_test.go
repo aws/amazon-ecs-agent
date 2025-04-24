@@ -3983,7 +3983,8 @@ func TestInitializeAndGetEnvfilesResource(t *testing.T) {
 	defer ctrl.Finish()
 
 	cfg := &config.Config{
-		DataDir: "/ecs/data",
+		DataDir:                 "/ecs/data",
+		InstanceIPCompatibility: ipcompatibility.NewIPCompatibility(true, true),
 	}
 	credentialsManager := mock_credentials.NewMockManager(ctrl)
 
@@ -5012,6 +5013,7 @@ func TestInitializeAndGetCredentialSpecResource(t *testing.T) {
 			CredentialsManager: credentialsManager,
 			S3ClientCreator:    s3ClientCreator,
 			ASMClientCreator:   asmClientCreator,
+			IPCompatibility:    ipcompatibility.NewIPCompatibility(true, true),
 		},
 	}
 

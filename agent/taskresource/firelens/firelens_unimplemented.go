@@ -21,6 +21,7 @@ import (
 	"time"
 
 	apicontainer "github.com/aws/amazon-ecs-agent/agent/api/container"
+	"github.com/aws/amazon-ecs-agent/agent/config/ipcompatibility"
 	"github.com/aws/amazon-ecs-agent/agent/taskresource"
 	resourcestatus "github.com/aws/amazon-ecs-agent/agent/taskresource/status"
 	apicontainerstatus "github.com/aws/amazon-ecs-agent/ecs-agent/api/container/status"
@@ -53,7 +54,7 @@ type FirelensResource struct{}
 // NewFirelensResource returns a new FirelensResource.
 func NewFirelensResource(cluster, taskARN, taskDefinition, ec2InstanceID, dataDir, firelensConfigType, region, networkMode string,
 	firelensOptions map[string]string, containerToLogOptions map[string]map[string]string, credentialsManager credentials.Manager,
-	executionCredentialsID string, containerMemoryLimit int64) (*FirelensResource, error) {
+	executionCredentialsID string, containerMemoryLimit int64, ipCompatibility ipcompatibility.IPCompatibility) (*FirelensResource, error) {
 	return nil, errors.New("not implemented")
 }
 
