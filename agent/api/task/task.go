@@ -501,7 +501,7 @@ func (task *Task) initializeCredentialSpecResource(config *config.Config, creden
 	resourceFields *taskresource.ResourceFields) error {
 	credspecContainerMapping := task.GetAllCredentialSpecRequirements()
 	credentialspecResource, err := credentialspec.NewCredentialSpecResource(task.Arn, config.AWSRegion, task.ExecutionCredentialsID,
-		credentialsManager, resourceFields.SSMClientCreator, resourceFields.S3ClientCreator, resourceFields.ASMClientCreator, credspecContainerMapping)
+		credentialsManager, resourceFields.SSMClientCreator, resourceFields.S3ClientCreator, resourceFields.ASMClientCreator, credspecContainerMapping, config.InstanceIPCompatibility)
 	if err != nil {
 		return err
 	}
@@ -1278,7 +1278,7 @@ func (task *Task) initializeFirelensResource(config *config.Config, resourceFiel
 			}
 			firelensResource, err := firelens.NewFirelensResource(config.Cluster, task.Arn, task.Family+":"+task.Version,
 				ec2InstanceID, config.DataDir, firelensConfig.Type, config.AWSRegion, networkMode, firelensConfig.Options, containerToLogOptions,
-				credentialsManager, task.ExecutionCredentialsID, containerMemoryLimit)
+				credentialsManager, task.ExecutionCredentialsID, containerMemoryLimit, config.InstanceIPCompatibility)
 			if err != nil {
 				return errors.Wrap(err, "unable to initialize firelens resource")
 			}
@@ -3312,13 +3312,13 @@ func (task *Task) getASMSecretsResource() ([]taskresource.TaskResource, bool) {
 // InitializeResources initializes the required field in the task on agent restart
 // Some of the fields in task isn't saved in the agent state file, agent needs
 // to initialize these fields before processing the task, eg: docker client in resource
-func (task *Task) InitializeResources(resourceFields *taskresource.ResourceFields) {
+func (task *Task) InitializeResources(config *config.Config, resourceFields *taskresource.ResourceFields) {
 	task.lock.Lock()
 	defer task.lock.Unlock()
 
 	for _, resources := range task.ResourcesMapUnsafe {
 		for _, resource := range resources {
-			resource.Initialize(resourceFields, task.KnownStatusUnsafe, task.DesiredStatusUnsafe)
+			resource.Initialize(config, resourceFields, task.KnownStatusUnsafe, task.DesiredStatusUnsafe)
 		}
 	}
 }
@@ -3396,7 +3396,7 @@ func (task *Task) initializeEnvfilesResource(config *config.Config, credentialsM
 	for _, container := range task.Containers {
 		if container.ShouldCreateWithEnvFiles() {
 			envfileResource, err := envFiles.NewEnvironmentFileResource(config.Cluster, task.Arn, config.AWSRegion, config.DataDir,
-				container.Name, container.EnvironmentFiles, credentialsManager, task.ExecutionCredentialsID)
+				container.Name, container.EnvironmentFiles, credentialsManager, task.ExecutionCredentialsID, config.InstanceIPCompatibility)
 			if err != nil {
 				return errors.Wrapf(err, "unable to initialize envfiles resource for container %s", container.Name)
 			}

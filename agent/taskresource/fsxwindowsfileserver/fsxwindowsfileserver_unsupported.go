@@ -21,6 +21,7 @@ import (
 
 	apicontainer "github.com/aws/amazon-ecs-agent/agent/api/container"
 	asmfactory "github.com/aws/amazon-ecs-agent/agent/asm/factory"
+	"github.com/aws/amazon-ecs-agent/agent/config"
 	fsxfactory "github.com/aws/amazon-ecs-agent/agent/fsx/factory"
 	ssmfactory "github.com/aws/amazon-ecs-agent/agent/ssm/factory"
 	"github.com/aws/amazon-ecs-agent/agent/taskresource"
@@ -55,7 +56,9 @@ func NewFSxWindowsFileServerResource(
 	return nil, errors.New("not supported")
 }
 
-func (fv *FSxWindowsFileServerResource) Initialize(resourceFields *taskresource.ResourceFields,
+func (fv *FSxWindowsFileServerResource) Initialize(
+	config *config.Config,
+	resourceFields *taskresource.ResourceFields,
 	taskKnownStatus status.TaskStatus,
 	taskDesiredStatus status.TaskStatus) {
 }

@@ -27,6 +27,7 @@ import (
 	apicontainer "github.com/aws/amazon-ecs-agent/agent/api/container"
 	mock_factory "github.com/aws/amazon-ecs-agent/agent/asm/factory/mocks"
 	mock_secretsmanageriface "github.com/aws/amazon-ecs-agent/agent/asm/mocks"
+	"github.com/aws/amazon-ecs-agent/agent/config"
 	"github.com/aws/amazon-ecs-agent/agent/taskresource"
 	resourcestatus "github.com/aws/amazon-ecs-agent/agent/taskresource/status"
 	apitaskstatus "github.com/aws/amazon-ecs-agent/ecs-agent/api/task/status"
@@ -238,12 +239,14 @@ func TestInitialize(t *testing.T) {
 		knownStatusUnsafe:   resourcestatus.ResourceCreated,
 		desiredStatusUnsafe: resourcestatus.ResourceCreated,
 	}
-	asmRes.Initialize(&taskresource.ResourceFields{
-		ResourceFieldsCommon: &taskresource.ResourceFieldsCommon{
-			ASMClientCreator:   asmClientCreator,
-			CredentialsManager: credentialsManager,
-		},
-	}, apitaskstatus.TaskStatusNone, apitaskstatus.TaskRunning)
+	asmRes.Initialize(
+		&config.Config{},
+		&taskresource.ResourceFields{
+			ResourceFieldsCommon: &taskresource.ResourceFieldsCommon{
+				ASMClientCreator:   asmClientCreator,
+				CredentialsManager: credentialsManager,
+			},
+		}, apitaskstatus.TaskStatusNone, apitaskstatus.TaskRunning)
 	assert.Equal(t, resourcestatus.ResourceStatusNone, asmRes.GetKnownStatus())
 	assert.Equal(t, resourcestatus.ResourceCreated, asmRes.GetDesiredStatus())
 

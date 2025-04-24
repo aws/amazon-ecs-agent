@@ -25,6 +25,8 @@ import (
 	"testing"
 	"time"
 
+	"github.com/aws/amazon-ecs-agent/agent/config"
+	"github.com/aws/amazon-ecs-agent/agent/config/ipcompatibility"
 	mock_s3_factory "github.com/aws/amazon-ecs-agent/agent/s3/factory/mocks"
 	mock_s3 "github.com/aws/amazon-ecs-agent/agent/s3/mocks/s3manager"
 	mock_factory "github.com/aws/amazon-ecs-agent/agent/ssm/factory/mocks"
@@ -51,6 +53,10 @@ const (
 	testTempFile                   = "testtempfile"
 	credentialSpecResourceLocation = "C:\\ProgramData\\docker\\credentialspecs"
 )
+
+var testConfig = &config.Config{
+	InstanceIPCompatibility: ipcompatibility.NewIPCompatibility(true, true),
+}
 
 func mockRename() func() {
 	rename = func(oldpath, newpath string) error {
@@ -185,18 +191,22 @@ func TestInitialize(t *testing.T) {
 			desiredStatusUnsafe: resourcestatus.ResourceCreated,
 		},
 	}
-	credspecRes.Initialize(&taskresource.ResourceFields{
-		ResourceFieldsCommon: &taskresource.ResourceFieldsCommon{
-			SSMClientCreator:   ssmClientCreator,
-			CredentialsManager: credentialsManager,
-			S3ClientCreator:    s3ClientCreator,
-		},
-	}, apitaskstatus.TaskStatusNone, apitaskstatus.TaskRunning)
+
+	credspecRes.Initialize(
+		testConfig,
+		&taskresource.ResourceFields{
+			ResourceFieldsCommon: &taskresource.ResourceFieldsCommon{
+				SSMClientCreator:   ssmClientCreator,
+				CredentialsManager: credentialsManager,
+				S3ClientCreator:    s3ClientCreator,
+			},
+		}, apitaskstatus.TaskStatusNone, apitaskstatus.TaskRunning)
 
 	assert.NotNil(t, credspecRes.credentialsManager)
 	assert.NotNil(t, credspecRes.ssmClientCreator)
 	assert.NotNil(t, credspecRes.s3ClientCreator)
 	assert.NotNil(t, credspecRes.resourceStatusToTransitionFunction)
+	assert.Equal(t, testConfig.InstanceIPCompatibility, credspecRes.ipCompatibility)
 }
 
 func TestMarshalUnmarshalJSON(t *testing.T) {
@@ -457,13 +467,16 @@ func TestHandleSSMCredentialspecFile(t *testing.T) {
 				credentialSpecResourceLocation: credentialSpecResourceLocation,
 				ioutil:                         mockIO,
 			}
-			cs.Initialize(&taskresource.ResourceFields{
-				ResourceFieldsCommon: &taskresource.ResourceFieldsCommon{
-					SSMClientCreator:   ssmClientCreator,
-					CredentialsManager: credentialsManager,
-					S3ClientCreator:    s3ClientCreator,
-				},
-			}, apitaskstatus.TaskStatusNone, apitaskstatus.TaskRunning)
+
+			cs.Initialize(
+				testConfig,
+				&taskresource.ResourceFields{
+					ResourceFieldsCommon: &taskresource.ResourceFieldsCommon{
+						SSMClientCreator:   ssmClientCreator,
+						CredentialsManager: credentialsManager,
+						S3ClientCreator:    s3ClientCreator,
+					},
+				}, apitaskstatus.TaskStatusNone, apitaskstatus.TaskRunning)
 
 			testData := "test-cred-spec-data"
 			ssmClientOutput := &ssm.GetParametersOutput{
@@ -555,13 +568,16 @@ func TestHandleSSMCredentialspecFileGetSSMParamErr(t *testing.T) {
 			credentialSpecContainerMap: credentialSpecContainerMap,
 		},
 	}
-	cs.Initialize(&taskresource.ResourceFields{
-		ResourceFieldsCommon: &taskresource.ResourceFieldsCommon{
-			SSMClientCreator:   ssmClientCreator,
-			CredentialsManager: credentialsManager,
-			S3ClientCreator:    s3ClientCreator,
-		},
-	}, apitaskstatus.TaskStatusNone, apitaskstatus.TaskRunning)
+
+	cs.Initialize(
+		testConfig,
+		&taskresource.ResourceFields{
+			ResourceFieldsCommon: &taskresource.ResourceFieldsCommon{
+				SSMClientCreator:   ssmClientCreator,
+				CredentialsManager: credentialsManager,
+				S3ClientCreator:    s3ClientCreator,
+			},
+		}, apitaskstatus.TaskStatusNone, apitaskstatus.TaskRunning)
 
 	gomock.InOrder(
 		ssmClientCreator.EXPECT().NewSSMClient(gomock.Any(), gomock.Any()).Return(mockSSMClient),
@@ -599,13 +615,16 @@ func TestHandleSSMCredentialspecFileIOErr(t *testing.T) {
 		},
 		ioutil: mockIO,
 	}
-	cs.Initialize(&taskresource.ResourceFields{
-		ResourceFieldsCommon: &taskresource.ResourceFieldsCommon{
-			SSMClientCreator:   ssmClientCreator,
-			CredentialsManager: credentialsManager,
-			S3ClientCreator:    s3ClientCreator,
-		},
-	}, apitaskstatus.TaskStatusNone, apitaskstatus.TaskRunning)
+
+	cs.Initialize(
+		testConfig,
+		&taskresource.ResourceFields{
+			ResourceFieldsCommon: &taskresource.ResourceFieldsCommon{
+				SSMClientCreator:   ssmClientCreator,
+				CredentialsManager: credentialsManager,
+				S3ClientCreator:    s3ClientCreator,
+			},
+		}, apitaskstatus.TaskStatusNone, apitaskstatus.TaskRunning)
 
 	testData := "test-cred-spec-data"
 	ssmClientOutput := &ssm.GetParametersOutput{
@@ -738,20 +757,22 @@ func TestHandleS3CredentialspecFile(t *testing.T) {
 				credentialSpecResourceLocation: credentialSpecResourceLocation,
 				ioutil:                         mockIO,
 			}
-			cs.Initialize(&taskresource.ResourceFields{
-				ResourceFieldsCommon: &taskresource.ResourceFieldsCommon{
-					SSMClientCreator:   ssmClientCreator,
-					CredentialsManager: credentialsManager,
-					S3ClientCreator:    s3ClientCreator,
-				},
-			}, apitaskstatus.TaskStatusNone, apitaskstatus.TaskRunning)
+			cs.Initialize(
+				testConfig,
+				&taskresource.ResourceFields{
+					ResourceFieldsCommon: &taskresource.ResourceFieldsCommon{
+						SSMClientCreator:   ssmClientCreator,
+						CredentialsManager: credentialsManager,
+						S3ClientCreator:    s3ClientCreator,
+					},
+				}, apitaskstatus.TaskStatusNone, apitaskstatus.TaskRunning)
 
 			defer mockRename()()
 			mockFile.(*mock_oswrapper.MockFile).NameImpl = func() string {
 				return testTempFile
 			}
 			gomock.InOrder(
-				s3ClientCreator.EXPECT().NewS3ManagerClient(gomock.Any(), gomock.Any(), gomock.Any()).Return(mockS3Client, nil),
+				s3ClientCreator.EXPECT().NewS3ManagerClient(gomock.Any(), gomock.Any(), gomock.Any(), testConfig.InstanceIPCompatibility).Return(mockS3Client, nil),
 				mockIO.EXPECT().TempFile(gomock.Any(), gomock.Any()).Return(mockFile, nil),
 				mockS3Client.EXPECT().DownloadWithContext(gomock.Any(), mockFile, gomock.Any()).Return(int64(0), nil),
 			)
@@ -827,16 +848,18 @@ func TestHandleS3CredentialspecFileS3ClientErr(t *testing.T) {
 			terminalReason: termReason,
 		},
 	}
-	cs.Initialize(&taskresource.ResourceFields{
-		ResourceFieldsCommon: &taskresource.ResourceFieldsCommon{
-			SSMClientCreator:   ssmClientCreator,
-			CredentialsManager: credentialsManager,
-			S3ClientCreator:    s3ClientCreator,
-		},
-	}, apitaskstatus.TaskStatusNone, apitaskstatus.TaskRunning)
+	cs.Initialize(
+		testConfig,
+		&taskresource.ResourceFields{
+			ResourceFieldsCommon: &taskresource.ResourceFieldsCommon{
+				SSMClientCreator:   ssmClientCreator,
+				CredentialsManager: credentialsManager,
+				S3ClientCreator:    s3ClientCreator,
+			},
+		}, apitaskstatus.TaskStatusNone, apitaskstatus.TaskRunning)
 
 	gomock.InOrder(
-		s3ClientCreator.EXPECT().NewS3ManagerClient(gomock.Any(), gomock.Any(), gomock.Any()).Return(mockS3Client, errors.New("test-error")),
+		s3ClientCreator.EXPECT().NewS3ManagerClient(gomock.Any(), gomock.Any(), gomock.Any(), testConfig.InstanceIPCompatibility).Return(mockS3Client, errors.New("test-error")),
 	)
 
 	err := cs.handleS3CredentialspecFile(s3CredentialSpec, credentialSpecS3ARN, iamCredentials)
@@ -872,13 +895,15 @@ func TestHandleS3CredentialspecFileWriteErr(t *testing.T) {
 		},
 		ioutil: mockIO,
 	}
-	cs.Initialize(&taskresource.ResourceFields{
-		ResourceFieldsCommon: &taskresource.ResourceFieldsCommon{
-			SSMClientCreator:   ssmClientCreator,
-			CredentialsManager: credentialsManager,
-			S3ClientCreator:    s3ClientCreator,
-		},
-	}, apitaskstatus.TaskStatusNone, apitaskstatus.TaskRunning)
+	cs.Initialize(
+		testConfig,
+		&taskresource.ResourceFields{
+			ResourceFieldsCommon: &taskresource.ResourceFieldsCommon{
+				SSMClientCreator:   ssmClientCreator,
+				CredentialsManager: credentialsManager,
+				S3ClientCreator:    s3ClientCreator,
+			},
+		}, apitaskstatus.TaskStatusNone, apitaskstatus.TaskRunning)
 
 	mockFile.(*mock_oswrapper.MockFile).NameImpl = func() string {
 		return testTempFile
@@ -892,7 +917,7 @@ func TestHandleS3CredentialspecFileWriteErr(t *testing.T) {
 	}()
 
 	gomock.InOrder(
-		s3ClientCreator.EXPECT().NewS3ManagerClient(gomock.Any(), gomock.Any(), gomock.Any()).Return(mockS3Client, nil),
+		s3ClientCreator.EXPECT().NewS3ManagerClient(gomock.Any(), gomock.Any(), gomock.Any(), testConfig.InstanceIPCompatibility).Return(mockS3Client, nil),
 		mockIO.EXPECT().TempFile(gomock.Any(), gomock.Any()).Return(mockFile, nil),
 		mockS3Client.EXPECT().DownloadWithContext(gomock.Any(), mockFile, gomock.Any()).Return(int64(0), nil),
 	)
@@ -937,13 +962,15 @@ func TestCreateSSM(t *testing.T) {
 		},
 		ioutil: mockIO,
 	}
-	cs.Initialize(&taskresource.ResourceFields{
-		ResourceFieldsCommon: &taskresource.ResourceFieldsCommon{
-			SSMClientCreator:   ssmClientCreator,
-			CredentialsManager: credentialsManager,
-			S3ClientCreator:    s3ClientCreator,
-		},
-	}, apitaskstatus.TaskStatusNone, apitaskstatus.TaskRunning)
+	cs.Initialize(
+		testConfig,
+		&taskresource.ResourceFields{
+			ResourceFieldsCommon: &taskresource.ResourceFieldsCommon{
+				SSMClientCreator:   ssmClientCreator,
+				CredentialsManager: credentialsManager,
+				S3ClientCreator:    s3ClientCreator,
+			},
+		}, apitaskstatus.TaskStatusNone, apitaskstatus.TaskRunning)
 
 	testData := "test-cred-spec-data"
 	ssmClientOutput := &ssm.GetParametersOutput{
@@ -999,13 +1026,15 @@ func TestCreateS3(t *testing.T) {
 		},
 		ioutil: mockIO,
 	}
-	cs.Initialize(&taskresource.ResourceFields{
-		ResourceFieldsCommon: &taskresource.ResourceFieldsCommon{
-			SSMClientCreator:   ssmClientCreator,
-			CredentialsManager: credentialsManager,
-			S3ClientCreator:    s3ClientCreator,
-		},
-	}, apitaskstatus.TaskStatusNone, apitaskstatus.TaskRunning)
+	cs.Initialize(
+		testConfig,
+		&taskresource.ResourceFields{
+			ResourceFieldsCommon: &taskresource.ResourceFieldsCommon{
+				SSMClientCreator:   ssmClientCreator,
+				CredentialsManager: credentialsManager,
+				S3ClientCreator:    s3ClientCreator,
+			},
+		}, apitaskstatus.TaskStatusNone, apitaskstatus.TaskRunning)
 
 	creds := credentials.TaskIAMRoleCredentials{
 		ARN: "arn",
@@ -1018,7 +1047,7 @@ func TestCreateS3(t *testing.T) {
 	defer mockRename()()
 	gomock.InOrder(
 		credentialsManager.EXPECT().GetTaskCredentials(gomock.Any()).Return(creds, true),
-		s3ClientCreator.EXPECT().NewS3ManagerClient(gomock.Any(), gomock.Any(), gomock.Any()).Return(mockS3Client, nil),
+		s3ClientCreator.EXPECT().NewS3ManagerClient(gomock.Any(), gomock.Any(), gomock.Any(), testConfig.InstanceIPCompatibility).Return(mockS3Client, nil),
 		mockIO.EXPECT().TempFile(gomock.Any(), gomock.Any()).Return(mockFile, nil),
 		mockS3Client.EXPECT().DownloadWithContext(gomock.Any(), mockFile, gomock.Any()).Return(int64(0), nil),
 	)

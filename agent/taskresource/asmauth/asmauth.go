@@ -21,6 +21,7 @@ import (
 	apicontainer "github.com/aws/amazon-ecs-agent/agent/api/container"
 	"github.com/aws/amazon-ecs-agent/agent/asm"
 	"github.com/aws/amazon-ecs-agent/agent/asm/factory"
+	"github.com/aws/amazon-ecs-agent/agent/config"
 	"github.com/aws/amazon-ecs-agent/agent/taskresource"
 	resourcestatus "github.com/aws/amazon-ecs-agent/agent/taskresource/status"
 	apicontainerstatus "github.com/aws/amazon-ecs-agent/ecs-agent/api/container/status"
@@ -349,7 +350,9 @@ func (auth *ASMAuthResource) PutASMDockerAuthConfig(secretID string, authCfg reg
 	auth.dockerAuthData[secretID] = authCfg
 }
 
-func (auth *ASMAuthResource) Initialize(resourceFields *taskresource.ResourceFields,
+func (auth *ASMAuthResource) Initialize(
+	config *config.Config,
+	resourceFields *taskresource.ResourceFields,
 	taskKnownStatus status.TaskStatus,
 	taskDesiredStatus status.TaskStatus) {
 	auth.initStatusToTransition()

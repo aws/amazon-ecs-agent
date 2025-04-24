@@ -23,6 +23,7 @@ import (
 	time "time"
 
 	container "github.com/aws/amazon-ecs-agent/agent/api/container"
+	config "github.com/aws/amazon-ecs-agent/agent/config"
 	taskresource "github.com/aws/amazon-ecs-agent/agent/taskresource"
 	status "github.com/aws/amazon-ecs-agent/agent/taskresource/status"
 	status0 "github.com/aws/amazon-ecs-agent/ecs-agent/api/container/status"
@@ -234,15 +235,15 @@ func (mr *MockTaskResourceMockRecorder) GetTerminalReason() *gomock.Call {
 }
 
 // Initialize mocks base method.
-func (m *MockTaskResource) Initialize(arg0 *taskresource.ResourceFields, arg1, arg2 status1.TaskStatus) {
+func (m *MockTaskResource) Initialize(arg0 *config.Config, arg1 *taskresource.ResourceFields, arg2, arg3 status1.TaskStatus) {
 	m.ctrl.T.Helper()
-	m.ctrl.Call(m, "Initialize", arg0, arg1, arg2)
+	m.ctrl.Call(m, "Initialize", arg0, arg1, arg2, arg3)
 }
 
 // Initialize indicates an expected call of Initialize.
-func (mr *MockTaskResourceMockRecorder) Initialize(arg0, arg1, arg2 interface{}) *gomock.Call {
+func (mr *MockTaskResourceMockRecorder) Initialize(arg0, arg1, arg2, arg3 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Initialize", reflect.TypeOf((*MockTaskResource)(nil).Initialize), arg0, arg1, arg2)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Initialize", reflect.TypeOf((*MockTaskResource)(nil).Initialize), arg0, arg1, arg2, arg3)
 }
 
 // KnownCreated mocks base method.

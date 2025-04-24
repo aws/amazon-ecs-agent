@@ -863,9 +863,10 @@ func TestGetFirelensContainer(t *testing.T) {
 
 func TestInitializeFirelensResource(t *testing.T) {
 	cfg := &config.Config{
-		DataDir:   testDataDir,
-		Cluster:   testCluster,
-		AWSRegion: testRegion,
+		DataDir:                 testDataDir,
+		Cluster:                 testCluster,
+		AWSRegion:               testRegion,
+		InstanceIPCompatibility: testIPCompatibility,
 	}
 	resourceFields := &taskresource.ResourceFields{
 		ResourceFieldsCommon: &taskresource.ResourceFieldsCommon{
@@ -996,9 +997,10 @@ func TestInitializeFirelensResource(t *testing.T) {
 
 func TestInitializeFirelensResourceWithExternalConfig(t *testing.T) {
 	cfg := &config.Config{
-		DataDir:   testDataDir,
-		Cluster:   testCluster,
-		AWSRegion: testRegion,
+		DataDir:                 testDataDir,
+		Cluster:                 testCluster,
+		AWSRegion:               testRegion,
+		InstanceIPCompatibility: testIPCompatibility,
 	}
 	resourceFields := &taskresource.ResourceFields{
 		ResourceFieldsCommon: &taskresource.ResourceFieldsCommon{

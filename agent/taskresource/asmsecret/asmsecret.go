@@ -26,6 +26,7 @@ import (
 	apicontainer "github.com/aws/amazon-ecs-agent/agent/api/container"
 	"github.com/aws/amazon-ecs-agent/agent/asm"
 	"github.com/aws/amazon-ecs-agent/agent/asm/factory"
+	"github.com/aws/amazon-ecs-agent/agent/config"
 	"github.com/aws/amazon-ecs-agent/agent/taskresource"
 	resourcestatus "github.com/aws/amazon-ecs-agent/agent/taskresource/status"
 	apicontainerstatus "github.com/aws/amazon-ecs-agent/ecs-agent/api/container/status"
@@ -445,7 +446,9 @@ func (secret *ASMSecretResource) SetCachedSecretValue(secretKey string, secretVa
 	secret.secretData[secretKey] = secretValue
 }
 
-func (secret *ASMSecretResource) Initialize(resourceFields *taskresource.ResourceFields,
+func (secret *ASMSecretResource) Initialize(
+	config *config.Config,
+	resourceFields *taskresource.ResourceFields,
 	taskKnownStatus status.TaskStatus,
 	taskDesiredStatus status.TaskStatus) {
 	secret.initStatusToTransition()

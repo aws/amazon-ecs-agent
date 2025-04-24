@@ -18,6 +18,7 @@ import (
 	"time"
 
 	apicontainer "github.com/aws/amazon-ecs-agent/agent/api/container"
+	"github.com/aws/amazon-ecs-agent/agent/config"
 	resourcestatus "github.com/aws/amazon-ecs-agent/agent/taskresource/status"
 	apicontainerstatus "github.com/aws/amazon-ecs-agent/ecs-agent/api/container/status"
 	apitaskstatus "github.com/aws/amazon-ecs-agent/ecs-agent/api/task/status"
@@ -73,8 +74,12 @@ type TaskResource interface {
 	BuildContainerDependency(containerName string, satisfied apicontainerstatus.ContainerStatus,
 		dependent resourcestatus.ResourceStatus)
 	// Initialize will initialize the resource fields of the resource
-	Initialize(res *ResourceFields,
-		taskKnownStatus apitaskstatus.TaskStatus, taskDesiredStatus apitaskstatus.TaskStatus)
+	Initialize(
+		config *config.Config,
+		res *ResourceFields,
+		taskKnownStatus apitaskstatus.TaskStatus,
+		taskDesiredStatus apitaskstatus.TaskStatus,
+	)
 
 	json.Marshaler
 	json.Unmarshaler

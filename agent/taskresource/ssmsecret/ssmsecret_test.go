@@ -23,6 +23,7 @@ import (
 	"time"
 
 	apicontainer "github.com/aws/amazon-ecs-agent/agent/api/container"
+	"github.com/aws/amazon-ecs-agent/agent/config"
 	mock_factory "github.com/aws/amazon-ecs-agent/agent/ssm/factory/mocks"
 	mock_ssm "github.com/aws/amazon-ecs-agent/agent/ssm/mocks"
 	"github.com/aws/amazon-ecs-agent/agent/taskresource"
@@ -496,12 +497,14 @@ func TestInitialize(t *testing.T) {
 		knownStatusUnsafe:   resourcestatus.ResourceCreated,
 		desiredStatusUnsafe: resourcestatus.ResourceCreated,
 	}
-	ssmRes.Initialize(&taskresource.ResourceFields{
-		ResourceFieldsCommon: &taskresource.ResourceFieldsCommon{
-			SSMClientCreator:   ssmClientCreator,
-			CredentialsManager: credentialsManager,
-		},
-	}, apitaskstatus.TaskStatusNone, apitaskstatus.TaskRunning)
+	ssmRes.Initialize(
+		&config.Config{},
+		&taskresource.ResourceFields{
+			ResourceFieldsCommon: &taskresource.ResourceFieldsCommon{
+				SSMClientCreator:   ssmClientCreator,
+				CredentialsManager: credentialsManager,
+			},
+		}, apitaskstatus.TaskStatusNone, apitaskstatus.TaskRunning)
 	assert.Equal(t, resourcestatus.ResourceStatusNone, ssmRes.GetKnownStatus())
 	assert.Equal(t, resourcestatus.ResourceCreated, ssmRes.GetDesiredStatus())
 

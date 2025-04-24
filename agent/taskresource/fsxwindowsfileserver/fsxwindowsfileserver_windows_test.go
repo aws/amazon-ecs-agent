@@ -25,6 +25,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/aws/amazon-ecs-agent/agent/config"
 	"github.com/aws/amazon-ecs-agent/agent/utils"
 
 	mock_asm_factory "github.com/aws/amazon-ecs-agent/agent/asm/factory/mocks"
@@ -79,14 +80,16 @@ func setup(t *testing.T) (
 		desiredStatusUnsafe: resourcestatus.ResourceCreated,
 		taskARN:             taskARN,
 	}
-	fv.Initialize(&taskresource.ResourceFields{
-		ResourceFieldsCommon: &taskresource.ResourceFieldsCommon{
-			SSMClientCreator:   ssmClientCreator,
-			ASMClientCreator:   asmClientCreator,
-			FSxClientCreator:   fsxClientCreator,
-			CredentialsManager: credentialsManager,
-		},
-	}, apitaskstatus.TaskStatusNone, apitaskstatus.TaskRunning)
+	fv.Initialize(
+		&config.Config{},
+		&taskresource.ResourceFields{
+			ResourceFieldsCommon: &taskresource.ResourceFieldsCommon{
+				SSMClientCreator:   ssmClientCreator,
+				ASMClientCreator:   asmClientCreator,
+				FSxClientCreator:   fsxClientCreator,
+				CredentialsManager: credentialsManager,
+			},
+		}, apitaskstatus.TaskStatusNone, apitaskstatus.TaskRunning)
 	return fv, credentialsManager, ssmClientCreator, asmClientCreator, fsxClientCreator, mockSSMClient, mockASMClient, mockFSxClient
 }
 
@@ -520,14 +523,16 @@ func TestCreateUnavailableLocalPath(t *testing.T) {
 		taskARN:                taskARN,
 		executionCredentialsID: executionCredentialsID,
 	}
-	fv.Initialize(&taskresource.ResourceFields{
-		ResourceFieldsCommon: &taskresource.ResourceFieldsCommon{
-			SSMClientCreator:   ssmClientCreator,
-			ASMClientCreator:   asmClientCreator,
-			FSxClientCreator:   fsxClientCreator,
-			CredentialsManager: credentialsManager,
-		},
-	}, apitaskstatus.TaskStatusNone, apitaskstatus.TaskRunning)
+	fv.Initialize(
+		&config.Config{},
+		&taskresource.ResourceFields{
+			ResourceFieldsCommon: &taskresource.ResourceFieldsCommon{
+				SSMClientCreator:   ssmClientCreator,
+				ASMClientCreator:   asmClientCreator,
+				FSxClientCreator:   fsxClientCreator,
+				CredentialsManager: credentialsManager,
+			},
+		}, apitaskstatus.TaskStatusNone, apitaskstatus.TaskRunning)
 
 	ssmTestData := "{\n\"username\": \"user\", \n\"password\": \"pass\"\n}"
 	ssmClientOutput := &ssm.GetParametersOutput{
@@ -605,14 +610,16 @@ func TestCreateSSM(t *testing.T) {
 		taskARN:                taskARN,
 		executionCredentialsID: executionCredentialsID,
 	}
-	fv.Initialize(&taskresource.ResourceFields{
-		ResourceFieldsCommon: &taskresource.ResourceFieldsCommon{
-			SSMClientCreator:   ssmClientCreator,
-			ASMClientCreator:   asmClientCreator,
-			FSxClientCreator:   fsxClientCreator,
-			CredentialsManager: credentialsManager,
-		},
-	}, apitaskstatus.TaskStatusNone, apitaskstatus.TaskRunning)
+	fv.Initialize(
+		&config.Config{},
+		&taskresource.ResourceFields{
+			ResourceFieldsCommon: &taskresource.ResourceFieldsCommon{
+				SSMClientCreator:   ssmClientCreator,
+				ASMClientCreator:   asmClientCreator,
+				FSxClientCreator:   fsxClientCreator,
+				CredentialsManager: credentialsManager,
+			},
+		}, apitaskstatus.TaskStatusNone, apitaskstatus.TaskRunning)
 
 	ssmTestData := "{\n\"username\": \"user\", \n\"password\": \"pass\"\n}"
 	ssmClientOutput := &ssm.GetParametersOutput{
@@ -692,14 +699,16 @@ func TestCreateASM(t *testing.T) {
 		taskARN:                taskARN,
 		executionCredentialsID: executionCredentialsID,
 	}
-	fv.Initialize(&taskresource.ResourceFields{
-		ResourceFieldsCommon: &taskresource.ResourceFieldsCommon{
-			SSMClientCreator:   ssmClientCreator,
-			ASMClientCreator:   asmClientCreator,
-			FSxClientCreator:   fsxClientCreator,
-			CredentialsManager: credentialsManager,
-		},
-	}, apitaskstatus.TaskStatusNone, apitaskstatus.TaskRunning)
+	fv.Initialize(
+		&config.Config{},
+		&taskresource.ResourceFields{
+			ResourceFieldsCommon: &taskresource.ResourceFieldsCommon{
+				SSMClientCreator:   ssmClientCreator,
+				ASMClientCreator:   asmClientCreator,
+				FSxClientCreator:   fsxClientCreator,
+				CredentialsManager: credentialsManager,
+			},
+		}, apitaskstatus.TaskStatusNone, apitaskstatus.TaskRunning)
 
 	asmTestData := "{\"username\":\"user\",\"password\":\"pass\"}"
 	asmClientOutput := &secretsmanager.GetSecretValueOutput{

@@ -2629,7 +2629,7 @@ func TestSynchronizeResource(t *testing.T) {
 	}
 	// add the task to the state to simulate the agent restored the state on restart
 	state.AddTask(testTask)
-	cgroupResource.EXPECT().Initialize(gomock.Any(), gomock.Any(), gomock.Any())
+	cgroupResource.EXPECT().Initialize(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any())
 	cgroupResource.EXPECT().SetDesiredStatus(gomock.Any()).MaxTimes(1)
 	cgroupResource.EXPECT().GetDesiredStatus().MaxTimes(2)
 	cgroupResource.EXPECT().TerminalStatus().MaxTimes(1)
