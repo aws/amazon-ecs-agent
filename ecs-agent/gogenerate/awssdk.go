@@ -22,6 +22,7 @@ import (
 	"bytes"
 	"flag"
 	"fmt"
+	"go/format"
 	"io/ioutil"
 	"os"
 	"os/exec"
@@ -30,7 +31,6 @@ import (
 	"text/template"
 
 	"github.com/aws/aws-sdk-go/private/model/api"
-	"github.com/aws/aws-sdk-go/private/util"
 	"golang.org/x/tools/imports"
 )
 
@@ -66,7 +66,7 @@ func init() {
 	copyrightFile := flag.String("copyright_file", "", "Copyright file used to add copyright header")
 	flag.Parse()
 
-	if *copyrightFile == "" {
+	if copyrightFile == nil || *copyrightFile == "" {
 		fmt.Println("copyright_file must be set")
 		os.Exit(1)
 	}
@@ -129,7 +129,7 @@ func genTypesOnlyAPI(file string) error {
 		panic(err)
 	}
 	code := strings.TrimSpace(buf.String())
-	code = util.GoFmt(code)
+	code = GoFmt(code)
 
 	// Ignore dir error, filepath will catch it for an invalid path.
 	os.Mkdir(apiGen.PackageName(), 0755)
@@ -210,4 +210,15 @@ func genFile(api *api.API, code string, fileName string) error {
 func getCopyrightFile(filename string) (string, error) {
 	contents, err := ioutil.ReadFile(filename)
 	return string(contents), err
+}
+
+// GoFmt returns the Go formated string of the input.
+//
+// Panics if the format fails.
+func GoFmt(buf string) string {
+	formatted, err := format.Source([]byte(buf))
+	if err != nil {
+		panic(fmt.Errorf("%s\nOriginal code:\n%s", err.Error(), buf))
+	}
+	return string(formatted)
 }
