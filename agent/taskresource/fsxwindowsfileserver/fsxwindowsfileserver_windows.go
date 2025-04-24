@@ -25,6 +25,7 @@ import (
 	"time"
 
 	"github.com/aws/amazon-ecs-agent/agent/asm"
+	"github.com/aws/amazon-ecs-agent/agent/config"
 	"github.com/aws/amazon-ecs-agent/agent/ssm"
 	"github.com/aws/amazon-ecs-agent/agent/utils"
 	"github.com/aws/aws-sdk-go/aws/arn"
@@ -136,7 +137,9 @@ func NewFSxWindowsFileServerResource(
 	return fv, nil
 }
 
-func (fv *FSxWindowsFileServerResource) Initialize(resourceFields *taskresource.ResourceFields,
+func (fv *FSxWindowsFileServerResource) Initialize(
+	config *config.Config,
+	resourceFields *taskresource.ResourceFields,
 	taskKnownStatus status.TaskStatus,
 	taskDesiredStatus status.TaskStatus) {
 

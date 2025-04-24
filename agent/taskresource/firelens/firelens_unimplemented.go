@@ -21,6 +21,7 @@ import (
 	"time"
 
 	apicontainer "github.com/aws/amazon-ecs-agent/agent/api/container"
+	"github.com/aws/amazon-ecs-agent/agent/config"
 	"github.com/aws/amazon-ecs-agent/agent/config/ipcompatibility"
 	"github.com/aws/amazon-ecs-agent/agent/taskresource"
 	resourcestatus "github.com/aws/amazon-ecs-agent/agent/taskresource/status"
@@ -155,7 +156,9 @@ func (firelens *FirelensResource) UnmarshalJSON(b []byte) error {
 }
 
 // Initialize fills in the resource fields.
-func (firelens *FirelensResource) Initialize(resourceFields *taskresource.ResourceFields,
+func (firelens *FirelensResource) Initialize(
+	config *config.Config,
+	resourceFields *taskresource.ResourceFields,
 	taskKnownStatus status.TaskStatus,
 	taskDesiredStatus status.TaskStatus) {
 }

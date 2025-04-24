@@ -25,6 +25,7 @@ import (
 	"testing"
 
 	"github.com/aws/amazon-ecs-agent/agent/api/container"
+	"github.com/aws/amazon-ecs-agent/agent/config"
 	"github.com/aws/amazon-ecs-agent/agent/config/ipcompatibility"
 	mock_factory "github.com/aws/amazon-ecs-agent/agent/s3/factory/mocks"
 	mock_s3 "github.com/aws/amazon-ecs-agent/agent/s3/mocks/s3manager"
@@ -106,13 +107,16 @@ func TestInitializeFileEnvResource(t *testing.T) {
 		sampleEnvironmentFile(fmt.Sprintf("arn:aws:s3:::%s/%s", s3Bucket, s3Key), "s3"),
 	}
 
+	testConfig := &config.Config{InstanceIPCompatibility: testIPCompatibility}
+
 	envfileResource := newMockEnvfileResource(envfiles, mockCredentialsManager, nil, nil, testIPCompatibility)
-	envfileResource.Initialize(&taskresource.ResourceFields{
-		ResourceFieldsCommon: &taskresource.ResourceFieldsCommon{
-			CredentialsManager: mockCredentialsManager,
-			IPCompatibility:    testIPCompatibility,
-		},
-	}, status.TaskRunning, status.TaskRunning)
+	envfileResource.Initialize(
+		testConfig,
+		&taskresource.ResourceFields{
+			ResourceFieldsCommon: &taskresource.ResourceFieldsCommon{
+				CredentialsManager: mockCredentialsManager,
+			},
+		}, status.TaskRunning, status.TaskRunning)
 
 	assert.NotNil(t, envfileResource.statusToTransitions)
 	assert.Equal(t, 1, len(envfileResource.statusToTransitions))

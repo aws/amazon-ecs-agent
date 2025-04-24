@@ -15,7 +15,6 @@ package taskresource
 
 import (
 	asmfactory "github.com/aws/amazon-ecs-agent/agent/asm/factory"
-	"github.com/aws/amazon-ecs-agent/agent/config/ipcompatibility"
 	fsxfactory "github.com/aws/amazon-ecs-agent/agent/fsx/factory"
 	s3factory "github.com/aws/amazon-ecs-agent/agent/s3/factory"
 	ssmfactory "github.com/aws/amazon-ecs-agent/agent/ssm/factory"
@@ -31,5 +30,4 @@ type ResourceFieldsCommon struct {
 	S3ClientCreator    s3factory.S3ClientCreator
 	CredentialsManager credentials.Manager
 	EC2InstanceID      string
-	IPCompatibility    ipcompatibility.IPCompatibility
 }

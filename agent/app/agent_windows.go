@@ -323,7 +323,6 @@ func (agent *ecsAgent) initializeResourceFields(credentialsManager credentials.M
 			FSxClientCreator:   fsxfactory.NewFSxClientCreator(),
 			S3ClientCreator:    s3factory.NewS3ClientCreator(),
 			CredentialsManager: credentialsManager,
-			IPCompatibility:    agent.getConfig().InstanceIPCompatibility,
 		},
 		Ctx:          agent.ctx,
 		DockerClient: agent.dockerClient,

@@ -25,6 +25,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/aws/amazon-ecs-agent/agent/config"
 	"github.com/aws/amazon-ecs-agent/agent/config/ipcompatibility"
 	"github.com/cihub/seelog"
 	"github.com/pkg/errors"
@@ -213,7 +214,9 @@ func (firelens *FirelensResource) GetExternalConfigValue() string {
 }
 
 // Initialize initializes the resource.
-func (firelens *FirelensResource) Initialize(resourceFields *taskresource.ResourceFields,
+func (firelens *FirelensResource) Initialize(
+	config *config.Config,
+	resourceFields *taskresource.ResourceFields,
 	taskKnownStatus status.TaskStatus, taskDesiredStatus status.TaskStatus) {
 	firelens.lock.Lock()
 	defer firelens.lock.Unlock()
@@ -223,7 +226,7 @@ func (firelens *FirelensResource) Initialize(resourceFields *taskresource.Resour
 	firelens.ioutil = ioutilwrapper.NewIOUtil()
 	firelens.s3ClientCreator = factory.NewS3ClientCreator()
 	firelens.credentialsManager = resourceFields.CredentialsManager
-	firelens.ipCompatibility = resourceFields.IPCompatibility
+	firelens.ipCompatibility = config.InstanceIPCompatibility
 }
 
 // GetNetworkMode returns the network mode of the task.

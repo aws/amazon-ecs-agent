@@ -21,6 +21,7 @@ import (
 	"time"
 
 	apicontainer "github.com/aws/amazon-ecs-agent/agent/api/container"
+	"github.com/aws/amazon-ecs-agent/agent/config"
 	"github.com/aws/amazon-ecs-agent/agent/dockerclient"
 	"github.com/aws/amazon-ecs-agent/agent/dockerclient/dockerapi"
 	"github.com/aws/amazon-ecs-agent/agent/taskresource"
@@ -132,7 +133,9 @@ func NewVolumeResource(ctx context.Context,
 	return v, nil
 }
 
-func (vol *VolumeResource) Initialize(resourceFields *taskresource.ResourceFields,
+func (vol *VolumeResource) Initialize(
+	config *config.Config,
+	resourceFields *taskresource.ResourceFields,
 	taskKnownStatus status.TaskStatus,
 	taskDesiredStatus status.TaskStatus) {
 

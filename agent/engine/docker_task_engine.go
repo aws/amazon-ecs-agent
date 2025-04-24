@@ -682,7 +682,7 @@ func (engine *DockerTaskEngine) synchronizeState() {
 	engine.reconcileHostResources()
 	tasksToStart := engine.filterTasksToStartUnsafe(tasks)
 	for _, task := range tasks {
-		task.InitializeResources(engine.resourceFields)
+		task.InitializeResources(engine.cfg, engine.resourceFields)
 		engine.saveTaskData(task)
 	}
 

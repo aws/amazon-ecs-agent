@@ -23,6 +23,7 @@ import (
 	"time"
 
 	apicontainer "github.com/aws/amazon-ecs-agent/agent/api/container"
+	"github.com/aws/amazon-ecs-agent/agent/config"
 	"github.com/aws/amazon-ecs-agent/agent/config/ipcompatibility"
 	"github.com/aws/amazon-ecs-agent/agent/s3"
 	"github.com/aws/amazon-ecs-agent/agent/s3/factory"
@@ -114,7 +115,9 @@ func NewEnvironmentFileResource(cluster, taskARN, region, dataDir, containerName
 }
 
 // Initialize initializes the EnvironmentFileResource
-func (envfile *EnvironmentFileResource) Initialize(resourceFields *taskresource.ResourceFields,
+func (envfile *EnvironmentFileResource) Initialize(
+	config *config.Config,
+	resourceFields *taskresource.ResourceFields,
 	taskKnownStatus status.TaskStatus,
 	taskDesiredStatus status.TaskStatus) {
 	envfile.lock.Lock()
@@ -124,7 +127,7 @@ func (envfile *EnvironmentFileResource) Initialize(resourceFields *taskresource.
 	envfile.s3ClientCreator = factory.NewS3ClientCreator()
 	envfile.ioutil = ioutilwrapper.NewIOUtil()
 	envfile.bufio = bufiowrapper.NewBufio()
-	envfile.ipCompatibility = resourceFields.IPCompatibility
+	envfile.ipCompatibility = config.InstanceIPCompatibility
 	envfile.lock.Unlock()
 
 	// if task isn't in 'created' status and desired status is 'running',

@@ -379,7 +379,9 @@ func (cgroup *CgroupResource) GetCgroupMountPath() string {
 }
 
 // Initialize initializes the resource fileds in cgroup
-func (cgroup *CgroupResource) Initialize(resourceFields *taskresource.ResourceFields,
+func (cgroup *CgroupResource) Initialize(
+	config *config.Config,
+	resourceFields *taskresource.ResourceFields,
 	taskKnownStatus status.TaskStatus,
 	taskDesiredStatus status.TaskStatus) {
 	cgroup.lock.Lock()

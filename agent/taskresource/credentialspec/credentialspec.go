@@ -20,6 +20,7 @@ import (
 
 	apicontainer "github.com/aws/amazon-ecs-agent/agent/api/container"
 	asmfactory "github.com/aws/amazon-ecs-agent/agent/asm/factory"
+	"github.com/aws/amazon-ecs-agent/agent/config"
 	"github.com/aws/amazon-ecs-agent/agent/config/ipcompatibility"
 	s3factory "github.com/aws/amazon-ecs-agent/agent/s3/factory"
 	ssmfactory "github.com/aws/amazon-ecs-agent/agent/ssm/factory"
@@ -80,7 +81,9 @@ type CredentialSpecResourceCommon struct {
 	ipCompatibility ipcompatibility.IPCompatibility
 }
 
-func (cs *CredentialSpecResource) Initialize(resourceFields *taskresource.ResourceFields,
+func (cs *CredentialSpecResource) Initialize(
+	config *config.Config,
+	resourceFields *taskresource.ResourceFields,
 	_ status.TaskStatus,
 	_ status.TaskStatus) {
 
@@ -88,7 +91,7 @@ func (cs *CredentialSpecResource) Initialize(resourceFields *taskresource.Resour
 	cs.ssmClientCreator = resourceFields.SSMClientCreator
 	cs.s3ClientCreator = resourceFields.S3ClientCreator
 	cs.secretsmanagerClientCreator = resourceFields.ASMClientCreator
-	cs.ipCompatibility = resourceFields.IPCompatibility
+	cs.ipCompatibility = config.InstanceIPCompatibility
 	cs.initStatusToTransition()
 }
 

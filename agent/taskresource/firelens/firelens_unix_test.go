@@ -29,6 +29,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
+	"github.com/aws/amazon-ecs-agent/agent/config"
 	"github.com/aws/amazon-ecs-agent/agent/config/ipcompatibility"
 	mock_factory "github.com/aws/amazon-ecs-agent/agent/s3/factory/mocks"
 	mock_s3 "github.com/aws/amazon-ecs-agent/agent/s3/mocks/s3manager"
@@ -483,14 +484,17 @@ func TestInitializeFirelensResource(t *testing.T) {
 	_, _, mockCredentialsManager, _, _, done := setup(t)
 	defer done()
 
+	testConfig := &config.Config{InstanceIPCompatibility: testIPCompatibility}
+
 	firelensResource := newMockFirelensResource(FirelensConfigTypeFluentd, bridgeNetworkMode, testFluentdOptions, nil, nil,
 		nil, testContainerMemoryLimit, testIPCompatibility)
-	firelensResource.Initialize(&taskresource.ResourceFields{
-		ResourceFieldsCommon: &taskresource.ResourceFieldsCommon{
-			CredentialsManager: mockCredentialsManager,
-			IPCompatibility:    testIPCompatibility,
-		},
-	}, status.TaskRunning, status.TaskRunning)
+	firelensResource.Initialize(
+		testConfig,
+		&taskresource.ResourceFields{
+			ResourceFieldsCommon: &taskresource.ResourceFieldsCommon{
+				CredentialsManager: mockCredentialsManager,
+			},
+		}, status.TaskRunning, status.TaskRunning)
 
 	assert.NotNil(t, firelensResource.statusToTransitions)
 	assert.Equal(t, 1, len(firelensResource.statusToTransitions))

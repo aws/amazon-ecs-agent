@@ -25,6 +25,7 @@ import (
 	"testing"
 
 	mock_asm_factory "github.com/aws/amazon-ecs-agent/agent/asm/factory/mocks"
+	"github.com/aws/amazon-ecs-agent/agent/config"
 	"github.com/aws/amazon-ecs-agent/agent/config/ipcompatibility"
 	mock_s3_factory "github.com/aws/amazon-ecs-agent/agent/s3/factory/mocks"
 	mock_s3 "github.com/aws/amazon-ecs-agent/agent/s3/mocks"
@@ -47,7 +48,9 @@ const (
 	taskARN = "arn:aws:ecs:us-west-2:123456789012:task/12345-678901234-56789"
 )
 
-var testIPCompatibility = ipcompatibility.NewIPCompatibility(true, true)
+var testConfig = &config.Config{
+	InstanceIPCompatibility: ipcompatibility.NewIPCompatibility(true, true),
+}
 
 func TestClearCredentialSpecDataHappyPath(t *testing.T) {
 	ctrl := gomock.NewController(t)
@@ -90,22 +93,24 @@ func TestInitialize(t *testing.T) {
 			desiredStatusUnsafe: resourcestatus.ResourceCreated,
 		},
 	}
-	credspecRes.Initialize(&taskresource.ResourceFields{
-		ResourceFieldsCommon: &taskresource.ResourceFieldsCommon{
-			SSMClientCreator:   ssmClientCreator,
-			S3ClientCreator:    s3ClientCreator,
-			ASMClientCreator:   asmClientCreator,
-			CredentialsManager: credentialsManager,
-			IPCompatibility:    testIPCompatibility,
-		},
-	}, apitaskstatus.TaskStatusNone, apitaskstatus.TaskRunning)
+
+	credspecRes.Initialize(
+		testConfig,
+		&taskresource.ResourceFields{
+			ResourceFieldsCommon: &taskresource.ResourceFieldsCommon{
+				SSMClientCreator:   ssmClientCreator,
+				S3ClientCreator:    s3ClientCreator,
+				ASMClientCreator:   asmClientCreator,
+				CredentialsManager: credentialsManager,
+			},
+		}, apitaskstatus.TaskStatusNone, apitaskstatus.TaskRunning)
 
 	assert.NotNil(t, credspecRes.credentialsManager)
 	assert.NotNil(t, credspecRes.ssmClientCreator)
 	assert.NotNil(t, credspecRes.s3ClientCreator)
 	assert.NotNil(t, credspecRes.secretsmanagerClientCreator)
 	assert.NotNil(t, credspecRes.resourceStatusToTransitionFunction)
-	assert.Equal(t, testIPCompatibility, credspecRes.ipCompatibility)
+	assert.Equal(t, testConfig.InstanceIPCompatibility, credspecRes.ipCompatibility)
 }
 
 func TestHandleSSMCredentialspecFile(t *testing.T) {
@@ -139,12 +144,14 @@ func TestHandleSSMCredentialspecFile(t *testing.T) {
 		ServiceAccountInfoMap: map[string]ServiceAccountInfo{},
 	}
 
-	cs.Initialize(&taskresource.ResourceFields{
-		ResourceFieldsCommon: &taskresource.ResourceFieldsCommon{
-			SSMClientCreator:   ssmClientCreator,
-			CredentialsManager: credentialsManager,
-		},
-	}, apitaskstatus.TaskStatusNone, apitaskstatus.TaskRunning)
+	cs.Initialize(
+		testConfig,
+		&taskresource.ResourceFields{
+			ResourceFieldsCommon: &taskresource.ResourceFieldsCommon{
+				SSMClientCreator:   ssmClientCreator,
+				CredentialsManager: credentialsManager,
+			},
+		}, apitaskstatus.TaskStatusNone, apitaskstatus.TaskRunning)
 
 	testData := "{\"CmsPlugins\":[\"ActiveDirectory\"],\"DomainJoinConfig\":{\"Sid\":\"S-1-5-21-4217655605-3681839426-3493040985\",\"MachineAccountName\":\"WebApp01\",\"Guid\":\"af602f85-d754-4eea-9fa8-fd76810485f1\",\"DnsTreeName\":\"contoso.com\",\"DnsName\":\"contoso.com\",\"NetBiosName\":\"contoso\"},\"ActiveDirectoryConfig\":{\"GroupManagedServiceAccounts\":[{\"Name\":\"WebApp01\",\"Scope\":\"contoso.com\"},{\"Name\":\"WebApp01\",\"Scope\":\"contoso\"}]}}"
 	ssmClientOutput := &ssm.GetParametersOutput{
@@ -212,12 +219,14 @@ func TestHandleSSMDomainlessCredentialspecFile(t *testing.T) {
 		ServiceAccountInfoMap: map[string]ServiceAccountInfo{},
 	}
 
-	cs.Initialize(&taskresource.ResourceFields{
-		ResourceFieldsCommon: &taskresource.ResourceFieldsCommon{
-			SSMClientCreator:   ssmClientCreator,
-			CredentialsManager: credentialsManager,
-		},
-	}, apitaskstatus.TaskStatusNone, apitaskstatus.TaskRunning)
+	cs.Initialize(
+		testConfig,
+		&taskresource.ResourceFields{
+			ResourceFieldsCommon: &taskresource.ResourceFieldsCommon{
+				SSMClientCreator:   ssmClientCreator,
+				CredentialsManager: credentialsManager,
+			},
+		}, apitaskstatus.TaskStatusNone, apitaskstatus.TaskRunning)
 
 	testData := "{ \"CmsPlugins\": [ \"ActiveDirectory\" ], \"DomainJoinConfig\": { \"Sid\": \"S-1-5-21-4066351383-705263209-1606769140\", \"MachineAccountName\": \"WebApp01\", \"Guid\": \"ac822f13-583e-49f7-aa7b-284f9a8c97b6\", \"DnsTreeName\": \"contoso.com\", \"DnsName\": \"contoso.com\", \"NetBiosName\": \"contoso\" }, \"ActiveDirectoryConfig\": { \"GroupManagedServiceAccounts\": [ { \"Name\": \"WebApp01\", \"Scope\": \"contoso.com\" }, { \"Name\": \"WebApp01\", \"Scope\": \"contoso\" } ], \"HostAccountConfig\": { \"PortableCcgVersion\": \"1\", \"PluginGUID\": \"{859E1386-BDB4-49E8-85C7-3070B13920E1}\", \"PluginInput\": {\"CredentialArn\": \"arn:aws:secretsmanager:us-west-2:123456789:secret:gMSAUserSecret-PwmPaO\"} } }}"
 	ssmClientOutput := &ssm.GetParametersOutput{
@@ -311,12 +320,15 @@ func TestHandleSSMCredentialspecFileGetSSMParamErr(t *testing.T) {
 		},
 		ServiceAccountInfoMap: map[string]ServiceAccountInfo{},
 	}
-	cs.Initialize(&taskresource.ResourceFields{
-		ResourceFieldsCommon: &taskresource.ResourceFieldsCommon{
-			SSMClientCreator:   ssmClientCreator,
-			CredentialsManager: credentialsManager,
-		},
-	}, apitaskstatus.TaskStatusNone, apitaskstatus.TaskRunning)
+
+	cs.Initialize(
+		testConfig,
+		&taskresource.ResourceFields{
+			ResourceFieldsCommon: &taskresource.ResourceFieldsCommon{
+				SSMClientCreator:   ssmClientCreator,
+				CredentialsManager: credentialsManager,
+			},
+		}, apitaskstatus.TaskStatusNone, apitaskstatus.TaskRunning)
 
 	gomock.InOrder(
 		ssmClientCreator.EXPECT().NewSSMClient(gomock.Any(), gomock.Any()).Return(mockSSMClient),
@@ -365,13 +377,15 @@ func TestHandleS3CredentialSpecFileGetS3SecretValue(t *testing.T) {
 		},
 		ServiceAccountInfoMap: map[string]ServiceAccountInfo{},
 	}
-	cs.Initialize(&taskresource.ResourceFields{
-		ResourceFieldsCommon: &taskresource.ResourceFieldsCommon{
-			CredentialsManager: credentialsManager,
-			S3ClientCreator:    s3ClientCreator,
-			IPCompatibility:    testIPCompatibility,
-		},
-	}, apitaskstatus.TaskStatusNone, apitaskstatus.TaskRunning)
+
+	cs.Initialize(
+		testConfig,
+		&taskresource.ResourceFields{
+			ResourceFieldsCommon: &taskresource.ResourceFieldsCommon{
+				CredentialsManager: credentialsManager,
+				S3ClientCreator:    s3ClientCreator,
+			},
+		}, apitaskstatus.TaskStatusNone, apitaskstatus.TaskRunning)
 
 	expectedKerberosTicketPath := "/var/credentials-fetcher/krbdir/123456/webapp01"
 	testData := "{\"CmsPlugins\":[\"ActiveDirectory\"],\"DomainJoinConfig\":{\"Sid\":\"S-1-5-21-4217655605-3681839426-3493040985\",\"MachineAccountName\":\"WebApp01\",\"Guid\":\"af602f85-d754-4eea-9fa8-fd76810485f1\",\"DnsTreeName\":\"contoso.com\",\"DnsName\":\"contoso.com\",\"NetBiosName\":\"contoso\"},\"ActiveDirectoryConfig\":{\"GroupManagedServiceAccounts\":[{\"Name\":\"WebApp01\",\"Scope\":\"contoso.com\"},{\"Name\":\"WebApp01\",\"Scope\":\"contoso\"}]}}"
@@ -380,7 +394,7 @@ func TestHandleS3CredentialSpecFileGetS3SecretValue(t *testing.T) {
 		Body: io.NopCloser(strings.NewReader(testData)),
 	}
 	gomock.InOrder(
-		s3ClientCreator.EXPECT().NewS3Client(gomock.Any(), gomock.Any(), gomock.Any(), testIPCompatibility).Return(mockS3Client, nil),
+		s3ClientCreator.EXPECT().NewS3Client(gomock.Any(), gomock.Any(), gomock.Any(), testConfig.InstanceIPCompatibility).Return(mockS3Client, nil),
 		mockS3Client.EXPECT().GetObject(gomock.Any()).Return(s3GetObjectResponse, nil).Times(1),
 	)
 
@@ -431,13 +445,15 @@ func TestHandleS3DomainlessCredentialSpecFileGetS3SecretValue(t *testing.T) {
 		ServiceAccountInfoMap: map[string]ServiceAccountInfo{},
 		isDomainlessGmsa:      true,
 	}
-	cs.Initialize(&taskresource.ResourceFields{
-		ResourceFieldsCommon: &taskresource.ResourceFieldsCommon{
-			CredentialsManager: credentialsManager,
-			S3ClientCreator:    s3ClientCreator,
-			IPCompatibility:    testIPCompatibility,
-		},
-	}, apitaskstatus.TaskStatusNone, apitaskstatus.TaskRunning)
+
+	cs.Initialize(
+		testConfig,
+		&taskresource.ResourceFields{
+			ResourceFieldsCommon: &taskresource.ResourceFieldsCommon{
+				CredentialsManager: credentialsManager,
+				S3ClientCreator:    s3ClientCreator,
+			},
+		}, apitaskstatus.TaskStatusNone, apitaskstatus.TaskRunning)
 
 	expectedKerberosTicketPath := "/var/credentials-fetcher/krbdir/123456/webapp01"
 	testData := "{\"CmsPlugins\":[\"ActiveDirectory\"],\"DomainJoinConfig\":{\"Sid\":\"S-1-5-21-4066351383-705263209-1606769140\",\"MachineAccountName\":\"WebApp01\",\"Guid\":\"ac822f13-583e-49f7-aa7b-284f9a8c97b6\",\"DnsTreeName\":\"contoso.com\",\"DnsName\":\"contoso.com\",\"NetBiosName\":\"contoso\"},\"ActiveDirectoryConfig\":{\"GroupManagedServiceAccounts\":[{\"Name\":\"WebApp01\",\"Scope\":\"contoso.com\"},{\"Name\":\"WebApp01\",\"Scope\":\"contoso\"}],\"HostAccountConfig\":{\"PortableCcgVersion\":\"1\",\"PluginGUID\":\"{859E1386-BDB4-49E8-85C7-3070B13920E1}\",\"PluginInput\":{\"CredentialArn\":\"arn:aws:secretsmanager:us-west-2:123456789:secret:gMSAUserSecret-PwmPaO\"}}}}"
@@ -446,7 +462,7 @@ func TestHandleS3DomainlessCredentialSpecFileGetS3SecretValue(t *testing.T) {
 		Body: io.NopCloser(strings.NewReader(testData)),
 	}
 	gomock.InOrder(
-		s3ClientCreator.EXPECT().NewS3Client(gomock.Any(), gomock.Any(), gomock.Any(), testIPCompatibility).Return(mockS3Client, nil),
+		s3ClientCreator.EXPECT().NewS3Client(gomock.Any(), gomock.Any(), gomock.Any(), testConfig.InstanceIPCompatibility).Return(mockS3Client, nil),
 		mockS3Client.EXPECT().GetObject(gomock.Any()).Return(s3GetObjectResponse, nil).Times(1),
 	)
 
@@ -500,16 +516,18 @@ func TestHandleS3CredentialSpecFileGetS3SecretValueErr(t *testing.T) {
 		},
 		ServiceAccountInfoMap: map[string]ServiceAccountInfo{},
 	}
-	cs.Initialize(&taskresource.ResourceFields{
-		ResourceFieldsCommon: &taskresource.ResourceFieldsCommon{
-			CredentialsManager: credentialsManager,
-			S3ClientCreator:    s3ClientCreator,
-			IPCompatibility:    testIPCompatibility,
-		},
-	}, apitaskstatus.TaskStatusNone, apitaskstatus.TaskRunning)
+
+	cs.Initialize(
+		testConfig,
+		&taskresource.ResourceFields{
+			ResourceFieldsCommon: &taskresource.ResourceFieldsCommon{
+				CredentialsManager: credentialsManager,
+				S3ClientCreator:    s3ClientCreator,
+			},
+		}, apitaskstatus.TaskStatusNone, apitaskstatus.TaskRunning)
 
 	gomock.InOrder(
-		s3ClientCreator.EXPECT().NewS3Client(gomock.Any(), gomock.Any(), gomock.Any(), testIPCompatibility).Return(mockS3Client, nil),
+		s3ClientCreator.EXPECT().NewS3Client(gomock.Any(), gomock.Any(), gomock.Any(), testConfig.InstanceIPCompatibility).Return(mockS3Client, nil),
 		mockS3Client.EXPECT().GetObject(gomock.Any()).Return(nil, errors.New("test-error")).Times(1),
 	)
 
@@ -596,11 +614,14 @@ func TestHandleCredentialSpecFile(t *testing.T) {
 		},
 		ServiceAccountInfoMap: map[string]ServiceAccountInfo{},
 	}
-	cs.Initialize(&taskresource.ResourceFields{
-		ResourceFieldsCommon: &taskresource.ResourceFieldsCommon{
-			CredentialsManager: credentialsManager,
-		},
-	}, apitaskstatus.TaskStatusNone, apitaskstatus.TaskRunning)
+
+	cs.Initialize(
+		testConfig,
+		&taskresource.ResourceFields{
+			ResourceFieldsCommon: &taskresource.ResourceFieldsCommon{
+				CredentialsManager: credentialsManager,
+			},
+		}, apitaskstatus.TaskStatusNone, apitaskstatus.TaskRunning)
 
 	var wg sync.WaitGroup
 	wg.Add(1)
@@ -672,11 +693,14 @@ func TestHandleDomainlessCredentialSpecFile(t *testing.T) {
 		ServiceAccountInfoMap: map[string]ServiceAccountInfo{},
 		isDomainlessGmsa:      true,
 	}
-	cs.Initialize(&taskresource.ResourceFields{
-		ResourceFieldsCommon: &taskresource.ResourceFieldsCommon{
-			CredentialsManager: credentialsManager,
-		},
-	}, apitaskstatus.TaskStatusNone, apitaskstatus.TaskRunning)
+
+	cs.Initialize(
+		testConfig,
+		&taskresource.ResourceFields{
+			ResourceFieldsCommon: &taskresource.ResourceFieldsCommon{
+				CredentialsManager: credentialsManager,
+			},
+		}, apitaskstatus.TaskStatusNone, apitaskstatus.TaskRunning)
 
 	var wg sync.WaitGroup
 	wg.Add(1)
@@ -723,11 +747,14 @@ func TestHandleCredentialSpecFileErr(t *testing.T) {
 		},
 		ServiceAccountInfoMap: map[string]ServiceAccountInfo{},
 	}
-	cs.Initialize(&taskresource.ResourceFields{
-		ResourceFieldsCommon: &taskresource.ResourceFieldsCommon{
-			CredentialsManager: credentialsManager,
-		},
-	}, apitaskstatus.TaskStatusNone, apitaskstatus.TaskRunning)
+
+	cs.Initialize(
+		testConfig,
+		&taskresource.ResourceFields{
+			ResourceFieldsCommon: &taskresource.ResourceFieldsCommon{
+				CredentialsManager: credentialsManager,
+			},
+		}, apitaskstatus.TaskStatusNone, apitaskstatus.TaskRunning)
 
 	var wg sync.WaitGroup
 	wg.Add(1)
@@ -902,12 +929,14 @@ func TestSkipCredentialFetcherInvocation(t *testing.T) {
 		ServiceAccountInfoMap: map[string]ServiceAccountInfo{},
 	}
 
-	cs.Initialize(&taskresource.ResourceFields{
-		ResourceFieldsCommon: &taskresource.ResourceFieldsCommon{
-			SSMClientCreator:   ssmClientCreator,
-			CredentialsManager: credentialsManager,
-		},
-	}, apitaskstatus.TaskStatusNone, apitaskstatus.TaskRunning)
+	cs.Initialize(
+		testConfig,
+		&taskresource.ResourceFields{
+			ResourceFieldsCommon: &taskresource.ResourceFieldsCommon{
+				SSMClientCreator:   ssmClientCreator,
+				CredentialsManager: credentialsManager,
+			},
+		}, apitaskstatus.TaskStatusNone, apitaskstatus.TaskRunning)
 
 	testData := "{\"CmsPlugins\":[\"ActiveDirectory\"],\"DomainJoinConfig\":{\"Sid\":\"S-1-5-21-4217655605-3681839426-3493040985\",\"MachineAccountName\":\"WebApp01\",\"Guid\":\"af602f85-d754-4eea-9fa8-fd76810485f1\",\"DnsTreeName\":\"contoso.com\",\"DnsName\":\"contoso.com\",\"NetBiosName\":\"contoso\"},\"ActiveDirectoryConfig\":{\"GroupManagedServiceAccounts\":[{\"Name\":\"WebApp01\",\"Scope\":\"contoso.com\"},{\"Name\":\"WebApp01\",\"Scope\":\"contoso\"}]}}"
 	ssmClientOutput := &ssm.GetParametersOutput{

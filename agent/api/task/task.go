@@ -3312,13 +3312,13 @@ func (task *Task) getASMSecretsResource() ([]taskresource.TaskResource, bool) {
 // InitializeResources initializes the required field in the task on agent restart
 // Some of the fields in task isn't saved in the agent state file, agent needs
 // to initialize these fields before processing the task, eg: docker client in resource
-func (task *Task) InitializeResources(resourceFields *taskresource.ResourceFields) {
+func (task *Task) InitializeResources(config *config.Config, resourceFields *taskresource.ResourceFields) {
 	task.lock.Lock()
 	defer task.lock.Unlock()
 
 	for _, resources := range task.ResourcesMapUnsafe {
 		for _, resource := range resources {
-			resource.Initialize(resourceFields, task.KnownStatusUnsafe, task.DesiredStatusUnsafe)
+			resource.Initialize(config, resourceFields, task.KnownStatusUnsafe, task.DesiredStatusUnsafe)
 		}
 	}
 }
