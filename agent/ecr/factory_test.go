@@ -34,5 +34,5 @@ func TestGetClientConfigEndpointOverride(t *testing.T) {
 	cfg, err := getClientConfig(nil, testAuthData)
 
 	assert.Nil(t, err)
-	assert.Equal(t, httpsPrefix+testAuthData.EndpointOverride, *cfg.BaseEndpoint)
+	assert.Equal(t, "https://"+testAuthData.EndpointOverride, *cfg.BaseEndpoint)
 }

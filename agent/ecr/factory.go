@@ -18,7 +18,6 @@ import (
 	"context"
 	"fmt"
 	"net/http"
-	"strings"
 	"time"
 
 	apicontainer "github.com/aws/amazon-ecs-agent/agent/api/container"
@@ -27,14 +26,13 @@ import (
 	"github.com/aws/amazon-ecs-agent/ecs-agent/credentials"
 	"github.com/aws/amazon-ecs-agent/ecs-agent/credentials/providers"
 	"github.com/aws/amazon-ecs-agent/ecs-agent/httpclient"
+	"github.com/aws/amazon-ecs-agent/ecs-agent/utils"
 
 	"github.com/aws/aws-sdk-go-v2/aws"
 	awsconfig "github.com/aws/aws-sdk-go-v2/config"
 	awscreds "github.com/aws/aws-sdk-go-v2/credentials"
 	ecrservice "github.com/aws/aws-sdk-go-v2/service/ecr"
 )
-
-const httpsPrefix = "https://"
 
 // ECRFactory defines the interface to produce an ECR SDK client
 type ECRFactory interface {
@@ -74,11 +72,7 @@ func getClientConfig(httpClient *http.Client, authData *apicontainer.ECRAuthData
 	}
 
 	if authData.EndpointOverride != "" {
-		endpoint := authData.EndpointOverride
-		if !strings.HasPrefix(endpoint, httpsPrefix) {
-			endpoint = httpsPrefix + endpoint
-		}
-		opts = append(opts, awsconfig.WithBaseEndpoint(endpoint))
+		opts = append(opts, awsconfig.WithBaseEndpoint(utils.AddScheme(authData.EndpointOverride)))
 	}
 
 	var credentialsOpt awsconfig.LoadOptionsFunc

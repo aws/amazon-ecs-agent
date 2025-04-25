@@ -146,3 +146,36 @@ func testMaxNumFloat(t *testing.T) {
 	require.Equal(t, largerVal, MaxNum(largerVal, smallerVal))
 	require.Equal(t, largerVal, MaxNum(largerVal, largerVal))
 }
+
+func TestAddScheme(t *testing.T) {
+	tests := []struct {
+		name     string
+		input    string
+		expected string
+	}{
+		{
+			name:     "bare domain",
+			input:    "example.com",
+			expected: "https://example.com",
+		},
+		{
+			name:     "already has https",
+			input:    "https://example.com",
+			expected: "https://example.com",
+		},
+		{
+			name:     "already has http",
+			input:    "http://example.com",
+			expected: "http://example.com",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			endpointReturned := AddScheme(tt.input)
+			if endpointReturned != tt.expected {
+				t.Errorf("AddScheme() = %v, want %v", endpointReturned, tt.expected)
+			}
+		})
+	}
+}

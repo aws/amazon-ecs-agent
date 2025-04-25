@@ -20,6 +20,8 @@ import (
 
 	"github.com/aws/amazon-ecs-agent/ecs-agent/api/ecs"
 	"github.com/aws/amazon-ecs-agent/ecs-agent/credentials"
+	ecsservice "github.com/aws/aws-sdk-go-v2/service/ecs"
+
 	"github.com/golang/mock/gomock"
 	"github.com/stretchr/testify/assert"
 )
@@ -53,6 +55,12 @@ func TestGetECSClientHappyCase(t *testing.T) {
 
 	ret, err := factory.NewTaskProtectionClient(testIAMRoleCredentials)
 	assert.NoError(t, err)
+
+	clientEndpoint := ret.(*ecsservice.Client).Options().BaseEndpoint
+	assert.NotNil(t, clientEndpoint)
+
+	assert.Equal(t, "https://"+testECSEndpoint, *clientEndpoint)
+
 	_, ok := ret.(ecs.ECSTaskProtectionSDK)
 
 	// Assert response

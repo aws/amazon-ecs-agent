@@ -153,7 +153,7 @@ func newECSConfig(
 		return nil
 	}
 	if configAccessor.APIEndpoint() != "" {
-		endpointFn = awsconfig.WithBaseEndpoint(configAccessor.APIEndpoint())
+		endpointFn = awsconfig.WithBaseEndpoint(utils.AddScheme(configAccessor.APIEndpoint()))
 	} else if isFIPSEnabled {
 		endpointFn = awsconfig.WithUseFIPSEndpoint(aws.FIPSEndpointStateEnabled)
 	}

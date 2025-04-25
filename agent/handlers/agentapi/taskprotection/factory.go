@@ -21,6 +21,7 @@ import (
 	ecsclient "github.com/aws/amazon-ecs-agent/ecs-agent/api/ecs/client"
 	"github.com/aws/amazon-ecs-agent/ecs-agent/credentials"
 	"github.com/aws/amazon-ecs-agent/ecs-agent/httpclient"
+	"github.com/aws/amazon-ecs-agent/ecs-agent/utils"
 	awsconfig "github.com/aws/aws-sdk-go-v2/config"
 	awscreds "github.com/aws/aws-sdk-go-v2/credentials"
 	"github.com/aws/aws-sdk-go-v2/service/ecs"
@@ -56,7 +57,7 @@ func (factory TaskProtectionClientFactory) NewTaskProtectionClient(
 				config.OSType,
 			),
 		),
-		awsconfig.WithBaseEndpoint(factory.Endpoint),
+		awsconfig.WithBaseEndpoint(utils.AddScheme(factory.Endpoint)),
 	)
 
 	if err != nil {
