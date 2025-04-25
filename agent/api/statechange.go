@@ -30,8 +30,8 @@ import (
 	ni "github.com/aws/amazon-ecs-agent/ecs-agent/netlib/model/networkinterface"
 	"github.com/aws/amazon-ecs-agent/ecs-agent/utils"
 
+	"github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/aws/aws-sdk-go-v2/service/ecs/types"
-	"github.com/aws/aws-sdk-go/aws"
 	"github.com/docker/go-connections/nat"
 	"github.com/pkg/errors"
 )
@@ -322,11 +322,11 @@ func (c *ContainerStateChange) ToECSAgent() (*ecs.ContainerStateChange, error) {
 
 	return &ecs.ContainerStateChange{
 		TaskArn:         c.TaskArn,
-		RuntimeID:       aws.StringValue(pl.RuntimeId),
+		RuntimeID:       aws.ToString(pl.RuntimeId),
 		ContainerName:   c.ContainerName,
 		Status:          c.Status,
-		ImageDigest:     aws.StringValue(pl.ImageDigest),
-		Reason:          aws.StringValue(pl.Reason),
+		ImageDigest:     aws.ToString(pl.ImageDigest),
+		Reason:          aws.ToString(pl.Reason),
 		ExitCode:        utils.Int32PtrToIntPtr(pl.ExitCode),
 		NetworkBindings: pl.NetworkBindings,
 		MetadataGetter:  newContainerMetadataGetter(c.Container),
@@ -534,7 +534,7 @@ func buildContainerStateChangePayload(change ContainerStateChange) (*types.Conta
 	statechange.Status = aws.String(stat.BackendStatusString())
 
 	if change.ExitCode != nil {
-		exitCode := int32(aws.IntValue(change.ExitCode))
+		exitCode := int32(aws.ToInt(change.ExitCode))
 		statechange.ExitCode = aws.Int32(exitCode)
 	}
 
