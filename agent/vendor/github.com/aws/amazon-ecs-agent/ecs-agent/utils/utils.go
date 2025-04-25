@@ -14,11 +14,16 @@ package utils
 
 import (
 	"reflect"
+	"regexp"
 	"strconv"
 
 	"github.com/aws/aws-sdk-go-v2/aws"
 	"golang.org/x/exp/constraints"
 )
+
+const httpsPrefix = "https://"
+
+var schemeRegex = regexp.MustCompile(`^(http|https)://`)
 
 func ZeroOrNil(obj interface{}) bool {
 	value := reflect.ValueOf(obj)
@@ -75,4 +80,18 @@ func MaxNum[T constraints.Integer | constraints.Float](a, b T) T {
 		return a
 	}
 	return b
+}
+
+// If the URL doesn't start with "http://" or "https://",
+// prepends "https://" to the URL.
+// Empty strings are returned as-is without modification
+func AddScheme(endpoint string) string {
+	if endpoint == "" {
+		return endpoint
+	}
+
+	if schemeRegex.MatchString(endpoint) {
+		return endpoint
+	}
+	return httpsPrefix + endpoint
 }

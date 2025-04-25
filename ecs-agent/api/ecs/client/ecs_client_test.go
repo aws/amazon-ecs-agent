@@ -52,7 +52,7 @@ const (
 	iid                  = "instanceIdentityDocument"
 	iidSignature         = "signature"
 	registrationToken    = "clientToken"
-	endpoint             = "https://some-endpoint.com"
+	endpoint             = "some-endpoint.com"
 	region               = "us-east-1"
 	availabilityZone     = "us-west-2b"
 	zoneId               = "use1-az1"
@@ -1542,6 +1542,26 @@ func TestSubmitAttachmentStateChangeWithNonRetriableError(t *testing.T) {
 	assert.True(t, sascCustomRetryBackoffCalled)
 	assert.Error(t, err,
 		"Received no error submitting attachment state change but expected to receive non-retriable error")
+}
+
+func TestAddDefaultSchemeToEndpoint(t *testing.T) {
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+
+	schemelessEndpoint := "schemeless-endpoint.com"
+	cfgAccessorOverrideFunc := func(cfgAccessor *mock_config.MockAgentConfigAccessor) {
+		cfgAccessor.EXPECT().APIEndpoint().Return(schemelessEndpoint).AnyTimes()
+	}
+	cfgAccessor := newMockConfigAccessor(ctrl, cfgAccessorOverrideFunc)
+	assert.NotEmpty(t, cfgAccessor.APIEndpoint())
+
+	client, err := NewECSClient(aws.NewCredentialsCache(aws.AnonymousCredentials{}), cfgAccessor, ec2.NewBlackholeEC2MetadataClient(),
+		agentVer)
+	assert.NoError(t, err)
+
+	clientEndpoint := client.(*ecsClient).standardClient.(*ecsservice.Client).Options().BaseEndpoint
+	assert.NotNil(t, clientEndpoint)
+	assert.Equal(t, "https://"+schemelessEndpoint, *clientEndpoint)
 }
 
 func TestFIPSEndpointStateWhenEndpointGiven(t *testing.T) {

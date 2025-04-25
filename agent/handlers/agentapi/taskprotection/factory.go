@@ -21,6 +21,7 @@ import (
 	ecsclient "github.com/aws/amazon-ecs-agent/ecs-agent/api/ecs/client"
 	"github.com/aws/amazon-ecs-agent/ecs-agent/credentials"
 	"github.com/aws/amazon-ecs-agent/ecs-agent/httpclient"
+	"github.com/aws/amazon-ecs-agent/ecs-agent/utils"
 	awsconfig "github.com/aws/aws-sdk-go-v2/config"
 	awscreds "github.com/aws/aws-sdk-go-v2/credentials"
 	"github.com/aws/aws-sdk-go-v2/service/ecs"
@@ -38,8 +39,8 @@ func (factory TaskProtectionClientFactory) NewTaskProtectionClient(
 	taskRoleCredential credentials.TaskIAMRoleCredentials,
 ) (ecsapi.ECSTaskProtectionSDK, error) {
 	taskCredential := taskRoleCredential.GetIAMRoleCredentials()
-	cfg, err := awsconfig.LoadDefaultConfig(
-		context.TODO(),
+
+	opts := []func(*awsconfig.LoadOptions) error{
 		awsconfig.WithCredentialsProvider(
 			awscreds.NewStaticCredentialsProvider(
 				taskCredential.AccessKeyID,
@@ -56,8 +57,13 @@ func (factory TaskProtectionClientFactory) NewTaskProtectionClient(
 				config.OSType,
 			),
 		),
-		awsconfig.WithBaseEndpoint(factory.Endpoint),
-	)
+	}
+
+	if factory.Endpoint != "" {
+		opts = append(opts, awsconfig.WithBaseEndpoint(utils.AddScheme(factory.Endpoint)))
+	}
+
+	cfg, err := awsconfig.LoadDefaultConfig(context.TODO(), opts...)
 
 	if err != nil {
 		return nil, err
