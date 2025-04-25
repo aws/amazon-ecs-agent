@@ -39,8 +39,8 @@ func (factory TaskProtectionClientFactory) NewTaskProtectionClient(
 	taskRoleCredential credentials.TaskIAMRoleCredentials,
 ) (ecsapi.ECSTaskProtectionSDK, error) {
 	taskCredential := taskRoleCredential.GetIAMRoleCredentials()
-	cfg, err := awsconfig.LoadDefaultConfig(
-		context.TODO(),
+
+	opts := []func(*awsconfig.LoadOptions) error{
 		awsconfig.WithCredentialsProvider(
 			awscreds.NewStaticCredentialsProvider(
 				taskCredential.AccessKeyID,
@@ -57,8 +57,13 @@ func (factory TaskProtectionClientFactory) NewTaskProtectionClient(
 				config.OSType,
 			),
 		),
-		awsconfig.WithBaseEndpoint(utils.AddScheme(factory.Endpoint)),
-	)
+	}
+
+	if factory.Endpoint != "" {
+		opts = append(opts, awsconfig.WithBaseEndpoint(utils.AddScheme(factory.Endpoint)))
+	}
+
+	cfg, err := awsconfig.LoadDefaultConfig(context.TODO(), opts...)
 
 	if err != nil {
 		return nil, err

@@ -84,7 +84,12 @@ func MaxNum[T constraints.Integer | constraints.Float](a, b T) T {
 
 // If the URL doesn't start with "http://" or "https://",
 // prepends "https://" to the URL.
+// Empty strings are returned as-is without modification
 func AddScheme(endpoint string) string {
+	if endpoint == "" {
+		return endpoint
+	}
+
 	if schemeRegex.MatchString(endpoint) {
 		return endpoint
 	}

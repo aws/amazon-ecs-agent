@@ -154,6 +154,11 @@ func TestAddScheme(t *testing.T) {
 		expected string
 	}{
 		{
+			name:     "empty string",
+			input:    "",
+			expected: "",
+		},
+		{
 			name:     "bare domain",
 			input:    "example.com",
 			expected: "https://example.com",
