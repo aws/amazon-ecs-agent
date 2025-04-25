@@ -19,6 +19,7 @@ import (
 	"io"
 	"os"
 	"runtime"
+	"strconv"
 	"strings"
 
 	"github.com/aws/amazon-ecs-agent/ecs-init/config/awsrulesfn"
@@ -108,6 +109,10 @@ const (
 	// on AppArmor-enabled platforms (such as Ubuntu and Debian).
 	ECSAgentAppArmorProfileNameEnvVar  = "ECS_AGENT_APPARMOR_PROFILE"
 	ECSAgentAppArmorDefaultProfileName = "ecs-agent-default"
+
+	// ECSAgentPIDNamespaceHostEnvVar is the environment variable that, when set to true,
+	// configures the agent container to share the host's PID namespace (--pid=host)
+	ECSAgentPIDNamespaceHostEnvVar = "ECS_AGENT_PID_NAMESPACE_HOST"
 )
 
 // OsStat is useful for mocking in unit tests
@@ -363,4 +368,14 @@ func agentArtifactName(version string, arch string) (string, error) {
 		return "", errors.Errorf("unknown architecture %q", arch)
 	}
 	return fmt.Sprintf("ecs-agent%s-%s", interpose, version), nil
+}
+
+// IsECSAgentPIDNamespaceHostEnabled returns whether the ECS_AGENT_PID_NAMESPACE_HOST env variable is set to true
+func IsECSAgentPIDNamespaceHostEnabled() bool {
+	parsedBool, err := strconv.ParseBool(os.Getenv(ECSAgentPIDNamespaceHostEnvVar))
+	if err != nil {
+		seelog.Warnf("ECS_AGENT_PID_NAMESPACE_HOST env variable is not set to a valid boolean value, defaulting to false. Error: %v", err)
+		return false
+	}
+	return parsedBool
 }

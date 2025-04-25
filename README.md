@@ -267,6 +267,7 @@ Additionally, the following environment variable(s) can be used to configure the
 | `ECS_OFFHOST_INTROSPECTION_INTERFACE_NAME` | `eth0` | Primary network interface name to be used for blocking offhost agent introspection port access. By default, this value is `eth0` | `eth0` |
 | `ECS_AGENT_LABELS` | `{"test.label.1":"value1","test.label.2":"value2"}` | The labels to add to the ECS Agent container. | |
 | `ECS_AGENT_APPARMOR_PROFILE` | `unconfined` | Specifies the name of the AppArmor profile to run the ecs-agent container under. This only applies to AppArmor-enabled systems, such as Ubuntu, Debian, and SUSE. If unset, defaults to the profile written out by ecs-init (ecs-agent-default). | `ecs-agent-default` |
+| `ECS_AGENT_PID_NAMESPACE_HOST` | &lt;true &#124; false&gt; | By default, the ECS agent container runs with its own PID namespace. If ECS_AGENT_PID_NAMESPACE_HOST is set to true, ecs-init will start the ECS agent container with the host's PID namespace. This is particularly useful when running on SELinux-enforcing hosts with Docker's SELinux option enabled. | false |
 
 
 ### Persistence
