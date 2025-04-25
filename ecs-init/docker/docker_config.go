@@ -82,6 +82,11 @@ func createHostConfig(binds []string) *godocker.HostConfig {
 		hostConfig.Privileged = true
 	}
 
+	// Set the PID mode to host if ECS_AGENT_PID_NAMESPACE_HOST env variable is set to true
+	if config.IsECSAgentPIDNamespaceHostEnabled() {
+		hostConfig.PidMode = "host"
+	}
+
 	return hostConfig
 }
 

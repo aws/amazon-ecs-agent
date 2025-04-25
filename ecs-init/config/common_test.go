@@ -295,3 +295,9 @@ func TestHostCredentialsFetcherPathHostNotFound(t *testing.T) {
 	assert.True(t, ok)
 	assert.Equal(t, "/var/credentials-fetcher/socket/credentials_fetcher.sock", credentialsFetcherHost)
 }
+
+func TestAgentPIDNamespaceHost(t *testing.T) {
+	os.Setenv("ECS_AGENT_PID_NAMESPACE_HOST", "true")
+	defer os.Unsetenv("ECS_AGENT_PID_NAMESPACE_HOST")
+	assert.True(t, IsECSAgentPIDNamespaceHostEnabled())
+}
