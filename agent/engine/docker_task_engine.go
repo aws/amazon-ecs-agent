@@ -1948,11 +1948,11 @@ func (engine *DockerTaskEngine) createContainer(task *apitask.Task, container *a
 		}
 	}
 
-	// This is a short term solution only for specific regions
 	if hostConfig.LogConfig.Type == logDriverTypeAwslogs {
 		if engine.cfg.InstanceIPCompatibility.IsIPv6Only() {
 			engine.setAWSLogsDualStackEndpoint(task, container, hostConfig)
 		} else {
+			// This is a short term solution only for specific regions
 			region := engine.cfg.AWSRegion
 			if _, ok := unresolvedIsolatedRegions[region]; ok {
 				resolvedEndpoint, err := cloudwatchlogs.NewDefaultEndpointResolverV2().ResolveEndpoint(context.TODO(),
