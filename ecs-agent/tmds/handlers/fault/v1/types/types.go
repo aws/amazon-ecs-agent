@@ -21,7 +21,7 @@ import (
 
 	"github.com/aws/amazon-ecs-agent/ecs-agent/logger"
 	"github.com/aws/amazon-ecs-agent/ecs-agent/logger/field"
-	"github.com/aws/aws-sdk-go/aws"
+	"github.com/aws/aws-sdk-go-v2/aws"
 )
 
 const (
@@ -88,7 +88,7 @@ func (request *NetworkBlackholePortRequest) AddSourceToFilterIfNotAlready(source
 		request.SourcesToFilter = []*string{}
 	}
 	for _, src := range request.SourcesToFilter {
-		if aws.StringValue(src) == source {
+		if aws.ToString(src) == source {
 			return
 		}
 	}
@@ -203,7 +203,7 @@ func NewNetworkFaultInjectionErrorResponse(err string) NetworkFaultInjectionResp
 
 func validateNetworkFaultRequestSources(sources []*string, sourcesType string) error {
 	for _, element := range sources {
-		if err := validateNetworkFaultRequestSource(aws.StringValue(element), sourcesType); err != nil {
+		if err := validateNetworkFaultRequestSource(aws.ToString(element), sourcesType); err != nil {
 			return err
 		}
 	}

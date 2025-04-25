@@ -37,8 +37,8 @@ import (
 	"github.com/aws/amazon-ecs-agent/ecs-agent/tmds/utils/netconfig"
 	"github.com/aws/amazon-ecs-agent/ecs-agent/utils/execwrapper"
 
+	"github.com/aws/aws-sdk-go-v2/aws"
 	ecstypes "github.com/aws/aws-sdk-go-v2/service/ecs/types"
-	"github.com/aws/aws-sdk-go/aws"
 	"github.com/gorilla/mux"
 )
 
@@ -127,8 +127,8 @@ func (h *FaultHandler) StartNetworkBlackholePort() func(http.ResponseWriter, *ht
 			return
 		}
 
-		if aws.StringValue(request.TrafficType) == types.TrafficTypeEgress &&
-			aws.Uint16Value(request.Port) == tmds.PortForTasks {
+		if aws.ToString(request.TrafficType) == types.TrafficTypeEgress &&
+			aws.ToUint16(request.Port) == tmds.PortForTasks {
 			// Add TMDS IP to SouresToFilter so that access to TMDS is not blocked for the task
 			request.AddSourceToFilterIfNotAlready(tmds.IPForTasks)
 		}
@@ -154,15 +154,15 @@ func (h *FaultHandler) StartNetworkBlackholePort() func(http.ResponseWriter, *ht
 		networkMode := ecstypes.NetworkMode(taskMetadata.TaskNetworkConfig.NetworkMode)
 		taskArn := taskMetadata.TaskARN
 		stringToBeLogged := "Failed to start fault"
-		port := strconv.FormatUint(uint64(aws.Uint16Value(request.Port)), 10)
-		chainName := fmt.Sprintf("%s-%s-%s", aws.StringValue(request.TrafficType), aws.StringValue(request.Protocol), port)
+		port := strconv.FormatUint(uint64(aws.ToUint16(request.Port)), 10)
+		chainName := fmt.Sprintf("%s-%s-%s", aws.ToString(request.TrafficType), aws.ToString(request.Protocol), port)
 		insertTable := "INPUT"
-		if aws.StringValue(request.TrafficType) == "egress" {
+		if aws.ToString(request.TrafficType) == "egress" {
 			insertTable = "OUTPUT"
 		}
 
-		_, cmdErr := h.startNetworkBlackholePort(ctxWithTimeout, aws.StringValue(request.Protocol),
-			port, aws.StringValueSlice(request.SourcesToFilter), chainName,
+		_, cmdErr := h.startNetworkBlackholePort(ctxWithTimeout, aws.ToString(request.Protocol),
+			port, aws.ToStringSlice(request.SourcesToFilter), chainName,
 			networkMode, networkNSPath, insertTable, taskArn)
 		if err := ctxWithTimeout.Err(); errors.Is(err, context.DeadlineExceeded) {
 			statusCode = http.StatusInternalServerError
@@ -339,14 +339,14 @@ func (h *FaultHandler) StopNetworkBlackHolePort() func(http.ResponseWriter, *htt
 		networkMode := ecstypes.NetworkMode(taskMetadata.TaskNetworkConfig.NetworkMode)
 		taskArn := taskMetadata.TaskARN
 		stringToBeLogged := "Failed to stop fault"
-		port := strconv.FormatUint(uint64(aws.Uint16Value(request.Port)), 10)
-		chainName := fmt.Sprintf("%s-%s-%s", aws.StringValue(request.TrafficType), aws.StringValue(request.Protocol), port)
+		port := strconv.FormatUint(uint64(aws.ToUint16(request.Port)), 10)
+		chainName := fmt.Sprintf("%s-%s-%s", aws.ToString(request.TrafficType), aws.ToString(request.Protocol), port)
 		insertTable := "INPUT"
-		if aws.StringValue(request.TrafficType) == "egress" {
+		if aws.ToString(request.TrafficType) == "egress" {
 			insertTable = "OUTPUT"
 		}
 
-		_, cmdErr := h.stopNetworkBlackHolePort(ctxWithTimeout, aws.StringValue(request.Protocol), port, chainName,
+		_, cmdErr := h.stopNetworkBlackHolePort(ctxWithTimeout, aws.ToString(request.Protocol), port, chainName,
 			networkMode, networkNSPath, insertTable, taskArn)
 
 		if err := ctxWithTimeout.Err(); errors.Is(err, context.DeadlineExceeded) {
@@ -505,9 +505,9 @@ func (h *FaultHandler) CheckNetworkBlackHolePort() func(http.ResponseWriter, *ht
 		networkMode := ecstypes.NetworkMode(taskMetadata.TaskNetworkConfig.NetworkMode)
 		taskArn := taskMetadata.TaskARN
 		stringToBeLogged := "Failed to check fault"
-		port := strconv.FormatUint(uint64(aws.Uint16Value(request.Port)), 10)
-		chainName := fmt.Sprintf("%s-%s-%s", aws.StringValue(request.TrafficType), aws.StringValue(request.Protocol), port)
-		running, _, cmdErr := h.checkNetworkBlackHolePort(ctxWithTimeout, aws.StringValue(request.Protocol), port, chainName,
+		port := strconv.FormatUint(uint64(aws.ToUint16(request.Port)), 10)
+		chainName := fmt.Sprintf("%s-%s-%s", aws.ToString(request.TrafficType), aws.ToString(request.Protocol), port)
+		running, _, cmdErr := h.checkNetworkBlackHolePort(ctxWithTimeout, aws.ToString(request.Protocol), port, chainName,
 			networkMode, networkNSPath, taskArn)
 
 		// We've timed out trying to check if the black hole port fault injection is running
@@ -1243,8 +1243,8 @@ func (h *FaultHandler) startNetworkLatencyFault(ctx context.Context, taskMetadat
 	if networkMode == ecstypes.NetworkModeAwsvpc {
 		nsenterPrefix = fmt.Sprintf(nsenterCommandString, taskMetadata.TaskNetworkConfig.NetworkNamespaces[0].Path)
 	}
-	delayInMs := aws.Uint64Value(request.DelayMilliseconds)
-	jitterInMs := aws.Uint64Value(request.JitterMilliseconds)
+	delayInMs := aws.ToUint64(request.DelayMilliseconds)
+	jitterInMs := aws.ToUint64(request.JitterMilliseconds)
 
 	// Command to be executed:
 	// <nsenterPrefix> tc qdisc add dev <interfaceName> root handle 1: prio priomap 2 2 2 2 2 2 2 2 2 2 2 2 2 2 2 2
@@ -1304,7 +1304,7 @@ func (h *FaultHandler) startNetworkPacketLossFault(ctx context.Context, taskMeta
 	if networkMode == ecstypes.NetworkModeAwsvpc {
 		nsenterPrefix = fmt.Sprintf(nsenterCommandString, taskMetadata.TaskNetworkConfig.NetworkNamespaces[0].Path)
 	}
-	lossPercent := aws.Uint64Value(request.LossPercent)
+	lossPercent := aws.ToUint64(request.LossPercent)
 
 	// Command to be executed:
 	// <nsenterPrefix> tc qdisc add dev <interfaceName> root handle 1: prio priomap 2 2 2 2 2 2 2 2 2 2 2 2 2 2 2 2
@@ -1491,7 +1491,7 @@ func (h *FaultHandler) addIPAddressesToFilter(
 	ctx context.Context, ipAddressList []*string, taskMetadata *state.TaskResponse,
 	nsenterPrefix, commandString, interfaceName string) error {
 	for _, ip := range ipAddressList {
-		commandComposed := nsenterPrefix + fmt.Sprintf(commandString, interfaceName, aws.StringValue(ip))
+		commandComposed := nsenterPrefix + fmt.Sprintf(commandString, interfaceName, aws.ToString(ip))
 		cmdList := strings.Split(commandComposed, " ")
 		cmdOutput, err := h.runExecCommand(ctx, cmdList)
 		if err != nil {

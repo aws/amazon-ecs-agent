@@ -32,10 +32,10 @@ import (
 	"github.com/aws/amazon-ecs-agent/ecs-agent/tmds/handlers/v4/state"
 	commonutils "github.com/aws/amazon-ecs-agent/ecs-agent/utils"
 
+	"github.com/aws/aws-sdk-go-v2/aws"
 	awshttp "github.com/aws/aws-sdk-go-v2/aws/transport/http"
 	"github.com/aws/aws-sdk-go-v2/service/ecs"
 	ecstypes "github.com/aws/aws-sdk-go-v2/service/ecs/types"
-	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/aws/awserr"
 	"github.com/aws/aws-sdk-go/aws/request"
 	"github.com/aws/smithy-go"
