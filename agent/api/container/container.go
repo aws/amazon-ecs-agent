@@ -30,7 +30,7 @@ import (
 	"github.com/aws/amazon-ecs-agent/ecs-agent/credentials"
 	"github.com/aws/amazon-ecs-agent/ecs-agent/logger"
 	"github.com/aws/amazon-ecs-agent/ecs-agent/logger/field"
-	"github.com/aws/aws-sdk-go/aws"
+	"github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/cihub/seelog"
 	"github.com/docker/docker/api/types"
 	dockercontainer "github.com/docker/docker/api/types/container"
@@ -885,7 +885,7 @@ func (c *Container) GetHealthStatus() HealthStatus {
 	copyHealth := c.Health
 
 	if c.Health.Since != nil {
-		copyHealth.Since = aws.Time(aws.TimeValue(c.Health.Since))
+		copyHealth.Since = aws.Time(aws.ToTime(c.Health.Since))
 	}
 
 	return copyHealth

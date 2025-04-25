@@ -40,7 +40,7 @@ import (
 	ni "github.com/aws/amazon-ecs-agent/ecs-agent/netlib/model/networkinterface"
 	"github.com/golang/mock/gomock"
 
-	"github.com/aws/aws-sdk-go/aws"
+	"github.com/aws/aws-sdk-go-v2/aws"
 	dockercontainer "github.com/docker/docker/api/types/container"
 	specs "github.com/opencontainers/runtime-spec/specs-go"
 	"github.com/stretchr/testify/assert"
@@ -166,7 +166,7 @@ func TestAddNetworkResourceProvisioningDependencyWithAppMesh(t *testing.T) {
 	pauseContainer, ok := testTask.ContainerByName(NetworkPauseContainerName)
 	require.True(t, ok, "Expected to find pause container")
 	containerConfig := &dockercontainer.Config{}
-	json.Unmarshal([]byte(aws.StringValue(pauseContainer.DockerConfig.Config)), &containerConfig)
+	json.Unmarshal([]byte(aws.ToString(pauseContainer.DockerConfig.Config)), &containerConfig)
 	assert.Equal(t, "1337:35", containerConfig.User, "pause container should have correct user")
 	assert.Equal(t, apicontainer.ContainerCNIPause, pauseContainer.Type, "pause container should have correct type")
 	assert.True(t, pauseContainer.Essential, "pause container should be essential")
