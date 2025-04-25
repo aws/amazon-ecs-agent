@@ -38,7 +38,7 @@ import (
 	mock_csiclient "github.com/aws/amazon-ecs-agent/ecs-agent/csiclient/mocks"
 	ni "github.com/aws/amazon-ecs-agent/ecs-agent/netlib/model/networkinterface"
 	"github.com/aws/amazon-ecs-agent/ecs-agent/tcs/model/ecstcs"
-	"github.com/aws/aws-sdk-go/aws"
+	"github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/docker/docker/api/types"
 	"github.com/golang/mock/gomock"
 	"github.com/stretchr/testify/assert"
@@ -571,10 +571,10 @@ func TestGetTaskHealthMetrics(t *testing.T) {
 	metadata, taskHealth, err := engine.GetTaskHealthMetrics()
 	assert.NoError(t, err)
 
-	assert.Equal(t, aws.StringValue(metadata.ContainerInstance), "container_instance")
+	assert.Equal(t, aws.ToString(metadata.ContainerInstance), "container_instance")
 	assert.Len(t, taskHealth, 1)
 	assert.Len(t, taskHealth[0].Containers, 1)
-	assert.Equal(t, aws.StringValue(taskHealth[0].Containers[0].HealthStatus), "HEALTHY")
+	assert.Equal(t, aws.ToString(taskHealth[0].Containers[0].HealthStatus), "HEALTHY")
 }
 
 func TestGetTaskHealthMetricsStoppedContainer(t *testing.T) {

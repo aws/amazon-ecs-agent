@@ -20,7 +20,7 @@ import (
 	apicontainer "github.com/aws/amazon-ecs-agent/agent/api/container"
 	apicontainerstatus "github.com/aws/amazon-ecs-agent/ecs-agent/api/container/status"
 	apierrors "github.com/aws/amazon-ecs-agent/ecs-agent/api/errors"
-	"github.com/aws/aws-sdk-go/aws"
+	"github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/docker/docker/api/types"
 	"github.com/docker/docker/api/types/volume"
 )
@@ -128,7 +128,7 @@ func (event *DockerContainerChangeEvent) String() string {
 	res += ", health: " + event.Health.Status.String()
 
 	if event.ExitCode != nil {
-		res += fmt.Sprintf(", ExitCode: %d", aws.IntValue(event.ExitCode))
+		res += fmt.Sprintf(", ExitCode: %d", aws.ToInt(event.ExitCode))
 	}
 
 	if len(event.PortBindings) != 0 {
