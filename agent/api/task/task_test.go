@@ -2596,7 +2596,9 @@ func TestMarshalUnmarshalTaskASMResource(t *testing.T) {
 		task.getAllASMAuthDataRequirements(),
 		expectedExecutionCredentialsID,
 		credentialsManager,
-		asmClientCreator)
+		asmClientCreator,
+		testIPCompatibility,
+	)
 	res.SetKnownStatus(resourcestatus.ResourceRemoved)
 
 	// add asm auth resource to task
@@ -2708,7 +2710,8 @@ func TestPopulateASMAuthData(t *testing.T) {
 		task.getAllASMAuthDataRequirements(),
 		credentialsID,
 		credentialsManager,
-		asmClientCreator)
+		asmClientCreator,
+		testIPCompatibility)
 
 	// add asm auth resource to task
 	task.AddResource(asmauth.ResourceName, asmRes)
@@ -2719,7 +2722,7 @@ func TestPopulateASMAuthData(t *testing.T) {
 				ARN:                "",
 				IAMRoleCredentials: executionRoleCredentials,
 			}, true),
-		asmClientCreator.EXPECT().NewASMClient(region, executionRoleCredentials).Return(mockASMClient, nil),
+		asmClientCreator.EXPECT().NewASMClient(region, executionRoleCredentials, testIPCompatibility).Return(mockASMClient, nil),
 		mockASMClient.EXPECT().GetSecretValue(gomock.Any(), gomock.Any(), gomock.Any()).Return(asmSecretValue, nil),
 	)
 
@@ -2799,7 +2802,8 @@ func TestPopulateASMAuthDataNoDockerAuthConfig(t *testing.T) {
 		task.getAllASMAuthDataRequirements(),
 		credentialsID,
 		credentialsManager,
-		asmClientCreator)
+		asmClientCreator,
+		testIPCompatibility)
 
 	// add asm auth resource to task
 	task.AddResource(asmauth.ResourceName, asmRes)
@@ -3253,7 +3257,7 @@ func TestInitializeAndGetASMSecretResource(t *testing.T) {
 		},
 	}
 
-	task.initializeASMSecretResource(credentialsManager, resFields)
+	task.initializeASMSecretResource(&config.Config{InstanceIPCompatibility: testIPCompatibility}, credentialsManager, resFields)
 
 	resourceDep := apicontainer.ResourceDependency{
 		Name:           asmsecret.ResourceName,

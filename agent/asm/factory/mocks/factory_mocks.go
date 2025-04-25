@@ -22,6 +22,7 @@ import (
 	reflect "reflect"
 
 	asm "github.com/aws/amazon-ecs-agent/agent/asm"
+	ipcompatibility "github.com/aws/amazon-ecs-agent/agent/config/ipcompatibility"
 	credentials "github.com/aws/amazon-ecs-agent/ecs-agent/credentials"
 	gomock "github.com/golang/mock/gomock"
 )
@@ -50,16 +51,16 @@ func (m *MockClientCreator) EXPECT() *MockClientCreatorMockRecorder {
 }
 
 // NewASMClient mocks base method.
-func (m *MockClientCreator) NewASMClient(arg0 string, arg1 credentials.IAMRoleCredentials) (asm.SecretsManagerAPI, error) {
+func (m *MockClientCreator) NewASMClient(arg0 string, arg1 credentials.IAMRoleCredentials, arg2 ipcompatibility.IPCompatibility) (asm.SecretsManagerAPI, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "NewASMClient", arg0, arg1)
+	ret := m.ctrl.Call(m, "NewASMClient", arg0, arg1, arg2)
 	ret0, _ := ret[0].(asm.SecretsManagerAPI)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
 // NewASMClient indicates an expected call of NewASMClient.
-func (mr *MockClientCreatorMockRecorder) NewASMClient(arg0, arg1 interface{}) *gomock.Call {
+func (mr *MockClientCreatorMockRecorder) NewASMClient(arg0, arg1, arg2 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "NewASMClient", reflect.TypeOf((*MockClientCreator)(nil).NewASMClient), arg0, arg1)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "NewASMClient", reflect.TypeOf((*MockClientCreator)(nil).NewASMClient), arg0, arg1, arg2)
 }

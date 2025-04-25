@@ -27,6 +27,7 @@ import (
 	"github.com/aws/amazon-ecs-agent/agent/asm"
 	"github.com/aws/amazon-ecs-agent/agent/asm/factory"
 	"github.com/aws/amazon-ecs-agent/agent/config"
+	"github.com/aws/amazon-ecs-agent/agent/config/ipcompatibility"
 	"github.com/aws/amazon-ecs-agent/agent/taskresource"
 	resourcestatus "github.com/aws/amazon-ecs-agent/agent/taskresource/status"
 	apicontainerstatus "github.com/aws/amazon-ecs-agent/ecs-agent/api/container/status"
@@ -70,6 +71,7 @@ type ASMSecretResource struct {
 	// ssmClientCreator is a factory interface that creates new SSM clients. This is
 	// needed mostly for testing.
 	asmClientCreator factory.ClientCreator
+	ipCompatibility  ipcompatibility.IPCompatibility
 
 	// terminalReason should be set for resource creation failures. This ensures
 	// the resource object carries some context for why provisioning failed.
@@ -85,7 +87,8 @@ func NewASMSecretResource(taskARN string,
 	asmSecrets map[string]apicontainer.Secret,
 	executionCredentialsID string,
 	credentialsManager credentials.Manager,
-	asmClientCreator factory.ClientCreator) *ASMSecretResource {
+	asmClientCreator factory.ClientCreator,
+	ipCompatibility ipcompatibility.IPCompatibility) *ASMSecretResource {
 
 	s := &ASMSecretResource{
 		taskARN:                taskARN,
@@ -93,6 +96,7 @@ func NewASMSecretResource(taskARN string,
 		credentialsManager:     credentialsManager,
 		executionCredentialsID: executionCredentialsID,
 		asmClientCreator:       asmClientCreator,
+		ipCompatibility:        ipCompatibility,
 	}
 
 	s.initStatusToTransition()
@@ -301,7 +305,7 @@ func (secret *ASMSecretResource) Create() error {
 func (secret *ASMSecretResource) retrieveASMSecretValue(apiSecret apicontainer.Secret, iamCredentials credentials.IAMRoleCredentials, wg *sync.WaitGroup, errorEvents chan error) {
 	defer wg.Done()
 
-	asmClient, err := secret.asmClientCreator.NewASMClient(apiSecret.Region, iamCredentials)
+	asmClient, err := secret.asmClientCreator.NewASMClient(apiSecret.Region, iamCredentials, secret.ipCompatibility)
 	if err != nil {
 		errorEvents <- fmt.Errorf("unable to create ASM client: %v", err)
 		return
@@ -454,6 +458,7 @@ func (secret *ASMSecretResource) Initialize(
 	secret.initStatusToTransition()
 	secret.credentialsManager = resourceFields.CredentialsManager
 	secret.asmClientCreator = resourceFields.ASMClientCreator
+	secret.ipCompatibility = config.InstanceIPCompatibility
 
 	// if task hasn't turn to 'created' status, and it's desire status is 'running'
 	// the resource status needs to be reset to 'NONE' status so the secret value

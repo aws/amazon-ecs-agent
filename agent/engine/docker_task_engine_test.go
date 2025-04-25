@@ -149,6 +149,8 @@ var (
 	// createdContainerNameLock guards access to the createdContainerName
 	// var.
 	createdContainerNameLock sync.Mutex
+
+	testIPCompatibility = ipcompatibility.NewIPCompatibility(true, true)
 )
 
 func init() {
@@ -1995,7 +1997,7 @@ func TestTaskUseExecutionRolePullPrivateRegistryImage(t *testing.T) {
 	requiredASMResources := []*apicontainer.ASMAuthData{asmAuthData}
 	asmClientCreator := mock_asm_factory.NewMockClientCreator(ctrl)
 	asmAuthRes := asmauth.NewASMAuthResource(testTask.Arn, requiredASMResources,
-		credentialsID, credentialsManager, asmClientCreator)
+		credentialsID, credentialsManager, asmClientCreator, testIPCompatibility)
 	testTask.ResourcesMapUnsafe = map[string][]taskresource.TaskResource{
 		asmauth.ResourceName: {asmAuthRes},
 	}
@@ -2015,7 +2017,7 @@ func TestTaskUseExecutionRolePullPrivateRegistryImage(t *testing.T) {
 				ARN:                "",
 				IAMRoleCredentials: executionRoleCredentials,
 			}, true),
-		asmClientCreator.EXPECT().NewASMClient(region, executionRoleCredentials).Return(mockASMClient, nil),
+		asmClientCreator.EXPECT().NewASMClient(region, executionRoleCredentials, testIPCompatibility).Return(mockASMClient, nil),
 		mockASMClient.EXPECT().GetSecretValue(gomock.Any(), gomock.Any(), gomock.Any()).Return(asmSecretValue, nil),
 	)
 	require.NoError(t, asmAuthRes.Create())
@@ -2898,7 +2900,8 @@ func TestTaskSecretsEnvironmentVariables(t *testing.T) {
 				asmRequirements,
 				credentialsID,
 				credentialsManager,
-				asmClientCreator)
+				asmClientCreator,
+				testIPCompatibility)
 
 			testTask.ResourcesMapUnsafe = map[string][]taskresource.TaskResource{
 				ssmsecret.ResourceName: {ssmSecretRes},
@@ -2923,7 +2926,7 @@ func TestTaskSecretsEnvironmentVariables(t *testing.T) {
 
 			credentialsManager.EXPECT().GetTaskCredentials(credentialsID).Return(taskIAMcreds, true).Times(2)
 			ssmClientCreator.EXPECT().NewSSMClient(region, executionRoleCredentials).Return(mockSSMClient)
-			asmClientCreator.EXPECT().NewASMClient(region, executionRoleCredentials).Return(mockASMClient, nil)
+			asmClientCreator.EXPECT().NewASMClient(region, executionRoleCredentials, testIPCompatibility).Return(mockASMClient, nil)
 
 			mockSSMClient.EXPECT().GetParameters(gomock.Any()).Do(func(in *ssm.GetParametersInput) {
 				assert.Equal(t, in.Names, reqSecretNames)

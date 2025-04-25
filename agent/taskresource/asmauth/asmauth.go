@@ -22,6 +22,7 @@ import (
 	"github.com/aws/amazon-ecs-agent/agent/asm"
 	"github.com/aws/amazon-ecs-agent/agent/asm/factory"
 	"github.com/aws/amazon-ecs-agent/agent/config"
+	"github.com/aws/amazon-ecs-agent/agent/config/ipcompatibility"
 	"github.com/aws/amazon-ecs-agent/agent/taskresource"
 	resourcestatus "github.com/aws/amazon-ecs-agent/agent/taskresource/status"
 	apicontainerstatus "github.com/aws/amazon-ecs-agent/ecs-agent/api/container/status"
@@ -64,6 +65,7 @@ type ASMAuthResource struct {
 	// TODO: Refactor this struct so that each ASMAuthData gets associated with
 	// exactly one ASMAuthResource object
 	asmClientCreator factory.ClientCreator
+	ipCompatibility  ipcompatibility.IPCompatibility
 
 	// terminalReason should be set for resource creation failures. This ensures
 	// the resource object carries some context for why provisoning failed.
@@ -79,7 +81,8 @@ func NewASMAuthResource(taskARN string,
 	asmRequirements []*apicontainer.ASMAuthData,
 	executionCredentialsID string,
 	credentialsManager credentials.Manager,
-	asmClientCreator factory.ClientCreator) *ASMAuthResource {
+	asmClientCreator factory.ClientCreator,
+	ipCompatibility ipcompatibility.IPCompatibility) *ASMAuthResource {
 
 	c := &ASMAuthResource{
 		taskARN:                taskARN,
@@ -87,6 +90,7 @@ func NewASMAuthResource(taskARN string,
 		credentialsManager:     credentialsManager,
 		executionCredentialsID: executionCredentialsID,
 		asmClientCreator:       asmClientCreator,
+		ipCompatibility:        ipCompatibility,
 	}
 
 	c.initStatusToTransition()
@@ -277,7 +281,7 @@ func (auth *ASMAuthResource) retrieveASMDockerAuthData(asmAuthData *apicontainer
 		return errors.New("asm resource: unable to find execution role credentials")
 	}
 	iamCredentials := executionCredentials.GetIAMRoleCredentials()
-	asmClient, err := auth.asmClientCreator.NewASMClient(asmAuthData.Region, iamCredentials)
+	asmClient, err := auth.asmClientCreator.NewASMClient(asmAuthData.Region, iamCredentials, auth.ipCompatibility)
 	if err != nil {
 		return errors.Errorf("unable to create ASM client: %v", err)
 	}
@@ -358,6 +362,7 @@ func (auth *ASMAuthResource) Initialize(
 	auth.initStatusToTransition()
 	auth.credentialsManager = resourceFields.CredentialsManager
 	auth.asmClientCreator = resourceFields.ASMClientCreator
+	auth.ipCompatibility = config.InstanceIPCompatibility
 	if taskKnownStatus < status.TaskPulled && // Containers in the task need to be pulled
 		taskDesiredStatus <= status.TaskRunning { // and the task is not terminal.
 		// Reset the ASM resource's known status as None so that the NONE -> CREATED

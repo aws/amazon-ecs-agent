@@ -26,6 +26,7 @@ import (
 	"time"
 
 	"github.com/aws/amazon-ecs-agent/agent/config"
+	"github.com/aws/amazon-ecs-agent/agent/config/ipcompatibility"
 	"github.com/aws/amazon-ecs-agent/agent/utils"
 
 	mock_asm_factory "github.com/aws/amazon-ecs-agent/agent/asm/factory/mocks"
@@ -59,6 +60,8 @@ const (
 	hostPath               = `Z:\`
 )
 
+var testIPCompatibility = ipcompatibility.NewIPCompatibility(true, true)
+
 func setup(t *testing.T) (
 	*FSxWindowsFileServerResource, *mock_credentials.MockManager, *mock_ssm_factory.MockSSMClientCreator,
 	*mock_asm_factory.MockClientCreator, *mock_fsx_factory.MockFSxClientCreator, *mock_ssmiface.MockSSMClient,
@@ -81,7 +84,7 @@ func setup(t *testing.T) (
 		taskARN:             taskARN,
 	}
 	fv.Initialize(
-		&config.Config{},
+		&config.Config{InstanceIPCompatibility: testIPCompatibility},
 		&taskresource.ResourceFields{
 			ResourceFieldsCommon: &taskresource.ResourceFieldsCommon{
 				SSMClientCreator:   ssmClientCreator,
@@ -252,7 +255,7 @@ func TestRetrieveASMCredentials(t *testing.T) {
 	}
 
 	gomock.InOrder(
-		asmClientCreator.EXPECT().NewASMClient(gomock.Any(), gomock.Any()).Return(mockASMClient, nil),
+		asmClientCreator.EXPECT().NewASMClient(gomock.Any(), gomock.Any(), testIPCompatibility).Return(mockASMClient, nil),
 		mockASMClient.EXPECT().GetSecretValue(
 			gomock.Any(),
 			gomock.Any(),
@@ -700,7 +703,7 @@ func TestCreateASM(t *testing.T) {
 		executionCredentialsID: executionCredentialsID,
 	}
 	fv.Initialize(
-		&config.Config{},
+		&config.Config{InstanceIPCompatibility: testIPCompatibility},
 		&taskresource.ResourceFields{
 			ResourceFieldsCommon: &taskresource.ResourceFieldsCommon{
 				SSMClientCreator:   ssmClientCreator,
@@ -734,7 +737,7 @@ func TestCreateASM(t *testing.T) {
 
 	gomock.InOrder(
 		credentialsManager.EXPECT().GetTaskCredentials(gomock.Any()).Return(creds, true),
-		asmClientCreator.EXPECT().NewASMClient(gomock.Any(), gomock.Any()).Return(mockASMClient, nil),
+		asmClientCreator.EXPECT().NewASMClient(gomock.Any(), gomock.Any(), testIPCompatibility).Return(mockASMClient, nil),
 		mockASMClient.EXPECT().GetSecretValue(
 			gomock.Any(),
 			gomock.Any(),

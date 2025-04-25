@@ -22,6 +22,7 @@ import (
 	apicontainer "github.com/aws/amazon-ecs-agent/agent/api/container"
 	asmfactory "github.com/aws/amazon-ecs-agent/agent/asm/factory"
 	"github.com/aws/amazon-ecs-agent/agent/config"
+	"github.com/aws/amazon-ecs-agent/agent/config/ipcompatibility"
 	fsxfactory "github.com/aws/amazon-ecs-agent/agent/fsx/factory"
 	ssmfactory "github.com/aws/amazon-ecs-agent/agent/ssm/factory"
 	"github.com/aws/amazon-ecs-agent/agent/taskresource"
@@ -52,7 +53,8 @@ func NewFSxWindowsFileServerResource(
 	credentialsManager credentials.Manager,
 	ssmClientCreator ssmfactory.SSMClientCreator,
 	asmClientCreator asmfactory.ClientCreator,
-	fsxClientCreator fsxfactory.FSxClientCreator) (*FSxWindowsFileServerResource, error) {
+	fsxClientCreator fsxfactory.FSxClientCreator,
+	ipCompatibility ipcompatibility.IPCompatibility) (*FSxWindowsFileServerResource, error) {
 	return nil, errors.New("not supported")
 }
 

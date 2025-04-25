@@ -27,7 +27,6 @@ import (
 	apicontainer "github.com/aws/amazon-ecs-agent/agent/api/container"
 	apitask "github.com/aws/amazon-ecs-agent/agent/api/task"
 	mock_asm_factory "github.com/aws/amazon-ecs-agent/agent/asm/factory/mocks"
-	"github.com/aws/amazon-ecs-agent/agent/config/ipcompatibility"
 	"github.com/aws/amazon-ecs-agent/agent/dockerclient"
 	"github.com/aws/amazon-ecs-agent/agent/dockerclient/dockerapi"
 	mock_dockerapi "github.com/aws/amazon-ecs-agent/agent/dockerclient/dockerapi/mocks"
@@ -57,8 +56,6 @@ const (
 	containerNetNS           = "container:abcd"
 	ExpectedNetworkNamespace = "none"
 )
-
-var testIPCompatibility = ipcompatibility.NewIPCompatibility(true, true)
 
 func TestDeleteTask(t *testing.T) {
 	ctrl := gomock.NewController(t)

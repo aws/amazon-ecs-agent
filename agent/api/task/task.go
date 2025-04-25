@@ -417,7 +417,7 @@ func (task *Task) PostUnmarshalTask(cfg *config.Config,
 		return apierrors.NewResourceInitError(task.Arn, err)
 	}
 
-	task.initSecretResources(credentialsManager, resourceFields)
+	task.initSecretResources(cfg, credentialsManager, resourceFields)
 
 	task.initializeCredentialsEndpoint(credentialsManager)
 
@@ -652,10 +652,11 @@ func (task *Task) populateTaskARN() {
 	}
 }
 
-func (task *Task) initSecretResources(credentialsManager credentials.Manager,
+func (task *Task) initSecretResources(config *config.Config,
+	credentialsManager credentials.Manager,
 	resourceFields *taskresource.ResourceFields) {
 	if task.requiresASMDockerAuthData() {
-		task.initializeASMAuthResource(credentialsManager, resourceFields)
+		task.initializeASMAuthResource(config, credentialsManager, resourceFields)
 	}
 
 	if task.requiresSSMSecret() {
@@ -663,7 +664,7 @@ func (task *Task) initSecretResources(credentialsManager credentials.Manager,
 	}
 
 	if task.requiresASMSecret() {
-		task.initializeASMSecretResource(credentialsManager, resourceFields)
+		task.initializeASMSecretResource(config, credentialsManager, resourceFields)
 	}
 }
 
@@ -1071,10 +1072,12 @@ func (task *Task) requiresASMDockerAuthData() bool {
 }
 
 // initializeASMAuthResource builds the resource dependency map for the ASM auth resource
-func (task *Task) initializeASMAuthResource(credentialsManager credentials.Manager,
+func (task *Task) initializeASMAuthResource(
+	config *config.Config,
+	credentialsManager credentials.Manager,
 	resourceFields *taskresource.ResourceFields) {
 	asmAuthResource := asmauth.NewASMAuthResource(task.Arn, task.getAllASMAuthDataRequirements(),
-		task.ExecutionCredentialsID, credentialsManager, resourceFields.ASMClientCreator)
+		task.ExecutionCredentialsID, credentialsManager, resourceFields.ASMClientCreator, config.InstanceIPCompatibility)
 	task.AddResource(asmauth.ResourceName, asmAuthResource)
 	for _, container := range task.Containers {
 		if container.ShouldPullWithASMAuth() {
@@ -1178,10 +1181,11 @@ func (task *Task) requiresASMSecret() bool {
 }
 
 // initializeASMSecretResource builds the resource dependency map for the asmsecret resource
-func (task *Task) initializeASMSecretResource(credentialsManager credentials.Manager,
+func (task *Task) initializeASMSecretResource(config *config.Config,
+	credentialsManager credentials.Manager,
 	resourceFields *taskresource.ResourceFields) {
 	asmSecretResource := asmsecret.NewASMSecretResource(task.Arn, task.getAllASMSecretRequirements(),
-		task.ExecutionCredentialsID, credentialsManager, resourceFields.ASMClientCreator)
+		task.ExecutionCredentialsID, credentialsManager, resourceFields.ASMClientCreator, config.InstanceIPCompatibility)
 	task.AddResource(asmsecret.ResourceName, asmSecretResource)
 
 	// for every container that needs asm secret vending as envvar, it needs to wait all secrets got retrieved

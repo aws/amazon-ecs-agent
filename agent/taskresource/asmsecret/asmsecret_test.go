@@ -28,6 +28,7 @@ import (
 	mock_factory "github.com/aws/amazon-ecs-agent/agent/asm/factory/mocks"
 	mock_secretsmanageriface "github.com/aws/amazon-ecs-agent/agent/asm/mocks"
 	"github.com/aws/amazon-ecs-agent/agent/config"
+	"github.com/aws/amazon-ecs-agent/agent/config/ipcompatibility"
 	"github.com/aws/amazon-ecs-agent/agent/taskresource"
 	resourcestatus "github.com/aws/amazon-ecs-agent/agent/taskresource/status"
 	apitaskstatus "github.com/aws/amazon-ecs-agent/ecs-agent/api/task/status"
@@ -60,9 +61,12 @@ const (
 	secretValueJson        = "{\"json-key\": \"" + secretValue + "\",\"some-other-key\": \"secret2\"}"
 )
 
-var secretKeyWest1 = fmt.Sprintf("%s%s%s", valueFrom1, secretCacheJoinChar, regionKeyWest)
-var secretKeyEast1 = fmt.Sprintf("%s%s%s", valueFrom1, secretCacheJoinChar, regionKeyEast)
-var secretKeyParams = fmt.Sprintf("%s%s%s", valueFromParams, secretCacheJoinChar, regionKeyWest)
+var (
+	secretKeyWest1      = fmt.Sprintf("%s%s%s", valueFrom1, secretCacheJoinChar, regionKeyWest)
+	secretKeyEast1      = fmt.Sprintf("%s%s%s", valueFrom1, secretCacheJoinChar, regionKeyEast)
+	secretKeyParams     = fmt.Sprintf("%s%s%s", valueFromParams, secretCacheJoinChar, regionKeyWest)
+	testIPCompatibility = ipcompatibility.NewIPCompatibility(true, true)
+)
 
 func TestCreateWithMultipleASMCall(t *testing.T) {
 	requiredSecretData := map[string]apicontainer.Secret{
@@ -87,8 +91,8 @@ func TestCreateWithMultipleASMCall(t *testing.T) {
 	}
 
 	credentialsManager.EXPECT().GetTaskCredentials(executionCredentialsID).Return(creds, true)
-	asmClientCreator.EXPECT().NewASMClient(region1, iamRoleCreds).Return(mockASMClient, nil)
-	asmClientCreator.EXPECT().NewASMClient(region2, iamRoleCreds).Return(mockASMClient, nil)
+	asmClientCreator.EXPECT().NewASMClient(region1, iamRoleCreds, testIPCompatibility).Return(mockASMClient, nil)
+	asmClientCreator.EXPECT().NewASMClient(region2, iamRoleCreds, testIPCompatibility).Return(mockASMClient, nil)
 	mockASMClient.EXPECT().GetSecretValue(
 		gomock.Any(),
 		gomock.Any(),
@@ -102,6 +106,7 @@ func TestCreateWithMultipleASMCall(t *testing.T) {
 		requiredSecrets:        requiredSecretData,
 		credentialsManager:     credentialsManager,
 		asmClientCreator:       asmClientCreator,
+		ipCompatibility:        testIPCompatibility,
 	}
 	require.NoError(t, asmRes.Create())
 
@@ -136,8 +141,8 @@ func TestCreateReturnMultipleErrors(t *testing.T) {
 	asmSecretValue := &secretsmanager.GetSecretValueOutput{}
 
 	credentialsManager.EXPECT().GetTaskCredentials(executionCredentialsID).Return(creds, true)
-	asmClientCreator.EXPECT().NewASMClient(region1, iamRoleCreds).Return(mockASMClient, nil)
-	asmClientCreator.EXPECT().NewASMClient(region2, iamRoleCreds).Return(mockASMClient, nil)
+	asmClientCreator.EXPECT().NewASMClient(region1, iamRoleCreds, testIPCompatibility).Return(mockASMClient, nil)
+	asmClientCreator.EXPECT().NewASMClient(region2, iamRoleCreds, testIPCompatibility).Return(mockASMClient, nil)
 	mockASMClient.EXPECT().GetSecretValue(
 		gomock.Any(),
 		gomock.Any(),
@@ -151,6 +156,7 @@ func TestCreateReturnMultipleErrors(t *testing.T) {
 		requiredSecrets:        requiredSecretData,
 		credentialsManager:     credentialsManager,
 		asmClientCreator:       asmClientCreator,
+		ipCompatibility:        testIPCompatibility,
 	}
 
 	assert.Error(t, asmRes.Create())
@@ -179,7 +185,7 @@ func TestCreateReturnError(t *testing.T) {
 
 	gomock.InOrder(
 		credentialsManager.EXPECT().GetTaskCredentials(executionCredentialsID).Return(creds, true),
-		asmClientCreator.EXPECT().NewASMClient(region1, iamRoleCreds).Return(mockASMClient, nil),
+		asmClientCreator.EXPECT().NewASMClient(region1, iamRoleCreds, testIPCompatibility).Return(mockASMClient, nil),
 		mockASMClient.EXPECT().GetSecretValue(
 			gomock.Any(),
 			gomock.Any(),
@@ -193,6 +199,7 @@ func TestCreateReturnError(t *testing.T) {
 		requiredSecrets:        requiredSecretData,
 		credentialsManager:     credentialsManager,
 		asmClientCreator:       asmClientCreator,
+		ipCompatibility:        testIPCompatibility,
 	}
 
 	assert.Error(t, asmRes.Create())
@@ -240,16 +247,16 @@ func TestInitialize(t *testing.T) {
 		desiredStatusUnsafe: resourcestatus.ResourceCreated,
 	}
 	asmRes.Initialize(
-		&config.Config{},
+		&config.Config{InstanceIPCompatibility: testIPCompatibility},
 		&taskresource.ResourceFields{
 			ResourceFieldsCommon: &taskresource.ResourceFieldsCommon{
 				ASMClientCreator:   asmClientCreator,
 				CredentialsManager: credentialsManager,
 			},
 		}, apitaskstatus.TaskStatusNone, apitaskstatus.TaskRunning)
+	assert.Equal(t, testIPCompatibility, asmRes.ipCompatibility)
 	assert.Equal(t, resourcestatus.ResourceStatusNone, asmRes.GetKnownStatus())
 	assert.Equal(t, resourcestatus.ResourceCreated, asmRes.GetDesiredStatus())
-
 }
 
 func TestClearASMSecretValue(t *testing.T) {
@@ -283,13 +290,14 @@ func TestCreateWithASMParametersWrongFormat(t *testing.T) {
 	}
 
 	credentialsManager.EXPECT().GetTaskCredentials(executionCredentialsID).Return(creds, true)
-	asmClientCreator.EXPECT().NewASMClient(region1, iamRoleCreds).Return(mockASMClient, nil)
+	asmClientCreator.EXPECT().NewASMClient(region1, iamRoleCreds, testIPCompatibility).Return(mockASMClient, nil)
 
 	asmRes := &ASMSecretResource{
 		executionCredentialsID: executionCredentialsID,
 		requiredSecrets:        requiredSecretData,
 		credentialsManager:     credentialsManager,
 		asmClientCreator:       asmClientCreator,
+		ipCompatibility:        testIPCompatibility,
 	}
 
 	assert.Error(t, asmRes.Create())
@@ -320,7 +328,7 @@ func TestCreateWithASMParametersJSONKeySpecified(t *testing.T) {
 	}
 
 	credentialsManager.EXPECT().GetTaskCredentials(executionCredentialsID).Return(creds, true)
-	asmClientCreator.EXPECT().NewASMClient(region1, iamRoleCreds).Return(mockASMClient, nil)
+	asmClientCreator.EXPECT().NewASMClient(region1, iamRoleCreds, testIPCompatibility).Return(mockASMClient, nil)
 	mockASMClient.EXPECT().GetSecretValue(
 		gomock.Any(),
 		gomock.Any(),
@@ -334,6 +342,7 @@ func TestCreateWithASMParametersJSONKeySpecified(t *testing.T) {
 		requiredSecrets:        requiredSecretData,
 		credentialsManager:     credentialsManager,
 		asmClientCreator:       asmClientCreator,
+		ipCompatibility:        testIPCompatibility,
 	}
 	require.NoError(t, asmRes.Create())
 

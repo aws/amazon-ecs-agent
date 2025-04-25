@@ -19,10 +19,13 @@ import (
 
 	"github.com/aws/amazon-ecs-agent/agent/asm"
 	"github.com/aws/amazon-ecs-agent/agent/config"
+	"github.com/aws/amazon-ecs-agent/agent/config/ipcompatibility"
 	agentversion "github.com/aws/amazon-ecs-agent/agent/version"
 	"github.com/aws/amazon-ecs-agent/ecs-agent/credentials"
 	"github.com/aws/amazon-ecs-agent/ecs-agent/httpclient"
+	"github.com/aws/amazon-ecs-agent/ecs-agent/logger"
 
+	"github.com/aws/aws-sdk-go-v2/aws"
 	awsconfig "github.com/aws/aws-sdk-go-v2/config"
 	awscreds "github.com/aws/aws-sdk-go-v2/credentials"
 	"github.com/aws/aws-sdk-go-v2/service/secretsmanager"
@@ -33,7 +36,7 @@ const (
 )
 
 type ClientCreator interface {
-	NewASMClient(region string, creds credentials.IAMRoleCredentials) (asm.SecretsManagerAPI, error)
+	NewASMClient(region string, creds credentials.IAMRoleCredentials, ipCompatibility ipcompatibility.IPCompatibility) (asm.SecretsManagerAPI, error)
 }
 
 func NewClientCreator() ClientCreator {
@@ -42,10 +45,13 @@ func NewClientCreator() ClientCreator {
 
 type asmClientCreator struct{}
 
-func (*asmClientCreator) NewASMClient(region string,
-	creds credentials.IAMRoleCredentials) (asm.SecretsManagerAPI, error) {
-	cfg, err := awsconfig.LoadDefaultConfig(
-		context.TODO(),
+func (*asmClientCreator) NewASMClient(
+	region string,
+	creds credentials.IAMRoleCredentials,
+	ipCompatibility ipcompatibility.IPCompatibility,
+) (asm.SecretsManagerAPI, error) {
+
+	opts := []func(*awsconfig.LoadOptions) error{
 		awsconfig.WithRegion(region),
 		awsconfig.WithHTTPClient(httpclient.New(roundtripTimeout, false, agentversion.String(), config.OSType)),
 		awsconfig.WithCredentialsProvider(
@@ -55,7 +61,14 @@ func (*asmClientCreator) NewASMClient(region string,
 				creds.SessionToken,
 			),
 		),
-	)
+	}
+
+	if ipCompatibility.IsIPv6Only() {
+		logger.Debug("Configuring ASM DualStack endpoint")
+		opts = append(opts, awsconfig.WithUseDualStackEndpoint(aws.DualStackEndpointStateEnabled))
+	}
+
+	cfg, err := awsconfig.LoadDefaultConfig(context.TODO(), opts...)
 
 	if err != nil {
 		return nil, err

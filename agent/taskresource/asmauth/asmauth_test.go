@@ -28,6 +28,7 @@ import (
 	mock_factory "github.com/aws/amazon-ecs-agent/agent/asm/factory/mocks"
 	mock_secretsmanageriface "github.com/aws/amazon-ecs-agent/agent/asm/mocks"
 	"github.com/aws/amazon-ecs-agent/agent/config"
+	"github.com/aws/amazon-ecs-agent/agent/config/ipcompatibility"
 	"github.com/aws/amazon-ecs-agent/agent/taskresource"
 	resourcestatus "github.com/aws/amazon-ecs-agent/agent/taskresource/status"
 	apitaskstatus "github.com/aws/amazon-ecs-agent/ecs-agent/api/task/status"
@@ -53,6 +54,7 @@ const (
 var (
 	asmAuthDataVal       string
 	requiredASMResources []*apicontainer.ASMAuthData
+	testIPCompatibility  = ipcompatibility.NewIPCompatibility(true, true)
 )
 
 func init() {
@@ -86,7 +88,7 @@ func TestCreateAndGet(t *testing.T) {
 	}
 	gomock.InOrder(
 		credentialsManager.EXPECT().GetTaskCredentials(executionCredentialsID).Return(creds, true),
-		asmClientCreator.EXPECT().NewASMClient(region, iamRoleCreds).Return(mockASMClient, nil),
+		asmClientCreator.EXPECT().NewASMClient(region, iamRoleCreds, testIPCompatibility).Return(mockASMClient, nil),
 		mockASMClient.EXPECT().GetSecretValue(
 			gomock.Any(),
 			gomock.Any(),
@@ -100,6 +102,7 @@ func TestCreateAndGet(t *testing.T) {
 		requiredASMResources:   requiredASMResources,
 		credentialsManager:     credentialsManager,
 		asmClientCreator:       asmClientCreator,
+		ipCompatibility:        testIPCompatibility,
 	}
 	require.NoError(t, asmRes.Create())
 	dac, ok := asmRes.GetASMDockerAuthConfig(secretID)
@@ -159,7 +162,7 @@ func TestInitialize(t *testing.T) {
 					desiredStatusUnsafe: resourcestatus.ResourceCreated,
 				}
 				asmRes.Initialize(
-					&config.Config{},
+					&config.Config{InstanceIPCompatibility: testIPCompatibility},
 					&taskresource.ResourceFields{
 						ResourceFieldsCommon: &taskresource.ResourceFieldsCommon{
 							ASMClientCreator:   asmClientCreator,
@@ -172,6 +175,7 @@ func TestInitialize(t *testing.T) {
 					assert.Equal(t, resourcestatus.ResourceCreated, asmRes.GetKnownStatus())
 				}
 				assert.Equal(t, resourcestatus.ResourceCreated, asmRes.GetDesiredStatus())
+				assert.Equal(t, testIPCompatibility, asmRes.ipCompatibility)
 			})
 	}
 }
