@@ -25,17 +25,18 @@ import (
 )
 
 const (
-	BlackHolePortFaultType    = "network-blackhole-port"
-	LatencyFaultType          = "network-latency"
-	PacketLossFaultType       = "network-packet-loss"
-	StartNetworkFaultPostfix  = "start"
-	StopNetworkFaultPostfix   = "stop"
-	CheckNetworkFaultPostfix  = "status"
-	missingRequiredFieldError = "required parameter %s is missing"
+	BlackHolePortFaultType   = "network-blackhole-port"
+	LatencyFaultType         = "network-latency"
+	PacketLossFaultType      = "network-packet-loss"
+	StartNetworkFaultPostfix = "start"
+	StopNetworkFaultPostfix  = "stop"
+	CheckNetworkFaultPostfix = "status"
+	TrafficTypeIngress       = "ingress"
+	TrafficTypeEgress        = "egress"
+	// Request Payload Errors
+	MissingRequiredFieldError = "required parameter %s is missing"
 	MissingRequestBodyError   = "required request body is missing"
-	invalidValueError         = "invalid value %s for parameter %s"
-	TrafficTypeIngress        = "ingress"
-	TrafficTypeEgress         = "egress"
+	InvalidValueError         = "invalid value %s for parameter %s"
 )
 
 type NetworkFaultRequest interface {
@@ -59,21 +60,21 @@ type NetworkFaultInjectionResponse struct {
 
 func (request NetworkBlackholePortRequest) ValidateRequest() error {
 	if request.Port == nil {
-		return fmt.Errorf(missingRequiredFieldError, "Port")
+		return fmt.Errorf(MissingRequiredFieldError, "Port")
 	}
 	if request.Protocol == nil || *request.Protocol == "" {
-		return fmt.Errorf(missingRequiredFieldError, "Protocol")
+		return fmt.Errorf(MissingRequiredFieldError, "Protocol")
 	}
 	if request.TrafficType == nil || *request.TrafficType == "" {
-		return fmt.Errorf(missingRequiredFieldError, "TrafficType")
+		return fmt.Errorf(MissingRequiredFieldError, "TrafficType")
 	}
 
 	if *request.Protocol != "tcp" && *request.Protocol != "udp" {
-		return fmt.Errorf(invalidValueError, *request.Protocol, "Protocol")
+		return fmt.Errorf(InvalidValueError, *request.Protocol, "Protocol")
 	}
 
 	if *request.TrafficType != TrafficTypeIngress && *request.TrafficType != TrafficTypeEgress {
-		return fmt.Errorf(invalidValueError, *request.TrafficType, "TrafficType")
+		return fmt.Errorf(InvalidValueError, *request.TrafficType, "TrafficType")
 	}
 	if err := validateNetworkFaultRequestSources(request.SourcesToFilter, "SourcesToFilter"); err != nil {
 		return err
@@ -125,13 +126,13 @@ type NetworkLatencyRequest struct {
 // ValidateRequest validates required fields are present and its value.
 func (request NetworkLatencyRequest) ValidateRequest() error {
 	if request.DelayMilliseconds == nil {
-		return fmt.Errorf(missingRequiredFieldError, "DelayMilliseconds")
+		return fmt.Errorf(MissingRequiredFieldError, "DelayMilliseconds")
 	}
 	if request.JitterMilliseconds == nil {
-		return fmt.Errorf(missingRequiredFieldError, "JitterMilliseconds")
+		return fmt.Errorf(MissingRequiredFieldError, "JitterMilliseconds")
 	}
 	if len(request.Sources) == 0 {
-		return fmt.Errorf(missingRequiredFieldError, "Sources")
+		return fmt.Errorf(MissingRequiredFieldError, "Sources")
 	}
 	if err := validateNetworkFaultRequestSources(request.Sources, "Sources"); err != nil {
 		return err
@@ -163,14 +164,14 @@ type NetworkPacketLossRequest struct {
 // ValidateRequest validates required fields are present and its value.
 func (request NetworkPacketLossRequest) ValidateRequest() error {
 	if request.LossPercent == nil {
-		return fmt.Errorf(missingRequiredFieldError, "LossPercent")
+		return fmt.Errorf(MissingRequiredFieldError, "LossPercent")
 	}
 	// request.LossPercent should be an integer between 1 and 100 (inclusive).
 	if *request.LossPercent < 1 || *request.LossPercent > 100 {
-		return fmt.Errorf(invalidValueError, strconv.Itoa(int(*request.LossPercent)), "LossPercent")
+		return fmt.Errorf(InvalidValueError, strconv.Itoa(int(*request.LossPercent)), "LossPercent")
 	}
 	if len(request.Sources) == 0 {
-		return fmt.Errorf(missingRequiredFieldError, "Sources")
+		return fmt.Errorf(MissingRequiredFieldError, "Sources")
 	}
 	if err := validateNetworkFaultRequestSources(request.Sources, "Sources"); err != nil {
 		return err
@@ -227,5 +228,5 @@ func validateNetworkFaultRequestSource(source string, sourceType string) error {
 		})
 	}
 
-	return fmt.Errorf(invalidValueError, source, sourceType)
+	return fmt.Errorf(InvalidValueError, source, sourceType)
 }

@@ -47,11 +47,13 @@ const (
 	startFaultRequestType       = "start %s"
 	stopFaultRequestType        = "stop %s"
 	checkStatusFaultRequestType = "check status %s"
-	// Error messages
-	internalError              = "internal error"
-	invalidNetworkModeError    = "%s mode is not supported. Please use either host or awsvpc mode."
-	faultInjectionEnabledError = "enableFaultInjection is not enabled for task: %s"
-	requestTimedOutError       = "%s: request timed out"
+	// Fault injection operation error messages
+	internalError                      = "internal error"
+	invalidNetworkModeError            = "%s mode is not supported. Please use either host or awsvpc mode."
+	faultInjectionEnabledError         = "enableFaultInjection is not enabled for task: %s"
+	requestTimedOutError               = "%s: request timed out"
+	latencyFaultAlreadyRunningError    = "There is already one network latency fault running"
+	packetLossFaultAlreadyRunningError = "There is already one network packet loss fault running"
 	// This is our initial assumption of how much time it would take for the Linux commands used to inject faults
 	// to finish. This will be confirmed/updated after more testing.
 	requestTimeoutSeconds = 5
@@ -632,10 +634,10 @@ func (h *FaultHandler) StartNetworkLatency() func(http.ResponseWriter, *http.Req
 		} else {
 			// If there already exists a fault in the task network namespace.
 			if latencyFaultExists {
-				responseBody = types.NewNetworkFaultInjectionErrorResponse("There is already one network latency fault running")
+				responseBody = types.NewNetworkFaultInjectionErrorResponse(latencyFaultAlreadyRunningError)
 				httpStatusCode = http.StatusConflict
 			} else if packetLossFaultExists {
-				responseBody = types.NewNetworkFaultInjectionErrorResponse("There is already one network packet loss fault running")
+				responseBody = types.NewNetworkFaultInjectionErrorResponse(packetLossFaultAlreadyRunningError)
 				httpStatusCode = http.StatusConflict
 			} else {
 				// Invoke the start fault injection functionality if not running.
@@ -845,10 +847,10 @@ func (h *FaultHandler) StartNetworkPacketLoss() func(http.ResponseWriter, *http.
 		} else {
 			// If there already exists a fault in the task network namespace.
 			if latencyFaultExists {
-				responseBody = types.NewNetworkFaultInjectionErrorResponse("There is already one network latency fault running")
+				responseBody = types.NewNetworkFaultInjectionErrorResponse(latencyFaultAlreadyRunningError)
 				httpStatusCode = http.StatusConflict
 			} else if packetLossFaultExists {
-				responseBody = types.NewNetworkFaultInjectionErrorResponse("There is already one network packet loss fault running")
+				responseBody = types.NewNetworkFaultInjectionErrorResponse(packetLossFaultAlreadyRunningError)
 				httpStatusCode = http.StatusConflict
 			} else {
 				// Invoke the start fault injection functionality if not running.
