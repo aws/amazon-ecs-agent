@@ -32,6 +32,7 @@ import (
 	apitaskstatus "github.com/aws/amazon-ecs-agent/ecs-agent/api/task/status"
 	ni "github.com/aws/amazon-ecs-agent/ecs-agent/netlib/model/networkinterface"
 	"github.com/aws/amazon-ecs-agent/ecs-agent/tcs/model/ecstcs"
+
 	"github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/gorilla/mux"
 	"github.com/stretchr/testify/assert"
