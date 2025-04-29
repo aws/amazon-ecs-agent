@@ -492,84 +492,215 @@ func TestReleaseIPInIPAM(t *testing.T) {
 // TestConstructVPCENINetworkConfig tests that NewVPCENINetworkConfig creates the correct
 // configuration for vpc-eni plugin
 func TestConstructVPCENINetworkConfig(t *testing.T) {
-	config := &Config{
-		ContainerID:           "containerid12",
-		ContainerPID:          "pid",
-		BlockInstanceMetadata: true,
+	tests := []struct {
+		name          string
+		iface         *ni.NetworkInterface
+		expectedError string
+		expected      VPCENIPluginConfig
+	}{
+		{
+			name: "Dual stack - IPv6 subnet gateway is ignored due to historical reasons",
+			iface: &ni.NetworkInterface{
+				ID:            eniID,
+				IPV4Addresses: []*ni.IPV4Address{{Address: ipv4Address}},
+				IPV6Addresses: []*ni.IPV6Address{
+					{
+						Address: ipv6Address,
+					},
+				},
+				MacAddress:               eniMACAddress,
+				SubnetGatewayIPV4Address: eniSubnetGatewayIPV4Address,
+				SubnetGatewayIPV6Address: "1:2:3:4::1",
+			},
+			expected: VPCENIPluginConfig{
+				Type:               "vpc-eni",
+				ENIIPAddresses:     []string{eniIPV4AddressWithBlockSize, eniIPV6AddressWithBlockSize},
+				ENIMACAddress:      eniMACAddress,
+				BlockIMDS:          true,
+				GatewayIPAddresses: []string{eniSubnetGatewayIPV4AddressWithoutBlockSize},
+			},
+		},
+		{
+			name: "IPv4 only",
+			iface: &ni.NetworkInterface{
+				ID:                       eniID,
+				IPV4Addresses:            []*ni.IPV4Address{{Address: ipv4Address}},
+				MacAddress:               eniMACAddress,
+				SubnetGatewayIPV4Address: eniSubnetGatewayIPV4Address,
+			},
+			expected: VPCENIPluginConfig{
+				Type:               "vpc-eni",
+				ENIIPAddresses:     []string{eniIPV4AddressWithBlockSize},
+				ENIMACAddress:      eniMACAddress,
+				BlockIMDS:          true,
+				GatewayIPAddresses: []string{eniSubnetGatewayIPV4AddressWithoutBlockSize},
+			},
+		},
+		{
+			name: "IPv6 only",
+			iface: &ni.NetworkInterface{
+				ID:                       eniID,
+				IPV6Addresses:            []*ni.IPV6Address{{Address: ipv6Address}},
+				MacAddress:               eniMACAddress,
+				SubnetGatewayIPV6Address: "1:2:3:4::1",
+			},
+			expected: VPCENIPluginConfig{
+				Type:               "vpc-eni",
+				ENIIPAddresses:     []string{eniIPV6AddressWithBlockSize},
+				ENIMACAddress:      eniMACAddress,
+				BlockIMDS:          true,
+				GatewayIPAddresses: []string{"1:2:3:4::1"},
+			},
+		},
+		{
+			name: "IPv6 only - no subnet gateway address",
+			iface: &ni.NetworkInterface{
+				ID:            eniID,
+				IPV6Addresses: []*ni.IPV6Address{{Address: ipv6Address}},
+				MacAddress:    eniMACAddress,
+			},
+			expectedError: "task ENI is IPv6-only but has no IPv6 subnet gateway address",
+		},
 	}
 
-	eniName, eniNetworkConfig, err := NewVPCENINetworkConfig(
-		&ni.NetworkInterface{
-			ID: eniID,
-			IPV4Addresses: []*ni.IPV4Address{
-				{Address: ipv4Address, Primary: true},
-			},
-			IPV6Addresses: []*ni.IPV6Address{
-				{
-					Address: ipv6Address,
-				},
-			},
-			MacAddress:               eniMACAddress,
-			SubnetGatewayIPV4Address: eniSubnetGatewayIPV4Address,
-		},
-		config)
-	require.NoError(t, err, "Failed to construct eni network config")
-	assert.Equal(t, "eth0", eniName)
-	eniConfig := &VPCENIPluginConfig{}
-	err = json.Unmarshal(eniNetworkConfig.Bytes, eniConfig)
-	require.NoError(t, err, "unmarshal config from bytes failed")
-	assert.Equal(t, &VPCENIPluginConfig{
-		Type:               "vpc-eni",
-		ENIIPAddresses:     []string{eniIPV4AddressWithBlockSize, eniIPV6AddressWithBlockSize},
-		ENIMACAddress:      eniMACAddress,
-		BlockIMDS:          true,
-		GatewayIPAddresses: []string{eniSubnetGatewayIPV4AddressWithoutBlockSize},
-	}, eniConfig)
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			config := &Config{
+				ContainerID:           "containerid12",
+				ContainerPID:          "pid",
+				BlockInstanceMetadata: true,
+			}
+			eniName, eniNetworkConfig, err := NewVPCENINetworkConfig(tt.iface, config)
+			if tt.expectedError != "" {
+				assert.EqualError(t, err, tt.expectedError)
+			} else {
+				require.NoError(t, err, "Failed to construct eni network config")
+				assert.Equal(t, "eth0", eniName)
+				eniConfig := &VPCENIPluginConfig{}
+				err = json.Unmarshal(eniNetworkConfig.Bytes, eniConfig)
+				require.NoError(t, err, "unmarshal config from bytes failed")
+				assert.Equal(t, tt.expected, *eniConfig)
+			}
+		})
+	}
 }
 
 // TestConstructBranchENINetworkConfig tests createBranchENINetworkConfig creates the correct
 // configuration for eni plugin
 func TestConstructBranchENINetworkConfig(t *testing.T) {
-	config := &Config{
-		ContainerID:           "containerid12",
-		ContainerPID:          "pid",
-		BlockInstanceMetadata: true,
-	}
-
-	eniName, eniNetworkConfig, err := NewBranchENINetworkConfig(
-		&ni.NetworkInterface{
-			ID: eniID,
-			IPV4Addresses: []*ni.IPV4Address{
-				{Address: ipv4Address, Primary: true},
-			},
-			IPV6Addresses: []*ni.IPV6Address{
-				{
-					Address: ipv6Address,
+	tests := []struct {
+		name          string
+		iface         *ni.NetworkInterface
+		expected      BranchENIConfig
+		expectedError string
+	}{
+		{
+			name: "dual stack - IPv6 subnet gateway is ignored due to historical reasons",
+			iface: &ni.NetworkInterface{
+				ID:                       eniID,
+				IPV4Addresses:            []*ni.IPV4Address{{Address: ipv4Address}},
+				IPV6Addresses:            []*ni.IPV6Address{{Address: ipv6Address}},
+				MacAddress:               eniMACAddress,
+				SubnetGatewayIPV4Address: eniSubnetGatewayIPV4Address,
+				SubnetGatewayIPV6Address: "1:2:3:4::1",
+				InterfaceVlanProperties: &ni.InterfaceVlanProperties{
+					TrunkInterfaceMacAddress: trunkENIMACAddress,
+					VlanID:                   branchENIVLANID,
 				},
 			},
-			MacAddress:               eniMACAddress,
-			SubnetGatewayIPV4Address: eniSubnetGatewayIPV4Address,
-			InterfaceVlanProperties: &ni.InterfaceVlanProperties{
-				TrunkInterfaceMacAddress: trunkENIMACAddress,
-				VlanID:                   branchENIVLANID,
+			expected: BranchENIConfig{
+				Type:                  "vpc-branch-eni",
+				IPAddresses:           []string{eniIPV4AddressWithBlockSize, eniIPV6AddressWithBlockSize},
+				BranchMACAddress:      eniMACAddress,
+				BlockInstanceMetadata: true,
+				GatewayIPAddresses:    []string{eniSubnetGatewayIPV4AddressWithoutBlockSize},
+				TrunkMACAddress:       trunkENIMACAddress,
+				BranchVlanID:          branchENIVLANID,
+				InterfaceType:         "vlan",
 			},
 		},
-		config)
-	require.NoError(t, err, "Failed to construct eni network config")
-	assert.Equal(t, "eth0", eniName)
-	branchENIConfig := &BranchENIConfig{}
-	err = json.Unmarshal(eniNetworkConfig.Bytes, branchENIConfig)
-	require.NoError(t, err, "unmarshal config from bytes failed")
-	assert.Equal(t, &BranchENIConfig{
-		Type:                  "vpc-branch-eni",
-		IPAddresses:           []string{eniIPV4AddressWithBlockSize, eniIPV6AddressWithBlockSize},
-		BranchMACAddress:      eniMACAddress,
-		BlockInstanceMetadata: true,
-		GatewayIPAddresses:    []string{eniSubnetGatewayIPV4AddressWithoutBlockSize},
-		TrunkMACAddress:       trunkENIMACAddress,
-		BranchVlanID:          branchENIVLANID,
-		InterfaceType:         "vlan",
-	}, branchENIConfig)
+		{
+			name: "IPv4 only",
+			iface: &ni.NetworkInterface{
+				ID:                       eniID,
+				IPV4Addresses:            []*ni.IPV4Address{{Address: ipv4Address}},
+				MacAddress:               eniMACAddress,
+				SubnetGatewayIPV4Address: eniSubnetGatewayIPV4Address,
+				InterfaceVlanProperties: &ni.InterfaceVlanProperties{
+					TrunkInterfaceMacAddress: trunkENIMACAddress,
+					VlanID:                   branchENIVLANID,
+				},
+			},
+			expected: BranchENIConfig{
+				Type:                  "vpc-branch-eni",
+				IPAddresses:           []string{eniIPV4AddressWithBlockSize},
+				BranchMACAddress:      eniMACAddress,
+				BlockInstanceMetadata: true,
+				GatewayIPAddresses:    []string{eniSubnetGatewayIPV4AddressWithoutBlockSize},
+				TrunkMACAddress:       trunkENIMACAddress,
+				BranchVlanID:          branchENIVLANID,
+				InterfaceType:         "vlan",
+			},
+		},
+		{
+			name: "IPv6 only",
+			iface: &ni.NetworkInterface{
+				ID:                       eniID,
+				IPV6Addresses:            []*ni.IPV6Address{{Address: ipv6Address}},
+				MacAddress:               eniMACAddress,
+				SubnetGatewayIPV6Address: "1:2:3:4::1",
+				InterfaceVlanProperties: &ni.InterfaceVlanProperties{
+					TrunkInterfaceMacAddress: trunkENIMACAddress,
+					VlanID:                   branchENIVLANID,
+				},
+			},
+			expected: BranchENIConfig{
+				Type:                  "vpc-branch-eni",
+				IPAddresses:           []string{eniIPV6AddressWithBlockSize},
+				BranchMACAddress:      eniMACAddress,
+				BlockInstanceMetadata: true,
+				GatewayIPAddresses:    []string{"1:2:3:4::1"},
+				TrunkMACAddress:       trunkENIMACAddress,
+				BranchVlanID:          branchENIVLANID,
+				InterfaceType:         "vlan",
+			},
+		},
+		{
+			name: "IPv6 only - no subnet gateway address found",
+			iface: &ni.NetworkInterface{
+				ID:            eniID,
+				IPV6Addresses: []*ni.IPV6Address{{Address: ipv6Address}},
+				MacAddress:    eniMACAddress,
+				InterfaceVlanProperties: &ni.InterfaceVlanProperties{
+					TrunkInterfaceMacAddress: trunkENIMACAddress,
+					VlanID:                   branchENIVLANID,
+				},
+			},
+			expectedError: "task ENI is IPv6-only but has no IPv6 subnet gateway address",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			config := &Config{
+				ContainerID:           "containerid12",
+				ContainerPID:          "pid",
+				BlockInstanceMetadata: true,
+			}
+
+			eniName, eniNetworkConfig, err := NewBranchENINetworkConfig(tt.iface, config)
+			if tt.expectedError != "" {
+				assert.EqualError(t, err, tt.expectedError)
+			} else {
+				require.NoError(t, err, "Failed to construct eni network config")
+				assert.Equal(t, "eth0", eniName)
+				branchENIConfig := &BranchENIConfig{}
+				err = json.Unmarshal(eniNetworkConfig.Bytes, branchENIConfig)
+				require.NoError(t, err, "unmarshal config from bytes failed")
+				assert.Equal(t, tt.expected, *branchENIConfig)
+			}
+		})
+	}
 }
 
 // TestConstructBridgeNetworkConfigWithoutIPAM tests createBridgeNetworkConfigWithoutIPAM creates the right configuration for bridge plugin

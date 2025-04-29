@@ -114,11 +114,21 @@ func newIPAMConfig(cfg *Config) (IPAMConfig, error) {
 
 // NewVPCENINetworkConfig creates a new vpc-eni CNI plugin configuration.
 func NewVPCENINetworkConfig(eni *ni.NetworkInterface, cfg *Config) (string, *libcni.NetworkConfig, error) {
+	gatewayIPAddresses := []string{eni.GetSubnetGatewayIPv4Address()}
+	if eni.IPv6Only() {
+		// Populate IPv6 Subnet Gateway address only for IPv6-only case as historically it hasn't
+		// been populated for dual-stack case.
+		if eni.GetSubnetGatewayIPv6Address() == "" {
+			return "", nil, fmt.Errorf("task ENI is IPv6-only but has no IPv6 subnet gateway address")
+		}
+		gatewayIPAddresses = []string{eni.GetSubnetGatewayIPv6Address()}
+	}
+
 	eniConf := VPCENIPluginConfig{
 		Type:               VPCENIPluginName,
 		ENIMACAddress:      eni.MacAddress,
 		ENIIPAddresses:     eni.GetIPAddressesWithPrefixLength(),
-		GatewayIPAddresses: []string{eni.GetSubnetGatewayIPv4Address()},
+		GatewayIPAddresses: gatewayIPAddresses,
 		BlockIMDS:          cfg.BlockInstanceMetadata,
 	}
 
@@ -132,13 +142,23 @@ func NewVPCENINetworkConfig(eni *ni.NetworkInterface, cfg *Config) (string, *lib
 
 // NewBranchENINetworkConfig creates a new branch ENI CNI network configuration.
 func NewBranchENINetworkConfig(eni *ni.NetworkInterface, cfg *Config) (string, *libcni.NetworkConfig, error) {
+	gatewayIPAddresses := []string{eni.GetSubnetGatewayIPv4Address()}
+	if eni.IPv6Only() {
+		// Populate IPv6 Subnet Gateway address only for IPv6-only case as historically it hasn't
+		// been populated for dual-stack case.
+		if eni.GetSubnetGatewayIPv6Address() == "" {
+			return "", nil, fmt.Errorf("task ENI is IPv6-only but has no IPv6 subnet gateway address")
+		}
+		gatewayIPAddresses = []string{eni.GetSubnetGatewayIPv6Address()}
+	}
+
 	eniConf := BranchENIConfig{
 		Type:                  ECSBranchENIPluginName,
 		TrunkMACAddress:       eni.InterfaceVlanProperties.TrunkInterfaceMacAddress,
 		BranchVlanID:          eni.InterfaceVlanProperties.VlanID,
 		BranchMACAddress:      eni.MacAddress,
 		IPAddresses:           eni.GetIPAddressesWithPrefixLength(),
-		GatewayIPAddresses:    []string{eni.GetSubnetGatewayIPv4Address()},
+		GatewayIPAddresses:    gatewayIPAddresses,
 		BlockInstanceMetadata: cfg.BlockInstanceMetadata,
 		InterfaceType:         vpcCNIPluginInterfaceType,
 	}
