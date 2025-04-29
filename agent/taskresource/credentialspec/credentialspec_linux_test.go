@@ -110,7 +110,7 @@ func TestInitialize(t *testing.T) {
 	assert.NotNil(t, credspecRes.s3ClientCreator)
 	assert.NotNil(t, credspecRes.secretsmanagerClientCreator)
 	assert.NotNil(t, credspecRes.resourceStatusToTransitionFunction)
-	assert.Equal(t, testConfig.InstanceIPCompatibility, credspecRes.ipCompatibility)
+	assert.Equal(t, testConfig.ShouldUseDualStackEndpoints(), credspecRes.useDualStackEndpoint)
 }
 
 func TestHandleSSMCredentialspecFile(t *testing.T) {
@@ -394,7 +394,7 @@ func TestHandleS3CredentialSpecFileGetS3SecretValue(t *testing.T) {
 		Body: io.NopCloser(strings.NewReader(testData)),
 	}
 	gomock.InOrder(
-		s3ClientCreator.EXPECT().NewS3Client(gomock.Any(), gomock.Any(), gomock.Any(), testConfig.InstanceIPCompatibility).Return(mockS3Client, nil),
+		s3ClientCreator.EXPECT().NewS3Client(gomock.Any(), gomock.Any(), gomock.Any(), testConfig.ShouldUseDualStackEndpoints()).Return(mockS3Client, nil),
 		mockS3Client.EXPECT().GetObject(gomock.Any(), gomock.Any(), gomock.Any()).Return(s3GetObjectResponse, nil).Times(1),
 	)
 
@@ -462,7 +462,7 @@ func TestHandleS3DomainlessCredentialSpecFileGetS3SecretValue(t *testing.T) {
 		Body: io.NopCloser(strings.NewReader(testData)),
 	}
 	gomock.InOrder(
-		s3ClientCreator.EXPECT().NewS3Client(gomock.Any(), gomock.Any(), gomock.Any(), testConfig.InstanceIPCompatibility).Return(mockS3Client, nil),
+		s3ClientCreator.EXPECT().NewS3Client(gomock.Any(), gomock.Any(), gomock.Any(), testConfig.ShouldUseDualStackEndpoints()).Return(mockS3Client, nil),
 		mockS3Client.EXPECT().GetObject(gomock.Any(), gomock.Any(), gomock.Any()).Return(s3GetObjectResponse, nil).Times(1),
 	)
 
@@ -527,7 +527,7 @@ func TestHandleS3CredentialSpecFileGetS3SecretValueErr(t *testing.T) {
 		}, apitaskstatus.TaskStatusNone, apitaskstatus.TaskRunning)
 
 	gomock.InOrder(
-		s3ClientCreator.EXPECT().NewS3Client(gomock.Any(), gomock.Any(), gomock.Any(), testConfig.InstanceIPCompatibility).Return(mockS3Client, nil),
+		s3ClientCreator.EXPECT().NewS3Client(gomock.Any(), gomock.Any(), gomock.Any(), testConfig.ShouldUseDualStackEndpoints()).Return(mockS3Client, nil),
 		mockS3Client.EXPECT().GetObject(gomock.Any(), gomock.Any(), gomock.Any()).Return(nil, errors.New("test-error")).Times(1),
 	)
 

@@ -501,7 +501,7 @@ func (task *Task) initializeCredentialSpecResource(config *config.Config, creden
 	resourceFields *taskresource.ResourceFields) error {
 	credspecContainerMapping := task.GetAllCredentialSpecRequirements()
 	credentialspecResource, err := credentialspec.NewCredentialSpecResource(task.Arn, config.AWSRegion, task.ExecutionCredentialsID,
-		credentialsManager, resourceFields.SSMClientCreator, resourceFields.S3ClientCreator, resourceFields.ASMClientCreator, credspecContainerMapping, config.InstanceIPCompatibility)
+		credentialsManager, resourceFields.SSMClientCreator, resourceFields.S3ClientCreator, resourceFields.ASMClientCreator, credspecContainerMapping, config.ShouldUseDualStackEndpoints())
 	if err != nil {
 		return err
 	}
@@ -1278,7 +1278,7 @@ func (task *Task) initializeFirelensResource(config *config.Config, resourceFiel
 			}
 			firelensResource, err := firelens.NewFirelensResource(config.Cluster, task.Arn, task.Family+":"+task.Version,
 				ec2InstanceID, config.DataDir, firelensConfig.Type, config.AWSRegion, networkMode, firelensConfig.Options, containerToLogOptions,
-				credentialsManager, task.ExecutionCredentialsID, containerMemoryLimit, config.InstanceIPCompatibility)
+				credentialsManager, task.ExecutionCredentialsID, containerMemoryLimit, config.ShouldUseDualStackEndpoints())
 			if err != nil {
 				return errors.Wrap(err, "unable to initialize firelens resource")
 			}
@@ -3396,7 +3396,7 @@ func (task *Task) initializeEnvfilesResource(config *config.Config, credentialsM
 	for _, container := range task.Containers {
 		if container.ShouldCreateWithEnvFiles() {
 			envfileResource, err := envFiles.NewEnvironmentFileResource(config.Cluster, task.Arn, config.AWSRegion, config.DataDir,
-				container.Name, container.EnvironmentFiles, credentialsManager, task.ExecutionCredentialsID, config.InstanceIPCompatibility)
+				container.Name, container.EnvironmentFiles, credentialsManager, task.ExecutionCredentialsID, config.ShouldUseDualStackEndpoints())
 			if err != nil {
 				return errors.Wrapf(err, "unable to initialize envfiles resource for container %s", container.Name)
 			}

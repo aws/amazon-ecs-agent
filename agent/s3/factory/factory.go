@@ -18,7 +18,6 @@ import (
 	"time"
 
 	"github.com/aws/amazon-ecs-agent/agent/config"
-	"github.com/aws/amazon-ecs-agent/agent/config/ipcompatibility"
 	s3client "github.com/aws/amazon-ecs-agent/agent/s3"
 	agentversion "github.com/aws/amazon-ecs-agent/agent/version"
 	"github.com/aws/amazon-ecs-agent/ecs-agent/credentials"
@@ -37,8 +36,8 @@ const (
 )
 
 type S3ClientCreator interface {
-	NewS3ManagerClient(bucket, region string, creds credentials.IAMRoleCredentials, ipCompatibility ipcompatibility.IPCompatibility) (s3client.S3ManagerClient, error)
-	NewS3Client(bucket, region string, creds credentials.IAMRoleCredentials, ipCompatibility ipcompatibility.IPCompatibility) (s3client.S3Client, error)
+	NewS3ManagerClient(bucket, region string, creds credentials.IAMRoleCredentials, useDualStackEndpoint bool) (s3client.S3ManagerClient, error)
+	NewS3Client(bucket, region string, creds credentials.IAMRoleCredentials, useDualStackEndpoint bool) (s3client.S3Client, error)
 }
 
 // NewS3ClientCreator provides 2 implementations
@@ -94,9 +93,9 @@ func createAWSConfig(region string, creds credentials.IAMRoleCredentials, useFIP
 }
 
 // NewS3ManagerClient returns a new S3 client based on the region of the bucket.
-func (*s3ClientCreator) NewS3ManagerClient(bucket, region string, creds credentials.IAMRoleCredentials, ipCompatibility ipcompatibility.IPCompatibility) (s3client.S3ManagerClient, error) {
+func (*s3ClientCreator) NewS3ManagerClient(bucket, region string, creds credentials.IAMRoleCredentials, useDualStackEndpoint bool) (s3client.S3ManagerClient, error) {
 	// Create an initial AWS session to get the bucket region
-	cfg, err := createAWSConfig(region, creds, false, ipCompatibility.IsIPv6Only())
+	cfg, err := createAWSConfig(region, creds, false, useDualStackEndpoint)
 	if err != nil {
 		return nil, err
 	}
@@ -108,7 +107,7 @@ func (*s3ClientCreator) NewS3ManagerClient(bucket, region string, creds credenti
 
 	// Determine if we should use FIPS endpoints based on the bucket region
 	useFIPSEndpoint := config.IsFIPSEnabled() && isS3FIPSCompliantRegion(bucketRegion)
-	cfg, err = createAWSConfig(bucketRegion, creds, useFIPSEndpoint, ipCompatibility.IsIPv6Only())
+	cfg, err = createAWSConfig(bucketRegion, creds, useFIPSEndpoint, useDualStackEndpoint)
 	if err != nil {
 		return nil, err
 	}
@@ -116,9 +115,9 @@ func (*s3ClientCreator) NewS3ManagerClient(bucket, region string, creds credenti
 }
 
 // NewS3Client returns a new S3 client to support S3 operations which are not provided by s3manager.
-func (*s3ClientCreator) NewS3Client(bucket, region string, creds credentials.IAMRoleCredentials, ipCompatibility ipcompatibility.IPCompatibility) (s3client.S3Client, error) {
+func (*s3ClientCreator) NewS3Client(bucket, region string, creds credentials.IAMRoleCredentials, useDualStackEndpoint bool) (s3client.S3Client, error) {
 	// Create an initial AWS session to get the bucket region
-	cfg, err := createAWSConfig(region, creds, false, ipCompatibility.IsIPv6Only())
+	cfg, err := createAWSConfig(region, creds, false, useDualStackEndpoint)
 	if err != nil {
 		return nil, err
 	}
@@ -130,7 +129,7 @@ func (*s3ClientCreator) NewS3Client(bucket, region string, creds credentials.IAM
 
 	// Determine if we should use FIPS endpoints based on the bucket region
 	useFIPSEndpoint := config.IsFIPSEnabled() && isS3FIPSCompliantRegion(bucketRegion)
-	cfg, err = createAWSConfig(bucketRegion, creds, useFIPSEndpoint, ipCompatibility.IsIPv6Only())
+	cfg, err = createAWSConfig(bucketRegion, creds, useFIPSEndpoint, useDualStackEndpoint)
 	if err != nil {
 		return nil, err
 	}

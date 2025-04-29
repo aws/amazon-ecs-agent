@@ -18,15 +18,14 @@ package session
 
 import (
 	"github.com/aws/amazon-ecs-agent/agent/api/task"
-	"github.com/aws/amazon-ecs-agent/agent/config/ipcompatibility"
 	"github.com/aws/amazon-ecs-agent/agent/taskresource/credentialspec"
 	"github.com/aws/amazon-ecs-agent/ecs-agent/credentials"
 )
 
 // setDomainlessGMSATaskExecutionRoleCredentials sets the taskExecutionRoleCredentials to a Windows Registry Key so that
 // the domainless gMSA plugin can use these credentials to retrieve the customer Active Directory credential
-// ipCompatibility is noop - kept it to keep consistent method signature across platforms
-func checkAndSetDomainlessGMSATaskExecutionRoleCredentials(iamRoleCredentials credentials.IAMRoleCredentials, task *task.Task, ipCompatibility ipcompatibility.IPCompatibility) error {
+// useDualStackEndpoint is noop - kept it to keep consistent method signature across platforms
+func checkAndSetDomainlessGMSATaskExecutionRoleCredentials(iamRoleCredentials credentials.IAMRoleCredentials, task *task.Task, useDualStackEndpoint bool) error {
 	// exit early if the task does not need domainless gMSA
 	if !task.RequiresDomainlessCredentialSpecResource() {
 		return nil

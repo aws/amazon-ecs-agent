@@ -677,3 +677,8 @@ func IsFIPSEnabled() bool {
 func SetFIPSEnabled(enabled bool) {
 	isFIPSEnabled = enabled
 }
+
+// TODO: Add comment + test case
+func (cfg *Config) ShouldUseDualStackEndpoints() bool {
+	return cfg.UseDualStackEndpoints.Enabled() || cfg.InstanceIPCompatibility.IsIPv6Only()
+}

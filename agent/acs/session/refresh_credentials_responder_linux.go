@@ -19,21 +19,20 @@ package session
 import (
 	"github.com/aws/amazon-ecs-agent/agent/api/task"
 	asmfactory "github.com/aws/amazon-ecs-agent/agent/asm/factory"
-	"github.com/aws/amazon-ecs-agent/agent/config/ipcompatibility"
 	s3factory "github.com/aws/amazon-ecs-agent/agent/s3/factory"
 	ssmfactory "github.com/aws/amazon-ecs-agent/agent/ssm/factory"
 	"github.com/aws/amazon-ecs-agent/agent/taskresource/credentialspec"
 	"github.com/aws/amazon-ecs-agent/ecs-agent/credentials"
 )
 
-func checkAndSetDomainlessGMSATaskExecutionRoleCredentials(iamRoleCredentials credentials.IAMRoleCredentials, task *task.Task, ipCompatibility ipcompatibility.IPCompatibility) error {
+func checkAndSetDomainlessGMSATaskExecutionRoleCredentials(iamRoleCredentials credentials.IAMRoleCredentials, task *task.Task, useDualStackEndpoint bool) error {
 	// exit early if the task does not need domainless gMSA
 	if !task.RequiresDomainlessCredentialSpecResource() {
 		return nil
 	}
 	credspecContainerMapping := task.GetAllCredentialSpecRequirements()
 	credentialspecResource, err := credentialspec.NewCredentialSpecResource(task.Arn, "", task.ExecutionCredentialsID,
-		nil, ssmfactory.NewSSMClientCreator(), s3factory.NewS3ClientCreator(), asmfactory.NewClientCreator(), credspecContainerMapping, ipCompatibility)
+		nil, ssmfactory.NewSSMClientCreator(), s3factory.NewS3ClientCreator(), asmfactory.NewClientCreator(), credspecContainerMapping, useDualStackEndpoint)
 	if err != nil {
 		return err
 	}

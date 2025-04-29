@@ -206,7 +206,7 @@ func TestInitialize(t *testing.T) {
 	assert.NotNil(t, credspecRes.ssmClientCreator)
 	assert.NotNil(t, credspecRes.s3ClientCreator)
 	assert.NotNil(t, credspecRes.resourceStatusToTransitionFunction)
-	assert.Equal(t, testConfig.InstanceIPCompatibility, credspecRes.ipCompatibility)
+	assert.Equal(t, testConfig.ShouldUseDualStackEndpoints(), credspecRes.useDualStackEndpoint)
 }
 
 func TestMarshalUnmarshalJSON(t *testing.T) {
@@ -772,7 +772,7 @@ func TestHandleS3CredentialspecFile(t *testing.T) {
 				return testTempFile
 			}
 			gomock.InOrder(
-				s3ClientCreator.EXPECT().NewS3ManagerClient(gomock.Any(), gomock.Any(), gomock.Any(), testConfig.InstanceIPCompatibility).Return(mockS3Client, nil),
+				s3ClientCreator.EXPECT().NewS3ManagerClient(gomock.Any(), gomock.Any(), gomock.Any(), testConfig.ShouldUseDualStackEndpoints()).Return(mockS3Client, nil),
 				mockIO.EXPECT().TempFile(gomock.Any(), gomock.Any()).Return(mockFile, nil),
 				mockS3Client.EXPECT().Download(gomock.Any(), mockFile, gomock.Any()).Return(int64(0), nil),
 			)
@@ -859,7 +859,7 @@ func TestHandleS3CredentialspecFileS3ClientErr(t *testing.T) {
 		}, apitaskstatus.TaskStatusNone, apitaskstatus.TaskRunning)
 
 	gomock.InOrder(
-		s3ClientCreator.EXPECT().NewS3ManagerClient(gomock.Any(), gomock.Any(), gomock.Any(), testConfig.InstanceIPCompatibility).Return(mockS3Client, errors.New("test-error")),
+		s3ClientCreator.EXPECT().NewS3ManagerClient(gomock.Any(), gomock.Any(), gomock.Any(), testConfig.ShouldUseDualStackEndpoints()).Return(mockS3Client, errors.New("test-error")),
 	)
 
 	err := cs.handleS3CredentialspecFile(s3CredentialSpec, credentialSpecS3ARN, iamCredentials)
@@ -917,7 +917,7 @@ func TestHandleS3CredentialspecFileWriteErr(t *testing.T) {
 	}()
 
 	gomock.InOrder(
-		s3ClientCreator.EXPECT().NewS3ManagerClient(gomock.Any(), gomock.Any(), gomock.Any(), testConfig.InstanceIPCompatibility).Return(mockS3Client, nil),
+		s3ClientCreator.EXPECT().NewS3ManagerClient(gomock.Any(), gomock.Any(), gomock.Any(), testConfig.ShouldUseDualStackEndpoints()).Return(mockS3Client, nil),
 		mockIO.EXPECT().TempFile(gomock.Any(), gomock.Any()).Return(mockFile, nil),
 		mockS3Client.EXPECT().Download(gomock.Any(), mockFile, gomock.Any()).Return(int64(0), nil),
 	)
@@ -1047,7 +1047,7 @@ func TestCreateS3(t *testing.T) {
 	defer mockRename()()
 	gomock.InOrder(
 		credentialsManager.EXPECT().GetTaskCredentials(gomock.Any()).Return(creds, true),
-		s3ClientCreator.EXPECT().NewS3ManagerClient(gomock.Any(), gomock.Any(), gomock.Any(), testConfig.InstanceIPCompatibility).Return(mockS3Client, nil),
+		s3ClientCreator.EXPECT().NewS3ManagerClient(gomock.Any(), gomock.Any(), gomock.Any(), testConfig.ShouldUseDualStackEndpoints()).Return(mockS3Client, nil),
 		mockIO.EXPECT().TempFile(gomock.Any(), gomock.Any()).Return(mockFile, nil),
 		mockS3Client.EXPECT().Download(gomock.Any(), mockFile, gomock.Any()).Return(int64(0), nil),
 	)
