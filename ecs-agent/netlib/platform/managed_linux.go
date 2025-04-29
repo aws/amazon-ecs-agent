@@ -15,16 +15,19 @@ import (
 	"github.com/aws/amazon-ecs-agent/ecs-agent/netlib/model/serviceconnect"
 	"github.com/aws/amazon-ecs-agent/ecs-agent/netlib/model/status"
 	"github.com/aws/amazon-ecs-agent/ecs-agent/netlib/model/tasknetworkconfig"
-	"github.com/aws/aws-sdk-go-v2/service/ecs/types"
+	"github.com/aws/amazon-ecs-agent/ecs-agent/utils/net"
 
 	"github.com/aws/aws-sdk-go-v2/aws"
+	"github.com/aws/aws-sdk-go-v2/service/ecs/types"
 	"github.com/pkg/errors"
 )
 
 const (
 	MacResource         = "mac"
-	SubNetCidrBlock     = "network/interfaces/macs/%s/subnet-ipv4-cidr-block"
-	PrivateIPv4Resource = "local-ipv4"
+	IPv4SubNetCidrBlock = "network/interfaces/macs/%s/subnet-ipv4-cidr-block"
+	IPv6SubNetCidrBlock = "network/interfaces/macs/%s/subnet-ipv6-cidr-block"
+	PrivateIPv4Address  = "local-ipv4"
+	PrivateIPv6Address  = "ipv6"
 	InstanceIDResource  = "instance-id"
 	DefaultArg          = "default"
 )
@@ -94,12 +97,10 @@ func (m *managedLinux) ConfigureServiceConnect(
 
 // buildDefaultNetworkNamespace return default network namespace of host ENI for host mode.
 func (m *managedLinux) buildDefaultNetworkNamespace(taskID string) ([]*tasknetworkconfig.NetworkNamespace, error) {
-	privateIpv4, err1 := m.client.GetMetadata(PrivateIPv4Resource)
-	macAddress, err2 := m.client.GetMetadata(MacResource)
-	ec2ID, err3 := m.client.GetMetadata(InstanceIDResource)
-	subNet, err4 := m.client.GetMetadata(fmt.Sprintf(SubNetCidrBlock, macAddress))
-	macToNames, err5 := m.common.interfacesMACToName()
-	if err := goErr.Join(err1, err2, err3, err4, err5); err != nil {
+	macAddress, err1 := m.client.GetMetadata(MacResource)
+	ec2ID, err2 := m.client.GetMetadata(InstanceIDResource)
+	macToNames, err3 := m.common.interfacesMACToName()
+	if err := goErr.Join(err1, err2, err3); err != nil {
 		logger.Error("Error fetching fields for default ENI", logger.Fields{
 			loggerfield.Error: err,
 		})
@@ -107,15 +108,8 @@ func (m *managedLinux) buildDefaultNetworkNamespace(taskID string) ([]*tasknetwo
 	}
 
 	hostENI := &ecsacs.ElasticNetworkInterface{
-		AttachmentArn: aws.String("arn"),
-		Ec2Id:         aws.String(ec2ID),
-		Ipv4Addresses: []*ecsacs.IPv4AddressAssignment{
-			{
-				Primary:        aws.Bool(true),
-				PrivateAddress: aws.String(privateIpv4),
-			},
-		},
-		SubnetGatewayIpv4Address:     aws.String(subNet),
+		AttachmentArn:                aws.String("arn"),
+		Ec2Id:                        aws.String(ec2ID),
 		MacAddress:                   aws.String(macAddress),
 		DomainNameServers:            []*string{},
 		DomainName:                   []*string{},
@@ -124,8 +118,68 @@ func (m *managedLinux) buildDefaultNetworkNamespace(taskID string) ([]*tasknetwo
 		Index:                        aws.Int64(64),
 	}
 
+	ipComp, err := net.DetermineIPCompatibility(m.netlink, macAddress)
+	if err != nil {
+		logger.Error("Failed to determine IP compatibility", logger.Fields{
+			loggerfield.Error: err,
+		})
+		return nil, err
+	}
+
+	if !ipComp.IsIPv4Compatible() && !ipComp.IsIPv6Compatible() {
+		return nil, errors.New("Failed to build the default network namespace because the associated ENI is neither " +
+			"ipv4 compatible or ipv6 compatible")
+	}
+
+	if ipComp.IsIPv6Only() {
+		privateIpv6, err1 := m.client.GetMetadata(PrivateIPv6Address)
+		_, err2 := m.client.GetMetadata(fmt.Sprintf(IPv6SubNetCidrBlock, macAddress))
+		if err := goErr.Join(err1, err2); err != nil {
+			logger.Error("Error fetching IPv6 fields for default ENI", logger.Fields{
+				loggerfield.Error: err,
+			})
+			return nil, err
+		}
+
+		hostENI.Ipv6Addresses = []*ecsacs.IPv6AddressAssignment{
+			{
+				// TODO: Primary field is not available yet.
+				// Primary:        aws.Bool(true),
+				Address: aws.String(privateIpv6),
+			},
+		}
+		// TODO: SubnetGatewayIpv6Address is not available yet.
+		// hostENI.SubnetGatewayIpv6Address = aws.String(ipv6SubNet)
+	}
+
+	if ipComp.IsIPv4Compatible() {
+		privateIpv4, err1 := m.client.GetMetadata(PrivateIPv4Address)
+		ipv4SubNet, err2 := m.client.GetMetadata(fmt.Sprintf(IPv4SubNetCidrBlock, macAddress))
+		if err := goErr.Join(err1, err2); err != nil {
+			logger.Error("Error fetching IPv4 fields for default ENI", logger.Fields{
+				loggerfield.Error: err,
+			})
+			return nil, err
+		}
+
+		hostENI.Ipv4Addresses = []*ecsacs.IPv4AddressAssignment{
+			{
+				Primary:        aws.Bool(true),
+				PrivateAddress: aws.String(privateIpv4),
+			},
+		}
+		hostENI.SubnetGatewayIpv4Address = aws.String(ipv4SubNet)
+	}
+
 	netNSName := networkinterface.NetNSName(taskID, DefaultArg)
-	netInt, _ := networkinterface.New(hostENI, DefaultArg, nil, macToNames)
+	netInt, err := networkinterface.New(hostENI, DefaultArg, nil, macToNames)
+	if err != nil {
+		logger.Error("Failed to create the network interface", logger.Fields{
+			loggerfield.Error: err,
+		})
+		return nil, err
+	}
+
 	netInt.Default = true
 	netInt.DesiredStatus = status.NetworkReady
 	netInt.KnownStatus = status.NetworkReady

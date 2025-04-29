@@ -25,6 +25,7 @@ type NetLink interface {
 	LinkSetUp(link netlink.Link) error
 	RouteList(link netlink.Link, family int) ([]netlink.Route, error)
 	LinkByIndex(index int) (netlink.Link, error)
+	LinkList() ([]netlink.Link, error)
 }
 
 type netLink struct{}
@@ -49,4 +50,9 @@ func (nl *netLink) RouteList(link netlink.Link, family int) ([]netlink.Route, er
 
 func (nl *netLink) LinkByIndex(index int) (netlink.Link, error) {
 	return netlink.LinkByIndex(index)
+}
+
+// LinkList gets a list of link devices. Equivalent to: `ip link show`
+func (nl *netLink) LinkList() ([]netlink.Link, error) {
+	return netlink.LinkList()
 }
