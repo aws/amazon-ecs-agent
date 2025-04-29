@@ -31,6 +31,7 @@ import (
 	"github.com/aws/amazon-ecs-agent/agent/dockerclient/dockerapi"
 	"github.com/aws/amazon-ecs-agent/agent/taskresource"
 	"github.com/aws/amazon-ecs-agent/agent/utils/loader"
+	apicontainerrestart "github.com/aws/amazon-ecs-agent/ecs-agent/api/container/restart"
 	apicontainerstatus "github.com/aws/amazon-ecs-agent/ecs-agent/api/container/status"
 	"github.com/aws/amazon-ecs-agent/ecs-agent/api/ecs"
 	apitaskstatus "github.com/aws/amazon-ecs-agent/ecs-agent/api/task/status"
@@ -360,12 +361,6 @@ func (m *manager) CreateInstanceTask(cfg *config.Config) (*apitask.Task, error) 
 	containerRunning := apicontainerstatus.ContainerRunning
 	dockerHostConfig := dockercontainer.HostConfig{
 		NetworkMode: apitask.HostNetworkMode,
-		// do not restart relay if it's stopped manually.
-		// the default value of 0 for MaximumRetryCount means that we will not enforce a maximum count
-		RestartPolicy: dockercontainer.RestartPolicy{
-			Name:              "on-failure",
-			MaximumRetryCount: 0,
-		},
 	}
 	rawHostConfig, err := json.Marshal(&dockerHostConfig)
 	if err != nil {
@@ -402,6 +397,12 @@ func (m *manager) CreateInstanceTask(cfg *config.Config) (*apitask.Task, error) 
 			TransitionDependenciesMap: make(map[apicontainerstatus.ContainerStatus]apicontainer.TransitionDependencySet),
 			Essential:                 true,
 			SteadyStateStatusUnsafe:   &containerRunning,
+			// Restart Relay if it exits or crashes
+			// RestartAttemptPeriod value 60 ensures it has run for atleast 60 seconds and prevents a crash/restart loop
+			RestartPolicy: &apicontainerrestart.RestartPolicy{
+				Enabled:              true,
+				RestartAttemptPeriod: 60,
+			},
 			DockerConfig: apicontainer.DockerConfig{
 				Config:     aws.String(rawConfig),
 				HostConfig: aws.String(string(rawHostConfig)),
