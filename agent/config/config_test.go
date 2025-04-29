@@ -1021,6 +1021,47 @@ func TestFirelensAsyncEnabled(t *testing.T) {
 	}
 }
 
+func TestUseDualStackEndpoints(t *testing.T) {
+	testCases := []struct {
+		name           string
+		envVarValue    string
+		expectedResult bool
+	}{
+		{
+			name:           "default, env var not set",
+			envVarValue:    "",
+			expectedResult: false,
+		},
+		{
+			name:           "explicitly disabled",
+			envVarValue:    "false",
+			expectedResult: false,
+		},
+		{
+			name:           "explicitly enabled",
+			envVarValue:    "true",
+			expectedResult: true,
+		},
+		{
+			name:           "env var has invalid value",
+			envVarValue:    "foo",
+			expectedResult: false,
+		},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			t.Setenv("AWS_DEFAULT_REGION", "us-west-2")
+			if tc.envVarValue != "" {
+				t.Setenv("USE_DUAL_STACK_ENDPOINTS", tc.envVarValue)
+			}
+			cfg, err := NewConfig(ec2testutil.FakeEC2MetadataClient{})
+			assert.NoError(t, err)
+			assert.Equal(t, tc.expectedResult, cfg.UseDualStackEndpoints.Enabled())
+		})
+	}
+}
+
 func setTestRegion() func() {
 	return setTestEnv("AWS_DEFAULT_REGION", "us-west-2")
 }

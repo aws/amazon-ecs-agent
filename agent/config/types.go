@@ -402,4 +402,7 @@ type Config struct {
 
 	// IP version compatibility for the container instance's default network
 	InstanceIPCompatibility ipcompatibility.IPCompatibility
+
+	// UseDualStackEndpoints specifies whether the agent should use dual-stack endpoints for AWS API calls.
+	UseDualStackEndpoints BooleanDefaultFalse
 }

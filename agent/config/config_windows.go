@@ -170,6 +170,7 @@ func DefaultConfig() Config {
 		NodeStageTimeout:                    nodeStageTimeout,
 		NodeUnstageTimeout:                  nodeUnstageTimeout,
 		FirelensAsyncEnabled:                BooleanDefaultTrue{Value: ExplicitlyEnabled},
+		UseDualStackEndpoints:               BooleanDefaultFalse{Value: ExplicitlyDisabled},
 	}
 }
 
