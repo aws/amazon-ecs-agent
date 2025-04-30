@@ -73,7 +73,6 @@ func taskServerSetup(
 	containerInstanceArn string,
 	taskProtectionClientFactory tp.TaskProtectionClientFactoryInterface,
 ) (*http.Server, error) {
-
 	muxRouter := mux.NewRouter()
 
 	// Set this to false so that for request like "//v3//metadata/task"
@@ -117,7 +116,8 @@ func v2HandlersSetup(muxRouter *mux.Router,
 	credentialsManager credentials.Manager,
 	auditLogger auditinterface.AuditLogger,
 	availabilityZone string,
-	containerInstanceArn string) {
+	containerInstanceArn string,
+) {
 	muxRouter.HandleFunc(tmdsv2.CredentialsPath, tmdsv2.CredentialsHandler(credentialsManager, auditLogger))
 	muxRouter.HandleFunc(v2.ContainerMetadataPath, v2.TaskContainerMetadataHandler(state, ecsClient, cluster, availabilityZone, containerInstanceArn, false))
 	muxRouter.HandleFunc(v2.TaskMetadataPath, v2.TaskContainerMetadataHandler(state, ecsClient, cluster, availabilityZone, containerInstanceArn, false))
@@ -136,7 +136,8 @@ func v3HandlersSetup(muxRouter *mux.Router,
 	statsEngine stats.Engine,
 	cluster string,
 	availabilityZone string,
-	containerInstanceArn string) {
+	containerInstanceArn string,
+) {
 	muxRouter.HandleFunc(v3.ContainerMetadataPath, v3.ContainerMetadataHandler(state))
 	muxRouter.HandleFunc(v3.TaskMetadataPath, v3.TaskMetadataHandler(state, ecsClient, cluster, availabilityZone, containerInstanceArn, false))
 	muxRouter.HandleFunc(v3.TaskWithTagsMetadataPath, v3.TaskMetadataHandler(state, ecsClient, cluster, availabilityZone, containerInstanceArn, true))
@@ -342,7 +343,8 @@ func ServeTaskHTTPEndpoint(
 	cfg *config.Config,
 	statsEngine stats.Engine,
 	availabilityZone string,
-	vpcID string) {
+	vpcID string,
+) {
 	// Create and initialize the audit log
 	logger, err := seelog.LoggerFromConfigAsString(audit.AuditLoggerConfig(cfg))
 	if err != nil {
@@ -354,7 +356,7 @@ func ServeTaskHTTPEndpoint(
 	auditLogger := audit.NewAuditLog(containerInstanceArn, cfg, logger)
 
 	taskProtectionClientFactory := tpfactory.TaskProtectionClientFactory{
-		Region: cfg.AWSRegion, Endpoint: cfg.APIEndpoint, AcceptInsecureCert: cfg.AcceptInsecureCert,
+		Region: cfg.AWSRegion, Endpoint: cfg.APIEndpoint, AcceptInsecureCert: cfg.AcceptInsecureCert, IPCompatibility: cfg.InstanceIPCompatibility,
 	}
 	server, err := taskServerSetup(credentialsManager, auditLogger, state, ecsClient, cfg.Cluster,
 		statsEngine, cfg.TaskMetadataSteadyStateRate, cfg.TaskMetadataBurstRate,
