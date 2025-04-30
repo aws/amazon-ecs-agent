@@ -19,10 +19,9 @@ package firelens
 import (
 	"fmt"
 
+	generator "github.com/awslabs/go-config-generator-for-fluentd-and-fluentbit"
 	"github.com/cihub/seelog"
 	"github.com/pkg/errors"
-
-	generator "github.com/awslabs/go-config-generator-for-fluentd-and-fluentbit"
 )
 
 const (
