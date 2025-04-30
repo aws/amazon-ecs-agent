@@ -56,9 +56,9 @@ import (
 	"github.com/aws/amazon-ecs-agent/ecs-agent/logger/field"
 	"github.com/aws/amazon-ecs-agent/ecs-agent/utils/retry"
 	"github.com/aws/amazon-ecs-agent/ecs-agent/utils/ttime"
+
+	"github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/aws/aws-sdk-go-v2/service/cloudwatchlogs"
-	"github.com/aws/aws-sdk-go/aws"
-	ep "github.com/aws/aws-sdk-go/aws/endpoints"
 	"github.com/aws/smithy-go/ptr"
 	"github.com/docker/docker/api/types"
 	dockercontainer "github.com/docker/docker/api/types/container"
@@ -1086,7 +1086,7 @@ func (engine *DockerTaskEngine) handleDockerEvent(event dockerapi.DockerContaine
 	}
 
 	if event.ExitCode != nil {
-		eventFields["exitCode"] = aws.IntValue(event.ExitCode)
+		eventFields["exitCode"] = aws.ToInt(event.ExitCode)
 	}
 	if len(event.PortBindings) != 0 {
 		eventFields["portBindings"] = event.PortBindings
@@ -1948,34 +1948,27 @@ func (engine *DockerTaskEngine) createContainer(task *apitask.Task, container *a
 		}
 	}
 
-	// This is a short term solution only for specific regions
 	if hostConfig.LogConfig.Type == logDriverTypeAwslogs {
 		if engine.cfg.InstanceIPCompatibility.IsIPv6Only() {
 			engine.setAWSLogsDualStackEndpoint(task, container, hostConfig)
 		} else {
+			// This is a short term solution only for specific regions
 			region := engine.cfg.AWSRegion
 			if _, ok := unresolvedIsolatedRegions[region]; ok {
-				endpoint := ""
-				dnsSuffix := ""
-				partition, ok := ep.PartitionForRegion(ep.DefaultPartitions(), region)
-				if !ok {
-					logger.Warn("No partition resolved for region. Using AWS default", logger.Fields{
-						"region":           region,
-						"defaultDNSSuffix": ep.AwsPartition().DNSSuffix(),
+				resolvedEndpoint, err := cloudwatchlogs.NewDefaultEndpointResolverV2().ResolveEndpoint(context.TODO(),
+					cloudwatchlogs.EndpointParameters{
+						Region: ptr.String(region),
 					})
-					dnsSuffix = ep.AwsPartition().DNSSuffix()
+				if err != nil {
+					logger.Warn("failed to resolve CloudWatch Logs endpoint for region", logger.Fields{
+						field.TaskARN:   task.Arn,
+						field.Container: container.Name,
+						field.Region:    region,
+						field.Error:     err,
+					})
 				} else {
-					resolvedEndpoint, err := partition.EndpointFor("logs", region)
-					if err == nil {
-						endpoint = resolvedEndpoint.URL
-					} else {
-						dnsSuffix = partition.DNSSuffix()
-					}
+					hostConfig.LogConfig.Config[awsLogsEndpointKey] = resolvedEndpoint.URI.String()
 				}
-				if endpoint == "" {
-					endpoint = fmt.Sprintf("https://logs.%s.%s", region, dnsSuffix)
-				}
-				hostConfig.LogConfig.Config[awsLogsEndpointKey] = endpoint
 			}
 		}
 	}
