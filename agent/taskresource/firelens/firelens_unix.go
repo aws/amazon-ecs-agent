@@ -25,12 +25,8 @@ import (
 	"sync"
 	"time"
 
-	"github.com/aws/amazon-ecs-agent/agent/config"
-	"github.com/aws/amazon-ecs-agent/ecs-agent/ipcompatibility"
-	"github.com/cihub/seelog"
-	"github.com/pkg/errors"
-
 	apicontainer "github.com/aws/amazon-ecs-agent/agent/api/container"
+	"github.com/aws/amazon-ecs-agent/agent/config"
 	"github.com/aws/amazon-ecs-agent/agent/s3"
 	"github.com/aws/amazon-ecs-agent/agent/s3/factory"
 	"github.com/aws/amazon-ecs-agent/agent/taskresource"
@@ -40,6 +36,11 @@ import (
 	apicontainerstatus "github.com/aws/amazon-ecs-agent/ecs-agent/api/container/status"
 	"github.com/aws/amazon-ecs-agent/ecs-agent/api/task/status"
 	"github.com/aws/amazon-ecs-agent/ecs-agent/credentials"
+	"github.com/aws/amazon-ecs-agent/ecs-agent/ipcompatibility"
+	firelensutils "github.com/aws/amazon-ecs-agent/ecs-agent/utils/firelens"
+
+	"github.com/cihub/seelog"
+	"github.com/pkg/errors"
 )
 
 const (
@@ -83,6 +84,7 @@ type FirelensResource struct {
 	externalConfigType     string
 	externalConfigValue    string
 	networkMode            string
+	user                   string
 	ioutil                 ioutilwrapper.IOUtil
 	s3ClientCreator        factory.S3ClientCreator
 	containerMemoryLimit   int64
@@ -100,9 +102,10 @@ type FirelensResource struct {
 }
 
 // NewFirelensResource returns a new FirelensResource.
-func NewFirelensResource(cluster, taskARN, taskDefinition, ec2InstanceID, dataDir, firelensConfigType, region, networkMode string,
-	firelensOptions map[string]string, containerToLogOptions map[string]map[string]string, credentialsManager credentials.Manager,
-	executionCredentialsID string, containerMemoryLimit int64, ipCompatibility ipcompatibility.IPCompatibility) (*FirelensResource, error) {
+func NewFirelensResource(cluster, taskARN, taskDefinition, ec2InstanceID, dataDir, firelensConfigType, region,
+	networkMode, user string, firelensOptions map[string]string, containerToLogOptions map[string]map[string]string,
+	credentialsManager credentials.Manager, executionCredentialsID string, containerMemoryLimit int64,
+	ipCompatibility ipcompatibility.IPCompatibility) (*FirelensResource, error) {
 	firelensResource := &FirelensResource{
 		cluster:                cluster,
 		taskARN:                taskARN,
@@ -111,6 +114,7 @@ func NewFirelensResource(cluster, taskARN, taskDefinition, ec2InstanceID, dataDi
 		firelensConfigType:     firelensConfigType,
 		region:                 region,
 		networkMode:            networkMode,
+		user:                   user,
 		containerToLogOptions:  containerToLogOptions,
 		ioutil:                 ioutilwrapper.NewIOUtil(),
 		s3ClientCreator:        factory.NewS3ClientCreator(),
@@ -232,6 +236,12 @@ func (firelens *FirelensResource) Initialize(
 // GetNetworkMode returns the network mode of the task.
 func (firelens *FirelensResource) GetNetworkMode() string {
 	return firelens.networkMode
+}
+
+// GetUser returns the user of the firelens container.
+// No mutex read lock required here, as the user field is immutable.
+func (firelens *FirelensResource) GetUser() string {
+	return firelens.user
 }
 
 func (firelens *FirelensResource) initStatusToTransition() {
@@ -438,30 +448,43 @@ func (firelens *FirelensResource) Create() error {
 	return nil
 }
 
-var mkdirAll = os.MkdirAll
+var (
+	mkdirAll     = os.MkdirAll
+	setOwnership = firelensutils.SetOwnership
+)
 
-// createDirectories creates two directories:
+// createDirectories creates two directories and sets their ownership as needed:
 //   - $(DATA_DIR)/firelens/$(TASK_ID)/config: used to store firelens config file. The config file under this directory
-//     will be mounted to the firelens container at an expected path.
+//     will be mounted to the firelens container at an expected path. The user/group ownership of this directory
+//     is implicitly set to be the same as ECS agent's.
 //   - $(DATA_DIR)/firelens/$(TASK_ID)/socket: used to store the unix socket. This directory will be mounted to
 //     the firelens container and it will generate a socket file under this directory. Containers that use firelens to
-//     send logs will then use this socket to send logs to the firelens container.
+//     send logs will then use this socket to send logs to the firelens container. The user/group ownership of this
+//     directory is explicitly set as per the Firelens container's user specification.
 //
 // Note: socket path has a limit of at most 108 characters on Linux. If using default data dir, the
 // resulting socket path will be 79 characters (/var/lib/ecs/data/firelens/<task-id>/socket/fluent.sock) which is fine.
 // However if ECS_HOST_DATA_DIR is specified to be a longer path, we will exceed the limit and fail. I don't really
-// see a way to avoid this failure since ECS_HOST_DATA_DIR can be arbitrary long..
+// see a way to avoid this failure since ECS_HOST_DATA_DIR can be arbitrary long.
 func (firelens *FirelensResource) createDirectories() error {
+	// Create the Firelens config directory
 	configDir := filepath.Join(firelens.resourceDir, "config")
 	err := mkdirAll(configDir, os.ModePerm)
 	if err != nil {
 		return errors.Wrap(err, "unable to create config directory")
 	}
 
+	// Create the Firelens socket directory
 	socketDir := filepath.Join(firelens.resourceDir, "socket")
 	err = mkdirAll(socketDir, os.ModePerm)
 	if err != nil {
 		return errors.Wrap(err, "unable to create socket directory")
+	}
+
+	// Set ownership on the Firelens socket directory as per the firelens container's 'user' specification
+	err = setOwnership(socketDir, firelens.GetUser())
+	if err != nil {
+		return errors.Wrap(err, "unable to set socket directory ownership")
 	}
 	return nil
 }
