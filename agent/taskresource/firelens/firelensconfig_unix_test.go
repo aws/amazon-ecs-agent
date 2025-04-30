@@ -346,6 +346,7 @@ var (
     Name null
     Match firelens-healthcheck
 `
+	testUser = "1234"
 )
 
 func TestGenerateFluentdBridgeModeConfig(t *testing.T) {
@@ -354,7 +355,7 @@ func TestGenerateFluentdBridgeModeConfig(t *testing.T) {
 	}
 
 	firelensResource, err := NewFirelensResource(testCluster, testTaskARN, testTaskDefinition, testEC2InstanceID,
-		testDataDir, FirelensConfigTypeFluentd, testRegion, bridgeNetworkMode, testFirelensOptionsFile, containerToLogOptions,
+		testDataDir, FirelensConfigTypeFluentd, testRegion, bridgeNetworkMode, testUser, testFirelensOptionsFile, containerToLogOptions,
 		nil, testExecutionCredentialsID, testContainerMemoryLimit, testIPCompatibility)
 	require.NoError(t, err)
 
@@ -373,7 +374,7 @@ func TestGenerateFluentdAWSVPCModeConfig(t *testing.T) {
 	}
 
 	firelensResource, err := NewFirelensResource(testCluster, testTaskARN, testTaskDefinition, testEC2InstanceID,
-		testDataDir, FirelensConfigTypeFluentd, testRegion, awsvpcNetworkMode, testFirelensOptionsFile, containerToLogOptions,
+		testDataDir, FirelensConfigTypeFluentd, testRegion, awsvpcNetworkMode, testUser, testFirelensOptionsFile, containerToLogOptions,
 		nil, testExecutionCredentialsID, testContainerMemoryLimit, testIPCompatibility)
 	require.NoError(t, err)
 
@@ -392,7 +393,7 @@ func TestGenerateFluentdDefaultModeConfig(t *testing.T) {
 	}
 
 	firelensResource, err := NewFirelensResource(testCluster, testTaskARN, testTaskDefinition, testEC2InstanceID,
-		testDataDir, FirelensConfigTypeFluentd, testRegion, "", testFirelensOptionsFile, containerToLogOptions,
+		testDataDir, FirelensConfigTypeFluentd, testRegion, "", testUser, testFirelensOptionsFile, containerToLogOptions,
 		nil, testExecutionCredentialsID, testContainerMemoryLimit, testIPCompatibility)
 	require.NoError(t, err)
 
@@ -411,7 +412,7 @@ func TestGenerateFluentbitConfig(t *testing.T) {
 	}
 
 	firelensResource, err := NewFirelensResource(testCluster, testTaskARN, testTaskDefinition, testEC2InstanceID,
-		testDataDir, FirelensConfigTypeFluentbit, testRegion, bridgeNetworkMode, testFirelensOptionsS3, containerToLogOptions,
+		testDataDir, FirelensConfigTypeFluentbit, testRegion, bridgeNetworkMode, testUser, testFirelensOptionsS3, containerToLogOptions,
 		nil, testExecutionCredentialsID, testContainerMemoryLimit, testIPCompatibility)
 	require.NoError(t, err)
 
@@ -430,7 +431,7 @@ func TestGenerateFluentbitConfigWithDefaultMemBufLimit(t *testing.T) {
 	}
 
 	firelensResource, err := NewFirelensResource(testCluster, testTaskARN, testTaskDefinition, testEC2InstanceID,
-		testDataDir, FirelensConfigTypeFluentbit, testRegion, bridgeNetworkMode, testFirelensOptionsS3, containerToLogOptions,
+		testDataDir, FirelensConfigTypeFluentbit, testRegion, bridgeNetworkMode, testUser, testFirelensOptionsS3, containerToLogOptions,
 		nil, testExecutionCredentialsID, 0, testIPCompatibility)
 	require.NoError(t, err)
 
@@ -451,7 +452,7 @@ func TestGenerateFluentdConfigMissingOutputName(t *testing.T) {
 	}
 
 	firelensResource, err := NewFirelensResource(testCluster, testTaskARN, testTaskDefinition, testEC2InstanceID,
-		testDataDir, FirelensConfigTypeFluentd, testRegion, bridgeNetworkMode, testFirelensOptionsFile, containerToLogOptions,
+		testDataDir, FirelensConfigTypeFluentd, testRegion, bridgeNetworkMode, testUser, testFirelensOptionsFile, containerToLogOptions,
 		nil, testExecutionCredentialsID, testContainerMemoryLimit, testIPCompatibility)
 	require.NoError(t, err)
 
@@ -467,7 +468,7 @@ func TestGenerateFLuentbitConfigMissingOutputName(t *testing.T) {
 	}
 
 	firelensResource, err := NewFirelensResource(testCluster, testTaskARN, testTaskDefinition, testEC2InstanceID,
-		testDataDir, FirelensConfigTypeFluentbit, testRegion, bridgeNetworkMode, testFirelensOptionsFile, containerToLogOptions,
+		testDataDir, FirelensConfigTypeFluentbit, testRegion, bridgeNetworkMode, testUser, testFirelensOptionsFile, containerToLogOptions,
 		nil, testExecutionCredentialsID, testContainerMemoryLimit, testIPCompatibility)
 	require.NoError(t, err)
 
@@ -486,7 +487,7 @@ func TestGenerateConfigWithECSMetadataDisabled(t *testing.T) {
 	}
 
 	firelensResource, err := NewFirelensResource(testCluster, testTaskARN, testTaskDefinition, testEC2InstanceID,
-		testDataDir, FirelensConfigTypeFluentd, testRegion, bridgeNetworkMode, testFirelensOptions, containerToLogOptions,
+		testDataDir, FirelensConfigTypeFluentd, testRegion, bridgeNetworkMode, testUser, testFirelensOptions, containerToLogOptions,
 		nil, testExecutionCredentialsID, testContainerMemoryLimit, testIPCompatibility)
 	require.NoError(t, err)
 
@@ -508,7 +509,7 @@ func TestGenerateConfigWithoutOutputSection(t *testing.T) {
 	}
 
 	firelensResource, err := NewFirelensResource(testCluster, testTaskARN, testTaskDefinition, testEC2InstanceID,
-		testDataDir, FirelensConfigTypeFluentbit, testRegion, bridgeNetworkMode, testFirelensOptionsS3, containerToLogOptions,
+		testDataDir, FirelensConfigTypeFluentbit, testRegion, bridgeNetworkMode, testUser, testFirelensOptionsS3, containerToLogOptions,
 		nil, testExecutionCredentialsID, testContainerMemoryLimit, testIPCompatibility)
 	require.NoError(t, err)
 
