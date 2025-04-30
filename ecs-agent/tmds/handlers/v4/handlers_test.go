@@ -64,6 +64,39 @@ const (
 	privateDNSName           = "ip-172-31-47-69.us-west-2.compute.internal"
 	subnetGatewayIpv4Address = "172.31.32.1/20"
 	externalReason           = "external reason"
+	containerArn             = "arn:aws:ecs:ap-northnorth-1:NNN:container/NNNNNNNN-aaaa-4444-bbbb-00000000000"
+	timestamp                = "2025-04-29T16:56:17.446028948Z"
+	launchType               = "EC2"
+	clockErrorBound          = 1234
+	utilizedMiBs             = 500
+	reservedMiBs             = 600
+	numProcs                 = 2
+	containerStatsName       = "name"
+	containerStatsId         = "id"
+	networkStatsKey          = "a"
+	rxBytes                  = 5
+	rxBytesPerSecond         = 10
+	txBytesPerSecond         = 15
+	// Common Container/Task metadata JSON response templates
+	containerResponseJSON = `{"DockerId":"%s","Name":"%s","DockerName":"%s","Image":"%s","ImageID":"%s",` +
+		`"Ports":[{"ContainerPort":%d,"Protocol":"%s","HostPort":%d}],"Labels":{"foo":"bar"},"DesiredStatus":"%s",` +
+		`"KnownStatus":"%s","Limits":{"CPU":%d,"Memory":%d},"Type":"%s","ContainerARN":"%s","Networks":[{"NetworkMode":"%s",` +
+		`"IPv4Addresses":["%s"],"AttachmentIndex":0,"MACAddress":"%s","IPv4SubnetCIDRBlock":"%s","PrivateDNSName":"%s","SubnetGatewayIpv4Address":"%s"}]}`
+	taskResponseJSON = `{"Cluster":"%s","TaskARN":"%s","Family":"%s","Revision":"%s","DesiredStatus":"%s",` +
+		`"KnownStatus":"%s","Limits":{"CPU":%d,"Memory":%d},"PullStartedAt":"%s","PullStoppedAt":"%s","ExecutionStoppedAt":"%s",` +
+		`"AvailabilityZone":"%s","LaunchType":"%s","Containers":[%s],"VPCID":"%s","ClockDrift":{"ClockErrorBound":%d,` +
+		`"ClockSynchronizationStatus":"%s"},"EphemeralStorageMetrics":{"Utilized":%d,"Reserved":%d},"FaultInjectionEnabled":%t}`
+	containerStatsResponseJSON = `{"read":"0001-01-01T00:00:00Z","preread":"0001-01-01T00:00:00Z","pids_stats":{},"blkio_stats":` +
+		`{"io_service_bytes_recursive":null,"io_serviced_recursive":null,"io_queue_recursive":null,"io_service_time_recursive":null,` +
+		`"io_wait_time_recursive":null,"io_merged_recursive":null,"io_time_recursive":null,"sectors_recursive":null},"num_procs":%d,` +
+		`"storage_stats":{},"cpu_stats":{"cpu_usage":{"total_usage":0,"usage_in_kernelmode":0,"usage_in_usermode":0},"throttling_data"` +
+		`:{"periods":0,"throttled_periods":0,"throttled_time":0}},"precpu_stats":{"cpu_usage":{"total_usage":0,"usage_in_kernelmode":0,` +
+		`"usage_in_usermode":0},"throttling_data":{"periods":0,"throttled_periods":0,"throttled_time":0}},"memory_stats":{},"name":"%s",` +
+		`"id":"%s","networks":{"%s":{"rx_bytes":%d,"rx_packets":0,"rx_errors":0,"rx_dropped":0,"tx_bytes":0,"tx_packets":0,"tx_errors":0,` +
+		`"tx_dropped":0}},"network_rate_stats":{"rx_bytes_per_sec":%d,"tx_bytes_per_sec":%d}}`
+	taskStatsResponseJSON = `{"%s":%s}`
+	// Common Container/Task metadata string response template
+	responseStringMessage = "\"%s\""
 )
 
 var (
@@ -113,19 +146,50 @@ var (
 	credentialsID  = "credentialsID"
 	containerStats = state.StatsResponse{
 		StatsJSON: &types.StatsJSON{
-			Stats:    types.Stats{NumProcs: 2},
-			Name:     "name",
-			ID:       "id",
-			Networks: map[string]types.NetworkStats{"a": {RxBytes: 5}},
+			Stats:    types.Stats{NumProcs: numProcs},
+			Name:     containerStatsName,
+			ID:       containerStatsId,
+			Networks: map[string]types.NetworkStats{networkStatsKey: {RxBytes: rxBytes}},
 		},
 		Network_rate_stats: &stats.NetworkStatsPerSec{
-			RxBytesPerSecond: 10,
-			TxBytesPerSecond: 15,
+			RxBytesPerSecond: rxBytesPerSecond,
+			TxBytesPerSecond: txBytesPerSecond,
 		},
 	}
 	taskStats = map[string]*state.StatsResponse{
 		containerID: &containerStats,
 	}
+	happyContainerResponseJSON = fmt.Sprintf(containerResponseJSON,
+		containerID,
+		containerName,
+		containerName,
+		imageName,
+		imageID,
+		containerPort,
+		containerPortProtocol,
+		containerPort,
+		statusRunning,
+		statusRunning,
+		cpu,
+		memory,
+		containerType,
+		containerArn,
+		utils.NetworkModeAWSVPC,
+		eniIPv4Address,
+		macAddress,
+		iPv4SubnetCIDRBlock,
+		privateDNSName,
+		subnetGatewayIpv4Address,
+	)
+	happyContainerStatsResponseJSON = fmt.Sprintf(containerStatsResponseJSON,
+		numProcs,
+		containerStatsName,
+		containerStatsId,
+		networkStatsKey,
+		rxBytes,
+		rxBytesPerSecond,
+		txBytesPerSecond,
+	)
 )
 
 // taskResponse returns a standard agent task response
@@ -209,6 +273,7 @@ func TestContainerMetadata(t *testing.T) {
 			path:                 "/v4/" + endpointContainerID,
 			expectedStatusCode:   http.StatusOK,
 			expectedResponseBody: containerResponse,
+			expectedResponseJSON: happyContainerResponseJSON,
 		})
 	})
 	t.Run("container lookup failed", func(t *testing.T) {
@@ -220,6 +285,7 @@ func TestContainerMetadata(t *testing.T) {
 			path:                 "/v4/" + endpointContainerID,
 			expectedStatusCode:   http.StatusNotFound,
 			expectedResponseBody: "V4 container metadata handler: " + externalReason,
+			expectedResponseJSON: fmt.Sprintf(responseStringMessage, "V4 container metadata handler: "+externalReason),
 		})
 	})
 	t.Run("failed to get metadata", func(t *testing.T) {
@@ -238,6 +304,7 @@ func TestContainerMetadata(t *testing.T) {
 			path:                 "/v4/" + endpointContainerID,
 			expectedStatusCode:   http.StatusInternalServerError,
 			expectedResponseBody: externalReason,
+			expectedResponseJSON: fmt.Sprintf(responseStringMessage, externalReason),
 		})
 	})
 	t.Run("unknown error returned by AgentState", func(t *testing.T) {
@@ -256,6 +323,7 @@ func TestContainerMetadata(t *testing.T) {
 			path:                 "/v4/" + endpointContainerID,
 			expectedStatusCode:   http.StatusInternalServerError,
 			expectedResponseBody: fmt.Sprintf("failed to get container metadata"),
+			expectedResponseJSON: fmt.Sprintf(responseStringMessage, "failed to get container metadata"),
 		})
 	})
 }
@@ -293,6 +361,28 @@ func TestTaskMetadata(t *testing.T) {
 			path:                 path,
 			expectedStatusCode:   http.StatusOK,
 			expectedResponseBody: *expectedTaskResponse,
+			expectedResponseJSON: fmt.Sprintf(taskResponseJSON,
+				clusterName,
+				taskARN,
+				family,
+				version,
+				statusRunning,
+				statusRunning,
+				cpu,
+				memory,
+				now.UTC().Format(time.RFC3339Nano),
+				now.UTC().Format(time.RFC3339Nano),
+				now.UTC().Format(time.RFC3339Nano),
+				availabilityzone,
+				launchType,
+				happyContainerResponseJSON,
+				vpcID,
+				clockErrorBound,
+				state.ClockStatusSynchronized,
+				utilizedMiBs,
+				reservedMiBs,
+				false,
+			),
 		})
 	})
 
@@ -310,6 +400,28 @@ func TestTaskMetadata(t *testing.T) {
 			path:                 path,
 			expectedStatusCode:   http.StatusOK,
 			expectedResponseBody: *expectedTaskResponse,
+			expectedResponseJSON: fmt.Sprintf(taskResponseJSON,
+				clusterName,
+				taskARN,
+				family,
+				version,
+				statusRunning,
+				statusRunning,
+				cpu,
+				memory,
+				now.UTC().Format(time.RFC3339Nano),
+				now.UTC().Format(time.RFC3339Nano),
+				now.UTC().Format(time.RFC3339Nano),
+				availabilityzone,
+				launchType,
+				happyContainerResponseJSON,
+				vpcID,
+				clockErrorBound,
+				state.ClockStatusSynchronized,
+				utilizedMiBs,
+				reservedMiBs,
+				true,
+			),
 		})
 	})
 
@@ -322,6 +434,7 @@ func TestTaskMetadata(t *testing.T) {
 			path:                 path,
 			expectedStatusCode:   http.StatusNotFound,
 			expectedResponseBody: "V4 task metadata handler: task lookup failed",
+			expectedResponseJSON: fmt.Sprintf(responseStringMessage, "V4 task metadata handler: task lookup failed"),
 		})
 	})
 	t.Run("metadata fetch failure", func(t *testing.T) {
@@ -340,6 +453,7 @@ func TestTaskMetadata(t *testing.T) {
 			path:                 path,
 			expectedStatusCode:   http.StatusInternalServerError,
 			expectedResponseBody: externalReason,
+			expectedResponseJSON: fmt.Sprintf(responseStringMessage, externalReason),
 		})
 	})
 	t.Run("unknown error returned by AgentState", func(t *testing.T) {
@@ -358,6 +472,7 @@ func TestTaskMetadata(t *testing.T) {
 			path:                 path,
 			expectedStatusCode:   http.StatusInternalServerError,
 			expectedResponseBody: "failed to get task metadata",
+			expectedResponseJSON: fmt.Sprintf(responseStringMessage, "failed to get task metadata"),
 		})
 	})
 }
@@ -401,6 +516,7 @@ func TestContainerStats(t *testing.T) {
 			path:                 path,
 			expectedStatusCode:   http.StatusNotFound,
 			expectedResponseBody: "V4 container stats handler: " + externalReason,
+			expectedResponseJSON: fmt.Sprintf(responseStringMessage, "V4 container stats handler: "+externalReason),
 		})
 	})
 
@@ -436,6 +552,7 @@ func TestContainerStats(t *testing.T) {
 				path:                 path,
 				expectedStatusCode:   http.StatusInternalServerError,
 				expectedResponseBody: tc.responseBody,
+				expectedResponseJSON: fmt.Sprintf(responseStringMessage, tc.responseBody),
 			})
 		})
 	}
@@ -449,6 +566,7 @@ func TestContainerStats(t *testing.T) {
 			path:                 path,
 			expectedStatusCode:   http.StatusOK,
 			expectedResponseBody: containerStats,
+			expectedResponseJSON: happyContainerStatsResponseJSON,
 		})
 	})
 }
@@ -484,6 +602,7 @@ func TestTaskStats(t *testing.T) {
 			path:                 path,
 			expectedStatusCode:   http.StatusNotFound,
 			expectedResponseBody: "V4 task stats handler: " + externalReason,
+			expectedResponseJSON: fmt.Sprintf(responseStringMessage, "V4 task stats handler: "+externalReason),
 		})
 	})
 
@@ -520,6 +639,7 @@ func TestTaskStats(t *testing.T) {
 				path:                 path,
 				expectedStatusCode:   http.StatusInternalServerError,
 				expectedResponseBody: tc.responseBody,
+				expectedResponseJSON: fmt.Sprintf(responseStringMessage, tc.responseBody),
 			})
 		})
 	}
@@ -533,6 +653,7 @@ func TestTaskStats(t *testing.T) {
 			path:                 path,
 			expectedStatusCode:   http.StatusOK,
 			expectedResponseBody: taskStats,
+			expectedResponseJSON: fmt.Sprintf(taskStatsResponseJSON, containerID, happyContainerStatsResponseJSON),
 		})
 	})
 }
@@ -549,6 +670,7 @@ type TMDSTestCase[R TMDSResponse] struct {
 	path                 string
 	expectedStatusCode   int
 	expectedResponseBody R
+	expectedResponseJSON string
 }
 
 func testTMDSRequest[R TMDSResponse](t *testing.T, handler http.Handler, tc TMDSTestCase[R]) {
@@ -559,6 +681,9 @@ func testTMDSRequest[R TMDSResponse](t *testing.T, handler http.Handler, tc TMDS
 	// Send the request and record the response
 	recorder := httptest.NewRecorder()
 	handler.ServeHTTP(recorder, req)
+
+	// Assert that the response JSON string is as expected.
+	assert.Equal(t, tc.expectedResponseJSON, recorder.Body.String())
 
 	// Parse the response body
 	var actualResponseBody R
