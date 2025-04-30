@@ -193,12 +193,8 @@ func (agent *ecsAgent) appendFirelensFluentbitCapabilities(capabilities []types.
 	return appendNameOnlyAttribute(capabilities, attributePrefix+capabilityFirelensFluentbit)
 }
 
-func (agent *ecsAgent) appendEFSCapabilities(capabilities []types.Attribute) []types.Attribute {
-	return appendNameOnlyAttribute(capabilities, attributePrefix+capabilityEFS)
-}
-
-func (agent *ecsAgent) appendEFSVolumePluginCapabilities(capabilities []types.Attribute, pluginCapability string) []types.Attribute {
-	return appendNameOnlyAttribute(capabilities, attributePrefix+pluginCapability)
+func (agent *ecsAgent) appendFirelensNonRootUserCapability(capabilities []types.Attribute) []types.Attribute {
+	return appendNameOnlyAttribute(capabilities, attributePrefix+capabilityFirelensNonRootUser)
 }
 
 func (agent *ecsAgent) appendFirelensLoggingDriverCapabilities(capabilities []types.Attribute) []types.Attribute {
@@ -206,12 +202,21 @@ func (agent *ecsAgent) appendFirelensLoggingDriverCapabilities(capabilities []ty
 }
 
 func (agent *ecsAgent) appendFirelensLoggingDriverConfigCapabilities(capabilities []types.Attribute) []types.Attribute {
-	return appendNameOnlyAttribute(capabilities, attributePrefix+capabilityFirelensLoggingDriver+capabilityFireLensLoggingDriverConfigBufferLimitSuffix)
+	return appendNameOnlyAttribute(capabilities,
+		attributePrefix+capabilityFirelensLoggingDriver+capabilityFireLensLoggingDriverConfigBufferLimitSuffix)
 }
 
 func (agent *ecsAgent) appendFirelensConfigCapabilities(capabilities []types.Attribute) []types.Attribute {
 	capabilities = appendNameOnlyAttribute(capabilities, attributePrefix+capabilityFirelensConfigFile)
 	return appendNameOnlyAttribute(capabilities, attributePrefix+capabilityFirelensConfigS3)
+}
+
+func (agent *ecsAgent) appendEFSCapabilities(capabilities []types.Attribute) []types.Attribute {
+	return appendNameOnlyAttribute(capabilities, attributePrefix+capabilityEFS)
+}
+
+func (agent *ecsAgent) appendEFSVolumePluginCapabilities(capabilities []types.Attribute, pluginCapability string) []types.Attribute {
+	return appendNameOnlyAttribute(capabilities, attributePrefix+pluginCapability)
 }
 
 func (agent *ecsAgent) appendIPv6Capability(capabilities []types.Attribute) []types.Attribute {

@@ -84,6 +84,10 @@ func (agent *ecsAgent) appendFirelensFluentbitCapabilities(capabilities []types.
 	return capabilities
 }
 
+func (agent *ecsAgent) appendFirelensNonRootUserCapability(capabilities []types.Attribute) []types.Attribute {
+	return capabilities
+}
+
 func (agent *ecsAgent) appendEFSCapabilities(capabilities []types.Attribute) []types.Attribute {
 	return capabilities
 }
