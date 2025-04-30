@@ -81,6 +81,7 @@ github.com/aws/amazon-ecs-agent/ecs-agent/utils/arn
 github.com/aws/amazon-ecs-agent/ecs-agent/utils/cipher
 github.com/aws/amazon-ecs-agent/ecs-agent/utils/execwrapper
 github.com/aws/amazon-ecs-agent/ecs-agent/utils/execwrapper/mocks
+github.com/aws/amazon-ecs-agent/ecs-agent/utils/firelens
 github.com/aws/amazon-ecs-agent/ecs-agent/utils/httpproxy
 github.com/aws/amazon-ecs-agent/ecs-agent/utils/net
 github.com/aws/amazon-ecs-agent/ecs-agent/utils/netlinkwrapper
@@ -90,6 +91,7 @@ github.com/aws/amazon-ecs-agent/ecs-agent/utils/retry
 github.com/aws/amazon-ecs-agent/ecs-agent/utils/retry/mock
 github.com/aws/amazon-ecs-agent/ecs-agent/utils/ttime
 github.com/aws/amazon-ecs-agent/ecs-agent/utils/ttime/mocks
+github.com/aws/amazon-ecs-agent/ecs-agent/utils/userparser
 github.com/aws/amazon-ecs-agent/ecs-agent/wsclient
 github.com/aws/amazon-ecs-agent/ecs-agent/wsclient/mock
 github.com/aws/amazon-ecs-agent/ecs-agent/wsclient/wsconn
