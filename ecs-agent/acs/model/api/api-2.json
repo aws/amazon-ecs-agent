@@ -434,7 +434,8 @@
         "domainName":{"shape":"StringList"},
         "domainNameServers":{"shape":"StringList"},
         "privateDnsName":{"shape":"String"},
-        "subnetGatewayIpv4Address":{"shape":"String"}
+        "subnetGatewayIpv4Address":{"shape":"String"},
+        "subnetGatewayIpv6Address":{"shape":"String"}
       }
     },
     "ElasticNetworkInterfaceList":{
@@ -583,7 +584,8 @@
     "IPv6AddressAssignment":{
       "type":"structure",
       "members":{
-        "address":{"shape":"String"}
+        "address":{"shape":"String"},
+        "primary":{"shape":"Boolean"}
       }
     },
     "IPv6AddressList":{

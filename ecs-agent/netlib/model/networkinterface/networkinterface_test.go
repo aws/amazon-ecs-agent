@@ -18,6 +18,9 @@ package networkinterface
 import (
 	"testing"
 
+	"github.com/aws/amazon-ecs-agent/ecs-agent/acs/model/ecsacs"
+	"github.com/aws/amazon-ecs-agent/ecs-agent/acs/session/testconst"
+	"github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/stretchr/testify/assert"
 )
 
@@ -50,4 +53,34 @@ func TestGetSubnetGatewayIPv6Address(t *testing.T) {
 			assert.Equal(t, tt.expected, ni.GetSubnetGatewayIPv6Address())
 		})
 	}
+}
+
+func TestValidateENI(t *testing.T) {
+	t.Run("IPv6-only ENI with no IPv6 subnet gateway address", func(t *testing.T) {
+		eni := &ecsacs.ElasticNetworkInterface{
+			Ec2Id:                        aws.String("1"),
+			MacAddress:                   aws.String(testconst.RandomMAC),
+			InterfaceAssociationProtocol: aws.String(testconst.InterfaceProtocol),
+			Ipv6Addresses: []*ecsacs.IPv6AddressAssignment{
+				{Address: aws.String("1:2:3:4::")},
+			},
+		}
+		err := ValidateENI(eni)
+		assert.EqualError(t, err, "eni message validation: no subnet gateway ipv6 address in the message")
+	})
+	t.Run("Dual stack with no IPv4 subnet gateway address", func(t *testing.T) {
+		eni := &ecsacs.ElasticNetworkInterface{
+			Ec2Id:                        aws.String("1"),
+			MacAddress:                   aws.String(testconst.RandomMAC),
+			InterfaceAssociationProtocol: aws.String(testconst.InterfaceProtocol),
+			Ipv4Addresses: []*ecsacs.IPv4AddressAssignment{
+				{PrivateAddress: aws.String("1.2.3.4")},
+			},
+			Ipv6Addresses: []*ecsacs.IPv6AddressAssignment{
+				{Address: aws.String("1:2:3:4::")},
+			},
+		}
+		err := ValidateENI(eni)
+		assert.EqualError(t, err, "eni message validation: no subnet gateway ipv4 address in the message")
+	})
 }

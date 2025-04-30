@@ -993,6 +993,8 @@ type ElasticNetworkInterface struct {
 	PrivateDnsName *string `locationName:"privateDnsName" type:"string"`
 
 	SubnetGatewayIpv4Address *string `locationName:"subnetGatewayIpv4Address" type:"string"`
+
+	SubnetGatewayIpv6Address *string `locationName:"subnetGatewayIpv6Address" type:"string"`
 }
 
 // String returns the string representation.
@@ -1468,6 +1470,8 @@ type IPv6AddressAssignment struct {
 	_ struct{} `type:"structure"`
 
 	Address *string `locationName:"address" type:"string"`
+
+	Primary *bool `locationName:"primary" type:"boolean"`
 }
 
 // String returns the string representation.
