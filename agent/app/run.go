@@ -22,7 +22,7 @@ import (
 	"github.com/aws/amazon-ecs-agent/agent/sighandlers/exitcodes"
 	"github.com/aws/amazon-ecs-agent/agent/version"
 	"github.com/aws/amazon-ecs-agent/ecs-agent/logger"
-	"github.com/aws/aws-sdk-go/aws"
+	"github.com/aws/aws-sdk-go-v2/aws"
 	log "github.com/cihub/seelog"
 )
 
@@ -72,7 +72,7 @@ func Run(arguments []string) int {
 	}
 
 	// Create an Agent object
-	agent, err := newAgent(aws.BoolValue(parsedArgs.BlackholeEC2Metadata), parsedArgs.AcceptInsecureCert)
+	agent, err := newAgent(aws.ToBool(parsedArgs.BlackholeEC2Metadata), parsedArgs.AcceptInsecureCert)
 	if err != nil {
 		// Failure to initialize either the docker client or the EC2 metadata
 		// service client are non terminal errors as they could be transient

@@ -36,8 +36,8 @@ import (
 	mock_mobypkgwrapper "github.com/aws/amazon-ecs-agent/agent/utils/mobypkgwrapper/mocks"
 	md "github.com/aws/amazon-ecs-agent/ecs-agent/manageddaemon"
 
+	"github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/aws/aws-sdk-go-v2/service/ecs/types"
-	"github.com/aws/aws-sdk-go/aws"
 	aws_credentials "github.com/aws/aws-sdk-go/aws/credentials"
 	"github.com/golang/mock/gomock"
 	"github.com/stretchr/testify/assert"
@@ -320,7 +320,7 @@ func TestCapabilitiesECR(t *testing.T) {
 
 	capMap := make(map[string]bool)
 	for _, capability := range capabilities {
-		capMap[aws.StringValue(capability.Name)] = true
+		capMap[aws.ToString(capability.Name)] = true
 	}
 
 	_, ok := capMap["com.amazonaws.ecs.capability.ecr-auth"]
@@ -377,7 +377,7 @@ func TestCapabilitiesTaskIAMRoleForSupportedDockerVersion(t *testing.T) {
 
 	capMap := make(map[string]bool)
 	for _, capability := range capabilities {
-		capMap[aws.StringValue(capability.Name)] = true
+		capMap[aws.ToString(capability.Name)] = true
 	}
 
 	ok := capMap["com.amazonaws.ecs.capability.task-iam-role"]
@@ -431,7 +431,7 @@ func TestCapabilitiesTaskIAMRoleForUnSupportedDockerVersion(t *testing.T) {
 
 	capMap := make(map[string]bool)
 	for _, capability := range capabilities {
-		capMap[aws.StringValue(capability.Name)] = true
+		capMap[aws.ToString(capability.Name)] = true
 	}
 
 	_, ok := capMap["com.amazonaws.ecs.capability.task-iam-role"]
@@ -485,7 +485,7 @@ func TestCapabilitiesTaskIAMRoleNetworkHostForSupportedDockerVersion(t *testing.
 
 	capMap := make(map[string]bool)
 	for _, capability := range capabilities {
-		capMap[aws.StringValue(capability.Name)] = true
+		capMap[aws.ToString(capability.Name)] = true
 	}
 
 	_, ok := capMap["com.amazonaws.ecs.capability.task-iam-role-network-host"]
@@ -539,7 +539,7 @@ func TestCapabilitiesTaskIAMRoleNetworkHostForUnSupportedDockerVersion(t *testin
 
 	capMap := make(map[string]bool)
 	for _, capability := range capabilities {
-		capMap[aws.StringValue(capability.Name)] = true
+		capMap[aws.ToString(capability.Name)] = true
 	}
 
 	_, ok := capMap["com.amazonaws.ecs.capability.task-iam-role-network-host"]
@@ -621,7 +621,7 @@ func TestAWSVPCBlockInstanceMetadataWhenTaskENIIsDisabled(t *testing.T) {
 	}
 
 	for _, capability := range capabilities {
-		if aws.StringValue(capability.Name) == "ecs.capability.task-eni-block-instance-metadata" {
+		if aws.ToString(capability.Name) == "ecs.capability.task-eni-block-instance-metadata" {
 			t.Errorf("%s capability found when Task ENI is disabled in the config", taskENIBlockInstanceMetadataAttributeSuffix)
 		}
 	}
@@ -680,7 +680,7 @@ func TestCapabilitiesExecutionRoleAWSLogs(t *testing.T) {
 
 	capMap := make(map[string]bool)
 	for _, capability := range capabilities {
-		capMap[aws.StringValue(capability.Name)] = true
+		capMap[aws.ToString(capability.Name)] = true
 	}
 
 	_, ok := capMap["ecs.capability.execution-role-awslogs"]
@@ -732,7 +732,7 @@ func TestCapabilitiesTaskResourceLimit(t *testing.T) {
 
 	capMap := make(map[string]bool)
 	for _, capability := range capabilities {
-		capMap[aws.StringValue(capability.Name)] = true
+		capMap[aws.ToString(capability.Name)] = true
 	}
 
 	_, ok := capMap[expectedCapability]
@@ -784,7 +784,7 @@ func TestCapabilitesTaskResourceLimitDisabledByMissingDockerVersion(t *testing.T
 
 	capMap := make(map[string]bool)
 	for _, capability := range capabilities {
-		capMap[aws.StringValue(capability.Name)] = true
+		capMap[aws.ToString(capability.Name)] = true
 	}
 
 	_, ok := capMap[unexpectedCapability]
@@ -905,7 +905,7 @@ func TestCapabilitiesIncreasedTaskCPULimit(t *testing.T) {
 
 			capMap := make(map[string]bool)
 			for _, capability := range capabilities {
-				capMap[aws.StringValue(capability.Name)] = true
+				capMap[aws.ToString(capability.Name)] = true
 			}
 
 			_, ok := capMap[capability]
@@ -957,7 +957,7 @@ func TestCapabilitiesContainerHealth(t *testing.T) {
 
 	capMap := make(map[string]bool)
 	for _, capability := range capabilities {
-		capMap[aws.StringValue(capability.Name)] = true
+		capMap[aws.ToString(capability.Name)] = true
 	}
 
 	_, ok := capMap["ecs.capability.container-health-check"]
@@ -1007,7 +1007,7 @@ func TestCapabilitiesContainerHealthDisabled(t *testing.T) {
 
 	capMap := make(map[string]bool)
 	for _, capability := range capabilities {
-		capMap[aws.StringValue(capability.Name)] = true
+		capMap[aws.ToString(capability.Name)] = true
 	}
 
 	assert.NotContains(t, "ecs.capability.container-health-check", "Find container health check capability unexpected when it is disabled")
@@ -1054,8 +1054,8 @@ func TestCapabilitesListPluginsErrorCase(t *testing.T) {
 	require.NoError(t, err)
 
 	for _, capability := range capabilities {
-		if strings.HasPrefix(aws.StringValue(capability.Name), "ecs.capability.docker-volume-driver") {
-			assert.Equal(t, aws.StringValue(capability.Name), "ecs.capability.docker-volume-driver.local")
+		if strings.HasPrefix(aws.ToString(capability.Name), "ecs.capability.docker-volume-driver") {
+			assert.Equal(t, aws.ToString(capability.Name), "ecs.capability.docker-volume-driver.local")
 		}
 	}
 }
@@ -1101,8 +1101,8 @@ func TestCapabilitesScanPluginsErrorCase(t *testing.T) {
 	require.NoError(t, err)
 
 	for _, capability := range capabilities {
-		if strings.HasPrefix(aws.StringValue(capability.Name), "ecs.capability.docker-volume-driver") {
-			assert.Equal(t, aws.StringValue(capability.Name), "ecs.capability.docker-volume-driver.local")
+		if strings.HasPrefix(aws.ToString(capability.Name), "ecs.capability.docker-volume-driver") {
+			assert.Equal(t, aws.ToString(capability.Name), "ecs.capability.docker-volume-driver.local")
 		}
 	}
 }
@@ -1510,8 +1510,8 @@ func TestAppendGMSACapabilities(t *testing.T) {
 
 	assert.Equal(t, len(expectedCapabilities), len(capabilities))
 	for i, expected := range expectedCapabilities {
-		assert.Equal(t, aws.StringValue(expected.Name), aws.StringValue(capabilities[i].Name))
-		assert.Equal(t, aws.StringValue(expected.Value), aws.StringValue(capabilities[i].Value))
+		assert.Equal(t, aws.ToString(expected.Name), aws.ToString(capabilities[i].Name))
+		assert.Equal(t, aws.ToString(expected.Value), aws.ToString(capabilities[i].Value))
 	}
 }
 
@@ -1536,8 +1536,8 @@ func TestAppendGMSADomainlessCapabilities(t *testing.T) {
 
 	assert.Equal(t, len(expectedCapabilities), len(capabilities))
 	for i, expected := range expectedCapabilities {
-		assert.Equal(t, aws.StringValue(expected.Name), aws.StringValue(capabilities[i].Name))
-		assert.Equal(t, aws.StringValue(expected.Value), aws.StringValue(capabilities[i].Value))
+		assert.Equal(t, aws.ToString(expected.Name), aws.ToString(capabilities[i].Name))
+		assert.Equal(t, aws.ToString(expected.Value), aws.ToString(capabilities[i].Value))
 	}
 }
 
@@ -1572,7 +1572,7 @@ func TestAppendFaultInjectionCapabilities(t *testing.T) {
 		capabilities = agent.appendFaultInjectionCapabilities(capabilities)
 		// Check that the only capability is "ecs.capability.fault-injection"
 		require.Len(t, capabilities, 1)
-		assert.Equal(t, "ecs.capability.fault-injection", aws.StringValue(capabilities[0].Name))
+		assert.Equal(t, "ecs.capability.fault-injection", aws.ToString(capabilities[0].Name))
 	})
 	t.Run("Fault Injection Capability Not Available", func(t *testing.T) {
 		// Test case where required tooling is not available

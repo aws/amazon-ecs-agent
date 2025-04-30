@@ -56,9 +56,8 @@ import (
 	"github.com/aws/amazon-ecs-agent/ecs-agent/eventstream"
 	md "github.com/aws/amazon-ecs-agent/ecs-agent/manageddaemon"
 
-	awsv2 "github.com/aws/aws-sdk-go-v2/aws"
+	"github.com/aws/aws-sdk-go-v2/aws"
 	ecstypes "github.com/aws/aws-sdk-go-v2/service/ecs/types"
-	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/aws/awserr"
 	"github.com/aws/smithy-go"
 	smithyhttp "github.com/aws/smithy-go/transport/http"
@@ -273,7 +272,7 @@ func TestDoStartRegisterContainerInstanceErrorTerminal(t *testing.T) {
 
 	gomock.InOrder(
 		client.EXPECT().GetHostResources().Return(testHostResource, nil),
-		mockCredentialsProvider.EXPECT().Retrieve(gomock.Any()).Return(awsv2.Credentials{}, nil),
+		mockCredentialsProvider.EXPECT().Retrieve(gomock.Any()).Return(aws.Credentials{}, nil),
 		mockMobyPlugins.EXPECT().Scan().AnyTimes().Return([]string{""}, nil),
 		dockerClient.EXPECT().ListPluginsWithFilters(gomock.Any(), gomock.Any(), gomock.Any(),
 			gomock.Any()).AnyTimes().Return([]string{}, nil),
@@ -292,7 +291,7 @@ func TestDoStartRegisterContainerInstanceErrorTerminal(t *testing.T) {
 		ctx:               ctx,
 		cfg:               &cfg,
 		pauseLoader:       mockPauseLoader,
-		credentialsCache:  awsv2.NewCredentialsCache(mockCredentialsProvider),
+		credentialsCache:  aws.NewCredentialsCache(mockCredentialsProvider),
 		dockerClient:      dockerClient,
 		mobyPlugins:       mockMobyPlugins,
 		ec2MetadataClient: mockEC2Metadata,
@@ -335,7 +334,7 @@ func TestDoStartRegisterContainerInstanceErrorNonTerminal(t *testing.T) {
 
 	gomock.InOrder(
 		client.EXPECT().GetHostResources().Return(testHostResource, nil),
-		mockCredentialsProvider.EXPECT().Retrieve(gomock.Any()).Return(awsv2.Credentials{}, nil),
+		mockCredentialsProvider.EXPECT().Retrieve(gomock.Any()).Return(aws.Credentials{}, nil),
 		mockMobyPlugins.EXPECT().Scan().AnyTimes().Return([]string{""}, nil),
 		dockerClient.EXPECT().ListPluginsWithFilters(gomock.Any(), gomock.Any(), gomock.Any(),
 			gomock.Any()).AnyTimes().Return([]string{}, nil),
@@ -354,7 +353,7 @@ func TestDoStartRegisterContainerInstanceErrorNonTerminal(t *testing.T) {
 		cfg:               &cfg,
 		dockerClient:      dockerClient,
 		pauseLoader:       mockPauseLoader,
-		credentialsCache:  awsv2.NewCredentialsCache(mockCredentialsProvider),
+		credentialsCache:  aws.NewCredentialsCache(mockCredentialsProvider),
 		mobyPlugins:       mockMobyPlugins,
 		ec2MetadataClient: mockEC2Metadata,
 		terminationHandler: func(taskEngineState dockerstate.TaskEngineState, dataClient data.Client, taskEngine engine.TaskEngine, cancel context.CancelFunc) {
@@ -502,7 +501,7 @@ func testDoStartHappyPathWithConditions(t *testing.T, blackholed bool, warmPools
 
 	gomock.InOrder(
 		client.EXPECT().GetHostResources().Return(testHostResource, nil),
-		mockCredentialsProvider.EXPECT().Retrieve(gomock.Any()).Return(awsv2.Credentials{}, nil),
+		mockCredentialsProvider.EXPECT().Retrieve(gomock.Any()).Return(aws.Credentials{}, nil),
 		mockMobyPlugins.EXPECT().Scan().AnyTimes().Return([]string{""}, nil),
 		dockerClient.EXPECT().ListPluginsWithFilters(gomock.Any(), gomock.Any(), gomock.Any(),
 			gomock.Any()).AnyTimes().Return([]string{}, nil),
@@ -537,7 +536,7 @@ func testDoStartHappyPathWithConditions(t *testing.T, blackholed bool, warmPools
 		dockerClient:     dockerClient,
 		dataClient:       dataClient,
 		pauseLoader:      mockPauseLoader,
-		credentialsCache: awsv2.NewCredentialsCache(mockCredentialsProvider),
+		credentialsCache: aws.NewCredentialsCache(mockCredentialsProvider),
 		mobyPlugins:      mockMobyPlugins,
 		metadataManager:  containermetadata,
 		terminationHandler: func(taskEngineState dockerstate.TaskEngineState, dataClient data.Client, taskEngine engine.TaskEngine, cancel context.CancelFunc) {
@@ -1016,7 +1015,7 @@ func TestReregisterContainerInstanceHappyPath(t *testing.T) {
 	mockDaemonManager.EXPECT().LoadImage(gomock.Any(), gomock.Any()).Return(nil, nil).AnyTimes()
 
 	gomock.InOrder(
-		mockCredentialsProvider.EXPECT().Retrieve(gomock.Any()).Return(awsv2.Credentials{}, nil),
+		mockCredentialsProvider.EXPECT().Retrieve(gomock.Any()).Return(aws.Credentials{}, nil),
 		mockDockerClient.EXPECT().SupportedVersions().Return(apiVersions),
 		mockMobyPlugins.EXPECT().Scan().AnyTimes().Return([]string{""}, nil),
 		mockDockerClient.EXPECT().ListPluginsWithFilters(gomock.Any(), gomock.Any(),
@@ -1037,7 +1036,7 @@ func TestReregisterContainerInstanceHappyPath(t *testing.T) {
 		cfg:                   &cfg,
 		dockerClient:          mockDockerClient,
 		pauseLoader:           mockPauseLoader,
-		credentialsCache:      awsv2.NewCredentialsCache(mockCredentialsProvider),
+		credentialsCache:      aws.NewCredentialsCache(mockCredentialsProvider),
 		mobyPlugins:           mockMobyPlugins,
 		ec2MetadataClient:     mockEC2Metadata,
 		serviceconnectManager: mockServiceConnectManager,
@@ -1075,7 +1074,7 @@ func TestReregisterContainerInstanceInstanceTypeChanged(t *testing.T) {
 	mockDaemonManager.EXPECT().LoadImage(gomock.Any(), gomock.Any()).Return(nil, nil).AnyTimes()
 
 	gomock.InOrder(
-		mockCredentialsProvider.EXPECT().Retrieve(gomock.Any()).Return(awsv2.Credentials{}, nil),
+		mockCredentialsProvider.EXPECT().Retrieve(gomock.Any()).Return(aws.Credentials{}, nil),
 		mockDockerClient.EXPECT().SupportedVersions().Return(apiVersions),
 		mockMobyPlugins.EXPECT().Scan().AnyTimes().Return([]string{""}, nil),
 		mockDockerClient.EXPECT().ListPluginsWithFilters(gomock.Any(), gomock.Any(),
@@ -1098,7 +1097,7 @@ func TestReregisterContainerInstanceInstanceTypeChanged(t *testing.T) {
 		cfg:                   &cfg,
 		dockerClient:          mockDockerClient,
 		pauseLoader:           mockPauseLoader,
-		credentialsCache:      awsv2.NewCredentialsCache(mockCredentialsProvider),
+		credentialsCache:      aws.NewCredentialsCache(mockCredentialsProvider),
 		ec2MetadataClient:     mockEC2Metadata,
 		mobyPlugins:           mockMobyPlugins,
 		serviceconnectManager: mockServiceConnectManager,
@@ -1137,7 +1136,7 @@ func TestReregisterContainerInstanceAttributeError(t *testing.T) {
 	mockDaemonManager.EXPECT().LoadImage(gomock.Any(), gomock.Any()).Return(nil, nil).AnyTimes()
 
 	gomock.InOrder(
-		mockCredentialsProvider.EXPECT().Retrieve(gomock.Any()).Return(awsv2.Credentials{}, nil),
+		mockCredentialsProvider.EXPECT().Retrieve(gomock.Any()).Return(aws.Credentials{}, nil),
 		mockDockerClient.EXPECT().SupportedVersions().Return(apiVersions),
 		mockMobyPlugins.EXPECT().Scan().AnyTimes().Return([]string{}, nil),
 		mockDockerClient.EXPECT().ListPluginsWithFilters(gomock.Any(), gomock.Any(),
@@ -1158,7 +1157,7 @@ func TestReregisterContainerInstanceAttributeError(t *testing.T) {
 		ec2MetadataClient:     mockEC2Metadata,
 		dockerClient:          mockDockerClient,
 		pauseLoader:           mockPauseLoader,
-		credentialsCache:      awsv2.NewCredentialsCache(mockCredentialsProvider),
+		credentialsCache:      aws.NewCredentialsCache(mockCredentialsProvider),
 		mobyPlugins:           mockMobyPlugins,
 		serviceconnectManager: mockServiceConnectManager,
 		daemonManagers:        mockDaemonManagers,
@@ -1196,7 +1195,7 @@ func TestReregisterContainerInstanceNonTerminalError(t *testing.T) {
 	mockDaemonManager.EXPECT().LoadImage(gomock.Any(), gomock.Any()).Return(nil, nil).AnyTimes()
 
 	gomock.InOrder(
-		mockCredentialsProvider.EXPECT().Retrieve(gomock.Any()).Return(awsv2.Credentials{}, nil),
+		mockCredentialsProvider.EXPECT().Retrieve(gomock.Any()).Return(aws.Credentials{}, nil),
 		mockDockerClient.EXPECT().SupportedVersions().Return(apiVersions),
 		mockMobyPlugins.EXPECT().Scan().AnyTimes().Return([]string{}, nil),
 		mockDockerClient.EXPECT().ListPluginsWithFilters(gomock.Any(), gomock.Any(),
@@ -1217,7 +1216,7 @@ func TestReregisterContainerInstanceNonTerminalError(t *testing.T) {
 		dockerClient:          mockDockerClient,
 		ec2MetadataClient:     mockEC2Metadata,
 		pauseLoader:           mockPauseLoader,
-		credentialsCache:      awsv2.NewCredentialsCache(mockCredentialsProvider),
+		credentialsCache:      aws.NewCredentialsCache(mockCredentialsProvider),
 		mobyPlugins:           mockMobyPlugins,
 		serviceconnectManager: mockServiceConnectManager,
 		daemonManagers:        mockDaemonManagers,
@@ -1255,7 +1254,7 @@ func TestReregisterContainerInstanceTerminalError(t *testing.T) {
 	mockDaemonManager.EXPECT().LoadImage(gomock.Any(), gomock.Any()).Return(nil, nil).AnyTimes()
 
 	gomock.InOrder(
-		mockCredentialsProvider.EXPECT().Retrieve(gomock.Any()).Return(awsv2.Credentials{}, nil),
+		mockCredentialsProvider.EXPECT().Retrieve(gomock.Any()).Return(aws.Credentials{}, nil),
 		mockDockerClient.EXPECT().SupportedVersions().Return(apiVersions),
 		mockMobyPlugins.EXPECT().Scan().AnyTimes().Return([]string{}, nil),
 		mockDockerClient.EXPECT().ListPluginsWithFilters(gomock.Any(), gomock.Any(),
@@ -1276,7 +1275,7 @@ func TestReregisterContainerInstanceTerminalError(t *testing.T) {
 		dockerClient:          mockDockerClient,
 		ec2MetadataClient:     mockEC2Metadata,
 		pauseLoader:           mockPauseLoader,
-		credentialsCache:      awsv2.NewCredentialsCache(mockCredentialsProvider),
+		credentialsCache:      aws.NewCredentialsCache(mockCredentialsProvider),
 		mobyPlugins:           mockMobyPlugins,
 		serviceconnectManager: mockServiceConnectManager,
 		daemonManagers:        mockDaemonManagers,
@@ -1315,7 +1314,7 @@ func TestRegisterContainerInstanceWhenContainerInstanceARNIsNotSetHappyPath(t *t
 	mockDaemonManager.EXPECT().LoadImage(gomock.Any(), gomock.Any()).Return(nil, nil).AnyTimes()
 
 	gomock.InOrder(
-		mockCredentialsProvider.EXPECT().Retrieve(gomock.Any()).Return(awsv2.Credentials{}, nil),
+		mockCredentialsProvider.EXPECT().Retrieve(gomock.Any()).Return(aws.Credentials{}, nil),
 		mockDockerClient.EXPECT().SupportedVersions().Return(apiVersions),
 		mockMobyPlugins.EXPECT().Scan().AnyTimes().Return([]string{}, nil),
 		mockDockerClient.EXPECT().ListPluginsWithFilters(gomock.Any(), gomock.Any(),
@@ -1336,7 +1335,7 @@ func TestRegisterContainerInstanceWhenContainerInstanceARNIsNotSetHappyPath(t *t
 		dockerClient:          mockDockerClient,
 		ec2MetadataClient:     mockEC2Metadata,
 		pauseLoader:           mockPauseLoader,
-		credentialsCache:      awsv2.NewCredentialsCache(mockCredentialsProvider),
+		credentialsCache:      aws.NewCredentialsCache(mockCredentialsProvider),
 		mobyPlugins:           mockMobyPlugins,
 		serviceconnectManager: mockServiceConnectManager,
 		daemonManagers:        mockDaemonManagers,
@@ -1373,7 +1372,7 @@ func TestRegisterContainerInstanceWhenContainerInstanceARNIsNotSetCanRetryError(
 
 	retriableError := apierrors.NewRetriableError(apierrors.NewRetriable(true), errors.New("error"))
 	gomock.InOrder(
-		mockCredentialsProvider.EXPECT().Retrieve(gomock.Any()).Return(awsv2.Credentials{}, nil),
+		mockCredentialsProvider.EXPECT().Retrieve(gomock.Any()).Return(aws.Credentials{}, nil),
 		mockDockerClient.EXPECT().SupportedVersions().Return(apiVersions),
 		mockMobyPlugins.EXPECT().Scan().AnyTimes().Return([]string{}, nil),
 		mockDockerClient.EXPECT().ListPluginsWithFilters(gomock.Any(), gomock.Any(),
@@ -1394,7 +1393,7 @@ func TestRegisterContainerInstanceWhenContainerInstanceARNIsNotSetCanRetryError(
 		dockerClient:          mockDockerClient,
 		ec2MetadataClient:     mockEC2Metadata,
 		pauseLoader:           mockPauseLoader,
-		credentialsCache:      awsv2.NewCredentialsCache(mockCredentialsProvider),
+		credentialsCache:      aws.NewCredentialsCache(mockCredentialsProvider),
 		mobyPlugins:           mockMobyPlugins,
 		serviceconnectManager: mockServiceConnectManager,
 		daemonManagers:        mockDaemonManagers,
@@ -1431,7 +1430,7 @@ func TestRegisterContainerInstanceWhenContainerInstanceARNIsNotSetCannotRetryErr
 
 	cannotRetryError := apierrors.NewRetriableError(apierrors.NewRetriable(false), errors.New("error"))
 	gomock.InOrder(
-		mockCredentialsProvider.EXPECT().Retrieve(gomock.Any()).Return(awsv2.Credentials{}, nil),
+		mockCredentialsProvider.EXPECT().Retrieve(gomock.Any()).Return(aws.Credentials{}, nil),
 		mockDockerClient.EXPECT().SupportedVersions().Return(apiVersions),
 		mockMobyPlugins.EXPECT().Scan().AnyTimes().Return([]string{}, nil),
 		mockDockerClient.EXPECT().ListPluginsWithFilters(gomock.Any(), gomock.Any(),
@@ -1452,7 +1451,7 @@ func TestRegisterContainerInstanceWhenContainerInstanceARNIsNotSetCannotRetryErr
 		ec2MetadataClient:     mockEC2Metadata,
 		dockerClient:          mockDockerClient,
 		pauseLoader:           mockPauseLoader,
-		credentialsCache:      awsv2.NewCredentialsCache(mockCredentialsProvider),
+		credentialsCache:      aws.NewCredentialsCache(mockCredentialsProvider),
 		mobyPlugins:           mockMobyPlugins,
 		serviceconnectManager: mockServiceConnectManager,
 		daemonManagers:        mockDaemonManagers,
@@ -1488,7 +1487,7 @@ func TestRegisterContainerInstanceWhenContainerInstanceARNIsNotSetAttributeError
 	mockDaemonManager.EXPECT().LoadImage(gomock.Any(), gomock.Any()).Return(nil, nil).AnyTimes()
 
 	gomock.InOrder(
-		mockCredentialsProvider.EXPECT().Retrieve(gomock.Any()).Return(awsv2.Credentials{}, nil),
+		mockCredentialsProvider.EXPECT().Retrieve(gomock.Any()).Return(aws.Credentials{}, nil),
 		mockDockerClient.EXPECT().SupportedVersions().Return(apiVersions),
 		mockMobyPlugins.EXPECT().Scan().AnyTimes().Return([]string{}, nil),
 		mockDockerClient.EXPECT().ListPluginsWithFilters(gomock.Any(), gomock.Any(),
@@ -1509,7 +1508,7 @@ func TestRegisterContainerInstanceWhenContainerInstanceARNIsNotSetAttributeError
 		ec2MetadataClient:     mockEC2Metadata,
 		dockerClient:          mockDockerClient,
 		pauseLoader:           mockPauseLoader,
-		credentialsCache:      awsv2.NewCredentialsCache(mockCredentialsProvider),
+		credentialsCache:      aws.NewCredentialsCache(mockCredentialsProvider),
 		mobyPlugins:           mockMobyPlugins,
 		serviceconnectManager: mockServiceConnectManager,
 		daemonManagers:        mockDaemonManagers,
@@ -1550,7 +1549,7 @@ func TestRegisterContainerInstanceInvalidParameterTerminalError(t *testing.T) {
 
 	gomock.InOrder(
 		client.EXPECT().GetHostResources().Return(testHostResource, nil),
-		mockCredentialsProvider.EXPECT().Retrieve(gomock.Any()).Return(awsv2.Credentials{}, nil),
+		mockCredentialsProvider.EXPECT().Retrieve(gomock.Any()).Return(aws.Credentials{}, nil),
 		mockMobyPlugins.EXPECT().Scan().AnyTimes().Return([]string{}, nil),
 		dockerClient.EXPECT().ListPluginsWithFilters(gomock.Any(), gomock.Any(), gomock.Any(),
 			gomock.Any()).AnyTimes().Return([]string{}, nil),
@@ -1568,7 +1567,7 @@ func TestRegisterContainerInstanceInvalidParameterTerminalError(t *testing.T) {
 		ec2MetadataClient: mockEC2Metadata,
 		cfg:               &cfg,
 		pauseLoader:       mockPauseLoader,
-		credentialsCache:  awsv2.NewCredentialsCache(mockCredentialsProvider),
+		credentialsCache:  aws.NewCredentialsCache(mockCredentialsProvider),
 		dockerClient:      dockerClient,
 		mobyPlugins:       mockMobyPlugins,
 		terminationHandler: func(taskEngineState dockerstate.TaskEngineState, dataClient data.Client, taskEngine engine.TaskEngine, cancel context.CancelFunc) {
@@ -1639,7 +1638,7 @@ func TestRegisterContainerInstanceExceptionErrors(t *testing.T) {
 
 			gomock.InOrder(
 				client.EXPECT().GetHostResources().Return(testHostResource, nil),
-				mockCredentialsProvider.EXPECT().Retrieve(gomock.Any()).Return(awsv2.Credentials{}, nil),
+				mockCredentialsProvider.EXPECT().Retrieve(gomock.Any()).Return(aws.Credentials{}, nil),
 				mockMobyPlugins.EXPECT().Scan().AnyTimes().Return([]string{}, nil),
 				dockerClient.EXPECT().ListPluginsWithFilters(gomock.Any(), gomock.Any(), gomock.Any(),
 					gomock.Any()).AnyTimes().Return([]string{}, nil),
@@ -1661,7 +1660,7 @@ func TestRegisterContainerInstanceExceptionErrors(t *testing.T) {
 				ec2MetadataClient: mockEC2Metadata,
 				cfg:               &cfg,
 				pauseLoader:       mockPauseLoader,
-				credentialsCache:  awsv2.NewCredentialsCache(mockCredentialsProvider),
+				credentialsCache:  aws.NewCredentialsCache(mockCredentialsProvider),
 				dockerClient:      dockerClient,
 				mobyPlugins:       mockMobyPlugins,
 				terminationHandler: func(
@@ -1724,15 +1723,15 @@ func TestMergeTags(t *testing.T) {
 
 	assert.Equal(t, len(mergedTags), 3)
 	sort.Slice(mergedTags, func(i, j int) bool {
-		return aws.StringValue(mergedTags[i].Key) < aws.StringValue(mergedTags[j].Key)
+		return aws.ToString(mergedTags[i].Key) < aws.ToString(mergedTags[j].Key)
 	})
 
-	assert.Equal(t, commonKey, aws.StringValue(mergedTags[0].Key))
-	assert.Equal(t, commonKeyLocalValue, aws.StringValue(mergedTags[0].Value))
-	assert.Equal(t, ec2Key, aws.StringValue(mergedTags[1].Key))
-	assert.Equal(t, ec2Value, aws.StringValue(mergedTags[1].Value))
-	assert.Equal(t, localKey, aws.StringValue(mergedTags[2].Key))
-	assert.Equal(t, localValue, aws.StringValue(mergedTags[2].Value))
+	assert.Equal(t, commonKey, aws.ToString(mergedTags[0].Key))
+	assert.Equal(t, commonKeyLocalValue, aws.ToString(mergedTags[0].Value))
+	assert.Equal(t, ec2Key, aws.ToString(mergedTags[1].Key))
+	assert.Equal(t, ec2Value, aws.ToString(mergedTags[1].Value))
+	assert.Equal(t, localKey, aws.ToString(mergedTags[2].Key))
+	assert.Equal(t, localValue, aws.ToString(mergedTags[2].Value))
 }
 
 func TestGetContainerInstanceTagsFromEC2API(t *testing.T) {

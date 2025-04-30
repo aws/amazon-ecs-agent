@@ -58,11 +58,10 @@ import (
 	v4 "github.com/aws/amazon-ecs-agent/ecs-agent/tmds/handlers/v4/state"
 	mock_execwrapper "github.com/aws/amazon-ecs-agent/ecs-agent/utils/execwrapper/mocks"
 
+	"github.com/aws/aws-sdk-go-v2/aws"
 	awshttp "github.com/aws/aws-sdk-go-v2/aws/transport/http"
 	"github.com/aws/aws-sdk-go-v2/service/ecs"
 	ecstypes "github.com/aws/aws-sdk-go-v2/service/ecs/types"
-	"github.com/aws/aws-sdk-go/aws"
-	"github.com/aws/aws-sdk-go/aws/request"
 	smithy "github.com/aws/smithy-go"
 	smithyhttp "github.com/aws/smithy-go/transport/http"
 	"github.com/docker/docker/api/types"
@@ -3505,7 +3504,7 @@ func TestGetTaskProtection(t *testing.T) {
 			expectedResponseBody: tptypes.TaskProtectionResponse{
 				Error: &tptypes.ErrorResponse{
 					Arn:     taskARN,
-					Code:    request.CanceledErrorCode,
+					Code:    apierrors.ErrCodeRequestCanceled,
 					Message: "Timed out calling ECS Task Protection API",
 				},
 			},
@@ -3785,7 +3784,7 @@ func TestUpdateTaskProtection(t *testing.T) {
 		expectedResponseBody: tptypes.TaskProtectionResponse{
 			Error: &tptypes.ErrorResponse{
 				Arn:     taskARN,
-				Code:    request.CanceledErrorCode,
+				Code:    apierrors.ErrCodeRequestCanceled,
 				Message: "Timed out calling ECS Task Protection API",
 			},
 		},

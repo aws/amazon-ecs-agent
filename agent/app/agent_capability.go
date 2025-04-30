@@ -26,8 +26,9 @@ import (
 	"github.com/aws/amazon-ecs-agent/ecs-agent/logger"
 	"github.com/aws/amazon-ecs-agent/ecs-agent/logger/field"
 	md "github.com/aws/amazon-ecs-agent/ecs-agent/manageddaemon"
+
+	"github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/aws/aws-sdk-go-v2/service/ecs/types"
-	"github.com/aws/aws-sdk-go/aws"
 	"github.com/cihub/seelog"
 	"github.com/pkg/errors"
 )
@@ -642,7 +643,7 @@ func removeAttributesByNames(attributes []types.Attribute, names []string) []typ
 
 	var ret []types.Attribute
 	for _, attr := range attributes {
-		if _, ok := nameMap[aws.StringValue(attr.Name)]; !ok {
+		if _, ok := nameMap[aws.ToString(attr.Name)]; !ok {
 			ret = append(ret, attr)
 		}
 	}

@@ -69,9 +69,8 @@ import (
 	"github.com/aws/amazon-ecs-agent/ecs-agent/utils/retry"
 	"github.com/aws/amazon-ecs-agent/ecs-agent/wsclient"
 
-	awsv2 "github.com/aws/aws-sdk-go-v2/aws"
+	"github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/aws/aws-sdk-go-v2/service/ecs/types"
-	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/aws/awserr"
 	aws_credentials "github.com/aws/aws-sdk-go/aws/credentials"
 	"github.com/cihub/seelog"
@@ -148,7 +147,7 @@ type ecsAgent struct {
 	dockerClient                dockerapi.DockerClient
 	containerInstanceARN        string
 	credentialProvider          *aws_credentials.Credentials
-	credentialsCache            *awsv2.CredentialsCache
+	credentialsCache            *aws.CredentialsCache
 	stateManagerFactory         factory.StateManager
 	saveableOptionFactory       factory.SaveableOption
 	pauseLoader                 loader.Loader
@@ -202,7 +201,7 @@ func newAgent(blackholeEC2Metadata bool, acceptInsecureCert *bool) (agent, error
 		cancel()
 		return nil, err
 	}
-	cfg.AcceptInsecureCert = aws.BoolValue(acceptInsecureCert)
+	cfg.AcceptInsecureCert = aws.ToBool(acceptInsecureCert)
 	if cfg.AcceptInsecureCert {
 		seelog.Warn("SSL certificate verification disabled. This is not recommended.")
 	}
@@ -300,7 +299,7 @@ func (agent *ecsAgent) printECSAttributes() int {
 		return exitcodes.ExitError
 	}
 	for _, attr := range capabilities {
-		fmt.Printf("%s\t%s\n", aws.StringValue(attr.Name), aws.StringValue(attr.Value))
+		fmt.Printf("%s\t%s\n", aws.ToString(attr.Name), aws.ToString(attr.Value))
 	}
 	return exitcodes.ExitSuccess
 }
@@ -1171,11 +1170,11 @@ func mergeTags(localTags []types.Tag, ec2Tags []types.Tag) []types.Tag {
 	tagsMap := make(map[string]string)
 
 	for _, ec2Tag := range ec2Tags {
-		tagsMap[aws.StringValue(ec2Tag.Key)] = aws.StringValue(ec2Tag.Value)
+		tagsMap[aws.ToString(ec2Tag.Key)] = aws.ToString(ec2Tag.Value)
 	}
 
 	for _, localTag := range localTags {
-		tagsMap[aws.StringValue(localTag.Key)] = aws.StringValue(localTag.Value)
+		tagsMap[aws.ToString(localTag.Key)] = aws.ToString(localTag.Value)
 	}
 
 	return utils.MapToTags(tagsMap)
