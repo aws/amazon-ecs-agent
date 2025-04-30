@@ -18,30 +18,31 @@ package firelens
 
 import (
 	"context"
+	"errors"
 	"io"
 	"os"
+	"path/filepath"
 	"testing"
+
+	"github.com/aws/amazon-ecs-agent/agent/config"
+	mockfactory "github.com/aws/amazon-ecs-agent/agent/s3/factory/mocks"
+	mocks3 "github.com/aws/amazon-ecs-agent/agent/s3/mocks/s3manager"
+	"github.com/aws/amazon-ecs-agent/agent/taskresource"
+	resourcestatus "github.com/aws/amazon-ecs-agent/agent/taskresource/status"
+	mockioutilwrapper "github.com/aws/amazon-ecs-agent/agent/utils/ioutilwrapper/mocks"
+	"github.com/aws/amazon-ecs-agent/agent/utils/oswrapper"
+	mockoswrapper "github.com/aws/amazon-ecs-agent/agent/utils/oswrapper/mocks"
+	"github.com/aws/amazon-ecs-agent/ecs-agent/api/task/status"
+	"github.com/aws/amazon-ecs-agent/ecs-agent/credentials"
+	mockcredentials "github.com/aws/amazon-ecs-agent/ecs-agent/credentials/mocks"
+	"github.com/aws/amazon-ecs-agent/ecs-agent/ipcompatibility"
 
 	"github.com/aws/aws-sdk-go-v2/aws"
 	s3manager "github.com/aws/aws-sdk-go-v2/feature/s3/manager"
 	"github.com/aws/aws-sdk-go-v2/service/s3"
 	"github.com/golang/mock/gomock"
-	"github.com/pkg/errors"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
-
-	"github.com/aws/amazon-ecs-agent/agent/config"
-	mock_factory "github.com/aws/amazon-ecs-agent/agent/s3/factory/mocks"
-	mock_s3 "github.com/aws/amazon-ecs-agent/agent/s3/mocks/s3manager"
-	"github.com/aws/amazon-ecs-agent/agent/taskresource"
-	resourcestatus "github.com/aws/amazon-ecs-agent/agent/taskresource/status"
-	mock_ioutilwrapper "github.com/aws/amazon-ecs-agent/agent/utils/ioutilwrapper/mocks"
-	"github.com/aws/amazon-ecs-agent/agent/utils/oswrapper"
-	mock_oswrapper "github.com/aws/amazon-ecs-agent/agent/utils/oswrapper/mocks"
-	"github.com/aws/amazon-ecs-agent/ecs-agent/api/task/status"
-	"github.com/aws/amazon-ecs-agent/ecs-agent/credentials"
-	mock_credentials "github.com/aws/amazon-ecs-agent/ecs-agent/credentials/mocks"
-	"github.com/aws/amazon-ecs-agent/ecs-agent/ipcompatibility"
 )
 
 const (
@@ -76,15 +77,15 @@ var (
 	testIPCompatibility = ipcompatibility.NewIPCompatibility(true, true)
 )
 
-func setup(t *testing.T) (oswrapper.File, *mock_ioutilwrapper.MockIOUtil,
-	*mock_credentials.MockManager, *mock_factory.MockS3ClientCreator, *mock_s3.MockS3ManagerClient, func()) {
+func setup(t *testing.T) (oswrapper.File, *mockioutilwrapper.MockIOUtil,
+	*mockcredentials.MockManager, *mockfactory.MockS3ClientCreator, *mocks3.MockS3ManagerClient, func()) {
 	ctrl := gomock.NewController(t)
 
-	mockFile := mock_oswrapper.NewMockFile()
-	mockIOUtil := mock_ioutilwrapper.NewMockIOUtil(ctrl)
-	mockCredentialsManager := mock_credentials.NewMockManager(ctrl)
-	mockS3ClientCreator := mock_factory.NewMockS3ClientCreator(ctrl)
-	mockS3Client := mock_s3.NewMockS3ManagerClient(ctrl)
+	mockFile := mockoswrapper.NewMockFile()
+	mockIOUtil := mockioutilwrapper.NewMockIOUtil(ctrl)
+	mockCredentialsManager := mockcredentials.NewMockManager(ctrl)
+	mockS3ClientCreator := mockfactory.NewMockS3ClientCreator(ctrl)
+	mockS3Client := mocks3.NewMockS3ManagerClient(ctrl)
 
 	return mockFile, mockIOUtil, mockCredentialsManager, mockS3ClientCreator, mockS3Client, ctrl.Finish
 }
@@ -110,8 +111,8 @@ func mockMkdirAllError() func() {
 }
 
 func newMockFirelensResource(firelensConfigType, networkMode string, lopOptions map[string]string,
-	mockIOUtil *mock_ioutilwrapper.MockIOUtil, mockCredentialsManager *mock_credentials.MockManager,
-	mockS3ClientCreator *mock_factory.MockS3ClientCreator, containerMemoryReservation int64, ipCompatibility ipcompatibility.IPCompatibility) *FirelensResource {
+	mockIOUtil *mockioutilwrapper.MockIOUtil, mockCredentialsManager *mockcredentials.MockManager,
+	mockS3ClientCreator *mockfactory.MockS3ClientCreator, containerMemoryReservation int64, ipCompatibility ipcompatibility.IPCompatibility) *FirelensResource {
 	return &FirelensResource{
 		cluster:            testCluster,
 		taskARN:            testTaskARN,
@@ -297,7 +298,7 @@ func TestCreateFirelensResourceWriteConfigFileError(t *testing.T) {
 	firelensResource := newMockFirelensResource(FirelensConfigTypeFluentd, bridgeNetworkMode, testFluentdOptions, mockIOUtil,
 		mockCredentialsManager, mockS3ClientCreator, testContainerMemoryLimit, testIPCompatibility)
 
-	mockFile.(*mock_oswrapper.MockFile).WriteImpl = func(bytes []byte) (i int, e error) {
+	mockFile.(*mockoswrapper.MockFile).WriteImpl = func(bytes []byte) (i int, e error) {
 		return 0, errors.New("test error")
 	}
 
@@ -316,7 +317,7 @@ func TestCreateFirelensResourceChmodError(t *testing.T) {
 	firelensResource := newMockFirelensResource(FirelensConfigTypeFluentd, bridgeNetworkMode, testFluentdOptions, mockIOUtil,
 		mockCredentialsManager, mockS3ClientCreator, testContainerMemoryLimit, testIPCompatibility)
 
-	mockFile.(*mock_oswrapper.MockFile).ChmodImpl = func(mode os.FileMode) error {
+	mockFile.(*mockoswrapper.MockFile).ChmodImpl = func(mode os.FileMode) error {
 		return errors.New("test error")
 	}
 
@@ -523,4 +524,136 @@ func TestSetKnownStatusNoAppliedStatusUpdate(t *testing.T) {
 	firelensResource.SetKnownStatus(resourcestatus.ResourceStatus(FirelensStatusNone))
 	assert.Equal(t, resourcestatus.ResourceStatus(FirelensStatusNone), firelensResource.knownStatusUnsafe)
 	assert.Equal(t, resourcestatus.ResourceStatus(FirelensCreated), firelensResource.appliedStatusUnsafe)
+}
+
+func TestCreateDirectories(t *testing.T) {
+	// Store original functions to restore later
+	originalMkdirAll := mkdirAll
+	originalSetOwnership := setOwnership
+	defer func() {
+		// Restore original functions after test
+		mkdirAll = originalMkdirAll
+		setOwnership = originalSetOwnership
+	}()
+
+	tests := []struct {
+		name             string
+		user             string
+		mkdirAllCalls    []string
+		mockMkdirAll     func(string, os.FileMode) error
+		mockSetOwnership func(string, string) error
+		expectedError    bool
+	}{
+		{
+			name: "success, no user defined",
+			mockMkdirAll: func(path string, perm os.FileMode) error {
+				return nil
+			},
+			mockSetOwnership: func(path, user string) error {
+				return nil
+			},
+			expectedError: false,
+		},
+		{
+			name: "success, valid root UID defined",
+			user: "0",
+			mockMkdirAll: func(path string, perm os.FileMode) error {
+				return nil
+			},
+			mockSetOwnership: func(path, user string) error {
+				return nil
+			},
+			expectedError: false,
+		},
+		{
+			name: "success, valid non-root UID defined",
+			user: "12345",
+			mockMkdirAll: func(path string, perm os.FileMode) error {
+				return nil
+			},
+			mockSetOwnership: func(path, user string) error {
+				return nil
+			},
+			expectedError: false,
+		},
+		{
+			name: "success, valid UID:group defined",
+			user: "12345",
+			mockMkdirAll: func(path string, perm os.FileMode) error {
+				return nil
+			},
+			mockSetOwnership: func(path, user string) error {
+				return nil
+			},
+			expectedError: false,
+		},
+		{
+			name: "error, mkdirAll config directory",
+			mockMkdirAll: func(path string, perm os.FileMode) error {
+				return errors.New("mkdir error")
+			},
+			expectedError: true,
+		},
+		{
+			name: "error, mkdirAll socket directory",
+			mockMkdirAll: func(path string, perm os.FileMode) error {
+				if filepath.Base(filepath.Dir(path)) == "config" {
+					return nil
+				}
+				return errors.New("mkdir socket error")
+			},
+			expectedError: true,
+		},
+		{
+			name: "error, setOwnership invalid user format",
+
+			user: "foo:12345",
+			mockMkdirAll: func(path string, perm os.FileMode) error {
+				return nil
+			},
+			mockSetOwnership: func(path, user string) error {
+				return errors.New("ownership error")
+			},
+			expectedError: true,
+		},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			// Track calls to mkdirAll
+			var mkdirAllCallCounter int
+			mkdirAll = func(path string, perm os.FileMode) error {
+				mkdirAllCallCounter += 1
+				return tc.mockMkdirAll(path, perm)
+			}
+			// Track calls to setOwnership
+			var setOwnershipPath, setOwnershipUser string
+			var setOwnershipCallCounter int
+			setOwnership = func(path string, user string) error {
+				setOwnershipPath = path
+				setOwnershipUser = user
+				if tc.mockSetOwnership != nil {
+					setOwnershipCallCounter += 1
+					return tc.mockSetOwnership(path, user)
+				}
+				return nil
+			}
+			firelens := &FirelensResource{
+				user:        tc.user,
+				resourceDir: testResourceDir,
+			}
+
+			err := firelens.createDirectories()
+			// Verify error condition
+			assert.Equal(t, tc.expectedError, err != nil)
+			// Verify successful cases
+			if err == nil {
+				assert.Equal(t, 2, mkdirAllCallCounter)
+				assert.Equal(t, 1, setOwnershipCallCounter)
+				expectedSocketDir := filepath.Join(testResourceDir, "socket")
+				assert.Equal(t, expectedSocketDir, setOwnershipPath)
+				assert.Equal(t, tc.user, setOwnershipUser)
+			}
+		})
+	}
 }
