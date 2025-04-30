@@ -45,6 +45,8 @@ type NetworkInterface struct {
 	IPV6Addresses []*IPV6Address
 	// SubnetGatewayIPV4Address is the IPv4 address of the subnet gateway of the NetworkInterface
 	SubnetGatewayIPV4Address string `json:",omitempty"`
+	// SubnetGatewayIPV6Address is the IPv6 address of the subnet gateway of the NetworkInterface
+	SubnetGatewayIPV6Address string `json:",omitempty`
 	// DomainNameServers specifies the nameserver IP addresses for the eni
 	DomainNameServers []string `json:",omitempty"`
 	// DomainNameSearchList specifies the search list for the domain
@@ -297,6 +299,16 @@ func (ni *NetworkInterface) GetSubnetGatewayIPv4Address() string {
 	return gwAddr
 }
 
+// GetSubnetGatewayIPv6Address returns the subnet gateway IPv6 address for the NetworkInterface.
+func (ni *NetworkInterface) GetSubnetGatewayIPv6Address() string {
+	var gwAddr string
+	if ni.SubnetGatewayIPV6Address != "" {
+		gwAddr = strings.Split(ni.SubnetGatewayIPV6Address, "/")[0]
+	}
+
+	return gwAddr
+}
+
 // GetHostname returns the hostname assigned to the NetworkInterface
 func (ni *NetworkInterface) GetHostname() string {
 	return ni.PrivateDNSName
@@ -374,9 +386,10 @@ func (ni *NetworkInterface) String() string {
 
 	return fmt.Sprintf(
 		"eni id:%s, mac: %s, hostname: %s, ipv4addresses: [%s], ipv6addresses: [%s], dns: [%s], dns search: [%s],"+
-			" gateway ipv4: [%s][%s]", ni.ID, ni.MacAddress, ni.GetHostname(), strings.Join(ipv4Addresses, ","),
+			" gateway ipv4: [%s], gateway ipv6: [%s][%s]", ni.ID, ni.MacAddress, ni.GetHostname(), strings.Join(ipv4Addresses, ","),
 		strings.Join(ipv6Addresses, ","), strings.Join(ni.DomainNameServers, ","),
-		strings.Join(ni.DomainNameSearchList, ","), ni.SubnetGatewayIPV4Address, eniString)
+		strings.Join(ni.DomainNameSearchList, ","), ni.SubnetGatewayIPV4Address,
+		ni.SubnetGatewayIPV6Address, eniString)
 }
 
 // IPV4Address is the ipv4 information of the eni
