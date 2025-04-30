@@ -1294,6 +1294,24 @@ func (c *Container) GetMemoryReservationFromHostConfig() int64 {
 	return hostConfig.MemoryReservation / (1024 * 1024)
 }
 
+// GetUser returns the container user.
+func (c *Container) GetUser() string {
+	c.lock.RLock()
+	defer c.lock.RUnlock()
+
+	// Get the container user from the container's Docker Config
+	if c.DockerConfig.Config == nil {
+		return ""
+	}
+	config := &dockercontainer.Config{}
+	err := json.Unmarshal([]byte(*c.DockerConfig.Config), config)
+	if err != nil {
+		seelog.Warnf("Encountered an error when trying to get user for container %s: %v", c.RuntimeID, err)
+		return ""
+	}
+	return config.User
+}
+
 // GetHostConfig returns the container's host config.
 func (c *Container) GetHostConfig() *string {
 	c.lock.RLock()
