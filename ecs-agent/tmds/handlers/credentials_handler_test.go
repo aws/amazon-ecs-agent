@@ -36,6 +36,27 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
+const (
+	roleArn         = "rolearn"
+	accessKeyId     = "access_key_id"
+	secretAccessKey = "secret_access_key"
+	sessionToken    = "session_token"
+	expiration      = "expiration"
+	// Common Credentials JSON response templates
+	credentialsErrorResponseJSON = `{"code":"%s","message":"%s","HTTPErrorCode":%d}`
+	credentialsResponseJSON      = `{"RoleArn":"%s","AccessKeyId":"%s","SecretAccessKey":"%s","Token":"%s","Expiration":"%s"}`
+)
+
+var (
+	happycredentialsResponseJSON = fmt.Sprintf(credentialsResponseJSON,
+		roleArn,
+		accessKeyId,
+		secretAccessKey,
+		sessionToken,
+		expiration,
+	)
+)
+
 // Function to make a URL path for credentials request
 type MakePath = func(credsId string) string
 
@@ -44,11 +65,12 @@ type GetCredentialsHandler = func(credentials.Manager, audit.AuditLogger) http.H
 
 // A structure representing a test case for credentials endpoint error handling tests.
 type CredentialsErrorTestCase struct {
-	Name               string
-	Path               string
-	GetHandler         func(*mock_credentials.MockManager, *mock_audit.MockAuditLogger) http.Handler
-	ExpectedStatusCode int
-	ExpectedResponse   utils.ErrorMessage
+	Name                   string
+	Path                   string
+	GetHandler             func(*mock_credentials.MockManager, *mock_audit.MockAuditLogger) http.Handler
+	ExpectedStatusCode     int
+	ExpectedResponse       utils.ErrorMessage
+	expectedResponseString string
 }
 
 // MakePath function for credentials endpoint v1
@@ -108,6 +130,11 @@ func noCredentialsIDCase(
 			Message:       errorPrefix + ": No Credential ID in the request",
 			HTTPErrorCode: http.StatusBadRequest,
 		},
+		expectedResponseString: fmt.Sprintf(credentialsErrorResponseJSON,
+			v1.ErrNoIDInRequest,
+			errorPrefix+": No Credential ID in the request",
+			http.StatusBadRequest,
+		),
 	}
 }
 
@@ -139,6 +166,11 @@ func credentialsNotFoundCase(
 			Message:       errorPrefix + ": Credentials not found",
 			HTTPErrorCode: http.StatusBadRequest,
 		},
+		expectedResponseString: fmt.Sprintf(credentialsErrorResponseJSON,
+			v1.ErrInvalidIDInRequest,
+			errorPrefix+": Credentials not found",
+			http.StatusBadRequest,
+		),
 	}
 }
 
@@ -170,6 +202,11 @@ func credentialsUninitializedCase(
 			Message:       errorPrefix + ": Credentials uninitialized for ID",
 			HTTPErrorCode: http.StatusServiceUnavailable,
 		},
+		expectedResponseString: fmt.Sprintf(credentialsErrorResponseJSON,
+			v1.ErrCredentialsUninitialized,
+			errorPrefix+": Credentials uninitialized for ID",
+			http.StatusServiceUnavailable,
+		),
 	}
 }
 
@@ -226,6 +263,10 @@ func testCredentialsHandlerError(
 
 	// Send request and read response
 	recorder := recordCredentialsRequest(t, handler, tc.Path)
+
+	// Assert that the response JSON string is as expected.
+	assert.Equal(t, tc.expectedResponseString, recorder.Body.String())
+
 	var response utils.ErrorMessage
 	err := json.Unmarshal(recorder.Body.Bytes(), &response)
 	require.NoError(t, err)
@@ -263,21 +304,21 @@ func testCredentialsHandlerSuccess(t *testing.T, makePath MakePath, makeHandler 
 	// Credentials that will be found by the credential manager
 	creds := credentials.IAMRoleCredentials{
 		CredentialsID:   credsId,
-		RoleArn:         "rolearn",
-		AccessKeyID:     "access_key_id",
-		SecretAccessKey: "secret_access_key",
-		SessionToken:    "session_token",
-		Expiration:      "expiration",
+		RoleArn:         roleArn,
+		AccessKeyID:     accessKeyId,
+		SecretAccessKey: secretAccessKey,
+		SessionToken:    sessionToken,
+		Expiration:      expiration,
 		RoleType:        credentials.ApplicationRoleType,
 	}
 
 	// Expected response - not all credentials fields are sent in the response
 	expectedCreds := credentials.IAMRoleCredentials{
-		RoleArn:         "rolearn",
-		AccessKeyID:     "access_key_id",
-		SecretAccessKey: "secret_access_key",
-		SessionToken:    "session_token",
-		Expiration:      "expiration",
+		RoleArn:         roleArn,
+		AccessKeyID:     accessKeyId,
+		SecretAccessKey: secretAccessKey,
+		SessionToken:    sessionToken,
+		Expiration:      expiration,
 	}
 
 	auditLogger.EXPECT().Log(
@@ -290,6 +331,9 @@ func testCredentialsHandlerSuccess(t *testing.T, makePath MakePath, makeHandler 
 	// Prepare and send a request
 	handler := makeHandler(credManager, auditLogger)
 	recorder := recordCredentialsRequest(t, handler, path)
+
+	// Assert that the response JSON string is as expected.
+	assert.Equal(t, happycredentialsResponseJSON, recorder.Body.String())
 
 	// Read the response
 	var response credentials.IAMRoleCredentials
