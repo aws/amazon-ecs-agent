@@ -18,11 +18,12 @@ package taskprotection
 import (
 	"testing"
 
+	"github.com/aws/amazon-ecs-agent/agent/config/ipcompatibility"
 	"github.com/aws/amazon-ecs-agent/ecs-agent/api/ecs"
 	"github.com/aws/amazon-ecs-agent/ecs-agent/credentials"
-	ecsservice "github.com/aws/aws-sdk-go-v2/service/ecs"
 
-	"github.com/golang/mock/gomock"
+	"github.com/aws/aws-sdk-go-v2/aws"
+	ecsservice "github.com/aws/aws-sdk-go-v2/service/ecs"
 	"github.com/stretchr/testify/assert"
 )
 
@@ -35,34 +36,70 @@ const (
 	testAcceptInsecureCert = false
 )
 
-// TestGetECSClientHappyCase tests newTaskProtectionClient uses credential in credentials manager and
-// returns an ECS client with correct status code and error
-func TestGetECSClientHappyCase(t *testing.T) {
-	testIAMRoleCredentials := credentials.TaskIAMRoleCredentials{
-		IAMRoleCredentials: credentials.IAMRoleCredentials{
-			AccessKeyID:     testAccessKey,
-			SecretAccessKey: testSecretKey,
-			SessionToken:    testSessionToken,
+var testIAMRoleCredentials = credentials.TaskIAMRoleCredentials{
+	IAMRoleCredentials: credentials.IAMRoleCredentials{
+		AccessKeyID:     testAccessKey,
+		SecretAccessKey: testSecretKey,
+		SessionToken:    testSessionToken,
+	},
+}
+
+type endpointConfig struct {
+	baseEndpoint         string
+	useDualStackEndpoint aws.DualStackEndpointState
+}
+
+func TestTaskProtectionClientFactoryHappyCase(t *testing.T) {
+	testCases := []struct {
+		name                   string
+		factory                TaskProtectionClientFactory
+		expectedEndpointConfig endpointConfig
+	}{
+		{
+			name:                   "IPV4 Only",
+			factory:                TaskProtectionClientFactory{testRegion, "", testAcceptInsecureCert, ipcompatibility.NewIPv4OnlyCompatibility()},
+			expectedEndpointConfig: endpointConfig{"", aws.DualStackEndpointStateUnset},
+		},
+		{
+			name:                   "IPV6 Only",
+			factory:                TaskProtectionClientFactory{testRegion, "", testAcceptInsecureCert, ipcompatibility.NewIPv6OnlyCompatibility()},
+			expectedEndpointConfig: endpointConfig{"", aws.DualStackEndpointStateEnabled},
+		},
+		{
+			name:                   "Dualstack",
+			factory:                TaskProtectionClientFactory{testRegion, "", testAcceptInsecureCert, ipcompatibility.NewIPCompatibility(true, true)},
+			expectedEndpointConfig: endpointConfig{"", aws.DualStackEndpointStateUnset},
+		},
+		{
+			name:                   "Custom Endpoint Only",
+			factory:                TaskProtectionClientFactory{testRegion, testECSEndpoint, testAcceptInsecureCert, ipcompatibility.NewIPv4OnlyCompatibility()},
+			expectedEndpointConfig: endpointConfig{"https://" + testECSEndpoint, aws.DualStackEndpointStateUnset},
+		},
+		{
+			name:                   "Custom Endpoint + IPV6 Only",
+			factory:                TaskProtectionClientFactory{testRegion, testECSEndpoint, testAcceptInsecureCert, ipcompatibility.NewIPv6OnlyCompatibility()},
+			expectedEndpointConfig: endpointConfig{"https://" + testECSEndpoint, aws.DualStackEndpointStateUnset},
 		},
 	}
 
-	factory := TaskProtectionClientFactory{
-		Region: testRegion, Endpoint: testECSEndpoint, AcceptInsecureCert: testAcceptInsecureCert,
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			client, err := tc.factory.NewTaskProtectionClient(testIAMRoleCredentials)
+			assert.NoError(t, err)
+
+			// Type check
+			_, ok := client.(ecs.ECSTaskProtectionSDK)
+			assert.True(t, ok)
+
+			ecsClientOptions := client.(*ecsservice.Client).Options()
+			if tc.expectedEndpointConfig.baseEndpoint != "" {
+				clientEndpoint := ecsClientOptions.BaseEndpoint
+				assert.NotNil(t, clientEndpoint)
+
+				assert.Equal(t, "https://"+testECSEndpoint, *clientEndpoint)
+			}
+
+			assert.Equal(t, tc.expectedEndpointConfig.useDualStackEndpoint, ecsClientOptions.EndpointOptions.UseDualStackEndpoint)
+		})
 	}
-
-	ctrl := gomock.NewController(t)
-	defer ctrl.Finish()
-
-	ret, err := factory.NewTaskProtectionClient(testIAMRoleCredentials)
-	assert.NoError(t, err)
-
-	clientEndpoint := ret.(*ecsservice.Client).Options().BaseEndpoint
-	assert.NotNil(t, clientEndpoint)
-
-	assert.Equal(t, "https://"+testECSEndpoint, *clientEndpoint)
-
-	_, ok := ret.(ecs.ECSTaskProtectionSDK)
-
-	// Assert response
-	assert.True(t, ok)
 }
