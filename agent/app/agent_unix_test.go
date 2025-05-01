@@ -46,9 +46,8 @@ import (
 	"github.com/aws/amazon-ecs-agent/ecs-agent/eventstream"
 	md "github.com/aws/amazon-ecs-agent/ecs-agent/manageddaemon"
 
-	awsv2 "github.com/aws/aws-sdk-go-v2/aws"
+	"github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/aws/aws-sdk-go-v2/service/ecs/types"
-	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/aws/awserr"
 	"github.com/golang/mock/gomock"
 	"github.com/stretchr/testify/assert"
@@ -134,7 +133,7 @@ func TestDoStartTaskENIHappyPath(t *testing.T) {
 		cniClient.EXPECT().Capabilities(ecscni.ECSIPAMPluginName).Return(cniCapabilities, nil),
 		cniClient.EXPECT().Capabilities(ecscni.ECSAppMeshPluginName).Return(cniCapabilities, nil),
 		cniClient.EXPECT().Capabilities(ecscni.ECSBranchENIPluginName).Return(cniCapabilities, nil),
-		mockCredentialsProvider.EXPECT().Retrieve(gomock.Any()).Return(awsv2.Credentials{}, nil),
+		mockCredentialsProvider.EXPECT().Retrieve(gomock.Any()).Return(aws.Credentials{}, nil),
 		cniClient.EXPECT().Version(ecscni.VPCENIPluginName).Return("v1", nil),
 		cniClient.EXPECT().Version(ecscni.ECSBranchENIPluginName).Return("v2", nil),
 		mockMobyPlugins.EXPECT().Scan().Return([]string{}, nil),
@@ -147,12 +146,12 @@ func TestDoStartTaskENIHappyPath(t *testing.T) {
 				vpcFound := false
 				subnetFound := false
 				for _, attribute := range attributes {
-					if aws.StringValue(attribute.Name) == vpcIDAttributeName &&
-						aws.StringValue(attribute.Value) == vpcID {
+					if aws.ToString(attribute.Name) == vpcIDAttributeName &&
+						aws.ToString(attribute.Value) == vpcID {
 						vpcFound = true
 					}
-					if aws.StringValue(attribute.Name) == subnetIDAttributeName &&
-						aws.StringValue(attribute.Value) == subnetID {
+					if aws.ToString(attribute.Name) == subnetIDAttributeName &&
+						aws.ToString(attribute.Value) == subnetID {
 						subnetFound = true
 					}
 				}
@@ -171,7 +170,7 @@ func TestDoStartTaskENIHappyPath(t *testing.T) {
 	agent := &ecsAgent{
 		ctx:               ctx,
 		cfg:               &cfg,
-		credentialsCache:  awsv2.NewCredentialsCache(mockCredentialsProvider),
+		credentialsCache:  aws.NewCredentialsCache(mockCredentialsProvider),
 		dataClient:        data.NewNoopClient(),
 		dockerClient:      dockerClient,
 		pauseLoader:       mockPauseLoader,
@@ -477,7 +476,7 @@ func TestDoStartCgroupInitHappyPath(t *testing.T) {
 
 	gomock.InOrder(
 		mockControl.EXPECT().Init().Return(nil),
-		mockCredentialsProvider.EXPECT().Retrieve(gomock.Any()).Return(awsv2.Credentials{}, nil),
+		mockCredentialsProvider.EXPECT().Retrieve(gomock.Any()).Return(aws.Credentials{}, nil),
 		mockMobyPlugins.EXPECT().Scan().Return([]string{}, nil),
 		dockerClient.EXPECT().ListPluginsWithFilters(gomock.Any(), gomock.Any(), gomock.Any(),
 			gomock.Any()).Return([]string{}, nil),
@@ -510,7 +509,7 @@ func TestDoStartCgroupInitHappyPath(t *testing.T) {
 	agent := &ecsAgent{
 		ctx:              ctx,
 		cfg:              &cfg,
-		credentialsCache: awsv2.NewCredentialsCache(mockCredentialsProvider),
+		credentialsCache: aws.NewCredentialsCache(mockCredentialsProvider),
 		pauseLoader:      mockPauseLoader,
 		dockerClient:     dockerClient,
 		terminationHandler: func(state dockerstate.TaskEngineState, dataClient data.Client, taskEngine engine.TaskEngine, cancel context.CancelFunc) {
@@ -579,7 +578,7 @@ func TestDoStartCgroupInitErrorPath(t *testing.T) {
 	agent := &ecsAgent{
 		ctx:              ctx,
 		cfg:              &cfg,
-		credentialsCache: awsv2.NewCredentialsCache(mockCredentialsProvider),
+		credentialsCache: aws.NewCredentialsCache(mockCredentialsProvider),
 		dockerClient:     dockerClient,
 		pauseLoader:      mockPauseLoader,
 		terminationHandler: func(state dockerstate.TaskEngineState, dataClient data.Client, taskEngine engine.TaskEngine, cancel context.CancelFunc) {
@@ -653,7 +652,7 @@ func TestDoStartGPUManagerHappyPath(t *testing.T) {
 
 	gomock.InOrder(
 		mockGPUManager.EXPECT().Initialize().Return(nil),
-		mockCredentialsProvider.EXPECT().Retrieve(gomock.Any()).Return(awsv2.Credentials{}, nil),
+		mockCredentialsProvider.EXPECT().Retrieve(gomock.Any()).Return(aws.Credentials{}, nil),
 		mockMobyPlugins.EXPECT().Scan().Return([]string{}, nil),
 		dockerClient.EXPECT().ListPluginsWithFilters(gomock.Any(), gomock.Any(), gomock.Any(),
 			gomock.Any()).Return([]string{}, nil),
@@ -689,7 +688,7 @@ func TestDoStartGPUManagerHappyPath(t *testing.T) {
 	agent := &ecsAgent{
 		ctx:              ctx,
 		cfg:              &cfg,
-		credentialsCache: awsv2.NewCredentialsCache(mockCredentialsProvider),
+		credentialsCache: aws.NewCredentialsCache(mockCredentialsProvider),
 		dockerClient:     dockerClient,
 		pauseLoader:      mockPauseLoader,
 		terminationHandler: func(state dockerstate.TaskEngineState, dataClient data.Client, taskEngine engine.TaskEngine, cancel context.CancelFunc) {
@@ -751,7 +750,7 @@ func TestDoStartGPUManagerInitError(t *testing.T) {
 	agent := &ecsAgent{
 		ctx:              ctx,
 		cfg:              &cfg,
-		credentialsCache: awsv2.NewCredentialsCache(mockCredentialsProvider),
+		credentialsCache: aws.NewCredentialsCache(mockCredentialsProvider),
 		dockerClient:     dockerClient,
 		pauseLoader:      mockPauseLoader,
 		terminationHandler: func(state dockerstate.TaskEngineState, dataClient data.Client, taskEngine engine.TaskEngine, cancel context.CancelFunc) {
@@ -799,7 +798,7 @@ func TestDoStartTaskENIPauseError(t *testing.T) {
 	agent := &ecsAgent{
 		ctx:               ctx,
 		cfg:               &cfg,
-		credentialsCache:  awsv2.NewCredentialsCache(mockCredentialsProvider),
+		credentialsCache:  aws.NewCredentialsCache(mockCredentialsProvider),
 		dockerClient:      dockerClient,
 		pauseLoader:       mockPauseLoader,
 		cniClient:         cniClient,

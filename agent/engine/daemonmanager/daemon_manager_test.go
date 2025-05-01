@@ -28,7 +28,7 @@ import (
 	apitaskstatus "github.com/aws/amazon-ecs-agent/ecs-agent/api/task/status"
 	md "github.com/aws/amazon-ecs-agent/ecs-agent/manageddaemon"
 
-	"github.com/aws/aws-sdk-go/aws"
+	"github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/stretchr/testify/assert"
 )
 
@@ -113,8 +113,8 @@ func TestCreateDaemonTask(t *testing.T) {
 			hostConfigRaw := resultDaemonTask.Containers[0].DockerConfig.HostConfig
 			var configMap map[string]interface{}
 			var hostConfigMap map[string]interface{}
-			json.Unmarshal([]byte(aws.StringValue(configRaw)), &configMap)
-			json.Unmarshal([]byte(aws.StringValue(hostConfigRaw)), &hostConfigMap)
+			json.Unmarshal([]byte(aws.ToString(configRaw)), &configMap)
+			json.Unmarshal([]byte(aws.ToString(hostConfigRaw)), &hostConfigMap)
 			// validate mount point count
 			if containerMounts, ok := hostConfigMap["Mounts"].([]interface{}); ok {
 				assert.Equal(t, len(containerMounts), 3, "Task should have Required container binds (2) + 1 other bind")
@@ -178,8 +178,8 @@ func TestFailCreateDaemonTask_MissingMount(t *testing.T) {
 	hostConfigRaw := resultDaemonTask.Containers[0].DockerConfig.HostConfig
 	var configMap map[string]interface{}
 	var hostConfigMap map[string]interface{}
-	json.Unmarshal([]byte(aws.StringValue(configRaw)), &configMap)
-	json.Unmarshal([]byte(aws.StringValue(hostConfigRaw)), &hostConfigMap)
+	json.Unmarshal([]byte(aws.ToString(configRaw)), &configMap)
+	json.Unmarshal([]byte(aws.ToString(hostConfigRaw)), &hostConfigMap)
 	// validate mount point count
 	if containerMounts, ok := hostConfigMap["Mounts"].([]interface{}); ok {
 		assert.Equal(t, len(containerMounts), 3, "Task should have Required container binds (2) + 1 other bind")
@@ -242,8 +242,8 @@ func TestCreateDaemonTask_PrivilegeAndMountPropagation(t *testing.T) {
 	hostConfigRaw := resultDaemonTask.Containers[0].DockerConfig.HostConfig
 	var configMap map[string]interface{}
 	var hostConfigMap map[string]interface{}
-	json.Unmarshal([]byte(aws.StringValue(configRaw)), &configMap)
-	json.Unmarshal([]byte(aws.StringValue(hostConfigRaw)), &hostConfigMap)
+	json.Unmarshal([]byte(aws.ToString(configRaw)), &configMap)
+	json.Unmarshal([]byte(aws.ToString(hostConfigRaw)), &hostConfigMap)
 	// validate mount point has One mount with Shared Propagation
 	if containerMounts, ok := hostConfigMap["Mounts"].([]interface{}); ok {
 		res := strings.Count(fmt.Sprintf("%v", containerMounts), "Propagation:shared")

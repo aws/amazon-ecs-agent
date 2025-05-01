@@ -30,8 +30,8 @@ import (
 	"github.com/aws/amazon-ecs-agent/agent/engine/serviceconnect"
 	mock_mobypkgwrapper "github.com/aws/amazon-ecs-agent/agent/utils/mobypkgwrapper/mocks"
 
+	"github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/aws/aws-sdk-go-v2/service/ecs/types"
-	"github.com/aws/aws-sdk-go/aws"
 	aws_credentials "github.com/aws/aws-sdk-go/aws/credentials"
 	"github.com/golang/mock/gomock"
 	"github.com/stretchr/testify/assert"
@@ -263,8 +263,8 @@ func TestAppendFSxWindowsFileServerCapabilities(t *testing.T) {
 
 	assert.Equal(t, len(expectedCapabilities), len(capabilities))
 	for i, expected := range expectedCapabilities {
-		assert.Equal(t, aws.StringValue(expected.Name), aws.StringValue(capabilities[i].Name))
-		assert.Equal(t, aws.StringValue(expected.Value), aws.StringValue(capabilities[i].Value))
+		assert.Equal(t, aws.ToString(expected.Name), aws.ToString(capabilities[i].Name))
+		assert.Equal(t, aws.ToString(expected.Value), aws.ToString(capabilities[i].Value))
 	}
 }
 
