@@ -135,10 +135,9 @@ func TestBuildDefaultNetworkNamespace(t *testing.T) {
 				}
 				mockNet.EXPECT().Interfaces().Return(testIface, nil).Times(1)
 			},
-			expectedIPAddress: "fe80::406:baff:fef9:4305",
-			// TODO: the field is not avaialble yet.
-			// expectedSubnetGatewayAddress: "fe80::406:baff:fef9:4305/60",
-			expectedError: nil,
+			expectedIPAddress:            "fe80::406:baff:fef9:4305",
+			expectedSubnetGatewayAddress: "fe80::406:baff:fef9:4305/60",
+			expectedError:                nil,
 		},
 		{
 			name:   "metadata client error",
@@ -219,7 +218,9 @@ func TestBuildDefaultNetworkNamespace(t *testing.T) {
 				if netInt.SubnetGatewayIPV4Address != "" {
 					subnetGatewayAddr = netInt.SubnetGatewayIPV4Address
 				}
-				// TODO: SubnetGatewayIPV6Address field is not available yet.
+				if netInt.SubnetGatewayIPV6Address != "" {
+					subnetGatewayAddr = netInt.SubnetGatewayIPV6Address
+				}
 				assert.Equal(t, tt.expectedSubnetGatewayAddress, subnetGatewayAddr)
 			}
 		})

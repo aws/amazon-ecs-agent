@@ -133,7 +133,7 @@ func (m *managedLinux) buildDefaultNetworkNamespace(taskID string) ([]*tasknetwo
 
 	if ipComp.IsIPv6Only() {
 		privateIpv6, err1 := m.client.GetMetadata(PrivateIPv6Address)
-		_, err2 := m.client.GetMetadata(fmt.Sprintf(IPv6SubNetCidrBlock, macAddress))
+		ipv6SubNet, err2 := m.client.GetMetadata(fmt.Sprintf(IPv6SubNetCidrBlock, macAddress))
 		if err := goErr.Join(err1, err2); err != nil {
 			logger.Error("Error fetching IPv6 fields for default ENI", logger.Fields{
 				loggerfield.Error: err,
@@ -143,13 +143,11 @@ func (m *managedLinux) buildDefaultNetworkNamespace(taskID string) ([]*tasknetwo
 
 		hostENI.Ipv6Addresses = []*ecsacs.IPv6AddressAssignment{
 			{
-				// TODO: Primary field is not available yet.
-				// Primary:        aws.Bool(true),
+				Primary: aws.Bool(true),
 				Address: aws.String(privateIpv6),
 			},
 		}
-		// TODO: SubnetGatewayIpv6Address is not available yet.
-		// hostENI.SubnetGatewayIpv6Address = aws.String(ipv6SubNet)
+		hostENI.SubnetGatewayIpv6Address = aws.String(ipv6SubNet)
 	}
 
 	if ipComp.IsIPv4Compatible() {
