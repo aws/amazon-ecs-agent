@@ -443,6 +443,7 @@ func InterfaceFromACS(acsENI *ecsacs.ElasticNetworkInterface) (*NetworkInterface
 		IPV4Addresses:                ipv4Addrs,
 		IPV6Addresses:                ipv6Addrs,
 		SubnetGatewayIPV4Address:     aws.ToString(acsENI.SubnetGatewayIpv4Address),
+		SubnetGatewayIPV6Address:     aws.ToString(acsENI.SubnetGatewayIpv6Address),
 		PrivateDNSName:               aws.ToString(acsENI.PrivateDnsName),
 		InterfaceAssociationProtocol: aws.ToString(acsENI.InterfaceAssociationProtocol),
 	}
@@ -468,9 +469,23 @@ func InterfaceFromACS(acsENI *ecsacs.ElasticNetworkInterface) (*NetworkInterface
 
 // ValidateENI validates the NetworkInterface information sent from ACS.
 func ValidateENI(acsENI *ecsacs.ElasticNetworkInterface) error {
+	var validateSubnetGatewayAddr = func(version, addr string) error {
+		s := strings.Split(addr, "/")
+		if len(s) != 2 {
+			return errors.Errorf(
+				"eni message validation: invalid subnet gateway %s address %s", version, addr)
+		}
+		return nil
+	}
+
 	ipv6OnlyTask := len(acsENI.Ipv6Addresses) > 0 && len(acsENI.Ipv4Addresses) == 0
 	if ipv6OnlyTask {
-		// TODO: check subnet gateway for IPv6
+		if acsENI.SubnetGatewayIpv6Address == nil {
+			return errors.Errorf("eni message validation: no subnet gateway ipv6 address in the message")
+		}
+		if err := validateSubnetGatewayAddr("ipv6", aws.ToString(acsENI.SubnetGatewayIpv6Address)); err != nil {
+			return err
+		}
 	} else {
 		// At least one IPv4 address should be associated with the NetworkInterface.
 		if len(acsENI.Ipv4Addresses) < 1 {
@@ -480,11 +495,8 @@ func ValidateENI(acsENI *ecsacs.ElasticNetworkInterface) error {
 		if acsENI.SubnetGatewayIpv4Address == nil {
 			return errors.Errorf("eni message validation: no subnet gateway ipv4 address in the message")
 		}
-		gwIPv4Addr := aws.ToString(acsENI.SubnetGatewayIpv4Address)
-		s := strings.Split(gwIPv4Addr, "/")
-		if len(s) != 2 {
-			return errors.Errorf(
-				"eni message validation: invalid subnet gateway ipv4 address %s", gwIPv4Addr)
+		if err := validateSubnetGatewayAddr("ipv4", aws.ToString(acsENI.SubnetGatewayIpv4Address)); err != nil {
+			return err
 		}
 	}
 
