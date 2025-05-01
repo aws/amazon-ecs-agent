@@ -23,6 +23,7 @@ import (
 	reflect "reflect"
 
 	container "github.com/aws/amazon-ecs-agent/agent/api/container"
+	ipcompatibility "github.com/aws/amazon-ecs-agent/agent/config/ipcompatibility"
 	ecr "github.com/aws/amazon-ecs-agent/agent/ecr"
 	ecr0 "github.com/aws/aws-sdk-go-v2/service/ecr"
 	types "github.com/aws/aws-sdk-go-v2/service/ecr/types"
@@ -96,18 +97,18 @@ func (m *MockECRFactory) EXPECT() *MockECRFactoryMockRecorder {
 }
 
 // GetClient mocks base method.
-func (m *MockECRFactory) GetClient(arg0 *container.ECRAuthData) (ecr.ECRClient, error) {
+func (m *MockECRFactory) GetClient(arg0 *container.ECRAuthData, arg1 *ipcompatibility.IPCompatibility) (ecr.ECRClient, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "GetClient", arg0)
+	ret := m.ctrl.Call(m, "GetClient", arg0, arg1)
 	ret0, _ := ret[0].(ecr.ECRClient)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
 // GetClient indicates an expected call of GetClient.
-func (mr *MockECRFactoryMockRecorder) GetClient(arg0 interface{}) *gomock.Call {
+func (mr *MockECRFactoryMockRecorder) GetClient(arg0, arg1 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetClient", reflect.TypeOf((*MockECRFactory)(nil).GetClient), arg0)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetClient", reflect.TypeOf((*MockECRFactory)(nil).GetClient), arg0, arg1)
 }
 
 // MockECRClient is a mock of ECRClient interface.

@@ -280,7 +280,7 @@ func TestPullImageECRSuccess(t *testing.T) {
 		RegistryAuth: "eyJ1c2VybmFtZSI6InVzZXJuYW1lIiwicGFzc3dvcmQiOiJwYXNzd29yZCIsInNlcnZlcmFkZHJlc3MiOiJodHRwczovL3JlZ2lzdHJ5LmVuZHBvaW50In0K",
 	}
 
-	ecrClientFactory.EXPECT().GetClient(authData.ECRAuthData).Return(ecrClient, nil)
+	ecrClientFactory.EXPECT().GetClient(authData.ECRAuthData, &client.config.InstanceIPCompatibility).Return(ecrClient, nil)
 	ecrClient.EXPECT().GetAuthorizationToken(registryID).Return(
 		&ecr_types.AuthorizationData{
 			ProxyEndpoint:      aws.String("https://" + imageEndpoint),
@@ -448,6 +448,7 @@ func TestPullImageManifest(t *testing.T) {
 
 			client, err := NewDockerGoClient(sdkFactory, defaultTestConfig(), context.Background())
 			require.NoError(t, err)
+			goClient, _ := client.(*dockerGoClient)
 
 			if tc.setSDKFactoryExpectations != nil {
 				tc.setSDKFactoryExpectations(sdkFactory, ctrl)
@@ -455,12 +456,12 @@ func TestPullImageManifest(t *testing.T) {
 
 			ecrClientFactory := mock_ecr.NewMockECRFactory(ctrl)
 			ecrClient := mock_ecr.NewMockECRClient(ctrl)
-			client.(*dockerGoClient).ecrClientFactory = ecrClientFactory
-			client.(*dockerGoClient).manifestPullBackoff = retry.NewExponentialBackoff(
+			goClient.ecrClientFactory = ecrClientFactory
+			goClient.manifestPullBackoff = retry.NewExponentialBackoff(
 				1*time.Nanosecond, 1*time.Nanosecond, 1, 1)
 
 			if tc.setECRClientExpectations != nil {
-				ecrClientFactory.EXPECT().GetClient(tc.authData.ECRAuthData).Return(ecrClient, nil)
+				ecrClientFactory.EXPECT().GetClient(tc.authData.ECRAuthData, &goClient.config.InstanceIPCompatibility).Return(ecrClient, nil)
 				tc.setECRClientExpectations(ecrClient)
 			}
 
@@ -513,7 +514,7 @@ func TestPullImageECRAuthFail(t *testing.T) {
 	image := imageEndpoint + "/myimage:tag"
 
 	// no retries for this error
-	ecrClientFactory.EXPECT().GetClient(authData.ECRAuthData).Return(ecrClient, nil)
+	ecrClientFactory.EXPECT().GetClient(authData.ECRAuthData, &goClient.config.InstanceIPCompatibility).Return(ecrClient, nil)
 	ecrClient.EXPECT().GetAuthorizationToken(gomock.Any()).Return(nil, errors.New("test error"))
 
 	metadata := client.PullImage(ctx, image, authData, defaultTestConfig().ImagePullTimeout)
@@ -1769,7 +1770,7 @@ func TestECRAuthCacheWithoutExecutionRole(t *testing.T) {
 	username := "username"
 	password := "password"
 
-	ecrClientFactory.EXPECT().GetClient(authData.ECRAuthData).Return(ecrClient, nil).Times(1)
+	ecrClientFactory.EXPECT().GetClient(authData.ECRAuthData, &client.config.InstanceIPCompatibility).Return(ecrClient, nil).Times(1)
 	ecrClient.EXPECT().GetAuthorizationToken(registryID).Return(
 		&ecr_types.AuthorizationData{
 			ProxyEndpoint:      aws.String("https://" + imageEndpoint),
@@ -1825,7 +1826,7 @@ func TestECRAuthCacheForDifferentRegistry(t *testing.T) {
 	username := "username"
 	password := "password"
 
-	ecrClientFactory.EXPECT().GetClient(authData.ECRAuthData).Return(ecrClient, nil).Times(1)
+	ecrClientFactory.EXPECT().GetClient(authData.ECRAuthData, &client.config.InstanceIPCompatibility).Return(ecrClient, nil).Times(1)
 	ecrClient.EXPECT().GetAuthorizationToken(registryID).Return(
 		&ecr_types.AuthorizationData{
 			ProxyEndpoint:      aws.String("https://" + imageEndpoint),
@@ -1844,7 +1845,7 @@ func TestECRAuthCacheForDifferentRegistry(t *testing.T) {
 
 	// Pull from the different registry should expect ECR client call
 	authData.ECRAuthData.RegistryID = "another"
-	ecrClientFactory.EXPECT().GetClient(authData.ECRAuthData).Return(ecrClient, nil).Times(1)
+	ecrClientFactory.EXPECT().GetClient(authData.ECRAuthData, &client.config.InstanceIPCompatibility).Return(ecrClient, nil).Times(1)
 	ecrClient.EXPECT().GetAuthorizationToken("another").Return(
 		&ecr_types.AuthorizationData{
 			ProxyEndpoint:      aws.String("https://" + imageEndpoint),
@@ -1884,7 +1885,7 @@ func TestECRAuthCacheWithSameExecutionRole(t *testing.T) {
 	username := "username"
 	password := "password"
 
-	ecrClientFactory.EXPECT().GetClient(authData.ECRAuthData).Return(ecrClient, nil).Times(1)
+	ecrClientFactory.EXPECT().GetClient(authData.ECRAuthData, &client.config.InstanceIPCompatibility).Return(ecrClient, nil).Times(1)
 	ecrClient.EXPECT().GetAuthorizationToken(registryID).Return(
 		&ecr_types.AuthorizationData{
 			ProxyEndpoint:      aws.String("https://" + imageEndpoint),
@@ -1939,7 +1940,7 @@ func TestECRAuthCacheWithDifferentExecutionRole(t *testing.T) {
 	username := "username"
 	password := "password"
 
-	ecrClientFactory.EXPECT().GetClient(authData.ECRAuthData).Return(ecrClient, nil).Times(1)
+	ecrClientFactory.EXPECT().GetClient(authData.ECRAuthData, &client.config.InstanceIPCompatibility).Return(ecrClient, nil).Times(1)
 	ecrClient.EXPECT().GetAuthorizationToken(registryID).Return(
 		&ecr_types.AuthorizationData{
 			ProxyEndpoint:      aws.String("https://" + imageEndpoint),
@@ -1960,7 +1961,7 @@ func TestECRAuthCacheWithDifferentExecutionRole(t *testing.T) {
 	authData.ECRAuthData.SetPullCredentials(credentials.IAMRoleCredentials{
 		RoleArn: "executionRole2",
 	})
-	ecrClientFactory.EXPECT().GetClient(authData.ECRAuthData).Return(ecrClient, nil).Times(1)
+	ecrClientFactory.EXPECT().GetClient(authData.ECRAuthData, &client.config.InstanceIPCompatibility).Return(ecrClient, nil).Times(1)
 	ecrClient.EXPECT().GetAuthorizationToken(registryID).Return(
 		&ecr_types.AuthorizationData{
 			ProxyEndpoint:      aws.String("https://" + imageEndpoint),
