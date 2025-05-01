@@ -655,13 +655,13 @@ func (dg *dockerGoClient) InspectImage(image string) (*types.ImageInspect, error
 func (dg *dockerGoClient) getAuthdata(image string, authData *apicontainer.RegistryAuthenticationData) (registry.AuthConfig, error) {
 
 	if authData == nil {
-		return dg.auth.GetAuthconfig(image, nil)
+		return dg.auth.GetAuthconfig(image, nil, nil)
 	}
 
 	switch authData.Type {
 	case apicontainer.AuthTypeECR:
-		provider := dockerauth.NewECRAuthProvider(dg.ecrClientFactory, dg.ecrTokenCache)
-		authConfig, err := provider.GetAuthconfig(image, authData)
+		provider := dockerauth.NewECRAuthProvider(dg.ecrClientFactory, dg.ecrTokenCache, dg.config.InstanceIPCompatibility)
+		authConfig, err := provider.GetAuthconfig(image, authData, &dg.config.InstanceIPCompatibility)
 		if err != nil {
 			err = redactEcrUrls(image, err)
 			return authConfig, CannotPullECRContainerError{err}
@@ -672,7 +672,7 @@ func (dg *dockerGoClient) getAuthdata(image string, authData *apicontainer.Regis
 		return authData.ASMAuthData.GetDockerAuthConfig(), nil
 
 	default:
-		return dg.auth.GetAuthconfig(image, nil)
+		return dg.auth.GetAuthconfig(image, nil, nil)
 	}
 }
 
