@@ -33,6 +33,7 @@ type iptablesAction string
 const (
 	iptablesExecutable            = "iptables"
 	CredentialsProxyIpAddress     = "169.254.170.2"
+	ip6tablesExecutable           = "ip6tables"
 	credentialsProxyPort          = "80"
 	localhostIpAddress            = "127.0.0.1"
 	localhostCredentialsProxyPort = "51679"
@@ -97,32 +98,32 @@ func NewNetfilterRoute(cmdExec exec.Exec) (*NetfilterRoute, error) {
 
 // Create creates the credentials proxy endpoint route in the netfilter table
 func (route *NetfilterRoute) Create() error {
-	err := route.modifyNetfilterEntry(iptablesTableNat, iptablesAppend, getPreroutingChainArgs)
+	err := route.modifyNetfilterEntry(iptablesTableNat, iptablesAppend, getPreroutingChainArgs, false)
 	if err != nil {
 		return err
 	}
 
 	if !skipLocalhostTrafficFilter() {
-		err = route.modifyNetfilterEntry(iptablesTableFilter, iptablesInsert, getLocalhostTrafficFilterInputChainArgs)
+		err = route.modifyNetfilterEntry(iptablesTableFilter, iptablesInsert, getLocalhostTrafficFilterInputChainArgs, false)
 		if err != nil {
 			return err
 		}
 	}
 
 	if !allowOffhostIntrospection() {
-		err = route.modifyNetfilterEntry(iptablesTableFilter, iptablesInsert, getBlockIntrospectionOffhostAccessInputChainArgs)
+		err = route.modifyNetfilterEntry(iptablesTableFilter, iptablesInsert, getBlockIntrospectionOffhostAccessInputChainArgs, true)
 		if err != nil {
 			log.Errorf("Error adding input chain entry to block offhost introspection access: %v", err)
 		}
 	}
 
-	return route.modifyNetfilterEntry(iptablesTableNat, iptablesAppend, getOutputChainArgs)
+	return route.modifyNetfilterEntry(iptablesTableNat, iptablesAppend, getOutputChainArgs, false)
 }
 
 // Remove removes the route for the credentials endpoint from the netfilter
 // table
 func (route *NetfilterRoute) Remove() error {
-	preroutingErr := route.modifyNetfilterEntry(iptablesTableNat, iptablesDelete, getPreroutingChainArgs)
+	preroutingErr := route.modifyNetfilterEntry(iptablesTableNat, iptablesDelete, getPreroutingChainArgs, false)
 	if preroutingErr != nil {
 		// Add more context for error in modifying the prerouting chain
 		preroutingErr = fmt.Errorf("error removing prerouting chain entry: %v", preroutingErr)
@@ -130,18 +131,18 @@ func (route *NetfilterRoute) Remove() error {
 
 	var localhostInputError, introspectionInputError error
 	if !skipLocalhostTrafficFilter() {
-		localhostInputError = route.modifyNetfilterEntry(iptablesTableFilter, iptablesDelete, getLocalhostTrafficFilterInputChainArgs)
+		localhostInputError = route.modifyNetfilterEntry(iptablesTableFilter, iptablesDelete, getLocalhostTrafficFilterInputChainArgs, false)
 		if localhostInputError != nil {
 			localhostInputError = fmt.Errorf("error removing input chain entry: %v", localhostInputError)
 		}
 	}
 
-	introspectionInputError = route.modifyNetfilterEntry(iptablesTableFilter, iptablesDelete, getBlockIntrospectionOffhostAccessInputChainArgs)
+	introspectionInputError = route.modifyNetfilterEntry(iptablesTableFilter, iptablesDelete, getBlockIntrospectionOffhostAccessInputChainArgs, true)
 	if introspectionInputError != nil {
 		introspectionInputError = fmt.Errorf("error removing input chain entry: %v", introspectionInputError)
 	}
 
-	outputErr := route.modifyNetfilterEntry(iptablesTableNat, iptablesDelete, getOutputChainArgs)
+	outputErr := route.modifyNetfilterEntry(iptablesTableNat, iptablesDelete, getOutputChainArgs, false)
 	if outputErr != nil {
 		// Add more context for error in modifying the output chain
 		outputErr = fmt.Errorf("error removing output chain entry: %v", outputErr)
@@ -168,16 +169,33 @@ func combinedError(errs ...error) error {
 // modifyNetfilterEntry modifies an entry in the netfilter table based on
 // the action and the function pointer to get arguments for modifying the
 // chain
-func (route *NetfilterRoute) modifyNetfilterEntry(table string, action iptablesAction, getNetfilterChainArgs getNetfilterChainArgsFunc) error {
+func (route *NetfilterRoute) modifyNetfilterEntry(table string, action iptablesAction, getNetfilterChainArgs getNetfilterChainArgsFunc, useIp6tables bool) error {
 	args := append(getTableArgs(table), string(action))
 	args = append(args, getNetfilterChainArgs()...)
 	cmd := route.cmdExec.Command(iptablesExecutable, args...)
 	out, err := cmd.CombinedOutput()
 	if err != nil {
 		log.Errorf("Error performing action '%s' for iptables route: %v; raw output: %s", getActionName(action), err, out)
+		return err
 	}
 
-	return err
+	// Checking if we need to apply the netfilter table action for IPv6 as well.
+	if useIp6tables {
+		_, err = route.cmdExec.LookPath(ip6tablesExecutable)
+		if err != nil {
+			log.Warnf("%s unable to be found on the host. Assuming IPv6 isn't available on the host and will not apply %s.", ip6tablesExecutable, getActionName(action))
+		} else {
+			cmd = route.cmdExec.Command(ip6tablesExecutable, args...)
+			out, err = cmd.CombinedOutput()
+			if err != nil {
+				log.Errorf("Error performing action '%s' for ip6tables route: %v; raw output: %s", getActionName(action), err, out)
+				return err
+			}
+			log.Infof("Successfully blocked IPv6 off-host access for introspection server with %s.", ip6tablesExecutable)
+		}
+	}
+
+	return nil
 }
 
 func getTableArgs(table string) []string {
