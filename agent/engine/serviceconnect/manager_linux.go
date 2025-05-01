@@ -26,6 +26,7 @@ import (
 	apicontainer "github.com/aws/amazon-ecs-agent/agent/api/container"
 	apiserviceconnect "github.com/aws/amazon-ecs-agent/agent/api/serviceconnect"
 	apitask "github.com/aws/amazon-ecs-agent/agent/api/task"
+	"github.com/aws/amazon-ecs-agent/agent/awsrulesfn"
 	"github.com/aws/amazon-ecs-agent/agent/config"
 	"github.com/aws/amazon-ecs-agent/agent/config/ipcompatibility"
 	"github.com/aws/amazon-ecs-agent/agent/dockerclient/dockerapi"
@@ -40,7 +41,6 @@ import (
 
 	"github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/aws/aws-sdk-go-v2/aws/arn"
-	"github.com/aws/aws-sdk-go/aws/endpoints"
 	"github.com/docker/docker/api/types"
 	dockercontainer "github.com/docker/docker/api/types/container"
 	"github.com/pborman/uuid"
@@ -217,17 +217,17 @@ func getRegionFromContainerInstanceARN(containerInstanceARN string) string {
 }
 
 func isIsoRegion(region string) bool {
-	partition, ok := endpoints.PartitionForRegion(endpoints.DefaultPartitions(), region)
-	if !ok {
+	partition := awsrulesfn.GetPartitionForRegion(region)
+	if partition == nil {
 		// if partition is not found, assume it's iso
 		return true
 	}
-	switch partition.ID() {
-	case endpoints.AwsPartitionID:
+	switch partition.ID {
+	case awsrulesfn.AwsPartitionID:
 		return false
-	case endpoints.AwsUsGovPartitionID:
+	case awsrulesfn.AwsUsGovPartitionID:
 		return false
-	case endpoints.AwsCnPartitionID:
+	case awsrulesfn.AwsCnPartitionID:
 		return false
 	default:
 		// region partition is not 'aws', 'aws-us-gov', nor 'aws-cn', so assume it's

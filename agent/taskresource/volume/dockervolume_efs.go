@@ -17,9 +17,9 @@ import (
 	"fmt"
 	"strconv"
 
+	"github.com/aws/amazon-ecs-agent/agent/awsrulesfn"
 	"github.com/aws/amazon-ecs-agent/agent/config"
 
-	"github.com/aws/aws-sdk-go/aws/endpoints"
 	"github.com/cihub/seelog"
 )
 
@@ -119,10 +119,10 @@ func (efsVolCfg *EFSVolumeConfig) getVolumePluginDriverOptions(credsRelativeURI 
 }
 
 func getDomainForPartition(region string) string {
-	partition, ok := endpoints.PartitionForRegion(endpoints.DefaultPartitions(), region)
-	if !ok {
-		seelog.Warnf("No partition resolved for region (%s). Using AWS default (%s)", region, endpoints.AwsPartition().DNSSuffix())
-		return endpoints.AwsPartition().DNSSuffix()
+	partition := awsrulesfn.GetPartitionForRegion(region)
+	if partition == nil {
+		seelog.Warnf("No partition resolved for region (%s). Using AWS default (%s)", region, awsrulesfn.DnsSuffix)
+		return awsrulesfn.DnsSuffix
 	}
-	return partition.DNSSuffix()
+	return partition.DefaultConfig.DnsSuffix
 }
