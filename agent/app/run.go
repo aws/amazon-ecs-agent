@@ -22,6 +22,7 @@ import (
 	"github.com/aws/amazon-ecs-agent/agent/sighandlers/exitcodes"
 	"github.com/aws/amazon-ecs-agent/agent/version"
 	"github.com/aws/amazon-ecs-agent/ecs-agent/logger"
+
 	"github.com/aws/aws-sdk-go-v2/aws"
 	log "github.com/cihub/seelog"
 )
