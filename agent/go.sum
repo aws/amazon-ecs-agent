@@ -28,8 +28,8 @@ github.com/aws/aws-sdk-go-v2/service/cloudwatchlogs v1.47.3 h1:3y0jkGtsaZLCg+n73
 github.com/aws/aws-sdk-go-v2/service/cloudwatchlogs v1.47.3/go.mod h1:uo14VBn5cNk/BPGTPz3kyLBxgpgOObgO8lmz+H7Z4Ck=
 github.com/aws/aws-sdk-go-v2/service/ec2 v1.195.0 h1:F3pFi50sK30DZ4IkkNpHwTLGeal5c3nlKuvTgv7xec4=
 github.com/aws/aws-sdk-go-v2/service/ec2 v1.195.0/go.mod h1:00zqVNJFK6UASrTnuvjJHJuaqUdkVz5tW8Ip+VhzuNg=
-github.com/aws/aws-sdk-go-v2/service/ecr v1.41.1 h1:S4zhqSS5tW7+AF5XuNFuVbx2wKzr4MgHEdRYI0+8jlY=
-github.com/aws/aws-sdk-go-v2/service/ecr v1.41.1/go.mod h1:TFp+t4IPJ8mqwe8RleaRx8tPLB0OZ2QO/LZKkCw5UEA=
+github.com/aws/aws-sdk-go-v2/service/ecr v1.44.0 h1:E+UTVTDH6XTSjqxHWRuY8nB6s+05UllneWxnycplHFk=
+github.com/aws/aws-sdk-go-v2/service/ecr v1.44.0/go.mod h1:iQ1skgw1XRK+6Lgkb0I9ODatAP72WoTILh0zXQ5DtbU=
 github.com/aws/aws-sdk-go-v2/service/fsx v1.53.1 h1:BGKwZSdyz4Ni72snyzYrNhjR7dwyv0up0DiAX00Mmjc=
 github.com/aws/aws-sdk-go-v2/service/fsx v1.53.1/go.mod h1:XKQ2ur+eKU8hvDvNTK7pb0VS4IVxd6YyxtV4rZ1DTtY=
 github.com/aws/aws-sdk-go-v2/service/internal/accept-encoding v1.12.3 h1:eAh2A4b5IzM/lum78bZ590jy36+d/aFLgKF/4Vd1xPE=
@@ -52,8 +52,8 @@ github.com/aws/aws-sdk-go-v2/service/ssooidc v1.30.1 h1:hXmVKytPfTy5axZ+fYbR5d0c
 github.com/aws/aws-sdk-go-v2/service/ssooidc v1.30.1/go.mod h1:MlYRNmYu/fGPoxBQVvBYr9nyr948aY/WLUvwBMBJubs=
 github.com/aws/aws-sdk-go-v2/service/sts v1.33.19 h1:1XuUZ8mYJw9B6lzAkXhqHlJd/XvaX32evhproijJEZY=
 github.com/aws/aws-sdk-go-v2/service/sts v1.33.19/go.mod h1:cQnB8CUnxbMU82JvlqjKR2HBOm3fe9pWorWBza6MBJ4=
-github.com/aws/smithy-go v1.22.2 h1:6D9hW43xKFrRx/tXXfAlIZc4JI+yQe6snnWcQyxSyLQ=
-github.com/aws/smithy-go v1.22.2/go.mod h1:irrKGvNn1InZwb2d7fkIRNucdfwR8R+Ts3wxYa/cJHg=
+github.com/aws/smithy-go v1.22.3 h1:Z//5NuZCSW6R4PhQ93hShNbyBbn8BWCmCVCt+Q8Io5k=
+github.com/aws/smithy-go v1.22.3/go.mod h1:t1ufH5HMublsJYulve2RKmHDC15xu1f26kHCp/HgceI=
 github.com/awslabs/go-config-generator-for-fluentd-and-fluentbit v0.0.0-20210308162251-8959c62cb8f9 h1:BKngsktYtIiCpkptsC6xzc9ZqleZTofjqrjJWPIiVwA=
 github.com/awslabs/go-config-generator-for-fluentd-and-fluentbit v0.0.0-20210308162251-8959c62cb8f9/go.mod h1:pHmn5q2flnnJgAQUoD3Hys3Fe3uoZnSwRy+Irb5Awak=
 github.com/cenkalti/backoff/v4 v4.3.0 h1:MyRJ/UdXutAwSAT+s3wNd7MfTIcy71VQueUuFK343L8=

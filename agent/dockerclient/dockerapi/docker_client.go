@@ -333,7 +333,7 @@ func NewDockerGoClient(sdkclientFactory sdkclientfactory.Factory,
 	return &dockerGoClient{
 		sdkClientFactory: sdkclientFactory,
 		auth:             dockerauth.NewDockerAuthProvider(cfg.EngineAuthType, dockerAuthData),
-		ecrClientFactory: ecr.NewECRFactory(cfg.AcceptInsecureCert),
+		ecrClientFactory: ecr.NewECRFactory(cfg.AcceptInsecureCert, cfg.InstanceIPCompatibility.IsIPv6Only()),
 		ecrTokenCache:    async.NewLRUCache(tokenCacheSize, tokenCacheTTL),
 		config:           cfg,
 		context:          ctx,

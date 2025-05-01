@@ -91,7 +91,7 @@ func TestGetAuthConfigSuccess(t *testing.T) {
 	assert.Equal(t, password, authconfig.Password, "Expected password to be %s, but was %s", password, authconfig.Password)
 }
 
-func TestGetAuthConfigNoMatchAuthorizationToken(t *testing.T) {
+func TestGetAuthConfigNoMatchEndpointToImageUri(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
 	factory := mock_ecr.NewMockECRFactory(ctrl)
@@ -122,7 +122,41 @@ func TestGetAuthConfigNoMatchAuthorizationToken(t *testing.T) {
 	}, nil)
 
 	authconfig, err := provider.GetAuthconfig(proxyEndpoint+"/myimage", registryAuthData)
-	require.Error(t, err, "Expected error if the proxy does not match")
+	assert.NoError(t, err)
+	assert.Equal(t, username, authconfig.Username, "Expected username to be %s, but was %s", username, authconfig.Username)
+	assert.Equal(t, password, authconfig.Password, "Expected password to be %s, but was %s", password, authconfig.Password)
+}
+
+func TestGetAuthConfigNilAuthorizationToken(t *testing.T) {
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+	factory := mock_ecr.NewMockECRFactory(ctrl)
+	client := mock_ecr.NewMockECRClient(ctrl)
+
+	authData := &apicontainer.ECRAuthData{
+		Region:           "us-west-2",
+		RegistryID:       "0123456789012",
+		EndpointOverride: "my.endpoint",
+	}
+	proxyEndpoint := "proxy"
+
+	provider := ecrAuthProvider{
+		factory:    factory,
+		tokenCache: async.NewLRUCache(tokenCacheSize, tokenCacheTTL),
+	}
+
+	registryAuthData := &apicontainer.RegistryAuthenticationData{
+		ECRAuthData: authData,
+	}
+
+	factory.EXPECT().GetClient(authData).Return(client, nil)
+	client.EXPECT().GetAuthorizationToken(authData.RegistryID).Return(&types.AuthorizationData{
+		ProxyEndpoint:      aws.String(proxyEndpointScheme + "notproxy"),
+		AuthorizationToken: nil,
+	}, nil)
+
+	authconfig, err := provider.GetAuthconfig(proxyEndpoint+"/myimage", registryAuthData)
+	require.Error(t, err, "Expected error to be present, but was nil", err)
 	assert.Equal(t, registry.AuthConfig{}, authconfig, "Expected Authconfig to be empty, but was %v", authconfig)
 }
 

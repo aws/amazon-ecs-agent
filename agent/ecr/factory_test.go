@@ -17,22 +17,86 @@
 package ecr
 
 import (
+	"fmt"
 	"testing"
 
 	apicontainer "github.com/aws/amazon-ecs-agent/agent/api/container"
+	"github.com/aws/amazon-ecs-agent/agent/config/ipcompatibility"
 
+	"github.com/aws/aws-sdk-go-v2/aws"
+	"github.com/aws/aws-sdk-go-v2/config"
 	"github.com/stretchr/testify/assert"
 )
 
+const (
+	endpointOverride string = "api.ecr.us-west-2.amazonaws.com"
+)
+
 func TestGetClientConfigEndpointOverride(t *testing.T) {
-	testAuthData := &apicontainer.ECRAuthData{
-		EndpointOverride: "api.ecr.us-west-2.amazonaws.com",
-		Region:           "us-west-2",
-		UseExecutionRole: false,
+	cases := []struct {
+		Name             string
+		EndpointOverride string
+		IPCompatibility  ipcompatibility.IPCompatibility
+	}{
+		{
+			Name:             "IPv4 with endpoint override",
+			EndpointOverride: endpointOverride,
+			IPCompatibility:  ipcompatibility.NewIPv4OnlyCompatibility(),
+		},
+		{
+			Name:             "IPv4 without endpoint override",
+			EndpointOverride: "",
+			IPCompatibility:  ipcompatibility.NewIPv4OnlyCompatibility(),
+		},
+		{
+			Name:             "IPv6 with endpoint override",
+			EndpointOverride: endpointOverride,
+			IPCompatibility:  ipcompatibility.NewIPv6OnlyCompatibility(),
+		},
+		{
+			Name:             "IPv6 without endpoint override",
+			EndpointOverride: "",
+			IPCompatibility:  ipcompatibility.NewIPv6OnlyCompatibility(),
+		},
+		{
+			Name:             "DualStack with endpoint override",
+			EndpointOverride: endpointOverride,
+			IPCompatibility:  ipcompatibility.NewIPCompatibility(true, true),
+		},
+		{
+			Name:             "DualStack without endpoint override",
+			EndpointOverride: "",
+			IPCompatibility:  ipcompatibility.NewIPCompatibility(true, true),
+		},
 	}
 
-	cfg, err := getClientConfig(nil, testAuthData)
+	for _, test := range cases {
+		t.Run(test.Name, func(t *testing.T) {
+			testAuthData := &apicontainer.ECRAuthData{
+				Region:           "us-west-2",
+				EndpointOverride: test.EndpointOverride,
+				UseExecutionRole: false,
+			}
+			cfg, err := getClientConfig(nil, testAuthData, test.IPCompatibility.IsIPv6Only())
 
-	assert.Nil(t, err)
-	assert.Equal(t, "https://"+testAuthData.EndpointOverride, *cfg.BaseEndpoint)
+			assert.Nil(t, err)
+			if test.EndpointOverride != "" {
+				assert.Equal(t, fmt.Sprintf("https://%s", test.EndpointOverride), *cfg.BaseEndpoint)
+			}
+
+			for _, value := range cfg.ConfigSources {
+				// Default state is unset
+				var useDualStackEndpoint = aws.DualStackEndpointStateUnset
+				// Enabled will only be set when no override is provided and IPv6-only
+				if test.EndpointOverride == "" && test.IPCompatibility.IsIPv6Only() {
+					useDualStackEndpoint = aws.DualStackEndpointStateEnabled
+				}
+
+				// config.LoadOptions contains details on if DualStack endpoint was enabled or not
+				if loadOptions, ok := value.(config.LoadOptions); ok {
+					assert.Equal(t, useDualStackEndpoint, loadOptions.UseDualStackEndpoint)
+				}
+			}
+		})
+	}
 }

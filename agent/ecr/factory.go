@@ -41,6 +41,7 @@ type ECRFactory interface {
 
 type ecrFactory struct {
 	httpClient *http.Client
+	isIPv6Only bool
 }
 
 const (
@@ -48,15 +49,16 @@ const (
 )
 
 // NewECRFactory returns an ECRFactory capable of producing ECRSDK clients
-func NewECRFactory(acceptInsecureCert bool) ECRFactory {
+func NewECRFactory(acceptInsecureCert bool, isIPv6Only bool) ECRFactory {
 	return &ecrFactory{
 		httpClient: httpclient.New(roundtripTimeout, acceptInsecureCert, agentversion.String(), config.OSType),
+		isIPv6Only: isIPv6Only,
 	}
 }
 
 // GetClient creates the ECR SDK client based on the authdata
 func (factory *ecrFactory) GetClient(authData *apicontainer.ECRAuthData) (ECRClient, error) {
-	clientConfig, err := getClientConfig(factory.httpClient, authData)
+	clientConfig, err := getClientConfig(factory.httpClient, authData, factory.isIPv6Only)
 	if err != nil {
 		return &ecrClient{}, err
 	}
@@ -65,7 +67,7 @@ func (factory *ecrFactory) GetClient(authData *apicontainer.ECRAuthData) (ECRCli
 }
 
 // getClientConfig returns the config for the ecr client based on authData
-func getClientConfig(httpClient *http.Client, authData *apicontainer.ECRAuthData) (*aws.Config, error) {
+func getClientConfig(httpClient *http.Client, authData *apicontainer.ECRAuthData, isIPv6Only bool) (*aws.Config, error) {
 	opts := []func(*awsconfig.LoadOptions) error{
 		awsconfig.WithRegion(authData.Region),
 		awsconfig.WithHTTPClient(httpClient),
@@ -73,6 +75,8 @@ func getClientConfig(httpClient *http.Client, authData *apicontainer.ECRAuthData
 
 	if authData.EndpointOverride != "" {
 		opts = append(opts, awsconfig.WithBaseEndpoint(utils.AddScheme(authData.EndpointOverride)))
+	} else if isIPv6Only {
+		opts = append(opts, awsconfig.WithUseDualStackEndpoint(aws.DualStackEndpointStateEnabled))
 	}
 
 	var credentialsOpt awsconfig.LoadOptionsFunc
