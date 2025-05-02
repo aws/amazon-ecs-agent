@@ -25,7 +25,7 @@ import (
 const (
 	MacResource         = "mac"
 	IPv4SubNetCidrBlock = "network/interfaces/macs/%s/subnet-ipv4-cidr-block"
-	IPv6SubNetCidrBlock = "network/interfaces/macs/%s/subnet-ipv6-cidr-block"
+	IPv6SubNetCidrBlock = "network/interfaces/macs/%s/subnet-ipv6-cidr-blocks"
 	PrivateIPv4Address  = "local-ipv4"
 	PrivateIPv6Address  = "ipv6"
 	InstanceIDResource  = "instance-id"
