@@ -199,6 +199,7 @@ func getTestInterfacesData_Containerd() ([]*ecsacs.ElasticNetworkInterface, []ne
 			},
 			Ipv6Addresses: []*ecsacs.IPv6AddressAssignment{
 				{
+					Primary: aws.Bool(true),
 					Address: aws.String(ipv6Addr),
 				},
 			},
@@ -220,6 +221,7 @@ func getTestInterfacesData_Containerd() ([]*ecsacs.ElasticNetworkInterface, []ne
 			},
 			Ipv6Addresses: []*ecsacs.IPv6AddressAssignment{
 				{
+					Primary: aws.Bool(true),
 					Address: aws.String(ipv6Addr2),
 				},
 			},
@@ -350,6 +352,7 @@ func getTestInterfacesData_Firecracker() ([]*ecsacs.ElasticNetworkInterface, []*
 			},
 			Ipv6Addresses: []*ecsacs.IPv6AddressAssignment{
 				{
+					Primary: aws.Bool(true),
 					Address: aws.String(ipv6Addr),
 				},
 			},

@@ -427,14 +427,11 @@ func InterfaceFromACS(acsENI *ecsacs.ElasticNetworkInterface) (*NetworkInterface
 	}
 
 	// Read IPv6 address information of the NetworkInterface.
-	firstIpv6 := true
 	for _, ec2Ipv6 := range acsENI.Ipv6Addresses {
 		ipv6Addrs = append(ipv6Addrs, &IPV6Address{
-			// TODO: Primary field is not available yet so set the first one to be primary for now.
-			Primary: firstIpv6,
+			Primary: aws.ToBool(ec2Ipv6.Primary),
 			Address: aws.ToString(ec2Ipv6.Address),
 		})
-		firstIpv6 = false
 	}
 
 	ni := &NetworkInterface{

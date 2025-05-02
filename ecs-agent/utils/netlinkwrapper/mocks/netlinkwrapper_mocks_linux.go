@@ -78,6 +78,21 @@ func (mr *MockNetLinkMockRecorder) LinkByName(arg0 interface{}) *gomock.Call {
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "LinkByName", reflect.TypeOf((*MockNetLink)(nil).LinkByName), arg0)
 }
 
+// LinkList mocks base method.
+func (m *MockNetLink) LinkList() ([]netlink.Link, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "LinkList")
+	ret0, _ := ret[0].([]netlink.Link)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// LinkList indicates an expected call of LinkList.
+func (mr *MockNetLinkMockRecorder) LinkList() *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "LinkList", reflect.TypeOf((*MockNetLink)(nil).LinkList))
+}
+
 // LinkSetUp mocks base method.
 func (m *MockNetLink) LinkSetUp(arg0 netlink.Link) error {
 	m.ctrl.T.Helper()
