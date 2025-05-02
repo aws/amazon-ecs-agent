@@ -120,18 +120,18 @@ func (m *managedLinux) buildDefaultNetworkNamespace(taskID string) ([]*tasknetwo
 
 	ipComp, err := net.DetermineIPCompatibility(m.netlink, macAddress)
 	if err != nil {
-		logger.Error("Failed to determine IP compatibility", logger.Fields{
+		logger.Error("Failed to determine IP compatibility of host ENI", logger.Fields{
 			loggerfield.Error: err,
 		})
 		return nil, err
 	}
 
 	if !ipComp.IsIPv4Compatible() && !ipComp.IsIPv6Compatible() {
-		return nil, errors.New("Failed to build the default network namespace because the associated ENI is neither " +
-			"ipv4 compatible or ipv6 compatible")
+		return nil, errors.New("Failed to build the default network namespace because the host ENI is neither " +
+			"IPv4 enabled nor IPv6 enabled")
 	}
 
-	if ipComp.IsIPv6Only() {
+	if ipComp.IsIPv6Compatible() {
 		privateIpv6, err1 := m.client.GetMetadata(PrivateIPv6Address)
 		ipv6SubNet, err2 := m.client.GetMetadata(fmt.Sprintf(IPv6SubNetCidrBlock, macAddress))
 		if err := goErr.Join(err1, err2); err != nil {

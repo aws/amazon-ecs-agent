@@ -126,10 +126,12 @@ func allZeros(mask net.IPMask) bool {
 	return true
 }
 
-// DetermineIPCompatibility determines IPv4 and IPv6 compatibility by checking if default routes
-// exist for each. Mac address of a network interface can be provided optionally to restrict
-// compatibility checks to that particular network interface. If no mac address is provided
-// then compatibility checks are performed for all network interfaces on the instance.
+// DetermineIPCompatibility returns an object that helps determine IPv4 and IPv6
+// compatibility of network interfaces configured via DHCP. The result depends on
+// existing default routes for both IPv4 and IPv6.
+// Mac address of a network interface can be provided optionally to restrict compatibility
+// checks to that particular network interface. If no mac address is provided then
+// compatibility checks are performed for all network interfaces on the instance.
 func DetermineIPCompatibility(
 	nlWrapper netlinkwrapper.NetLink, mac string,
 ) (ipcompatibility.IPCompatibility, error) {
