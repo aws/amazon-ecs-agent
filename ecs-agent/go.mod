@@ -6,7 +6,7 @@ toolchain go1.21.1
 
 require (
 	github.com/Microsoft/hcsshim v0.12.0
-	github.com/aws/aws-sdk-go v1.51.3
+	github.com/aws/aws-sdk-go v1.55.7
 	github.com/aws/aws-sdk-go-v2 v1.32.6
 	github.com/aws/aws-sdk-go-v2/config v1.28.1
 	github.com/aws/aws-sdk-go-v2/credentials v1.17.42

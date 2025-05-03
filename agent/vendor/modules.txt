@@ -89,7 +89,7 @@ github.com/aws/amazon-ecs-agent/ecs-agent/utils/ttime/mocks
 github.com/aws/amazon-ecs-agent/ecs-agent/wsclient
 github.com/aws/amazon-ecs-agent/ecs-agent/wsclient/mock
 github.com/aws/amazon-ecs-agent/ecs-agent/wsclient/wsconn
-# github.com/aws/aws-sdk-go v1.51.3
+# github.com/aws/aws-sdk-go v1.55.7
 ## explicit; go 1.19
 github.com/aws/aws-sdk-go/aws
 github.com/aws/aws-sdk-go/aws/arn
@@ -569,8 +569,6 @@ golang.org/x/mod/module
 golang.org/x/mod/semver
 # golang.org/x/net v0.36.0
 ## explicit; go 1.23.0
-golang.org/x/net/html
-golang.org/x/net/html/atom
 golang.org/x/net/http/httpguts
 golang.org/x/net/http2
 golang.org/x/net/http2/hpack

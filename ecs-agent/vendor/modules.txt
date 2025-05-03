@@ -31,7 +31,7 @@ github.com/Microsoft/hcsshim/internal/timeout
 github.com/Microsoft/hcsshim/internal/vmcompute
 github.com/Microsoft/hcsshim/internal/winapi
 github.com/Microsoft/hcsshim/osversion
-# github.com/aws/aws-sdk-go v1.51.3
+# github.com/aws/aws-sdk-go v1.55.7
 ## explicit; go 1.19
 github.com/aws/aws-sdk-go/aws
 github.com/aws/aws-sdk-go/aws/awserr
@@ -355,8 +355,6 @@ golang.org/x/mod/module
 golang.org/x/mod/semver
 # golang.org/x/net v0.33.0
 ## explicit; go 1.18
-golang.org/x/net/html
-golang.org/x/net/html/atom
 golang.org/x/net/http/httpguts
 golang.org/x/net/http2
 golang.org/x/net/http2/hpack

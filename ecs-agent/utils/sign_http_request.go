@@ -74,7 +74,7 @@ func SignHTTPRequest(req *http.Request, region, service string, creds *aws.Crede
 }
 
 // SignHTTPRequestV1 signs an http.Request struct with authv4 using the given region, service, and credentials.
-// TODO: Remove this once both ACS and TCS have been migrated over to AWS SDK Go V2
+// TODO: Remove this once TCS adds support for AWS SDK v2 Credentials
 func SignHTTPRequestV1(req *http.Request, region, service string, creds *credentialsV1.Credentials, body io.ReadSeeker) error {
 	signer := awsv1_v4.NewSigner(creds)
 	_, err := signer.Sign(req, body, service, region, time.Now())
