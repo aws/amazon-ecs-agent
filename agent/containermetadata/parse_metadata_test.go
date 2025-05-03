@@ -218,7 +218,8 @@ func TestParseHasNetworkSettingsNetworksEmpty(t *testing.T) {
 	mockHostConfig := &dockercontainer.HostConfig{NetworkMode: "bridge"}
 	mockNetworkSettings := &types.NetworkSettings{
 		DefaultNetworkSettings: types.DefaultNetworkSettings{
-			IPAddress: "0.0.0.0",
+			IPAddress:         "1.2.3.4",
+			GlobalIPv6Address: "5:6:7:8::",
 		}}
 	mockContainer := &types.ContainerJSON{
 		ContainerJSONBase: &types.ContainerJSONBase{
@@ -246,7 +247,13 @@ func TestParseHasNetworkSettingsNetworksEmpty(t *testing.T) {
 	assert.Equal(t, metadata.hostPrivateIPv4Address, mockHostPrivateIPv4Address, "Expected hostPrivateIPv4Address "+hostPrivateIPv4Address)
 	assert.Equal(t, metadata.hostPublicIPv4Address, mockHostPublicIPv4Address, "Expected hostPublicIPv4Address "+hostPublicIPv4Address)
 	assert.Equal(t, string(metadata.metadataStatus), expectedStatus, "Expected status "+expectedStatus)
-	assert.Equal(t, len(metadata.dockerContainerMetadata.networkInfo.networks), 1, "Expected one network")
+
+	// Networks assertions
+	networks := metadata.dockerContainerMetadata.networkInfo.networks
+	assert.Equal(t, len(networks), 1, "Expected one networks")
+	assert.Equal(t, "bridge", networks[0].NetworkMode)
+	assert.Equal(t, "1.2.3.4", networks[0].IPv4Addresses[0])
+	assert.Equal(t, "5:6:7:8::", networks[0].IPv6Addresses[0])
 }
 
 func TestParseHasNetworkSettingsNetworksNonEmpty(t *testing.T) {
@@ -261,7 +268,7 @@ func TestParseHasNetworkSettingsNetworksNonEmpty(t *testing.T) {
 
 	mockHostConfig := &dockercontainer.HostConfig{NetworkMode: dockercontainer.NetworkMode("bridge")}
 	mockNetworks := map[string]*network.EndpointSettings{}
-	mockNetworks["bridge"] = &network.EndpointSettings{}
+	mockNetworks["bridge"] = &network.EndpointSettings{IPAddress: "1.2.3.4", GlobalIPv6Address: "5:6:7:8::"}
 	mockNetworks["network0"] = &network.EndpointSettings{}
 	mockNetworkSettings := &types.NetworkSettings{
 		Networks: mockNetworks,
@@ -292,7 +299,13 @@ func TestParseHasNetworkSettingsNetworksNonEmpty(t *testing.T) {
 	assert.Equal(t, metadata.hostPrivateIPv4Address, mockHostPrivateIPv4Address, "Expected hostPrivateIPv4Address "+hostPrivateIPv4Address)
 	assert.Equal(t, metadata.hostPublicIPv4Address, mockHostPublicIPv4Address, "Expected hostPublicIPv4Address "+hostPublicIPv4Address)
 	assert.Equal(t, string(metadata.metadataStatus), expectedStatus, "Expected status "+expectedStatus)
-	assert.Equal(t, len(metadata.dockerContainerMetadata.networkInfo.networks), 2, "Expected two networks")
+
+	// Networks assertions
+	networks := metadata.dockerContainerMetadata.networkInfo.networks
+	assert.Equal(t, len(networks), 2, "Expected two networks")
+	assert.Equal(t, "bridge", networks[0].NetworkMode)
+	assert.Equal(t, "1.2.3.4", networks[0].IPv4Addresses[0])
+	assert.Equal(t, "5:6:7:8::", networks[0].IPv6Addresses[0])
 }
 
 func TestParseHasNoContainerJSONBase(t *testing.T) {
