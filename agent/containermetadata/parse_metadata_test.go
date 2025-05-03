@@ -196,6 +196,18 @@ func TestParseHasNetworkSettingsNetworksEmpty(t *testing.T) {
 	assert.Equal(t, "5:6:7:8::", networks[0].IPv6Addresses[0])
 }
 
+func TestParseHasNetworkSettingsNetworksEmptyWithIPv4Only(t *testing.T) {
+	fixture := newBasicFixture().withDefaultNetworkSettings("1.2.3.4", "")
+	metadata := fixture.manager.parseMetadata(fixture.container, fixture.task, containerName)
+
+	validateBasicMetadata(t, &metadata, fixture)
+	// Networks assertions
+	networks := metadata.dockerContainerMetadata.networkInfo.networks
+	assert.Equal(t, len(networks), 1, "Expected one networks")
+	assert.Equal(t, "bridge", networks[0].NetworkMode)
+	assert.Equal(t, "1.2.3.4", networks[0].IPv4Addresses[0])
+}
+
 func TestParseHasNetworkSettingsNetworksNonEmpty(t *testing.T) {
 	mockNetworks := map[string]*network.EndpointSettings{}
 	mockNetworks["bridge"] = &network.EndpointSettings{IPAddress: "1.2.3.4", GlobalIPv6Address: "5:6:7:8::"}
@@ -211,6 +223,22 @@ func TestParseHasNetworkSettingsNetworksNonEmpty(t *testing.T) {
 	assert.Equal(t, "bridge", networks[0].NetworkMode)
 	assert.Equal(t, "1.2.3.4", networks[0].IPv4Addresses[0])
 	assert.Equal(t, "5:6:7:8::", networks[0].IPv6Addresses[0])
+}
+
+func TestParseHasNetworkSettingsNetworksNonEmptyWithIPv4Only(t *testing.T) {
+	mockNetworks := map[string]*network.EndpointSettings{}
+	mockNetworks["bridge"] = &network.EndpointSettings{IPAddress: "1.2.3.4", GlobalIPv6Address: ""}
+	mockNetworks["network0"] = &network.EndpointSettings{}
+
+	fixture := newBasicFixture().withNetworks(mockNetworks)
+	metadata := fixture.manager.parseMetadata(fixture.container, fixture.task, containerName)
+
+	validateBasicMetadata(t, &metadata, fixture)
+	// Networks assertions
+	networks := metadata.dockerContainerMetadata.networkInfo.networks
+	assert.Equal(t, len(networks), 2, "Expected two networks")
+	assert.Equal(t, "bridge", networks[0].NetworkMode)
+	assert.Equal(t, "1.2.3.4", networks[0].IPv4Addresses[0])
 }
 
 func TestParseHasNoContainerJSONBase(t *testing.T) {
