@@ -35,8 +35,8 @@ import (
 	"github.com/aws/amazon-ecs-agent/agent/utils/oswrapper"
 	"github.com/aws/amazon-ecs-agent/ecs-agent/credentials"
 	internalarn "github.com/aws/amazon-ecs-agent/ecs-agent/utils/arn"
-	"github.com/aws/aws-sdk-go/aws/arn"
 
+	"github.com/aws/aws-sdk-go-v2/aws/arn"
 	"github.com/cihub/seelog"
 	"github.com/pkg/errors"
 	"golang.org/x/sys/windows/registry"
