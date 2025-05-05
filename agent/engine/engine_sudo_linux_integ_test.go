@@ -55,11 +55,11 @@ import (
 	"github.com/aws/amazon-ecs-agent/ecs-agent/ec2"
 	"github.com/aws/amazon-ecs-agent/ecs-agent/eventstream"
 
+	"github.com/aws/aws-sdk-go-v2/aws"
+	awsconfig "github.com/aws/aws-sdk-go-v2/config"
+	"github.com/aws/aws-sdk-go-v2/service/cloudwatchlogs"
 	ecstypes "github.com/aws/aws-sdk-go-v2/service/ecs/types"
-	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/aws/awserr"
-	"github.com/aws/aws-sdk-go/aws/session"
-	"github.com/aws/aws-sdk-go/service/cloudwatchlogs"
 	"github.com/cihub/seelog"
 	"github.com/docker/docker/api/types"
 	dockercontainer "github.com/docker/docker/api/types/container"
@@ -250,7 +250,9 @@ func TestFirelensFluentbit(t *testing.T) {
 	taskID := testTask.GetID()
 
 	//declare a cloudwatch client
-	cwlClient := cloudwatchlogs.New(session.New(), aws.NewConfig().WithRegion(testECSRegion))
+	awsCfg, err := awsconfig.LoadDefaultConfig(context.TODO(), awsconfig.WithRegion(testECSRegion))
+	require.NoError(t, err, "Unable to load AWS config")
+	cwlClient := cloudwatchlogs.NewFromConfig(awsCfg)
 	params := &cloudwatchlogs.GetLogEventsInput{
 		LogGroupName:  aws.String(testLogGroupName),
 		LogStreamName: aws.String(fmt.Sprintf("firelens-fluentbit-logsender-firelens-%s", taskID)),
@@ -262,7 +264,7 @@ func TestFirelensFluentbit(t *testing.T) {
 	// there should only be one event as we are echoing only one thing that part of the include-filter
 	assert.Equal(t, 1, len(resp.Events))
 
-	message := aws.StringValue(resp.Events[0].Message)
+	message := aws.ToString(resp.Events[0].Message)
 	jsonBlob := make(map[string]string)
 	err = json.Unmarshal([]byte(message), &jsonBlob)
 	require.NoError(t, err)
@@ -374,10 +376,10 @@ func createFirelensTask(t *testing.T) *apitask.Task {
 	return testTask
 }
 
-func waitCloudwatchLogs(client *cloudwatchlogs.CloudWatchLogs, params *cloudwatchlogs.GetLogEventsInput) (*cloudwatchlogs.GetLogEventsOutput, error) {
+func waitCloudwatchLogs(client *cloudwatchlogs.Client, params *cloudwatchlogs.GetLogEventsInput) (*cloudwatchlogs.GetLogEventsOutput, error) {
 	// The test could fail for timing issue, so retry for 60 seconds to make this test more stable
 	for i := 0; i < 60; i++ {
-		resp, err := client.GetLogEvents(params)
+		resp, err := client.GetLogEvents(context.TODO(), params)
 		if err != nil {
 			awsError, ok := err.(awserr.Error)
 			if !ok || awsError.Code() != "ResourceNotFoundException" {

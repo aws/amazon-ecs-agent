@@ -27,7 +27,7 @@ import (
 
 	apierrors "github.com/aws/amazon-ecs-agent/ecs-agent/api/errors"
 
-	"github.com/aws/aws-sdk-go/aws"
+	"github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/aws/aws-sdk-go/aws/awserr"
 	"github.com/aws/smithy-go"
 	smithyhttp "github.com/aws/smithy-go/transport/http"
@@ -194,13 +194,13 @@ func TestMapToTags(t *testing.T) {
 	tags := MapToTags(tagsMap)
 	assert.Equal(t, 2, len(tags))
 	sort.Slice(tags, func(i, j int) bool {
-		return aws.StringValue(tags[i].Key) < aws.StringValue(tags[j].Key)
+		return aws.ToString(tags[i].Key) < aws.ToString(tags[j].Key)
 	})
 
-	assert.Equal(t, aws.StringValue(tags[0].Key), tagKey1)
-	assert.Equal(t, aws.StringValue(tags[0].Value), tagValue1)
-	assert.Equal(t, aws.StringValue(tags[1].Key), tagKey2)
-	assert.Equal(t, aws.StringValue(tags[1].Value), tagValue2)
+	assert.Equal(t, aws.ToString(tags[0].Key), tagKey1)
+	assert.Equal(t, aws.ToString(tags[0].Value), tagValue1)
+	assert.Equal(t, aws.ToString(tags[1].Key), tagKey2)
+	assert.Equal(t, aws.ToString(tags[1].Value), tagValue2)
 }
 
 func TestNilMapToTags(t *testing.T) {
