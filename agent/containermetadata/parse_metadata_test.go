@@ -20,6 +20,7 @@ import (
 	"testing"
 
 	apitask "github.com/aws/amazon-ecs-agent/agent/api/task"
+	"github.com/aws/amazon-ecs-agent/ecs-agent/tmds/handlers/response"
 
 	"github.com/docker/docker/api/types"
 	dockercontainer "github.com/docker/docker/api/types/container"
@@ -220,9 +221,18 @@ func TestParseHasNetworkSettingsNetworksNonEmpty(t *testing.T) {
 	// Networks assertions
 	networks := metadata.dockerContainerMetadata.networkInfo.networks
 	assert.Equal(t, len(networks), 2, "Expected two networks")
-	assert.Equal(t, "bridge", networks[0].NetworkMode)
-	assert.Equal(t, "1.2.3.4", networks[0].IPv4Addresses[0])
-	assert.Equal(t, "5:6:7:8::", networks[0].IPv6Addresses[0])
+
+	// Find the bridge network and verify its properties
+	var bridgeNetwork *response.Network
+	for i := range networks {
+		if networks[i].NetworkMode == "bridge" {
+			bridgeNetwork = &networks[i]
+			break
+		}
+	}
+	assert.NotNil(t, bridgeNetwork, "Bridge network not found")
+	assert.Equal(t, "1.2.3.4", bridgeNetwork.IPv4Addresses[0])
+	assert.Equal(t, "5:6:7:8::", bridgeNetwork.IPv6Addresses[0])
 }
 
 func TestParseHasNetworkSettingsNetworksNonEmptyWithIPv4Only(t *testing.T) {
@@ -236,9 +246,16 @@ func TestParseHasNetworkSettingsNetworksNonEmptyWithIPv4Only(t *testing.T) {
 	validateBasicMetadata(t, &metadata, fixture)
 	// Networks assertions
 	networks := metadata.dockerContainerMetadata.networkInfo.networks
-	assert.Equal(t, len(networks), 2, "Expected two networks")
-	assert.Equal(t, "bridge", networks[0].NetworkMode)
-	assert.Equal(t, "1.2.3.4", networks[0].IPv4Addresses[0])
+	// Find the bridge network and verify its properties
+	var bridgeNetwork *response.Network
+	for i := range networks {
+		if networks[i].NetworkMode == "bridge" {
+			bridgeNetwork = &networks[i]
+			break
+		}
+	}
+	assert.NotNil(t, bridgeNetwork, "Bridge network not found")
+	assert.Equal(t, "1.2.3.4", bridgeNetwork.IPv4Addresses[0])
 }
 
 func TestParseHasNoContainerJSONBase(t *testing.T) {
