@@ -3037,7 +3037,7 @@ func TestInitializeAndGetSSMSecretResource(t *testing.T) {
 		},
 	}
 
-	task.initializeSSMSecretResource(credentialsManager, resFields)
+	task.initializeSSMSecretResource(&config.Config{InstanceIPCompatibility: testIPCompatibility}, credentialsManager, resFields)
 
 	resourceDep := apicontainer.ResourceDependency{
 		Name:           ssmsecret.ResourceName,

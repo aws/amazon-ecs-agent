@@ -26,6 +26,7 @@ import (
 	"time"
 
 	"github.com/aws/amazon-ecs-agent/agent/config"
+	"github.com/aws/amazon-ecs-agent/agent/config/ipcompatibility"
 	"github.com/aws/amazon-ecs-agent/agent/utils"
 
 	mock_asm_factory "github.com/aws/amazon-ecs-agent/agent/asm/factory/mocks"
@@ -60,6 +61,10 @@ const (
 	hostPath               = `Z:\`
 )
 
+var testConfig = &config.Config{
+	InstanceIPCompatibility: ipcompatibility.NewIPCompatibility(true, true),
+}
+
 func setup(t *testing.T) (
 	*FSxWindowsFileServerResource, *mock_credentials.MockManager, *mock_ssm_factory.MockSSMClientCreator,
 	*mock_asm_factory.MockClientCreator, *mock_fsx_factory.MockFSxClientCreator, *mock_ssmiface.MockSSMClient,
@@ -82,7 +87,7 @@ func setup(t *testing.T) (
 		taskARN:             taskARN,
 	}
 	fv.Initialize(
-		&config.Config{},
+		testConfig,
 		&taskresource.ResourceFields{
 			ResourceFieldsCommon: &taskresource.ResourceFieldsCommon{
 				SSMClientCreator:   ssmClientCreator,
@@ -101,6 +106,7 @@ func TestInitialize(t *testing.T) {
 	assert.NotNil(t, fv.asmClientCreator)
 	assert.NotNil(t, fv.fsxClientCreator)
 	assert.NotNil(t, fv.statusToTransitions)
+	assert.NotNil(t, fv.ipCompatibility)
 }
 
 func TestMarshalUnmarshalJSON(t *testing.T) {
@@ -160,7 +166,7 @@ func TestRetrieveCredentials(t *testing.T) {
 	}
 
 	gomock.InOrder(
-		ssmClientCreator.EXPECT().NewSSMClient(gomock.Any(), gomock.Any()).Return(mockSSMClient, nil),
+		ssmClientCreator.EXPECT().NewSSMClient(gomock.Any(), gomock.Any(), testConfig.InstanceIPCompatibility).Return(mockSSMClient, nil),
 		mockSSMClient.EXPECT().GetParameters(gomock.Any(), gomock.Any()).Return(ssmClientOutput, nil).Times(1),
 	)
 
@@ -225,7 +231,7 @@ func TestRetrieveSSMCredentials(t *testing.T) {
 			}
 
 			gomock.InOrder(
-				ssmClientCreator.EXPECT().NewSSMClient(gomock.Any(), gomock.Any()).Return(mockSSMClient, nil),
+				ssmClientCreator.EXPECT().NewSSMClient(gomock.Any(), gomock.Any(), testConfig.InstanceIPCompatibility).Return(mockSSMClient, nil),
 				mockSSMClient.EXPECT().GetParameters(gomock.Any(), &ssm.GetParametersInput{
 					Names:          []string{tc.CredentialsParameterName},
 					WithDecryption: aws.Bool(false),
@@ -525,7 +531,7 @@ func TestCreateUnavailableLocalPath(t *testing.T) {
 		executionCredentialsID: executionCredentialsID,
 	}
 	fv.Initialize(
-		&config.Config{},
+		testConfig,
 		&taskresource.ResourceFields{
 			ResourceFieldsCommon: &taskresource.ResourceFieldsCommon{
 				SSMClientCreator:   ssmClientCreator,
@@ -565,7 +571,7 @@ func TestCreateUnavailableLocalPath(t *testing.T) {
 
 	gomock.InOrder(
 		credentialsManager.EXPECT().GetTaskCredentials(gomock.Any()).Return(creds, true),
-		ssmClientCreator.EXPECT().NewSSMClient(gomock.Any(), gomock.Any()).Return(mockSSMClient, nil),
+		ssmClientCreator.EXPECT().NewSSMClient(gomock.Any(), gomock.Any(), testConfig.InstanceIPCompatibility).Return(mockSSMClient, nil),
 		mockSSMClient.EXPECT().GetParameters(gomock.Any(), gomock.Any()).Return(ssmClientOutput, nil).Times(1),
 		fsxClientCreator.EXPECT().NewFSxClient(gomock.Any(), gomock.Any()).Return(mockFSxClient),
 		mockFSxClient.EXPECT().DescribeFileSystems(gomock.Any()).Return(fsxClientOutput, nil).Times(1),
@@ -612,7 +618,7 @@ func TestCreateSSM(t *testing.T) {
 		executionCredentialsID: executionCredentialsID,
 	}
 	fv.Initialize(
-		&config.Config{},
+		testConfig,
 		&taskresource.ResourceFields{
 			ResourceFieldsCommon: &taskresource.ResourceFieldsCommon{
 				SSMClientCreator:   ssmClientCreator,
@@ -652,7 +658,7 @@ func TestCreateSSM(t *testing.T) {
 
 	gomock.InOrder(
 		credentialsManager.EXPECT().GetTaskCredentials(gomock.Any()).Return(creds, true),
-		ssmClientCreator.EXPECT().NewSSMClient(gomock.Any(), gomock.Any()).Return(mockSSMClient, nil),
+		ssmClientCreator.EXPECT().NewSSMClient(gomock.Any(), gomock.Any(), testConfig.InstanceIPCompatibility).Return(mockSSMClient, nil),
 		mockSSMClient.EXPECT().GetParameters(gomock.Any(), gomock.Any()).Return(ssmClientOutput, nil).Times(1),
 		fsxClientCreator.EXPECT().NewFSxClient(gomock.Any(), gomock.Any()).Return(mockFSxClient),
 		mockFSxClient.EXPECT().DescribeFileSystems(gomock.Any()).Return(fsxClientOutput, nil).Times(1),

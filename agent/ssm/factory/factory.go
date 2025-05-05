@@ -18,11 +18,14 @@ import (
 	"time"
 
 	"github.com/aws/amazon-ecs-agent/agent/config"
+	"github.com/aws/amazon-ecs-agent/agent/config/ipcompatibility"
 	ssmclient "github.com/aws/amazon-ecs-agent/agent/ssm"
 	agentversion "github.com/aws/amazon-ecs-agent/agent/version"
 	"github.com/aws/amazon-ecs-agent/ecs-agent/credentials"
 	"github.com/aws/amazon-ecs-agent/ecs-agent/httpclient"
+	"github.com/aws/amazon-ecs-agent/ecs-agent/logger"
 
+	"github.com/aws/aws-sdk-go-v2/aws"
 	awsconfig "github.com/aws/aws-sdk-go-v2/config"
 	awscreds "github.com/aws/aws-sdk-go-v2/credentials"
 	"github.com/aws/aws-sdk-go-v2/service/ssm"
@@ -33,7 +36,7 @@ const (
 )
 
 type SSMClientCreator interface {
-	NewSSMClient(region string, creds credentials.IAMRoleCredentials) (ssmclient.SSMClient, error)
+	NewSSMClient(region string, creds credentials.IAMRoleCredentials, ipCompatibility ipcompatibility.IPCompatibility) (ssmclient.SSMClient, error)
 }
 
 func NewSSMClientCreator() SSMClientCreator {
@@ -44,16 +47,24 @@ type ssmClientCreator struct{}
 
 // SSM Client will automatically retry 3 times when has throttling error
 func (*ssmClientCreator) NewSSMClient(region string,
-	creds credentials.IAMRoleCredentials) (ssmclient.SSMClient, error) {
-	cfg, err := awsconfig.LoadDefaultConfig(
-		context.TODO(),
+	creds credentials.IAMRoleCredentials,
+	ipCompatibility ipcompatibility.IPCompatibility) (ssmclient.SSMClient, error) {
+
+	opts := []func(*awsconfig.LoadOptions) error{
 		awsconfig.WithHTTPClient(httpclient.New(roundtripTimeout, false, agentversion.String(), config.OSType)),
 		awsconfig.WithRegion(region),
 		awsconfig.WithCredentialsProvider(
 			awscreds.NewStaticCredentialsProvider(creds.AccessKeyID, creds.SecretAccessKey,
 				creds.SessionToken),
 		),
-	)
+	}
+
+	if ipCompatibility.IsIPv6Only() {
+		logger.Debug("Configuring SSM Client DualStack endpoint")
+		opts = append(opts, awsconfig.WithUseDualStackEndpoint(aws.DualStackEndpointStateEnabled))
+	}
+
+	cfg, err := awsconfig.LoadDefaultConfig(context.TODO(), opts...)
 
 	if err != nil {
 		return nil, err
