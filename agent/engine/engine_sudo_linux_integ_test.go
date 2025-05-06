@@ -58,8 +58,8 @@ import (
 	"github.com/aws/aws-sdk-go-v2/aws"
 	awsconfig "github.com/aws/aws-sdk-go-v2/config"
 	"github.com/aws/aws-sdk-go-v2/service/cloudwatchlogs"
+	cloudwatchlogs_errors "github.com/aws/aws-sdk-go-v2/service/cloudwatchlogs/types"
 	ecstypes "github.com/aws/aws-sdk-go-v2/service/ecs/types"
-	"github.com/aws/aws-sdk-go/aws/awserr"
 	"github.com/cihub/seelog"
 	"github.com/docker/docker/api/types"
 	dockercontainer "github.com/docker/docker/api/types/container"
@@ -381,8 +381,8 @@ func waitCloudwatchLogs(client *cloudwatchlogs.Client, params *cloudwatchlogs.Ge
 	for i := 0; i < 60; i++ {
 		resp, err := client.GetLogEvents(context.TODO(), params)
 		if err != nil {
-			awsError, ok := err.(awserr.Error)
-			if !ok || awsError.Code() != "ResourceNotFoundException" {
+			var notFoundErr *cloudwatchlogs_errors.ResourceNotFoundException
+			if !errors.As(err, &notFoundErr) {
 				return nil, err
 			}
 		} else if len(resp.Events) > 0 {

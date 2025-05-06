@@ -28,7 +28,6 @@ import (
 	apierrors "github.com/aws/amazon-ecs-agent/ecs-agent/api/errors"
 
 	"github.com/aws/aws-sdk-go-v2/aws"
-	"github.com/aws/aws-sdk-go/aws/awserr"
 	"github.com/aws/smithy-go"
 	smithyhttp "github.com/aws/smithy-go/transport/http"
 	"github.com/stretchr/testify/assert"
@@ -114,16 +113,6 @@ func TestIsAWSErrorCodeEqual(t *testing.T) {
 		err  error
 		res  bool
 	}{
-		{
-			name: "Happy Path",
-			err:  awserr.New(apierrors.ErrCodeInvalidParameterException, "errMsg", errors.New("err")),
-			res:  true,
-		},
-		{
-			name: "Wrong Error Code",
-			err:  awserr.New("errCode", "errMsg", errors.New("err")),
-			res:  false,
-		},
 		{
 			name: "Happy Path SDKv2",
 			err:  &smithy.GenericAPIError{Code: apierrors.ErrCodeInvalidParameterException},

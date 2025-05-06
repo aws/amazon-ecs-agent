@@ -71,8 +71,8 @@ import (
 
 	"github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/aws/aws-sdk-go-v2/service/ecs/types"
-	"github.com/aws/aws-sdk-go/aws/awserr"
 	aws_credentials "github.com/aws/aws-sdk-go/aws/credentials"
+	"github.com/aws/smithy-go"
 	"github.com/cihub/seelog"
 	"github.com/pborman/uuid"
 )
@@ -1248,11 +1248,11 @@ func (agent *ecsAgent) setVPCSubnet() (error, bool) {
 	return nil, false
 }
 
-// isInstanceLaunchedInVPC returns false when the awserr returned is an EC2MetadataError
+// isInstanceLaunchedInVPC returns false when the error returned is an EC2MetadataError
 // when querying the vpc id from instance metadata
 func isInstanceLaunchedInVPC(err error) bool {
-	if aerr, ok := err.(awserr.Error); ok &&
-		aerr.Code() == "EC2MetadataError" {
+	var apiErr smithy.APIError
+	if errors.As(err, &apiErr) && apiErr.ErrorCode() == "EC2MetadataError" {
 		return false
 	}
 	return true
