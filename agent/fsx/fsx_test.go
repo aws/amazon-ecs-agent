@@ -23,8 +23,9 @@ import (
 	mock_fsx "github.com/aws/amazon-ecs-agent/agent/fsx/mocks"
 	"github.com/golang/mock/gomock"
 
-	"github.com/aws/aws-sdk-go/aws"
-	"github.com/aws/aws-sdk-go/service/fsx"
+	"github.com/aws/aws-sdk-go-v2/aws"
+	"github.com/aws/aws-sdk-go-v2/service/fsx"
+	"github.com/aws/aws-sdk-go-v2/service/fsx/types"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -39,8 +40,8 @@ func TestGetFileSystemDNSNames(t *testing.T) {
 	defer ctrl.Finish()
 
 	mockFSxClient := mock_fsx.NewMockFSxClient(ctrl)
-	mockFSxClient.EXPECT().DescribeFileSystems(gomock.Any()).Return(&fsx.DescribeFileSystemsOutput{
-		FileSystems: []*fsx.FileSystem{
+	mockFSxClient.EXPECT().DescribeFileSystems(gomock.Any(), gomock.Any(), gomock.Any()).Return(&fsx.DescribeFileSystemsOutput{
+		FileSystems: []types.FileSystem{
 			{
 				FileSystemId: aws.String(fileSystemId),
 				DNSName:      aws.String(dnsName),
@@ -58,7 +59,7 @@ func TestGetFileSystemDNSNamesError(t *testing.T) {
 	defer ctrl.Finish()
 
 	mockFSxClient := mock_fsx.NewMockFSxClient(ctrl)
-	mockFSxClient.EXPECT().DescribeFileSystems(gomock.Any()).Return(nil, errors.New("test error"))
+	mockFSxClient.EXPECT().DescribeFileSystems(gomock.Any(), gomock.Any(), gomock.Any()).Return(nil, errors.New("test error"))
 
 	_, err := GetFileSystemDNSNames([]string{fileSystemId}, mockFSxClient)
 	assert.Error(t, err)
