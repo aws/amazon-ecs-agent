@@ -1,4 +1,23 @@
 # Changelog
+# 1.93.1
+* Enhancement - aws-sdk-go-v2 migration
+  * ECR Client [#4550](https://github.com/aws/amazon-ecs-agent/pull/4550)
+  * S3 Client [#4564](https://github.com/aws/amazon-ecs-agent/pull/4564)
+  * TCS Client [#4554](https://github.com/aws/amazon-ecs-agent/pull/4554)
+  * SSM Client [#4611](https://github.com/aws/amazon-ecs-agent/pull/4611)
+  * FSx Client [#4621](https://github.com/aws/amazon-ecs-agent/pull/4621)
+  * ECS-agent shared library [#4583](https://github.com/aws/amazon-ecs-agent/pull/4583)
+  * Docker agent-related files [#4608](https://github.com/aws/amazon-ecs-agent/pull/4608)
+  * Add awslogs-endpoint for isolated regions [#4570](https://github.com/aws/amazon-ecs-agent/pull/4570)
+  * Replace v1 endpoints package with internal AWS SDK v2 partition metadata [#4614](https://github.com/aws/amazon-ecs-agent/pull/4614)
+* Enhancement - IPv6-only support
+  * S3 and S3Manager clients resolve to dualstack endpoint on IPV6-only instances [#4580](https://github.com/aws/amazon-ecs-agent/pull/4580)
+  * TaskProtection Client resolves to dualstack endpoint on IPV6-only instances [#4607](https://github.com/aws/amazon-ecs-agent/pull/4607)
+  * Populate IPv6 subnet gateway address from ACS payload [#4604](https://github.com/aws/amazon-ecs-agent/pull/4604)
+  * IPv6 default route for IPv6-only awsvpc tasks [#4603](https://github.com/aws/amazon-ecs-agent/pull/4603)
+  * Add IPv6 fields in the task network config for IPv6 only host mode tasks [#4605](https://github.com/aws/amazon-ecs-agent/pull/4605)
+* Bugfix - Adds RestartPolicy for ServiceConnect Relay Instance Task [#4602](https://github.com/aws/amazon-ecs-agent/pull/4602)
+
 # 1.93.0
 * Enhancement - Add visibility to the ECS Agent for the upcoming release of Windows Server 2025 ECS AMIs and adds integration test support for Windows Server 2025 [#4547](https://github.com/aws/amazon-ecs-agent/pull/4547)
 * Enhancement - Modify CW endpoint short term solution to include more regions [#4569](https://github.com/aws/amazon-ecs-agent/pull/4569)
