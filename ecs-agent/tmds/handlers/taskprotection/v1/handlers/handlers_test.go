@@ -39,7 +39,6 @@ import (
 	awshttp "github.com/aws/aws-sdk-go-v2/aws/transport/http"
 	"github.com/aws/aws-sdk-go-v2/service/ecs"
 	ecstypes "github.com/aws/aws-sdk-go-v2/service/ecs/types"
-	"github.com/aws/aws-sdk-go/aws/request"
 	smithyhttp "github.com/aws/smithy-go/transport/http"
 
 	"github.com/golang/mock/gomock"
@@ -229,7 +228,7 @@ func TestGetTaskProtection(t *testing.T) {
 			expectedResponseBody: types.TaskProtectionResponse{
 				Error: &types.ErrorResponse{
 					Arn:     taskARN,
-					Code:    request.CanceledErrorCode,
+					Code:    requestCanceled,
 					Message: "Timed out calling ECS Task Protection API",
 				},
 			},
@@ -463,7 +462,7 @@ func TestUpdateTaskProtection(t *testing.T) {
 			expectedResponseBody: types.TaskProtectionResponse{
 				Error: &types.ErrorResponse{
 					Arn:     taskARN,
-					Code:    request.CanceledErrorCode,
+					Code:    requestCanceled,
 					Message: "Timed out calling ECS Task Protection API",
 				},
 			},

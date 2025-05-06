@@ -26,7 +26,6 @@ import (
 
 	"github.com/aws/aws-sdk-go-v2/aws"
 	awshttp "github.com/aws/aws-sdk-go-v2/aws/transport/http"
-	"github.com/aws/aws-sdk-go/aws/awserr"
 	"github.com/aws/smithy-go"
 	"github.com/cihub/seelog"
 	"github.com/pkg/errors"
@@ -271,15 +270,6 @@ func newErrorResponse(err error, field, resourceARN string) *tmdsv2.ErrorRespons
 		ErrorField:   field,
 		ErrorMessage: err.Error(),
 		ResourceARN:  resourceARN,
-	}
-	// v1 error handling will be removed once v2 migraiton is complete.
-	if awsErr, ok := err.(awserr.Error); ok {
-		errResp.ErrorCode = awsErr.Code()
-		errResp.ErrorMessage = awsErr.Message()
-		if reqErr, ok := err.(awserr.RequestFailure); ok {
-			errResp.StatusCode = reqErr.StatusCode()
-			errResp.RequestId = reqErr.RequestID()
-		}
 	}
 
 	var apiErr smithy.APIError

@@ -36,8 +36,6 @@ import (
 	awshttp "github.com/aws/aws-sdk-go-v2/aws/transport/http"
 	"github.com/aws/aws-sdk-go-v2/service/ecs"
 	ecstypes "github.com/aws/aws-sdk-go-v2/service/ecs/types"
-	"github.com/aws/aws-sdk-go/aws/awserr"
-	"github.com/aws/aws-sdk-go/aws/request"
 	"github.com/aws/smithy-go"
 	"github.com/gorilla/mux"
 )
@@ -46,6 +44,7 @@ const (
 	expectedProtectionResponseLength = 1
 	ecsCallTimedOutError             = "Timed out calling ECS Task Protection API"
 	taskMetadataFetchFailureMsg      = "Failed to find a task for the request"
+	requestCanceled                  = "RequestCanceled"
 )
 
 // TaskProtectionPath Returns endpoint path for UpdateTaskProtection API
@@ -407,24 +406,6 @@ func getTaskMetadataErrorResponse(
 // RequestID will be empty if the request is not able to reach AWS
 func getErrorCodeAndStatusCode(err error) (string, string, int, *string) {
 	msg := err.Error()
-	// The error is a Generic AWS Error with Code, Message, and original error (if any)
-	if awsErr, ok := err.(awserr.Error); ok {
-		// The error is an AWS service error occurred
-		msg = awsErr.Message()
-		if reqErr, ok := err.(awserr.RequestFailure); ok {
-			reqId := reqErr.RequestID()
-			return awsErr.Code(), msg, reqErr.StatusCode(), &reqId
-		} else if aerr, ok := err.(awserr.Error); ok && aerr.Code() == request.CanceledErrorCode {
-			return aerr.Code(), ecsCallTimedOutError, http.StatusGatewayTimeout, nil
-		} else {
-			logger.Error(fmt.Sprintf(
-				"Got an exception that does not implement RequestFailure interface but is an aws error. This should not happen, return statusCode 500 for whatever errorCode. Original err: %v.",
-				err))
-			return awsErr.Code(), msg, http.StatusInternalServerError, nil
-		}
-	}
-
-	// below is the aws-sdk-go-v2 error handling and the above v1 error handling will be removed once we complete aws-sdk-go-v2 migration
 	var ce CanceledError
 	if errors.As(err, &ce) {
 		return apierrors.ErrCodeRequestCanceled, ecsCallTimedOutError, http.StatusGatewayTimeout, nil

@@ -33,10 +33,8 @@ import (
 	"github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/aws/aws-sdk-go-v2/aws/arn"
 	"github.com/aws/aws-sdk-go-v2/service/ecs/types"
-	"github.com/aws/aws-sdk-go/aws/awserr"
 	"github.com/aws/smithy-go"
 	smithyhttp "github.com/aws/smithy-go/transport/http"
-
 	"github.com/pkg/errors"
 )
 
@@ -142,12 +140,6 @@ func Remove(slice []string, s int) []string {
 // interface of awserr and it has the same error code as
 // the passed in error code.
 func IsAWSErrorCodeEqual(err error, code string) bool {
-	// v1 error handling will be removed once v2 migraiton is complete.
-	awsErr, ok := err.(awserr.Error)
-	if ok {
-		return awsErr.Code() == code
-	}
-
 	var apiErr smithy.APIError
 	if errors.As(err, &apiErr) {
 		return apiErr.ErrorCode() == code
