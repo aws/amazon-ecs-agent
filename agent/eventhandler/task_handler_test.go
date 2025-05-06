@@ -42,7 +42,7 @@ import (
 	mock_retry "github.com/aws/amazon-ecs-agent/ecs-agent/utils/retry/mock"
 
 	"github.com/aws/aws-sdk-go-v2/aws"
-	"github.com/aws/aws-sdk-go/aws/awserr"
+	"github.com/aws/smithy-go"
 	"github.com/golang/mock/gomock"
 	"github.com/pkg/errors"
 	"github.com/stretchr/testify/assert"
@@ -122,7 +122,10 @@ func TestSendsEventsInvalidParametersEventsRemoved(t *testing.T) {
 	client.EXPECT().SubmitTaskStateChange(gomock.Any()).Do(func(interface{}) {
 		assert.Equal(t, 1, handler.tasksToEvents[taskARN].events.Len())
 		wg.Done()
-	}).Return(awserr.New(apierrors.ErrCodeInvalidParameterException, "", nil))
+	}).Return(&smithy.GenericAPIError{
+		Code:    apierrors.ErrCodeInvalidParameterException,
+		Message: "",
+	})
 
 	handler.AddStateChangeEvent(taskEvent, client)
 

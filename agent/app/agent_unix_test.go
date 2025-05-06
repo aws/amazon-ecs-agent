@@ -48,7 +48,7 @@ import (
 
 	"github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/aws/aws-sdk-go-v2/service/ecs/types"
-	"github.com/aws/aws-sdk-go/aws/awserr"
+	"github.com/aws/smithy-go"
 	"github.com/golang/mock/gomock"
 	"github.com/stretchr/testify/assert"
 )
@@ -229,7 +229,10 @@ func TestSetVPCSubnetClassicEC2(t *testing.T) {
 	mockMetadata := mock_ec2.NewMockEC2MetadataClient(ctrl)
 	gomock.InOrder(
 		mockMetadata.EXPECT().PrimaryENIMAC().Return(mac, nil),
-		mockMetadata.EXPECT().VPCID(mac).Return("", awserr.New("EC2MetadataError", "failed to make EC2Metadata request", nil)),
+		mockMetadata.EXPECT().VPCID(mac).Return("", &smithy.GenericAPIError{
+			Code:    "EC2MetadataError",
+			Message: "failed to make EC2Metadata request",
+		}),
 	)
 	agent := &ecsAgent{ec2MetadataClient: mockMetadata}
 	err, ok := agent.setVPCSubnet()

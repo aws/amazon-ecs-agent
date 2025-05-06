@@ -58,10 +58,8 @@ import (
 
 	"github.com/aws/aws-sdk-go-v2/aws"
 	ecstypes "github.com/aws/aws-sdk-go-v2/service/ecs/types"
-	"github.com/aws/aws-sdk-go/aws/awserr"
 	"github.com/aws/smithy-go"
 	smithyhttp "github.com/aws/smithy-go/transport/http"
-
 	"github.com/docker/docker/api/types"
 	"github.com/golang/mock/gomock"
 	"github.com/stretchr/testify/assert"
@@ -1260,7 +1258,10 @@ func TestReregisterContainerInstanceTerminalError(t *testing.T) {
 		mockDockerClient.EXPECT().ListPluginsWithFilters(gomock.Any(), gomock.Any(),
 			gomock.Any(), gomock.Any()).AnyTimes().Return([]string{}, nil),
 		client.EXPECT().RegisterContainerInstance(containerInstanceARN, gomock.Any(), gomock.Any(), gomock.Any(),
-			gomock.Any(), gomock.Any()).Return("", "", awserr.New("ClientException", "", nil)),
+			gomock.Any(), gomock.Any()).Return("", "", &smithy.GenericAPIError{
+			Code:    "ClientException",
+			Message: "",
+		}),
 	)
 	mockEC2Metadata.EXPECT().OutpostARN().Return("", nil)
 
@@ -1554,7 +1555,10 @@ func TestRegisterContainerInstanceInvalidParameterTerminalError(t *testing.T) {
 		dockerClient.EXPECT().ListPluginsWithFilters(gomock.Any(), gomock.Any(), gomock.Any(),
 			gomock.Any()).AnyTimes().Return([]string{}, nil),
 		client.EXPECT().RegisterContainerInstance(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(),
-			gomock.Any()).Return("", "", awserr.New("InvalidParameterException", "", nil)),
+			gomock.Any()).Return("", "", &smithy.GenericAPIError{
+			Code:    "InvalidParameterException",
+			Message: "",
+		}),
 	)
 	mockEC2Metadata.EXPECT().OutpostARN().Return("", nil)
 
@@ -1588,18 +1592,27 @@ func TestRegisterContainerInstanceExceptionErrors(t *testing.T) {
 		exitCode int
 	}{
 		{
-			name:     "InvalidParameterException",
-			regError: awserr.New("InvalidParameterException", "", nil),
+			name: "InvalidParameterException",
+			regError: &smithy.GenericAPIError{
+				Code:    "InvalidParameterException",
+				Message: "",
+			},
 			exitCode: exitcodes.ExitTerminal,
 		},
 		{
-			name:     "ClientException",
-			regError: awserr.New("ClientException", "", nil),
+			name: "ClientException",
+			regError: &smithy.GenericAPIError{
+				Code:    "ClientException",
+				Message: "",
+			},
 			exitCode: exitcodes.ExitTerminal,
 		},
 		{
-			name:     "ThrottlingException",
-			regError: awserr.New("ThrottlingException", "", nil),
+			name: "ThrottlingException",
+			regError: &smithy.GenericAPIError{
+				Code:    "ThrottlingException",
+				Message: "",
+			},
 			exitCode: exitcodes.ExitError,
 		},
 	}
