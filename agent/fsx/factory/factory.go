@@ -16,15 +16,17 @@ package factory
 import (
 	"time"
 
+	"context"
+
 	"github.com/aws/amazon-ecs-agent/agent/config"
 	fsxclient "github.com/aws/amazon-ecs-agent/agent/fsx"
 	agentversion "github.com/aws/amazon-ecs-agent/agent/version"
 	"github.com/aws/amazon-ecs-agent/ecs-agent/credentials"
 	"github.com/aws/amazon-ecs-agent/ecs-agent/httpclient"
-	"github.com/aws/aws-sdk-go/aws"
-	awscreds "github.com/aws/aws-sdk-go/aws/credentials"
-	"github.com/aws/aws-sdk-go/aws/session"
-	"github.com/aws/aws-sdk-go/service/fsx"
+
+	awsconfig "github.com/aws/aws-sdk-go-v2/config"
+	awscreds "github.com/aws/aws-sdk-go-v2/credentials"
+	"github.com/aws/aws-sdk-go-v2/service/fsx"
 )
 
 const (
@@ -32,7 +34,7 @@ const (
 )
 
 type FSxClientCreator interface {
-	NewFSxClient(region string, creds credentials.IAMRoleCredentials) fsxclient.FSxClient
+	NewFSxClient(region string, creds credentials.IAMRoleCredentials) (fsxclient.FSxClient, error)
 }
 
 func NewFSxClientCreator() FSxClientCreator {
@@ -42,13 +44,25 @@ func NewFSxClientCreator() FSxClientCreator {
 type fsxClientCreator struct{}
 
 func (*fsxClientCreator) NewFSxClient(region string,
-	creds credentials.IAMRoleCredentials) fsxclient.FSxClient {
-	cfg := aws.NewConfig().
-		WithHTTPClient(httpclient.New(roundtripTimeout, false, agentversion.String(), config.OSType)).
-		WithRegion(region).
-		WithCredentials(
-			awscreds.NewStaticCredentials(creds.AccessKeyID, creds.SecretAccessKey,
-				creds.SessionToken))
-	sess := session.Must(session.NewSession(cfg))
-	return fsx.New(sess)
+	creds credentials.IAMRoleCredentials) (fsxclient.FSxClient, error) {
+	// Create credentials provider for SDK v2
+	staticCreds := awscreds.NewStaticCredentialsProvider(
+		creds.AccessKeyID,
+		creds.SecretAccessKey,
+		creds.SessionToken,
+	)
+
+	cfg, err := awsconfig.LoadDefaultConfig(
+		context.TODO(),
+		awsconfig.WithRegion(region),
+		awsconfig.WithCredentialsProvider(staticCreds),
+		awsconfig.WithHTTPClient(httpclient.New(roundtripTimeout, false, agentversion.String(), config.OSType)),
+	)
+	if err != nil {
+		return nil, err
+	}
+
+	fsxClient := fsx.NewFromConfig(cfg)
+
+	return fsxClient, nil
 }

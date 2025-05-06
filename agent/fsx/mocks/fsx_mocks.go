@@ -19,9 +19,10 @@
 package mock_fsx
 
 import (
+	context "context"
 	reflect "reflect"
 
-	fsx "github.com/aws/aws-sdk-go/service/fsx"
+	fsx "github.com/aws/aws-sdk-go-v2/service/fsx"
 	gomock "github.com/golang/mock/gomock"
 )
 
@@ -49,16 +50,21 @@ func (m *MockFSxClient) EXPECT() *MockFSxClientMockRecorder {
 }
 
 // DescribeFileSystems mocks base method.
-func (m *MockFSxClient) DescribeFileSystems(arg0 *fsx.DescribeFileSystemsInput) (*fsx.DescribeFileSystemsOutput, error) {
+func (m *MockFSxClient) DescribeFileSystems(arg0 context.Context, arg1 *fsx.DescribeFileSystemsInput, arg2 ...func(*fsx.Options)) (*fsx.DescribeFileSystemsOutput, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "DescribeFileSystems", arg0)
+	varargs := []interface{}{arg0, arg1}
+	for _, a := range arg2 {
+		varargs = append(varargs, a)
+	}
+	ret := m.ctrl.Call(m, "DescribeFileSystems", varargs...)
 	ret0, _ := ret[0].(*fsx.DescribeFileSystemsOutput)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
 // DescribeFileSystems indicates an expected call of DescribeFileSystems.
-func (mr *MockFSxClientMockRecorder) DescribeFileSystems(arg0 interface{}) *gomock.Call {
+func (mr *MockFSxClientMockRecorder) DescribeFileSystems(arg0, arg1 interface{}, arg2 ...interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "DescribeFileSystems", reflect.TypeOf((*MockFSxClient)(nil).DescribeFileSystems), arg0)
+	varargs := append([]interface{}{arg0, arg1}, arg2...)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "DescribeFileSystems", reflect.TypeOf((*MockFSxClient)(nil).DescribeFileSystems), varargs...)
 }
