@@ -106,3 +106,12 @@ func WithMetricsFactory(metricsFactory metrics.EntryFactory) ECSClientOption {
 		client.metricsFactory = metricsFactory
 	}
 }
+
+// WithAvailableMemoryProvider is an ECSClientOption that configures a
+// custom strategy for returning the default amount of available memory
+// on a container instance in MiB.
+func WithAvailableMemoryProvider(availableMemoryProvider func() int32) ECSClientOption {
+	return func(client *ecsClient) {
+		client.availableMemoryProvider = availableMemoryProvider
+	}
+}

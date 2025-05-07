@@ -783,7 +783,7 @@ func TestRegisterContainerInstanceWithNegativeResource(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
 
-	_, mem := getCpuAndMemory()
+	mem := getHostMemoryInMiB()
 	mockEC2Metadata := mock_ec2.NewMockEC2MetadataClient(ctrl)
 	cfgAccessorOverrideFunc := func(cfgAccessor *mock_config.MockAgentConfigAccessor) {
 		cfgAccessor.EXPECT().ReservedMemory().Return(uint16(mem) + 1).AnyTimes()
@@ -1773,4 +1773,18 @@ func extractTagsMapFromRegisterContainerInstanceInput(req *ecsservice.RegisterCo
 		tagsMap[aws.ToString(req.Tags[i].Key)] = aws.ToString(req.Tags[i].Value)
 	}
 	return tagsMap
+}
+
+func TestAvailableMemoryProvider(t *testing.T) {
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+
+	availableMemory := int32(42)
+	tester := setup(t, ctrl, ec2.NewBlackholeEC2MetadataClient(), nil,
+		WithAvailableMemoryProvider(func() int32 {
+			return availableMemory
+		}))
+
+	client := tester.client.(*ecsClient)
+	assert.Equal(t, availableMemory, client.availableMemoryProvider())
 }
