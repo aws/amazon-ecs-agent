@@ -35,8 +35,8 @@ import (
 	mock_state "github.com/aws/amazon-ecs-agent/ecs-agent/tmds/handlers/v4/state/mocks"
 	"github.com/aws/amazon-ecs-agent/ecs-agent/tmds/utils/netconfig"
 	mock_execwrapper "github.com/aws/amazon-ecs-agent/ecs-agent/utils/execwrapper/mocks"
-	"github.com/aws/aws-sdk-go-v2/aws"
 
+	"github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/golang/mock/gomock"
 	"github.com/gorilla/mux"
 	"github.com/stretchr/testify/assert"
@@ -547,14 +547,27 @@ func generateStartBlackHolePortFaultTestCases() []networkFaultInjectionTestCase 
 				cmdExec := mock_execwrapper.NewMockCmd(ctrl)
 				gomock.InOrder(
 					exec.EXPECT().NewExecContextWithTimeout(gomock.Any(), gomock.Any()).Times(1).Return(ctx, cancel),
+					// No existing chain
 					exec.EXPECT().CommandContext(gomock.Any(), gomock.Any(), gomock.Any()).Times(1).Return(cmdExec),
 					cmdExec.EXPECT().CombinedOutput().Times(1).Return([]byte(iptablesChainNotFoundError), errors.New("exit status 1")),
 					exec.EXPECT().ConvertToExitError(gomock.Any()).Times(1).Return(nil, true),
 					exec.EXPECT().GetExitCode(gomock.Any()).Times(1).Return(1),
+					// Create the chain in IPv4 table
 					exec.EXPECT().CommandContext(gomock.Any(), gomock.Any(), gomock.Any()).Times(1).Return(cmdExec),
 					cmdExec.EXPECT().CombinedOutput().Times(1).Return([]byte{}, nil),
+					// Insert the rule to drop packets
 					exec.EXPECT().CommandContext(gomock.Any(), gomock.Any(), gomock.Any()).Times(1).Return(cmdExec),
 					cmdExec.EXPECT().CombinedOutput().Times(1).Return([]byte{}, nil),
+					// Insert the chain
+					exec.EXPECT().CommandContext(gomock.Any(), gomock.Any(), gomock.Any()).Times(1).Return(cmdExec),
+					cmdExec.EXPECT().CombinedOutput().Times(1).Return([]byte{}, nil),
+					// Create the chain in IPv6 table
+					exec.EXPECT().CommandContext(gomock.Any(), gomock.Any(), gomock.Any()).Times(1).Return(cmdExec),
+					cmdExec.EXPECT().CombinedOutput().Times(1).Return([]byte{}, nil),
+					// Insert the rule to drop packets
+					exec.EXPECT().CommandContext(gomock.Any(), gomock.Any(), gomock.Any()).Times(1).Return(cmdExec),
+					cmdExec.EXPECT().CombinedOutput().Times(1).Return([]byte{}, nil),
+					// Insert the chain
 					exec.EXPECT().CommandContext(gomock.Any(), gomock.Any(), gomock.Any()).Times(1).Return(cmdExec),
 					cmdExec.EXPECT().CombinedOutput().Times(1).Return([]byte{}, nil),
 				)
@@ -581,14 +594,27 @@ func generateStartBlackHolePortFaultTestCases() []networkFaultInjectionTestCase 
 				cmdExec := mock_execwrapper.NewMockCmd(ctrl)
 				gomock.InOrder(
 					exec.EXPECT().NewExecContextWithTimeout(gomock.Any(), gomock.Any()).Times(1).Return(ctx, cancel),
+					// No existing chain
 					exec.EXPECT().CommandContext(gomock.Any(), gomock.Any(), gomock.Any()).Times(1).Return(cmdExec),
 					cmdExec.EXPECT().CombinedOutput().Times(1).Return([]byte(iptablesChainNotFoundError), errors.New("exit status 1")),
 					exec.EXPECT().ConvertToExitError(gomock.Any()).Times(1).Return(nil, true),
 					exec.EXPECT().GetExitCode(gomock.Any()).Times(1).Return(1),
+					// Create the chain in IPv4 table
 					exec.EXPECT().CommandContext(gomock.Any(), gomock.Any(), gomock.Any()).Times(1).Return(cmdExec),
 					cmdExec.EXPECT().CombinedOutput().Times(1).Return([]byte{}, nil),
+					// Insert the rule to drop packets
 					exec.EXPECT().CommandContext(gomock.Any(), gomock.Any(), gomock.Any()).Times(1).Return(cmdExec),
 					cmdExec.EXPECT().CombinedOutput().Times(1).Return([]byte{}, nil),
+					// Insert the chain
+					exec.EXPECT().CommandContext(gomock.Any(), gomock.Any(), gomock.Any()).Times(1).Return(cmdExec),
+					cmdExec.EXPECT().CombinedOutput().Times(1).Return([]byte{}, nil),
+					// Create the chain in IPv6 table
+					exec.EXPECT().CommandContext(gomock.Any(), gomock.Any(), gomock.Any()).Times(1).Return(cmdExec),
+					cmdExec.EXPECT().CombinedOutput().Times(1).Return([]byte{}, nil),
+					// Insert the rule to drop packets
+					exec.EXPECT().CommandContext(gomock.Any(), gomock.Any(), gomock.Any()).Times(1).Return(cmdExec),
+					cmdExec.EXPECT().CombinedOutput().Times(1).Return([]byte{}, nil),
+					// Insert the chain
 					exec.EXPECT().CommandContext(gomock.Any(), gomock.Any(), gomock.Any()).Times(1).Return(cmdExec),
 					cmdExec.EXPECT().CombinedOutput().Times(1).Return([]byte{}, nil),
 				)
@@ -702,7 +728,7 @@ func generateStartBlackHolePortFaultTestCases() []networkFaultInjectionTestCase 
 			expectedResponseJSON: fmt.Sprintf(errorResponse, internalError),
 		},
 		{
-			name:               "SourcesToFilter validation failure",
+			name:               "SourcesToFilter validation failure with invalid IP",
 			expectedStatusCode: 400,
 			requestBody: map[string]interface{}{
 				"Port":            port,
@@ -712,6 +738,30 @@ func generateStartBlackHolePortFaultTestCases() []networkFaultInjectionTestCase 
 			},
 			expectedResponseBody: types.NewNetworkFaultInjectionErrorResponse(fmt.Sprintf(types.InvalidValueError, "bad", "SourcesToFilter")),
 			expectedResponseJSON: fmt.Sprintf(errorResponse, fmt.Sprintf(types.InvalidValueError, "bad", "SourcesToFilter")),
+		},
+		{
+			name:               "SourcesToFilter validation failure with invalid IPv4",
+			expectedStatusCode: 400,
+			requestBody: map[string]interface{}{
+				"Port":            port,
+				"Protocol":        protocol,
+				"TrafficType":     trafficType,
+				"SourcesToFilter": aws.StringSlice([]string{"1.2.3.4", "1.2.333.3"}),
+			},
+			expectedResponseBody: types.NewNetworkFaultInjectionErrorResponse(fmt.Sprintf(types.InvalidValueError, "1.2.333.3", "SourcesToFilter")),
+			expectedResponseJSON: fmt.Sprintf(errorResponse, fmt.Sprintf(types.InvalidValueError, "1.2.333.3", "SourcesToFilter")),
+		},
+		{
+			name:               "SourcesToFilter validation failure with invalid IPv6",
+			expectedStatusCode: 400,
+			requestBody: map[string]interface{}{
+				"Port":            port,
+				"Protocol":        protocol,
+				"TrafficType":     trafficType,
+				"SourcesToFilter": aws.StringSlice([]string{"1.2.3.4", "2001::db8::1"}),
+			},
+			expectedResponseBody: types.NewNetworkFaultInjectionErrorResponse(fmt.Sprintf(types.InvalidValueError, "2001::db8::1", "SourcesToFilter")),
+			expectedResponseJSON: fmt.Sprintf(errorResponse, fmt.Sprintf(types.InvalidValueError, "2001::db8::1", "SourcesToFilter")),
 		},
 		{
 			name: "TMDS IP is added to SourcesToFilter if needed",
@@ -732,23 +782,51 @@ func generateStartBlackHolePortFaultTestCases() []networkFaultInjectionTestCase 
 				cmdExec := mock_execwrapper.NewMockCmd(ctrl)
 				gomock.InOrder(
 					exec.EXPECT().NewExecContextWithTimeout(gomock.Any(), gomock.Any()).Times(1).Return(ctx, cancel),
-					exec.EXPECT().CommandContext(gomock.Any(), gomock.Any(), gomock.Any()).Times(1).Return(cmdExec),
+					// No existing chain
+					exec.EXPECT().CommandContext(gomock.Any(),
+						"nsenter", "--net=/some/path", "iptables", "-w", "5", "-C", "egress-tcp-80",
+						"-p", "tcp", "--dport", "80", "-j", "DROP",
+					).Times(1).Return(cmdExec),
 					cmdExec.EXPECT().CombinedOutput().Times(1).Return([]byte(iptablesChainNotFoundError), errors.New("exit status 1")),
 					exec.EXPECT().ConvertToExitError(gomock.Any()).Times(1).Return(nil, true),
 					exec.EXPECT().GetExitCode(gomock.Any()).Times(1).Return(1),
-					exec.EXPECT().CommandContext(gomock.Any(), gomock.Any(), gomock.Any()).Times(1).Return(cmdExec),
+					// Create the chain in IPv4 table
+					exec.EXPECT().CommandContext(gomock.Any(),
+						"nsenter", "--net=/some/path", "iptables", "-w", "5", "-N", "egress-tcp-80",
+					).Times(1).Return(cmdExec),
 					cmdExec.EXPECT().CombinedOutput().Times(1).Return([]byte{}, nil),
+					// Insert the rule to protect TMDS
 					exec.EXPECT().CommandContext(gomock.Any(),
 						"nsenter", "--net=/some/path", "iptables", "-w", "5", "-A", "egress-tcp-80",
 						"-p", "tcp", "-d", "169.254.170.2", "--dport", "80", "-j", "ACCEPT",
 					).Times(1).Return(cmdExec),
 					cmdExec.EXPECT().CombinedOutput().Times(1).Return([]byte{}, nil),
+					// Insert the rule to drop packets
 					exec.EXPECT().CommandContext(gomock.Any(),
 						"nsenter", "--net=/some/path", "iptables", "-w", "5", "-A", "egress-tcp-80",
 						"-p", "tcp", "-d", "0.0.0.0/0", "--dport", "80", "-j", "DROP",
 					).Times(1).Return(cmdExec),
 					cmdExec.EXPECT().CombinedOutput().Times(1).Return([]byte{}, nil),
-					exec.EXPECT().CommandContext(gomock.Any(), gomock.Any(), gomock.Any()).Times(1).Return(cmdExec),
+					// Insert the chain
+					exec.EXPECT().CommandContext(gomock.Any(),
+						"nsenter", "--net=/some/path", "iptables", "-w", "5", "-I", "OUTPUT", "-j", "egress-tcp-80",
+					).Times(1).Return(cmdExec),
+					cmdExec.EXPECT().CombinedOutput().Times(1).Return([]byte{}, nil),
+					// Create the chain in IPv6 table
+					exec.EXPECT().CommandContext(gomock.Any(),
+						"nsenter", "--net=/some/path", "ip6tables", "-w", "5", "-N", "egress-tcp-80",
+					).Times(1).Return(cmdExec),
+					cmdExec.EXPECT().CombinedOutput().Times(1).Return([]byte{}, nil),
+					// Insert the rule to drop packets
+					exec.EXPECT().CommandContext(gomock.Any(),
+						"nsenter", "--net=/some/path", "ip6tables", "-w", "5", "-A", "egress-tcp-80",
+						"-p", "tcp", "-d", "::/0", "--dport", "80", "-j", "DROP",
+					).Times(1).Return(cmdExec),
+					cmdExec.EXPECT().CombinedOutput().Times(1).Return([]byte{}, nil),
+					// Insert the chain
+					exec.EXPECT().CommandContext(gomock.Any(),
+						"nsenter", "--net=/some/path", "ip6tables", "-w", "5", "-I", "OUTPUT", "-j", "egress-tcp-80",
+					).Times(1).Return(cmdExec),
 					cmdExec.EXPECT().CombinedOutput().Times(1).Return([]byte{}, nil),
 				)
 			},
@@ -757,10 +835,15 @@ func generateStartBlackHolePortFaultTestCases() []networkFaultInjectionTestCase 
 		{
 			name: "Sources to filter are filtered",
 			requestBody: map[string]interface{}{
-				"Port":            443,
-				"Protocol":        "udp",
-				"TrafficType":     "ingress",
-				"SourcesToFilter": []string{"1.2.3.4/20", "8.8.8.8"},
+				"Port":        443,
+				"Protocol":    "udp",
+				"TrafficType": "ingress",
+				"SourcesToFilter": []string{
+					"1.2.3.4/20",
+					"8.8.8.8",
+					"2600:1f13:4d9:e611::/64",
+					"2600:1f13:4d9:e611:9009:ac97:1ab4:17d9",
+				},
 			},
 			expectedStatusCode:   200,
 			expectedResponseBody: types.NewNetworkFaultInjectionSuccessResponse("running"),
@@ -774,28 +857,69 @@ func generateStartBlackHolePortFaultTestCases() []networkFaultInjectionTestCase 
 				cmdExec := mock_execwrapper.NewMockCmd(ctrl)
 				gomock.InOrder(
 					exec.EXPECT().NewExecContextWithTimeout(gomock.Any(), gomock.Any()).Times(1).Return(ctx, cancel),
-					exec.EXPECT().CommandContext(gomock.Any(), gomock.Any(), gomock.Any()).Times(1).Return(cmdExec),
+					// No existing chain
+					exec.EXPECT().CommandContext(gomock.Any(),
+						"nsenter", "--net=/some/path", "iptables", "-w", "5", "-C", "ingress-udp-443",
+						"-p", "udp", "--dport", "443", "-j", "DROP",
+					).Times(1).Return(cmdExec),
 					cmdExec.EXPECT().CombinedOutput().Times(1).Return([]byte(iptablesChainNotFoundError), errors.New("exit status 1")),
 					exec.EXPECT().ConvertToExitError(gomock.Any()).Times(1).Return(nil, true),
 					exec.EXPECT().GetExitCode(gomock.Any()).Times(1).Return(1),
-					exec.EXPECT().CommandContext(gomock.Any(), gomock.Any(), gomock.Any()).Times(1).Return(cmdExec),
+					// Create the chain in IPv4 table
+					exec.EXPECT().CommandContext(gomock.Any(),
+						"nsenter", "--net=/some/path", "iptables", "-w", "5", "-N", "ingress-udp-443",
+					).Times(1).Return(cmdExec),
 					cmdExec.EXPECT().CombinedOutput().Times(1).Return([]byte{}, nil),
+					// Insert the rule to allow packets
 					exec.EXPECT().CommandContext(gomock.Any(),
 						"nsenter", "--net=/some/path", "iptables", "-w", "5", "-A", "ingress-udp-443",
 						"-p", "udp", "-d", "1.2.3.4/20", "--dport", "443", "-j", "ACCEPT",
 					).Times(1).Return(cmdExec),
 					cmdExec.EXPECT().CombinedOutput().Times(1).Return([]byte{}, nil),
+					// Insert the rule to allow packets
 					exec.EXPECT().CommandContext(gomock.Any(),
 						"nsenter", "--net=/some/path", "iptables", "-w", "5", "-A", "ingress-udp-443",
 						"-p", "udp", "-d", "8.8.8.8", "--dport", "443", "-j", "ACCEPT",
 					).Times(1).Return(cmdExec),
 					cmdExec.EXPECT().CombinedOutput().Times(1).Return([]byte{}, nil),
+					// Insert the rule to drop packets
 					exec.EXPECT().CommandContext(gomock.Any(),
 						"nsenter", "--net=/some/path", "iptables", "-w", "5", "-A", "ingress-udp-443",
 						"-p", "udp", "-d", "0.0.0.0/0", "--dport", "443", "-j", "DROP",
 					).Times(1).Return(cmdExec),
 					cmdExec.EXPECT().CombinedOutput().Times(1).Return([]byte{}, nil),
-					exec.EXPECT().CommandContext(gomock.Any(), gomock.Any(), gomock.Any()).Times(1).Return(cmdExec),
+					// Insert the chain
+					exec.EXPECT().CommandContext(gomock.Any(),
+						"nsenter", "--net=/some/path", "iptables", "-w", "5", "-I", "INPUT", "-j", "ingress-udp-443",
+					).Times(1).Return(cmdExec),
+					cmdExec.EXPECT().CombinedOutput().Times(1).Return([]byte{}, nil),
+					// Create the chain in IPv6 table
+					exec.EXPECT().CommandContext(gomock.Any(),
+						"nsenter", "--net=/some/path", "ip6tables", "-w", "5", "-N", "ingress-udp-443",
+					).Times(1).Return(cmdExec),
+					cmdExec.EXPECT().CombinedOutput().Times(1).Return([]byte{}, nil),
+					// Insert the rule to allow packets
+					exec.EXPECT().CommandContext(gomock.Any(),
+						"nsenter", "--net=/some/path", "ip6tables", "-w", "5", "-A", "ingress-udp-443",
+						"-p", "udp", "-d", "2600:1f13:4d9:e611::/64", "--dport", "443", "-j", "ACCEPT",
+					).Times(1).Return(cmdExec),
+					cmdExec.EXPECT().CombinedOutput().Times(1).Return([]byte{}, nil),
+					// Insert the rule to allow packets
+					exec.EXPECT().CommandContext(gomock.Any(),
+						"nsenter", "--net=/some/path", "ip6tables", "-w", "5", "-A", "ingress-udp-443",
+						"-p", "udp", "-d", "2600:1f13:4d9:e611:9009:ac97:1ab4:17d9", "--dport", "443", "-j", "ACCEPT",
+					).Times(1).Return(cmdExec),
+					cmdExec.EXPECT().CombinedOutput().Times(1).Return([]byte{}, nil),
+					// Insert the rule to drop packets
+					exec.EXPECT().CommandContext(gomock.Any(),
+						"nsenter", "--net=/some/path", "ip6tables", "-w", "5", "-A", "ingress-udp-443",
+						"-p", "udp", "-d", "::/0", "--dport", "443", "-j", "DROP",
+					).Times(1).Return(cmdExec),
+					cmdExec.EXPECT().CombinedOutput().Times(1).Return([]byte{}, nil),
+					// Insert the chain
+					exec.EXPECT().CommandContext(gomock.Any(),
+						"nsenter", "--net=/some/path", "ip6tables", "-w", "5", "-I", "INPUT", "-j", "ingress-udp-443",
+					).Times(1).Return(cmdExec),
 					cmdExec.EXPECT().CombinedOutput().Times(1).Return([]byte{}, nil),
 				)
 			},
@@ -859,13 +983,41 @@ func generateStopBlackHolePortFaultTestCases() []networkFaultInjectionTestCase {
 				cmdExec := mock_execwrapper.NewMockCmd(ctrl)
 				gomock.InOrder(
 					exec.EXPECT().NewExecContextWithTimeout(gomock.Any(), gomock.Any()).Times(1).Return(ctx, cancel),
-					exec.EXPECT().CommandContext(gomock.Any(), gomock.Any(), gomock.Any()).Times(1).Return(cmdExec),
+					// Found existing chain
+					exec.EXPECT().CommandContext(gomock.Any(),
+						"nsenter", "--net=/some/path", "iptables", "-w", "5", "-C", "ingress-tcp-1234",
+						"-p", "tcp", "--dport", "1234", "-j", "DROP",
+					).Times(1).Return(cmdExec),
 					cmdExec.EXPECT().CombinedOutput().Times(1).Return([]byte{}, nil),
-					exec.EXPECT().CommandContext(gomock.Any(), gomock.Any(), gomock.Any()).Times(1).Return(cmdExec),
+					// Clear rules in the chain of IPv4
+					exec.EXPECT().CommandContext(gomock.Any(),
+						"nsenter", "--net=/some/path", "iptables", "-w", "5", "-F", "ingress-tcp-1234",
+					).Times(1).Return(cmdExec),
 					cmdExec.EXPECT().CombinedOutput().Times(1).Return([]byte{}, nil),
-					exec.EXPECT().CommandContext(gomock.Any(), gomock.Any(), gomock.Any()).Times(1).Return(cmdExec),
+					// Remove the chain from the IPv4 table
+					exec.EXPECT().CommandContext(gomock.Any(),
+						"nsenter", "--net=/some/path", "iptables", "-w", "5", "-D", "INPUT", "-j", "ingress-tcp-1234",
+					).Times(1).Return(cmdExec),
 					cmdExec.EXPECT().CombinedOutput().Times(1).Return([]byte{}, nil),
-					exec.EXPECT().CommandContext(gomock.Any(), gomock.Any(), gomock.Any()).Times(1).Return(cmdExec),
+					// Delete the chain of IPv4
+					exec.EXPECT().CommandContext(gomock.Any(),
+						"nsenter", "--net=/some/path", "iptables", "-w", "5", "-X", "ingress-tcp-1234",
+					).Times(1).Return(cmdExec),
+					cmdExec.EXPECT().CombinedOutput().Times(1).Return([]byte{}, nil),
+					// Clear rules in the chain of IPv6
+					exec.EXPECT().CommandContext(gomock.Any(),
+						"nsenter", "--net=/some/path", "ip6tables", "-w", "5", "-F", "ingress-tcp-1234",
+					).Times(1).Return(cmdExec),
+					cmdExec.EXPECT().CombinedOutput().Times(1).Return([]byte{}, nil),
+					// Remove the chain from the IPv6 table
+					exec.EXPECT().CommandContext(gomock.Any(),
+						"nsenter", "--net=/some/path", "ip6tables", "-w", "5", "-D", "INPUT", "-j", "ingress-tcp-1234",
+					).Times(1).Return(cmdExec),
+					cmdExec.EXPECT().CombinedOutput().Times(1).Return([]byte{}, nil),
+					// Delete the chain of IPv6
+					exec.EXPECT().CommandContext(gomock.Any(),
+						"nsenter", "--net=/some/path", "ip6tables", "-w", "5", "-X", "ingress-tcp-1234",
+					).Times(1).Return(cmdExec),
 					cmdExec.EXPECT().CombinedOutput().Times(1).Return([]byte{}, nil),
 				)
 			},
@@ -891,6 +1043,12 @@ func generateStopBlackHolePortFaultTestCases() []networkFaultInjectionTestCase {
 				cmdExec := mock_execwrapper.NewMockCmd(ctrl)
 				gomock.InOrder(
 					exec.EXPECT().NewExecContextWithTimeout(gomock.Any(), gomock.Any()).Times(1).Return(ctx, cancel),
+					exec.EXPECT().CommandContext(gomock.Any(), gomock.Any(), gomock.Any()).Times(1).Return(cmdExec),
+					cmdExec.EXPECT().CombinedOutput().Times(1).Return([]byte{}, nil),
+					exec.EXPECT().CommandContext(gomock.Any(), gomock.Any(), gomock.Any()).Times(1).Return(cmdExec),
+					cmdExec.EXPECT().CombinedOutput().Times(1).Return([]byte{}, nil),
+					exec.EXPECT().CommandContext(gomock.Any(), gomock.Any(), gomock.Any()).Times(1).Return(cmdExec),
+					cmdExec.EXPECT().CombinedOutput().Times(1).Return([]byte{}, nil),
 					exec.EXPECT().CommandContext(gomock.Any(), gomock.Any(), gomock.Any()).Times(1).Return(cmdExec),
 					cmdExec.EXPECT().CombinedOutput().Times(1).Return([]byte{}, nil),
 					exec.EXPECT().CommandContext(gomock.Any(), gomock.Any(), gomock.Any()).Times(1).Return(cmdExec),
