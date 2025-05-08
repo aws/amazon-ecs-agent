@@ -219,6 +219,7 @@ func (cs *tcsClientServer) metricsToPublishMetricRequests(metrics ecstcs.Telemet
 
 		messageTaskMetrics = append(messageTaskMetrics, &tempTaskMetric)
 		tmsg, _ := jsonutil.BuildJSON(ecstcs.NewPublishMetricsRequest(messageInstanceMetrics, requestMetadata, copyTaskMetrics(messageTaskMetrics)))
+		logger.Info(fmt.Sprintf("shelbyzh-testing: tmsg:%s", string(tmsg)))
 		// remove the tempTaskMetric added to messageTaskMetrics after creating tempMessage
 		messageTaskMetrics = messageTaskMetrics[:len(messageTaskMetrics)-1]
 		if len(tmsg) > publishMetricRequestSizeLimit {
