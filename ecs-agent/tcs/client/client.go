@@ -155,10 +155,6 @@ func (cs *tcsClientServer) publishMetricsOnce(message ecstcs.TelemetryMessage) e
 		return err
 	}
 
-	for i, r := range requests {
-		logger.Info(fmt.Sprintf("shelbyzh-testing: index:%d, request:%s", i, r.String()))
-	}
-
 	// Make the publish metrics request to the backend.
 	for _, request := range requests {
 		logger.Debug("making publish metrics request")
@@ -219,7 +215,7 @@ func (cs *tcsClientServer) metricsToPublishMetricRequests(metrics ecstcs.Telemet
 
 		messageTaskMetrics = append(messageTaskMetrics, &tempTaskMetric)
 		tmsg, _ := jsonutil.BuildJSON(ecstcs.NewPublishMetricsRequest(messageInstanceMetrics, requestMetadata, copyTaskMetrics(messageTaskMetrics)))
-		logger.Info(fmt.Sprintf("shelbyzh-testing: tmsg:%s", string(tmsg)))
+		logger.Info(fmt.Sprintf("shelbyzh-testing tmsg:%s", string(tmsg)))
 		// remove the tempTaskMetric added to messageTaskMetrics after creating tempMessage
 		messageTaskMetrics = messageTaskMetrics[:len(messageTaskMetrics)-1]
 		if len(tmsg) > publishMetricRequestSizeLimit {
