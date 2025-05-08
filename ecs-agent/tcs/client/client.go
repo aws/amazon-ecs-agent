@@ -155,6 +155,10 @@ func (cs *tcsClientServer) publishMetricsOnce(message ecstcs.TelemetryMessage) e
 		return err
 	}
 
+	for i, r := range requests {
+		logger.Info(fmt.Sprintf("shelbyzh-testing: index:%d, request:%s", i, r.String()))
+	}
+
 	// Make the publish metrics request to the backend.
 	for _, request := range requests {
 		logger.Debug("making publish metrics request")
