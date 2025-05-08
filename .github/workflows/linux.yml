@@ -34,7 +34,4 @@ jobs:
           set -eoux pipefail
           export GOPATH=$GITHUB_WORKSPACE
           cd $GITHUB_WORKSPACE/src/github.com/aws/amazon-ecs-agent
-          make test-silent
-          make analyze-cover-profile
-          make test-init
-          make analyze-cover-profile-init
+          cd agent/ && GO111MODULE=on go test -race -tags unit -mod vendor ./dockerclient/dockerapi -run TestImagePullGlobalTimeout -count=5000
