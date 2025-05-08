@@ -2195,10 +2195,20 @@ func (task *Task) generateENIExtraHosts() []string {
 
 	extraHosts := []string{}
 
-	for _, ip := range eni.GetIPV4Addresses() {
-		host := fmt.Sprintf("%s:%s", hostname, ip)
-		extraHosts = append(extraHosts, host)
+	if eni.IPv6Only() {
+		// Add IPv6 addresses only if task ENI is IPv6-only.
+		// Historically, IPv6 addresses are not added for dual stack ENIs.
+		for _, ip := range eni.GetIPV6Addresses() {
+			host := fmt.Sprintf("%s:%s", hostname, ip)
+			extraHosts = append(extraHosts, host)
+		}
+	} else {
+		for _, ip := range eni.GetIPV4Addresses() {
+			host := fmt.Sprintf("%s:%s", hostname, ip)
+			extraHosts = append(extraHosts, host)
+		}
 	}
+
 	return extraHosts
 }
 
