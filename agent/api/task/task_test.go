@@ -5832,3 +5832,95 @@ func TestPopulateServiceConnectContainerMappingEnvVarAwsvpc(t *testing.T) {
 		})
 	}
 }
+
+func TestGenerateENIExtraHosts(t *testing.T) {
+	tests := []struct {
+		name     string
+		task     *Task
+		expected []string
+	}{
+		{
+			name: "nil ENI",
+			task: &Task{
+				ENIs: nil,
+			},
+			expected: nil,
+		},
+		{
+			name: "empty hostname",
+			task: &Task{
+				ENIs: TaskENIs{
+					&ni.NetworkInterface{
+						PrivateDNSName: "",
+						IPV4Addresses: []*ni.IPV4Address{
+							{Address: "192.168.1.1"},
+						},
+					},
+				},
+			},
+			expected: nil,
+		},
+		{
+			name: "IPv4 addresses only",
+			task: &Task{
+				ENIs: TaskENIs{
+					&ni.NetworkInterface{
+						PrivateDNSName: "test.local",
+						IPV4Addresses: []*ni.IPV4Address{
+							{Address: "192.168.1.1"},
+							{Address: "192.168.1.2"},
+						},
+					},
+				},
+			},
+			expected: []string{
+				"test.local:192.168.1.1",
+				"test.local:192.168.1.2",
+			},
+		},
+		{
+			name: "IPv6 only",
+			task: &Task{
+				ENIs: TaskENIs{
+					&ni.NetworkInterface{
+						PrivateDNSName: "test.local",
+						IPV6Addresses: []*ni.IPV6Address{
+							{Address: "2001:db8::1"},
+							{Address: "2001:db8::2"},
+						},
+					},
+				},
+			},
+			expected: []string{
+				"test.local:2001:db8::1",
+				"test.local:2001:db8::2",
+			},
+		},
+		{
+			name: "dual stack (should use IPv4)",
+			task: &Task{
+				ENIs: TaskENIs{
+					&ni.NetworkInterface{
+						PrivateDNSName: "test.local",
+						IPV4Addresses: []*ni.IPV4Address{
+							{Address: "192.168.1.1"},
+						},
+						IPV6Addresses: []*ni.IPV6Address{
+							{Address: "2001:db8::1"},
+						},
+					},
+				},
+			},
+			expected: []string{
+				"test.local:192.168.1.1",
+			},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			result := tt.task.generateENIExtraHosts()
+			assert.Equal(t, tt.expected, result)
+		})
+	}
+}
