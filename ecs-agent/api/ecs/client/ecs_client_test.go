@@ -1612,6 +1612,74 @@ func TestFIPSEndpointStateOnFIPSDisabledHosts(t *testing.T) {
 		client.(*ecsClient).standardClient.(*ecsservice.Client).Options().EndpointOptions.UseFIPSEndpoint)
 }
 
+func TestDualStackEndpointStateWhenEndpointGiven(t *testing.T) {
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+
+	// Endpoint is given during the call to newMockConfigAccessor function.
+	cfgAccessor := newMockConfigAccessor(ctrl, nil)
+	assert.NotEmpty(t, cfgAccessor.APIEndpoint())
+
+	client, err := NewECSClient(aws.NewCredentialsCache(aws.AnonymousCredentials{}), cfgAccessor, ec2.NewBlackholeEC2MetadataClient(),
+		agentVer)
+	assert.NoError(t, err)
+	assert.Equal(t, aws.DualStackEndpointStateUnset,
+		client.(*ecsClient).standardClient.(*ecsservice.Client).Options().EndpointOptions.UseDualStackEndpoint)
+}
+
+func TestDualStackEndpointStateEnabled(t *testing.T) {
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+
+	cfgAccessorOverrideFunc := func(cfgAccessor *mock_config.MockAgentConfigAccessor) {
+		cfgAccessor.EXPECT().APIEndpoint().Return("").AnyTimes()
+	}
+	cfgAccessor := newMockConfigAccessor(ctrl, cfgAccessorOverrideFunc)
+	assert.Empty(t, cfgAccessor.APIEndpoint())
+
+	client, err := NewECSClient(aws.NewCredentialsCache(aws.AnonymousCredentials{}), cfgAccessor, ec2.NewBlackholeEC2MetadataClient(),
+		agentVer, WithDualStackEnabled(true))
+	assert.NoError(t, err)
+	assert.Equal(t, aws.DualStackEndpointStateEnabled,
+		client.(*ecsClient).standardClient.(*ecsservice.Client).Options().EndpointOptions.UseDualStackEndpoint)
+}
+
+func TestDualStackEndpointStateDisabled(t *testing.T) {
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+
+	cfgAccessorOverrideFunc := func(cfgAccessor *mock_config.MockAgentConfigAccessor) {
+		cfgAccessor.EXPECT().APIEndpoint().Return("").AnyTimes()
+	}
+	cfgAccessor := newMockConfigAccessor(ctrl, cfgAccessorOverrideFunc)
+	assert.Empty(t, cfgAccessor.APIEndpoint())
+
+	client, err := NewECSClient(aws.NewCredentialsCache(aws.AnonymousCredentials{}), cfgAccessor, ec2.NewBlackholeEC2MetadataClient(),
+		agentVer)
+	assert.NoError(t, err)
+	assert.Equal(t, aws.DualStackEndpointStateUnset,
+		client.(*ecsClient).standardClient.(*ecsservice.Client).Options().EndpointOptions.UseDualStackEndpoint)
+}
+
+func TestDualStackAndFIPSEndpointStatesEnabled(t *testing.T) {
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+
+	cfgAccessorOverrideFunc := func(cfgAccessor *mock_config.MockAgentConfigAccessor) {
+		cfgAccessor.EXPECT().APIEndpoint().Return("").AnyTimes()
+	}
+	cfgAccessor := newMockConfigAccessor(ctrl, cfgAccessorOverrideFunc)
+	assert.Empty(t, cfgAccessor.APIEndpoint())
+
+	client, err := NewECSClient(aws.NewCredentialsCache(aws.AnonymousCredentials{}), cfgAccessor, ec2.NewBlackholeEC2MetadataClient(),
+		agentVer, WithFIPSDetected(true), WithDualStackEnabled(true))
+	assert.NoError(t, err)
+	assert.Equal(t, aws.FIPSEndpointStateEnabled,
+		client.(*ecsClient).standardClient.(*ecsservice.Client).Options().EndpointOptions.UseFIPSEndpoint)
+	assert.Equal(t, aws.DualStackEndpointStateEnabled,
+		client.(*ecsClient).standardClient.(*ecsservice.Client).Options().EndpointOptions.UseDualStackEndpoint)
+}
+
 func TestDiscoverPollEndpointCacheTTLSet(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
