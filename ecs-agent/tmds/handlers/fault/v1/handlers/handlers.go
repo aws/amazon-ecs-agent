@@ -145,6 +145,8 @@ func (h *FaultHandler) StartNetworkBlackholePort() func(http.ResponseWriter, *ht
 			return
 		}
 
+		isIPv6OnlyTask := isIPv6OnlyTask(taskMetadata)
+
 		// To avoid multiple requests to manipulate same network resource
 		networkNSPath := taskMetadata.TaskNetworkConfig.NetworkNamespaces[0].Path
 		rwMu := h.loadLock(networkNSPath)
@@ -167,9 +169,16 @@ func (h *FaultHandler) StartNetworkBlackholePort() func(http.ResponseWriter, *ht
 			insertTable = "OUTPUT"
 		}
 
-		_, cmdErr := h.startNetworkBlackholePort(ctxWithTimeout, aws.ToString(request.Protocol),
-			port, aws.ToStringSlice(request.SourcesToFilter), chainName,
-			networkMode, networkNSPath, insertTable, taskArn)
+		_, cmdErr := h.startNetworkBlackholePort(ctxWithTimeout,
+			aws.ToString(request.Protocol),
+			port,
+			aws.ToStringSlice(request.SourcesToFilter),
+			chainName,
+			networkMode,
+			networkNSPath,
+			insertTable,
+			taskArn,
+			isIPv6OnlyTask)
 		if err := ctxWithTimeout.Err(); errors.Is(err, context.DeadlineExceeded) {
 			statusCode = http.StatusInternalServerError
 			responseBody = types.NewNetworkFaultInjectionErrorResponse(fmt.Sprintf(requestTimedOutError, requestType))
@@ -201,9 +210,13 @@ func (h *FaultHandler) StartNetworkBlackholePort() func(http.ResponseWriter, *ht
 // 2. Creates two new chains via `iptables/ip6tables -N <chain>` (the chain name is in the form of "<trafficType>-<protocol>-<port>")
 // 3. Appends a new rule to the newly created chain via `iptables/ip6tables -A <chain> -p <protocol> --dport <port> -j DROP`
 // 4. Inserts the newly created chain into the built-in INPUT/OUTPUT table
-func (h *FaultHandler) startNetworkBlackholePort(
-	ctx context.Context, protocol, port string, sourcesToFilter []string,
-	chain string, networkMode ecstypes.NetworkMode, netNs, insertTable, taskArn string,
+func (h *FaultHandler) startNetworkBlackholePort(ctx context.Context,
+	protocol, port string,
+	sourcesToFilter []string,
+	chain string,
+	networkMode ecstypes.NetworkMode,
+	netNs, insertTable, taskArn string,
+	isIPv6OnlyTask bool,
 ) (string, error) {
 	running, cmdOutput, err := h.checkNetworkBlackHolePort(ctx, protocol, port, chain, networkMode, netNs, taskArn)
 	if err != nil {
@@ -223,9 +236,21 @@ func (h *FaultHandler) startNetworkBlackholePort(
 		}
 
 		// Helper function to run commands
-		var execCommand = func(cmdString string) (string, error) {
+		var execCommand = func(cmdString string, isIP6TableUpdate bool) (string, error) {
 			execOutput, err := h.runExecCommand(ctx, strings.Split(cmdString, " "))
 			if err != nil {
+				// To be backwards compatible, enforcing IPv6 table updates for IPv6 only tasks
+				if !isIPv6OnlyTask && isIP6TableUpdate {
+					logger.Warn("Ignore the failure for IPv6 table updates for non IPv6 only tasks", logger.Fields{
+						"netns":   netNs,
+						"command": cmdString,
+						"output":  string(execOutput),
+						"taskArn": taskArn,
+						"error":   err,
+					})
+					return "", nil
+				}
+
 				logger.Error("Unable to execute the command", logger.Fields{
 					"netns":   netNs,
 					"command": cmdString,
@@ -256,7 +281,7 @@ func (h *FaultHandler) startNetworkBlackholePort(
 
 			// Creating a new chain
 			newChainCmdString := nsenterPrefix + fmt.Sprintf(iptablesNewChainCmd, iptablesUtilityTool, requestTimeoutSeconds, chain)
-			out, err := execCommand(newChainCmdString)
+			out, err := execCommand(newChainCmdString, ipVersion == utils.IPv6)
 			if err != nil {
 				return out, err
 			}
@@ -279,7 +304,7 @@ func (h *FaultHandler) startNetworkBlackholePort(
 					sourceToFilter,
 					port,
 					acceptTarget)
-				if out, err := execCommand(filterRuleCmdString); err != nil {
+				if out, err := execCommand(filterRuleCmdString, ipVersion == utils.IPv6); err != nil {
 					return out, err
 				}
 			}
@@ -293,13 +318,13 @@ func (h *FaultHandler) startNetworkBlackholePort(
 				allIpCIDR,
 				port,
 				dropTarget)
-			if out, err := execCommand(faultRuleCmdString); err != nil {
+			if out, err := execCommand(faultRuleCmdString, ipVersion == utils.IPv6); err != nil {
 				return out, err
 			}
 
 			// Inserting the chain into the built-in INPUT/OUTPUT table
 			insertChainCmdString := nsenterPrefix + fmt.Sprintf(iptablesInsertChainCmd, iptablesUtilityTool, requestTimeoutSeconds, insertTable, chain)
-			if out, err := execCommand(insertChainCmdString); err != nil {
+			if out, err := execCommand(insertChainCmdString, ipVersion == utils.IPv6); err != nil {
 				return out, err
 			}
 		}
@@ -334,6 +359,8 @@ func (h *FaultHandler) StopNetworkBlackHolePort() func(http.ResponseWriter, *htt
 			return
 		}
 
+		isIPv6OnlyTask := isIPv6OnlyTask(taskMetadata)
+
 		// To avoid multiple requests to manipulate same network resource
 		networkNSPath := taskMetadata.TaskNetworkConfig.NetworkNamespaces[0].Path
 		rwMu := h.loadLock(networkNSPath)
@@ -356,8 +383,15 @@ func (h *FaultHandler) StopNetworkBlackHolePort() func(http.ResponseWriter, *htt
 			insertTable = "OUTPUT"
 		}
 
-		_, cmdErr := h.stopNetworkBlackHolePort(ctxWithTimeout, aws.ToString(request.Protocol), port, chainName,
-			networkMode, networkNSPath, insertTable, taskArn)
+		_, cmdErr := h.stopNetworkBlackHolePort(ctxWithTimeout,
+			aws.ToString(request.Protocol),
+			port,
+			chainName,
+			networkMode,
+			networkNSPath,
+			insertTable,
+			taskArn,
+			isIPv6OnlyTask)
 
 		if err := ctxWithTimeout.Err(); errors.Is(err, context.DeadlineExceeded) {
 			statusCode = http.StatusInternalServerError
@@ -390,8 +424,11 @@ func (h *FaultHandler) StopNetworkBlackHolePort() func(http.ResponseWriter, *htt
 // 2. Clears all rules within the specific chain via `iptables/ip6tables -F <chain>`
 // 3. Removes the specific chain from the built-in INPUT/OUTPUT table via `iptables/ip6tables -D <INPUT/OUTPUT> -j <chain>`
 // 4. Deletes the specific chain via `iptables/ip6tables -X <chain>`
-func (h *FaultHandler) stopNetworkBlackHolePort(ctx context.Context, protocol, port, chain string,
-	networkMode ecstypes.NetworkMode, netNs, insertTable, taskArn string,
+func (h *FaultHandler) stopNetworkBlackHolePort(ctx context.Context,
+	protocol, port, chain string,
+	networkMode ecstypes.NetworkMode,
+	netNs, insertTable, taskArn string,
+	isIPv6OnlyTask bool,
 ) (string, error) {
 	running, cmdOutput, err := h.checkNetworkBlackHolePort(ctx, protocol, port, chain, networkMode, netNs, taskArn)
 	if err != nil {
@@ -411,9 +448,21 @@ func (h *FaultHandler) stopNetworkBlackHolePort(ctx context.Context, protocol, p
 		}
 
 		// Helper function to run commands
-		var execCommand = func(cmdString string) (string, error) {
+		var execCommand = func(cmdString string, isIP6TableUpdate bool) (string, error) {
 			execOutput, err := h.runExecCommand(ctx, strings.Split(cmdString, " "))
 			if err != nil {
+				// To be backwards compatible, enforcing IPv6 table updates for IPv6 only tasks
+				if !isIPv6OnlyTask && isIP6TableUpdate {
+					logger.Warn("Ignore the failure for IPv6 table updates for IPv6 only tasks", logger.Fields{
+						"netns":   netNs,
+						"command": cmdString,
+						"output":  string(execOutput),
+						"taskArn": taskArn,
+						"error":   err,
+					})
+					return "", nil
+				}
+
 				logger.Error("Unable to execute the command", logger.Fields{
 					"netns":   netNs,
 					"command": cmdString,
@@ -446,7 +495,7 @@ func (h *FaultHandler) stopNetworkBlackHolePort(ctx context.Context, protocol, p
 				iptablesUtilityTool,
 				requestTimeoutSeconds,
 				chain)
-			if out, err := execCommand(clearChainCmdString); err != nil {
+			if out, err := execCommand(clearChainCmdString, ipVersion == utils.IPv6); err != nil {
 				return out, err
 			}
 
@@ -457,7 +506,7 @@ func (h *FaultHandler) stopNetworkBlackHolePort(ctx context.Context, protocol, p
 				requestTimeoutSeconds,
 				insertTable,
 				chain)
-			if out, err := execCommand(deleteFromTableCmdString); err != nil {
+			if out, err := execCommand(deleteFromTableCmdString, ipVersion == utils.IPv6); err != nil {
 				return out, err
 			}
 
@@ -467,7 +516,7 @@ func (h *FaultHandler) stopNetworkBlackHolePort(ctx context.Context, protocol, p
 				iptablesUtilityTool,
 				requestTimeoutSeconds,
 				chain)
-			if out, err := execCommand(deleteChainCmdString); err != nil {
+			if out, err := execCommand(deleteChainCmdString, ipVersion == utils.IPv6); err != nil {
 				return out, err
 			}
 		}
@@ -1162,6 +1211,11 @@ func validateTaskMetadata(w http.ResponseWriter, agentState state.AgentState, re
 	}
 
 	return &taskMetadata, nil
+}
+
+func isIPv6OnlyTask(taskMetadata *state.TaskResponse) bool {
+	return len(taskMetadata.TaskNetworkConfig.NetworkNamespaces[0].NetworkInterfaces[0].IPV4Addresses) == 0 &&
+		len(taskMetadata.TaskNetworkConfig.NetworkNamespaces[0].NetworkInterfaces[0].IPV6Addresses) >= 1
 }
 
 // getTaskMetadataErrorResponse will be used to classify certain errors that was returned from a GetTaskMetadata function call.
