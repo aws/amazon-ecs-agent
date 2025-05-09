@@ -32,7 +32,7 @@ type iptablesAction string
 
 const (
 	iptablesExecutable            = "iptables"
-	credentialsProxyIpAddress     = "169.254.170.2"
+	CredentialsProxyIpAddress     = "169.254.170.2"
 	credentialsProxyPort          = "80"
 	localhostIpAddress            = "127.0.0.1"
 	localhostCredentialsProxyPort = "51679"
@@ -188,7 +188,7 @@ func getPreroutingChainArgs() []string {
 	return []string{
 		"PREROUTING",
 		"-p", "tcp",
-		"-d", credentialsProxyIpAddress,
+		"-d", CredentialsProxyIpAddress,
 		"--dport", credentialsProxyPort,
 		"-j", "DNAT",
 		"--to-destination", localhostIpAddress + ":" + localhostCredentialsProxyPort,
@@ -289,7 +289,7 @@ func getOutputChainArgs() []string {
 	return []string{
 		"OUTPUT",
 		"-p", "tcp",
-		"-d", credentialsProxyIpAddress,
+		"-d", CredentialsProxyIpAddress,
 		"--dport", credentialsProxyPort,
 		"-j", "REDIRECT",
 		"--to-ports", localhostCredentialsProxyPort,

@@ -18,6 +18,7 @@ import (
 	"fmt"
 	"io"
 	"math"
+	"net"
 	"os"
 	"time"
 
@@ -30,9 +31,14 @@ import (
 	"github.com/aws/amazon-ecs-agent/ecs-init/exec/iptables"
 	"github.com/aws/amazon-ecs-agent/ecs-init/exec/sysctl"
 	"github.com/aws/amazon-ecs-agent/ecs-init/gpu"
+	"github.com/aws/amazon-ecs-agent/ecs-init/routes"
+
+	netutils "github.com/aws/amazon-ecs-agent/ecs-agent/utils/net"
+	netlinkwrapper "github.com/aws/amazon-ecs-agent/ecs-agent/utils/netlinkwrapper"
 
 	log "github.com/cihub/seelog"
 	ctrdapparmor "github.com/containerd/containerd/pkg/apparmor"
+	"github.com/vishvananda/netlink"
 )
 
 const (
@@ -135,6 +141,16 @@ func (e *Engine) PreStart() error {
 	err = e.ipv6RouterAdvertisements.Disable()
 	if err != nil {
 		return engineError("could not disable ipv6 router advertisements", err)
+	}
+	netLink := netlinkwrapper.New()
+	hasIPv4DefaultRoutes, err := netutils.HasDefaultRoute(netLink, nil, netlink.FAMILY_V4)
+	if err != nil {
+		return engineError("could not determine instance's IPv4 compatibility", err)
+	}
+	if !hasIPv4DefaultRoutes {
+		// Need to add a route for TMDS access as there are no default IPv4 routes
+		log.Info("No IPv4 default routes found. Adding a route to direct TMDS to lo.")
+		routes.AddRouteToRedirectToLo(netLink, net.ParseIP(iptables.CredentialsProxyIpAddress))
 	}
 	// Add the rerouting netfilter rule for credentials endpoint
 	log.Info("pre-start: creating credentials proxy route")

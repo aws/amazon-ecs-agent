@@ -29,7 +29,7 @@ var (
 	testErr             = errors.New("test error")
 	preroutingRouteArgs = []string{
 		"-p", "tcp",
-		"-d", credentialsProxyIpAddress,
+		"-d", CredentialsProxyIpAddress,
 		"--dport", credentialsProxyPort,
 		"-j", "DNAT",
 		"--to-destination", localhostIpAddress + ":" + localhostCredentialsProxyPort,
@@ -56,7 +56,7 @@ var (
 	}
 	outputRouteArgs = []string{
 		"-p", "tcp",
-		"-d", credentialsProxyIpAddress,
+		"-d", CredentialsProxyIpAddress,
 		"--dport", credentialsProxyPort,
 		"-j", "REDIRECT",
 		"--to-ports", localhostCredentialsProxyPort,
