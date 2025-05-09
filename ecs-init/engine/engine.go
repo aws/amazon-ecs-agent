@@ -31,14 +31,9 @@ import (
 	"github.com/aws/amazon-ecs-agent/ecs-init/exec/iptables"
 	"github.com/aws/amazon-ecs-agent/ecs-init/exec/sysctl"
 	"github.com/aws/amazon-ecs-agent/ecs-init/gpu"
-	"github.com/aws/amazon-ecs-agent/ecs-init/routes"
-
-	netutils "github.com/aws/amazon-ecs-agent/ecs-agent/utils/net"
-	netlinkwrapper "github.com/aws/amazon-ecs-agent/ecs-agent/utils/netlinkwrapper"
 
 	log "github.com/cihub/seelog"
 	ctrdapparmor "github.com/containerd/containerd/pkg/apparmor"
-	"github.com/vishvananda/netlink"
 )
 
 const (
@@ -74,6 +69,7 @@ type Engine struct {
 	downloader               downloader
 	loopbackRouting          loopbackRouting
 	credentialsProxyRoute    credentialsProxyRoute
+	tmdsIPv6OnlyRouteManager tmdsIPv6OnlyRouteManager
 	ipv6RouterAdvertisements ipv6RouterAdvertisements
 	nvidiaGPUManager         gpu.GPUManager
 }
@@ -142,15 +138,10 @@ func (e *Engine) PreStart() error {
 	if err != nil {
 		return engineError("could not disable ipv6 router advertisements", err)
 	}
-	netLink := netlinkwrapper.New()
-	hasIPv4DefaultRoutes, err := netutils.HasDefaultRoute(netLink, nil, netlink.FAMILY_V4)
+	// Add a local route for TMDS if there are no IPv4 default routes
+	err = e.tmdsIPv6OnlyRouteManager.Create(net.ParseIP(iptables.CredentialsProxyIpAddress))
 	if err != nil {
-		return engineError("could not determine instance's IPv4 compatibility", err)
-	}
-	if !hasIPv4DefaultRoutes {
-		// Need to add a route for TMDS access as there are no default IPv4 routes
-		log.Info("No IPv4 default routes found. Adding a route to direct TMDS to lo.")
-		routes.AddRouteToRedirectToLo(netLink, net.ParseIP(iptables.CredentialsProxyIpAddress))
+		return engineError("could not create routes for task metadata server", err)
 	}
 	// Add the rerouting netfilter rule for credentials endpoint
 	log.Info("pre-start: creating credentials proxy route")
@@ -354,8 +345,9 @@ func (e *Engine) PostStop() error {
 	log.Info("Cleaning up the credentials endpoint setup for Amazon Elastic Container Service Agent")
 	err := e.loopbackRouting.RestoreDefault()
 
-	// Ignore error from Remove() as the netfilter might never have been
-	// added in the first place
+	// Ignore error from Remove() as the routes might never have been added in the first place
+	e.tmdsIPv6OnlyRouteManager.Remove(net.ParseIP(iptables.CredentialsProxyIpAddress))
+	// Ignore error from Remove() as the netfilter might never have been added in the first place
 	e.credentialsProxyRoute.Remove()
 	return err
 }
