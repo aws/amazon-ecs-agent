@@ -25,7 +25,53 @@ import (
 	"github.com/vishvananda/netlink"
 )
 
-type TMDSIPv6OnlyRouteManager struct{ nl netlinkwrapper.NetLink }
+// Manages routes for TMDS access on IPv6-only hosts.
+//
+// IPv6-only hosts do not have IPv4 default routes but still need to access TMDS
+// over IPv4. So, this manager exposes methods to create routes on the host to redirect
+// TMDS traffic to loopback interface over IPv4.
+type TMDSRouteManagerForIPv6Only struct {
+	nl       netlinkwrapper.NetLink
+	tmdsAddr net.IP
+}
+
+func NewTMDSRouteManagerForIPv6Only(tmdsAddr string) (*TMDSRouteManagerForIPv6Only, error) {
+	addr := net.ParseIP(tmdsAddr)
+	if addr == nil {
+		return nil, fmt.Errorf("invalid IP address: %s", tmdsAddr)
+	}
+	return &TMDSRouteManagerForIPv6Only{nl: netlinkwrapper.New(), tmdsAddr: addr}, nil
+}
+
+// Creates a route to route TMDS traffic to loopback interface.
+// No-op on instances with default IPv4 routes.
+func (t *TMDSRouteManagerForIPv6Only) CreateRoute() error {
+	hasIPv4DefaultRoutes, err := netutils.HasDefaultRoute(t.nl, nil, netlink.FAMILY_V4)
+	if err != nil {
+		return fmt.Errorf("error when looking up IPv4 default routes: %w", err)
+	}
+	if hasIPv4DefaultRoutes {
+		// Host is not IPv6-only
+		return nil
+	}
+
+	return AddRouteToRedirectToLo(t.nl, t.tmdsAddr)
+}
+
+// Removes the route created by CreateTMDSRouteForIPv6Only.
+// No-op on instances with default IPv4 routes.
+func (t *TMDSRouteManagerForIPv6Only) RemoveRoute() error {
+	hasIPv4DefaultRoutes, err := netutils.HasDefaultRoute(t.nl, nil, netlink.FAMILY_V4)
+	if err != nil {
+		return fmt.Errorf("error when looking up IPv4 default routes: %w", err)
+	}
+	if hasIPv4DefaultRoutes {
+		// Host is not IPv6-only
+		return nil
+	}
+
+	return RemoveRouteToRedirectToLo(t.nl, t.tmdsAddr)
+}
 
 // Equivalent of `ip route add <IP_ADDR> dev lo`.
 //
@@ -34,22 +80,13 @@ type TMDSIPv6OnlyRouteManager struct{ nl netlinkwrapper.NetLink }
 // On IPv6-only instances there is no route on the host that would apply to
 // non-loopback local traffic such as TMDS. This function helps in such cases
 // by creating an applicable route via loopback interface.
-func (t *TMDSIPv6OnlyRouteManager) Create(addr net.IP) error {
-	hasIPv4DefaultRoutes, err := netutils.HasDefaultRoute(t.nl, nil, netlink.FAMILY_V4)
-	if err != nil {
-		return fmt.Errorf("error when looking up IPv6 default routes: %w", err)
-	}
-	if hasIPv4DefaultRoutes {
-		// Host is not IPv6-only
-		return nil
-	}
-
-	route, err := getRouteToRedirectToLo(t.nl, addr)
+func AddRouteToRedirectToLo(nl netlinkwrapper.NetLink, addr net.IP) error {
+	route, err := getRouteToRedirectToLo(nl, addr)
 	if err != nil {
 		return err
 	}
 
-	if err := t.nl.RouteAdd(route); err != nil {
+	if err := nl.RouteAdd(route); err != nil {
 		if os.IsExist(err) {
 			seelog.Infof("Route %+v already exists", route)
 			return nil
@@ -60,22 +97,14 @@ func (t *TMDSIPv6OnlyRouteManager) Create(addr net.IP) error {
 	return nil
 }
 
-func (t *TMDSIPv6OnlyRouteManager) Remove(addr net.IP) error {
-	hasIPv4DefaultRoutes, err := netutils.HasDefaultRoute(t.nl, nil, netlink.FAMILY_V4)
-	if err != nil {
-		return fmt.Errorf("error when looking up IPv6 default routes: %w", err)
-	}
-	if hasIPv4DefaultRoutes {
-		// Host is not IPv6-only
-		return nil
-	}
-
-	route, err := getRouteToRedirectToLo(t.nl, addr)
+// Removes a route created by AddRouteToRedirectToLo.
+func RemoveRouteToRedirectToLo(nl netlinkwrapper.NetLink, addr net.IP) error {
+	route, err := getRouteToRedirectToLo(nl, addr)
 	if err != nil {
 		return err
 	}
 
-	if err := t.nl.RouteDel(route); err != nil {
+	if err := nl.RouteDel(route); err != nil {
 		return fmt.Errorf("error deleting route %+v: %w", route, err)
 	}
 	return nil

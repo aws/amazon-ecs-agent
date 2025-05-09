@@ -18,7 +18,6 @@ import (
 	"fmt"
 	"io"
 	"math"
-	"net"
 	"os"
 	"time"
 
@@ -31,6 +30,7 @@ import (
 	"github.com/aws/amazon-ecs-agent/ecs-init/exec/iptables"
 	"github.com/aws/amazon-ecs-agent/ecs-init/exec/sysctl"
 	"github.com/aws/amazon-ecs-agent/ecs-init/gpu"
+	"github.com/aws/amazon-ecs-agent/ecs-init/routes"
 
 	log "github.com/cihub/seelog"
 	ctrdapparmor "github.com/containerd/containerd/pkg/apparmor"
@@ -66,12 +66,12 @@ func dockerError(err error) error {
 
 // Engine contains methods invoked when ecs-init is run
 type Engine struct {
-	downloader               downloader
-	loopbackRouting          loopbackRouting
-	credentialsProxyRoute    credentialsProxyRoute
-	tmdsIPv6OnlyRouteManager tmdsIPv6OnlyRouteManager
-	ipv6RouterAdvertisements ipv6RouterAdvertisements
-	nvidiaGPUManager         gpu.GPUManager
+	downloader                    downloader
+	loopbackRouting               loopbackRouting
+	credentialsProxyRoute         credentialsProxyRoute
+	tmdsRoutesForIPv6OnlyInstance tmdsRouteManagerForIPv6Only
+	ipv6RouterAdvertisements      ipv6RouterAdvertisements
+	nvidiaGPUManager              gpu.GPUManager
 }
 
 type TerminalError struct {
@@ -103,12 +103,17 @@ func New() (*Engine, error) {
 	if err != nil {
 		return nil, err
 	}
+	tmdsIPv6OnlyRouteManager, err := routes.NewTMDSRouteManagerForIPv6Only(iptables.CredentialsProxyIpAddress)
+	if err != nil {
+		return nil, err
+	}
 	return &Engine{
-		downloader:               downloader,
-		loopbackRouting:          loopbackRouting,
-		credentialsProxyRoute:    credentialsProxyRoute,
-		ipv6RouterAdvertisements: ipv6RouterAdvertisements,
-		nvidiaGPUManager:         gpu.NewNvidiaGPUManager(),
+		downloader:                    downloader,
+		loopbackRouting:               loopbackRouting,
+		credentialsProxyRoute:         credentialsProxyRoute,
+		tmdsRoutesForIPv6OnlyInstance: tmdsIPv6OnlyRouteManager,
+		ipv6RouterAdvertisements:      ipv6RouterAdvertisements,
+		nvidiaGPUManager:              gpu.NewNvidiaGPUManager(),
 	}, nil
 }
 
@@ -139,7 +144,7 @@ func (e *Engine) PreStart() error {
 		return engineError("could not disable ipv6 router advertisements", err)
 	}
 	// Add a local route for TMDS if there are no IPv4 default routes
-	err = e.tmdsIPv6OnlyRouteManager.Create(net.ParseIP(iptables.CredentialsProxyIpAddress))
+	err = e.tmdsRoutesForIPv6OnlyInstance.CreateRoute()
 	if err != nil {
 		return engineError("could not create routes for task metadata server", err)
 	}
@@ -346,7 +351,7 @@ func (e *Engine) PostStop() error {
 	err := e.loopbackRouting.RestoreDefault()
 
 	// Ignore error from Remove() as the routes might never have been added in the first place
-	e.tmdsIPv6OnlyRouteManager.Remove(net.ParseIP(iptables.CredentialsProxyIpAddress))
+	e.tmdsRoutesForIPv6OnlyInstance.RemoveRoute()
 	// Ignore error from Remove() as the netfilter might never have been added in the first place
 	e.credentialsProxyRoute.Remove()
 	return err

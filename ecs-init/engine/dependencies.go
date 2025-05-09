@@ -15,7 +15,6 @@ package engine
 
 import (
 	"io"
-	"net"
 
 	"github.com/aws/amazon-ecs-agent/ecs-init/cache"
 )
@@ -53,9 +52,9 @@ type credentialsProxyRoute interface {
 
 // Provides methods to create routes for Task Metadata Server access from the host for
 // IPv6-only hosts.
-type tmdsIPv6OnlyRouteManager interface {
-	Create(addr net.IP) error
-	Remove(addr net.IP) error
+type tmdsRouteManagerForIPv6Only interface {
+	CreateRoute() error
+	RemoveRoute() error
 }
 
 type ipv6RouterAdvertisements interface {
