@@ -144,6 +144,7 @@ func (e *Engine) PreStart() error {
 		return engineError("could not disable ipv6 router advertisements", err)
 	}
 	// Add a local route for TMDS if there are no IPv4 default routes
+	log.Info("pre-start: adding routes for TMDS access on IPv6-only host if applicable")
 	err = e.tmdsRoutesForIPv6OnlyInstance.CreateRoute()
 	if err != nil {
 		return engineError("could not create routes for task metadata server", err)

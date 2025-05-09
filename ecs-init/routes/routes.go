@@ -55,6 +55,7 @@ func (t *TMDSRouteManagerForIPv6Only) CreateRoute() error {
 		return nil
 	}
 
+	seelog.Info("Detected IPv6-only instance: adding route to route TMDS traffic to loopback")
 	return AddRouteToRedirectToLo(t.nl, t.tmdsAddr)
 }
 
