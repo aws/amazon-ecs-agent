@@ -13,16 +13,29 @@
 package utils
 
 import (
+	"encoding/json"
+	"fmt"
 	"strconv"
 	"testing"
+	"time"
 
 	"github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
 
+const (
+	startTime            string = "2025-05-09T14:47:58.031Z"
+	startTimeUTCSeconds  string = "1746802078.031"
+	expectedFormatString string = `{"startTime":%s}`
+)
+
 type dummyStruct struct {
 	// no contents
+}
+
+type timestampStruct struct {
+	StartTime *Timestamp `json:"startTime,omitempty" type:"timestamp"`
 }
 
 func TestZeroOrNil(t *testing.T) {
@@ -181,6 +194,154 @@ func TestAddScheme(t *testing.T) {
 			if endpointReturned != tt.expected {
 				t.Errorf("AddScheme() = %v, want %v", endpointReturned, tt.expected)
 			}
+		})
+	}
+}
+
+func TestFormatTime(t *testing.T) {
+	cases := []struct {
+		Name     string
+		Value    string
+		Expected string
+	}{
+		{
+			Name:     "happy case",
+			Value:    startTime,
+			Expected: startTimeUTCSeconds,
+		},
+	}
+
+	for _, test := range cases {
+		t.Run(test.Name, func(t *testing.T) {
+			// parse it
+			value, err := time.Parse(time.RFC3339, test.Value)
+			// check for no errors
+			assert.NoError(t, err)
+			// format it
+			actual := FormatTime(value)
+			// check expected result
+			assert.Equal(t, test.Expected, actual)
+		})
+	}
+}
+
+func TestParseTime(t *testing.T) {
+	cases := []struct {
+		Name     string
+		Value    string
+		Expected string
+	}{
+		{
+			Name:     "happy case",
+			Value:    startTimeUTCSeconds,
+			Expected: startTime,
+		},
+	}
+
+	for _, test := range cases {
+		t.Run(test.Name, func(t *testing.T) {
+			// parse it
+			value, err := time.Parse(time.RFC3339, test.Expected)
+			// check for no errors
+			assert.NoError(t, err)
+			// parse it
+			actual, err := ParseTime(test.Value)
+			// check for no errors
+			assert.NoError(t, err)
+			// check expected result
+			assert.Equal(t, value, actual)
+		})
+	}
+}
+
+func TestMarshalJSON(t *testing.T) {
+	cases := []struct {
+		Name      string
+		Value     timestampStruct
+		StartTime string
+		Expected  string
+	}{
+		{
+			Name:      "happy case",
+			Value:     timestampStruct{},
+			StartTime: startTimeUTCSeconds,
+			Expected:  fmt.Sprintf(expectedFormatString, startTimeUTCSeconds),
+		},
+		{
+			Name:     "empty timestampStruct",
+			Value:    timestampStruct{},
+			Expected: "{}",
+		},
+		{
+			Name: "non-nil StartTime",
+			Value: timestampStruct{
+				StartTime: nil,
+			},
+			Expected: "{}",
+		},
+	}
+
+	for _, test := range cases {
+		t.Run(test.Name, func(t *testing.T) {
+			// add startTime if non-empty
+			if test.StartTime != "" {
+				value, err := ParseTime(test.StartTime)
+				assert.NoError(t, err)
+				test.Value = timestampStruct{
+					StartTime: (*Timestamp)(&value),
+				}
+			}
+
+			// serialize it
+			actual, err := json.Marshal(test.Value)
+			// check expected result
+			assert.Equal(t, test.Expected, string(actual))
+			// check for no errors
+			assert.NoError(t, err)
+		})
+	}
+}
+
+func TestUnmarshalJSON(t *testing.T) {
+	cases := []struct {
+		Name      string
+		Value     []byte
+		StartTime string
+		Expected  timestampStruct
+	}{
+		{
+			Name:      "happy case",
+			Value:     []byte(fmt.Sprintf(expectedFormatString, startTimeUTCSeconds)),
+			StartTime: startTimeUTCSeconds,
+			Expected:  timestampStruct{},
+		},
+		{
+			Name:     "empty timestampStruct",
+			Value:    []byte("{}"),
+			Expected: timestampStruct{},
+		},
+		{
+			Name:     "non-nil StartTime",
+			Value:    []byte(fmt.Sprintf(`{"startTime":null}`)),
+			Expected: timestampStruct{},
+		},
+	}
+
+	for _, test := range cases {
+		t.Run(test.Name, func(t *testing.T) {
+			// add startTime if non-empty
+			if test.StartTime != "" {
+				value, err := ParseTime(test.StartTime)
+				assert.NoError(t, err)
+				test.Expected.StartTime = (*Timestamp)(&value)
+			}
+			var actual timestampStruct
+			// deserialize it
+			err := json.Unmarshal(test.Value, &actual)
+			// check expected result
+			assert.Equal(t, test.Expected, actual)
+			// check for no errors
+			assert.NoError(t, err)
 		})
 	}
 }

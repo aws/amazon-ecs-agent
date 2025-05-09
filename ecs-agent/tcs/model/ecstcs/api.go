@@ -17,8 +17,8 @@ package ecstcs
 
 import (
 	"fmt"
-	"time"
 
+	"github.com/aws/amazon-ecs-agent/ecs-agent/utils"
 	"github.com/aws/aws-sdk-go/aws/awsutil"
 	"github.com/aws/aws-sdk-go/aws/request"
 	"github.com/aws/aws-sdk-go/private/protocol"
@@ -27,7 +27,7 @@ import (
 type AckPublishHealth struct {
 	_ struct{} `type:"structure"`
 
-	Message *string `locationName:"message" type:"string"`
+	Message *string `json:"message,omitempty" type:"string"`
 }
 
 // String returns the string representation.
@@ -51,7 +51,7 @@ func (s AckPublishHealth) GoString() string {
 type AckPublishInstanceStatus struct {
 	_ struct{} `type:"structure"`
 
-	Message *string `locationName:"message" type:"string"`
+	Message *string `json:"message,omitempty" type:"string"`
 }
 
 // String returns the string representation.
@@ -75,7 +75,7 @@ func (s AckPublishInstanceStatus) GoString() string {
 type AckPublishMetric struct {
 	_ struct{} `type:"structure"`
 
-	Message *string `locationName:"message" type:"string"`
+	Message *string `json:"message,omitempty" type:"string"`
 }
 
 // String returns the string representation.
@@ -100,7 +100,7 @@ type BadRequestException struct {
 	_            struct{}                  `type:"structure"`
 	RespMetadata protocol.ResponseMetadata `json:"-" xml:"-"`
 
-	Message_ *string `locationName:"message" type:"string"`
+	Message_ *string `json:"message,omitempty" type:"string"`
 }
 
 // String returns the string representation.
@@ -162,13 +162,13 @@ func (s *BadRequestException) RequestID() string {
 type CWStatsSet struct {
 	_ struct{} `type:"structure"`
 
-	Max *float64 `locationName:"max" type:"double"`
+	Max *float64 `json:"max,omitempty" type:"double"`
 
-	Min *float64 `locationName:"min" type:"double"`
+	Min *float64 `json:"min,omitempty" type:"double"`
 
-	SampleCount *int64 `locationName:"sampleCount" type:"integer"`
+	SampleCount *int64 `json:"sampleCount,omitempty" type:"integer"`
 
-	Sum *float64 `locationName:"sum" type:"double"`
+	Sum *float64 `json:"sum,omitempty" type:"double"`
 }
 
 // String returns the string representation.
@@ -192,13 +192,13 @@ func (s CWStatsSet) GoString() string {
 type ContainerHealth struct {
 	_ struct{} `type:"structure"`
 
-	ContainerName *string `locationName:"containerName" type:"string"`
+	ContainerName *string `json:"containerName,omitempty" type:"string"`
 
-	HealthStatus *string `locationName:"healthStatus" type:"string" enum:"HealthStatus"`
+	HealthStatus *string `json:"healthStatus,omitempty" type:"string" enum:"HealthStatus"`
 
-	StatusMessage *string `locationName:"statusMessage" type:"string"`
+	StatusMessage *string `json:"statusMessage,omitempty" type:"string"`
 
-	StatusSince *time.Time `locationName:"statusSince" type:"timestamp"`
+	StatusSince *utils.Timestamp `json:"statusSince,omitempty" type:"timestamp"`
 }
 
 // String returns the string representation.
@@ -222,19 +222,19 @@ func (s ContainerHealth) GoString() string {
 type ContainerMetric struct {
 	_ struct{} `type:"structure"`
 
-	ContainerArn *string `locationName:"containerArn" type:"string"`
+	ContainerArn *string `json:"containerArn,omitempty" type:"string"`
 
-	ContainerName *string `locationName:"containerName" type:"string"`
+	ContainerName *string `json:"containerName,omitempty" type:"string"`
 
-	CpuStatsSet *CWStatsSet `locationName:"cpuStatsSet" type:"structure"`
+	CpuStatsSet *CWStatsSet `json:"cpuStatsSet,omitempty" type:"structure"`
 
-	MemoryStatsSet *CWStatsSet `locationName:"memoryStatsSet" type:"structure"`
+	MemoryStatsSet *CWStatsSet `json:"memoryStatsSet,omitempty" type:"structure"`
 
-	NetworkStatsSet *NetworkStatsSet `locationName:"networkStatsSet" type:"structure"`
+	NetworkStatsSet *NetworkStatsSet `json:"networkStatsSet,omitempty" type:"structure"`
 
-	RestartStatsSet *RestartStatsSet `locationName:"restartStatsSet" type:"structure"`
+	RestartStatsSet *RestartStatsSet `json:"restartStatsSet,omitempty" type:"structure"`
 
-	StorageStatsSet *StorageStatsSet `locationName:"storageStatsSet" type:"structure"`
+	StorageStatsSet *StorageStatsSet `json:"storageStatsSet,omitempty" type:"structure"`
 }
 
 // String returns the string representation.
@@ -278,9 +278,9 @@ func (s *ContainerMetric) Validate() error {
 type Dimension struct {
 	_ struct{} `type:"structure"`
 
-	Key *string `locationName:"key" type:"string"`
+	Key *string `json:"key,omitempty" type:"string"`
 
-	Value *string `locationName:"value" type:"string"`
+	Value *string `json:"value,omitempty" type:"string"`
 }
 
 // String returns the string representation.
@@ -304,7 +304,7 @@ func (s Dimension) GoString() string {
 type EphemeralStorageMetrics struct {
 	_ struct{} `type:"structure"`
 
-	BytesUtilized *ULongStatsSet `locationName:"bytesUtilized" type:"structure"`
+	BytesUtilized *ULongStatsSet `json:"bytesUtilized,omitempty" type:"structure"`
 }
 
 // String returns the string representation.
@@ -343,11 +343,11 @@ func (s *EphemeralStorageMetrics) Validate() error {
 type GeneralMetric struct {
 	_ struct{} `type:"structure"`
 
-	MetricCounts []*int64 `locationName:"metricCounts" type:"list"`
+	MetricCounts []*int64 `json:"metricCounts,omitempty" type:"list"`
 
-	MetricName *string `locationName:"metricName" type:"string"`
+	MetricName *string `json:"metricName,omitempty" type:"string"`
 
-	MetricValues []*float64 `locationName:"metricValues" type:"list"`
+	MetricValues []*float64 `json:"metricValues,omitempty" type:"list"`
 }
 
 // String returns the string representation.
@@ -371,11 +371,11 @@ func (s GeneralMetric) GoString() string {
 type GeneralMetricsWrapper struct {
 	_ struct{} `type:"structure"`
 
-	Dimensions []*Dimension `locationName:"dimensions" type:"list"`
+	Dimensions []*Dimension `json:"dimensions,omitempty" type:"list"`
 
-	GeneralMetrics []*GeneralMetric `locationName:"generalMetrics" type:"list"`
+	GeneralMetrics []*GeneralMetric `json:"generalMetrics,omitempty" type:"list"`
 
-	MetricType *string `locationName:"metricType" type:"string" enum:"MetricType"`
+	MetricType *string `json:"metricType,omitempty" type:"string" enum:"MetricType"`
 }
 
 // String returns the string representation.
@@ -399,13 +399,13 @@ func (s GeneralMetricsWrapper) GoString() string {
 type HealthMetadata struct {
 	_ struct{} `type:"structure"`
 
-	Cluster *string `locationName:"cluster" type:"string"`
+	Cluster *string `json:"cluster,omitempty" type:"string"`
 
-	ContainerInstance *string `locationName:"containerInstance" type:"string"`
+	ContainerInstance *string `json:"containerInstance,omitempty" type:"string"`
 
-	Fin *bool `locationName:"fin" type:"boolean"`
+	Fin *bool `json:"fin,omitempty" type:"boolean"`
 
-	MessageId *string `locationName:"messageId" type:"string"`
+	MessageId *string `json:"messageId,omitempty" type:"string"`
 }
 
 // String returns the string representation.
@@ -429,7 +429,7 @@ func (s HealthMetadata) GoString() string {
 type HeartbeatInput struct {
 	_ struct{} `type:"structure"`
 
-	Healthy *bool `locationName:"healthy" type:"boolean"`
+	Healthy *bool `json:"healthy,omitempty" type:"boolean"`
 }
 
 // String returns the string representation.
@@ -453,7 +453,7 @@ func (s HeartbeatInput) GoString() string {
 type HeartbeatMessage struct {
 	_ struct{} `type:"structure"`
 
-	Healthy *bool `locationName:"healthy" type:"boolean"`
+	Healthy *bool `json:"healthy,omitempty" type:"boolean"`
 }
 
 // String returns the string representation.
@@ -499,7 +499,7 @@ func (s HeartbeatOutput) GoString() string {
 type InstanceMetrics struct {
 	_ struct{} `type:"structure"`
 
-	Storage *InstanceStorageMetrics `locationName:"storage" type:"structure"`
+	Storage *InstanceStorageMetrics `json:"storage,omitempty" type:"structure"`
 }
 
 // String returns the string representation.
@@ -523,13 +523,13 @@ func (s InstanceMetrics) GoString() string {
 type InstanceStatus struct {
 	_ struct{} `type:"structure"`
 
-	LastStatusChange *time.Time `locationName:"lastStatusChange" type:"timestamp"`
+	LastStatusChange *utils.Timestamp `json:"lastStatusChange,omitempty" type:"timestamp"`
 
-	LastUpdated *time.Time `locationName:"lastUpdated" type:"timestamp"`
+	LastUpdated *utils.Timestamp `json:"lastUpdated,omitempty" type:"timestamp"`
 
-	Status *string `locationName:"status" type:"string" enum:"InstanceHealthcheckStatus"`
+	Status *string `json:"status,omitempty" type:"string" enum:"InstanceHealthcheckStatus"`
 
-	Type *string `locationName:"type" type:"string"`
+	Type *string `json:"type,omitempty" type:"string"`
 }
 
 // String returns the string representation.
@@ -553,11 +553,11 @@ func (s InstanceStatus) GoString() string {
 type InstanceStatusMetadata struct {
 	_ struct{} `type:"structure"`
 
-	Cluster *string `locationName:"cluster" type:"string"`
+	Cluster *string `json:"cluster,omitempty" type:"string"`
 
-	ContainerInstance *string `locationName:"containerInstance" type:"string"`
+	ContainerInstance *string `json:"containerInstance,omitempty" type:"string"`
 
-	RequestId *string `locationName:"requestId" type:"string"`
+	RequestId *string `json:"requestId,omitempty" type:"string"`
 }
 
 // String returns the string representation.
@@ -581,9 +581,9 @@ func (s InstanceStatusMetadata) GoString() string {
 type InstanceStorageMetrics struct {
 	_ struct{} `type:"structure"`
 
-	DataFilesystem *float64 `locationName:"dataFilesystem" type:"double"`
+	DataFilesystem *float64 `json:"dataFilesystem,omitempty" type:"double"`
 
-	RootFilesystem *float64 `locationName:"rootFilesystem" type:"double"`
+	RootFilesystem *float64 `json:"rootFilesystem,omitempty" type:"double"`
 }
 
 // String returns the string representation.
@@ -608,7 +608,7 @@ type InvalidParameterException struct {
 	_            struct{}                  `type:"structure"`
 	RespMetadata protocol.ResponseMetadata `json:"-" xml:"-"`
 
-	Message_ *string `locationName:"message" type:"string"`
+	Message_ *string `json:"message,omitempty" type:"string"`
 }
 
 // String returns the string representation.
@@ -670,15 +670,15 @@ func (s *InvalidParameterException) RequestID() string {
 type MetricsMetadata struct {
 	_ struct{} `type:"structure"`
 
-	Cluster *string `locationName:"cluster" type:"string"`
+	Cluster *string `json:"cluster,omitempty" type:"string"`
 
-	ContainerInstance *string `locationName:"containerInstance" type:"string"`
+	ContainerInstance *string `json:"containerInstance,omitempty" type:"string"`
 
-	Fin *bool `locationName:"fin" type:"boolean"`
+	Fin *bool `json:"fin,omitempty" type:"boolean"`
 
-	Idle *bool `locationName:"idle" type:"boolean"`
+	Idle *bool `json:"idle,omitempty" type:"boolean"`
 
-	MessageId *string `locationName:"messageId" type:"string"`
+	MessageId *string `json:"messageId,omitempty" type:"string"`
 }
 
 // String returns the string representation.
@@ -702,25 +702,25 @@ func (s MetricsMetadata) GoString() string {
 type NetworkStatsSet struct {
 	_ struct{} `type:"structure"`
 
-	RxBytes *ULongStatsSet `locationName:"rxBytes" type:"structure"`
+	RxBytes *ULongStatsSet `json:"rxBytes,omitempty" type:"structure"`
 
-	RxBytesPerSecond *UDoubleCWStatsSet `locationName:"rxBytesPerSecond" type:"structure"`
+	RxBytesPerSecond *UDoubleCWStatsSet `json:"rxBytesPerSecond,omitempty" type:"structure"`
 
-	RxDropped *ULongStatsSet `locationName:"rxDropped" type:"structure"`
+	RxDropped *ULongStatsSet `json:"rxDropped,omitempty" type:"structure"`
 
-	RxErrors *ULongStatsSet `locationName:"rxErrors" type:"structure"`
+	RxErrors *ULongStatsSet `json:"rxErrors,omitempty" type:"structure"`
 
-	RxPackets *ULongStatsSet `locationName:"rxPackets" type:"structure"`
+	RxPackets *ULongStatsSet `json:"rxPackets,omitempty" type:"structure"`
 
-	TxBytes *ULongStatsSet `locationName:"txBytes" type:"structure"`
+	TxBytes *ULongStatsSet `json:"txBytes,omitempty" type:"structure"`
 
-	TxBytesPerSecond *UDoubleCWStatsSet `locationName:"txBytesPerSecond" type:"structure"`
+	TxBytesPerSecond *UDoubleCWStatsSet `json:"txBytesPerSecond,omitempty" type:"structure"`
 
-	TxDropped *ULongStatsSet `locationName:"txDropped" type:"structure"`
+	TxDropped *ULongStatsSet `json:"txDropped,omitempty" type:"structure"`
 
-	TxErrors *ULongStatsSet `locationName:"txErrors" type:"structure"`
+	TxErrors *ULongStatsSet `json:"txErrors,omitempty" type:"structure"`
 
-	TxPackets *ULongStatsSet `locationName:"txPackets" type:"structure"`
+	TxPackets *ULongStatsSet `json:"txPackets,omitempty" type:"structure"`
 }
 
 // String returns the string representation.
@@ -804,11 +804,11 @@ func (s *NetworkStatsSet) Validate() error {
 type PublishHealthInput struct {
 	_ struct{} `type:"structure"`
 
-	Metadata *HealthMetadata `locationName:"metadata" type:"structure"`
+	Metadata *HealthMetadata `json:"metadata,omitempty" type:"structure"`
 
-	Tasks []*TaskHealth `locationName:"tasks" type:"list"`
+	Tasks []*TaskHealth `json:"tasks,omitempty" type:"list"`
 
-	Timestamp *time.Time `locationName:"timestamp" type:"timestamp"`
+	Timestamp *utils.Timestamp `json:"timestamp,omitempty" type:"timestamp"`
 }
 
 // String returns the string representation.
@@ -832,7 +832,7 @@ func (s PublishHealthInput) GoString() string {
 type PublishHealthOutput struct {
 	_ struct{} `type:"structure"`
 
-	Message *string `locationName:"message" type:"string"`
+	Message *string `json:"message,omitempty" type:"string"`
 }
 
 // String returns the string representation.
@@ -856,11 +856,11 @@ func (s PublishHealthOutput) GoString() string {
 type PublishHealthRequest struct {
 	_ struct{} `type:"structure"`
 
-	Metadata *HealthMetadata `locationName:"metadata" type:"structure"`
+	Metadata *HealthMetadata `json:"metadata,omitempty" type:"structure"`
 
-	Tasks []*TaskHealth `locationName:"tasks" type:"list"`
+	Tasks []*TaskHealth `json:"tasks,omitempty" type:"list"`
 
-	Timestamp *time.Time `locationName:"timestamp" type:"timestamp"`
+	Timestamp *utils.Timestamp `json:"timestamp,omitempty" type:"timestamp"`
 }
 
 // String returns the string representation.
@@ -884,11 +884,11 @@ func (s PublishHealthRequest) GoString() string {
 type PublishInstanceStatusInput struct {
 	_ struct{} `type:"structure"`
 
-	Metadata *InstanceStatusMetadata `locationName:"metadata" type:"structure"`
+	Metadata *InstanceStatusMetadata `json:"metadata,omitempty" type:"structure"`
 
-	Statuses []*InstanceStatus `locationName:"statuses" type:"list"`
+	Statuses []*InstanceStatus `json:"statuses,omitempty" type:"list"`
 
-	Timestamp *time.Time `locationName:"timestamp" type:"timestamp"`
+	Timestamp *utils.Timestamp `json:"timestamp,omitempty" type:"timestamp"`
 }
 
 // String returns the string representation.
@@ -912,7 +912,7 @@ func (s PublishInstanceStatusInput) GoString() string {
 type PublishInstanceStatusOutput struct {
 	_ struct{} `type:"structure"`
 
-	Message *string `locationName:"message" type:"string"`
+	Message *string `json:"message,omitempty" type:"string"`
 }
 
 // String returns the string representation.
@@ -936,11 +936,11 @@ func (s PublishInstanceStatusOutput) GoString() string {
 type PublishInstanceStatusRequest struct {
 	_ struct{} `type:"structure"`
 
-	Metadata *InstanceStatusMetadata `locationName:"metadata" type:"structure"`
+	Metadata *InstanceStatusMetadata `json:"metadata,omitempty" type:"structure"`
 
-	Statuses []*InstanceStatus `locationName:"statuses" type:"list"`
+	Statuses []*InstanceStatus `json:"statuses,omitempty" type:"list"`
 
-	Timestamp *time.Time `locationName:"timestamp" type:"timestamp"`
+	Timestamp *utils.Timestamp `json:"timestamp,omitempty" type:"timestamp"`
 }
 
 // String returns the string representation.
@@ -964,13 +964,13 @@ func (s PublishInstanceStatusRequest) GoString() string {
 type PublishMetricsInput struct {
 	_ struct{} `type:"structure"`
 
-	InstanceMetrics *InstanceMetrics `locationName:"instanceMetrics" type:"structure"`
+	InstanceMetrics *InstanceMetrics `json:"instanceMetrics,omitempty" type:"structure"`
 
-	Metadata *MetricsMetadata `locationName:"metadata" type:"structure"`
+	Metadata *MetricsMetadata `json:"metadata,omitempty" type:"structure"`
 
-	TaskMetrics []*TaskMetric `locationName:"taskMetrics" type:"list"`
+	TaskMetrics []*TaskMetric `json:"taskMetrics,omitempty" type:"list"`
 
-	Timestamp *time.Time `locationName:"timestamp" type:"timestamp"`
+	Timestamp *utils.Timestamp `json:"timestamp,omitempty" type:"timestamp"`
 }
 
 // String returns the string representation.
@@ -1014,7 +1014,7 @@ func (s *PublishMetricsInput) Validate() error {
 type PublishMetricsOutput struct {
 	_ struct{} `type:"structure"`
 
-	Message *string `locationName:"message" type:"string"`
+	Message *string `json:"message,omitempty" type:"string"`
 }
 
 // String returns the string representation.
@@ -1038,13 +1038,13 @@ func (s PublishMetricsOutput) GoString() string {
 type PublishMetricsRequest struct {
 	_ struct{} `type:"structure"`
 
-	InstanceMetrics *InstanceMetrics `locationName:"instanceMetrics" type:"structure"`
+	InstanceMetrics *InstanceMetrics `json:"instanceMetrics,omitempty" type:"structure"`
 
-	Metadata *MetricsMetadata `locationName:"metadata" type:"structure"`
+	Metadata *MetricsMetadata `json:"metadata,omitempty" type:"structure"`
 
-	TaskMetrics []*TaskMetric `locationName:"taskMetrics" type:"list"`
+	TaskMetrics []*TaskMetric `json:"taskMetrics,omitempty" type:"list"`
 
-	Timestamp *time.Time `locationName:"timestamp" type:"timestamp"`
+	Timestamp *utils.Timestamp `json:"timestamp,omitempty" type:"timestamp"`
 }
 
 // String returns the string representation.
@@ -1069,7 +1069,7 @@ type ResourceValidationException struct {
 	_            struct{}                  `type:"structure"`
 	RespMetadata protocol.ResponseMetadata `json:"-" xml:"-"`
 
-	Message_ *string `locationName:"message" type:"string"`
+	Message_ *string `json:"message,omitempty" type:"string"`
 }
 
 // String returns the string representation.
@@ -1131,7 +1131,7 @@ func (s *ResourceValidationException) RequestID() string {
 type RestartStatsSet struct {
 	_ struct{} `type:"structure"`
 
-	RestartCount *int64 `locationName:"restartCount" type:"integer"`
+	RestartCount *int64 `json:"restartCount,omitempty" type:"integer"`
 }
 
 // String returns the string representation.
@@ -1156,7 +1156,7 @@ type ServerException struct {
 	_            struct{}                  `type:"structure"`
 	RespMetadata protocol.ResponseMetadata `json:"-" xml:"-"`
 
-	Message_ *string `locationName:"message" type:"string"`
+	Message_ *string `json:"message,omitempty" type:"string"`
 }
 
 // String returns the string representation.
@@ -1218,9 +1218,9 @@ func (s *ServerException) RequestID() string {
 type StartTelemetrySessionInput struct {
 	_ struct{} `type:"structure"`
 
-	Cluster *string `locationName:"cluster" type:"string"`
+	Cluster *string `json:"cluster,omitempty" type:"string"`
 
-	ContainerInstance *string `locationName:"containerInstance" type:"string"`
+	ContainerInstance *string `json:"containerInstance,omitempty" type:"string"`
 }
 
 // String returns the string representation.
@@ -1244,7 +1244,7 @@ func (s StartTelemetrySessionInput) GoString() string {
 type StartTelemetrySessionOutput struct {
 	_ struct{} `type:"structure"`
 
-	Message *string `locationName:"message" type:"string"`
+	Message *string `json:"message,omitempty" type:"string"`
 }
 
 // String returns the string representation.
@@ -1268,9 +1268,9 @@ func (s StartTelemetrySessionOutput) GoString() string {
 type StartTelemetrySessionRequest struct {
 	_ struct{} `type:"structure"`
 
-	Cluster *string `locationName:"cluster" type:"string"`
+	Cluster *string `json:"cluster,omitempty" type:"string"`
 
-	ContainerInstance *string `locationName:"containerInstance" type:"string"`
+	ContainerInstance *string `json:"containerInstance,omitempty" type:"string"`
 }
 
 // String returns the string representation.
@@ -1294,7 +1294,7 @@ func (s StartTelemetrySessionRequest) GoString() string {
 type StopTelemetrySessionMessage struct {
 	_ struct{} `type:"structure"`
 
-	Message *string `locationName:"message" type:"string"`
+	Message *string `json:"message,omitempty" type:"string"`
 }
 
 // String returns the string representation.
@@ -1318,9 +1318,9 @@ func (s StopTelemetrySessionMessage) GoString() string {
 type StorageStatsSet struct {
 	_ struct{} `type:"structure"`
 
-	ReadSizeBytes *ULongStatsSet `locationName:"readSizeBytes" type:"structure"`
+	ReadSizeBytes *ULongStatsSet `json:"readSizeBytes,omitempty" type:"structure"`
 
-	WriteSizeBytes *ULongStatsSet `locationName:"writeSizeBytes" type:"structure"`
+	WriteSizeBytes *ULongStatsSet `json:"writeSizeBytes,omitempty" type:"structure"`
 }
 
 // String returns the string representation.
@@ -1364,15 +1364,15 @@ func (s *StorageStatsSet) Validate() error {
 type TaskHealth struct {
 	_ struct{} `type:"structure"`
 
-	ClusterArn *string `locationName:"clusterArn" type:"string"`
+	ClusterArn *string `json:"clusterArn,omitempty" type:"string"`
 
-	Containers []*ContainerHealth `locationName:"containers" type:"list"`
+	Containers []*ContainerHealth `json:"containers,omitempty" type:"list"`
 
-	TaskArn *string `locationName:"taskArn" type:"string"`
+	TaskArn *string `json:"taskArn,omitempty" type:"string"`
 
-	TaskDefinitionFamily *string `locationName:"taskDefinitionFamily" type:"string"`
+	TaskDefinitionFamily *string `json:"taskDefinitionFamily,omitempty" type:"string"`
 
-	TaskDefinitionVersion *string `locationName:"taskDefinitionVersion" type:"string"`
+	TaskDefinitionVersion *string `json:"taskDefinitionVersion,omitempty" type:"string"`
 }
 
 // String returns the string representation.
@@ -1396,21 +1396,21 @@ func (s TaskHealth) GoString() string {
 type TaskMetric struct {
 	_ struct{} `type:"structure"`
 
-	ClusterArn *string `locationName:"clusterArn" type:"string"`
+	ClusterArn *string `json:"clusterArn,omitempty" type:"string"`
 
-	ContainerMetrics []*ContainerMetric `locationName:"containerMetrics" type:"list"`
+	ContainerMetrics []*ContainerMetric `json:"containerMetrics,omitempty" type:"list"`
 
-	EphemeralStorageMetrics *EphemeralStorageMetrics `locationName:"ephemeralStorageMetrics" type:"structure"`
+	EphemeralStorageMetrics *EphemeralStorageMetrics `json:"ephemeralStorageMetrics,omitempty" type:"structure"`
 
-	ServiceConnectMetricsWrapper []*GeneralMetricsWrapper `locationName:"serviceConnectMetricsWrapper" type:"list"`
+	ServiceConnectMetricsWrapper []*GeneralMetricsWrapper `json:"serviceConnectMetricsWrapper,omitempty" type:"list"`
 
-	TaskArn *string `locationName:"taskArn" type:"string"`
+	TaskArn *string `json:"taskArn,omitempty" type:"string"`
 
-	TaskDefinitionFamily *string `locationName:"taskDefinitionFamily" type:"string"`
+	TaskDefinitionFamily *string `json:"taskDefinitionFamily,omitempty" type:"string"`
 
-	TaskDefinitionVersion *string `locationName:"taskDefinitionVersion" type:"string"`
+	TaskDefinitionVersion *string `json:"taskDefinitionVersion,omitempty" type:"string"`
 
-	VolumeMetrics []*VolumeMetric `locationName:"volumeMetrics" type:"list"`
+	VolumeMetrics []*VolumeMetric `json:"volumeMetrics,omitempty" type:"list"`
 }
 
 // String returns the string representation.
@@ -1470,16 +1470,16 @@ type UDoubleCWStatsSet struct {
 	_ struct{} `type:"structure"`
 
 	// Max is a required field
-	Max *float64 `locationName:"max" type:"double" required:"true"`
+	Max *float64 `json:"max" type:"double" required:"true"`
 
 	// Min is a required field
-	Min *float64 `locationName:"min" type:"double" required:"true"`
+	Min *float64 `json:"min" type:"double" required:"true"`
 
 	// SampleCount is a required field
-	SampleCount *int64 `locationName:"sampleCount" type:"integer" required:"true"`
+	SampleCount *int64 `json:"sampleCount" type:"integer" required:"true"`
 
 	// Sum is a required field
-	Sum *float64 `locationName:"sum" type:"double" required:"true"`
+	Sum *float64 `json:"sum" type:"double" required:"true"`
 }
 
 // String returns the string representation.
@@ -1526,22 +1526,22 @@ type ULongStatsSet struct {
 	_ struct{} `type:"structure"`
 
 	// Max is a required field
-	Max *int64 `locationName:"max" type:"long" required:"true"`
+	Max *int64 `json:"max" type:"long" required:"true"`
 
 	// Min is a required field
-	Min *int64 `locationName:"min" type:"long" required:"true"`
+	Min *int64 `json:"min" type:"long" required:"true"`
 
-	OverflowMax *int64 `locationName:"overflowMax" type:"long"`
+	OverflowMax *int64 `json:"overflowMax,omitempty" type:"long"`
 
-	OverflowMin *int64 `locationName:"overflowMin" type:"long"`
+	OverflowMin *int64 `json:"overflowMin,omitempty" type:"long"`
 
-	OverflowSum *int64 `locationName:"overflowSum" type:"long"`
+	OverflowSum *int64 `json:"overflowSum,omitempty" type:"long"`
 
 	// SampleCount is a required field
-	SampleCount *int64 `locationName:"sampleCount" type:"long" required:"true"`
+	SampleCount *int64 `json:"sampleCount" type:"long" required:"true"`
 
 	// Sum is a required field
-	Sum *int64 `locationName:"sum" type:"long" required:"true"`
+	Sum *int64 `json:"sum" type:"long" required:"true"`
 }
 
 // String returns the string representation.
@@ -1587,13 +1587,13 @@ func (s *ULongStatsSet) Validate() error {
 type VolumeMetric struct {
 	_ struct{} `type:"structure"`
 
-	Size *UDoubleCWStatsSet `locationName:"size" type:"structure"`
+	Size *UDoubleCWStatsSet `json:"size,omitempty" type:"structure"`
 
-	Utilized *UDoubleCWStatsSet `locationName:"utilized" type:"structure"`
+	Utilized *UDoubleCWStatsSet `json:"utilized,omitempty" type:"structure"`
 
-	VolumeId *string `locationName:"volumeId" type:"string"`
+	VolumeId *string `json:"volumeId,omitempty" type:"string"`
 
-	VolumeName *string `locationName:"volumeName" type:"string"`
+	VolumeName *string `json:"volumeName,omitempty" type:"string"`
 }
 
 // String returns the string representation.

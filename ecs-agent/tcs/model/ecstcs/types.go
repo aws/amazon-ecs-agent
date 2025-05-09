@@ -16,6 +16,8 @@ package ecstcs
 import (
 	"time"
 
+	"github.com/aws/amazon-ecs-agent/ecs-agent/utils"
+
 	"github.com/aws/aws-sdk-go-v2/aws"
 )
 
@@ -25,7 +27,7 @@ func NewPublishMetricsRequest(instanceMetrics *InstanceMetrics, metadata *Metric
 		InstanceMetrics: instanceMetrics,
 		Metadata:        metadata,
 		TaskMetrics:     taskMetrics,
-		Timestamp:       aws.Time(time.Now()),
+		Timestamp:       (*utils.Timestamp)(aws.Time(time.Now())),
 	}
 }
 
@@ -34,7 +36,7 @@ func NewPublishHealthMetricsRequest(metadata *HealthMetadata, healthMetrics []*T
 	return &PublishHealthRequest{
 		Metadata:  metadata,
 		Tasks:     healthMetrics,
-		Timestamp: aws.Time(time.Now()),
+		Timestamp: (*utils.Timestamp)(aws.Time(time.Now())),
 	}
 }
 

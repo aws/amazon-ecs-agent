@@ -26,6 +26,7 @@ import (
 	"github.com/aws/amazon-ecs-agent/agent/data"
 	"github.com/aws/amazon-ecs-agent/ecs-agent/logger"
 	"github.com/aws/amazon-ecs-agent/ecs-agent/logger/field"
+	"github.com/aws/amazon-ecs-agent/ecs-agent/utils"
 
 	"github.com/cihub/seelog"
 	"github.com/pborman/uuid"
@@ -721,7 +722,7 @@ func (engine *DockerStatsEngine) getTaskHealthUnsafe(taskARN string) *ecstcs.Tas
 		containerHealth := &ecstcs.ContainerHealth{
 			ContainerName: aws.String(dockerContainer.Container.Name),
 			HealthStatus:  aws.String(healthInfo.Status.BackendStatus()),
-			StatusSince:   aws.Time(healthInfo.Since.UTC()),
+			StatusSince:   (*utils.Timestamp)(aws.Time(healthInfo.Since.UTC())),
 		}
 		containerHealths = append(containerHealths, containerHealth)
 	}

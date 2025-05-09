@@ -27,6 +27,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"regexp"
 	"strings"
 	"text/template"
 
@@ -139,6 +140,10 @@ func genTypesOnlyAPI(file string) error {
 		fmt.Println(err)
 		return err
 	}
+
+	// Convert locationName tags to json tags
+	codeWithImports = convertLocationNameToJSON(codeWithImports)
+
 	outFile := filepath.Join(apiGen.PackageName(), "api.go")
 	err = ioutil.WriteFile(outFile, []byte(fmt.Sprintf("%s\n%s", copyrightHeader, codeWithImports)), 0644)
 	if err != nil {
@@ -194,6 +199,10 @@ func genFile(api *api.API, code string, fileName string) error {
 		return err
 	}
 	defer outFile.Close()
+
+	// Convert locationName tags to json tags
+	processedCode = convertLocationNameToJSON(processedCode)
+
 	withHeader := fmt.Sprintf("%s\n%s", copyrightHeader, processedCode)
 	goimports := exec.Command("goimports")
 	goimports.Stdin = bytes.NewBufferString(withHeader)
@@ -205,6 +214,65 @@ func genFile(api *api.API, code string, fileName string) error {
 	}
 
 	return nil
+}
+
+// convertLocationNameToJSON orchestrates the conversion of struct tags and field types:
+// 1. Converts locationName struct tags to json tags (with omitempty for non-required fields)
+// 2. Converts time.Time fields to *utils.Timestamp for proper JSON serialization
+// 3. Adds the utils import if Timestamp is used
+func convertLocationNameToJSON(code []byte) []byte {
+	codeStr := string(code)
+
+	// Replace locationName tags with json tags
+	codeStr = processLocationNameTags(codeStr)
+
+	// Convert time.Time to *utils.Timestamp
+	codeStr = processTimeFields(codeStr)
+
+	// Add utils import if needed
+	codeStr = addUtilsImportIfNeeded(codeStr)
+
+	return []byte(codeStr)
+}
+
+// processLocationNameTags converts locationName struct tags to json tags
+func processLocationNameTags(codeStr string) string {
+	// Find all struct field declarations with locationName tag
+	re := regexp.MustCompile(`(` + "`" + `locationName:")([^"]+)("(?:[^` + "`" + `]*required:"true"[^` + "`" + `]*|[^` + "`" + `]*))` + "`")
+
+	// Replace with json tag, handling required fields specially
+	return re.ReplaceAllStringFunc(codeStr, func(match string) string {
+		isRequired := strings.Contains(match, `required:"true"`)
+
+		// Extract the tag name
+		nameRe := regexp.MustCompile(`locationName:"([^"]+)"`)
+		nameMatches := nameRe.FindStringSubmatch(match)
+		if len(nameMatches) < 2 {
+			return match
+		}
+		tagName := nameMatches[1]
+
+		// Format the replacement based on whether the field is required
+		jsonTag := fmt.Sprintf(`json:"%s%s"`, tagName, map[bool]string{true: "", false: ",omitempty"}[isRequired])
+		return strings.Replace(match, fmt.Sprintf(`locationName:"%s"`, tagName), jsonTag, 1)
+	})
+}
+
+// processTimeFields converts time.Time fields to *utils.Timestamp
+func processTimeFields(codeStr string) string {
+	timeRe := regexp.MustCompile(`([[:space:]]*)([A-Za-z0-9_]+)([[:space:]]+)(\*?)time\.Time([[:space:]]*` + "`" + `[^` + "`" + `]*` + "`" + `)?`)
+	return timeRe.ReplaceAllString(codeStr, "$1$2$3*utils.Timestamp$5")
+}
+
+// addUtilsImportIfNeeded adds the utils import if Timestamp is used
+func addUtilsImportIfNeeded(codeStr string) string {
+	if strings.Contains(codeStr, "utils.Timestamp") && !strings.Contains(codeStr, `"github.com/aws/amazon-ecs-agent/ecs-agent/utils"`) {
+		importRe := regexp.MustCompile(`import\s*\(([\s\S]*?)\)`)
+		if importRe.MatchString(codeStr) {
+			return importRe.ReplaceAllString(codeStr, "import (\n$1\t\"github.com/aws/amazon-ecs-agent/ecs-agent/utils\"\n)")
+		}
+	}
+	return codeStr
 }
 
 func getCopyrightFile(filename string) (string, error) {

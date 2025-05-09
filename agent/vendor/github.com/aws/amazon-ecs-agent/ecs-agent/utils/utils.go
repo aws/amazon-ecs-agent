@@ -13,9 +13,11 @@
 package utils
 
 import (
+	"math"
 	"reflect"
 	"regexp"
 	"strconv"
+	"time"
 
 	"github.com/aws/aws-sdk-go-v2/aws"
 	"golang.org/x/exp/constraints"
@@ -94,4 +96,56 @@ func AddScheme(endpoint string) string {
 		return endpoint
 	}
 	return httpsPrefix + endpoint
+}
+
+// type alias to workaround serializing time.Time into seconds UTC instead of RFC3339
+// example
+// (original) timestamp: "2025-05-09T14:47:58.031Z"
+// (customized) timestamp: "1746802078.031"
+type Timestamp time.Time
+
+// FormatTime returns a string value of the time.
+// https://github.com/aws/aws-sdk-go/blob/main/private/protocol/timestamp.go#L55-L69
+func FormatTime(t time.Time) string {
+	t = t.UTC().Truncate(time.Millisecond)
+
+	ms := t.UnixNano() / int64(time.Millisecond)
+	return strconv.FormatFloat(float64(ms)/1e3, 'f', -1, 64)
+}
+
+// ParseTime attempts to parse the time given the format. Returns
+// the time if it was able to be parsed, and fails otherwise.
+// https://github.com/aws/aws-sdk-go/blob/main/private/protocol/timestamp.go#L73-L101
+func ParseTime(value string) (time.Time, error) {
+	v, err := strconv.ParseFloat(value, 64)
+	_, dec := math.Modf(v)
+	dec = math.Round(dec*1e3) / 1e3 //Rounds 0.1229999 to 0.123
+	if err != nil {
+		return time.Time{}, err
+	}
+
+	return time.Unix(int64(v), int64(dec*(1e9))).In(time.UTC), nil
+}
+
+// Follow aws-sdk-go (v1) behavior for time.Time serialization into UTC seconds (UnixTimeFormatName)
+// https://github.com/aws/aws-sdk-go/blob/main/private/protocol/timestamp.go#L54-L69
+func (t *Timestamp) MarshalJSON() ([]byte, error) {
+	if t == nil {
+		return []byte("null"), nil
+	}
+
+	return []byte(FormatTime(time.Time(*t))), nil
+}
+
+// Follow aws-sdk-go (v1) behavior for time.Time deserialization into UTC seconds (UnixTimeFormatName)
+// https://github.com/aws/aws-sdk-go/blob/main/private/protocol/timestamp.go#L90-L97
+func (t *Timestamp) UnmarshalJSON(data []byte) error {
+	value := string(data)
+	if value == "null" {
+		return nil
+	}
+
+	timestamp, err := ParseTime(value)
+	*t = Timestamp(timestamp)
+	return err
 }

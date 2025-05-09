@@ -44,7 +44,6 @@ import (
 	"github.com/aws/amazon-ecs-agent/ecs-agent/wsclient/wsconn"
 
 	"github.com/aws/aws-sdk-go-v2/aws"
-	"github.com/aws/aws-sdk-go/private/protocol/json/jsonutil"
 	"github.com/gorilla/websocket"
 	"github.com/pkg/errors"
 )
@@ -547,7 +546,7 @@ func (cs *ClientServerImpl) CreateRequestMessage(input interface{}) ([]byte, err
 	if msg.Type == "" {
 		return nil, &UnrecognizedWSRequestType{reflect.TypeOf(input).String()}
 	}
-	messageData, err := jsonutil.BuildJSON(input)
+	messageData, err := json.Marshal(input)
 	if err != nil {
 		return nil, &NotMarshallableWSRequest{msg.Type, err}
 	}

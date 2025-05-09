@@ -33,6 +33,7 @@ import (
 	"github.com/aws/amazon-ecs-agent/ecs-agent/metrics"
 	tcsclient "github.com/aws/amazon-ecs-agent/ecs-agent/tcs/client"
 	"github.com/aws/amazon-ecs-agent/ecs-agent/tcs/model/ecstcs"
+	"github.com/aws/amazon-ecs-agent/ecs-agent/utils"
 	"github.com/aws/amazon-ecs-agent/ecs-agent/wsclient"
 	wsmock "github.com/aws/amazon-ecs-agent/ecs-agent/wsclient/mock/utils"
 
@@ -468,7 +469,7 @@ func createPublishMetricsRequest() *ecstcs.PublishMetricsRequest {
 	fval = rand.Float64()
 	var ival int64
 	ival = rand.Int63n(10)
-	ts := time.Now()
+	ts := (utils.Timestamp)(time.Now())
 	idle := false
 	messageId := testMessageId
 	return &ecstcs.PublishMetricsRequest{
