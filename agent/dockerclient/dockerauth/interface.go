@@ -17,10 +17,12 @@ package dockerauth
 
 import (
 	apicontainer "github.com/aws/amazon-ecs-agent/agent/api/container"
+	"github.com/aws/amazon-ecs-agent/agent/config/ipcompatibility"
+
 	"github.com/docker/docker/api/types/registry"
 )
 
 // DockerAuthProvider is something that can give the auth information for a given docker image
 type DockerAuthProvider interface {
-	GetAuthconfig(image string, registryAuthData *apicontainer.RegistryAuthenticationData) (registry.AuthConfig, error)
+	GetAuthconfig(image string, registryAuthData *apicontainer.RegistryAuthenticationData, ipCompatibility *ipcompatibility.IPCompatibility) (registry.AuthConfig, error)
 }

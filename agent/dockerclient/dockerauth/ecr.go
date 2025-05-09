@@ -20,6 +20,7 @@ import (
 	"time"
 
 	apicontainer "github.com/aws/amazon-ecs-agent/agent/api/container"
+	"github.com/aws/amazon-ecs-agent/agent/config/ipcompatibility"
 	"github.com/aws/amazon-ecs-agent/agent/ecr"
 	"github.com/aws/amazon-ecs-agent/ecs-agent/async"
 	"github.com/aws/amazon-ecs-agent/ecs-agent/credentials"
@@ -62,7 +63,7 @@ func (key *cacheKey) String() string {
 
 // NewECRAuthProvider returns a DockerAuthProvider that can handle retrieve
 // credentials for pulling from Amazon EC2 Container Registry
-func NewECRAuthProvider(ecrFactory ecr.ECRFactory, cache async.Cache) DockerAuthProvider {
+func NewECRAuthProvider(ecrFactory ecr.ECRFactory, cache async.Cache, ipCompatibility ipcompatibility.IPCompatibility) DockerAuthProvider {
 	return &ecrAuthProvider{
 		tokenCache: cache,
 		factory:    ecrFactory,
@@ -71,7 +72,7 @@ func NewECRAuthProvider(ecrFactory ecr.ECRFactory, cache async.Cache) DockerAuth
 
 // GetAuthconfig retrieves the correct auth configuration for the given repository
 func (authProvider *ecrAuthProvider) GetAuthconfig(image string,
-	registryAuthData *apicontainer.RegistryAuthenticationData) (registry.AuthConfig, error) {
+	registryAuthData *apicontainer.RegistryAuthenticationData, ipCompatibility *ipcompatibility.IPCompatibility) (registry.AuthConfig, error) {
 
 	if registryAuthData == nil {
 		return registry.AuthConfig{}, fmt.Errorf("dockerauth: missing container's registry auth data")
@@ -106,7 +107,7 @@ func (authProvider *ecrAuthProvider) GetAuthconfig(image string,
 	}
 
 	// Get the auth config from ECR
-	return authProvider.getAuthConfigFromECR(image, key, authData)
+	return authProvider.getAuthConfigFromECR(image, key, authData, ipCompatibility)
 }
 
 // getAuthconfigFromCache retrieves the token from cache
@@ -139,9 +140,9 @@ func (authProvider *ecrAuthProvider) getAuthConfigFromCache(key cacheKey) *regis
 }
 
 // getAuthConfigFromECR calls the ECR API to get docker auth config
-func (authProvider *ecrAuthProvider) getAuthConfigFromECR(image string, key cacheKey, authData *apicontainer.ECRAuthData) (registry.AuthConfig, error) {
+func (authProvider *ecrAuthProvider) getAuthConfigFromECR(image string, key cacheKey, authData *apicontainer.ECRAuthData, ipCompatibility *ipcompatibility.IPCompatibility) (registry.AuthConfig, error) {
 	// Create ECR client to get the token
-	client, err := authProvider.factory.GetClient(authData)
+	client, err := authProvider.factory.GetClient(authData, ipCompatibility)
 	if err != nil {
 		return registry.AuthConfig{}, err
 	}
@@ -164,7 +165,6 @@ func (authProvider *ecrAuthProvider) getAuthConfigFromECR(image string, key cach
 
 	// Verify the auth data has the correct format for ECR
 	if ecrAuthData.ProxyEndpoint != nil &&
-		strings.HasPrefix(proxyEndpointScheme+image, aws.ToString(ecrAuthData.ProxyEndpoint)) &&
 		ecrAuthData.AuthorizationToken != nil {
 
 		// Cache the new token
