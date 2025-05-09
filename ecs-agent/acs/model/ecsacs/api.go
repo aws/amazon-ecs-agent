@@ -26,9 +26,9 @@ import (
 type ASMAuthData struct {
 	_ struct{} `type:"structure"`
 
-	CredentialsParameter *string `locationName:"credentialsParameter" type:"string"`
+	CredentialsParameter *string `json:"credentialsParameter,omitempty" type:"string"`
 
-	Region *string `locationName:"region" type:"string"`
+	Region *string `json:"region,omitempty" type:"string"`
 }
 
 // String returns the string representation.
@@ -53,7 +53,7 @@ type AccessDeniedException struct {
 	_            struct{}                  `type:"structure"`
 	RespMetadata protocol.ResponseMetadata `json:"-" xml:"-"`
 
-	Message_ *string `locationName:"message" type:"string"`
+	Message_ *string `json:"message,omitempty" type:"string"`
 }
 
 // String returns the string representation.
@@ -115,11 +115,11 @@ func (s *AccessDeniedException) RequestID() string {
 type AckRequest struct {
 	_ struct{} `type:"structure"`
 
-	Cluster *string `locationName:"cluster" type:"string"`
+	Cluster *string `json:"cluster,omitempty" type:"string"`
 
-	ContainerInstance *string `locationName:"containerInstance" type:"string"`
+	ContainerInstance *string `json:"containerInstance,omitempty" type:"string"`
 
-	MessageId *string `locationName:"messageId" type:"string"`
+	MessageId *string `json:"messageId,omitempty" type:"string"`
 }
 
 // String returns the string representation.
@@ -143,13 +143,13 @@ func (s AckRequest) GoString() string {
 type Association struct {
 	_ struct{} `type:"structure"`
 
-	Containers []*string `locationName:"containers" type:"list"`
+	Containers []*string `json:"containers,omitempty" type:"list"`
 
-	Content *EncodedString `locationName:"content" type:"structure"`
+	Content *EncodedString `json:"content,omitempty" type:"structure"`
 
-	Name *string `locationName:"name" type:"string"`
+	Name *string `json:"name,omitempty" type:"string"`
 
-	Type *string `locationName:"type" type:"string" enum:"AssociationType"`
+	Type *string `json:"type,omitempty" type:"string" enum:"AssociationType"`
 }
 
 // String returns the string representation.
@@ -173,17 +173,17 @@ func (s Association) GoString() string {
 type AttachInstanceNetworkInterfacesInput struct {
 	_ struct{} `type:"structure"`
 
-	ClusterArn *string `locationName:"clusterArn" type:"string"`
+	ClusterArn *string `json:"clusterArn,omitempty" type:"string"`
 
-	ContainerInstanceArn *string `locationName:"containerInstanceArn" type:"string"`
+	ContainerInstanceArn *string `json:"containerInstanceArn,omitempty" type:"string"`
 
-	ElasticNetworkInterfaces []*ElasticNetworkInterface `locationName:"elasticNetworkInterfaces" type:"list"`
+	ElasticNetworkInterfaces []*ElasticNetworkInterface `json:"elasticNetworkInterfaces,omitempty" type:"list"`
 
-	GeneratedAt *int64 `locationName:"generatedAt" type:"long"`
+	GeneratedAt *int64 `json:"generatedAt,omitempty" type:"long"`
 
-	MessageId *string `locationName:"messageId" type:"string"`
+	MessageId *string `json:"messageId,omitempty" type:"string"`
 
-	WaitTimeoutMs *int64 `locationName:"waitTimeoutMs" type:"long"`
+	WaitTimeoutMs *int64 `json:"waitTimeoutMs,omitempty" type:"long"`
 }
 
 // String returns the string representation.
@@ -207,17 +207,17 @@ func (s AttachInstanceNetworkInterfacesInput) GoString() string {
 type AttachInstanceNetworkInterfacesMessage struct {
 	_ struct{} `type:"structure"`
 
-	ClusterArn *string `locationName:"clusterArn" type:"string"`
+	ClusterArn *string `json:"clusterArn,omitempty" type:"string"`
 
-	ContainerInstanceArn *string `locationName:"containerInstanceArn" type:"string"`
+	ContainerInstanceArn *string `json:"containerInstanceArn,omitempty" type:"string"`
 
-	ElasticNetworkInterfaces []*ElasticNetworkInterface `locationName:"elasticNetworkInterfaces" type:"list"`
+	ElasticNetworkInterfaces []*ElasticNetworkInterface `json:"elasticNetworkInterfaces,omitempty" type:"list"`
 
-	GeneratedAt *int64 `locationName:"generatedAt" type:"long"`
+	GeneratedAt *int64 `json:"generatedAt,omitempty" type:"long"`
 
-	MessageId *string `locationName:"messageId" type:"string"`
+	MessageId *string `json:"messageId,omitempty" type:"string"`
 
-	WaitTimeoutMs *int64 `locationName:"waitTimeoutMs" type:"long"`
+	WaitTimeoutMs *int64 `json:"waitTimeoutMs,omitempty" type:"long"`
 }
 
 // String returns the string representation.
@@ -241,11 +241,11 @@ func (s AttachInstanceNetworkInterfacesMessage) GoString() string {
 type AttachInstanceNetworkInterfacesOutput struct {
 	_ struct{} `type:"structure"`
 
-	Cluster *string `locationName:"cluster" type:"string"`
+	Cluster *string `json:"cluster,omitempty" type:"string"`
 
-	ContainerInstance *string `locationName:"containerInstance" type:"string"`
+	ContainerInstance *string `json:"containerInstance,omitempty" type:"string"`
 
-	MessageId *string `locationName:"messageId" type:"string"`
+	MessageId *string `json:"messageId,omitempty" type:"string"`
 }
 
 // String returns the string representation.
@@ -269,21 +269,21 @@ func (s AttachInstanceNetworkInterfacesOutput) GoString() string {
 type AttachTaskNetworkInterfacesInput struct {
 	_ struct{} `type:"structure"`
 
-	ClusterArn *string `locationName:"clusterArn" type:"string"`
+	ClusterArn *string `json:"clusterArn,omitempty" type:"string"`
 
-	ContainerInstanceArn *string `locationName:"containerInstanceArn" type:"string"`
+	ContainerInstanceArn *string `json:"containerInstanceArn,omitempty" type:"string"`
 
-	ElasticNetworkInterfaces []*ElasticNetworkInterface `locationName:"elasticNetworkInterfaces" type:"list"`
+	ElasticNetworkInterfaces []*ElasticNetworkInterface `json:"elasticNetworkInterfaces,omitempty" type:"list"`
 
-	GeneratedAt *int64 `locationName:"generatedAt" type:"long"`
+	GeneratedAt *int64 `json:"generatedAt,omitempty" type:"long"`
 
-	MessageId *string `locationName:"messageId" type:"string"`
+	MessageId *string `json:"messageId,omitempty" type:"string"`
 
-	TaskArn *string `locationName:"taskArn" type:"string"`
+	TaskArn *string `json:"taskArn,omitempty" type:"string"`
 
-	TaskClusterArn *string `locationName:"taskClusterArn" type:"string"`
+	TaskClusterArn *string `json:"taskClusterArn,omitempty" type:"string"`
 
-	WaitTimeoutMs *int64 `locationName:"waitTimeoutMs" type:"long"`
+	WaitTimeoutMs *int64 `json:"waitTimeoutMs,omitempty" type:"long"`
 }
 
 // String returns the string representation.
@@ -307,21 +307,21 @@ func (s AttachTaskNetworkInterfacesInput) GoString() string {
 type AttachTaskNetworkInterfacesMessage struct {
 	_ struct{} `type:"structure"`
 
-	ClusterArn *string `locationName:"clusterArn" type:"string"`
+	ClusterArn *string `json:"clusterArn,omitempty" type:"string"`
 
-	ContainerInstanceArn *string `locationName:"containerInstanceArn" type:"string"`
+	ContainerInstanceArn *string `json:"containerInstanceArn,omitempty" type:"string"`
 
-	ElasticNetworkInterfaces []*ElasticNetworkInterface `locationName:"elasticNetworkInterfaces" type:"list"`
+	ElasticNetworkInterfaces []*ElasticNetworkInterface `json:"elasticNetworkInterfaces,omitempty" type:"list"`
 
-	GeneratedAt *int64 `locationName:"generatedAt" type:"long"`
+	GeneratedAt *int64 `json:"generatedAt,omitempty" type:"long"`
 
-	MessageId *string `locationName:"messageId" type:"string"`
+	MessageId *string `json:"messageId,omitempty" type:"string"`
 
-	TaskArn *string `locationName:"taskArn" type:"string"`
+	TaskArn *string `json:"taskArn,omitempty" type:"string"`
 
-	TaskClusterArn *string `locationName:"taskClusterArn" type:"string"`
+	TaskClusterArn *string `json:"taskClusterArn,omitempty" type:"string"`
 
-	WaitTimeoutMs *int64 `locationName:"waitTimeoutMs" type:"long"`
+	WaitTimeoutMs *int64 `json:"waitTimeoutMs,omitempty" type:"long"`
 }
 
 // String returns the string representation.
@@ -345,11 +345,11 @@ func (s AttachTaskNetworkInterfacesMessage) GoString() string {
 type AttachTaskNetworkInterfacesOutput struct {
 	_ struct{} `type:"structure"`
 
-	Cluster *string `locationName:"cluster" type:"string"`
+	Cluster *string `json:"cluster,omitempty" type:"string"`
 
-	ContainerInstance *string `locationName:"containerInstance" type:"string"`
+	ContainerInstance *string `json:"containerInstance,omitempty" type:"string"`
 
-	MessageId *string `locationName:"messageId" type:"string"`
+	MessageId *string `json:"messageId,omitempty" type:"string"`
 }
 
 // String returns the string representation.
@@ -373,11 +373,11 @@ func (s AttachTaskNetworkInterfacesOutput) GoString() string {
 type Attachment struct {
 	_ struct{} `type:"structure"`
 
-	AttachmentArn *string `locationName:"attachmentArn" type:"string"`
+	AttachmentArn *string `json:"attachmentArn,omitempty" type:"string"`
 
-	AttachmentProperties []*AttachmentProperty `locationName:"attachmentProperties" type:"list"`
+	AttachmentProperties []*AttachmentProperty `json:"attachmentProperties,omitempty" type:"list"`
 
-	AttachmentType *string `locationName:"attachmentType" type:"string"`
+	AttachmentType *string `json:"attachmentType,omitempty" type:"string"`
 }
 
 // String returns the string representation.
@@ -401,9 +401,9 @@ func (s Attachment) GoString() string {
 type AttachmentProperty struct {
 	_ struct{} `type:"structure"`
 
-	Name *string `locationName:"name" type:"string"`
+	Name *string `json:"name,omitempty" type:"string"`
 
-	Value *string `locationName:"value" type:"string"`
+	Value *string `json:"value,omitempty" type:"string"`
 }
 
 // String returns the string representation.
@@ -428,7 +428,7 @@ type BadRequestException struct {
 	_            struct{}                  `type:"structure"`
 	RespMetadata protocol.ResponseMetadata `json:"-" xml:"-"`
 
-	Message_ *string `locationName:"message" type:"string"`
+	Message_ *string `json:"message,omitempty" type:"string"`
 }
 
 // String returns the string representation.
@@ -490,7 +490,7 @@ func (s *BadRequestException) RequestID() string {
 type CloseMessage struct {
 	_ struct{} `type:"structure"`
 
-	Message *string `locationName:"message" type:"string"`
+	Message *string `json:"message,omitempty" type:"string"`
 }
 
 // String returns the string representation.
@@ -514,21 +514,21 @@ func (s CloseMessage) GoString() string {
 type ConfirmAttachmentInput struct {
 	_ struct{} `type:"structure"`
 
-	Attachment *Attachment `locationName:"attachment" type:"structure"`
+	Attachment *Attachment `json:"attachment,omitempty" type:"structure"`
 
-	ClusterArn *string `locationName:"clusterArn" type:"string"`
+	ClusterArn *string `json:"clusterArn,omitempty" type:"string"`
 
-	ContainerInstanceArn *string `locationName:"containerInstanceArn" type:"string"`
+	ContainerInstanceArn *string `json:"containerInstanceArn,omitempty" type:"string"`
 
-	GeneratedAt *int64 `locationName:"generatedAt" type:"long"`
+	GeneratedAt *int64 `json:"generatedAt,omitempty" type:"long"`
 
-	MessageId *string `locationName:"messageId" type:"string"`
+	MessageId *string `json:"messageId,omitempty" type:"string"`
 
-	TaskArn *string `locationName:"taskArn" type:"string"`
+	TaskArn *string `json:"taskArn,omitempty" type:"string"`
 
-	TaskClusterArn *string `locationName:"taskClusterArn" type:"string"`
+	TaskClusterArn *string `json:"taskClusterArn,omitempty" type:"string"`
 
-	WaitTimeoutMs *int64 `locationName:"waitTimeoutMs" type:"long"`
+	WaitTimeoutMs *int64 `json:"waitTimeoutMs,omitempty" type:"long"`
 }
 
 // String returns the string representation.
@@ -552,21 +552,21 @@ func (s ConfirmAttachmentInput) GoString() string {
 type ConfirmAttachmentMessage struct {
 	_ struct{} `type:"structure"`
 
-	Attachment *Attachment `locationName:"attachment" type:"structure"`
+	Attachment *Attachment `json:"attachment,omitempty" type:"structure"`
 
-	ClusterArn *string `locationName:"clusterArn" type:"string"`
+	ClusterArn *string `json:"clusterArn,omitempty" type:"string"`
 
-	ContainerInstanceArn *string `locationName:"containerInstanceArn" type:"string"`
+	ContainerInstanceArn *string `json:"containerInstanceArn,omitempty" type:"string"`
 
-	GeneratedAt *int64 `locationName:"generatedAt" type:"long"`
+	GeneratedAt *int64 `json:"generatedAt,omitempty" type:"long"`
 
-	MessageId *string `locationName:"messageId" type:"string"`
+	MessageId *string `json:"messageId,omitempty" type:"string"`
 
-	TaskArn *string `locationName:"taskArn" type:"string"`
+	TaskArn *string `json:"taskArn,omitempty" type:"string"`
 
-	TaskClusterArn *string `locationName:"taskClusterArn" type:"string"`
+	TaskClusterArn *string `json:"taskClusterArn,omitempty" type:"string"`
 
-	WaitTimeoutMs *int64 `locationName:"waitTimeoutMs" type:"long"`
+	WaitTimeoutMs *int64 `json:"waitTimeoutMs,omitempty" type:"long"`
 }
 
 // String returns the string representation.
@@ -590,11 +590,11 @@ func (s ConfirmAttachmentMessage) GoString() string {
 type ConfirmAttachmentOutput struct {
 	_ struct{} `type:"structure"`
 
-	Cluster *string `locationName:"cluster" type:"string"`
+	Cluster *string `json:"cluster,omitempty" type:"string"`
 
-	ContainerInstance *string `locationName:"containerInstance" type:"string"`
+	ContainerInstance *string `json:"containerInstance,omitempty" type:"string"`
 
-	MessageId *string `locationName:"messageId" type:"string"`
+	MessageId *string `json:"messageId,omitempty" type:"string"`
 }
 
 // String returns the string representation.
@@ -618,68 +618,68 @@ func (s ConfirmAttachmentOutput) GoString() string {
 type Container struct {
 	_ struct{} `type:"structure"`
 
-	Command []*string `locationName:"command" type:"list"`
+	Command []*string `json:"command,omitempty" type:"list"`
 
-	ContainerArn *string `locationName:"containerArn" type:"string"`
+	ContainerArn *string `json:"containerArn,omitempty" type:"string"`
 
-	Cpu *int64 `locationName:"cpu" type:"integer"`
+	Cpu *int64 `json:"cpu,omitempty" type:"integer"`
 
-	CredentialSpecs []*string `locationName:"credentialSpecs" type:"list"`
+	CredentialSpecs []*string `json:"credentialSpecs,omitempty" type:"list"`
 
-	DependsOn []*ContainerDependency `locationName:"dependsOn" type:"list"`
+	DependsOn []*ContainerDependency `json:"dependsOn,omitempty" type:"list"`
 
-	DockerConfig *DockerConfig `locationName:"dockerConfig" type:"structure"`
+	DockerConfig *DockerConfig `json:"dockerConfig,omitempty" type:"structure"`
 
-	EntryPoint []*string `locationName:"entryPoint" type:"list"`
+	EntryPoint []*string `json:"entryPoint,omitempty" type:"list"`
 
 	// Environment is a sensitive parameter and its value will be
 	// replaced with "sensitive" in string returned by Container's
 	// String and GoString methods.
-	Environment map[string]*string `locationName:"environment" type:"map" sensitive:"true"`
+	Environment map[string]*string `json:"environment,omitempty" type:"map" sensitive:"true"`
 
-	EnvironmentFiles []*EnvironmentFile `locationName:"environmentFiles" type:"list"`
+	EnvironmentFiles []*EnvironmentFile `json:"environmentFiles,omitempty" type:"list"`
 
-	Essential *bool `locationName:"essential" type:"boolean"`
+	Essential *bool `json:"essential,omitempty" type:"boolean"`
 
-	FirelensConfiguration *FirelensConfiguration `locationName:"firelensConfiguration" type:"structure"`
+	FirelensConfiguration *FirelensConfiguration `json:"firelensConfiguration,omitempty" type:"structure"`
 
-	HealthCheckType *string `locationName:"healthCheckType" type:"string" enum:"HealthCheckType"`
+	HealthCheckType *string `json:"healthCheckType,omitempty" type:"string" enum:"HealthCheckType"`
 
-	Image *string `locationName:"image" type:"string"`
+	Image *string `json:"image,omitempty" type:"string"`
 
-	Links []*string `locationName:"links" type:"list"`
+	Links []*string `json:"links,omitempty" type:"list"`
 
-	LinuxParameters *LinuxParameters `locationName:"linuxParameters" type:"structure"`
+	LinuxParameters *LinuxParameters `json:"linuxParameters,omitempty" type:"structure"`
 
-	LogsAuthStrategy *string `locationName:"logsAuthStrategy" type:"string" enum:"AuthStrategy"`
+	LogsAuthStrategy *string `json:"logsAuthStrategy,omitempty" type:"string" enum:"AuthStrategy"`
 
-	ManagedAgents []*ManagedAgent `locationName:"managedAgents" type:"list"`
+	ManagedAgents []*ManagedAgent `json:"managedAgents,omitempty" type:"list"`
 
-	Memory *int64 `locationName:"memory" type:"integer"`
+	Memory *int64 `json:"memory,omitempty" type:"integer"`
 
-	MountPoints []*MountPoint `locationName:"mountPoints" type:"list"`
+	MountPoints []*MountPoint `json:"mountPoints,omitempty" type:"list"`
 
-	Name *string `locationName:"name" type:"string"`
+	Name *string `json:"name,omitempty" type:"string"`
 
-	NetworkInterfaceNames []*string `locationName:"networkInterfaceNames" type:"list"`
+	NetworkInterfaceNames []*string `json:"networkInterfaceNames,omitempty" type:"list"`
 
-	Overrides *string `locationName:"overrides" type:"string"`
+	Overrides *string `json:"overrides,omitempty" type:"string"`
 
-	PortMappings []*PortMapping `locationName:"portMappings" type:"list"`
+	PortMappings []*PortMapping `json:"portMappings,omitempty" type:"list"`
 
-	Privileged *bool `locationName:"privileged" type:"boolean"`
+	Privileged *bool `json:"privileged,omitempty" type:"boolean"`
 
-	RegistryAuthentication *RegistryAuthenticationData `locationName:"registryAuthentication" type:"structure"`
+	RegistryAuthentication *RegistryAuthenticationData `json:"registryAuthentication,omitempty" type:"structure"`
 
-	RestartPolicy *RestartPolicy `locationName:"restartPolicy" type:"structure"`
+	RestartPolicy *RestartPolicy `json:"restartPolicy,omitempty" type:"structure"`
 
-	Secrets []*Secret `locationName:"secrets" type:"list"`
+	Secrets []*Secret `json:"secrets,omitempty" type:"list"`
 
-	StartTimeout *int64 `locationName:"startTimeout" type:"integer"`
+	StartTimeout *int64 `json:"startTimeout,omitempty" type:"integer"`
 
-	StopTimeout *int64 `locationName:"stopTimeout" type:"integer"`
+	StopTimeout *int64 `json:"stopTimeout,omitempty" type:"integer"`
 
-	VolumesFrom []*VolumeFrom `locationName:"volumesFrom" type:"list"`
+	VolumesFrom []*VolumeFrom `json:"volumesFrom,omitempty" type:"list"`
 }
 
 // String returns the string representation.
@@ -718,9 +718,9 @@ func (s *Container) Validate() error {
 type ContainerDependency struct {
 	_ struct{} `type:"structure"`
 
-	Condition *string `locationName:"condition" type:"string" enum:"ContainerCondition"`
+	Condition *string `json:"condition,omitempty" type:"string" enum:"ContainerCondition"`
 
-	ContainerName *string `locationName:"containerName" type:"string"`
+	ContainerName *string `json:"containerName,omitempty" type:"string"`
 }
 
 // String returns the string representation.
@@ -744,12 +744,12 @@ func (s ContainerDependency) GoString() string {
 type Device struct {
 	_ struct{} `type:"structure"`
 
-	ContainerPath *string `locationName:"containerPath" type:"string"`
+	ContainerPath *string `json:"containerPath,omitempty" type:"string"`
 
 	// HostPath is a required field
-	HostPath *string `locationName:"hostPath" type:"string" required:"true"`
+	HostPath *string `json:"hostPath" type:"string" required:"true"`
 
-	Permissions []*string `locationName:"permissions" type:"list" enum:"DeviceCgroupPermission"`
+	Permissions []*string `json:"permissions,omitempty" type:"list" enum:"DeviceCgroupPermission"`
 }
 
 // String returns the string representation.
@@ -786,11 +786,11 @@ func (s *Device) Validate() error {
 type DockerConfig struct {
 	_ struct{} `type:"structure"`
 
-	Config *string `locationName:"config" type:"string"`
+	Config *string `json:"config,omitempty" type:"string"`
 
-	HostConfig *string `locationName:"hostConfig" type:"string"`
+	HostConfig *string `json:"hostConfig,omitempty" type:"string"`
 
-	Version *string `locationName:"version" type:"string"`
+	Version *string `json:"version,omitempty" type:"string"`
 }
 
 // String returns the string representation.
@@ -814,15 +814,15 @@ func (s DockerConfig) GoString() string {
 type DockerVolumeConfiguration struct {
 	_ struct{} `type:"structure"`
 
-	Autoprovision *bool `locationName:"autoprovision" type:"boolean"`
+	Autoprovision *bool `json:"autoprovision,omitempty" type:"boolean"`
 
-	Driver *string `locationName:"driver" type:"string"`
+	Driver *string `json:"driver,omitempty" type:"string"`
 
-	DriverOpts map[string]*string `locationName:"driverOpts" type:"map"`
+	DriverOpts map[string]*string `json:"driverOpts,omitempty" type:"map"`
 
-	Labels map[string]*string `locationName:"labels" type:"map"`
+	Labels map[string]*string `json:"labels,omitempty" type:"map"`
 
-	Scope *string `locationName:"scope" type:"string" enum:"Scope"`
+	Scope *string `json:"scope,omitempty" type:"string" enum:"Scope"`
 }
 
 // String returns the string representation.
@@ -846,13 +846,13 @@ func (s DockerVolumeConfiguration) GoString() string {
 type EBSVolumeConfiguration struct {
 	_ struct{} `type:"structure"`
 
-	DeleteOnTermination *bool `locationName:"deleteOnTermination" type:"boolean"`
+	DeleteOnTermination *bool `json:"deleteOnTermination,omitempty" type:"boolean"`
 
-	DeviceName *string `locationName:"deviceName" type:"string"`
+	DeviceName *string `json:"deviceName,omitempty" type:"string"`
 
-	FilesystemType *string `locationName:"filesystemType" type:"string"`
+	FilesystemType *string `json:"filesystemType,omitempty" type:"string"`
 
-	VolumeId *string `locationName:"volumeId" type:"string"`
+	VolumeId *string `json:"volumeId,omitempty" type:"string"`
 }
 
 // String returns the string representation.
@@ -876,13 +876,13 @@ func (s EBSVolumeConfiguration) GoString() string {
 type ECRAuthData struct {
 	_ struct{} `type:"structure"`
 
-	EndpointOverride *string `locationName:"endpointOverride" type:"string"`
+	EndpointOverride *string `json:"endpointOverride,omitempty" type:"string"`
 
-	Region *string `locationName:"region" type:"string"`
+	Region *string `json:"region,omitempty" type:"string"`
 
-	RegistryId *string `locationName:"registryId" type:"string"`
+	RegistryId *string `json:"registryId,omitempty" type:"string"`
 
-	UseExecutionRole *bool `locationName:"useExecutionRole" type:"boolean"`
+	UseExecutionRole *bool `json:"useExecutionRole,omitempty" type:"boolean"`
 }
 
 // String returns the string representation.
@@ -906,9 +906,9 @@ func (s ECRAuthData) GoString() string {
 type EFSAuthorizationConfig struct {
 	_ struct{} `type:"structure"`
 
-	AccessPointId *string `locationName:"accessPointId" type:"string"`
+	AccessPointId *string `json:"accessPointId,omitempty" type:"string"`
 
-	Iam *string `locationName:"iam" type:"string" enum:"EFSAuthorizationConfigIAM"`
+	Iam *string `json:"iam,omitempty" type:"string" enum:"EFSAuthorizationConfigIAM"`
 }
 
 // String returns the string representation.
@@ -932,15 +932,15 @@ func (s EFSAuthorizationConfig) GoString() string {
 type EFSVolumeConfiguration struct {
 	_ struct{} `type:"structure"`
 
-	AuthorizationConfig *EFSAuthorizationConfig `locationName:"authorizationConfig" type:"structure"`
+	AuthorizationConfig *EFSAuthorizationConfig `json:"authorizationConfig,omitempty" type:"structure"`
 
-	FileSystemId *string `locationName:"fileSystemId" type:"string"`
+	FileSystemId *string `json:"fileSystemId,omitempty" type:"string"`
 
-	RootDirectory *string `locationName:"rootDirectory" type:"string"`
+	RootDirectory *string `json:"rootDirectory,omitempty" type:"string"`
 
-	TransitEncryption *string `locationName:"transitEncryption" type:"string" enum:"EFSTransitEncryption"`
+	TransitEncryption *string `json:"transitEncryption,omitempty" type:"string" enum:"EFSTransitEncryption"`
 
-	TransitEncryptionPort *int64 `locationName:"transitEncryptionPort" type:"integer"`
+	TransitEncryptionPort *int64 `json:"transitEncryptionPort,omitempty" type:"integer"`
 }
 
 // String returns the string representation.
@@ -964,37 +964,37 @@ func (s EFSVolumeConfiguration) GoString() string {
 type ElasticNetworkInterface struct {
 	_ struct{} `type:"structure"`
 
-	AttachmentArn *string `locationName:"attachmentArn" type:"string"`
+	AttachmentArn *string `json:"attachmentArn,omitempty" type:"string"`
 
-	DomainName []*string `locationName:"domainName" type:"list"`
+	DomainName []*string `json:"domainName,omitempty" type:"list"`
 
-	DomainNameServers []*string `locationName:"domainNameServers" type:"list"`
+	DomainNameServers []*string `json:"domainNameServers,omitempty" type:"list"`
 
-	Ec2Id *string `locationName:"ec2Id" type:"string"`
+	Ec2Id *string `json:"ec2Id,omitempty" type:"string"`
 
-	Index *int64 `locationName:"index" type:"integer"`
+	Index *int64 `json:"index,omitempty" type:"integer"`
 
-	InterfaceAssociationProtocol *string `locationName:"interfaceAssociationProtocol" type:"string" enum:"NetworkInterfaceAssociationProtocol"`
+	InterfaceAssociationProtocol *string `json:"interfaceAssociationProtocol,omitempty" type:"string" enum:"NetworkInterfaceAssociationProtocol"`
 
-	InterfaceTunnelProperties *NetworkInterfaceTunnelProperties `locationName:"interfaceTunnelProperties" type:"structure"`
+	InterfaceTunnelProperties *NetworkInterfaceTunnelProperties `json:"interfaceTunnelProperties,omitempty" type:"structure"`
 
-	InterfaceVethProperties *NetworkInterfaceVethProperties `locationName:"interfaceVethProperties" type:"structure"`
+	InterfaceVethProperties *NetworkInterfaceVethProperties `json:"interfaceVethProperties,omitempty" type:"structure"`
 
-	InterfaceVlanProperties *NetworkInterfaceVlanProperties `locationName:"interfaceVlanProperties" type:"structure"`
+	InterfaceVlanProperties *NetworkInterfaceVlanProperties `json:"interfaceVlanProperties,omitempty" type:"structure"`
 
-	Ipv4Addresses []*IPv4AddressAssignment `locationName:"ipv4Addresses" type:"list"`
+	Ipv4Addresses []*IPv4AddressAssignment `json:"ipv4Addresses,omitempty" type:"list"`
 
-	Ipv6Addresses []*IPv6AddressAssignment `locationName:"ipv6Addresses" type:"list"`
+	Ipv6Addresses []*IPv6AddressAssignment `json:"ipv6Addresses,omitempty" type:"list"`
 
-	MacAddress *string `locationName:"macAddress" type:"string"`
+	MacAddress *string `json:"macAddress,omitempty" type:"string"`
 
-	Name *string `locationName:"name" type:"string"`
+	Name *string `json:"name,omitempty" type:"string"`
 
-	PrivateDnsName *string `locationName:"privateDnsName" type:"string"`
+	PrivateDnsName *string `json:"privateDnsName,omitempty" type:"string"`
 
-	SubnetGatewayIpv4Address *string `locationName:"subnetGatewayIpv4Address" type:"string"`
+	SubnetGatewayIpv4Address *string `json:"subnetGatewayIpv4Address,omitempty" type:"string"`
 
-	SubnetGatewayIpv6Address *string `locationName:"subnetGatewayIpv6Address" type:"string"`
+	SubnetGatewayIpv6Address *string `json:"subnetGatewayIpv6Address,omitempty" type:"string"`
 }
 
 // String returns the string representation.
@@ -1018,9 +1018,9 @@ func (s ElasticNetworkInterface) GoString() string {
 type EncodedString struct {
 	_ struct{} `type:"structure"`
 
-	Encoding *string `locationName:"encoding" type:"string" enum:"Encoding"`
+	Encoding *string `json:"encoding,omitempty" type:"string" enum:"Encoding"`
 
-	Value *string `locationName:"value" type:"string"`
+	Value *string `json:"value,omitempty" type:"string"`
 }
 
 // String returns the string representation.
@@ -1044,9 +1044,9 @@ func (s EncodedString) GoString() string {
 type EnvironmentFile struct {
 	_ struct{} `type:"structure"`
 
-	Type *string `locationName:"type" type:"string" enum:"EnvironmentFileType"`
+	Type *string `json:"type,omitempty" type:"string" enum:"EnvironmentFileType"`
 
-	Value *string `locationName:"value" type:"string"`
+	Value *string `json:"value,omitempty" type:"string"`
 }
 
 // String returns the string representation.
@@ -1070,7 +1070,7 @@ func (s EnvironmentFile) GoString() string {
 type ErrorInput struct {
 	_ struct{} `type:"structure"`
 
-	Message *string `locationName:"message" type:"string"`
+	Message *string `json:"message,omitempty" type:"string"`
 }
 
 // String returns the string representation.
@@ -1094,7 +1094,7 @@ func (s ErrorInput) GoString() string {
 type ErrorMessage struct {
 	_ struct{} `type:"structure"`
 
-	Message *string `locationName:"message" type:"string"`
+	Message *string `json:"message,omitempty" type:"string"`
 }
 
 // String returns the string representation.
@@ -1140,9 +1140,9 @@ func (s ErrorOutput) GoString() string {
 type FSxWindowsFileServerAuthorizationConfig struct {
 	_ struct{} `type:"structure"`
 
-	CredentialsParameter *string `locationName:"credentialsParameter" type:"string"`
+	CredentialsParameter *string `json:"credentialsParameter,omitempty" type:"string"`
 
-	Domain *string `locationName:"domain" type:"string"`
+	Domain *string `json:"domain,omitempty" type:"string"`
 }
 
 // String returns the string representation.
@@ -1166,11 +1166,11 @@ func (s FSxWindowsFileServerAuthorizationConfig) GoString() string {
 type FSxWindowsFileServerVolumeConfiguration struct {
 	_ struct{} `type:"structure"`
 
-	AuthorizationConfig *FSxWindowsFileServerAuthorizationConfig `locationName:"authorizationConfig" type:"structure"`
+	AuthorizationConfig *FSxWindowsFileServerAuthorizationConfig `json:"authorizationConfig,omitempty" type:"structure"`
 
-	FileSystemId *string `locationName:"fileSystemId" type:"string"`
+	FileSystemId *string `json:"fileSystemId,omitempty" type:"string"`
 
-	RootDirectory *string `locationName:"rootDirectory" type:"string"`
+	RootDirectory *string `json:"rootDirectory,omitempty" type:"string"`
 }
 
 // String returns the string representation.
@@ -1194,9 +1194,9 @@ func (s FSxWindowsFileServerVolumeConfiguration) GoString() string {
 type FirelensConfiguration struct {
 	_ struct{} `type:"structure"`
 
-	Options map[string]*string `locationName:"options" type:"map"`
+	Options map[string]*string `json:"options,omitempty" type:"map"`
 
-	Type *string `locationName:"type" type:"string" enum:"FirelensConfigurationType"`
+	Type *string `json:"type,omitempty" type:"string" enum:"FirelensConfigurationType"`
 }
 
 // String returns the string representation.
@@ -1220,7 +1220,7 @@ func (s FirelensConfiguration) GoString() string {
 type HeartbeatAckRequest struct {
 	_ struct{} `type:"structure"`
 
-	MessageId *string `locationName:"messageId" type:"string"`
+	MessageId *string `json:"messageId,omitempty" type:"string"`
 }
 
 // String returns the string representation.
@@ -1244,9 +1244,9 @@ func (s HeartbeatAckRequest) GoString() string {
 type HeartbeatInput struct {
 	_ struct{} `type:"structure"`
 
-	Healthy *bool `locationName:"healthy" type:"boolean"`
+	Healthy *bool `json:"healthy,omitempty" type:"boolean"`
 
-	MessageId *string `locationName:"messageId" type:"string"`
+	MessageId *string `json:"messageId,omitempty" type:"string"`
 }
 
 // String returns the string representation.
@@ -1270,9 +1270,9 @@ func (s HeartbeatInput) GoString() string {
 type HeartbeatMessage struct {
 	_ struct{} `type:"structure"`
 
-	Healthy *bool `locationName:"healthy" type:"boolean"`
+	Healthy *bool `json:"healthy,omitempty" type:"boolean"`
 
-	MessageId *string `locationName:"messageId" type:"string"`
+	MessageId *string `json:"messageId,omitempty" type:"string"`
 }
 
 // String returns the string representation.
@@ -1296,7 +1296,7 @@ func (s HeartbeatMessage) GoString() string {
 type HeartbeatOutput struct {
 	_ struct{} `type:"structure"`
 
-	MessageId *string `locationName:"messageId" type:"string"`
+	MessageId *string `json:"messageId,omitempty" type:"string"`
 }
 
 // String returns the string representation.
@@ -1320,7 +1320,7 @@ func (s HeartbeatOutput) GoString() string {
 type HostVolumeProperties struct {
 	_ struct{} `type:"structure"`
 
-	SourcePath *string `locationName:"sourcePath" type:"string"`
+	SourcePath *string `json:"sourcePath,omitempty" type:"string"`
 }
 
 // String returns the string representation.
@@ -1344,22 +1344,22 @@ func (s HostVolumeProperties) GoString() string {
 type IAMRoleCredentials struct {
 	_ struct{} `type:"structure"`
 
-	AccessKeyId *string `locationName:"accessKeyId" type:"string"`
+	AccessKeyId *string `json:"accessKeyId,omitempty" type:"string"`
 
-	CredentialScope *string `locationName:"credentialScope" type:"string"`
+	CredentialScope *string `json:"credentialScope,omitempty" type:"string"`
 
-	CredentialsId *string `locationName:"credentialsId" type:"string"`
+	CredentialsId *string `json:"credentialsId,omitempty" type:"string"`
 
-	Expiration *string `locationName:"expiration" type:"string"`
+	Expiration *string `json:"expiration,omitempty" type:"string"`
 
-	RoleArn *string `locationName:"roleArn" type:"string"`
+	RoleArn *string `json:"roleArn,omitempty" type:"string"`
 
 	// SecretAccessKey is a sensitive parameter and its value will be
 	// replaced with "sensitive" in string returned by IAMRoleCredentials's
 	// String and GoString methods.
-	SecretAccessKey *string `locationName:"secretAccessKey" type:"string" sensitive:"true"`
+	SecretAccessKey *string `json:"secretAccessKey,omitempty" type:"string" sensitive:"true"`
 
-	SessionToken *string `locationName:"sessionToken" type:"string"`
+	SessionToken *string `json:"sessionToken,omitempty" type:"string"`
 }
 
 // String returns the string representation.
@@ -1383,11 +1383,11 @@ func (s IAMRoleCredentials) GoString() string {
 type IAMRoleCredentialsAckRequest struct {
 	_ struct{} `type:"structure"`
 
-	CredentialsId *string `locationName:"credentialsId" type:"string"`
+	CredentialsId *string `json:"credentialsId,omitempty" type:"string"`
 
-	Expiration *string `locationName:"expiration" type:"string"`
+	Expiration *string `json:"expiration,omitempty" type:"string"`
 
-	MessageId *string `locationName:"messageId" type:"string"`
+	MessageId *string `json:"messageId,omitempty" type:"string"`
 }
 
 // String returns the string representation.
@@ -1411,15 +1411,15 @@ func (s IAMRoleCredentialsAckRequest) GoString() string {
 type IAMRoleCredentialsMessage struct {
 	_ struct{} `type:"structure"`
 
-	MessageId *string `locationName:"messageId" type:"string"`
+	MessageId *string `json:"messageId,omitempty" type:"string"`
 
-	RoleCredentials *IAMRoleCredentials `locationName:"roleCredentials" type:"structure"`
+	RoleCredentials *IAMRoleCredentials `json:"roleCredentials,omitempty" type:"structure"`
 
-	RoleType *string `locationName:"roleType" type:"string" enum:"RoleType"`
+	RoleType *string `json:"roleType,omitempty" type:"string" enum:"RoleType"`
 
-	TaskArn *string `locationName:"taskArn" type:"string"`
+	TaskArn *string `json:"taskArn,omitempty" type:"string"`
 
-	TaskClusterArn *string `locationName:"taskClusterArn" type:"string"`
+	TaskClusterArn *string `json:"taskClusterArn,omitempty" type:"string"`
 }
 
 // String returns the string representation.
@@ -1443,9 +1443,9 @@ func (s IAMRoleCredentialsMessage) GoString() string {
 type IPv4AddressAssignment struct {
 	_ struct{} `type:"structure"`
 
-	Primary *bool `locationName:"primary" type:"boolean"`
+	Primary *bool `json:"primary,omitempty" type:"boolean"`
 
-	PrivateAddress *string `locationName:"privateAddress" type:"string"`
+	PrivateAddress *string `json:"privateAddress,omitempty" type:"string"`
 }
 
 // String returns the string representation.
@@ -1469,9 +1469,9 @@ func (s IPv4AddressAssignment) GoString() string {
 type IPv6AddressAssignment struct {
 	_ struct{} `type:"structure"`
 
-	Address *string `locationName:"address" type:"string"`
+	Address *string `json:"address,omitempty" type:"string"`
 
-	Primary *bool `locationName:"primary" type:"boolean"`
+	Primary *bool `json:"primary,omitempty" type:"boolean"`
 }
 
 // String returns the string representation.
@@ -1496,7 +1496,7 @@ type InactiveInstanceException struct {
 	_            struct{}                  `type:"structure"`
 	RespMetadata protocol.ResponseMetadata `json:"-" xml:"-"`
 
-	Message_ *string `locationName:"message" type:"string"`
+	Message_ *string `json:"message,omitempty" type:"string"`
 }
 
 // String returns the string representation.
@@ -1559,7 +1559,7 @@ type InvalidClusterException struct {
 	_            struct{}                  `type:"structure"`
 	RespMetadata protocol.ResponseMetadata `json:"-" xml:"-"`
 
-	Message_ *string `locationName:"message" type:"string"`
+	Message_ *string `json:"message,omitempty" type:"string"`
 }
 
 // String returns the string representation.
@@ -1622,7 +1622,7 @@ type InvalidInstanceException struct {
 	_            struct{}                  `type:"structure"`
 	RespMetadata protocol.ResponseMetadata `json:"-" xml:"-"`
 
-	Message_ *string `locationName:"message" type:"string"`
+	Message_ *string `json:"message,omitempty" type:"string"`
 }
 
 // String returns the string representation.
@@ -1684,9 +1684,9 @@ func (s *InvalidInstanceException) RequestID() string {
 type KernelCapabilities struct {
 	_ struct{} `type:"structure"`
 
-	Add []*string `locationName:"add" type:"list"`
+	Add []*string `json:"add,omitempty" type:"list"`
 
-	Drop []*string `locationName:"drop" type:"list"`
+	Drop []*string `json:"drop,omitempty" type:"list"`
 }
 
 // String returns the string representation.
@@ -1710,13 +1710,13 @@ func (s KernelCapabilities) GoString() string {
 type LinuxParameters struct {
 	_ struct{} `type:"structure"`
 
-	Capabilities *KernelCapabilities `locationName:"capabilities" type:"structure"`
+	Capabilities *KernelCapabilities `json:"capabilities,omitempty" type:"structure"`
 
-	Devices []*Device `locationName:"devices" type:"list"`
+	Devices []*Device `json:"devices,omitempty" type:"list"`
 
-	InitProcessEnabled *bool `locationName:"initProcessEnabled" type:"boolean"`
+	InitProcessEnabled *bool `json:"initProcessEnabled,omitempty" type:"boolean"`
 
-	SharedMemorySize *int64 `locationName:"sharedMemorySize" type:"integer"`
+	SharedMemorySize *int64 `json:"sharedMemorySize,omitempty" type:"integer"`
 }
 
 // String returns the string representation.
@@ -1760,9 +1760,9 @@ func (s *LinuxParameters) Validate() error {
 type ManagedAgent struct {
 	_ struct{} `type:"structure"`
 
-	Name *string `locationName:"name" type:"string" enum:"ManagedAgentName"`
+	Name *string `json:"name,omitempty" type:"string" enum:"ManagedAgentName"`
 
-	Properties map[string]*string `locationName:"properties" type:"map"`
+	Properties map[string]*string `json:"properties,omitempty" type:"map"`
 }
 
 // String returns the string representation.
@@ -1786,11 +1786,11 @@ func (s ManagedAgent) GoString() string {
 type MountPoint struct {
 	_ struct{} `type:"structure"`
 
-	ContainerPath *string `locationName:"containerPath" type:"string"`
+	ContainerPath *string `json:"containerPath,omitempty" type:"string"`
 
-	ReadOnly *bool `locationName:"readOnly" type:"boolean"`
+	ReadOnly *bool `json:"readOnly,omitempty" type:"boolean"`
 
-	SourceVolume *string `locationName:"sourceVolume" type:"string"`
+	SourceVolume *string `json:"sourceVolume,omitempty" type:"string"`
 }
 
 // String returns the string representation.
@@ -1814,13 +1814,13 @@ func (s MountPoint) GoString() string {
 type NackRequest struct {
 	_ struct{} `type:"structure"`
 
-	Cluster *string `locationName:"cluster" type:"string"`
+	Cluster *string `json:"cluster,omitempty" type:"string"`
 
-	ContainerInstance *string `locationName:"containerInstance" type:"string"`
+	ContainerInstance *string `json:"containerInstance,omitempty" type:"string"`
 
-	MessageId *string `locationName:"messageId" type:"string"`
+	MessageId *string `json:"messageId,omitempty" type:"string"`
 
-	Reason *string `locationName:"reason" type:"string"`
+	Reason *string `json:"reason,omitempty" type:"string"`
 }
 
 // String returns the string representation.
@@ -1844,9 +1844,9 @@ func (s NackRequest) GoString() string {
 type NetworkInterfaceTunnelProperties struct {
 	_ struct{} `type:"structure"`
 
-	InterfaceIpAddress *string `locationName:"interfaceIpAddress" type:"string"`
+	InterfaceIpAddress *string `json:"interfaceIpAddress,omitempty" type:"string"`
 
-	TunnelId *string `locationName:"tunnelId" type:"string"`
+	TunnelId *string `json:"tunnelId,omitempty" type:"string"`
 }
 
 // String returns the string representation.
@@ -1870,7 +1870,7 @@ func (s NetworkInterfaceTunnelProperties) GoString() string {
 type NetworkInterfaceVethProperties struct {
 	_ struct{} `type:"structure"`
 
-	PeerInterface *string `locationName:"peerInterface" type:"string"`
+	PeerInterface *string `json:"peerInterface,omitempty" type:"string"`
 }
 
 // String returns the string representation.
@@ -1894,9 +1894,9 @@ func (s NetworkInterfaceVethProperties) GoString() string {
 type NetworkInterfaceVlanProperties struct {
 	_ struct{} `type:"structure"`
 
-	TrunkInterfaceMacAddress *string `locationName:"trunkInterfaceMacAddress" type:"string"`
+	TrunkInterfaceMacAddress *string `json:"trunkInterfaceMacAddress,omitempty" type:"string"`
 
-	VlanId *string `locationName:"vlanId" type:"string"`
+	VlanId *string `json:"vlanId,omitempty" type:"string"`
 }
 
 // String returns the string representation.
@@ -1920,19 +1920,19 @@ func (s NetworkInterfaceVlanProperties) GoString() string {
 type PayloadInput struct {
 	_ struct{} `type:"structure"`
 
-	ClusterArn *string `locationName:"clusterArn" type:"string"`
+	ClusterArn *string `json:"clusterArn,omitempty" type:"string"`
 
-	ContainerInstanceArn *string `locationName:"containerInstanceArn" type:"string"`
+	ContainerInstanceArn *string `json:"containerInstanceArn,omitempty" type:"string"`
 
-	GeneratedAt *int64 `locationName:"generatedAt" type:"long"`
+	GeneratedAt *int64 `json:"generatedAt,omitempty" type:"long"`
 
-	MessageId *string `locationName:"messageId" type:"string"`
+	MessageId *string `json:"messageId,omitempty" type:"string"`
 
-	SeqNum *int64 `locationName:"seqNum" type:"integer"`
+	SeqNum *int64 `json:"seqNum,omitempty" type:"integer"`
 
-	Tasks []*Task `locationName:"tasks" type:"list"`
+	Tasks []*Task `json:"tasks,omitempty" type:"list"`
 
-	Timeline *int64 `locationName:"timeline" type:"long"`
+	Timeline *int64 `json:"timeline,omitempty" type:"long"`
 }
 
 // String returns the string representation.
@@ -1976,19 +1976,19 @@ func (s *PayloadInput) Validate() error {
 type PayloadMessage struct {
 	_ struct{} `type:"structure"`
 
-	ClusterArn *string `locationName:"clusterArn" type:"string"`
+	ClusterArn *string `json:"clusterArn,omitempty" type:"string"`
 
-	ContainerInstanceArn *string `locationName:"containerInstanceArn" type:"string"`
+	ContainerInstanceArn *string `json:"containerInstanceArn,omitempty" type:"string"`
 
-	GeneratedAt *int64 `locationName:"generatedAt" type:"long"`
+	GeneratedAt *int64 `json:"generatedAt,omitempty" type:"long"`
 
-	MessageId *string `locationName:"messageId" type:"string"`
+	MessageId *string `json:"messageId,omitempty" type:"string"`
 
-	SeqNum *int64 `locationName:"seqNum" type:"integer"`
+	SeqNum *int64 `json:"seqNum,omitempty" type:"integer"`
 
-	Tasks []*Task `locationName:"tasks" type:"list"`
+	Tasks []*Task `json:"tasks,omitempty" type:"list"`
 
-	Timeline *int64 `locationName:"timeline" type:"long"`
+	Timeline *int64 `json:"timeline,omitempty" type:"long"`
 }
 
 // String returns the string representation.
@@ -2012,11 +2012,11 @@ func (s PayloadMessage) GoString() string {
 type PayloadOutput struct {
 	_ struct{} `type:"structure"`
 
-	Cluster *string `locationName:"cluster" type:"string"`
+	Cluster *string `json:"cluster,omitempty" type:"string"`
 
-	ContainerInstance *string `locationName:"containerInstance" type:"string"`
+	ContainerInstance *string `json:"containerInstance,omitempty" type:"string"`
 
-	MessageId *string `locationName:"messageId" type:"string"`
+	MessageId *string `json:"messageId,omitempty" type:"string"`
 }
 
 // String returns the string representation.
@@ -2040,13 +2040,13 @@ func (s PayloadOutput) GoString() string {
 type PerformUpdateInput struct {
 	_ struct{} `type:"structure"`
 
-	ClusterArn *string `locationName:"clusterArn" type:"string"`
+	ClusterArn *string `json:"clusterArn,omitempty" type:"string"`
 
-	ContainerInstanceArn *string `locationName:"containerInstanceArn" type:"string"`
+	ContainerInstanceArn *string `json:"containerInstanceArn,omitempty" type:"string"`
 
-	MessageId *string `locationName:"messageId" type:"string"`
+	MessageId *string `json:"messageId,omitempty" type:"string"`
 
-	UpdateInfo *UpdateInfo `locationName:"updateInfo" type:"structure"`
+	UpdateInfo *UpdateInfo `json:"updateInfo,omitempty" type:"structure"`
 }
 
 // String returns the string representation.
@@ -2070,13 +2070,13 @@ func (s PerformUpdateInput) GoString() string {
 type PerformUpdateMessage struct {
 	_ struct{} `type:"structure"`
 
-	ClusterArn *string `locationName:"clusterArn" type:"string"`
+	ClusterArn *string `json:"clusterArn,omitempty" type:"string"`
 
-	ContainerInstanceArn *string `locationName:"containerInstanceArn" type:"string"`
+	ContainerInstanceArn *string `json:"containerInstanceArn,omitempty" type:"string"`
 
-	MessageId *string `locationName:"messageId" type:"string"`
+	MessageId *string `json:"messageId,omitempty" type:"string"`
 
-	UpdateInfo *UpdateInfo `locationName:"updateInfo" type:"structure"`
+	UpdateInfo *UpdateInfo `json:"updateInfo,omitempty" type:"structure"`
 }
 
 // String returns the string representation.
@@ -2100,11 +2100,11 @@ func (s PerformUpdateMessage) GoString() string {
 type PerformUpdateOutput struct {
 	_ struct{} `type:"structure"`
 
-	Cluster *string `locationName:"cluster" type:"string"`
+	Cluster *string `json:"cluster,omitempty" type:"string"`
 
-	ContainerInstance *string `locationName:"containerInstance" type:"string"`
+	ContainerInstance *string `json:"containerInstance,omitempty" type:"string"`
 
-	MessageId *string `locationName:"messageId" type:"string"`
+	MessageId *string `json:"messageId,omitempty" type:"string"`
 }
 
 // String returns the string representation.
@@ -2128,19 +2128,19 @@ func (s PerformUpdateOutput) GoString() string {
 type PollInput struct {
 	_ struct{} `type:"structure"`
 
-	Cluster *string `locationName:"cluster" type:"string"`
+	Cluster *string `json:"cluster,omitempty" type:"string"`
 
-	ContainerInstance *string `locationName:"containerInstance" type:"string"`
+	ContainerInstance *string `json:"containerInstance,omitempty" type:"string"`
 
-	ProtocolVersion *int64 `locationName:"protocolVersion" type:"integer"`
+	ProtocolVersion *int64 `json:"protocolVersion,omitempty" type:"integer"`
 
-	SendCredentials *bool `locationName:"sendCredentials" type:"boolean"`
+	SendCredentials *bool `json:"sendCredentials,omitempty" type:"boolean"`
 
-	SeqNum *int64 `locationName:"seqNum" type:"integer"`
+	SeqNum *int64 `json:"seqNum,omitempty" type:"integer"`
 
-	Timeline *int64 `locationName:"timeline" type:"long"`
+	Timeline *int64 `json:"timeline,omitempty" type:"long"`
 
-	VersionInfo *VersionInfo `locationName:"versionInfo" type:"structure"`
+	VersionInfo *VersionInfo `json:"versionInfo,omitempty" type:"structure"`
 }
 
 // String returns the string representation.
@@ -2164,7 +2164,7 @@ func (s PollInput) GoString() string {
 type PollOutput struct {
 	_ struct{} `type:"structure"`
 
-	Message *string `locationName:"message" type:"string"`
+	Message *string `json:"message,omitempty" type:"string"`
 }
 
 // String returns the string representation.
@@ -2188,19 +2188,19 @@ func (s PollOutput) GoString() string {
 type PollRequest struct {
 	_ struct{} `type:"structure"`
 
-	Cluster *string `locationName:"cluster" type:"string"`
+	Cluster *string `json:"cluster,omitempty" type:"string"`
 
-	ContainerInstance *string `locationName:"containerInstance" type:"string"`
+	ContainerInstance *string `json:"containerInstance,omitempty" type:"string"`
 
-	ProtocolVersion *int64 `locationName:"protocolVersion" type:"integer"`
+	ProtocolVersion *int64 `json:"protocolVersion,omitempty" type:"integer"`
 
-	SendCredentials *bool `locationName:"sendCredentials" type:"boolean"`
+	SendCredentials *bool `json:"sendCredentials,omitempty" type:"boolean"`
 
-	SeqNum *int64 `locationName:"seqNum" type:"integer"`
+	SeqNum *int64 `json:"seqNum,omitempty" type:"integer"`
 
-	Timeline *int64 `locationName:"timeline" type:"long"`
+	Timeline *int64 `json:"timeline,omitempty" type:"long"`
 
-	VersionInfo *VersionInfo `locationName:"versionInfo" type:"structure"`
+	VersionInfo *VersionInfo `json:"versionInfo,omitempty" type:"structure"`
 }
 
 // String returns the string representation.
@@ -2224,13 +2224,13 @@ func (s PollRequest) GoString() string {
 type PortMapping struct {
 	_ struct{} `type:"structure"`
 
-	ContainerPort *int64 `locationName:"containerPort" type:"integer"`
+	ContainerPort *int64 `json:"containerPort,omitempty" type:"integer"`
 
-	ContainerPortRange *string `locationName:"containerPortRange" type:"string"`
+	ContainerPortRange *string `json:"containerPortRange,omitempty" type:"string"`
 
-	HostPort *int64 `locationName:"hostPort" type:"integer"`
+	HostPort *int64 `json:"hostPort,omitempty" type:"integer"`
 
-	Protocol *string `locationName:"protocol" type:"string" enum:"TransportProtocol"`
+	Protocol *string `json:"protocol,omitempty" type:"string" enum:"TransportProtocol"`
 }
 
 // String returns the string representation.
@@ -2254,11 +2254,11 @@ func (s PortMapping) GoString() string {
 type ProxyConfiguration struct {
 	_ struct{} `type:"structure"`
 
-	ContainerName *string `locationName:"containerName" type:"string"`
+	ContainerName *string `json:"containerName,omitempty" type:"string"`
 
-	Properties map[string]*string `locationName:"properties" type:"map"`
+	Properties map[string]*string `json:"properties,omitempty" type:"map"`
 
-	Type *string `locationName:"type" type:"string" enum:"ProxyConfigurationType"`
+	Type *string `json:"type,omitempty" type:"string" enum:"ProxyConfigurationType"`
 }
 
 // String returns the string representation.
@@ -2282,15 +2282,15 @@ func (s ProxyConfiguration) GoString() string {
 type RefreshTaskIAMRoleCredentialsInput struct {
 	_ struct{} `type:"structure"`
 
-	MessageId *string `locationName:"messageId" type:"string"`
+	MessageId *string `json:"messageId,omitempty" type:"string"`
 
-	RoleCredentials *IAMRoleCredentials `locationName:"roleCredentials" type:"structure"`
+	RoleCredentials *IAMRoleCredentials `json:"roleCredentials,omitempty" type:"structure"`
 
-	RoleType *string `locationName:"roleType" type:"string" enum:"RoleType"`
+	RoleType *string `json:"roleType,omitempty" type:"string" enum:"RoleType"`
 
-	TaskArn *string `locationName:"taskArn" type:"string"`
+	TaskArn *string `json:"taskArn,omitempty" type:"string"`
 
-	TaskClusterArn *string `locationName:"taskClusterArn" type:"string"`
+	TaskClusterArn *string `json:"taskClusterArn,omitempty" type:"string"`
 }
 
 // String returns the string representation.
@@ -2314,11 +2314,11 @@ func (s RefreshTaskIAMRoleCredentialsInput) GoString() string {
 type RefreshTaskIAMRoleCredentialsOutput struct {
 	_ struct{} `type:"structure"`
 
-	CredentialsId *string `locationName:"credentialsId" type:"string"`
+	CredentialsId *string `json:"credentialsId,omitempty" type:"string"`
 
-	Expiration *string `locationName:"expiration" type:"string"`
+	Expiration *string `json:"expiration,omitempty" type:"string"`
 
-	MessageId *string `locationName:"messageId" type:"string"`
+	MessageId *string `json:"messageId,omitempty" type:"string"`
 }
 
 // String returns the string representation.
@@ -2342,11 +2342,11 @@ func (s RefreshTaskIAMRoleCredentialsOutput) GoString() string {
 type RegistryAuthenticationData struct {
 	_ struct{} `type:"structure"`
 
-	AsmAuthData *ASMAuthData `locationName:"asmAuthData" type:"structure"`
+	AsmAuthData *ASMAuthData `json:"asmAuthData,omitempty" type:"structure"`
 
-	EcrAuthData *ECRAuthData `locationName:"ecrAuthData" type:"structure"`
+	EcrAuthData *ECRAuthData `json:"ecrAuthData,omitempty" type:"structure"`
 
-	Type *string `locationName:"type" type:"string" enum:"AuthenticationType"`
+	Type *string `json:"type,omitempty" type:"string" enum:"AuthenticationType"`
 }
 
 // String returns the string representation.
@@ -2370,11 +2370,11 @@ func (s RegistryAuthenticationData) GoString() string {
 type RestartPolicy struct {
 	_ struct{} `type:"structure"`
 
-	Enabled *bool `locationName:"enabled" type:"boolean"`
+	Enabled *bool `json:"enabled,omitempty" type:"boolean"`
 
-	IgnoredExitCodes []*int64 `locationName:"ignoredExitCodes" type:"list"`
+	IgnoredExitCodes []*int64 `json:"ignoredExitCodes,omitempty" type:"list"`
 
-	RestartAttemptPeriod *int64 `locationName:"restartAttemptPeriod" type:"integer"`
+	RestartAttemptPeriod *int64 `json:"restartAttemptPeriod,omitempty" type:"integer"`
 }
 
 // String returns the string representation.
@@ -2398,19 +2398,19 @@ func (s RestartPolicy) GoString() string {
 type Secret struct {
 	_ struct{} `type:"structure"`
 
-	ContainerPath *string `locationName:"containerPath" type:"string"`
+	ContainerPath *string `json:"containerPath,omitempty" type:"string"`
 
-	Name *string `locationName:"name" type:"string"`
+	Name *string `json:"name,omitempty" type:"string"`
 
-	Provider *string `locationName:"provider" type:"string" enum:"SecretProvider"`
+	Provider *string `json:"provider,omitempty" type:"string" enum:"SecretProvider"`
 
-	Region *string `locationName:"region" type:"string"`
+	Region *string `json:"region,omitempty" type:"string"`
 
-	Target *string `locationName:"target" type:"string" enum:"SecretTarget"`
+	Target *string `json:"target,omitempty" type:"string" enum:"SecretTarget"`
 
-	Type *string `locationName:"type" type:"string" enum:"SecretType"`
+	Type *string `json:"type,omitempty" type:"string" enum:"SecretType"`
 
-	ValueFrom *string `locationName:"valueFrom" type:"string"`
+	ValueFrom *string `json:"valueFrom,omitempty" type:"string"`
 }
 
 // String returns the string representation.
@@ -2435,7 +2435,7 @@ type ServerException struct {
 	_            struct{}                  `type:"structure"`
 	RespMetadata protocol.ResponseMetadata `json:"-" xml:"-"`
 
-	Message_ *string `locationName:"message" type:"string"`
+	Message_ *string `json:"message,omitempty" type:"string"`
 }
 
 // String returns the string representation.
@@ -2497,13 +2497,13 @@ func (s *ServerException) RequestID() string {
 type StageUpdateInput struct {
 	_ struct{} `type:"structure"`
 
-	ClusterArn *string `locationName:"clusterArn" type:"string"`
+	ClusterArn *string `json:"clusterArn,omitempty" type:"string"`
 
-	ContainerInstanceArn *string `locationName:"containerInstanceArn" type:"string"`
+	ContainerInstanceArn *string `json:"containerInstanceArn,omitempty" type:"string"`
 
-	MessageId *string `locationName:"messageId" type:"string"`
+	MessageId *string `json:"messageId,omitempty" type:"string"`
 
-	UpdateInfo *UpdateInfo `locationName:"updateInfo" type:"structure"`
+	UpdateInfo *UpdateInfo `json:"updateInfo,omitempty" type:"structure"`
 }
 
 // String returns the string representation.
@@ -2527,13 +2527,13 @@ func (s StageUpdateInput) GoString() string {
 type StageUpdateMessage struct {
 	_ struct{} `type:"structure"`
 
-	ClusterArn *string `locationName:"clusterArn" type:"string"`
+	ClusterArn *string `json:"clusterArn,omitempty" type:"string"`
 
-	ContainerInstanceArn *string `locationName:"containerInstanceArn" type:"string"`
+	ContainerInstanceArn *string `json:"containerInstanceArn,omitempty" type:"string"`
 
-	MessageId *string `locationName:"messageId" type:"string"`
+	MessageId *string `json:"messageId,omitempty" type:"string"`
 
-	UpdateInfo *UpdateInfo `locationName:"updateInfo" type:"structure"`
+	UpdateInfo *UpdateInfo `json:"updateInfo,omitempty" type:"structure"`
 }
 
 // String returns the string representation.
@@ -2557,11 +2557,11 @@ func (s StageUpdateMessage) GoString() string {
 type StageUpdateOutput struct {
 	_ struct{} `type:"structure"`
 
-	Cluster *string `locationName:"cluster" type:"string"`
+	Cluster *string `json:"cluster,omitempty" type:"string"`
 
-	ContainerInstance *string `locationName:"containerInstance" type:"string"`
+	ContainerInstance *string `json:"containerInstance,omitempty" type:"string"`
 
-	MessageId *string `locationName:"messageId" type:"string"`
+	MessageId *string `json:"messageId,omitempty" type:"string"`
 }
 
 // String returns the string representation.
@@ -2585,55 +2585,55 @@ func (s StageUpdateOutput) GoString() string {
 type Task struct {
 	_ struct{} `type:"structure"`
 
-	AgentConfiguration *string `locationName:"agentConfiguration" type:"string"`
+	AgentConfiguration *string `json:"agentConfiguration,omitempty" type:"string"`
 
-	Arn *string `locationName:"arn" type:"string"`
+	Arn *string `json:"arn,omitempty" type:"string"`
 
-	Associations []*Association `locationName:"associations" type:"list"`
+	Associations []*Association `json:"associations,omitempty" type:"list"`
 
-	Attachments []*Attachment `locationName:"attachments" type:"list"`
+	Attachments []*Attachment `json:"attachments,omitempty" type:"list"`
 
-	Containers []*Container `locationName:"containers" type:"list"`
+	Containers []*Container `json:"containers,omitempty" type:"list"`
 
-	Cpu *float64 `locationName:"cpu" type:"double"`
+	Cpu *float64 `json:"cpu,omitempty" type:"double"`
 
-	DesiredStatus *string `locationName:"desiredStatus" type:"string"`
+	DesiredStatus *string `json:"desiredStatus,omitempty" type:"string"`
 
-	ElasticNetworkInterfaces []*ElasticNetworkInterface `locationName:"elasticNetworkInterfaces" type:"list"`
+	ElasticNetworkInterfaces []*ElasticNetworkInterface `json:"elasticNetworkInterfaces,omitempty" type:"list"`
 
-	EnableFaultInjection *bool `locationName:"enableFaultInjection" type:"boolean"`
+	EnableFaultInjection *bool `json:"enableFaultInjection,omitempty" type:"boolean"`
 
-	ExecutionRoleCredentials *IAMRoleCredentials `locationName:"executionRoleCredentials" type:"structure"`
+	ExecutionRoleCredentials *IAMRoleCredentials `json:"executionRoleCredentials,omitempty" type:"structure"`
 
-	Family *string `locationName:"family" type:"string"`
+	Family *string `json:"family,omitempty" type:"string"`
 
-	IpcMode *string `locationName:"ipcMode" type:"string"`
+	IpcMode *string `json:"ipcMode,omitempty" type:"string"`
 
-	LaunchType *string `locationName:"launchType" type:"string"`
+	LaunchType *string `json:"launchType,omitempty" type:"string"`
 
-	Memory *int64 `locationName:"memory" type:"integer"`
+	Memory *int64 `json:"memory,omitempty" type:"integer"`
 
-	NetworkMode *string `locationName:"networkMode" type:"string"`
+	NetworkMode *string `json:"networkMode,omitempty" type:"string"`
 
-	Overrides *string `locationName:"overrides" type:"string"`
+	Overrides *string `json:"overrides,omitempty" type:"string"`
 
-	PidMode *string `locationName:"pidMode" type:"string"`
+	PidMode *string `json:"pidMode,omitempty" type:"string"`
 
-	ProxyConfiguration *ProxyConfiguration `locationName:"proxyConfiguration" type:"structure"`
+	ProxyConfiguration *ProxyConfiguration `json:"proxyConfiguration,omitempty" type:"structure"`
 
-	RoleCredentials *IAMRoleCredentials `locationName:"roleCredentials" type:"structure"`
+	RoleCredentials *IAMRoleCredentials `json:"roleCredentials,omitempty" type:"structure"`
 
-	ServiceName *string `locationName:"serviceName" type:"string"`
+	ServiceName *string `json:"serviceName,omitempty" type:"string"`
 
-	TaskClusterArn *string `locationName:"taskClusterArn" type:"string"`
+	TaskClusterArn *string `json:"taskClusterArn,omitempty" type:"string"`
 
-	TaskDefinitionAccountId *string `locationName:"taskDefinitionAccountId" type:"string"`
+	TaskDefinitionAccountId *string `json:"taskDefinitionAccountId,omitempty" type:"string"`
 
-	Version *string `locationName:"version" type:"string"`
+	Version *string `json:"version,omitempty" type:"string"`
 
-	Volumes []*Volume `locationName:"volumes" type:"list"`
+	Volumes []*Volume `json:"volumes,omitempty" type:"list"`
 
-	Zone *string `locationName:"zone" type:"string"`
+	Zone *string `json:"zone,omitempty" type:"string"`
 }
 
 // String returns the string representation.
@@ -2677,11 +2677,11 @@ func (s *Task) Validate() error {
 type TaskIdentifier struct {
 	_ struct{} `type:"structure"`
 
-	DesiredStatus *string `locationName:"desiredStatus" type:"string"`
+	DesiredStatus *string `json:"desiredStatus,omitempty" type:"string"`
 
-	TaskArn *string `locationName:"taskArn" type:"string"`
+	TaskArn *string `json:"taskArn,omitempty" type:"string"`
 
-	TaskClusterArn *string `locationName:"taskClusterArn" type:"string"`
+	TaskClusterArn *string `json:"taskClusterArn,omitempty" type:"string"`
 }
 
 // String returns the string representation.
@@ -2705,17 +2705,17 @@ func (s TaskIdentifier) GoString() string {
 type TaskManifestInput struct {
 	_ struct{} `type:"structure"`
 
-	ClusterArn *string `locationName:"clusterArn" type:"string"`
+	ClusterArn *string `json:"clusterArn,omitempty" type:"string"`
 
-	ContainerInstanceArn *string `locationName:"containerInstanceArn" type:"string"`
+	ContainerInstanceArn *string `json:"containerInstanceArn,omitempty" type:"string"`
 
-	GeneratedAt *int64 `locationName:"generatedAt" type:"long"`
+	GeneratedAt *int64 `json:"generatedAt,omitempty" type:"long"`
 
-	MessageId *string `locationName:"messageId" type:"string"`
+	MessageId *string `json:"messageId,omitempty" type:"string"`
 
-	Tasks []*TaskIdentifier `locationName:"tasks" type:"list"`
+	Tasks []*TaskIdentifier `json:"tasks,omitempty" type:"list"`
 
-	Timeline *int64 `locationName:"timeline" type:"long"`
+	Timeline *int64 `json:"timeline,omitempty" type:"long"`
 }
 
 // String returns the string representation.
@@ -2739,17 +2739,17 @@ func (s TaskManifestInput) GoString() string {
 type TaskManifestMessage struct {
 	_ struct{} `type:"structure"`
 
-	ClusterArn *string `locationName:"clusterArn" type:"string"`
+	ClusterArn *string `json:"clusterArn,omitempty" type:"string"`
 
-	ContainerInstanceArn *string `locationName:"containerInstanceArn" type:"string"`
+	ContainerInstanceArn *string `json:"containerInstanceArn,omitempty" type:"string"`
 
-	GeneratedAt *int64 `locationName:"generatedAt" type:"long"`
+	GeneratedAt *int64 `json:"generatedAt,omitempty" type:"long"`
 
-	MessageId *string `locationName:"messageId" type:"string"`
+	MessageId *string `json:"messageId,omitempty" type:"string"`
 
-	Tasks []*TaskIdentifier `locationName:"tasks" type:"list"`
+	Tasks []*TaskIdentifier `json:"tasks,omitempty" type:"list"`
 
-	Timeline *int64 `locationName:"timeline" type:"long"`
+	Timeline *int64 `json:"timeline,omitempty" type:"long"`
 }
 
 // String returns the string representation.
@@ -2773,11 +2773,11 @@ func (s TaskManifestMessage) GoString() string {
 type TaskManifestOutput struct {
 	_ struct{} `type:"structure"`
 
-	Cluster *string `locationName:"cluster" type:"string"`
+	Cluster *string `json:"cluster,omitempty" type:"string"`
 
-	ContainerInstance *string `locationName:"containerInstance" type:"string"`
+	ContainerInstance *string `json:"containerInstance,omitempty" type:"string"`
 
-	MessageId *string `locationName:"messageId" type:"string"`
+	MessageId *string `json:"messageId,omitempty" type:"string"`
 }
 
 // String returns the string representation.
@@ -2801,11 +2801,11 @@ func (s TaskManifestOutput) GoString() string {
 type TaskStopVerificationAck struct {
 	_ struct{} `type:"structure"`
 
-	GeneratedAt *int64 `locationName:"generatedAt" type:"long"`
+	GeneratedAt *int64 `json:"generatedAt,omitempty" type:"long"`
 
-	MessageId *string `locationName:"messageId" type:"string"`
+	MessageId *string `json:"messageId,omitempty" type:"string"`
 
-	StopTasks []*TaskIdentifier `locationName:"stopTasks" type:"list"`
+	StopTasks []*TaskIdentifier `json:"stopTasks,omitempty" type:"list"`
 }
 
 // String returns the string representation.
@@ -2829,9 +2829,9 @@ func (s TaskStopVerificationAck) GoString() string {
 type TaskStopVerificationInput struct {
 	_ struct{} `type:"structure"`
 
-	MessageId *string `locationName:"messageId" type:"string"`
+	MessageId *string `json:"messageId,omitempty" type:"string"`
 
-	StopCandidates []*TaskIdentifier `locationName:"stopCandidates" type:"list"`
+	StopCandidates []*TaskIdentifier `json:"stopCandidates,omitempty" type:"list"`
 }
 
 // String returns the string representation.
@@ -2855,9 +2855,9 @@ func (s TaskStopVerificationInput) GoString() string {
 type TaskStopVerificationMessage struct {
 	_ struct{} `type:"structure"`
 
-	MessageId *string `locationName:"messageId" type:"string"`
+	MessageId *string `json:"messageId,omitempty" type:"string"`
 
-	StopCandidates []*TaskIdentifier `locationName:"stopCandidates" type:"list"`
+	StopCandidates []*TaskIdentifier `json:"stopCandidates,omitempty" type:"list"`
 }
 
 // String returns the string representation.
@@ -2881,11 +2881,11 @@ func (s TaskStopVerificationMessage) GoString() string {
 type TaskStopVerificationOutput struct {
 	_ struct{} `type:"structure"`
 
-	GeneratedAt *int64 `locationName:"generatedAt" type:"long"`
+	GeneratedAt *int64 `json:"generatedAt,omitempty" type:"long"`
 
-	MessageId *string `locationName:"messageId" type:"string"`
+	MessageId *string `json:"messageId,omitempty" type:"string"`
 
-	StopTasks []*TaskIdentifier `locationName:"stopTasks" type:"list"`
+	StopTasks []*TaskIdentifier `json:"stopTasks,omitempty" type:"list"`
 }
 
 // String returns the string representation.
@@ -2909,13 +2909,13 @@ func (s TaskStopVerificationOutput) GoString() string {
 type UpdateFailureInput struct {
 	_ struct{} `type:"structure"`
 
-	Cluster *string `locationName:"cluster" type:"string"`
+	Cluster *string `json:"cluster,omitempty" type:"string"`
 
-	ContainerInstance *string `locationName:"containerInstance" type:"string"`
+	ContainerInstance *string `json:"containerInstance,omitempty" type:"string"`
 
-	MessageId *string `locationName:"messageId" type:"string"`
+	MessageId *string `json:"messageId,omitempty" type:"string"`
 
-	Reason *string `locationName:"reason" type:"string"`
+	Reason *string `json:"reason,omitempty" type:"string"`
 }
 
 // String returns the string representation.
@@ -2961,9 +2961,9 @@ func (s UpdateFailureOutput) GoString() string {
 type UpdateInfo struct {
 	_ struct{} `type:"structure"`
 
-	Location *string `locationName:"location" type:"string"`
+	Location *string `json:"location,omitempty" type:"string"`
 
-	Signature *string `locationName:"signature" type:"string"`
+	Signature *string `json:"signature,omitempty" type:"string"`
 }
 
 // String returns the string representation.
@@ -2987,11 +2987,11 @@ func (s UpdateInfo) GoString() string {
 type VersionInfo struct {
 	_ struct{} `type:"structure"`
 
-	AgentHash *string `locationName:"agentHash" type:"string"`
+	AgentHash *string `json:"agentHash,omitempty" type:"string"`
 
-	AgentVersion *string `locationName:"agentVersion" type:"string"`
+	AgentVersion *string `json:"agentVersion,omitempty" type:"string"`
 
-	DockerVersion *string `locationName:"dockerVersion" type:"string"`
+	DockerVersion *string `json:"dockerVersion,omitempty" type:"string"`
 }
 
 // String returns the string representation.
@@ -3015,19 +3015,19 @@ func (s VersionInfo) GoString() string {
 type Volume struct {
 	_ struct{} `type:"structure"`
 
-	DockerVolumeConfiguration *DockerVolumeConfiguration `locationName:"dockerVolumeConfiguration" type:"structure"`
+	DockerVolumeConfiguration *DockerVolumeConfiguration `json:"dockerVolumeConfiguration,omitempty" type:"structure"`
 
-	EbsVolumeConfiguration *EBSVolumeConfiguration `locationName:"ebsVolumeConfiguration" type:"structure"`
+	EbsVolumeConfiguration *EBSVolumeConfiguration `json:"ebsVolumeConfiguration,omitempty" type:"structure"`
 
-	EfsVolumeConfiguration *EFSVolumeConfiguration `locationName:"efsVolumeConfiguration" type:"structure"`
+	EfsVolumeConfiguration *EFSVolumeConfiguration `json:"efsVolumeConfiguration,omitempty" type:"structure"`
 
-	FsxWindowsFileServerVolumeConfiguration *FSxWindowsFileServerVolumeConfiguration `locationName:"fsxWindowsFileServerVolumeConfiguration" type:"structure"`
+	FsxWindowsFileServerVolumeConfiguration *FSxWindowsFileServerVolumeConfiguration `json:"fsxWindowsFileServerVolumeConfiguration,omitempty" type:"structure"`
 
-	Host *HostVolumeProperties `locationName:"host" type:"structure"`
+	Host *HostVolumeProperties `json:"host,omitempty" type:"structure"`
 
-	Name *string `locationName:"name" type:"string"`
+	Name *string `json:"name,omitempty" type:"string"`
 
-	Type *string `locationName:"type" type:"string" enum:"VolumeType"`
+	Type *string `json:"type,omitempty" type:"string" enum:"VolumeType"`
 }
 
 // String returns the string representation.
@@ -3051,9 +3051,9 @@ func (s Volume) GoString() string {
 type VolumeFrom struct {
 	_ struct{} `type:"structure"`
 
-	ReadOnly *bool `locationName:"readOnly" type:"boolean"`
+	ReadOnly *bool `json:"readOnly,omitempty" type:"boolean"`
 
-	SourceContainer *string `locationName:"sourceContainer" type:"string"`
+	SourceContainer *string `json:"sourceContainer,omitempty" type:"string"`
 }
 
 // String returns the string representation.
