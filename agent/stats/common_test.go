@@ -281,7 +281,7 @@ func validateContainerHealthMetrics(metrics []*ecstcs.ContainerHealth, expected 
 		if aws.ToString(health.HealthStatus) == "" {
 			return fmt.Errorf("container health status is empty")
 		}
-		if aws.ToTime(health.StatusSince).IsZero() {
+		if aws.ToTime((*time.Time)(health.StatusSince)).IsZero() {
 			return fmt.Errorf("container health status change timestamp is empty")
 		}
 	}

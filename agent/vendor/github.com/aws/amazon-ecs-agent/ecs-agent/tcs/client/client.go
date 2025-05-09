@@ -16,6 +16,7 @@ package tcsclient
 import (
 	"bytes"
 	"context"
+	"encoding/json"
 	"fmt"
 	"io"
 	"net/http"
@@ -31,7 +32,6 @@ import (
 
 	"github.com/aws/aws-sdk-go-v2/aws"
 	awscreds "github.com/aws/aws-sdk-go/aws/credentials"
-	"github.com/aws/aws-sdk-go/private/protocol/json/jsonutil"
 	"github.com/cihub/seelog"
 	"github.com/pborman/uuid"
 )
@@ -214,7 +214,7 @@ func (cs *tcsClientServer) metricsToPublishMetricRequests(metrics ecstcs.Telemet
 		tempTaskMetric.ServiceConnectMetricsWrapper = tempTaskMetric.ServiceConnectMetricsWrapper[:0]
 
 		messageTaskMetrics = append(messageTaskMetrics, &tempTaskMetric)
-		tmsg, _ := jsonutil.BuildJSON(ecstcs.NewPublishMetricsRequest(messageInstanceMetrics, requestMetadata, copyTaskMetrics(messageTaskMetrics)))
+		tmsg, _ := json.Marshal(ecstcs.NewPublishMetricsRequest(messageInstanceMetrics, requestMetadata, copyTaskMetrics(messageTaskMetrics)))
 		// remove the tempTaskMetric added to messageTaskMetrics after creating tempMessage
 		messageTaskMetrics = messageTaskMetrics[:len(messageTaskMetrics)-1]
 		if len(tmsg) > publishMetricRequestSizeLimit {
@@ -266,8 +266,8 @@ func (cs *tcsClientServer) serviceConnectMetricsToPublishMetricRequests(instance
 		messageInstanceMetrics = filterInstanceMetrics(instanceMetrics, len(requests))
 		tempTaskMetric.ServiceConnectMetricsWrapper = append(tempTaskMetric.ServiceConnectMetricsWrapper, serviceConnectMetric)
 		messageTaskMetrics = append(messageTaskMetrics, &tempTaskMetric)
-		// TODO [SC]: Load test and profile this since BuildJSON results in lot of CPU and memory consumption.
-		tempMessage, _ := jsonutil.BuildJSON(ecstcs.NewPublishMetricsRequest(messageInstanceMetrics, requestMetadata, copyTaskMetrics(messageTaskMetrics)))
+		// TODO [SC]: Load test and profile this since json.Marshal(...) may result in lot of CPU and memory consumption.
+		tempMessage, _ := json.Marshal(ecstcs.NewPublishMetricsRequest(messageInstanceMetrics, requestMetadata, copyTaskMetrics(messageTaskMetrics)))
 		// remove the tempTaskMetric added to messageTaskMetrics after creating tempMessage
 		messageTaskMetrics = messageTaskMetrics[:len(messageTaskMetrics)-1]
 		if len(tempMessage) > publishMetricRequestSizeLimit {
@@ -461,7 +461,7 @@ func (cs *tcsClientServer) getPublishInstanceStatusRequest() (*ecstcs.PublishIns
 	return &ecstcs.PublishInstanceStatusRequest{
 		Metadata:  metadata,
 		Statuses:  instanceStatuses,
-		Timestamp: aws.Time(time.Now()),
+		Timestamp: (*utils.Timestamp)(aws.Time(time.Now())),
 	}, nil
 }
 
@@ -472,8 +472,8 @@ func (cs *tcsClientServer) getInstanceStatuses() []*ecstcs.InstanceStatus {
 
 	for _, healthcheck := range *cs.doctor.GetHealthchecks() {
 		instanceStatus := &ecstcs.InstanceStatus{
-			LastStatusChange: aws.Time(healthcheck.GetStatusChangeTime()),
-			LastUpdated:      aws.Time(healthcheck.GetLastHealthcheckTime()),
+			LastStatusChange: (*utils.Timestamp)(aws.Time(healthcheck.GetStatusChangeTime())),
+			LastUpdated:      (*utils.Timestamp)(aws.Time(healthcheck.GetLastHealthcheckTime())),
 			Status:           aws.String(healthcheck.GetHealthcheckStatus().String()),
 			Type:             aws.String(healthcheck.GetHealthcheckType()),
 		}
