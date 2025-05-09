@@ -501,7 +501,7 @@ func (cs *CredentialSpecResource) handleSSMCredentialspecFile(originalCredential
 	}
 	ssmParams := []string{ssmParam[1]}
 
-	ssmClient, err := cs.ssmClientCreator.NewSSMClient(cs.region, iamCredentials)
+	ssmClient, err := cs.ssmClientCreator.NewSSMClient(cs.region, iamCredentials, cs.ipCompatibility)
 	if err != nil {
 		errorEvents <- fmt.Errorf("unable to create SSM client: %v", err)
 		return

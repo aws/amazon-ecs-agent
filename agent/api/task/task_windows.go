@@ -203,7 +203,8 @@ func (task *Task) addFSxWindowsFileServerResource(
 		credentialsManager,
 		resourceFields.SSMClientCreator,
 		resourceFields.ASMClientCreator,
-		resourceFields.FSxClientCreator)
+		resourceFields.FSxClientCreator,
+		cfg.InstanceIPCompatibility)
 	if err != nil {
 		return err
 	}
