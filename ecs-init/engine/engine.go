@@ -350,8 +350,10 @@ func (e *Engine) PostStop() error {
 	log.Info("Cleaning up the credentials endpoint setup for Amazon Elastic Container Service Agent")
 	err := e.loopbackRouting.RestoreDefault()
 
-	// Ignore error from Remove() as the routes might never have been added in the first place
-	e.tmdsRoutesForIPv6OnlyInstance.RemoveRoute()
+	err = e.tmdsRoutesForIPv6OnlyInstance.RemoveRoute()
+	if err != nil {
+		log.Warn("Error when removing TMDS routes for IPv6-only instances: %v", err)
+	}
 	// Ignore error from Remove() as the netfilter might never have been added in the first place
 	e.credentialsProxyRoute.Remove()
 	return err
