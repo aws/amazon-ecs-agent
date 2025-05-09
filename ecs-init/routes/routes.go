@@ -115,7 +115,7 @@ func getRouteToRedirectToLo(nl netlinkwrapper.NetLink, addr net.IP) (*netlink.Ro
 	// Get the loopback interface.
 	lo, err := nl.LinkByName("lo")
 	if err != nil {
-		return nil, fmt.Errorf("error getting lo interface: %v\n", err)
+		return nil, fmt.Errorf("error getting lo interface: %v", err)
 	}
 
 	dst := &net.IPNet{

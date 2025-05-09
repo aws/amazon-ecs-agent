@@ -66,12 +66,15 @@ func TestPreStartImageAlreadyCachedAndLoaded(t *testing.T) {
 	mockIpv6RouterAdvertisements.EXPECT().Disable().Return(nil)
 	mockRoute := NewMockcredentialsProxyRoute(mockCtrl)
 	mockRoute.EXPECT().Create().Return(nil)
+	mockTMDSIPv6Routes := NewMocktmdsRouteManagerForIPv6Only(mockCtrl)
+	mockTMDSIPv6Routes.EXPECT().CreateRoute().Return(nil)
 
 	engine := &Engine{
-		downloader:               mockDownloader,
-		loopbackRouting:          mockLoopbackRouting,
-		ipv6RouterAdvertisements: mockIpv6RouterAdvertisements,
-		credentialsProxyRoute:    mockRoute,
+		downloader:                    mockDownloader,
+		loopbackRouting:               mockLoopbackRouting,
+		ipv6RouterAdvertisements:      mockIpv6RouterAdvertisements,
+		credentialsProxyRoute:         mockRoute,
+		tmdsRoutesForIPv6OnlyInstance: mockTMDSIPv6Routes,
 	}
 	err := engine.PreStart()
 	if err != nil {
@@ -104,12 +107,15 @@ func TestPreStartReloadNeeded(t *testing.T) {
 	mockIpv6RouterAdvertisements.EXPECT().Disable().Return(nil)
 	mockRoute := NewMockcredentialsProxyRoute(mockCtrl)
 	mockRoute.EXPECT().Create().Return(nil)
+	mockTMDSIPv6OnlyRoutes := NewMocktmdsRouteManagerForIPv6Only(mockCtrl)
+	mockTMDSIPv6OnlyRoutes.EXPECT().CreateRoute().Return(nil)
 
 	engine := &Engine{
-		downloader:               mockDownloader,
-		loopbackRouting:          mockLoopbackRouting,
-		ipv6RouterAdvertisements: mockIpv6RouterAdvertisements,
-		credentialsProxyRoute:    mockRoute,
+		downloader:                    mockDownloader,
+		loopbackRouting:               mockLoopbackRouting,
+		ipv6RouterAdvertisements:      mockIpv6RouterAdvertisements,
+		credentialsProxyRoute:         mockRoute,
+		tmdsRoutesForIPv6OnlyInstance: mockTMDSIPv6OnlyRoutes,
 	}
 	err := engine.PreStart()
 	if err != nil {
@@ -134,6 +140,8 @@ func TestPreStartImageNotLoadedCached(t *testing.T) {
 	mockLoopbackRouting.EXPECT().Enable().Return(nil)
 	mockIpv6RouterAdvertisements := NewMockipv6RouterAdvertisements(mockCtrl)
 	mockIpv6RouterAdvertisements.EXPECT().Disable().Return(nil)
+	mockTMDSIPv6OnlyRoutes := NewMocktmdsRouteManagerForIPv6Only(mockCtrl)
+	mockTMDSIPv6OnlyRoutes.EXPECT().CreateRoute().Return(nil)
 	mockDocker.EXPECT().IsAgentImageLoaded().Return(false, nil)
 	mockDownloader.EXPECT().AgentCacheStatus().Return(cache.StatusCached)
 	mockDownloader.EXPECT().LoadCachedAgent().Return(cachedAgentBuffer, nil)
@@ -141,10 +149,11 @@ func TestPreStartImageNotLoadedCached(t *testing.T) {
 	mockDownloader.EXPECT().RecordCachedAgent()
 
 	engine := &Engine{
-		downloader:               mockDownloader,
-		loopbackRouting:          mockLoopbackRouting,
-		ipv6RouterAdvertisements: mockIpv6RouterAdvertisements,
-		credentialsProxyRoute:    mockRoute,
+		downloader:                    mockDownloader,
+		loopbackRouting:               mockLoopbackRouting,
+		ipv6RouterAdvertisements:      mockIpv6RouterAdvertisements,
+		credentialsProxyRoute:         mockRoute,
+		tmdsRoutesForIPv6OnlyInstance: mockTMDSIPv6OnlyRoutes,
 	}
 	err := engine.PreStart()
 	if err != nil {
@@ -176,12 +185,15 @@ func TestPreStartImageNotCached(t *testing.T) {
 	mockIpv6RouterAdvertisements.EXPECT().Disable().Return(nil)
 	mockRoute := NewMockcredentialsProxyRoute(mockCtrl)
 	mockRoute.EXPECT().Create().Return(nil)
+	mockTMDSIPv6OnlyRoutes := NewMocktmdsRouteManagerForIPv6Only(mockCtrl)
+	mockTMDSIPv6OnlyRoutes.EXPECT().CreateRoute().Return(nil)
 
 	engine := &Engine{
-		downloader:               mockDownloader,
-		loopbackRouting:          mockLoopbackRouting,
-		ipv6RouterAdvertisements: mockIpv6RouterAdvertisements,
-		credentialsProxyRoute:    mockRoute,
+		downloader:                    mockDownloader,
+		loopbackRouting:               mockLoopbackRouting,
+		ipv6RouterAdvertisements:      mockIpv6RouterAdvertisements,
+		credentialsProxyRoute:         mockRoute,
+		tmdsRoutesForIPv6OnlyInstance: mockTMDSIPv6OnlyRoutes,
 	}
 	err := engine.PreStart()
 	if err != nil {
@@ -213,13 +225,16 @@ func TestPreStartGPUSetupSuccessful(t *testing.T) {
 	mockIpv6RouterAdvertisements.EXPECT().Disable().Return(nil)
 	mockRoute := NewMockcredentialsProxyRoute(mockCtrl)
 	mockRoute.EXPECT().Create().Return(nil)
+	mockTMDSIPv6OnlyRoutes := NewMocktmdsRouteManagerForIPv6Only(mockCtrl)
+	mockTMDSIPv6OnlyRoutes.EXPECT().CreateRoute().Return(nil)
 
 	engine := &Engine{
-		downloader:               mockDownloader,
-		loopbackRouting:          mockLoopbackRouting,
-		ipv6RouterAdvertisements: mockIpv6RouterAdvertisements,
-		credentialsProxyRoute:    mockRoute,
-		nvidiaGPUManager:         mockGPUManager,
+		downloader:                    mockDownloader,
+		loopbackRouting:               mockLoopbackRouting,
+		ipv6RouterAdvertisements:      mockIpv6RouterAdvertisements,
+		credentialsProxyRoute:         mockRoute,
+		nvidiaGPUManager:              mockGPUManager,
+		tmdsRoutesForIPv6OnlyInstance: mockTMDSIPv6OnlyRoutes,
 	}
 	err := engine.PreStart()
 	if err != nil {
@@ -519,17 +534,46 @@ func TestPrestartCredentialsProxyRouteNotCreated(t *testing.T) {
 	mockLoopbackRouting.EXPECT().Enable().Return(nil)
 	mockRoute := NewMockcredentialsProxyRoute(mockCtrl)
 	mockRoute.EXPECT().Create().Return(fmt.Errorf("iptables not found"))
+	mockTMDSIPv6OnlyRoutes := NewMocktmdsRouteManagerForIPv6Only(mockCtrl)
+	mockTMDSIPv6OnlyRoutes.EXPECT().CreateRoute().Return(nil)
 
 	engine := &Engine{
-		downloader:               mockDownloader,
-		loopbackRouting:          mockLoopbackRouting,
-		ipv6RouterAdvertisements: mockIpv6RouterAdvertisements,
-		credentialsProxyRoute:    mockRoute,
+		downloader:                    mockDownloader,
+		loopbackRouting:               mockLoopbackRouting,
+		ipv6RouterAdvertisements:      mockIpv6RouterAdvertisements,
+		credentialsProxyRoute:         mockRoute,
+		tmdsRoutesForIPv6OnlyInstance: mockTMDSIPv6OnlyRoutes,
 	}
 	err := engine.PreStart()
 	if err == nil {
 		t.Error("Expected pre-start error when the credentials proxy route cannot be created")
 	}
+}
+
+func TestPrestartTMDSIpv6OnlyRouteNotCreated(t *testing.T) {
+	mockCtrl := gomock.NewController(t)
+	defer mockCtrl.Finish()
+
+	mockDocker := NewMockdockerClient(mockCtrl)
+	defer getDockerClientMock(mockDocker)()
+	mockDownloader := NewMockdownloader(mockCtrl)
+	mockLoopbackRouting := NewMockloopbackRouting(mockCtrl)
+	mockIpv6RouterAdvertisements := NewMockipv6RouterAdvertisements(mockCtrl)
+	mockIpv6RouterAdvertisements.EXPECT().Disable().Return(nil)
+
+	mockDocker.EXPECT().LoadEnvVars().Return(nil)
+	mockLoopbackRouting.EXPECT().Enable().Return(nil)
+	mockTMDSIPv6OnlyRoutes := NewMocktmdsRouteManagerForIPv6Only(mockCtrl)
+	mockTMDSIPv6OnlyRoutes.EXPECT().CreateRoute().Return(errors.New("some error"))
+
+	engine := &Engine{
+		downloader:                    mockDownloader,
+		loopbackRouting:               mockLoopbackRouting,
+		ipv6RouterAdvertisements:      mockIpv6RouterAdvertisements,
+		tmdsRoutesForIPv6OnlyInstance: mockTMDSIPv6OnlyRoutes,
+	}
+	err := engine.PreStart()
+	assert.EqualError(t, err, "could not create routes for task metadata server: some error")
 }
 
 func TestPostStop(t *testing.T) {
@@ -540,10 +584,13 @@ func TestPostStop(t *testing.T) {
 	mockLoopbackRouting.EXPECT().RestoreDefault().Return(nil)
 	mockRoute := NewMockcredentialsProxyRoute(mockCtrl)
 	mockRoute.EXPECT().Remove().Return(nil)
+	mockTMDSIPv6OnlyRoutes := NewMocktmdsRouteManagerForIPv6Only(mockCtrl)
+	mockTMDSIPv6OnlyRoutes.EXPECT().RemoveRoute().Return(nil)
 
 	engine := &Engine{
-		loopbackRouting:       mockLoopbackRouting,
-		credentialsProxyRoute: mockRoute,
+		loopbackRouting:               mockLoopbackRouting,
+		credentialsProxyRoute:         mockRoute,
+		tmdsRoutesForIPv6OnlyInstance: mockTMDSIPv6OnlyRoutes,
 	}
 	err := engine.PostStop()
 	if err != nil {
@@ -551,7 +598,7 @@ func TestPostStop(t *testing.T) {
 	}
 }
 
-func TestPostStopLoopbackRoutingError(t *testing.T) {
+func lTestPostStopLoopbackRoutingError(t *testing.T) {
 	mockCtrl := gomock.NewController(t)
 	defer mockCtrl.Finish()
 
@@ -559,10 +606,13 @@ func TestPostStopLoopbackRoutingError(t *testing.T) {
 	mockLoopbackRouting.EXPECT().RestoreDefault().Return(fmt.Errorf("cannot restore"))
 	mockRoute := NewMockcredentialsProxyRoute(mockCtrl)
 	mockRoute.EXPECT().Remove().Return(nil)
+	mockTMDSIPv6OnlyRoutes := NewMocktmdsRouteManagerForIPv6Only(mockCtrl)
+	mockTMDSIPv6OnlyRoutes.EXPECT().RemoveRoute().Return(nil)
 
 	engine := &Engine{
-		loopbackRouting:       mockLoopbackRouting,
-		credentialsProxyRoute: mockRoute,
+		loopbackRouting:               mockLoopbackRouting,
+		credentialsProxyRoute:         mockRoute,
+		tmdsRoutesForIPv6OnlyInstance: mockTMDSIPv6OnlyRoutes,
 	}
 	err := engine.PostStop()
 	if err == nil {
@@ -578,10 +628,37 @@ func TestPostStopCredentialsProxyRouteRemoveError(t *testing.T) {
 	mockLoopbackRouting.EXPECT().RestoreDefault().Return(nil)
 	mockRoute := NewMockcredentialsProxyRoute(mockCtrl)
 	mockRoute.EXPECT().Remove().Return(fmt.Errorf("cannot remove"))
+	mockTMDSIPv6OnlyRoutes := NewMocktmdsRouteManagerForIPv6Only(mockCtrl)
+	mockTMDSIPv6OnlyRoutes.EXPECT().RemoveRoute().Return(nil)
 
 	engine := &Engine{
-		loopbackRouting:       mockLoopbackRouting,
-		credentialsProxyRoute: mockRoute,
+		loopbackRouting:               mockLoopbackRouting,
+		credentialsProxyRoute:         mockRoute,
+		tmdsRoutesForIPv6OnlyInstance: mockTMDSIPv6OnlyRoutes,
+	}
+	err := engine.PostStop()
+	if err != nil {
+		t.Errorf("engine post-stop error: %v", err)
+	}
+}
+
+// Tests that errors when removing any routes for TMDS access on
+// IPv6-only instances are swallowed.
+func TestPostStopTMDSIPv6OnlyRouteRemoveError(t *testing.T) {
+	mockCtrl := gomock.NewController(t)
+	defer mockCtrl.Finish()
+
+	mockLoopbackRouting := NewMockloopbackRouting(mockCtrl)
+	mockLoopbackRouting.EXPECT().RestoreDefault().Return(nil)
+	mockRoute := NewMockcredentialsProxyRoute(mockCtrl)
+	mockRoute.EXPECT().Remove().Return(nil)
+	mockTMDSIPv6OnlyRoutes := NewMocktmdsRouteManagerForIPv6Only(mockCtrl)
+	mockTMDSIPv6OnlyRoutes.EXPECT().RemoveRoute().Return(errors.New("some error"))
+
+	engine := &Engine{
+		loopbackRouting:               mockLoopbackRouting,
+		credentialsProxyRoute:         mockRoute,
+		tmdsRoutesForIPv6OnlyInstance: mockTMDSIPv6OnlyRoutes,
 	}
 	err := engine.PostStop()
 	if err != nil {

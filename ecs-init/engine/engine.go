@@ -352,9 +352,8 @@ func (e *Engine) PostStop() error {
 	err := e.loopbackRouting.RestoreDefault()
 
 	log.Info("Cleaning up any routes added for TMDS access on IPv6-only instances")
-	err = e.tmdsRoutesForIPv6OnlyInstance.RemoveRoute()
-	if err != nil {
-		log.Warn("Error when removing TMDS routes for IPv6-only instances: %v", err)
+	if ipv6OnlyRouteError := e.tmdsRoutesForIPv6OnlyInstance.RemoveRoute(); ipv6OnlyRouteError != nil {
+		log.Warn("Error when removing TMDS routes for IPv6-only instances: %v", ipv6OnlyRouteError)
 	}
 	// Ignore error from Remove() as the netfilter might never have been added in the first place
 	e.credentialsProxyRoute.Remove()

@@ -18,6 +18,7 @@ github.com/NVIDIA/go-nvml/pkg/nvml
 github.com/aws/amazon-ecs-agent/ecs-agent/ipcompatibility
 github.com/aws/amazon-ecs-agent/ecs-agent/utils/net
 github.com/aws/amazon-ecs-agent/ecs-agent/utils/netlinkwrapper
+github.com/aws/amazon-ecs-agent/ecs-agent/utils/netlinkwrapper/mocks
 # github.com/aws/aws-sdk-go-v2 v1.32.6
 ## explicit; go 1.21
 github.com/aws/aws-sdk-go-v2/aws
