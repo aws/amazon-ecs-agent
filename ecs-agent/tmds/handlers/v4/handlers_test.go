@@ -63,6 +63,7 @@ const (
 	macAddress               = "06:96:9a:ce:a6:ce"
 	privateDNSName           = "ip-172-31-47-69.us-west-2.compute.internal"
 	subnetGatewayIpv4Address = "172.31.32.1/20"
+	subnetGatewayIpv6Address = "2600:1f14:30ab:6901::/64"
 	externalReason           = "external reason"
 	containerArn             = "arn:aws:ecs:ap-northnorth-1:NNN:container/NNNNNNNN-aaaa-4444-bbbb-00000000000"
 	timestamp                = "2025-04-29T16:56:17.446028948Z"
@@ -81,7 +82,7 @@ const (
 	containerResponseJSON = `{"DockerId":"%s","Name":"%s","DockerName":"%s","Image":"%s","ImageID":"%s",` +
 		`"Ports":[{"ContainerPort":%d,"Protocol":"%s","HostPort":%d}],"Labels":{"foo":"bar"},"DesiredStatus":"%s",` +
 		`"KnownStatus":"%s","Limits":{"CPU":%d,"Memory":%d},"Type":"%s","ContainerARN":"%s","Networks":[{"NetworkMode":"%s",` +
-		`"IPv4Addresses":["%s"],"AttachmentIndex":0,"MACAddress":"%s","IPv4SubnetCIDRBlock":"%s","PrivateDNSName":"%s","SubnetGatewayIpv4Address":"%s"}]}`
+		`"IPv4Addresses":["%s"],"AttachmentIndex":0,"MACAddress":"%s","IPv4SubnetCIDRBlock":"%s","PrivateDNSName":"%s","SubnetGatewayIpv4Address":"%s","SubnetGatewayIPV6Address":"%s"}]}`
 	taskResponseJSON = `{"Cluster":"%s","TaskARN":"%s","Family":"%s","Revision":"%s","DesiredStatus":"%s",` +
 		`"KnownStatus":"%s","Limits":{"CPU":%d,"Memory":%d},"PullStartedAt":"%s","PullStoppedAt":"%s","ExecutionStoppedAt":"%s",` +
 		`"AvailabilityZone":"%s","LaunchType":"%s","Containers":[%s],"VPCID":"%s","ClockDrift":{"ClockErrorBound":%d,` +
@@ -139,6 +140,7 @@ var (
 				MACAddress:               macAddress,
 				PrivateDNSName:           privateDNSName,
 				SubnetGatewayIPV4Address: subnetGatewayIpv4Address,
+				SubnetGatewayIPV6Address: subnetGatewayIpv6Address,
 			}},
 		},
 	}
@@ -180,6 +182,7 @@ var (
 		iPv4SubnetCIDRBlock,
 		privateDNSName,
 		subnetGatewayIpv4Address,
+		subnetGatewayIpv6Address,
 	)
 	happyContainerStatsResponseJSON = fmt.Sprintf(containerStatsResponseJSON,
 		numProcs,

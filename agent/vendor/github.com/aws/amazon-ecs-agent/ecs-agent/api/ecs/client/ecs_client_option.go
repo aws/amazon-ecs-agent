@@ -31,6 +31,14 @@ func WithFIPSDetected(val bool) ECSClientOption {
 	}
 }
 
+// WithDualStackEnabled is an ECSClientOption that configures the
+// ecsClient.isDualStackEnabled with the value passed as a parameter.
+func WithDualStackEnabled(val bool) ECSClientOption {
+	return func(client *ecsClient) {
+		client.isDualStackEnabled = val
+	}
+}
+
 // WithDiscoverPollEndpointCacheTTL is an ECSClientOption that configures the
 // ecsClient.pollEndpointCache.ttl with the value passed as a parameter.
 func WithDiscoverPollEndpointCacheTTL(t *async.TTL) ECSClientOption {
