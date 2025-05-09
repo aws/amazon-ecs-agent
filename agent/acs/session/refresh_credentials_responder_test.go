@@ -21,7 +21,6 @@ import (
 
 	apicontainer "github.com/aws/amazon-ecs-agent/agent/api/container"
 	apitask "github.com/aws/amazon-ecs-agent/agent/api/task"
-	"github.com/aws/amazon-ecs-agent/agent/config/ipcompatibility"
 	mock_engine "github.com/aws/amazon-ecs-agent/agent/engine/mocks"
 	"github.com/aws/amazon-ecs-agent/ecs-agent/acs/model/ecsacs"
 	acssession "github.com/aws/amazon-ecs-agent/ecs-agent/acs/session"
@@ -35,12 +34,13 @@ import (
 )
 
 const (
-	expiration   = "soon"
-	roleArn      = "taskrole1"
-	accessKey    = "akid"
-	secretKey    = "secret"
-	sessionToken = "token"
-	roleType     = "TaskExecution"
+	expiration                         = "soon"
+	roleArn                            = "taskrole1"
+	accessKey                          = "akid"
+	secretKey                          = "secret"
+	sessionToken                       = "token"
+	roleType                           = "TaskExecution"
+	testShouldEnableDualStackEndpoints = true
 )
 
 var expectedCredentialsAck = &ecsacs.IAMRoleCredentialsAckRequest{
@@ -76,8 +76,6 @@ var testRefreshCredentialsMessage = &ecsacs.IAMRoleCredentialsMessage{
 	},
 }
 
-var testIPCompatibility = ipcompatibility.NewIPCompatibility(true, true)
-
 // TestInvalidCredentialsMessageNotAcked tests that invalid credential message
 // is not ACKed.
 func TestInvalidCredentialsMessageNotAcked(t *testing.T) {
@@ -90,7 +88,7 @@ func TestInvalidCredentialsMessageNotAcked(t *testing.T) {
 		return nil
 	}
 	testRefreshCredentialsResponder := acssession.NewRefreshCredentialsResponder(credentials.NewManager(),
-		NewCredentialsMetadataSetter(nil, testIPCompatibility),
+		NewCredentialsMetadataSetter(nil, testShouldEnableDualStackEndpoints),
 		metrics.NewNopEntryFactory(),
 		testResponseSender)
 
@@ -117,7 +115,7 @@ func TestCredentialsMessageNotAckedWhenTaskNotFound(t *testing.T) {
 		return nil
 	}
 	testRefreshCredentialsResponder := acssession.NewRefreshCredentialsResponder(credentials.NewManager(),
-		NewCredentialsMetadataSetter(mockTaskEngine, testIPCompatibility),
+		NewCredentialsMetadataSetter(mockTaskEngine, testShouldEnableDualStackEndpoints),
 		metrics.NewNopEntryFactory(),
 		testResponseSender)
 
@@ -161,7 +159,7 @@ func TestHandleRefreshMessageAckedWhenCredentialsUpdated(t *testing.T) {
 				return nil
 			}
 			testRefreshCredentialsResponder := acssession.NewRefreshCredentialsResponder(credentialsManager,
-				NewCredentialsMetadataSetter(mockTaskEngine, testIPCompatibility),
+				NewCredentialsMetadataSetter(mockTaskEngine, testShouldEnableDualStackEndpoints),
 				metrics.NewNopEntryFactory(),
 				testResponseSender)
 
@@ -169,7 +167,7 @@ func TestHandleRefreshMessageAckedWhenCredentialsUpdated(t *testing.T) {
 				testRefreshCredentialsResponder.HandlerFunc().(func(*ecsacs.IAMRoleCredentialsMessage))
 
 			checkAndSetDomainlessGMSATaskExecutionRoleCredentialsImpl = func(
-				iamRoleCredentials credentials.IAMRoleCredentials, task *apitask.Task, ipCompatibility ipcompatibility.IPCompatibility) error {
+				iamRoleCredentials credentials.IAMRoleCredentials, task *apitask.Task, useDualStackEndpoint bool) error {
 				if tc.taskArn != task.Arn {
 					return errors.New(fmt.Sprintf("Expected taskArnInput to be %s, instead got %s", tc.taskArn,
 						task.Arn))
@@ -235,7 +233,7 @@ func TestCredentialsMessageNotAckedWhenDomainlessGMSACredentialsError(t *testing
 				return nil
 			}
 			testRefreshCredentialsResponder := acssession.NewRefreshCredentialsResponder(credentialsManager,
-				NewCredentialsMetadataSetter(mockTaskEngine, testIPCompatibility),
+				NewCredentialsMetadataSetter(mockTaskEngine, testShouldEnableDualStackEndpoints),
 				metrics.NewNopEntryFactory(),
 				testResponseSender)
 
@@ -243,7 +241,7 @@ func TestCredentialsMessageNotAckedWhenDomainlessGMSACredentialsError(t *testing
 				testRefreshCredentialsResponder.HandlerFunc().(func(*ecsacs.IAMRoleCredentialsMessage))
 
 			checkAndSetDomainlessGMSATaskExecutionRoleCredentialsImpl = func(
-				iamRoleCredentials credentials.IAMRoleCredentials, task *apitask.Task, ipCompatibility ipcompatibility.IPCompatibility) error {
+				iamRoleCredentials credentials.IAMRoleCredentials, task *apitask.Task, useDualStackEndpoint bool) error {
 				if tc.taskArn != task.Arn {
 					return errors.New(fmt.Sprintf("Expected taskArnInput to be %s, instead got %s", tc.taskArn, task.Arn))
 				}

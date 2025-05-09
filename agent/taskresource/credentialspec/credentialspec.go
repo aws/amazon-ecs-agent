@@ -21,7 +21,6 @@ import (
 	apicontainer "github.com/aws/amazon-ecs-agent/agent/api/container"
 	asmfactory "github.com/aws/amazon-ecs-agent/agent/asm/factory"
 	"github.com/aws/amazon-ecs-agent/agent/config"
-	"github.com/aws/amazon-ecs-agent/agent/config/ipcompatibility"
 	s3factory "github.com/aws/amazon-ecs-agent/agent/s3/factory"
 	ssmfactory "github.com/aws/amazon-ecs-agent/agent/ssm/factory"
 	"github.com/aws/amazon-ecs-agent/agent/taskresource"
@@ -77,8 +76,8 @@ type CredentialSpecResourceCommon struct {
 	credentialSpecContainerMap map[string]string
 	// lock is used for fields that are accessed and updated concurrently
 	lock sync.RWMutex
-	// ipCompatibility is used to determine the eligibility to use dualstack endpoints
-	ipCompatibility ipcompatibility.IPCompatibility
+	// TODO: comment
+	useDualStackEndpoint bool
 }
 
 func (cs *CredentialSpecResource) Initialize(
@@ -91,7 +90,7 @@ func (cs *CredentialSpecResource) Initialize(
 	cs.ssmClientCreator = resourceFields.SSMClientCreator
 	cs.s3ClientCreator = resourceFields.S3ClientCreator
 	cs.secretsmanagerClientCreator = resourceFields.ASMClientCreator
-	cs.ipCompatibility = config.InstanceIPCompatibility
+	cs.useDualStackEndpoint = config.ShouldUseDualStackEndpoints()
 	cs.initStatusToTransition()
 }
 

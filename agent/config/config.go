@@ -608,6 +608,7 @@ func environmentConfig() (Config, error) {
 		DynamicHostPortRange:                parseDynamicHostPortRange("ECS_DYNAMIC_HOST_PORT_RANGE"),
 		TaskPidsLimit:                       parseTaskPidsLimit(),
 		FirelensAsyncEnabled:                parseBooleanDefaultTrueConfig("ECS_ENABLE_FIRELENS_ASYNC"),
+		UseDualStackEndpoints:               parseBooleanDefaultFalseConfig("USE_DUAL_STACK_ENDPOINTS"),
 	}, err
 }
 
@@ -675,4 +676,9 @@ func IsFIPSEnabled() bool {
 // that is used in s3/factory/factory_test.go
 func SetFIPSEnabled(enabled bool) {
 	isFIPSEnabled = enabled
+}
+
+// TODO: Add comment + test case
+func (cfg *Config) ShouldUseDualStackEndpoints() bool {
+	return cfg.UseDualStackEndpoints.Enabled() || cfg.InstanceIPCompatibility.IsIPv6Only()
 }

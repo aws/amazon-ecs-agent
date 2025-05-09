@@ -32,7 +32,6 @@ import (
 	apitask "github.com/aws/amazon-ecs-agent/agent/api/task"
 	mock_asm_factory "github.com/aws/amazon-ecs-agent/agent/asm/factory/mocks"
 	"github.com/aws/amazon-ecs-agent/agent/config"
-	"github.com/aws/amazon-ecs-agent/agent/config/ipcompatibility"
 	"github.com/aws/amazon-ecs-agent/agent/data"
 	"github.com/aws/amazon-ecs-agent/agent/dockerclient"
 	"github.com/aws/amazon-ecs-agent/agent/dockerclient/dockerapi"
@@ -1592,7 +1591,6 @@ func TestCredentialSpecResourceTaskFile(t *testing.T) {
 	ssmClientCreator := mock_ssm_factory.NewMockSSMClientCreator(ctrl)
 	s3ClientCreator := mock_s3_factory.NewMockS3ClientCreator(ctrl)
 	asmClientCreator := mock_asm_factory.NewMockClientCreator(ctrl)
-	testIPCompatibility := ipcompatibility.NewIPCompatibility(true, true)
 
 	credentialSpecRes, cerr := credentialspec.NewCredentialSpecResource(
 		testTask.Arn,
@@ -1603,7 +1601,7 @@ func TestCredentialSpecResourceTaskFile(t *testing.T) {
 		s3ClientCreator,
 		asmClientCreator,
 		nil,
-		testIPCompatibility,
+		defaultConfig.ShouldUseDualStackEndpoints(),
 	)
 	assert.NoError(t, cerr)
 

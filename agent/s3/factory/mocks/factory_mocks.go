@@ -21,7 +21,6 @@ package mock_factory
 import (
 	reflect "reflect"
 
-	ipcompatibility "github.com/aws/amazon-ecs-agent/agent/config/ipcompatibility"
 	s3 "github.com/aws/amazon-ecs-agent/agent/s3"
 	credentials "github.com/aws/amazon-ecs-agent/ecs-agent/credentials"
 	gomock "github.com/golang/mock/gomock"
@@ -51,7 +50,7 @@ func (m *MockS3ClientCreator) EXPECT() *MockS3ClientCreatorMockRecorder {
 }
 
 // NewS3Client mocks base method.
-func (m *MockS3ClientCreator) NewS3Client(arg0, arg1 string, arg2 credentials.IAMRoleCredentials, arg3 ipcompatibility.IPCompatibility) (s3.S3Client, error) {
+func (m *MockS3ClientCreator) NewS3Client(arg0, arg1 string, arg2 credentials.IAMRoleCredentials, arg3 bool) (s3.S3Client, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "NewS3Client", arg0, arg1, arg2, arg3)
 	ret0, _ := ret[0].(s3.S3Client)
@@ -66,7 +65,7 @@ func (mr *MockS3ClientCreatorMockRecorder) NewS3Client(arg0, arg1, arg2, arg3 in
 }
 
 // NewS3ManagerClient mocks base method.
-func (m *MockS3ClientCreator) NewS3ManagerClient(arg0, arg1 string, arg2 credentials.IAMRoleCredentials, arg3 ipcompatibility.IPCompatibility) (s3.S3ManagerClient, error) {
+func (m *MockS3ClientCreator) NewS3ManagerClient(arg0, arg1 string, arg2 credentials.IAMRoleCredentials, arg3 bool) (s3.S3ManagerClient, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "NewS3ManagerClient", arg0, arg1, arg2, arg3)
 	ret0, _ := ret[0].(s3.S3ManagerClient)

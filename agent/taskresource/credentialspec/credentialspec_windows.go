@@ -26,7 +26,6 @@ import (
 	"time"
 
 	asmfactory "github.com/aws/amazon-ecs-agent/agent/asm/factory"
-	"github.com/aws/amazon-ecs-agent/agent/config/ipcompatibility"
 	"github.com/aws/amazon-ecs-agent/agent/s3"
 	s3factory "github.com/aws/amazon-ecs-agent/agent/s3/factory"
 	"github.com/aws/amazon-ecs-agent/agent/ssm"
@@ -94,7 +93,7 @@ func NewCredentialSpecResource(taskARN, region string,
 	s3ClientCreator s3factory.S3ClientCreator,
 	asmClientCreator asmfactory.ClientCreator,
 	credentialSpecContainerMap map[string]string,
-	ipCompatibility ipcompatibility.IPCompatibility) (*CredentialSpecResource, error) {
+	useDualStackEndpoint bool) (*CredentialSpecResource, error) {
 
 	s := &CredentialSpecResource{
 		CredentialSpecResourceCommon: &CredentialSpecResourceCommon{
@@ -106,7 +105,7 @@ func NewCredentialSpecResource(taskARN, region string,
 			s3ClientCreator:            s3ClientCreator,
 			CredSpecMap:                make(map[string]string),
 			credentialSpecContainerMap: credentialSpecContainerMap,
-			ipCompatibility:            ipCompatibility,
+			useDualStackEndpoint:       useDualStackEndpoint,
 		},
 		ioutil:               ioutilwrapper.NewIOUtil(),
 		isDomainlessGMSATask: false,
@@ -258,7 +257,7 @@ func (cs *CredentialSpecResource) handleS3CredentialspecFile(originalCredentials
 		return err
 	}
 
-	s3Client, err := cs.s3ClientCreator.NewS3ManagerClient(bucket, cs.region, iamCredentials, cs.ipCompatibility)
+	s3Client, err := cs.s3ClientCreator.NewS3ManagerClient(bucket, cs.region, iamCredentials, cs.useDualStackEndpoint)
 	if err != nil {
 		cs.setTerminalReason(err.Error())
 		return err
