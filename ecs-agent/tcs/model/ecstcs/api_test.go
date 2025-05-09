@@ -16,11 +16,11 @@
 package ecstcs
 
 import (
+	"encoding/json"
 	"testing"
 
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/aws/request"
-	"github.com/aws/aws-sdk-go/private/protocol/json/jsonutil"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -94,7 +94,7 @@ func TestULongStatsSet(t *testing.T) {
 	for _, test := range cases {
 		t.Run(test.Name, func(t *testing.T) {
 			// Marshal to JSON (bytes)
-			bytes, err := jsonutil.BuildJSON(test.StatsSet)
+			bytes, err := json.Marshal(test.StatsSet)
 			require.NoError(t, err)
 
 			// convert bytes to JSON (string)
@@ -215,7 +215,7 @@ func TestEphemeralStorageMetrics(t *testing.T) {
 				BytesUtilized: test.StatsSet,
 			}
 			// Marshal to JSON (bytes)
-			bytes, err := jsonutil.BuildJSON(&metrics)
+			bytes, err := json.Marshal(&metrics)
 			require.NoError(t, err)
 
 			// convert bytes to JSON (string)
