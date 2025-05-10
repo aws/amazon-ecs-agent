@@ -50,6 +50,13 @@ type credentialsProxyRoute interface {
 	Remove() error
 }
 
+// Provides methods to create routes for Task Metadata Server access from the host for
+// IPv6-only hosts.
+type tmdsRouteManagerForIPv6Only interface {
+	CreateRoute() error
+	RemoveRoute() error
+}
+
 type ipv6RouterAdvertisements interface {
 	Disable() error
 }
