@@ -33,7 +33,8 @@ import (
 
 const (
 	netNSPath       = "ns1"
-	ipAddress       = "169.254.0.1"
+	ipV4Address     = "169.254.0.1"
+	ipV6Address     = "2600:1f13:4d9:e611:9009:ac97:1ab4:17d1"
 	eniID           = "eni-abe4d"
 	vni             = "ABC123"
 	destinationIP   = "10.0.3.1"
@@ -79,90 +80,190 @@ func TestCreateBridgeConfig(t *testing.T) {
 }
 
 func TestCreateENIConfig(t *testing.T) {
-	eni := getTestRegularENI()
-	eniConfig := &ecscni.ENIConfig{
-		CNIConfig: ecscni.CNIConfig{
-			NetNSPath:      netNSPath,
-			CNISpecVersion: cniSpecVersion,
-			CNIPluginName:  ENIPluginName,
+	for _, tc := range []struct {
+		name      string
+		eni       *networkinterface.NetworkInterface
+		eniConfig *ecscni.ENIConfig
+	}{
+		{
+			name: "ipv4 only",
+			eni:  getTestRegularV4ENI(),
+			eniConfig: &ecscni.ENIConfig{
+				CNIConfig: ecscni.CNIConfig{
+					NetNSPath:      netNSPath,
+					CNISpecVersion: cniSpecVersion,
+					CNIPluginName:  ENIPluginName,
+				},
+				ENIID:                 eniID,
+				MACAddress:            eniMAC,
+				IPAddresses:           []string{ipV4Address + "/24"},
+				GatewayIPAddresses:    []string{"10.1.0.1"},
+				BlockInstanceMetadata: true,
+				StayDown:              false,
+				DeviceName:            deviceName,
+				MTU:                   mtu,
+			},
 		},
-		ENIID:                 eni.ID,
-		MACAddress:            eni.MacAddress,
-		IPAddresses:           eni.GetIPAddressesWithPrefixLength(),
-		GatewayIPAddresses:    []string{eni.GetSubnetGatewayIPv4Address()},
-		BlockInstanceMetadata: true,
-		StayDown:              false,
-		DeviceName:            eni.DeviceName,
-		MTU:                   mtu,
+		{
+			name: "dual stack",
+			eni:  getTestRegularV4V6ENI(),
+			eniConfig: &ecscni.ENIConfig{
+				CNIConfig: ecscni.CNIConfig{
+					NetNSPath:      netNSPath,
+					CNISpecVersion: cniSpecVersion,
+					CNIPluginName:  ENIPluginName,
+				},
+				ENIID:                 eniID,
+				MACAddress:            eniMAC,
+				IPAddresses:           []string{ipV4Address + "/24", ipV6Address + "/64"},
+				GatewayIPAddresses:    []string{"10.1.0.1"},
+				BlockInstanceMetadata: true,
+				StayDown:              false,
+				DeviceName:            deviceName,
+				MTU:                   mtu,
+			},
+		},
+		{
+			name: "ipv6 only",
+			eni:  getTestRegularV6ENI(),
+			eniConfig: &ecscni.ENIConfig{
+				CNIConfig: ecscni.CNIConfig{
+					NetNSPath:      netNSPath,
+					CNISpecVersion: cniSpecVersion,
+					CNIPluginName:  ENIPluginName,
+				},
+				ENIID:                 eniID,
+				MACAddress:            eniMAC,
+				IPAddresses:           []string{ipV6Address + "/60"},
+				GatewayIPAddresses:    []string{"2600:1f14:30ab:6902::"},
+				BlockInstanceMetadata: true,
+				StayDown:              false,
+				DeviceName:            deviceName,
+				MTU:                   mtu,
+			},
+		},
+	} {
+		tc := tc
+
+		t.Run(tc.name, func(t *testing.T) {
+			expected, err := json.Marshal(tc.eniConfig)
+			require.NoError(t, err)
+			actual, err := json.Marshal(createENIPluginConfigs(netNSPath, tc.eni))
+			require.NoError(t, err)
+			require.Equal(t, expected, actual)
+
+			// Non-primary interface case.
+			tc.eni.Default = false
+			tc.eniConfig.StayDown = true
+
+			expected, err = json.Marshal(tc.eniConfig)
+			require.NoError(t, err)
+			actual, err = json.Marshal(createENIPluginConfigs(netNSPath, tc.eni))
+			require.NoError(t, err)
+			require.Equal(t, expected, actual)
+		})
 	}
-
-	expected, err := json.Marshal(eniConfig)
-	require.NoError(t, err)
-	actual, err := json.Marshal(createENIPluginConfigs(netNSPath, eni))
-	require.NoError(t, err)
-
-	require.Equal(t, expected, actual)
-
-	// Non-primary interface case.
-	eni.Default = false
-	eniConfig.StayDown = true
-
-	expected, err = json.Marshal(eniConfig)
-	require.NoError(t, err)
-	actual, err = json.Marshal(createENIPluginConfigs(netNSPath, eni))
-	require.NoError(t, err)
-
-	require.Equal(t, expected, actual)
 }
 
 func TestCreateBranchENIConfig(t *testing.T) {
-	eni := getTestBranchENI()
-
 	cniConfig := ecscni.CNIConfig{
 		NetNSPath:      netNSPath,
 		CNIPluginName:  VPCBranchENIPluginName,
 		CNISpecVersion: vpcBranchENICNISpecVersion,
 	}
 
-	expected := &ecscni.VPCBranchENIConfig{
-		CNIConfig:          cniConfig,
-		TrunkMACAddress:    eni.InterfaceVlanProperties.TrunkInterfaceMacAddress,
-		BranchVlanID:       eni.InterfaceVlanProperties.VlanID,
-		BranchMACAddress:   eni.MacAddress,
-		IPAddresses:        eni.GetIPAddressesWithPrefixLength(),
-		GatewayIPAddresses: []string{eni.GetSubnetGatewayIPv4Address()},
-		InterfaceType:      VPCBranchENIInterfaceTypeVlan,
-		BlockIMDS:          true,
-		UID:                strconv.Itoa(int(eni.UserID)),
-		GID:                strconv.Itoa(int(eni.UserID)),
-		IfName:             "eth1.13",
-	}
-	require.Equal(t, expected, createBranchENIConfig(netNSPath, eni, VPCBranchENIInterfaceTypeVlan, blockInstanceMetadataDefault))
+	for _, tc := range []struct {
+		name      string
+		eni       *networkinterface.NetworkInterface
+		eniConfig *ecscni.VPCBranchENIConfig
+	}{
+		{
+			name: "ipv4 only",
+			eni:  getTestBranchV4ENI(),
+			eniConfig: &ecscni.VPCBranchENIConfig{
+				CNIConfig:          cniConfig,
+				TrunkMACAddress:    trunkENIMac,
+				BranchVlanID:       "13",
+				BranchMACAddress:   eniMAC,
+				IPAddresses:        []string{ipV4Address + "/24"},
+				GatewayIPAddresses: []string{"10.1.0.1"},
+				InterfaceType:      VPCBranchENIInterfaceTypeVlan,
+				BlockIMDS:          true,
+				UID:                strconv.Itoa(1000),
+				GID:                strconv.Itoa(1000),
+				IfName:             "eth1.13",
+			},
+		},
+		{
+			name: "dual stack",
+			eni:  getTestBranchV4V6ENI(),
+			eniConfig: &ecscni.VPCBranchENIConfig{
+				CNIConfig:          cniConfig,
+				TrunkMACAddress:    trunkENIMac,
+				BranchVlanID:       "13",
+				BranchMACAddress:   eniMAC,
+				IPAddresses:        []string{ipV4Address + "/24", ipV6Address + "/64"},
+				GatewayIPAddresses: []string{"10.1.0.1"},
+				InterfaceType:      VPCBranchENIInterfaceTypeVlan,
+				BlockIMDS:          true,
+				UID:                strconv.Itoa(1000),
+				GID:                strconv.Itoa(1000),
+				IfName:             "eth1.13",
+			},
+		},
+		{
+			name: "ipv6 only",
+			eni:  getTestBranchV6ENI(),
+			eniConfig: &ecscni.VPCBranchENIConfig{
+				CNIConfig:          cniConfig,
+				TrunkMACAddress:    trunkENIMac,
+				BranchVlanID:       "13",
+				BranchMACAddress:   eniMAC,
+				IPAddresses:        []string{ipV6Address + "/60"},
+				GatewayIPAddresses: []string{"2600:1f14:30ab:6902::"},
+				InterfaceType:      VPCBranchENIInterfaceTypeVlan,
+				BlockIMDS:          true,
+				UID:                strconv.Itoa(1000),
+				GID:                strconv.Itoa(1000),
+				IfName:             "eth1.13",
+			},
+		},
+	} {
+		tc := tc
 
-	expected = &ecscni.VPCBranchENIConfig{
-		CNIConfig:          cniConfig,
-		TrunkMACAddress:    eni.InterfaceVlanProperties.TrunkInterfaceMacAddress,
-		BranchVlanID:       eni.InterfaceVlanProperties.VlanID,
-		BranchMACAddress:   eni.MacAddress,
-		IPAddresses:        eni.GetIPAddressesWithPrefixLength(),
-		GatewayIPAddresses: []string{eni.GetSubnetGatewayIPv4Address()},
-		InterfaceType:      VPCBranchENIInterfaceTypeTap,
-		BlockIMDS:          false,
-		UID:                strconv.Itoa(int(eni.UserID)),
-		GID:                strconv.Itoa(int(eni.UserID)),
-		IfName:             "eth0",
+		t.Run(tc.name, func(t *testing.T) {
+			require.Equal(t, tc.eniConfig, createBranchENIConfig(netNSPath, tc.eni, VPCBranchENIInterfaceTypeVlan, blockInstanceMetadataDefault))
+
+			// Test the new interface type
+			tc.eniConfig = &ecscni.VPCBranchENIConfig{
+				CNIConfig:          cniConfig,
+				TrunkMACAddress:    tc.eni.InterfaceVlanProperties.TrunkInterfaceMacAddress,
+				BranchVlanID:       tc.eni.InterfaceVlanProperties.VlanID,
+				BranchMACAddress:   tc.eni.MacAddress,
+				IPAddresses:        tc.eni.GetIPAddressesWithPrefixLength(),
+				GatewayIPAddresses: []string{tc.eni.GetSubnetGatewayIPv4Address()},
+				InterfaceType:      VPCBranchENIInterfaceTypeTap,
+				BlockIMDS:          false,
+				UID:                strconv.Itoa(int(tc.eni.UserID)),
+				GID:                strconv.Itoa(int(tc.eni.UserID)),
+				IfName:             "eth0",
+			}
+			if tc.eni.IPv6Only() {
+				tc.eniConfig.GatewayIPAddresses = []string{tc.eni.GetSubnetGatewayIPv6Address()}
+			}
+			require.Equal(t, tc.eniConfig, createBranchENIConfig(netNSPath, tc.eni, VPCBranchENIInterfaceTypeTap, false))
+		})
 	}
-	require.Equal(t, expected, createBranchENIConfig(netNSPath, eni, VPCBranchENIInterfaceTypeTap, false))
 }
 
-func getTestRegularENI() *networkinterface.NetworkInterface {
+func getTestRegularV4ENI() *networkinterface.NetworkInterface {
 	return &networkinterface.NetworkInterface{
 		InterfaceAssociationProtocol: networkinterface.DefaultInterfaceAssociationProtocol,
 		ID:                           eniID,
 		IPV4Addresses: []*networkinterface.IPV4Address{
 			{
 				Primary: true,
-				Address: ipAddress,
+				Address: ipV4Address,
 			},
 		},
 		MacAddress:               eniMAC,
@@ -173,13 +274,32 @@ func getTestRegularENI() *networkinterface.NetworkInterface {
 	}
 }
 
-func getTestBranchENI() *networkinterface.NetworkInterface {
+func getTestRegularV4V6ENI() *networkinterface.NetworkInterface {
+	eni := getTestRegularV4ENI()
+	eni.IPV6Addresses = []*networkinterface.IPV6Address{
+		{
+			Primary: true,
+			Address: ipV6Address,
+		},
+	}
+	eni.SubnetGatewayIPV6Address = subnetGatewayIPv6CIDR
+	return eni
+}
+
+func getTestRegularV6ENI() *networkinterface.NetworkInterface {
+	eni := getTestRegularV4V6ENI()
+	eni.IPV4Addresses = nil
+	eni.SubnetGatewayIPV4Address = ""
+	return eni
+}
+
+func getTestBranchV4ENI() *networkinterface.NetworkInterface {
 	return &networkinterface.NetworkInterface{
 		InterfaceAssociationProtocol: networkinterface.VLANInterfaceAssociationProtocol,
 		IPV4Addresses: []*networkinterface.IPV4Address{
 			{
 				Primary: true,
-				Address: ipAddress,
+				Address: ipV4Address,
 			},
 		},
 		MacAddress:               eniMAC,
@@ -194,6 +314,25 @@ func getTestBranchENI() *networkinterface.NetworkInterface {
 		UserID: uint32(1000),
 		Index:  0,
 	}
+}
+
+func getTestBranchV4V6ENI() *networkinterface.NetworkInterface {
+	eni := getTestBranchV4ENI()
+	eni.IPV6Addresses = []*networkinterface.IPV6Address{
+		{
+			Primary: true,
+			Address: ipV6Address,
+		},
+	}
+	eni.SubnetGatewayIPV6Address = subnetGatewayIPv6CIDR
+	return eni
+}
+
+func getTestBranchV6ENI() *networkinterface.NetworkInterface {
+	eni := getTestBranchV4V6ENI()
+	eni.IPV4Addresses = nil
+	eni.SubnetGatewayIPV4Address = ""
+	return eni
 }
 
 func getTestV2NInterface() *networkinterface.NetworkInterface {

@@ -49,17 +49,24 @@ func NewENIConfig(
 	stayDown bool,
 	mtu int,
 ) *ENIConfig {
-	return &ENIConfig{
+	eniConfig := &ENIConfig{
 		CNIConfig:             cniConfig,
 		ENIID:                 eni.ID,
 		MACAddress:            eni.MacAddress,
 		IPAddresses:           eni.GetIPAddressesWithPrefixLength(),
-		GatewayIPAddresses:    []string{eni.GetSubnetGatewayIPv4Address()},
+		GatewayIPAddresses:    []string{},
 		BlockInstanceMetadata: blockInstanceMetadata,
 		StayDown:              stayDown,
 		DeviceName:            eni.DeviceName,
 		MTU:                   mtu,
 	}
+
+	if eni.IPv6Only() {
+		eniConfig.GatewayIPAddresses = []string{eni.GetSubnetGatewayIPv6Address()}
+	} else {
+		eniConfig.GatewayIPAddresses = []string{eni.GetSubnetGatewayIPv4Address()}
+	}
+	return eniConfig
 }
 
 func (ec *ENIConfig) String() string {

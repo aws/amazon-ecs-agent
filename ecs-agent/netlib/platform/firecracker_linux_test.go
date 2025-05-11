@@ -159,7 +159,7 @@ func TestFirecracker_BranchENIConfiguration(t *testing.T) {
 		common: commonPlatform,
 	}
 
-	branchENI := getTestBranchENI()
+	branchENI := getTestBranchV4ENI()
 
 	cniConfig := createBranchENIConfig(netNSPath, branchENI, VPCBranchENIInterfaceTypeVlan, false)
 	cniClient.EXPECT().Add(gomock.Any(), cniConfig).Return(nil, nil).Times(1)

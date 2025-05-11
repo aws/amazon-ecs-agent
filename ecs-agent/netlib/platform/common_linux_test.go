@@ -327,7 +327,7 @@ func testRegularENIConfiguration(t *testing.T) {
 		stateDBDir: "dummy-db-dir",
 	}
 
-	eni := getTestRegularENI()
+	eni := getTestRegularV4ENI()
 
 	// When the ENI is the primary ENI.
 	eniConfig := createENIPluginConfigs(netNSPath, eni)
@@ -377,7 +377,7 @@ func testBranchENIConfiguration(t *testing.T) {
 		stateDBDir: "dummy-db-dir",
 	}
 
-	branchENI := getTestBranchENI()
+	branchENI := getTestBranchV4ENI()
 	branchENI.DesiredStatus = status.NetworkReadyPull
 	bridgeConfig := createBridgePluginConfig(netNSPath)
 	cniConfig := createBranchENIConfig(netNSPath, branchENI, VPCBranchENIInterfaceTypeVlan, blockInstanceMetadataDefault)
