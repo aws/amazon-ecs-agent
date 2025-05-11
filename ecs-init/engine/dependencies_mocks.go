@@ -359,6 +359,57 @@ func (mr *MockcredentialsProxyRouteMockRecorder) Remove() *gomock.Call {
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Remove", reflect.TypeOf((*MockcredentialsProxyRoute)(nil).Remove))
 }
 
+// MocktmdsRouteManagerForIPv6Only is a mock of tmdsRouteManagerForIPv6Only interface.
+type MocktmdsRouteManagerForIPv6Only struct {
+	ctrl     *gomock.Controller
+	recorder *MocktmdsRouteManagerForIPv6OnlyMockRecorder
+}
+
+// MocktmdsRouteManagerForIPv6OnlyMockRecorder is the mock recorder for MocktmdsRouteManagerForIPv6Only.
+type MocktmdsRouteManagerForIPv6OnlyMockRecorder struct {
+	mock *MocktmdsRouteManagerForIPv6Only
+}
+
+// NewMocktmdsRouteManagerForIPv6Only creates a new mock instance.
+func NewMocktmdsRouteManagerForIPv6Only(ctrl *gomock.Controller) *MocktmdsRouteManagerForIPv6Only {
+	mock := &MocktmdsRouteManagerForIPv6Only{ctrl: ctrl}
+	mock.recorder = &MocktmdsRouteManagerForIPv6OnlyMockRecorder{mock}
+	return mock
+}
+
+// EXPECT returns an object that allows the caller to indicate expected use.
+func (m *MocktmdsRouteManagerForIPv6Only) EXPECT() *MocktmdsRouteManagerForIPv6OnlyMockRecorder {
+	return m.recorder
+}
+
+// CreateRoute mocks base method.
+func (m *MocktmdsRouteManagerForIPv6Only) CreateRoute() error {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "CreateRoute")
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// CreateRoute indicates an expected call of CreateRoute.
+func (mr *MocktmdsRouteManagerForIPv6OnlyMockRecorder) CreateRoute() *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "CreateRoute", reflect.TypeOf((*MocktmdsRouteManagerForIPv6Only)(nil).CreateRoute))
+}
+
+// RemoveRoute mocks base method.
+func (m *MocktmdsRouteManagerForIPv6Only) RemoveRoute() error {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "RemoveRoute")
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// RemoveRoute indicates an expected call of RemoveRoute.
+func (mr *MocktmdsRouteManagerForIPv6OnlyMockRecorder) RemoveRoute() *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "RemoveRoute", reflect.TypeOf((*MocktmdsRouteManagerForIPv6Only)(nil).RemoveRoute))
+}
+
 // Mockipv6RouterAdvertisements is a mock of ipv6RouterAdvertisements interface.
 type Mockipv6RouterAdvertisements struct {
 	ctrl     *gomock.Controller
