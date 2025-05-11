@@ -248,8 +248,16 @@ func (ni *NetworkInterface) GetIPAddressesWithPrefixLength() []string {
 	for _, addr := range ni.IPV4Addresses {
 		addresses = append(addresses, addr.Address+"/"+ni.GetIPv4SubnetPrefixLength())
 	}
-	for _, addr := range ni.IPV6Addresses {
-		addresses = append(addresses, addr.Address+"/"+IPv6SubnetPrefixLength)
+
+	if ni.IPv6Only() {
+		for _, addr := range ni.IPV6Addresses {
+			addresses = append(addresses, addr.Address+"/"+ni.GetIPv6SubnetPrefixLength())
+		}
+	} else {
+		// To be backwards compatible, we should use this for dual stack tasks.
+		for _, addr := range ni.IPV6Addresses {
+			addresses = append(addresses, addr.Address+"/"+IPv6SubnetPrefixLength)
+		}
 	}
 
 	return addresses
@@ -262,6 +270,15 @@ func (ni *NetworkInterface) GetIPv4SubnetPrefixLength() string {
 	}
 
 	return ni.ipv4SubnetPrefixLength
+}
+
+// GetIPv6SubnetPrefixLength returns the IPv6 prefix length of the NetworkInterface's subnet.
+func (ni *NetworkInterface) GetIPv6SubnetPrefixLength() string {
+	prefixLen := IPv6SubnetPrefixLength
+	if strings.Contains(ni.SubnetGatewayIPV6Address, "/") {
+		prefixLen = strings.Split(ni.SubnetGatewayIPV6Address, "/")[1]
+	}
+	return prefixLen
 }
 
 // GetIPv4SubnetCIDRBlock returns the IPv4 CIDR block, if any, of the NetworkInterface's subnet.

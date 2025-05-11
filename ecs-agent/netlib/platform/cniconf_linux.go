@@ -156,13 +156,13 @@ func createBranchENIConfig(
 		ifName = fmt.Sprintf("eth%d", iface.Index)
 	}
 
-	return &ecscni.VPCBranchENIConfig{
+	eniConfig := &ecscni.VPCBranchENIConfig{
 		CNIConfig:          cniConfig,
 		TrunkMACAddress:    iface.InterfaceVlanProperties.TrunkInterfaceMacAddress,
 		BranchVlanID:       iface.InterfaceVlanProperties.VlanID,
 		BranchMACAddress:   iface.MacAddress,
 		IPAddresses:        iface.GetIPAddressesWithPrefixLength(),
-		GatewayIPAddresses: []string{iface.GetSubnetGatewayIPv4Address()},
+		GatewayIPAddresses: []string{},
 		BlockIMDS:          blockInstanceMetadata,
 		InterfaceType:      ifType,
 		UID:                strconv.Itoa(int(iface.UserID)),
@@ -172,6 +172,12 @@ func createBranchENIConfig(
 		// This is used by vpc-branch-eni plugin for the name of the VLAN/TAP interface.
 		IfName: ifName,
 	}
+	if iface.IPv6Only() {
+		eniConfig.GatewayIPAddresses = []string{iface.GetSubnetGatewayIPv6Address()}
+	} else {
+		eniConfig.GatewayIPAddresses = []string{iface.GetSubnetGatewayIPv4Address()}
+	}
+	return eniConfig
 }
 
 // NewTunnelConfig creates a new vpc-tunnel CNI plugin configuration.

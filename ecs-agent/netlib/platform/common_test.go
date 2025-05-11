@@ -37,7 +37,7 @@ const (
 	deviceName            = "eth1"
 	eniMAC                = "f0:5c:89:a3:ab:01"
 	subnetGatewayIPv4CIDR = "10.1.0.1/24"
-	subnetGatewayIPv6CIDR = "2600:1f14:30ab:6902::/64"
+	subnetGatewayIPv6CIDR = "2600:1f14:30ab:6902::/60"
 	primaryENIName        = "primary-eni"
 	secondaryENIName      = "secondary-eni"
 )
