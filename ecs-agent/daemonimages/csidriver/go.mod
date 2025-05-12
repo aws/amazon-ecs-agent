@@ -1,13 +1,15 @@
 module github.com/aws/amazon-ecs-agent/ecs-agent/daemonimages/csidriver
 
-go 1.22.3
+go 1.23.0
+
+toolchain go1.24.2
 
 require (
 	github.com/container-storage-interface/spec v1.9.0
 	github.com/golang/mock v1.6.0
 	github.com/kubernetes-csi/csi-proxy/client v1.1.3
 	github.com/stretchr/testify v1.9.0
-	golang.org/x/sys v0.28.0
+	golang.org/x/sys v0.31.0
 	google.golang.org/grpc v1.64.1
 	k8s.io/apimachinery v0.30.1
 	k8s.io/klog/v2 v2.120.1
@@ -26,9 +28,9 @@ require (
 	github.com/pkg/errors v0.9.1 // indirect
 	github.com/pmezard/go-difflib v1.0.0 // indirect
 	golang.org/x/mod v0.17.0 // indirect
-	golang.org/x/net v0.33.0 // indirect
-	golang.org/x/sync v0.10.0 // indirect
-	golang.org/x/text v0.21.0 // indirect
+	golang.org/x/net v0.38.0 // indirect
+	golang.org/x/sync v0.12.0 // indirect
+	golang.org/x/text v0.23.0 // indirect
 	golang.org/x/tools v0.21.1-0.20240508182429-e35e4ccd0d2d // indirect
 	google.golang.org/genproto/googleapis/rpc v0.0.0-20240401170217-c3f982113cda // indirect
 	google.golang.org/protobuf v1.34.1 // indirect
