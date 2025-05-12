@@ -145,8 +145,6 @@ func (h *FaultHandler) StartNetworkBlackholePort() func(http.ResponseWriter, *ht
 			return
 		}
 
-		isIPv6OnlyTask := isIPv6OnlyTask(taskMetadata)
-
 		// To avoid multiple requests to manipulate same network resource
 		networkNSPath := taskMetadata.TaskNetworkConfig.NetworkNamespaces[0].Path
 		rwMu := h.loadLock(networkNSPath)
@@ -178,7 +176,7 @@ func (h *FaultHandler) StartNetworkBlackholePort() func(http.ResponseWriter, *ht
 			networkNSPath,
 			insertTable,
 			taskArn,
-			isIPv6OnlyTask)
+			isIPv6OnlyTask(taskMetadata))
 		if err := ctxWithTimeout.Err(); errors.Is(err, context.DeadlineExceeded) {
 			statusCode = http.StatusInternalServerError
 			responseBody = types.NewNetworkFaultInjectionErrorResponse(fmt.Sprintf(requestTimedOutError, requestType))
@@ -359,8 +357,6 @@ func (h *FaultHandler) StopNetworkBlackHolePort() func(http.ResponseWriter, *htt
 			return
 		}
 
-		isIPv6OnlyTask := isIPv6OnlyTask(taskMetadata)
-
 		// To avoid multiple requests to manipulate same network resource
 		networkNSPath := taskMetadata.TaskNetworkConfig.NetworkNamespaces[0].Path
 		rwMu := h.loadLock(networkNSPath)
@@ -391,7 +387,7 @@ func (h *FaultHandler) StopNetworkBlackHolePort() func(http.ResponseWriter, *htt
 			networkNSPath,
 			insertTable,
 			taskArn,
-			isIPv6OnlyTask)
+			isIPv6OnlyTask(taskMetadata))
 
 		if err := ctxWithTimeout.Err(); errors.Is(err, context.DeadlineExceeded) {
 			statusCode = http.StatusInternalServerError
@@ -601,8 +597,10 @@ func (h *FaultHandler) CheckNetworkBlackHolePort() func(http.ResponseWriter, *ht
 	}
 }
 
-// checkNetworkBlackHolePort will check if there's a running black hole port within the task network namespace based on the chain in IPv4 tables.
-// It does so by calling `iptables -C <chain> -p <protocol> --dport <port> -j DROP`.
+// checkNetworkBlackHolePort will check if there's a running black hole port within the task network namespace
+// based on the chain in IPv4 tables only. It does so by calling `iptables -C <chain> -p <protocol> --dport <port> -j DROP`.
+// Both IPv4 chain and IPv6 chain will be created/removed together when starting/stopping the fault. To be backwards compatible,
+// the status check API will check IPv4 chain only.
 func (h *FaultHandler) checkNetworkBlackHolePort(
 	ctx context.Context, protocol, port, chain string,
 	networkMode ecstypes.NetworkMode, netNs, taskArn string,

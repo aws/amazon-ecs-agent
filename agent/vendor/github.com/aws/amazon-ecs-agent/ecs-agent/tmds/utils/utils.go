@@ -30,10 +30,6 @@ func IsIPv4(s string) bool {
 }
 
 func IsIPv4CIDR(s string) bool {
-	if !strings.Contains(s, "/") {
-		return false
-	}
-
 	ip, _, err := net.ParseCIDR(s)
 	if err != nil {
 		return false

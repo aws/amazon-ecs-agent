@@ -55,6 +55,7 @@ func TestIsIPv4CIDR(t *testing.T) {
 		{"Valid IPv4 CIDR /16", "172.16.0.0/16", true},
 
 		// Invalid cases
+		{"Valid IPv4 address", "192.168.1.0", false},
 		{"Invalid IPv4 CIDR with leading zeros", "192.168.001.000/24", false},
 		{"Missing prefix", "192.168.1.0/", false},
 		{"Invalid prefix number", "192.168.1.0/33", false},
