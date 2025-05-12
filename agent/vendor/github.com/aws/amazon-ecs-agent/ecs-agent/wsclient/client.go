@@ -551,6 +551,7 @@ func (cs *ClientServerImpl) CreateRequestMessage(input interface{}) ([]byte, err
 	if err != nil {
 		return nil, &NotMarshallableWSRequest{msg.Type, err}
 	}
+	logger.Info(fmt.Sprintf("shelbyzh-testing messageData:%s", string(messageData)))
 	msg.Message = json.RawMessage(messageData)
 
 	send, err := json.Marshal(msg)
