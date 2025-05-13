@@ -21,6 +21,7 @@ import (
 
 	"github.com/aws/amazon-ecs-agent/ecs-agent/logger"
 	"github.com/aws/amazon-ecs-agent/ecs-agent/logger/field"
+	"github.com/aws/amazon-ecs-agent/ecs-agent/tmds/utils"
 	"github.com/aws/aws-sdk-go-v2/aws"
 )
 
@@ -48,7 +49,7 @@ type NetworkBlackholePortRequest struct {
 	Port        *uint16 `json:"Port"`
 	Protocol    *string `json:"Protocol"`
 	TrafficType *string `json:"TrafficType"`
-	// SourcesToFilter is a list including IPv4 addresses or IPv4 CIDR blocks that will be excluded
+	// SourcesToFilter is a list including IPv4/IPv6 addresses or IPv4/IPv6 CIDR blocks that will be excluded
 	// from the fault.
 	SourcesToFilter []*string `json:"SourcesToFilter,omitempty"`
 }
@@ -76,7 +77,7 @@ func (request NetworkBlackholePortRequest) ValidateRequest() error {
 	if *request.TrafficType != TrafficTypeIngress && *request.TrafficType != TrafficTypeEgress {
 		return fmt.Errorf(InvalidValueError, *request.TrafficType, "TrafficType")
 	}
-	if err := validateNetworkFaultRequestSources(request.SourcesToFilter, "SourcesToFilter"); err != nil {
+	if err := requireIPInRequestSources(request.SourcesToFilter, "SourcesToFilter"); err != nil {
 		return err
 	}
 
@@ -202,6 +203,7 @@ func NewNetworkFaultInjectionErrorResponse(err string) NetworkFaultInjectionResp
 	}
 }
 
+// validateNetworkFaultRequestSources validates each source is IPv4 or IPv4 CIDR block.
 func validateNetworkFaultRequestSources(sources []*string, sourcesType string) error {
 	for _, element := range sources {
 		if err := validateNetworkFaultRequestSource(aws.ToString(element), sourcesType); err != nil {
@@ -211,6 +213,7 @@ func validateNetworkFaultRequestSources(sources []*string, sourcesType string) e
 	return nil
 }
 
+// validateNetworkFaultRequestSource validates the source is IPv4 or IPv4 CIDR block.
 func validateNetworkFaultRequestSource(source string, sourceType string) error {
 	ip := net.ParseIP(source)
 	if ip != nil && ip.To4() != nil {
@@ -226,6 +229,28 @@ func validateNetworkFaultRequestSource(source string, sourceType string) error {
 			"source":    source,
 			field.Error: err,
 		})
+	}
+
+	return fmt.Errorf(InvalidValueError, source, sourceType)
+}
+
+// requireIPInRequestSources requires each source is IPv4/IPv6 or IPv4/IPv6 CIDR block.
+func requireIPInRequestSources(sources []*string, sourcesType string) error {
+	for _, element := range sources {
+		if err := requireIPInRequestSource(aws.ToString(element), sourcesType); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+// requireIPInRequestSource requires the source is IPv4/IPv6 or IPv4/IPv6 CIDR block.
+func requireIPInRequestSource(source string, sourceType string) error {
+	if utils.IsIPv4(source) ||
+		utils.IsIPv6(source) ||
+		utils.IsIPv4CIDR(source) ||
+		utils.IsIPv6CIDR(source) {
+		return nil
 	}
 
 	return fmt.Errorf(InvalidValueError, source, sourceType)
