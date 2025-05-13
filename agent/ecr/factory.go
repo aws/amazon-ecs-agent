@@ -26,6 +26,7 @@ import (
 	"github.com/aws/amazon-ecs-agent/ecs-agent/credentials"
 	"github.com/aws/amazon-ecs-agent/ecs-agent/credentials/providers"
 	"github.com/aws/amazon-ecs-agent/ecs-agent/httpclient"
+	"github.com/aws/amazon-ecs-agent/ecs-agent/logger"
 	"github.com/aws/amazon-ecs-agent/ecs-agent/utils"
 
 	"github.com/aws/aws-sdk-go-v2/aws"
@@ -70,6 +71,8 @@ func getClientConfig(httpClient *http.Client, authData *apicontainer.ECRAuthData
 		awsconfig.WithRegion(authData.Region),
 		awsconfig.WithHTTPClient(httpClient),
 	}
+
+	logger.Debug(fmt.Sprintf("shelbyzh - EndpointOverride: %s", authData.EndpointOverride))
 
 	if authData.EndpointOverride != "" {
 		opts = append(opts, awsconfig.WithBaseEndpoint(utils.AddScheme(authData.EndpointOverride)))

@@ -73,6 +73,8 @@ func NewECRAuthProvider(ecrFactory ecr.ECRFactory, cache async.Cache) DockerAuth
 func (authProvider *ecrAuthProvider) GetAuthconfig(image string,
 	registryAuthData *apicontainer.RegistryAuthenticationData) (registry.AuthConfig, error) {
 
+	logger.Debug("shelbyzh - Called GetAuthconfig")
+
 	if registryAuthData == nil {
 		return registry.AuthConfig{}, fmt.Errorf("dockerauth: missing container's registry auth data")
 	}
@@ -102,6 +104,7 @@ func (authProvider *ecrAuthProvider) GetAuthconfig(image string,
 	// Try to get the auth config from cache
 	auth := authProvider.getAuthConfigFromCache(key)
 	if auth != nil {
+		logger.Debug(fmt.Sprintf("shelbyzh - Returning auth from cache: %v", auth))
 		return *auth, nil
 	}
 
@@ -111,8 +114,10 @@ func (authProvider *ecrAuthProvider) GetAuthconfig(image string,
 
 // getAuthconfigFromCache retrieves the token from cache
 func (authProvider *ecrAuthProvider) getAuthConfigFromCache(key cacheKey) *registry.AuthConfig {
+	logger.Debug(fmt.Sprintf("shelbyzh - Called getAuthConfigFromCache, key: %s", key.String()))
 	token, ok := authProvider.tokenCache.Get(key.String())
 	if !ok {
+		logger.Debug("shelbyzh - get token not ok")
 		return nil
 	}
 
@@ -132,14 +137,17 @@ func (authProvider *ecrAuthProvider) getAuthConfigFromCache(key cacheKey) *regis
 		}
 		return &auth
 	} else {
+		logger.Debug("shelbyzh - removing token from cache")
 		// Remove invalid token from cache
 		authProvider.tokenCache.Delete(key.String())
 	}
+	logger.Debug("shelbyzh - return nil should not work")
 	return nil
 }
 
 // getAuthConfigFromECR calls the ECR API to get docker auth config
 func (authProvider *ecrAuthProvider) getAuthConfigFromECR(image string, key cacheKey, authData *apicontainer.ECRAuthData) (registry.AuthConfig, error) {
+	logger.Debug("shelbyzh - Called getAuthConfigFromECR")
 	// Create ECR client to get the token
 	client, err := authProvider.factory.GetClient(authData)
 	if err != nil {
@@ -164,8 +172,9 @@ func (authProvider *ecrAuthProvider) getAuthConfigFromECR(image string, key cach
 
 	// Verify the auth data has the correct format for ECR
 	if ecrAuthData.ProxyEndpoint != nil &&
-		strings.HasPrefix(proxyEndpointScheme+image, aws.ToString(ecrAuthData.ProxyEndpoint)) &&
+		// strings.HasPrefix(proxyEndpointScheme+image, aws.ToString(ecrAuthData.ProxyEndpoint)) &&
 		ecrAuthData.AuthorizationToken != nil {
+		logger.Debug(fmt.Sprintf("ecrAuthData, ProxyEndpoint: %s, AuthorizationToken: %s", *ecrAuthData.ProxyEndpoint, *ecrAuthData.AuthorizationToken))
 
 		// Cache the new token
 		authProvider.tokenCache.Set(key.String(), ecrAuthData)
@@ -191,6 +200,7 @@ func extractToken(authData *types.AuthorizationData) (registry.AuthConfig, error
 // for timing in calls and add jitter to avoid refreshing all of the tokens at once.
 func (authProvider *ecrAuthProvider) IsTokenValid(authData *types.AuthorizationData) bool {
 	if authData == nil || authData.ExpiresAt == nil {
+		logger.Debug("shelbyzh - authData or authData.ExpiresAt is nil")
 		return false
 	}
 

@@ -367,15 +367,18 @@ func (dg *dockerGoClient) time() ttime.Time {
 func (dg *dockerGoClient) PullImageManifest(
 	ctx context.Context, imageRef string, authData *apicontainer.RegistryAuthenticationData,
 ) (registry.DistributionInspect, apierrors.NamedError) {
+	logger.Debug("shelbyzh - PullImageManifest called")
 	// Get auth creds
 	sdkAuthConfig, err := dg.getAuthdata(imageRef, authData)
 	if err != nil {
 		return registry.DistributionInspect{}, wrapManifestPullErrorAsNamedError(imageRef, err)
 	}
+	logger.Debug(fmt.Sprintf("shelbyzh - sdkAuthConfig: %v", sdkAuthConfig))
 	encodedAuth, err := registry.EncodeAuthConfig(sdkAuthConfig)
 	if err != nil {
 		return registry.DistributionInspect{}, wrapManifestPullErrorAsNamedError(imageRef, err)
 	}
+	logger.Debug("shelbyzh - encoded auth data")
 
 	// Get an SDK Docker Client
 	client, err := dg.sdkDockerClient()
@@ -653,6 +656,7 @@ func (dg *dockerGoClient) InspectImage(image string) (*types.ImageInspect, error
 }
 
 func (dg *dockerGoClient) getAuthdata(image string, authData *apicontainer.RegistryAuthenticationData) (registry.AuthConfig, error) {
+	logger.Debug(fmt.Sprintf("shelbyzh - called getAuthdata: %v", authData))
 
 	if authData == nil {
 		return dg.auth.GetAuthconfig(image, nil)
@@ -660,6 +664,7 @@ func (dg *dockerGoClient) getAuthdata(image string, authData *apicontainer.Regis
 
 	switch authData.Type {
 	case apicontainer.AuthTypeECR:
+		logger.Debug("shelbyzh - correct Auth type - AuthTypeECR")
 		provider := dockerauth.NewECRAuthProvider(dg.ecrClientFactory, dg.ecrTokenCache)
 		authConfig, err := provider.GetAuthconfig(image, authData)
 		if err != nil {
