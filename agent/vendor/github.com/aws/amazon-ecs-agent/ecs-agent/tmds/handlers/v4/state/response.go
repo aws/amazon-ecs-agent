@@ -72,6 +72,10 @@ type NetworkNamespace struct {
 type NetworkInterface struct {
 	// DeviceName is the device name on the host.
 	DeviceName string
+	// IPV4Addresses is the ipv4 address associated with the eni
+	IPV4Addresses []string
+	// IPV6Addresses is the ipv6 address associated with the eni
+	IPV6Addresses []string
 }
 
 // Instance's clock drift status
