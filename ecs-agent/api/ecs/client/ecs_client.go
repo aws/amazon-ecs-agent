@@ -98,6 +98,7 @@ type ecsClient struct {
 	metricsFactory                   metrics.EntryFactory
 	rciRetryBackoff                  *retry.ExponentialBackoff
 	availableMemoryProvider          func() int32
+	isDualStackEnabled               bool
 }
 
 // NewECSClient creates a new ECSClient interface object.
@@ -120,7 +121,7 @@ func NewECSClient(
 		opt(client)
 	}
 
-	ecsConfig, err := newECSConfig(client.credentialsCache, configAccessor, client.httpClient, client.isFIPSDetected)
+	ecsConfig, err := newECSConfig(client.credentialsCache, configAccessor, client.httpClient, client.isFIPSDetected, client.isDualStackEnabled)
 	if err != nil {
 		return nil, err
 	}
@@ -148,7 +149,7 @@ func newECSConfig(
 	credentialsCache *aws.CredentialsCache,
 	configAccessor config.AgentConfigAccessor,
 	httpClient *http.Client,
-	isFIPSEnabled bool,
+	isFIPSEnabled, isDualStackEnabled bool,
 ) (aws.Config, error) {
 	// We should respect the endpoint given (if any) because it could be the Gamma or Zeta endpoint of ECS service which
 	// don't have the corresponding FIPS endpoints. Otherwise, when the host has FIPS enabled, we should tell SDK to
@@ -156,10 +157,17 @@ func newECSConfig(
 	var endpointFn = func(_ *awsconfig.LoadOptions) error {
 		return nil
 	}
+	fipsEndpointState := aws.FIPSEndpointStateUnset
+	dualStackEndpointState := aws.DualStackEndpointStateUnset
 	if configAccessor.APIEndpoint() != "" {
 		endpointFn = awsconfig.WithBaseEndpoint(utils.AddScheme(configAccessor.APIEndpoint()))
-	} else if isFIPSEnabled {
-		endpointFn = awsconfig.WithUseFIPSEndpoint(aws.FIPSEndpointStateEnabled)
+	} else {
+		if isFIPSEnabled {
+			fipsEndpointState = aws.FIPSEndpointStateEnabled
+		}
+		if isDualStackEnabled {
+			dualStackEndpointState = aws.DualStackEndpointStateEnabled
+		}
 	}
 
 	ecsConfig, err := awsconfig.LoadDefaultConfig(
@@ -168,6 +176,8 @@ func newECSConfig(
 		awsconfig.WithRegion(configAccessor.AWSRegion()),
 		awsconfig.WithCredentialsProvider(credentialsCache),
 		endpointFn,
+		awsconfig.WithUseFIPSEndpoint(fipsEndpointState),
+		awsconfig.WithUseDualStackEndpoint(dualStackEndpointState),
 	)
 	if err != nil {
 		return aws.Config{}, err
