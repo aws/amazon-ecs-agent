@@ -1,6 +1,8 @@
 module github.com/aws/amazon-ecs-agent/ecs-init
 
-go 1.22
+go 1.23.0
+
+toolchain go1.23.2
 
 require (
 	github.com/NVIDIA/go-nvml v0.12.4-0
@@ -58,8 +60,8 @@ require (
 	github.com/pmezard/go-difflib v1.0.0 // indirect
 	github.com/sirupsen/logrus v1.9.3 // indirect
 	github.com/vishvananda/netns v0.0.4 // indirect
-	golang.org/x/net v0.33.0 // indirect
-	golang.org/x/sys v0.28.0 // indirect
+	golang.org/x/net v0.38.0 // indirect
+	golang.org/x/sys v0.31.0 // indirect
 	gopkg.in/check.v1 v1.0.0-20200227125254-8fa46927fb4f // indirect
 	gopkg.in/yaml.v3 v3.0.1 // indirect
 )
