@@ -107,6 +107,34 @@ func (mr *MockNetLinkMockRecorder) LinkSetUp(arg0 interface{}) *gomock.Call {
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "LinkSetUp", reflect.TypeOf((*MockNetLink)(nil).LinkSetUp), arg0)
 }
 
+// RouteAdd mocks base method.
+func (m *MockNetLink) RouteAdd(arg0 *netlink.Route) error {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "RouteAdd", arg0)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// RouteAdd indicates an expected call of RouteAdd.
+func (mr *MockNetLinkMockRecorder) RouteAdd(arg0 interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "RouteAdd", reflect.TypeOf((*MockNetLink)(nil).RouteAdd), arg0)
+}
+
+// RouteDel mocks base method.
+func (m *MockNetLink) RouteDel(arg0 *netlink.Route) error {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "RouteDel", arg0)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// RouteDel indicates an expected call of RouteDel.
+func (mr *MockNetLinkMockRecorder) RouteDel(arg0 interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "RouteDel", reflect.TypeOf((*MockNetLink)(nil).RouteDel), arg0)
+}
+
 // RouteList mocks base method.
 func (m *MockNetLink) RouteList(arg0 netlink.Link, arg1 int) ([]netlink.Route, error) {
 	m.ctrl.T.Helper()

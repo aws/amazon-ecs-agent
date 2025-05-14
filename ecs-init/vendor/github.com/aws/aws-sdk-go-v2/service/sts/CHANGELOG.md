@@ -1,3 +1,32 @@
+# v1.32.3 (2024-10-28)
+
+* **Dependency Update**: Updated to the latest SDK module versions
+
+# v1.32.2 (2024-10-08)
+
+* **Dependency Update**: Updated to the latest SDK module versions
+
+# v1.32.1 (2024-10-07)
+
+* **Dependency Update**: Updated to the latest SDK module versions
+
+# v1.32.0 (2024-10-04)
+
+* **Feature**: Add support for HTTP client metrics.
+* **Dependency Update**: Updated to the latest SDK module versions
+
+# v1.31.4 (2024-10-03)
+
+* No change notes available for this release.
+
+# v1.31.3 (2024-09-27)
+
+* No change notes available for this release.
+
+# v1.31.2 (2024-09-25)
+
+* No change notes available for this release.
+
 # v1.31.1 (2024-09-23)
 
 * No change notes available for this release.

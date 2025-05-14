@@ -30,6 +30,7 @@ import (
 	"github.com/aws/amazon-ecs-agent/ecs-init/exec/iptables"
 	"github.com/aws/amazon-ecs-agent/ecs-init/exec/sysctl"
 	"github.com/aws/amazon-ecs-agent/ecs-init/gpu"
+	"github.com/aws/amazon-ecs-agent/ecs-init/routes"
 
 	log "github.com/cihub/seelog"
 	ctrdapparmor "github.com/containerd/containerd/pkg/apparmor"
@@ -65,11 +66,12 @@ func dockerError(err error) error {
 
 // Engine contains methods invoked when ecs-init is run
 type Engine struct {
-	downloader               downloader
-	loopbackRouting          loopbackRouting
-	credentialsProxyRoute    credentialsProxyRoute
-	ipv6RouterAdvertisements ipv6RouterAdvertisements
-	nvidiaGPUManager         gpu.GPUManager
+	downloader                    downloader
+	loopbackRouting               loopbackRouting
+	credentialsProxyRoute         credentialsProxyRoute
+	tmdsRoutesForIPv6OnlyInstance tmdsRouteManagerForIPv6Only
+	ipv6RouterAdvertisements      ipv6RouterAdvertisements
+	nvidiaGPUManager              gpu.GPUManager
 }
 
 type TerminalError struct {
@@ -101,12 +103,17 @@ func New() (*Engine, error) {
 	if err != nil {
 		return nil, err
 	}
+	tmdsIPv6OnlyRouteManager, err := routes.NewTMDSRouteManagerForIPv6Only(iptables.CredentialsProxyIpAddress)
+	if err != nil {
+		return nil, err
+	}
 	return &Engine{
-		downloader:               downloader,
-		loopbackRouting:          loopbackRouting,
-		credentialsProxyRoute:    credentialsProxyRoute,
-		ipv6RouterAdvertisements: ipv6RouterAdvertisements,
-		nvidiaGPUManager:         gpu.NewNvidiaGPUManager(),
+		downloader:                    downloader,
+		loopbackRouting:               loopbackRouting,
+		credentialsProxyRoute:         credentialsProxyRoute,
+		tmdsRoutesForIPv6OnlyInstance: tmdsIPv6OnlyRouteManager,
+		ipv6RouterAdvertisements:      ipv6RouterAdvertisements,
+		nvidiaGPUManager:              gpu.NewNvidiaGPUManager(),
 	}, nil
 }
 
@@ -135,6 +142,12 @@ func (e *Engine) PreStart() error {
 	err = e.ipv6RouterAdvertisements.Disable()
 	if err != nil {
 		return engineError("could not disable ipv6 router advertisements", err)
+	}
+	// Add a local route for TMDS if there are no IPv4 default routes
+	log.Info("pre-start: adding routes for TMDS access on IPv6-only host if applicable")
+	err = e.tmdsRoutesForIPv6OnlyInstance.CreateRoute()
+	if err != nil {
+		return engineError("could not create routes for task metadata server", err)
 	}
 	// Add the rerouting netfilter rule for credentials endpoint
 	log.Info("pre-start: creating credentials proxy route")
@@ -338,8 +351,11 @@ func (e *Engine) PostStop() error {
 	log.Info("Cleaning up the credentials endpoint setup for Amazon Elastic Container Service Agent")
 	err := e.loopbackRouting.RestoreDefault()
 
-	// Ignore error from Remove() as the netfilter might never have been
-	// added in the first place
+	log.Info("Cleaning up any routes added for TMDS access on IPv6-only instances")
+	if ipv6OnlyRouteError := e.tmdsRoutesForIPv6OnlyInstance.RemoveRoute(); ipv6OnlyRouteError != nil {
+		log.Warn("Error when removing TMDS routes for IPv6-only instances: %v", ipv6OnlyRouteError)
+	}
+	// Ignore error from Remove() as the netfilter might never have been added in the first place
 	e.credentialsProxyRoute.Remove()
 	return err
 }
