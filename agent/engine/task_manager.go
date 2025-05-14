@@ -387,12 +387,6 @@ func (mtask *managedTask) waitEvent(stopWaiting <-chan struct{}) bool {
 		mtask.handleContainerChange(dockerChange)
 		return false
 	case resChange := <-mtask.resourceStateChangeEvent:
-		res := resChange.resource
-		logger.Info("Managed task got resource", logger.Fields{
-			field.TaskID:   mtask.GetID(),
-			field.Resource: res.GetName(),
-			field.Status:   res.StatusString(resChange.nextState),
-		})
 		mtask.handleResourceStateChange(resChange)
 		return false
 	case <-stopWaiting:
@@ -575,8 +569,13 @@ func (mtask *managedTask) handleResourceStateChange(resChange resourceStateChang
 	err := resChange.err
 	currentKnownStatus := res.GetKnownStatus()
 
-	if status <= currentKnownStatus {
-		logger.Info("Redundant resource state change", logger.Fields{
+	if status == resourcestatus.ResourceStatusNone && currentKnownStatus == resourcestatus.ResourceStatusNone {
+		// if we got a redundant NONE/NONE resource "state change", just ignore it.
+		return
+	}
+
+	if status < currentKnownStatus {
+		logger.Info("Backwards resource state change", logger.Fields{
 			field.TaskID:      mtask.GetID(),
 			field.Resource:    res.GetName(),
 			field.Status:      res.StatusString(status),
@@ -584,6 +583,21 @@ func (mtask *managedTask) handleResourceStateChange(resChange resourceStateChang
 		})
 		return
 	}
+	if status == currentKnownStatus {
+		logger.Debug("Redundant resource state change", logger.Fields{
+			field.TaskID:      mtask.GetID(),
+			field.Resource:    res.GetName(),
+			field.Status:      res.StatusString(status),
+			field.KnownStatus: res.StatusString(currentKnownStatus),
+		})
+		return
+	}
+	logger.Info("Handling resource state change", logger.Fields{
+		field.TaskID:      mtask.GetID(),
+		field.Resource:    res.GetName(),
+		field.Status:      res.StatusString(status),
+		field.KnownStatus: res.StatusString(currentKnownStatus),
+	})
 
 	// There is a resource state change. Resource is stored as part of the task, so make sure to save the task
 	// at the end.
