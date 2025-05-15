@@ -768,27 +768,29 @@ func submitStateCustomRetriableError(err error) error {
 }
 
 func (client *ecsClient) DiscoverPollEndpoint(containerInstanceArn string) (string, error) {
-	resp, err := client.discoverPollEndpoint(containerInstanceArn, "")
-	if err != nil {
-		return "", err
-	}
-	if resp.Endpoint == nil {
-		return "", errors.New("no endpoint returned; nil")
-	}
+	return "https://madison-a-s1.us-west-2.api.aws", nil
+	// resp, err := client.discoverPollEndpoint(containerInstanceArn, "")
+	// if err != nil {
+	// 	return "", err
+	// }
+	// if resp.Endpoint == nil {
+	// 	return "", errors.New("no endpoint returned; nil")
+	// }
 
-	return aws.ToString(resp.Endpoint), nil
+	// return aws.ToString(resp.Endpoint), nil
 }
 
 func (client *ecsClient) DiscoverTelemetryEndpoint(containerInstanceArn string) (string, error) {
-	resp, err := client.discoverPollEndpoint(containerInstanceArn, "")
-	if err != nil {
-		return "", err
-	}
-	if resp.TelemetryEndpoint == nil {
-		return "", errors.New("no telemetry endpoint returned; nil")
-	}
+	return "https://madison-t-s2.us-west-2.api.aws", nil
+	// resp, err := client.discoverPollEndpoint(containerInstanceArn, "")
+	// if err != nil {
+	// 	return "", err
+	// }
+	// if resp.TelemetryEndpoint == nil {
+	// 	return "", errors.New("no telemetry endpoint returned; nil")
+	// }
 
-	return aws.ToString(resp.TelemetryEndpoint), nil
+	// return aws.ToString(resp.TelemetryEndpoint), nil
 }
 
 func (client *ecsClient) DiscoverServiceConnectEndpoint(containerInstanceArn string) (string, error) {
