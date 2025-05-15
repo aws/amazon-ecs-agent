@@ -28,6 +28,7 @@ import (
 	"github.com/aws/amazon-ecs-agent/agent/asm"
 	asmfactory "github.com/aws/amazon-ecs-agent/agent/asm/factory"
 	"github.com/aws/amazon-ecs-agent/agent/config"
+	"github.com/aws/amazon-ecs-agent/agent/config/ipcompatibility"
 	"github.com/aws/amazon-ecs-agent/agent/fsx"
 	fsxfactory "github.com/aws/amazon-ecs-agent/agent/fsx/factory"
 	"github.com/aws/amazon-ecs-agent/agent/ssm"
@@ -66,6 +67,7 @@ type FSxWindowsFileServerResource struct {
 	asmClientCreator asmfactory.ClientCreator
 	// fsxClientCreator is a factory interface that creates new FSx clients.
 	fsxClientCreator fsxfactory.FSxClientCreator
+	ipCompatibility  ipcompatibility.IPCompatibility
 
 	// fields that are set later during resource creation
 	FSxWindowsFileServerDNSName string
@@ -114,7 +116,8 @@ func NewFSxWindowsFileServerResource(
 	credentialsManager credentials.Manager,
 	ssmClientCreator ssmfactory.SSMClientCreator,
 	asmClientCreator asmfactory.ClientCreator,
-	fsxClientCreator fsxfactory.FSxClientCreator) (*FSxWindowsFileServerResource, error) {
+	fsxClientCreator fsxfactory.FSxClientCreator,
+	ipCompatibility ipcompatibility.IPCompatibility) (*FSxWindowsFileServerResource, error) {
 
 	fv := &FSxWindowsFileServerResource{
 		Name:       name,
@@ -131,6 +134,7 @@ func NewFSxWindowsFileServerResource(
 		ssmClientCreator:       ssmClientCreator,
 		asmClientCreator:       asmClientCreator,
 		fsxClientCreator:       fsxClientCreator,
+		ipCompatibility:        ipCompatibility,
 	}
 
 	fv.initStatusToTransition()
@@ -147,6 +151,7 @@ func (fv *FSxWindowsFileServerResource) Initialize(
 	fv.ssmClientCreator = resourceFields.SSMClientCreator
 	fv.asmClientCreator = resourceFields.ASMClientCreator
 	fv.fsxClientCreator = resourceFields.FSxClientCreator
+	fv.ipCompatibility = config.InstanceIPCompatibility
 	fv.initStatusToTransition()
 }
 
@@ -480,7 +485,7 @@ func (fv *FSxWindowsFileServerResource) retrieveSSMCredentials(credentialsParame
 		return err
 	}
 
-	ssmClient, err := fv.ssmClientCreator.NewSSMClient(fv.region, iamCredentials)
+	ssmClient, err := fv.ssmClientCreator.NewSSMClient(fv.region, iamCredentials, fv.ipCompatibility)
 	if err != nil {
 		return err
 	}

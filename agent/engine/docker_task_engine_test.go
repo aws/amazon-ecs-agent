@@ -2879,12 +2879,14 @@ func TestTaskSecretsEnvironmentVariables(t *testing.T) {
 				},
 			}
 
+			testIPCompatibility := ipcompatibility.NewIPCompatibility(true, true)
 			ssmSecretRes := ssmsecret.NewSSMSecretResource(
 				testTask.Arn,
 				ssmRequirements,
 				credentialsID,
 				credentialsManager,
-				ssmClientCreator)
+				ssmClientCreator,
+				testIPCompatibility)
 
 			// required for validating asm workflows
 			asmClientCreator := mock_asm_factory.NewMockClientCreator(ctrl)
@@ -2923,7 +2925,7 @@ func TestTaskSecretsEnvironmentVariables(t *testing.T) {
 			reqSecretNames := []string{ssmSecretValueFrom}
 
 			credentialsManager.EXPECT().GetTaskCredentials(credentialsID).Return(taskIAMcreds, true).Times(2)
-			ssmClientCreator.EXPECT().NewSSMClient(region, executionRoleCredentials).Return(mockSSMClient, nil)
+			ssmClientCreator.EXPECT().NewSSMClient(region, executionRoleCredentials, testIPCompatibility).Return(mockSSMClient, nil)
 			asmClientCreator.EXPECT().NewASMClient(region, executionRoleCredentials).Return(mockASMClient, nil)
 
 			mockSSMClient.EXPECT().GetParameters(gomock.Any(), gomock.Any()).Do(func(ctx context.Context, in *ssm.GetParametersInput, optFns ...func(*ssm.Options)) {

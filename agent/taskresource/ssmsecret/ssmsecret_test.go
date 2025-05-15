@@ -25,6 +25,7 @@ import (
 
 	apicontainer "github.com/aws/amazon-ecs-agent/agent/api/container"
 	"github.com/aws/amazon-ecs-agent/agent/config"
+	"github.com/aws/amazon-ecs-agent/agent/config/ipcompatibility"
 	mock_factory "github.com/aws/amazon-ecs-agent/agent/ssm/factory/mocks"
 	mock_ssm "github.com/aws/amazon-ecs-agent/agent/ssm/mocks"
 	"github.com/aws/amazon-ecs-agent/agent/taskresource"
@@ -56,6 +57,8 @@ const (
 	secretValue            = "secret-value"
 	taskARN                = "task1"
 )
+
+var testIPCompatibility = ipcompatibility.NewIPCompatibility(true, true)
 
 func TestCreateAndGetWithOneCall(t *testing.T) {
 	requiredSecretData := make(map[string][]apicontainer.Secret)
@@ -105,7 +108,7 @@ func TestCreateAndGetWithOneCall(t *testing.T) {
 	allNames := []string{valueFrom1, valueFrom2}
 
 	credentialsManager.EXPECT().GetTaskCredentials(executionCredentialsID).Return(creds, true)
-	ssmClientCreator.EXPECT().NewSSMClient(region1, iamRoleCreds).Return(mockSSMClient, nil)
+	ssmClientCreator.EXPECT().NewSSMClient(region1, iamRoleCreds, testIPCompatibility).Return(mockSSMClient, nil)
 	mockSSMClient.EXPECT().GetParameters(gomock.Any(), gomock.Any()).Do(func(ctx context.Context, in *ssm.GetParametersInput, optFns ...func(*ssm.Options)) {
 		assert.Equal(t, in.Names, allNames)
 	}).Return(ssmOutput, nil).Times(1)
@@ -115,6 +118,7 @@ func TestCreateAndGetWithOneCall(t *testing.T) {
 		requiredSecrets:        requiredSecretData,
 		credentialsManager:     credentialsManager,
 		ssmClientCreator:       ssmClientCreator,
+		ipCompatibility:        testIPCompatibility,
 	}
 	require.NoError(t, ssmRes.Create())
 
@@ -173,8 +177,8 @@ func TestCreateAndGetWithTwoCallsAcrossRegions(t *testing.T) {
 	allNames := []string{valueFrom1}
 
 	credentialsManager.EXPECT().GetTaskCredentials(executionCredentialsID).Return(creds, true)
-	ssmClientCreator.EXPECT().NewSSMClient(region1, iamRoleCreds).Return(mockSSMClient, nil)
-	ssmClientCreator.EXPECT().NewSSMClient(region2, iamRoleCreds).Return(mockSSMClient, nil)
+	ssmClientCreator.EXPECT().NewSSMClient(region1, iamRoleCreds, testIPCompatibility).Return(mockSSMClient, nil)
+	ssmClientCreator.EXPECT().NewSSMClient(region2, iamRoleCreds, testIPCompatibility).Return(mockSSMClient, nil)
 	mockSSMClient.EXPECT().GetParameters(gomock.Any(), gomock.Any()).Do(func(ctx context.Context, in *ssm.GetParametersInput, optFns ...func(*ssm.Options)) {
 		assert.Equal(t, in.Names, allNames)
 	}).Return(ssmOutput, nil).Times(2)
@@ -184,6 +188,7 @@ func TestCreateAndGetWithTwoCallsAcrossRegions(t *testing.T) {
 		requiredSecrets:        requiredSecretData,
 		credentialsManager:     credentialsManager,
 		ssmClientCreator:       ssmClientCreator,
+		ipCompatibility:        testIPCompatibility,
 	}
 	require.NoError(t, ssmRes.Create())
 
@@ -270,7 +275,7 @@ func TestCreateAndGetWithTwoCallsInSameRegion(t *testing.T) {
 	}
 
 	credentialsManager.EXPECT().GetTaskCredentials(executionCredentialsID).Return(creds, true)
-	ssmClientCreator.EXPECT().NewSSMClient(region1, iamRoleCreds).Return(mockSSMClient, nil).Times(2)
+	ssmClientCreator.EXPECT().NewSSMClient(region1, iamRoleCreds, testIPCompatibility).Return(mockSSMClient, nil).Times(2)
 	mockSSMClient.EXPECT().GetParameters(gomock.Any(), ssmInput1).Return(ssmOutput1, nil)
 	mockSSMClient.EXPECT().GetParameters(gomock.Any(), ssmInput2).Return(ssmOutput2, nil)
 
@@ -279,6 +284,7 @@ func TestCreateAndGetWithTwoCallsInSameRegion(t *testing.T) {
 		requiredSecrets:        requiredSecretData,
 		credentialsManager:     credentialsManager,
 		ssmClientCreator:       ssmClientCreator,
+		ipCompatibility:        testIPCompatibility,
 	}
 	require.NoError(t, ssmRes.Create())
 
@@ -331,8 +337,8 @@ func TestCreateReturnMultipleErrors(t *testing.T) {
 	allNames := []string{valueFrom1}
 
 	credentialsManager.EXPECT().GetTaskCredentials(executionCredentialsID).Return(creds, true)
-	ssmClientCreator.EXPECT().NewSSMClient(region1, iamRoleCreds).Return(mockSSMClient, nil)
-	ssmClientCreator.EXPECT().NewSSMClient(region2, iamRoleCreds).Return(mockSSMClient, nil)
+	ssmClientCreator.EXPECT().NewSSMClient(region1, iamRoleCreds, testIPCompatibility).Return(mockSSMClient, nil)
+	ssmClientCreator.EXPECT().NewSSMClient(region2, iamRoleCreds, testIPCompatibility).Return(mockSSMClient, nil)
 	mockSSMClient.EXPECT().GetParameters(gomock.Any(), gomock.Any()).Do(func(ctx context.Context, in *ssm.GetParametersInput, optFns ...func(*ssm.Options)) {
 		assert.Equal(t, in.Names, allNames)
 	}).Return(ssmOutput, nil).Times(2)
@@ -342,6 +348,7 @@ func TestCreateReturnMultipleErrors(t *testing.T) {
 		requiredSecrets:        requiredSecretData,
 		credentialsManager:     credentialsManager,
 		ssmClientCreator:       ssmClientCreator,
+		ipCompatibility:        testIPCompatibility,
 	}
 
 	assert.Error(t, ssmRes.Create())
@@ -381,7 +388,7 @@ func TestCreateReturnError(t *testing.T) {
 	allNames := []string{valueFrom1}
 	gomock.InOrder(
 		credentialsManager.EXPECT().GetTaskCredentials(executionCredentialsID).Return(creds, true),
-		ssmClientCreator.EXPECT().NewSSMClient(region1, iamRoleCreds).Return(mockSSMClient, nil),
+		ssmClientCreator.EXPECT().NewSSMClient(region1, iamRoleCreds, testIPCompatibility).Return(mockSSMClient, nil),
 		mockSSMClient.EXPECT().GetParameters(gomock.Any(), gomock.Any()).Do(func(ctx context.Context, in *ssm.GetParametersInput, optFns ...func(*ssm.Options)) {
 			assert.Equal(t, in.Names, allNames)
 		}).Return(ssmOutput, nil),
@@ -391,6 +398,7 @@ func TestCreateReturnError(t *testing.T) {
 		requiredSecrets:        requiredSecretData,
 		credentialsManager:     credentialsManager,
 		ssmClientCreator:       ssmClientCreator,
+		ipCompatibility:        testIPCompatibility,
 	}
 
 	assert.Error(t, ssmRes.Create())
@@ -501,7 +509,7 @@ func TestInitialize(t *testing.T) {
 		desiredStatusUnsafe: resourcestatus.ResourceCreated,
 	}
 	ssmRes.Initialize(
-		&config.Config{},
+		&config.Config{InstanceIPCompatibility: testIPCompatibility},
 		&taskresource.ResourceFields{
 			ResourceFieldsCommon: &taskresource.ResourceFieldsCommon{
 				SSMClientCreator:   ssmClientCreator,
@@ -510,6 +518,7 @@ func TestInitialize(t *testing.T) {
 		}, apitaskstatus.TaskStatusNone, apitaskstatus.TaskRunning)
 	assert.Equal(t, resourcestatus.ResourceStatusNone, ssmRes.GetKnownStatus())
 	assert.Equal(t, resourcestatus.ResourceCreated, ssmRes.GetDesiredStatus())
+	assert.Equal(t, testIPCompatibility, ssmRes.ipCompatibility)
 
 }
 
