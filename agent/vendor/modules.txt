@@ -83,6 +83,7 @@ github.com/aws/amazon-ecs-agent/ecs-agent/utils/execwrapper/mocks
 github.com/aws/amazon-ecs-agent/ecs-agent/utils/httpproxy
 github.com/aws/amazon-ecs-agent/ecs-agent/utils/netlinkwrapper
 github.com/aws/amazon-ecs-agent/ecs-agent/utils/netlinkwrapper/mocks
+github.com/aws/amazon-ecs-agent/ecs-agent/utils/netwrapper
 github.com/aws/amazon-ecs-agent/ecs-agent/utils/retry
 github.com/aws/amazon-ecs-agent/ecs-agent/utils/retry/mock
 github.com/aws/amazon-ecs-agent/ecs-agent/utils/ttime

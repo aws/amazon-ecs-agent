@@ -48,6 +48,36 @@ func (m *MockNet) EXPECT() *MockNetMockRecorder {
 	return m.recorder
 }
 
+// Addrs mocks base method.
+func (m *MockNet) Addrs(arg0 *net.Interface) ([]net.Addr, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "Addrs", arg0)
+	ret0, _ := ret[0].([]net.Addr)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// Addrs indicates an expected call of Addrs.
+func (mr *MockNetMockRecorder) Addrs(arg0 interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Addrs", reflect.TypeOf((*MockNet)(nil).Addrs), arg0)
+}
+
+// InterfaceByName mocks base method.
+func (m *MockNet) InterfaceByName(arg0 string) (*net.Interface, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "InterfaceByName", arg0)
+	ret0, _ := ret[0].(*net.Interface)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// InterfaceByName indicates an expected call of InterfaceByName.
+func (mr *MockNetMockRecorder) InterfaceByName(arg0 interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "InterfaceByName", reflect.TypeOf((*MockNet)(nil).InterfaceByName), arg0)
+}
+
 // Interfaces mocks base method.
 func (m *MockNet) Interfaces() ([]net.Interface, error) {
 	m.ctrl.T.Helper()

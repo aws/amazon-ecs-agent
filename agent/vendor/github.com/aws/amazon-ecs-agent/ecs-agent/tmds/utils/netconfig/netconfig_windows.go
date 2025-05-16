@@ -33,3 +33,9 @@ func NewNetworkConfigClient() *NetworkConfigClient {
 func DefaultNetInterfaceName(unknown interface{}) (string, error) {
 	return "", errors.New("not supported on windows")
 }
+
+// GetInterfaceGlobalIPAddresses returns all global unicast IP addresses (both IPv4 and IPv6)
+// assigned to the given network interface. This is only supported on linux as of now.
+func GetInterfaceGlobalIPAddresses(unknown interface{}, ifaceName string) ([]string, error) {
+	return nil, errors.New("not supported on windows")
+}
