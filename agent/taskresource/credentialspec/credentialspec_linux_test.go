@@ -168,7 +168,7 @@ func TestHandleSSMCredentialspecFile(t *testing.T) {
 	expectedKerberosTicketPath := "/var/credentials-fetcher/krbdir/123456/webapp01"
 
 	gomock.InOrder(
-		ssmClientCreator.EXPECT().NewSSMClient(gomock.Any(), gomock.Any()).Return(mockSSMClient, nil),
+		ssmClientCreator.EXPECT().NewSSMClient(gomock.Any(), gomock.Any(), testConfig.InstanceIPCompatibility).Return(mockSSMClient, nil),
 		mockSSMClient.EXPECT().GetParameters(gomock.Any(), gomock.Any()).Return(ssmClientOutput, nil).Times(1),
 	)
 
@@ -243,7 +243,7 @@ func TestHandleSSMDomainlessCredentialspecFile(t *testing.T) {
 	expectedKerberosTicketPath := "/var/credentials-fetcher/krbdir/123456/webapp01"
 
 	gomock.InOrder(
-		ssmClientCreator.EXPECT().NewSSMClient(gomock.Any(), gomock.Any()).Return(mockSSMClient, nil),
+		ssmClientCreator.EXPECT().NewSSMClient(gomock.Any(), gomock.Any(), testConfig.InstanceIPCompatibility).Return(mockSSMClient, nil),
 		mockSSMClient.EXPECT().GetParameters(gomock.Any(), gomock.Any()).Return(ssmClientOutput, nil).Times(1),
 	)
 
@@ -333,7 +333,7 @@ func TestHandleSSMCredentialspecFileGetSSMParamErr(t *testing.T) {
 		}, apitaskstatus.TaskStatusNone, apitaskstatus.TaskRunning)
 
 	gomock.InOrder(
-		ssmClientCreator.EXPECT().NewSSMClient(gomock.Any(), gomock.Any()).Return(mockSSMClient, nil),
+		ssmClientCreator.EXPECT().NewSSMClient(gomock.Any(), gomock.Any(), testConfig.InstanceIPCompatibility).Return(mockSSMClient, nil),
 		mockSSMClient.EXPECT().GetParameters(gomock.Any(), gomock.Any()).Return(nil, errors.New("test-error")).Times(1),
 	)
 
@@ -954,7 +954,7 @@ func TestSkipCredentialFetcherInvocation(t *testing.T) {
 
 	gomock.InOrder(
 		credentialsManager.EXPECT().GetTaskCredentials(gomock.Any()).Return(taskRoleCredentials, true).Times(1),
-		ssmClientCreator.EXPECT().NewSSMClient(gomock.Any(), gomock.Any()).Return(mockSSMClient, nil),
+		ssmClientCreator.EXPECT().NewSSMClient(gomock.Any(), gomock.Any(), testConfig.InstanceIPCompatibility).Return(mockSSMClient, nil),
 		mockSSMClient.EXPECT().GetParameters(gomock.Any(), gomock.Any()).Return(ssmClientOutput, nil).Times(1),
 	)
 

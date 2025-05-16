@@ -305,7 +305,7 @@ func (cs *CredentialSpecResource) handleSSMCredentialspecFile(originalCredential
 		return err
 	}
 
-	ssmClient, err := cs.ssmClientCreator.NewSSMClient(cs.region, iamCredentials)
+	ssmClient, err := cs.ssmClientCreator.NewSSMClient(cs.region, iamCredentials, cs.ipCompatibility)
 	if err != nil {
 		cs.setTerminalReason(err.Error())
 		return err

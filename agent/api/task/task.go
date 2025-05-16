@@ -416,7 +416,7 @@ func (task *Task) PostUnmarshalTask(cfg *config.Config,
 		return apierrors.NewResourceInitError(task.Arn, err)
 	}
 
-	task.initSecretResources(credentialsManager, resourceFields)
+	task.initSecretResources(cfg, credentialsManager, resourceFields)
 
 	task.initializeCredentialsEndpoint(credentialsManager)
 
@@ -651,14 +651,14 @@ func (task *Task) populateTaskARN() {
 	}
 }
 
-func (task *Task) initSecretResources(credentialsManager credentials.Manager,
+func (task *Task) initSecretResources(cfg *config.Config, credentialsManager credentials.Manager,
 	resourceFields *taskresource.ResourceFields) {
 	if task.requiresASMDockerAuthData() {
 		task.initializeASMAuthResource(credentialsManager, resourceFields)
 	}
 
 	if task.requiresSSMSecret() {
-		task.initializeSSMSecretResource(credentialsManager, resourceFields)
+		task.initializeSSMSecretResource(cfg, credentialsManager, resourceFields)
 	}
 
 	if task.requiresASMSecret() {
@@ -1109,10 +1109,11 @@ func (task *Task) requiresSSMSecret() bool {
 }
 
 // initializeSSMSecretResource builds the resource dependency map for the SSM ssmsecret resource
-func (task *Task) initializeSSMSecretResource(credentialsManager credentials.Manager,
+func (task *Task) initializeSSMSecretResource(cfg *config.Config,
+	credentialsManager credentials.Manager,
 	resourceFields *taskresource.ResourceFields) {
 	ssmSecretResource := ssmsecret.NewSSMSecretResource(task.Arn, task.getAllSSMSecretRequirements(),
-		task.ExecutionCredentialsID, credentialsManager, resourceFields.SSMClientCreator)
+		task.ExecutionCredentialsID, credentialsManager, resourceFields.SSMClientCreator, cfg.InstanceIPCompatibility)
 	task.AddResource(ssmsecret.ResourceName, ssmSecretResource)
 
 	// for every container that needs ssm secret vending as env, it needs to wait all secrets got retrieved
