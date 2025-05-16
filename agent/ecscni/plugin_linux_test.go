@@ -537,7 +537,7 @@ func TestConstructVPCENINetworkConfig(t *testing.T) {
 			},
 		},
 		{
-			name: "IPv6 only",
+			name: "IPv6 only - no subnet gateway prefix",
 			iface: &ni.NetworkInterface{
 				ID:                       eniID,
 				IPV6Addresses:            []*ni.IPV6Address{{Address: ipv6Address}},
@@ -547,6 +547,22 @@ func TestConstructVPCENINetworkConfig(t *testing.T) {
 			expected: VPCENIPluginConfig{
 				Type:               "vpc-eni",
 				ENIIPAddresses:     []string{eniIPV6AddressWithBlockSize},
+				ENIMACAddress:      eniMACAddress,
+				BlockIMDS:          true,
+				GatewayIPAddresses: []string{"1:2:3:4::1"},
+			},
+		},
+		{
+			name: "IPv6 only - non empty subnet gateway prefix",
+			iface: &ni.NetworkInterface{
+				ID:                       eniID,
+				IPV6Addresses:            []*ni.IPV6Address{{Address: ipv6Address}},
+				MacAddress:               eniMACAddress,
+				SubnetGatewayIPV6Address: "1:2:3:4::1/60",
+			},
+			expected: VPCENIPluginConfig{
+				Type:               "vpc-eni",
+				ENIIPAddresses:     []string{ipv6Address + "/60"},
 				ENIMACAddress:      eniMACAddress,
 				BlockIMDS:          true,
 				GatewayIPAddresses: []string{"1:2:3:4::1"},
