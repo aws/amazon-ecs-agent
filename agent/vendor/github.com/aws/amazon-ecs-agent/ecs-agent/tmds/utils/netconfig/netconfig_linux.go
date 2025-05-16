@@ -17,9 +17,12 @@
 package netconfig
 
 import (
+	"net"
+
 	"github.com/aws/amazon-ecs-agent/ecs-agent/logger"
 	"github.com/aws/amazon-ecs-agent/ecs-agent/logger/field"
 	"github.com/aws/amazon-ecs-agent/ecs-agent/utils/netlinkwrapper"
+	"github.com/aws/amazon-ecs-agent/ecs-agent/utils/netwrapper"
 
 	"github.com/vishvananda/netlink"
 )
@@ -68,4 +71,29 @@ func DefaultNetInterfaceName(netlinkClient netlinkwrapper.NetLink) (string, erro
 		}
 	}
 	return "", nil
+}
+
+func GetInterfaceIPAddresses(nw netwrapper.Net, ifaceName string) ([]string, error) {
+	iface, err := nw.InterfaceByName(ifaceName)
+	if err != nil {
+		return nil, err
+	}
+
+	allAddrs, err := nw.Addrs(iface)
+	if err != nil {
+		return nil, err
+	}
+
+	ipAddrs := make([]string, 0)
+	for _, addr := range allAddrs {
+		ipNet, ok := addr.(*net.IPNet)
+		if !ok {
+			continue
+		}
+
+		if ipNet.IP.IsGlobalUnicast() {
+			ipAddrs = append(ipAddrs, ipNet.IP.String())
+		}
+	}
+	return ipAddrs, nil
 }
