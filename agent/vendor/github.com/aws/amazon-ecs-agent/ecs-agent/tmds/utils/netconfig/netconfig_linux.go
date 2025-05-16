@@ -73,7 +73,11 @@ func DefaultNetInterfaceName(netlinkClient netlinkwrapper.NetLink) (string, erro
 	return "", nil
 }
 
-func GetInterfaceIPAddresses(nw netwrapper.Net, ifaceName string) ([]string, error) {
+// GetInterfaceGlobalIPAddresses returns all global unicast IP addresses (both IPv4 and IPv6)
+// assigned to the given network interface. It excludes link-local, loopback, multicast,
+// and unspecified addresses. Returns an empty list if no global unicast addresses are found,
+// or an error if the interface cannot be accessed.
+func GetInterfaceGlobalIPAddresses(nw netwrapper.Net, ifaceName string) ([]string, error) {
 	iface, err := nw.InterfaceByName(ifaceName)
 	if err != nil {
 		return nil, err

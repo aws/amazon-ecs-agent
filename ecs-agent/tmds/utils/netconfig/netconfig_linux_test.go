@@ -171,7 +171,7 @@ func TestDefaultNetInterfaceName(t *testing.T) {
 	}
 }
 
-func TestGetInterfaceIPAddresses(t *testing.T) {
+func TestGetInterfaceGlobalIPAddresses(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
 
@@ -238,14 +238,14 @@ func TestGetInterfaceIPAddresses(t *testing.T) {
 				}
 			}
 
-			got, err := GetInterfaceIPAddresses(nw, "test0")
+			got, err := GetInterfaceGlobalIPAddresses(nw, "test0")
 			if err != nil {
 				assert.EqualValues(t, tc.expectedErrMsg, err.Error())
 				return
 			}
 
 			if !reflect.DeepEqual(got, tc.expectedAddrs) {
-				t.Errorf("GetInterfaceIPAddresses() = %v, want %v", got, tc.expectedAddrs)
+				t.Errorf("GetInterfaceGlobalIPAddresses() = %v, want %v", got, tc.expectedAddrs)
 			}
 		})
 	}
