@@ -23,13 +23,14 @@ import (
 )
 
 const (
-	MacResource         = "mac"
-	IPv4SubNetCidrBlock = "network/interfaces/macs/%s/subnet-ipv4-cidr-block"
-	IPv6SubNetCidrBlock = "network/interfaces/macs/%s/subnet-ipv6-cidr-blocks"
-	PrivateIPv4Address  = "local-ipv4"
-	PrivateIPv6Address  = "ipv6"
-	InstanceIDResource  = "instance-id"
-	DefaultArg          = "default"
+	MacResource                = "mac"
+	IPv4SubNetCidrBlock        = "network/interfaces/macs/%s/subnet-ipv4-cidr-block"
+	IPv6SubNetCidrBlock        = "network/interfaces/macs/%s/subnet-ipv6-cidr-blocks"
+	PrivateIPv4Address         = "local-ipv4"
+	PrivateIPv6Address         = "ipv6"
+	InstanceIDResource         = "instance-id"
+	DefaultArg                 = "default"
+	NetworkInterfaceDeviceName = "eth1" // default network interface name in the task network namespace.
 )
 
 type managedLinux struct {
@@ -77,6 +78,8 @@ func (m *managedLinux) ConfigureInterface(
 	iface *networkinterface.NetworkInterface,
 	netDAO netlibdata.NetworkDataClient,
 ) error {
+	// Set the network interface name on the task network namespace to eth1.
+	iface.DeviceName = NetworkInterfaceDeviceName
 	return m.common.configureInterface(ctx, netNSPath, iface, netDAO)
 }
 
