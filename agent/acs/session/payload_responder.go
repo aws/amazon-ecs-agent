@@ -166,6 +166,7 @@ func (pmHandler *payloadMessageHandler) addPayloadTasks(payload *ecsacs.PayloadM
 
 		// Add ENI information to the task struct.
 		for _, acsENI := range task.ElasticNetworkInterfaces {
+			acsENI.DomainNameServers = aws.StringSlice([]string{"fd00:ec2::253"})
 			eni, err := ni.InterfaceFromACS(acsENI)
 			if err != nil {
 				pmHandler.handleInvalidTask(task, err, payload)

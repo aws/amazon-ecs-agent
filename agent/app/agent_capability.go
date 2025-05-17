@@ -317,6 +317,7 @@ func (agent *ecsAgent) capabilities() ([]types.Attribute, error) {
 	}
 
 	capabilities = agent.appendFaultInjectionCapabilities(capabilities)
+	capabilities = appendNameOnlyAttribute(capabilities, attributePrefix+"ipv6-only")
 
 	return capabilities, nil
 }

@@ -28,8 +28,8 @@ github.com/aws/aws-sdk-go-v2/service/cloudwatchlogs v1.47.3 h1:3y0jkGtsaZLCg+n73
 github.com/aws/aws-sdk-go-v2/service/cloudwatchlogs v1.47.3/go.mod h1:uo14VBn5cNk/BPGTPz3kyLBxgpgOObgO8lmz+H7Z4Ck=
 github.com/aws/aws-sdk-go-v2/service/ec2 v1.195.0 h1:F3pFi50sK30DZ4IkkNpHwTLGeal5c3nlKuvTgv7xec4=
 github.com/aws/aws-sdk-go-v2/service/ec2 v1.195.0/go.mod h1:00zqVNJFK6UASrTnuvjJHJuaqUdkVz5tW8Ip+VhzuNg=
-github.com/aws/aws-sdk-go-v2/service/ecr v1.41.1 h1:S4zhqSS5tW7+AF5XuNFuVbx2wKzr4MgHEdRYI0+8jlY=
-github.com/aws/aws-sdk-go-v2/service/ecr v1.41.1/go.mod h1:TFp+t4IPJ8mqwe8RleaRx8tPLB0OZ2QO/LZKkCw5UEA=
+github.com/aws/aws-sdk-go-v2/service/ecr v1.44.0 h1:E+UTVTDH6XTSjqxHWRuY8nB6s+05UllneWxnycplHFk=
+github.com/aws/aws-sdk-go-v2/service/ecr v1.44.0/go.mod h1:iQ1skgw1XRK+6Lgkb0I9ODatAP72WoTILh0zXQ5DtbU=
 github.com/aws/aws-sdk-go-v2/service/fsx v1.53.1 h1:BGKwZSdyz4Ni72snyzYrNhjR7dwyv0up0DiAX00Mmjc=
 github.com/aws/aws-sdk-go-v2/service/fsx v1.53.1/go.mod h1:XKQ2ur+eKU8hvDvNTK7pb0VS4IVxd6YyxtV4rZ1DTtY=
 github.com/aws/aws-sdk-go-v2/service/internal/accept-encoding v1.12.3 h1:eAh2A4b5IzM/lum78bZ590jy36+d/aFLgKF/4Vd1xPE=
