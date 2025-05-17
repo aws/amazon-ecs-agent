@@ -22,6 +22,7 @@ import (
 
 	apicontainer "github.com/aws/amazon-ecs-agent/agent/api/container"
 	"github.com/aws/amazon-ecs-agent/agent/config"
+	"github.com/aws/amazon-ecs-agent/agent/config/ipcompatibility"
 	agentversion "github.com/aws/amazon-ecs-agent/agent/version"
 	"github.com/aws/amazon-ecs-agent/ecs-agent/credentials"
 	"github.com/aws/amazon-ecs-agent/ecs-agent/credentials/providers"
@@ -36,7 +37,7 @@ import (
 
 // ECRFactory defines the interface to produce an ECR SDK client
 type ECRFactory interface {
-	GetClient(*apicontainer.ECRAuthData) (ECRClient, error)
+	GetClient(*apicontainer.ECRAuthData, *ipcompatibility.IPCompatibility) (ECRClient, error)
 }
 
 type ecrFactory struct {
@@ -55,8 +56,8 @@ func NewECRFactory(acceptInsecureCert bool) ECRFactory {
 }
 
 // GetClient creates the ECR SDK client based on the authdata
-func (factory *ecrFactory) GetClient(authData *apicontainer.ECRAuthData) (ECRClient, error) {
-	clientConfig, err := getClientConfig(factory.httpClient, authData)
+func (factory *ecrFactory) GetClient(authData *apicontainer.ECRAuthData, ipCompatibility *ipcompatibility.IPCompatibility) (ECRClient, error) {
+	clientConfig, err := getClientConfig(factory.httpClient, authData, ipCompatibility)
 	if err != nil {
 		return &ecrClient{}, err
 	}
@@ -65,7 +66,7 @@ func (factory *ecrFactory) GetClient(authData *apicontainer.ECRAuthData) (ECRCli
 }
 
 // getClientConfig returns the config for the ecr client based on authData
-func getClientConfig(httpClient *http.Client, authData *apicontainer.ECRAuthData) (*aws.Config, error) {
+func getClientConfig(httpClient *http.Client, authData *apicontainer.ECRAuthData, ipCompatibility *ipcompatibility.IPCompatibility) (*aws.Config, error) {
 	opts := []func(*awsconfig.LoadOptions) error{
 		awsconfig.WithRegion(authData.Region),
 		awsconfig.WithHTTPClient(httpClient),
@@ -73,6 +74,8 @@ func getClientConfig(httpClient *http.Client, authData *apicontainer.ECRAuthData
 
 	if authData.EndpointOverride != "" {
 		opts = append(opts, awsconfig.WithBaseEndpoint(utils.AddScheme(authData.EndpointOverride)))
+	} else if ipCompatibility != nil && ipCompatibility.IsIPv6Only() {
+		opts = append(opts, awsconfig.WithUseDualStackEndpoint(aws.DualStackEndpointStateEnabled))
 	}
 
 	var credentialsOpt awsconfig.LoadOptionsFunc
