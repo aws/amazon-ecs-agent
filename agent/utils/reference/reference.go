@@ -19,7 +19,8 @@ import (
 
 	"github.com/aws/amazon-ecs-agent/ecs-agent/logger"
 	"github.com/aws/amazon-ecs-agent/ecs-agent/logger/field"
-	"github.com/docker/distribution/reference"
+
+	"github.com/distribution/reference"
 	"github.com/opencontainers/go-digest"
 )
 

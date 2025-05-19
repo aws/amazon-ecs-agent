@@ -360,10 +360,6 @@ github.com/didip/tollbooth/limiter
 # github.com/distribution/reference v0.6.0
 ## explicit; go 1.20
 github.com/distribution/reference
-# github.com/docker/distribution v2.8.2+incompatible
-## explicit
-github.com/docker/distribution/digestset
-github.com/docker/distribution/reference
 # github.com/docker/docker v25.0.6+incompatible
 ## explicit
 github.com/docker/docker/api
