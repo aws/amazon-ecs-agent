@@ -207,9 +207,9 @@ var (
 		"SourcesToFilter": ipSourcesToFilter,
 	}
 
-	ipSources = []string{"52.95.154.1", "52.95.154.2"}
+	ipSources = []string{"52.95.154.1", "52.95.154.2", "1:2:3:4::"}
 
-	ipSourcesToFilter = []string{"8.8.8.8"}
+	ipSourcesToFilter = []string{"8.8.8.8", "5:5:5:5::"}
 
 	startNetworkBlackHolePortTestPrefix = fmt.Sprintf(startFaultRequestType, types.BlackHolePortFaultType)
 	stopNetworkBlackHolePortTestPrefix  = fmt.Sprintf(stopFaultRequestType, types.BlackHolePortFaultType)
@@ -1825,8 +1825,8 @@ func generateStartNetworkLatencyTestCases() []networkFaultInjectionTestCase {
 					exec.EXPECT().CommandContext(gomock.Any(), gomock.Any(), gomock.Any()).Times(1).Return(mockCMD),
 					mockCMD.EXPECT().CombinedOutput().Times(1).Return([]byte(tcCommandEmptyOutput), nil),
 				)
-				exec.EXPECT().CommandContext(gomock.Any(), gomock.Any(), gomock.Any()).Times(5).Return(mockCMD)
-				mockCMD.EXPECT().CombinedOutput().Times(5).Return([]byte(tcCommandEmptyOutput), nil)
+				exec.EXPECT().CommandContext(gomock.Any(), gomock.Any(), gomock.Any()).Times(7).Return(mockCMD)
+				mockCMD.EXPECT().CombinedOutput().Times(7).Return([]byte(tcCommandEmptyOutput), nil)
 			},
 			expectedResponseJSON: happyFaultRunningResponse,
 		},
@@ -1886,8 +1886,8 @@ func generateStartNetworkLatencyTestCases() []networkFaultInjectionTestCase {
 					exec.EXPECT().CommandContext(gomock.Any(), gomock.Any(), gomock.Any()).Times(1).Return(mockCMD),
 					mockCMD.EXPECT().CombinedOutput().Times(1).Return([]byte(tcCommandEmptyOutput), nil),
 				)
-				exec.EXPECT().CommandContext(gomock.Any(), gomock.Any(), gomock.Any()).Times(4).Return(mockCMD)
-				mockCMD.EXPECT().CombinedOutput().Times(4).Return([]byte(tcCommandEmptyOutput), nil)
+				exec.EXPECT().CommandContext(gomock.Any(), gomock.Any(), gomock.Any()).Times(5).Return(mockCMD)
+				mockCMD.EXPECT().CombinedOutput().Times(5).Return([]byte(tcCommandEmptyOutput), nil)
 			},
 			expectedResponseJSON: happyFaultRunningResponse,
 		},
@@ -2413,8 +2413,8 @@ func generateStartNetworkPacketLossTestCases() []networkFaultInjectionTestCase {
 					exec.EXPECT().CommandContext(gomock.Any(), gomock.Any(), gomock.Any()).Times(1).Return(mockCMD),
 					mockCMD.EXPECT().CombinedOutput().Times(1).Return([]byte(tcCommandEmptyOutput), nil),
 				)
-				exec.EXPECT().CommandContext(gomock.Any(), gomock.Any(), gomock.Any()).Times(5).Return(mockCMD)
-				mockCMD.EXPECT().CombinedOutput().Times(5).Return([]byte(tcCommandEmptyOutput), nil)
+				exec.EXPECT().CommandContext(gomock.Any(), gomock.Any(), gomock.Any()).Times(7).Return(mockCMD)
+				mockCMD.EXPECT().CombinedOutput().Times(7).Return([]byte(tcCommandEmptyOutput), nil)
 			},
 			expectedResponseJSON: happyFaultRunningResponse,
 		},
@@ -2473,8 +2473,8 @@ func generateStartNetworkPacketLossTestCases() []networkFaultInjectionTestCase {
 					exec.EXPECT().CommandContext(gomock.Any(), gomock.Any(), gomock.Any()).Times(1).Return(mockCMD),
 					mockCMD.EXPECT().CombinedOutput().Times(1).Return([]byte(tcCommandEmptyOutput), nil),
 				)
-				exec.EXPECT().CommandContext(gomock.Any(), gomock.Any(), gomock.Any()).Times(4).Return(mockCMD)
-				mockCMD.EXPECT().CombinedOutput().Times(4).Return([]byte(tcCommandEmptyOutput), nil)
+				exec.EXPECT().CommandContext(gomock.Any(), gomock.Any(), gomock.Any()).Times(5).Return(mockCMD)
+				mockCMD.EXPECT().CombinedOutput().Times(5).Return([]byte(tcCommandEmptyOutput), nil)
 			},
 			expectedResponseJSON: happyFaultRunningResponse,
 		},
