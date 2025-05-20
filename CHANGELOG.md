@@ -1,4 +1,20 @@
 # Changelog
+# 1.94.0
+* Enhancement - aws-sdk-go-v2 migration
+  * Migrate awserr/request to aws-go-sdk-v2 [#4624](https://github.com/aws/amazon-ecs-agent/pull/4624)
+  * Migrate jsonutil to encoding/json for aws-sdk-go-v2 migration [#4626](https://github.com/aws/amazon-ecs-agent/pull/4626)
+* Enhancement - Add support for custom providers to determine the initial amount of available memory on a container instance [#4617](https://github.com/aws/amazon-ecs-agent/pull/4617)
+* Enhancement - IPv6-only support
+  * Include container IPv6 addresses (if available) in container metadata file for bridge mode tasks [#4616](https://github.com/aws/amazon-ecs-agent/pull/4616)
+  * Create a route for TMDS access on host mode on IPv6-only instances [#4633](https://github.com/aws/amazon-ecs-agent/pull/4633)
+  * Expand the network blackhole port to allow drop packets for IPv6 [#4629](https://github.com/aws/amazon-ecs-agent/pull/4629)
+  * Add a DualStackEnabled ECS client option and a SubnetGatewayIPV6Address field under NetworkInterfaceProperties [#4632](https://github.com/aws/amazon-ecs-agent/pull/4632)
+  * Use IPv6 addresses when generating extraHosts for IPv6-only awsvpc mode tasks [#4627](https://github.com/aws/amazon-ecs-agent/pull/4627)
+  * SSM Client resolves to dualstack endpoint on IPV6-only instances [#4623](https://github.com/aws/amazon-ecs-agent/pull/4623)
+  * Support task ENI setup for IPv6 only tasks [#4641](https://github.com/aws/amazon-ecs-agent/pull/4641)
+* Enhancement - Use ECS_AGENT_PID_NAMESPACE_HOST to run agent container in pid host mode [#4595](https://github.com/aws/amazon-ecs-agent/pull/4595)
+* Bugfix - reduce unnecessary "redundant state change" logs [#4639](https://github.com/aws/amazon-ecs-agent/pull/4639)
+
 # 1.93.1
 * Enhancement - aws-sdk-go-v2 migration
   * ECR Client [#4550](https://github.com/aws/amazon-ecs-agent/pull/4550)
