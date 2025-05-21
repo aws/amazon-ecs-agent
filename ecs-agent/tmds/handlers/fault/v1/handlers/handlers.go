@@ -73,10 +73,12 @@ const (
 	tcAddQdiscRootCommandString      = "tc qdisc add dev %s root handle 1: prio priomap 2 2 2 2 2 2 2 2 2 2 2 2 2 2 2 2"
 	tcAddQdiscLatencyCommandString   = "tc qdisc add dev %s parent 1:1 handle 10: netem delay %dms %dms"
 	tcAddQdiscLossCommandString      = "tc qdisc add dev %s parent 1:1 handle 10: netem loss %d%%"
-	tcAllowlistIPCommandString       = "tc filter add dev %s protocol ip parent 1:0 prio 1 u32 match ip dst %s flowid 1:3"
-	tcAddFilterForIPCommandString    = "tc filter add dev %s protocol ip parent 1:0 prio 2 u32 match ip dst %s flowid 1:1"
+	tcAllowlistIPCommandString       = "tc filter add dev %s protocol all parent 1:0 prio 1 u32 match %s dst %s flowid 1:3"
+	tcAddFilterForIPCommandString    = "tc filter add dev %s protocol all parent 1:0 prio 2 u32 match %s dst %s flowid 1:1"
 	tcDeleteQdiscParentCommandString = "tc qdisc del dev %s parent 1:1 handle 10:"
 	tcDeleteQdiscRootCommandString   = "tc qdisc del dev %s root handle 1: prio"
+	ip4                              = "ip"  // For matching IPv4 packets in a tc filter
+	ip6                              = "ip6" // For matching IPv6 packets in a tc filter
 	allIPv4CIDR                      = "0.0.0.0/0"
 	allIPv6CIDR                      = "::/0"
 	dropTarget                       = "DROP"
@@ -1560,8 +1562,12 @@ func checkPacketLossFault(outputUnmarshalled []map[string]interface{}) (bool, er
 func (h *FaultHandler) addIPAddressesToFilter(
 	ctx context.Context, ipAddressList []*string, taskMetadata *state.TaskResponse,
 	nsenterPrefix, commandString, interfaceName string) error {
-	for _, ip := range ipAddressList {
-		commandComposed := nsenterPrefix + fmt.Sprintf(commandString, interfaceName, aws.ToString(ip))
+	for _, ipPtr := range ipAddressList {
+		ip := aws.ToString(ipPtr)
+		commandComposed := nsenterPrefix + fmt.Sprintf(commandString, interfaceName, ip4, ip)
+		if utils.IsIPv6(ip) || utils.IsIPv6CIDR(ip) {
+			commandComposed = nsenterPrefix + fmt.Sprintf(commandString, interfaceName, ip6, ip)
+		}
 		cmdList := strings.Split(commandComposed, " ")
 		cmdOutput, err := h.runExecCommand(ctx, cmdList)
 		if err != nil {

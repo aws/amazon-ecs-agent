@@ -16,11 +16,8 @@ package types
 import (
 	"encoding/json"
 	"fmt"
-	"net"
 	"strconv"
 
-	"github.com/aws/amazon-ecs-agent/ecs-agent/logger"
-	"github.com/aws/amazon-ecs-agent/ecs-agent/logger/field"
 	"github.com/aws/amazon-ecs-agent/ecs-agent/tmds/utils"
 	"github.com/aws/aws-sdk-go-v2/aws"
 )
@@ -135,10 +132,10 @@ func (request NetworkLatencyRequest) ValidateRequest() error {
 	if len(request.Sources) == 0 {
 		return fmt.Errorf(MissingRequiredFieldError, "Sources")
 	}
-	if err := validateNetworkFaultRequestSources(request.Sources, "Sources"); err != nil {
+	if err := requireIPInRequestSources(request.Sources, "Sources"); err != nil {
 		return err
 	}
-	if err := validateNetworkFaultRequestSources(request.SourcesToFilter, "SourcesToFilter"); err != nil {
+	if err := requireIPInRequestSources(request.SourcesToFilter, "SourcesToFilter"); err != nil {
 		return err
 	}
 	return nil
@@ -174,10 +171,10 @@ func (request NetworkPacketLossRequest) ValidateRequest() error {
 	if len(request.Sources) == 0 {
 		return fmt.Errorf(MissingRequiredFieldError, "Sources")
 	}
-	if err := validateNetworkFaultRequestSources(request.Sources, "Sources"); err != nil {
+	if err := requireIPInRequestSources(request.Sources, "Sources"); err != nil {
 		return err
 	}
-	if err := validateNetworkFaultRequestSources(request.SourcesToFilter, "SourcesToFilter"); err != nil {
+	if err := requireIPInRequestSources(request.SourcesToFilter, "SourcesToFilter"); err != nil {
 		return err
 	}
 	return nil
@@ -201,37 +198,6 @@ func NewNetworkFaultInjectionErrorResponse(err string) NetworkFaultInjectionResp
 	return NetworkFaultInjectionResponse{
 		Error: err,
 	}
-}
-
-// validateNetworkFaultRequestSources validates each source is IPv4 or IPv4 CIDR block.
-func validateNetworkFaultRequestSources(sources []*string, sourcesType string) error {
-	for _, element := range sources {
-		if err := validateNetworkFaultRequestSource(aws.ToString(element), sourcesType); err != nil {
-			return err
-		}
-	}
-	return nil
-}
-
-// validateNetworkFaultRequestSource validates the source is IPv4 or IPv4 CIDR block.
-func validateNetworkFaultRequestSource(source string, sourceType string) error {
-	ip := net.ParseIP(source)
-	if ip != nil && ip.To4() != nil {
-		return nil // IPv4 successful
-	}
-
-	_, ipnet, err := net.ParseCIDR(source)
-	if err == nil && ipnet.IP.To4() != nil {
-		return nil // IPv4 CIDR successful
-	}
-	if err != nil {
-		logger.Info("Failed to parse fault source as IPv4 CIDR block", logger.Fields{
-			"source":    source,
-			field.Error: err,
-		})
-	}
-
-	return fmt.Errorf(InvalidValueError, source, sourceType)
 }
 
 // requireIPInRequestSources requires each source is IPv4/IPv6 or IPv4/IPv6 CIDR block.
