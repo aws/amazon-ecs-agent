@@ -1,10 +1,10 @@
-// Copyright 2015-2016 Amazon.com, Inc. or its affiliates. All Rights Reserved.
+// Copyright Amazon.com Inc. or its affiliates. All Rights Reserved.
 //
 // Licensed under the Apache License, Version 2.0 (the "License"). You may
 // not use this file except in compliance with the License. A copy of the
 // License is located at
 //
-//     http://aws.amazon.com/apache2.0/
+//	http://aws.amazon.com/apache2.0/
 //
 // or in the "license" file accompanying this file. This file is distributed
 // on an "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either
@@ -55,7 +55,7 @@ func (t *TMDSRouteManagerForIPv6Only) CreateRoute() error {
 		return nil
 	}
 
-	seelog.Info("Detected IPv6-only instance: adding route to route TMDS traffic to loopback")
+	seelog.Info("Detected IPv6-only instance: adding route to route TMDS traffic through loopback")
 	return AddRouteToRedirectToLo(t.nl, t.tmdsAddr)
 }
 
@@ -111,9 +111,10 @@ func RemoveRouteToRedirectToLo(nl netlinkwrapper.NetLink, addr net.IP) error {
 	return nil
 }
 
+// getRouteToRedirectToLo returns a route that routes traffic via loopback interface
 func getRouteToRedirectToLo(nl netlinkwrapper.NetLink, addr net.IP) (*netlink.Route, error) {
 	// Get the loopback interface.
-	lo, err := nl.LinkByName("lo")
+	lo, err := netutils.GetLoopbackInterface(nl)
 	if err != nil {
 		return nil, fmt.Errorf("error getting lo interface: %v", err)
 	}

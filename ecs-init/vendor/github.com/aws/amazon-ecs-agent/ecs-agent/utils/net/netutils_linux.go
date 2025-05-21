@@ -162,3 +162,19 @@ func DetermineIPCompatibility(
 
 	return ipcompatibility.NewIPCompatibility(ipv4Compatible, ipv6Compatible), nil
 }
+
+// GetLoopbackInterface finds and returns the loopback interface.
+func GetLoopbackInterface(nlWrapper netlinkwrapper.NetLink) (netlink.Link, error) {
+	links, err := nlWrapper.LinkList()
+	if err != nil {
+		return nil, fmt.Errorf("failed to get network interfaces: %v", err)
+	}
+
+	for _, link := range links {
+		if link.Attrs().Flags&net.FlagLoopback != 0 {
+			return link, nil
+		}
+	}
+
+	return nil, fmt.Errorf("no loopback interface found")
+}
