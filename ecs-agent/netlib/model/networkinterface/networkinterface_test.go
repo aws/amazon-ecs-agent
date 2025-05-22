@@ -84,3 +84,83 @@ func TestValidateENI(t *testing.T) {
 		assert.EqualError(t, err, "eni message validation: no subnet gateway ipv4 address in the message")
 	})
 }
+
+func TestGetIPv6SubnetCIDRBlock(t *testing.T) {
+	tests := []struct {
+		name     string
+		ni       *NetworkInterface
+		expected string
+	}{
+		{
+			name: "IPv6 only interface with subnet gateway",
+			ni: &NetworkInterface{
+				IPV6Addresses: []*IPV6Address{
+					{Address: "2001:db8:85a3::8a2e:370:7334"},
+				},
+				SubnetGatewayIPV6Address: "2001:db8:85a3::1/56",
+			},
+			expected: "2001:db8:85a3::/56",
+		},
+		{
+			name: "IPv6 only interface without subnet gateway",
+			ni: &NetworkInterface{
+				IPV6Addresses: []*IPV6Address{
+					{Address: "2001:db8:85a3::8a2e:370:7334"},
+				},
+			},
+			expected: "2001:db8:85a3::/64", // Uses default prefix length
+		},
+		{
+			name: "Dual-stack interface",
+			ni: &NetworkInterface{
+				IPV4Addresses: []*IPV4Address{
+					{Address: "192.168.1.100"},
+				},
+				IPV6Addresses: []*IPV6Address{
+					{Address: "2001:db8:85a3::8a2e:370:7334"},
+				},
+			},
+			expected: "2001:db8:85a3::/64",
+		},
+		{
+			name: "Dual-stack interface with subnet gateway",
+			ni: &NetworkInterface{
+				IPV4Addresses: []*IPV4Address{
+					{Address: "192.168.1.100"},
+				},
+				IPV6Addresses: []*IPV6Address{
+					{Address: "2001:db8:85a3::8a2e:370:7334"},
+				},
+				SubnetGatewayIPV6Address: "2001:db8:85a3::1/56",
+			},
+			expected: "2001:db8:85a3::/64", // Still uses /64 as it's dual-stack
+		},
+		{
+			name: "No IPv6 addresses",
+			ni: &NetworkInterface{
+				IPV4Addresses: []*IPV4Address{
+					{Address: "192.168.1.100"},
+				},
+			},
+			expected: "",
+		},
+		{
+			name: "Invalid IPv6 address",
+			ni: &NetworkInterface{
+				IPV6Addresses: []*IPV6Address{
+					{Address: "invalid_ipv6_address"},
+				},
+			},
+			expected: "",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			result := tt.ni.GetIPv6SubnetCIDRBlock()
+			if result != tt.expected {
+				t.Errorf("GetIPv6SubnetCIDRBlock() = %v, want %v", result, tt.expected)
+			}
+		})
+	}
+}

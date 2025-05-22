@@ -648,6 +648,49 @@ func expectedTaskResponse() v2.TaskResponse {
 	}
 }
 
+// standardV4ContainerResponseAWSVPC returns a standard TMDS v4 container response for testing.
+// The response corresponds to the standard awsvpc container defined in this package.
+func standardV4ContainerResponseAWSVPC() *v4.ContainerResponse {
+	return &v4.ContainerResponse{
+		ContainerResponse: &v2.ContainerResponse{
+			ID:            containerID,
+			Name:          containerName,
+			DockerName:    containerName,
+			Image:         imageName,
+			ImageID:       imageID,
+			DesiredStatus: statusRunning,
+			KnownStatus:   statusRunning,
+			ContainerARN:  "arn:aws:ecs:ap-northnorth-1:NNN:container/NNNNNNNN-aaaa-4444-bbbb-00000000000",
+			Limits: v2.LimitsResponse{
+				CPU:    aws.Float64(cpu),
+				Memory: aws.Int64(memory),
+			},
+			Type:   containerType,
+			Labels: labels,
+			Ports: []tmdsresponse.PortResponse{
+				{
+					ContainerPort: containerPort,
+					Protocol:      containerPortProtocol,
+					HostPort:      containerPort,
+				},
+			},
+		},
+		Networks: []v4.Network{{
+			Network: tmdsresponse.Network{
+				NetworkMode:   utils.NetworkModeAWSVPC,
+				IPv4Addresses: []string{eniIPv4Address},
+			},
+			NetworkInterfaceProperties: v4.NetworkInterfaceProperties{
+				AttachmentIndex:          &attachmentIndexVar,
+				IPV4SubnetCIDRBlock:      iPv4SubnetCIDRBlock,
+				MACAddress:               macAddress,
+				PrivateDNSName:           privateDNSName,
+				SubnetGatewayIPV4Address: subnetGatewayIpv4Address,
+			}},
+		},
+	}
+}
+
 // Creates a v4 ContainerResponse given a v2 ContainerResponse and v4 networks
 func v4ContainerResponseFromV2(
 	v2ContainerResponse v2.ContainerResponse, networks []v4.Network) v4.ContainerResponse {
@@ -2038,6 +2081,65 @@ func TestV4ContainerMetadata(t *testing.T) {
 			},
 			expectedStatusCode:   http.StatusOK,
 			expectedResponseBody: expectedV4ContainerResponse,
+		})
+	})
+	t.Run("happy case awsvpc task - dual stack case", func(t *testing.T) {
+		testTMDSRequest(t, TMDSTestCase[v4.ContainerResponse]{
+			path: v4BasePath + v3EndpointID,
+			setStateExpectations: func(state *mock_dockerstate.MockTaskEngineState) {
+				task := standardTask()
+				task.ENIs[0].SubnetGatewayIPV4Address = "1.2.3.1/24"
+				task.ENIs[0].SubnetGatewayIPV6Address = "8:3:1:1:1::/64"
+				task.ENIs[0].IPV4Addresses = []*ni.IPV4Address{{Address: "1.2.3.5"}}
+				task.ENIs[0].IPV6Addresses = []*ni.IPV6Address{{Address: "8:3:1:1:a::"}}
+				gomock.InOrder(
+					state.EXPECT().DockerIDByV3EndpointID(v3EndpointID).Return(containerID, true),
+					state.EXPECT().ContainerByID(containerID).Return(dockerContainer, true).AnyTimes(),
+					state.EXPECT().TaskByID(containerID).Return(task, true).Times(2),
+					state.EXPECT().ContainerByID(containerID).Return(dockerContainer, true).AnyTimes(),
+				)
+			},
+			expectedStatusCode: http.StatusOK,
+			expectedResponseBody: func() v4.ContainerResponse {
+				response := standardV4ContainerResponseAWSVPC()
+				response.Networks[0].SubnetGatewayIPV4Address = "1.2.3.1/24"
+				// subnet gateway IPv6 address not populated for dual-stack ENIs for historical reasons
+				response.Networks[0].SubnetGatewayIPV6Address = ""
+				response.Networks[0].IPV4SubnetCIDRBlock = "1.2.3.0/24"
+				response.Networks[0].IPv6SubnetCIDRBlock = "8:3:1:1::/64"
+				response.Networks[0].IPv4Addresses = []string{"1.2.3.5"}
+				response.Networks[0].IPv6Addresses = []string{"8:3:1:1:a::"}
+				return *response
+			}(),
+		})
+	})
+	t.Run("happy case awsvpc task - IPv6-only case", func(t *testing.T) {
+		testTMDSRequest(t, TMDSTestCase[v4.ContainerResponse]{
+			path: v4BasePath + v3EndpointID,
+			setStateExpectations: func(state *mock_dockerstate.MockTaskEngineState) {
+				task := standardTask()
+				task.ENIs[0].SubnetGatewayIPV4Address = ""
+				task.ENIs[0].SubnetGatewayIPV6Address = "8:3:1:1::/48"
+				task.ENIs[0].IPV4Addresses = nil
+				task.ENIs[0].IPV6Addresses = []*ni.IPV6Address{{Address: "8:3:1:9::"}}
+				gomock.InOrder(
+					state.EXPECT().DockerIDByV3EndpointID(v3EndpointID).Return(containerID, true),
+					state.EXPECT().ContainerByID(containerID).Return(dockerContainer, true).AnyTimes(),
+					state.EXPECT().TaskByID(containerID).Return(task, true).Times(2),
+					state.EXPECT().ContainerByID(containerID).Return(dockerContainer, true).AnyTimes(),
+				)
+			},
+			expectedStatusCode: http.StatusOK,
+			expectedResponseBody: func() v4.ContainerResponse {
+				response := standardV4ContainerResponseAWSVPC()
+				response.Networks[0].SubnetGatewayIPV4Address = ""
+				response.Networks[0].SubnetGatewayIPV6Address = "8:3:1:1::/48"
+				response.Networks[0].IPV4SubnetCIDRBlock = ""
+				response.Networks[0].IPv6SubnetCIDRBlock = "8:3:1::/48"
+				response.Networks[0].IPv4Addresses = nil
+				response.Networks[0].IPv6Addresses = []string{"8:3:1:9::"}
+				return *response
+			}(),
 		})
 	})
 	t.Run("bridge mode container not found during network population", func(t *testing.T) {
