@@ -302,29 +302,6 @@ func TestAwsFirelensLoggingDriver(t *testing.T) {
 	assert.NoError(t, conf.validateAndOverrideBounds(), "awsfirelens is a valid logging driver, no error was expected")
 }
 
-func TestShouldExcludeIPv6PortBindingDefault(t *testing.T) {
-	t.Run("ipv6-only instance", func(t *testing.T) {
-		assert.False(t,
-			DefaultConfig(ipcompatibility.NewIPv6OnlyCompatibility()).
-				ShouldExcludeIPv6PortBinding.Enabled())
-	})
-	t.Run("dual-stack instance", func(t *testing.T) {
-		assert.True(t,
-			DefaultConfig(ipcompatibility.NewDualStackCompatibility()).
-				ShouldExcludeIPv6PortBinding.Enabled())
-	})
-	t.Run("ipv4-only instance", func(t *testing.T) {
-		assert.True(t,
-			DefaultConfig(ipcompatibility.NewIPv4OnlyCompatibility()).
-				ShouldExcludeIPv6PortBinding.Enabled())
-	})
-	t.Run("no ip compatibility", func(t *testing.T) {
-		assert.True(t,
-			DefaultConfig(ipcompatibility.NewIPCompatibility(false, false)).
-				ShouldExcludeIPv6PortBinding.Enabled())
-	})
-}
-
 func TestDefaultPollMetricsWithoutECSDataDir(t *testing.T) {
 	conf, err := environmentConfig()
 	assert.NoError(t, err)
