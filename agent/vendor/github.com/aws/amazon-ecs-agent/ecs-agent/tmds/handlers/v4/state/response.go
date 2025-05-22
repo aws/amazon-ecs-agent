@@ -135,7 +135,7 @@ type NetworkInterfaceProperties struct {
 	// SubnetGatewayIPV4Address is the IPv4 gateway address for the network interface.
 	SubnetGatewayIPV4Address string `json:"SubnetGatewayIpv4Address,omitempty"`
 	// SubnetGatewayIPV6Address is the IPv6 gateway address for the network interface.
-	SubnetGatewayIPV6Address string `json:"SubnetGatewayIPV6Address,omitempty"`
+	SubnetGatewayIPV6Address string `json:"SubnetGatewayIpv6Address,omitempty"`
 }
 
 // StatsResponse is the v4 Stats response for a container.
