@@ -43,6 +43,7 @@ import (
 	"github.com/aws/amazon-ecs-agent/ecs-agent/api/task/status"
 	csi "github.com/aws/amazon-ecs-agent/ecs-agent/csiclient"
 	mock_csiclient "github.com/aws/amazon-ecs-agent/ecs-agent/csiclient/mocks"
+	"github.com/aws/amazon-ecs-agent/agent/config/ipcompatibility"
 	md "github.com/aws/amazon-ecs-agent/ecs-agent/manageddaemon"
 
 	"github.com/golang/mock/gomock"
@@ -61,7 +62,7 @@ const (
 func newTestEBSWatcher(ctx context.Context, agentState dockerstate.TaskEngineState,
 	discoveryClient apiebs.EBSDiscovery, taskEngine engine.TaskEngine, csiClient csi.CSIClient) *EBSWatcher {
 	derivedContext, cancel := context.WithCancel(ctx)
-	defaultConfig := config.DefaultConfig()
+	defaultConfig := config.DefaultConfig(ipcompatibility.NewIPv4OnlyCompatibility())
 	return &EBSWatcher{
 		ctx:             derivedContext,
 		cfg:             &defaultConfig,
@@ -740,7 +741,7 @@ func TestTick(t *testing.T) {
 				tc.setDiscoveryClientExpectations(discoveryClient)
 			}
 
-			defaultConfig := config.DefaultConfig()
+			defaultConfig := config.DefaultConfig(ipcompatibility.NewIPv4OnlyCompatibility())
 			watcher := NewWatcher(context.Background(), &defaultConfig, taskEngineState, taskEngine, dockerClient)
 			watcher.discoveryClient = discoveryClient
 			watcher.tick()

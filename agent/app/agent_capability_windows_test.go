@@ -22,6 +22,7 @@ import (
 
 	app_mocks "github.com/aws/amazon-ecs-agent/agent/app/mocks"
 	"github.com/aws/amazon-ecs-agent/agent/config"
+	"github.com/aws/amazon-ecs-agent/agent/config/ipcompatibility"
 	"github.com/aws/amazon-ecs-agent/agent/dockerclient"
 	mock_dockerapi "github.com/aws/amazon-ecs-agent/agent/dockerclient/dockerapi/mocks"
 	"github.com/aws/amazon-ecs-agent/agent/ecscni"
@@ -62,7 +63,7 @@ func TestVolumeDriverCapabilitiesWindows(t *testing.T) {
 		AppArmorCapable:            config.BooleanDefaultFalse{Value: config.ExplicitlyEnabled},
 		TaskENIEnabled:             config.BooleanDefaultFalse{Value: config.ExplicitlyEnabled},
 		AWSVPCBlockInstanceMetdata: config.BooleanDefaultFalse{Value: config.ExplicitlyEnabled},
-		TaskCleanupWaitDuration:    config.DefaultConfig().TaskCleanupWaitDuration,
+		TaskCleanupWaitDuration:    config.DefaultConfig(ipcompatibility.NewIPv4OnlyCompatibility()).TaskCleanupWaitDuration,
 	}
 
 	gomock.InOrder(
@@ -149,7 +150,7 @@ func TestSupportedCapabilitiesWindows(t *testing.T) {
 		AppArmorCapable:            config.BooleanDefaultFalse{Value: config.ExplicitlyEnabled},
 		TaskENIEnabled:             config.BooleanDefaultFalse{Value: config.ExplicitlyEnabled},
 		AWSVPCBlockInstanceMetdata: config.BooleanDefaultFalse{Value: config.ExplicitlyEnabled},
-		TaskCleanupWaitDuration:    config.DefaultConfig().TaskCleanupWaitDuration,
+		TaskCleanupWaitDuration:    config.DefaultConfig(ipcompatibility.NewIPv4OnlyCompatibility()).TaskCleanupWaitDuration,
 	}
 
 	gomock.InOrder(

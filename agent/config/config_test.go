@@ -24,6 +24,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/aws/amazon-ecs-agent/agent/config/ipcompatibility"
 	"github.com/aws/amazon-ecs-agent/agent/dockerclient"
 	"github.com/aws/amazon-ecs-agent/agent/utils"
 	ec2testutil "github.com/aws/amazon-ecs-agent/agent/utils/test/ec2util"
@@ -288,17 +289,40 @@ func TestBadTagsSerialization(t *testing.T) {
 }
 
 func TestInvalidLoggingDriver(t *testing.T) {
-	conf := DefaultConfig()
+	conf := DefaultConfig(ipcompatibility.NewIPv4OnlyCompatibility())
 	conf.AWSRegion = "us-west-2"
 	conf.AvailableLoggingDrivers = []dockerclient.LoggingDriver{"invalid-logging-driver"}
 	assert.Error(t, conf.validateAndOverrideBounds(), "Should be error with invalid-logging-driver")
 }
 
 func TestAwsFirelensLoggingDriver(t *testing.T) {
-	conf := DefaultConfig()
+	conf := DefaultConfig(ipcompatibility.NewIPv4OnlyCompatibility())
 	conf.AWSRegion = "us-west-2"
 	conf.AvailableLoggingDrivers = []dockerclient.LoggingDriver{"awsfirelens"}
 	assert.NoError(t, conf.validateAndOverrideBounds(), "awsfirelens is a valid logging driver, no error was expected")
+}
+
+func TestShouldExcludeIPv6PortBindingDefault(t *testing.T) {
+	t.Run("ipv6-only instance", func(t *testing.T) {
+		assert.False(t,
+			DefaultConfig(ipcompatibility.NewIPv6OnlyCompatibility()).
+				ShouldExcludeIPv6PortBinding.Enabled())
+	})
+	t.Run("dual-stack instance", func(t *testing.T) {
+		assert.True(t,
+			DefaultConfig(ipcompatibility.NewDualStackCompatibility()).
+				ShouldExcludeIPv6PortBinding.Enabled())
+	})
+	t.Run("ipv4-only instance", func(t *testing.T) {
+		assert.True(t,
+			DefaultConfig(ipcompatibility.NewIPv4OnlyCompatibility()).
+				ShouldExcludeIPv6PortBinding.Enabled())
+	})
+	t.Run("no ip compatibility", func(t *testing.T) {
+		assert.True(t,
+			DefaultConfig(ipcompatibility.NewIPCompatibility(false, false)).
+				ShouldExcludeIPv6PortBinding.Enabled())
+	})
 }
 
 func TestDefaultPollMetricsWithoutECSDataDir(t *testing.T) {

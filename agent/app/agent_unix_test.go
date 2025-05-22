@@ -25,6 +25,7 @@ import (
 
 	app_mocks "github.com/aws/amazon-ecs-agent/agent/app/mocks"
 	"github.com/aws/amazon-ecs-agent/agent/config"
+	"github.com/aws/amazon-ecs-agent/agent/config/ipcompatibility"
 	"github.com/aws/amazon-ecs-agent/agent/data"
 	"github.com/aws/amazon-ecs-agent/agent/dockerclient/dockerapi"
 	"github.com/aws/amazon-ecs-agent/agent/ecscni"
@@ -506,7 +507,7 @@ func TestDoStartCgroupInitHappyPath(t *testing.T) {
 			dockerapi.ListContainersResponse{}).AnyTimes(),
 	)
 
-	cfg := config.DefaultConfig()
+	cfg := config.DefaultConfig(ipcompatibility.NewIPv4OnlyCompatibility())
 	ctx, cancel := context.WithCancel(context.TODO())
 	// Cancel the context to cancel async routines
 	agent := &ecsAgent{

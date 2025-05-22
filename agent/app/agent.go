@@ -323,8 +323,19 @@ func (agent *ecsAgent) start() int {
 		})
 		return exitcodes.ExitError
 	}
+
+	// Options for ECS Client
+	ecsClientOpts := []ecsclient.ECSClientOption{
+		// We always exclude IPv4 bindings for IPv6-only instances
+		// as they are assumed to NOT be reachable over IPv4.
+		ecsclient.WithIPv4PortBindingExcluded(agent.cfg.InstanceIPCompatibility.IsIPv6Only()),
+
+		// Exclusion of IPv6 port bindings is controlled by configuration for historical reasons.
+		ecsclient.WithIPv6PortBindingExcluded(agent.cfg.ShouldExcludeIPv6PortBinding.Enabled()),
+	}
+
 	clientFactory := ecsclient.NewECSClientFactory(agent.credentialsCache, cfgAccessor, agent.ec2MetadataClient,
-		version.String(), ecsclient.WithIPv6PortBindingExcluded(true))
+		version.String(), ecsClientOpts...)
 	client, err := clientFactory.NewClient()
 	if err != nil {
 		logger.Critical("Unable to create new ECS client", logger.Fields{
