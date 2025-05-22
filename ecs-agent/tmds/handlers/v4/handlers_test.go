@@ -82,7 +82,7 @@ const (
 	containerResponseJSON = `{"DockerId":"%s","Name":"%s","DockerName":"%s","Image":"%s","ImageID":"%s",` +
 		`"Ports":[{"ContainerPort":%d,"Protocol":"%s","HostPort":%d}],"Labels":{"foo":"bar"},"DesiredStatus":"%s",` +
 		`"KnownStatus":"%s","Limits":{"CPU":%d,"Memory":%d},"Type":"%s","ContainerARN":"%s","Networks":[{"NetworkMode":"%s",` +
-		`"IPv4Addresses":["%s"],"AttachmentIndex":0,"MACAddress":"%s","IPv4SubnetCIDRBlock":"%s","PrivateDNSName":"%s","SubnetGatewayIpv4Address":"%s","SubnetGatewayIPV6Address":"%s"}]}`
+		`"IPv4Addresses":["%s"],"AttachmentIndex":0,"MACAddress":"%s","IPv4SubnetCIDRBlock":"%s","PrivateDNSName":"%s","SubnetGatewayIpv4Address":"%s","SubnetGatewayIpv6Address":"%s"}]}`
 	taskResponseJSON = `{"Cluster":"%s","TaskARN":"%s","Family":"%s","Revision":"%s","DesiredStatus":"%s",` +
 		`"KnownStatus":"%s","Limits":{"CPU":%d,"Memory":%d},"PullStartedAt":"%s","PullStoppedAt":"%s","ExecutionStoppedAt":"%s",` +
 		`"AvailabilityZone":"%s","LaunchType":"%s","Containers":[%s],"VPCID":"%s","ClockDrift":{"ClockErrorBound":%d,` +
