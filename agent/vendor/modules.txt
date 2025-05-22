@@ -198,7 +198,7 @@ github.com/aws/aws-sdk-go-v2/service/cloudwatchlogs/types
 github.com/aws/aws-sdk-go-v2/service/ec2
 github.com/aws/aws-sdk-go-v2/service/ec2/internal/endpoints
 github.com/aws/aws-sdk-go-v2/service/ec2/types
-# github.com/aws/aws-sdk-go-v2/service/ecr v1.41.1
+# github.com/aws/aws-sdk-go-v2/service/ecr v1.44.0
 ## explicit; go 1.22
 github.com/aws/aws-sdk-go-v2/service/ecr
 github.com/aws/aws-sdk-go-v2/service/ecr/internal/endpoints

@@ -69,6 +69,7 @@ func getClientConfig(httpClient *http.Client, authData *apicontainer.ECRAuthData
 	opts := []func(*awsconfig.LoadOptions) error{
 		awsconfig.WithRegion(authData.Region),
 		awsconfig.WithHTTPClient(httpClient),
+		awsconfig.WithUseDualStackEndpoint(aws.DualStackEndpointStateEnabled),
 	}
 
 	if authData.EndpointOverride != "" {
