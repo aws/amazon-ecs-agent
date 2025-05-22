@@ -40,6 +40,7 @@ import (
 	apicontainerstatus "github.com/aws/amazon-ecs-agent/ecs-agent/api/container/status"
 	apierrors "github.com/aws/amazon-ecs-agent/ecs-agent/api/errors"
 	"github.com/aws/amazon-ecs-agent/ecs-agent/credentials"
+	"github.com/aws/amazon-ecs-agent/agent/config/ipcompatibility"
 	"github.com/aws/amazon-ecs-agent/ecs-agent/utils/retry"
 	mock_ttime "github.com/aws/amazon-ecs-agent/ecs-agent/utils/ttime/mocks"
 
@@ -93,7 +94,7 @@ func dockerClientSetup(t *testing.T) (
 	*gomock.Controller,
 	*mock_ecr.MockECRFactory,
 	func()) {
-	return dockerClientSetupWithConfig(t, config.DefaultConfig())
+	return dockerClientSetupWithConfig(t, config.DefaultConfig(ipcompatibility.NewIPv4OnlyCompatibility()))
 }
 
 func dockerClientSetupWithConfig(t *testing.T, conf config.Config) (
@@ -805,7 +806,7 @@ func TestStartContainer(t *testing.T) {
 }
 
 func TestStopContainerTimeout(t *testing.T) {
-	cfg := config.DefaultConfig()
+	cfg := config.DefaultConfig(ipcompatibility.NewIPv4OnlyCompatibility())
 	cfg.DockerStopTimeout = xContainerShortTimeout
 	mockDockerSDK, client, _, _, _, done := dockerClientSetupWithConfig(t, cfg)
 	defer done()
