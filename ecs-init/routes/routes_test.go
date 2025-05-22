@@ -1,10 +1,10 @@
-// Copyright 2015-2016 Amazon.com, Inc. or its affiliates. All Rights Reserved.
+// Copyright Amazon.com Inc. or its affiliates. All Rights Reserved.
 //
 // Licensed under the Apache License, Version 2.0 (the "License"). You may
 // not use this file except in compliance with the License. A copy of the
 // License is located at
 //
-//     http://aws.amazon.com/apache2.0/
+//	http://aws.amazon.com/apache2.0/
 //
 // or in the "license" file accompanying this file. This file is distributed
 // on an "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either
@@ -30,7 +30,7 @@ func TestAddRouteToRedirectToLo(t *testing.T) {
 	defaultIPAddr := "169.254.170.2"
 	defaultLoLink := &netlink.Dummy{
 		LinkAttrs: netlink.LinkAttrs{
-			Index: 1,
+			Flags: net.FlagLoopback,
 		},
 	}
 	defaultExpectedRoute := &netlink.Route{
@@ -38,8 +38,7 @@ func TestAddRouteToRedirectToLo(t *testing.T) {
 			IP:   net.ParseIP(defaultIPAddr),
 			Mask: net.CIDRMask(32, 32),
 		},
-		LinkIndex: 1,
-		Scope:     netlink.SCOPE_LINK,
+		Scope: netlink.SCOPE_LINK,
 	}
 
 	testCases := []struct {
@@ -52,7 +51,7 @@ func TestAddRouteToRedirectToLo(t *testing.T) {
 			name:   "success - route added",
 			ipAddr: defaultIPAddr,
 			mockSetup: func(mock *mock_netlinkwrapper.MockNetLink) {
-				mock.EXPECT().LinkByName("lo").Return(defaultLoLink, nil)
+				mock.EXPECT().LinkList().Return([]netlink.Link{defaultLoLink}, nil)
 				mock.EXPECT().RouteAdd(defaultExpectedRoute).Return(nil)
 			},
 		},
@@ -60,7 +59,7 @@ func TestAddRouteToRedirectToLo(t *testing.T) {
 			name:   "success - route already exists",
 			ipAddr: defaultIPAddr,
 			mockSetup: func(mock *mock_netlinkwrapper.MockNetLink) {
-				mock.EXPECT().LinkByName("lo").Return(defaultLoLink, nil)
+				mock.EXPECT().LinkList().Return([]netlink.Link{defaultLoLink}, nil)
 				mock.EXPECT().RouteAdd(defaultExpectedRoute).Return(os.ErrExist)
 			},
 		},
@@ -68,15 +67,15 @@ func TestAddRouteToRedirectToLo(t *testing.T) {
 			name:   "error - failed to get loopback interface",
 			ipAddr: defaultIPAddr,
 			mockSetup: func(mock *mock_netlinkwrapper.MockNetLink) {
-				mock.EXPECT().LinkByName("lo").Return(nil, assert.AnError)
+				mock.EXPECT().LinkList().Return(nil, assert.AnError)
 			},
-			expectedErr: "error getting lo interface: " + assert.AnError.Error(),
+			expectedErr: "error getting lo interface: failed to get network interfaces: " + assert.AnError.Error(),
 		},
 		{
 			name:   "error - failed to add route",
 			ipAddr: defaultIPAddr,
 			mockSetup: func(mock *mock_netlinkwrapper.MockNetLink) {
-				mock.EXPECT().LinkByName("lo").Return(defaultLoLink, nil)
+				mock.EXPECT().LinkList().Return([]netlink.Link{defaultLoLink}, nil)
 				mock.EXPECT().RouteAdd(defaultExpectedRoute).Return(assert.AnError)
 			},
 			expectedErr: fmt.Sprintf("error adding route %+v: "+assert.AnError.Error(), defaultExpectedRoute),
@@ -107,6 +106,7 @@ func TestRemoveRouteToRedirectToLo(t *testing.T) {
 	defaultLoLink := &netlink.Dummy{
 		LinkAttrs: netlink.LinkAttrs{
 			Index: 1,
+			Flags: net.FlagLoopback,
 		},
 	}
 	defaultExpectedRoute := &netlink.Route{
@@ -128,7 +128,7 @@ func TestRemoveRouteToRedirectToLo(t *testing.T) {
 			name:   "success - route removed",
 			ipAddr: defaultIPAddr,
 			mockSetup: func(mock *mock_netlinkwrapper.MockNetLink) {
-				mock.EXPECT().LinkByName("lo").Return(defaultLoLink, nil)
+				mock.EXPECT().LinkList().Return([]netlink.Link{defaultLoLink}, nil)
 				mock.EXPECT().RouteDel(defaultExpectedRoute).Return(nil)
 			},
 		},
@@ -136,15 +136,15 @@ func TestRemoveRouteToRedirectToLo(t *testing.T) {
 			name:   "error - failed to get loopback interface",
 			ipAddr: defaultIPAddr,
 			mockSetup: func(mock *mock_netlinkwrapper.MockNetLink) {
-				mock.EXPECT().LinkByName("lo").Return(nil, assert.AnError)
+				mock.EXPECT().LinkList().Return(nil, assert.AnError)
 			},
-			expectedErr: "error getting lo interface: " + assert.AnError.Error(),
+			expectedErr: "error getting lo interface: failed to get network interfaces: " + assert.AnError.Error(),
 		},
 		{
 			name:   "error - failed to delete route",
 			ipAddr: defaultIPAddr,
 			mockSetup: func(mock *mock_netlinkwrapper.MockNetLink) {
-				mock.EXPECT().LinkByName("lo").Return(defaultLoLink, nil)
+				mock.EXPECT().LinkList().Return([]netlink.Link{defaultLoLink}, nil)
 				mock.EXPECT().RouteDel(defaultExpectedRoute).Return(assert.AnError)
 			},
 			expectedErr: fmt.Sprintf("error deleting route %+v: "+assert.AnError.Error(), defaultExpectedRoute),
@@ -183,9 +183,10 @@ func TestCreateRoute(t *testing.T) {
 				mock.EXPECT().RouteList(nil, netlink.FAMILY_V4).Return([]netlink.Route{}, nil)
 
 				// Expect route creation
-				mock.EXPECT().LinkByName("lo").Return(&netlink.Dummy{
-					LinkAttrs: netlink.LinkAttrs{Index: 1},
-				}, nil)
+				mock.EXPECT().LinkList().Return(
+					[]netlink.Link{&netlink.Dummy{
+						LinkAttrs: netlink.LinkAttrs{Flags: net.FlagLoopback},
+					}}, nil)
 				mock.EXPECT().RouteAdd(gomock.Any()).Return(nil)
 			},
 		},
@@ -244,9 +245,9 @@ func TestRemoveRoute(t *testing.T) {
 				mock.EXPECT().RouteList(nil, netlink.FAMILY_V4).Return([]netlink.Route{}, nil)
 
 				// Expect route removal
-				mock.EXPECT().LinkByName("lo").Return(&netlink.Dummy{
-					LinkAttrs: netlink.LinkAttrs{Index: 1},
-				}, nil)
+				mock.EXPECT().LinkList().Return([]netlink.Link{&netlink.Dummy{
+					LinkAttrs: netlink.LinkAttrs{Flags: net.FlagLoopback},
+				}, nil}, nil)
 				mock.EXPECT().RouteDel(gomock.Any()).Return(nil)
 			},
 		},

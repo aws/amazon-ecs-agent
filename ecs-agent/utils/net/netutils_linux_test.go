@@ -558,3 +558,93 @@ func TestDetermineIPCompatibility(t *testing.T) {
 		})
 	}
 }
+
+func TestGetLoopbackInterface(t *testing.T) {
+	lo := &netlink.Dummy{
+		LinkAttrs: netlink.LinkAttrs{
+			Name:  "lo",
+			Flags: net.FlagLoopback,
+		},
+	}
+	eth0 := &netlink.Dummy{
+		LinkAttrs: netlink.LinkAttrs{
+			Name:  "eth0",
+			Flags: net.FlagUp,
+		},
+	}
+	wlan0 := &netlink.Dummy{
+		LinkAttrs: netlink.LinkAttrs{
+			Name:  "wlan0",
+			Flags: net.FlagUp,
+		},
+	}
+	customLoopback := &netlink.Dummy{
+		LinkAttrs: netlink.LinkAttrs{
+			Name:  "loop0",
+			Flags: net.FlagLoopback,
+		},
+	}
+
+	tests := []struct {
+		name          string
+		setupMock     func(*mock_netlinkwrapper.MockNetLink)
+		expectedLink  netlink.Link
+		expectedError string
+	}{
+		{
+			name: "single loopback interface",
+			setupMock: func(mock *mock_netlinkwrapper.MockNetLink) {
+				mock.EXPECT().LinkList().Return([]netlink.Link{lo}, nil)
+			},
+			expectedLink: lo,
+		},
+		{
+			name: "multiple interfaces with one loopback",
+			setupMock: func(mock *mock_netlinkwrapper.MockNetLink) {
+				mock.EXPECT().LinkList().Return([]netlink.Link{eth0, lo, wlan0}, nil)
+			},
+			expectedLink: lo,
+		},
+		{
+			name: "custom named loopback interface",
+			setupMock: func(mock *mock_netlinkwrapper.MockNetLink) {
+				mock.EXPECT().LinkList().Return([]netlink.Link{eth0, customLoopback, wlan0}, nil)
+			},
+			expectedLink: customLoopback,
+		},
+		{
+			name: "no loopback interface",
+			setupMock: func(mock *mock_netlinkwrapper.MockNetLink) {
+				mock.EXPECT().LinkList().Return([]netlink.Link{eth0, wlan0}, nil)
+			},
+			expectedError: "no loopback interface found",
+		},
+		{
+			name: "LinkList error",
+			setupMock: func(mock *mock_netlinkwrapper.MockNetLink) {
+				mock.EXPECT().LinkList().Return(nil, fmt.Errorf("network error"))
+			},
+			expectedError: "failed to get network interfaces: network error",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			ctrl := gomock.NewController(t)
+			defer ctrl.Finish()
+
+			mockNetlink := mock_netlinkwrapper.NewMockNetLink(ctrl)
+			tt.setupMock(mockNetlink)
+
+			link, err := GetLoopbackInterface(mockNetlink)
+
+			if tt.expectedError != "" {
+				assert.EqualError(t, err, tt.expectedError)
+				assert.Nil(t, link)
+			} else {
+				assert.NoError(t, err)
+				assert.Equal(t, tt.expectedLink, link)
+			}
+		})
+	}
+}
