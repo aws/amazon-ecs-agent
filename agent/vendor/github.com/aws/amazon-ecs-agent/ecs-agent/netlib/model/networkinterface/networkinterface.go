@@ -296,7 +296,12 @@ func (ni *NetworkInterface) GetIPv4SubnetCIDRBlock() string {
 // GetIPv6SubnetCIDRBlock returns the IPv6 CIDR block, if any, of the NetworkInterface's subnet.
 func (ni *NetworkInterface) GetIPv6SubnetCIDRBlock() string {
 	if ni.ipv6SubnetCIDRBlock == "" && len(ni.IPV6Addresses) > 0 {
-		ipv6Addr := ni.IPV6Addresses[0].Address + "/" + IPv6SubnetPrefixLength
+		// Hardcoded prefix length is used for dual-stack ENIs for historical reasons
+		prefixLength := IPv6SubnetPrefixLength
+		if ni.IPv6Only() {
+			prefixLength = ni.GetIPv6SubnetPrefixLength()
+		}
+		ipv6Addr := ni.IPV6Addresses[0].Address + "/" + prefixLength
 		_, ipv6Net, err := net.ParseCIDR(ipv6Addr)
 		if err == nil {
 			ni.ipv6SubnetCIDRBlock = ipv6Net.String()

@@ -161,6 +161,12 @@ func newNetworkInterfaceProperties(task *apitask.Task) (tmdsv4.NetworkInterfaceP
 		attachmentIndexPtr = &vpcIndex
 	}
 
+	var subnetGatewayIPv6Address string
+	if eni.IPv6Only() {
+		// Only populate SubnetGatewayIPv6Address for IPv6-only task ENIs as we do not
+		// populate it for dual-stack ENIs for historical reasons
+		subnetGatewayIPv6Address = eni.SubnetGatewayIPV6Address
+	}
 	return tmdsv4.NetworkInterfaceProperties{
 		// TODO this is hard-coded to `0` for now. Once backend starts populating
 		// `Index` field for an ENI, we should set it as per that. Since we
@@ -173,6 +179,7 @@ func newNetworkInterfaceProperties(task *apitask.Task) (tmdsv4.NetworkInterfaceP
 		DomainNameSearchList:     eni.DomainNameSearchList,
 		PrivateDNSName:           eni.PrivateDNSName,
 		SubnetGatewayIPV4Address: eni.SubnetGatewayIPV4Address,
+		SubnetGatewayIPV6Address: subnetGatewayIPv6Address,
 	}, nil
 }
 
