@@ -29,6 +29,7 @@ import (
 	apicontainer "github.com/aws/amazon-ecs-agent/agent/api/container"
 	apitask "github.com/aws/amazon-ecs-agent/agent/api/task"
 	"github.com/aws/amazon-ecs-agent/agent/config"
+	"github.com/aws/amazon-ecs-agent/agent/config/ipcompatibility"
 	"github.com/aws/amazon-ecs-agent/agent/data"
 	"github.com/aws/amazon-ecs-agent/agent/dockerclient/dockerapi"
 	mock_dockerapi "github.com/aws/amazon-ecs-agent/agent/dockerclient/dockerapi/mocks"
@@ -52,7 +53,6 @@ import (
 	mock_credentials "github.com/aws/amazon-ecs-agent/ecs-agent/credentials/mocks"
 	mock_csiclient "github.com/aws/amazon-ecs-agent/ecs-agent/csiclient/mocks"
 	"github.com/aws/amazon-ecs-agent/ecs-agent/eventstream"
-	"github.com/aws/amazon-ecs-agent/agent/config/ipcompatibility"
 	ni "github.com/aws/amazon-ecs-agent/ecs-agent/netlib/model/networkinterface"
 	mock_ttime "github.com/aws/amazon-ecs-agent/ecs-agent/utils/ttime/mocks"
 
