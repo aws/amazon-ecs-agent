@@ -15,14 +15,21 @@ package iptables
 
 import (
 	"fmt"
+	"net"
 	"os"
-	"strings"
 	"testing"
+
+	mock_nlwrapper "github.com/aws/amazon-ecs-agent/ecs-agent/utils/netlinkwrapper/mocks"
 
 	"github.com/golang/mock/gomock"
 	"github.com/pkg/errors"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	"github.com/vishvananda/netlink"
+)
+
+const (
+	testLoopbackInterfaceName = "lo0"
 )
 
 var (
@@ -41,18 +48,26 @@ var (
 		"!", "--ctstate", "RELATED,ESTABLISHED,DNAT",
 		"-j", "DROP",
 	}
-	offhostIntrospectionInterface                 = "ens5"
+
+	allowIntrospectionForDockerArgs = []string{
+		"-p", "tcp",
+		"--dport", agentIntrospectionServerPort,
+		"-i", dockerVirtualBridgeInterfaceName,
+		"-j", "ACCEPT",
+	}
 	blockIntrospectionOffhostAccessInputRouteArgs = []string{
 		"-p", "tcp",
-		"-i", offhostIntrospectionInterface,
 		"--dport", agentIntrospectionServerPort,
+		"!", "-i", testLoopbackInterfaceName,
 		"-j", "DROP",
 	}
-	blockIntrospectionOffhostAccessInterfaceInputRouteArgs = []string{
-		"-p", "tcp",
-		"-i", "sn0",
-		"--dport", agentIntrospectionServerPort,
-		"-j", "DROP",
+
+	defaultLoLink = &netlink.Dummy{
+		LinkAttrs: netlink.LinkAttrs{
+			Index: 1,
+			Flags: net.FlagLoopback,
+			Name:  testLoopbackInterfaceName,
+		},
 	}
 	outputRouteArgs = []string{
 		"-p", "tcp",
@@ -61,177 +76,111 @@ var (
 		"-j", "REDIRECT",
 		"--to-ports", localhostCredentialsProxyPort,
 	}
-
-	testIPV4RouteInput = `Iface	Destination	Gateway 	Flags	RefCnt	Use	Metric	Mask		MTU	Window	IRTT
-ens5	00000000	01201FAC	0003	0	0	0	00000000	0	0	0
-ens5	FEA9FEA9	00000000	0005	0	0	0	FFFFFFFF	0	0	0
-ens5	00201FAC	00000000	0001	0	0	0	00F0FFFF	0	0	0
-`
 )
 
-func overrideIPRouteInput(ipv4RouteInput string) func() {
-	originalv4 := getDefaultNetworkInterfaceIPv4
+func TestNewNetfilterRoute(t *testing.T) {
 
-	getDefaultNetworkInterfaceIPv4 = func() (string, error) {
-		return scanIPv4RoutesForDefaultInterface(strings.NewReader(ipv4RouteInput))
-	}
-
-	return func() {
-		getDefaultNetworkInterfaceIPv4 = originalv4
-		// in real environment we'll only set it once, for testing we unset it after executing relevant test cases
-		defaultOffhostIntrospectionInterface = ""
-	}
-}
-
-func TestValidIfName(t *testing.T) {
 	testCases := []struct {
-		ifname      string
-		expectValid bool
+		name                          string
+		shouldError                   bool
+		setMockExpectations           func(mockExec *MockExec, mockNetlink *mock_nlwrapper.MockNetLink)
+		expectedLoopbackInterfaceName string
 	}{
 		{
-			ifname:      "eth0",
-			expectValid: true,
+			name:        "success",
+			shouldError: false,
+			setMockExpectations: func(mockExec *MockExec, mockNetlink *mock_nlwrapper.MockNetLink) {
+				mockExec.EXPECT().LookPath(iptablesExecutable).Return("", nil)
+				mockNetlink.EXPECT().LinkList().Return([]netlink.Link{defaultLoLink}, nil)
+			},
+			expectedLoopbackInterfaceName: testLoopbackInterfaceName,
 		},
 		{
-			ifname:      "eth1",
-			expectValid: true,
+			name:        "executable not found",
+			shouldError: true,
+			setMockExpectations: func(mockExec *MockExec, mockNetlink *mock_nlwrapper.MockNetLink) {
+				mockExec.EXPECT().LookPath(iptablesExecutable).Return("", fmt.Errorf("Not found"))
+			},
 		},
 		{
-			ifname:      "eth24",
-			expectValid: true,
-		},
-		{
-			ifname:      "eth255",
-			expectValid: true,
-		},
-		{
-			ifname:      "myinterfacename",
-			expectValid: true,
-		},
-		{
-			ifname:      "12345",
-			expectValid: true,
-		},
-		{
-			ifname:      "e",
-			expectValid: true,
-		},
-		{
-			ifname:      "ens5",
-			expectValid: true,
-		},
-		{
-			ifname:      "invalidchar",
-			expectValid: true,
-		},
-		{
-			ifname:      "invalid char",
-			expectValid: false,
-		},
-		{
-			ifname:      "invalid:char",
-			expectValid: false,
-		},
-		{
-			ifname:      "invalid/char",
-			expectValid: false,
-		},
-		{
-			ifname:      "ethnameistoolong",
-			expectValid: false,
-		},
-		{
-			ifname:      "ethnameiswaywaywaywaytoolong",
-			expectValid: false,
-		},
-		{
-			ifname:      "",
-			expectValid: false,
-		},
-		{
-			ifname:      ".",
-			expectValid: false,
-		},
-		{
-			ifname:      "..",
-			expectValid: false,
+			name:        "default loopback not found",
+			shouldError: false,
+			setMockExpectations: func(mockExec *MockExec, mockNetlink *mock_nlwrapper.MockNetLink) {
+				mockExec.EXPECT().LookPath(iptablesExecutable).Return("", nil)
+				mockNetlink.EXPECT().LinkList().Return(nil, fmt.Errorf("loopback not found"))
+			},
+			expectedLoopbackInterfaceName: fallbackLoopbackInterfaceName,
 		},
 	}
 
 	for _, tc := range testCases {
-		err := checkValidIfname(tc.ifname)
-		if tc.expectValid {
-			require.NoError(t, err)
-		} else {
-			require.Error(t, err)
-		}
+		t.Run(tc.name, func(t *testing.T) {
+			defer func() {
+				defaultLoopbackInterfaceName = ""
+			}()
+			ctrl := gomock.NewController(t)
+			defer ctrl.Finish()
+
+			mockExec := NewMockExec(ctrl)
+			mockNetlink := mock_nlwrapper.NewMockNetLink(ctrl)
+			if tc.setMockExpectations != nil {
+				tc.setMockExpectations(mockExec, mockNetlink)
+			}
+
+			netRoute, err := NewNetfilterRoute(mockExec, mockNetlink)
+			if tc.shouldError {
+				assert.Error(t, err)
+			} else {
+				assert.NoError(t, err)
+				assert.NotNil(t, netRoute)
+				assert.Equal(t, tc.expectedLoopbackInterfaceName, defaultLoopbackInterfaceName)
+			}
+		})
 	}
+
 }
 
-func TestNewNetfilterRouteFailsWhenExecutableNotFound(t *testing.T) {
-	defer overrideIPRouteInput(testIPV4RouteInput)()
-	ctrl := gomock.NewController(t)
-	defer ctrl.Finish()
-
-	mockExec := NewMockExec(ctrl)
-	mockExec.EXPECT().LookPath(iptablesExecutable).Return("", fmt.Errorf("Not found"))
-
-	_, err := NewNetfilterRoute(mockExec)
-	assert.Error(t, err, "Expected error when executable's path lookup fails")
-}
-
-func TestNewNetfilterRouteWithDefaultOffhostIntrospectionInterfaceFallback(t *testing.T) {
-	defer overrideIPRouteInput("")()
-	ctrl := gomock.NewController(t)
-	defer ctrl.Finish()
-
-	mockExec := NewMockExec(ctrl)
-	mockExec.EXPECT().LookPath(iptablesExecutable).Return("", nil)
-
-	_, err := NewNetfilterRoute(mockExec)
-	assert.NoError(t, err)
-	assert.Equal(t, defaultOffhostIntrospectionInterface, fallbackOffhostIntrospectionInterface)
+func appendIpv6Mocks(mockExec *MockExec, mockCmd *MockCmd, mocks []*gomock.Call, table, action, chain string, args []string, useIp6tables bool) []*gomock.Call {
+	mocks = append(mocks,
+		mockExec.EXPECT().Command(iptablesExecutable,
+			expectedArgs(table, action, chain, args)).Return(mockCmd),
+		mockCmd.EXPECT().CombinedOutput().Return([]byte{0}, nil),
+	)
+	if useIp6tables {
+		mocks = append(mocks,
+			mockExec.EXPECT().LookPath(ip6tablesExecutable).Return("", nil),
+			mockExec.EXPECT().Command(ip6tablesExecutable,
+				expectedArgs(table, action, chain, args)).Return(mockCmd),
+			mockCmd.EXPECT().CombinedOutput().Return([]byte{0}, nil),
+		)
+	} else {
+		mocks = append(mocks,
+			mockExec.EXPECT().LookPath(ip6tablesExecutable).Return("", errors.New("error")),
+		)
+	}
+	return mocks
 }
 
 func TestCreate(t *testing.T) {
-	defer overrideIPRouteInput(testIPV4RouteInput)()
+
 	testCases := []struct {
-		name                string
-		setOffhostInterface bool
-		inputRouteArgs      []string
-		useIp6tables        bool
+		name         string
+		useIp6tables bool
 	}{
 		{
-			name:                "create iptables route",
-			setOffhostInterface: false,
-			inputRouteArgs:      blockIntrospectionOffhostAccessInputRouteArgs,
-			useIp6tables:        false,
+			name:         "create iptables route",
+			useIp6tables: false,
 		},
 		{
-			name:                "create iptables route on network interface",
-			setOffhostInterface: true,
-			inputRouteArgs:      blockIntrospectionOffhostAccessInterfaceInputRouteArgs,
-			useIp6tables:        false,
-		},
-		{
-			name:                "create ip6tables route",
-			setOffhostInterface: false,
-			inputRouteArgs:      blockIntrospectionOffhostAccessInputRouteArgs,
-			useIp6tables:        true,
-		},
-		{
-			name:                "create ip6tables route on network interface",
-			setOffhostInterface: true,
-			inputRouteArgs:      blockIntrospectionOffhostAccessInterfaceInputRouteArgs,
-			useIp6tables:        true,
+			name:         "create ip6tables route",
+			useIp6tables: true,
 		},
 	}
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
-			if tc.setOffhostInterface {
-				os.Setenv(offhostIntrospectonAccessInterfaceEnv, "sn0")
-				defer os.Unsetenv(offhostIntrospectonAccessInterfaceEnv)
-			}
+			defer func() {
+				defaultLoopbackInterfaceName = ""
+			}()
 			ctrl := gomock.NewController(t)
 			defer ctrl.Finish()
 
@@ -239,30 +188,21 @@ func TestCreate(t *testing.T) {
 			// Mock a successful execution of the iptables command to create the
 			// route
 			mockExec := NewMockExec(ctrl)
+			mockNetlink := mock_nlwrapper.NewMockNetLink(ctrl)
 			mocks := []*gomock.Call{
 				mockExec.EXPECT().LookPath(iptablesExecutable).Return("", nil),
+				mockNetlink.EXPECT().LinkList().Return([]netlink.Link{defaultLoLink}, nil),
+
 				mockExec.EXPECT().Command(iptablesExecutable,
 					expectedArgs("nat", "-A", "PREROUTING", preroutingRouteArgs)).Return(mockCmd),
 				mockCmd.EXPECT().CombinedOutput().Return([]byte{0}, nil),
+
 				mockExec.EXPECT().Command(iptablesExecutable,
 					expectedArgs("filter", "-I", "INPUT", localhostTrafficFilterInputRouteArgs)).Return(mockCmd),
 				mockCmd.EXPECT().CombinedOutput().Return([]byte{0}, nil),
-				mockExec.EXPECT().Command(iptablesExecutable,
-					expectedArgs("filter", "-I", "INPUT", tc.inputRouteArgs)).Return(mockCmd),
-				mockCmd.EXPECT().CombinedOutput().Return([]byte{0}, nil),
 			}
-			if tc.useIp6tables {
-				mocks = append(mocks,
-					mockExec.EXPECT().LookPath(ip6tablesExecutable).Return("", nil),
-					mockExec.EXPECT().Command(ip6tablesExecutable,
-						expectedArgs("filter", "-I", "INPUT", tc.inputRouteArgs)).Return(mockCmd),
-					mockCmd.EXPECT().CombinedOutput().Return([]byte{0}, nil),
-				)
-			} else {
-				mocks = append(mocks,
-					mockExec.EXPECT().LookPath(ip6tablesExecutable).Return("", errors.New("error")),
-				)
-			}
+			mocks = appendIpv6Mocks(mockExec, mockCmd, mocks, "filter", string(iptablesInsert), "INPUT", blockIntrospectionOffhostAccessInputRouteArgs, tc.useIp6tables)
+			mocks = appendIpv6Mocks(mockExec, mockCmd, mocks, "filter", string(iptablesInsert), "INPUT", allowIntrospectionForDockerArgs, tc.useIp6tables)
 			mocks = append(mocks,
 				mockExec.EXPECT().Command(iptablesExecutable,
 					expectedArgs("nat", "-A", "OUTPUT", outputRouteArgs)).Return(mockCmd),
@@ -273,19 +213,19 @@ func TestCreate(t *testing.T) {
 				mocks...,
 			)
 
-			route, err := NewNetfilterRoute(mockExec)
+			route, err := NewNetfilterRoute(mockExec, mockNetlink)
 			require.NoError(t, err, "Error creating netfilter route object")
 
 			err = route.Create()
 			assert.NoError(t, err, "Error creating route")
 		})
-
 	}
-
 }
 
 func TestCreateSkipLocalTrafficFilter(t *testing.T) {
-	defer overrideIPRouteInput(testIPV4RouteInput)()
+	defer func() {
+		defaultLoopbackInterfaceName = ""
+	}()
 	os.Setenv("ECS_SKIP_LOCALHOST_TRAFFIC_FILTER", "true")
 	defer os.Unsetenv("ECS_SKIP_LOCALHOST_TRAFFIC_FILTER")
 
@@ -294,8 +234,10 @@ func TestCreateSkipLocalTrafficFilter(t *testing.T) {
 
 	mockCmd := NewMockCmd(ctrl)
 	mockExec := NewMockExec(ctrl)
+	mockNetlink := mock_nlwrapper.NewMockNetLink(ctrl)
 	gomock.InOrder(
 		mockExec.EXPECT().LookPath(iptablesExecutable).Return("", nil),
+		mockNetlink.EXPECT().LinkList().Return([]netlink.Link{defaultLoLink}, nil),
 		mockExec.EXPECT().Command(iptablesExecutable,
 			expectedArgs("nat", "-A", "PREROUTING", preroutingRouteArgs)).Return(mockCmd),
 		mockCmd.EXPECT().CombinedOutput().Return([]byte{0}, nil),
@@ -307,11 +249,19 @@ func TestCreateSkipLocalTrafficFilter(t *testing.T) {
 			expectedArgs("filter", "-I", "INPUT", blockIntrospectionOffhostAccessInputRouteArgs)).Return(mockCmd),
 		mockCmd.EXPECT().CombinedOutput().Return([]byte{0}, nil),
 		mockExec.EXPECT().Command(iptablesExecutable,
+			expectedArgs("filter", "-I", "INPUT", allowIntrospectionForDockerArgs)).Return(mockCmd),
+		mockCmd.EXPECT().CombinedOutput().Return([]byte{0}, nil),
+		mockExec.EXPECT().LookPath(ip6tablesExecutable).Return("", nil),
+		mockExec.EXPECT().Command(ip6tablesExecutable,
+			expectedArgs("filter", "-I", "INPUT", allowIntrospectionForDockerArgs)).Return(mockCmd),
+		mockCmd.EXPECT().CombinedOutput().Return([]byte{0}, nil),
+
+		mockExec.EXPECT().Command(iptablesExecutable,
 			expectedArgs("nat", "-A", "OUTPUT", outputRouteArgs)).Return(mockCmd),
 		mockCmd.EXPECT().CombinedOutput().Return([]byte{0}, nil),
 	)
 
-	route, err := NewNetfilterRoute(mockExec)
+	route, err := NewNetfilterRoute(mockExec, mockNetlink)
 	require.NoError(t, err, "Error creating netfilter route object")
 
 	err = route.Create()
@@ -319,6 +269,9 @@ func TestCreateSkipLocalTrafficFilter(t *testing.T) {
 }
 
 func TestCreateAllowOffhostIntrospectionAccess(t *testing.T) {
+	defer func() {
+		defaultLoopbackInterfaceName = ""
+	}()
 	os.Setenv(offhostIntrospectionAccessConfigEnv, "true")
 	defer os.Unsetenv(offhostIntrospectionAccessConfigEnv)
 
@@ -327,8 +280,10 @@ func TestCreateAllowOffhostIntrospectionAccess(t *testing.T) {
 
 	mockCmd := NewMockCmd(ctrl)
 	mockExec := NewMockExec(ctrl)
+	mockNetlink := mock_nlwrapper.NewMockNetLink(ctrl)
 	gomock.InOrder(
 		mockExec.EXPECT().LookPath(iptablesExecutable).Return("", nil),
+		mockNetlink.EXPECT().LinkList().Return([]netlink.Link{defaultLoLink}, nil),
 		mockExec.EXPECT().Command(iptablesExecutable,
 			expectedArgs("nat", "-A", "PREROUTING", preroutingRouteArgs)).Return(mockCmd),
 		mockCmd.EXPECT().CombinedOutput().Return([]byte{0}, nil),
@@ -340,7 +295,7 @@ func TestCreateAllowOffhostIntrospectionAccess(t *testing.T) {
 		mockCmd.EXPECT().CombinedOutput().Return([]byte{0}, nil),
 	)
 
-	route, err := NewNetfilterRoute(mockExec)
+	route, err := NewNetfilterRoute(mockExec, mockNetlink)
 	require.NoError(t, err, "Error creating netfilter route object")
 
 	err = route.Create()
@@ -348,20 +303,25 @@ func TestCreateAllowOffhostIntrospectionAccess(t *testing.T) {
 }
 
 func TestCreateErrorOnPreRoutingCommandError(t *testing.T) {
+	defer func() {
+		defaultLoopbackInterfaceName = ""
+	}()
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
 
 	mockCmd := NewMockCmd(ctrl)
 	mockExec := NewMockExec(ctrl)
+	mockNetlink := mock_nlwrapper.NewMockNetLink(ctrl)
 	gomock.InOrder(
 		mockExec.EXPECT().LookPath(iptablesExecutable).Return("", nil),
+		mockNetlink.EXPECT().LinkList().Return([]netlink.Link{defaultLoLink}, nil),
 		mockExec.EXPECT().Command(iptablesExecutable,
 			expectedArgs("nat", "-A", "PREROUTING", preroutingRouteArgs)).Return(mockCmd),
 		// Mock a failed execution of the iptables command to create the route
 		mockCmd.EXPECT().CombinedOutput().Return([]byte{0}, fmt.Errorf("didn't expect this, did you?")),
 	)
 
-	route, err := NewNetfilterRoute(mockExec)
+	route, err := NewNetfilterRoute(mockExec, mockNetlink)
 	require.NoError(t, err, "Error creating netfilter route object")
 
 	err = route.Create()
@@ -374,8 +334,10 @@ func TestCreateErrorOnInputChainCommandError(t *testing.T) {
 
 	mockCmd := NewMockCmd(ctrl)
 	mockExec := NewMockExec(ctrl)
+	mockNetlink := mock_nlwrapper.NewMockNetLink(ctrl)
 	gomock.InOrder(
 		mockExec.EXPECT().LookPath(iptablesExecutable).Return("", nil),
+		mockNetlink.EXPECT().LinkList().Return([]netlink.Link{defaultLoLink}, nil),
 		mockExec.EXPECT().Command(iptablesExecutable,
 			expectedArgs("nat", "-A", "PREROUTING", preroutingRouteArgs)).Return(mockCmd),
 		mockCmd.EXPECT().CombinedOutput().Return([]byte{0}, nil),
@@ -384,7 +346,7 @@ func TestCreateErrorOnInputChainCommandError(t *testing.T) {
 		mockCmd.EXPECT().CombinedOutput().Return([]byte{0}, testErr),
 	)
 
-	route, err := NewNetfilterRoute(mockExec)
+	route, err := NewNetfilterRoute(mockExec, mockNetlink)
 	require.NoError(t, err)
 
 	err = route.Create()
@@ -392,14 +354,16 @@ func TestCreateErrorOnInputChainCommandError(t *testing.T) {
 }
 
 func TestCreateErrorOnOutputChainCommandError(t *testing.T) {
-	defer overrideIPRouteInput(testIPV4RouteInput)()
+	// defer overrideIPRouteInput(testIPV4RouteInput)()
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
 
 	mockCmd := NewMockCmd(ctrl)
 	mockExec := NewMockExec(ctrl)
+	mockNetlink := mock_nlwrapper.NewMockNetLink(ctrl)
 	gomock.InOrder(
 		mockExec.EXPECT().LookPath(iptablesExecutable).Return("", nil),
+		mockNetlink.EXPECT().LinkList().Return([]netlink.Link{defaultLoLink}, nil),
 		mockExec.EXPECT().Command(iptablesExecutable,
 			expectedArgs("nat", "-A", "PREROUTING", preroutingRouteArgs)).Return(mockCmd),
 		mockCmd.EXPECT().CombinedOutput().Return([]byte{0}, nil),
@@ -414,12 +378,19 @@ func TestCreateErrorOnOutputChainCommandError(t *testing.T) {
 			expectedArgs("filter", "-I", "INPUT", blockIntrospectionOffhostAccessInputRouteArgs)).Return(mockCmd),
 		mockCmd.EXPECT().CombinedOutput().Return([]byte{0}, nil),
 		mockExec.EXPECT().Command(iptablesExecutable,
+			expectedArgs("filter", "-I", "INPUT", allowIntrospectionForDockerArgs)).Return(mockCmd),
+		mockCmd.EXPECT().CombinedOutput().Return([]byte{0}, nil),
+		mockExec.EXPECT().LookPath(ip6tablesExecutable).Return("", nil),
+		mockExec.EXPECT().Command(ip6tablesExecutable,
+			expectedArgs("filter", "-I", "INPUT", allowIntrospectionForDockerArgs)).Return(mockCmd),
+		mockCmd.EXPECT().CombinedOutput().Return([]byte{0}, nil),
+		mockExec.EXPECT().Command(iptablesExecutable,
 			expectedArgs("nat", "-A", "OUTPUT", outputRouteArgs)).Return(mockCmd),
 		// Mock a failed execution of the iptables command to create the route
 		mockCmd.EXPECT().CombinedOutput().Return([]byte{0}, fmt.Errorf("didn't expect this, did you?")),
 	)
 
-	route, err := NewNetfilterRoute(mockExec)
+	route, err := NewNetfilterRoute(mockExec, mockNetlink)
 	require.NoError(t, err, "Error creating netfilter route object")
 
 	err = route.Create()
@@ -427,8 +398,6 @@ func TestCreateErrorOnOutputChainCommandError(t *testing.T) {
 }
 
 func TestRemove(t *testing.T) {
-	defer overrideIPRouteInput(testIPV4RouteInput)()
-
 	testCases := []struct {
 		name         string
 		useIp6tables bool
@@ -445,14 +414,20 @@ func TestRemove(t *testing.T) {
 
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
+			defer func() {
+				defaultLoopbackInterfaceName = ""
+			}()
 			ctrl := gomock.NewController(t)
 			defer ctrl.Finish()
 
 			mockCmd := NewMockCmd(ctrl)
 			mockExec := NewMockExec(ctrl)
+			mockNetlink := mock_nlwrapper.NewMockNetLink(ctrl)
 
 			mocks := []*gomock.Call{
 				mockExec.EXPECT().LookPath(iptablesExecutable).Return("", nil),
+				mockNetlink.EXPECT().LinkList().Return([]netlink.Link{defaultLoLink}, nil),
+
 				mockExec.EXPECT().Command(iptablesExecutable,
 					expectedArgs("nat", "-D", "PREROUTING", preroutingRouteArgs)).Return(mockCmd),
 				// Mock a successful execution of the iptables command to delete the
@@ -461,23 +436,11 @@ func TestRemove(t *testing.T) {
 				mockExec.EXPECT().Command(iptablesExecutable,
 					expectedArgs("filter", "-D", "INPUT", localhostTrafficFilterInputRouteArgs)).Return(mockCmd),
 				mockCmd.EXPECT().CombinedOutput().Return([]byte{0}, nil),
-				mockExec.EXPECT().Command(iptablesExecutable,
-					expectedArgs("filter", "-D", "INPUT", blockIntrospectionOffhostAccessInputRouteArgs)).Return(mockCmd),
-				mockCmd.EXPECT().CombinedOutput().Return([]byte{0}, nil),
 			}
 
-			if tc.useIp6tables {
-				mocks = append(mocks,
-					mockExec.EXPECT().LookPath(ip6tablesExecutable).Return("", nil),
-					mockExec.EXPECT().Command(ip6tablesExecutable,
-						expectedArgs("filter", "-D", "INPUT", blockIntrospectionOffhostAccessInputRouteArgs)).Return(mockCmd),
-					mockCmd.EXPECT().CombinedOutput().Return([]byte{0}, nil),
-				)
-			} else {
-				mocks = append(mocks,
-					mockExec.EXPECT().LookPath(ip6tablesExecutable).Return("", errors.New("error")),
-				)
-			}
+			mocks = appendIpv6Mocks(mockExec, mockCmd, mocks, "filter", string(iptablesDelete), "INPUT", blockIntrospectionOffhostAccessInputRouteArgs, tc.useIp6tables)
+			mocks = appendIpv6Mocks(mockExec, mockCmd, mocks, "filter", string(iptablesDelete), "INPUT", allowIntrospectionForDockerArgs, tc.useIp6tables)
+
 			mocks = append(mocks,
 				mockExec.EXPECT().Command(iptablesExecutable,
 					expectedArgs("nat", "-D", "OUTPUT", outputRouteArgs)).Return(mockCmd),
@@ -488,7 +451,7 @@ func TestRemove(t *testing.T) {
 				mocks...,
 			)
 
-			route, err := NewNetfilterRoute(mockExec)
+			route, err := NewNetfilterRoute(mockExec, mockNetlink)
 			require.NoError(t, err, "Error creating netfilter route object")
 
 			err = route.Remove()
@@ -498,7 +461,9 @@ func TestRemove(t *testing.T) {
 }
 
 func TestRemoveSkipLocalTrafficFilter(t *testing.T) {
-	defer overrideIPRouteInput(testIPV4RouteInput)()
+	defer func() {
+		defaultLoopbackInterfaceName = ""
+	}()
 	os.Setenv("ECS_SKIP_LOCALHOST_TRAFFIC_FILTER", "true")
 	defer os.Unsetenv("ECS_SKIP_LOCALHOST_TRAFFIC_FILTER")
 
@@ -507,8 +472,10 @@ func TestRemoveSkipLocalTrafficFilter(t *testing.T) {
 
 	mockCmd := NewMockCmd(ctrl)
 	mockExec := NewMockExec(ctrl)
+	mockNetlink := mock_nlwrapper.NewMockNetLink(ctrl)
 	gomock.InOrder(
 		mockExec.EXPECT().LookPath(iptablesExecutable).Return("", nil),
+		mockNetlink.EXPECT().LinkList().Return([]netlink.Link{defaultLoLink}, nil),
 		mockExec.EXPECT().Command(iptablesExecutable,
 			expectedArgs("nat", "-D", "PREROUTING", preroutingRouteArgs)).Return(mockCmd),
 		mockCmd.EXPECT().CombinedOutput().Return([]byte{0}, nil),
@@ -520,11 +487,18 @@ func TestRemoveSkipLocalTrafficFilter(t *testing.T) {
 			expectedArgs("filter", "-D", "INPUT", blockIntrospectionOffhostAccessInputRouteArgs)).Return(mockCmd),
 		mockCmd.EXPECT().CombinedOutput().Return([]byte{0}, nil),
 		mockExec.EXPECT().Command(iptablesExecutable,
+			expectedArgs("filter", "-D", "INPUT", allowIntrospectionForDockerArgs)).Return(mockCmd),
+		mockCmd.EXPECT().CombinedOutput().Return([]byte{0}, nil),
+		mockExec.EXPECT().LookPath(ip6tablesExecutable).Return("", nil),
+		mockExec.EXPECT().Command(ip6tablesExecutable,
+			expectedArgs("filter", "-D", "INPUT", allowIntrospectionForDockerArgs)).Return(mockCmd),
+		mockCmd.EXPECT().CombinedOutput().Return([]byte{0}, nil),
+		mockExec.EXPECT().Command(iptablesExecutable,
 			expectedArgs("nat", "-D", "OUTPUT", outputRouteArgs)).Return(mockCmd),
 		mockCmd.EXPECT().CombinedOutput().Return([]byte{0}, nil),
 	)
 
-	route, err := NewNetfilterRoute(mockExec)
+	route, err := NewNetfilterRoute(mockExec, mockNetlink)
 	require.NoError(t, err, "Error creating netfilter route object")
 
 	err = route.Remove()
@@ -532,7 +506,7 @@ func TestRemoveSkipLocalTrafficFilter(t *testing.T) {
 }
 
 func TestRemoveAllowIntrospectionOffhostAccess(t *testing.T) {
-	defer overrideIPRouteInput(testIPV4RouteInput)()
+
 	os.Setenv(offhostIntrospectionAccessConfigEnv, "true")
 	defer os.Unsetenv(offhostIntrospectionAccessConfigEnv)
 
@@ -546,43 +520,34 @@ func TestRemoveAllowIntrospectionOffhostAccess(t *testing.T) {
 		},
 		{
 			name:         "remove allow instrocpection off-host access with ip6tables",
-			useIp6tables: false,
+			useIp6tables: true,
 		},
 	}
 
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
+			defer func() {
+				defaultLoopbackInterfaceName = ""
+			}()
 			ctrl := gomock.NewController(t)
 			defer ctrl.Finish()
 
 			mockCmd := NewMockCmd(ctrl)
 			mockExec := NewMockExec(ctrl)
+			mockNetlink := mock_nlwrapper.NewMockNetLink(ctrl)
 
 			mocks := []*gomock.Call{
 				mockExec.EXPECT().LookPath(iptablesExecutable).Return("", nil),
+				mockNetlink.EXPECT().LinkList().Return([]netlink.Link{defaultLoLink}, nil),
 				mockExec.EXPECT().Command(iptablesExecutable,
 					expectedArgs("nat", "-D", "PREROUTING", preroutingRouteArgs)).Return(mockCmd),
 				mockCmd.EXPECT().CombinedOutput().Return([]byte{0}, nil),
 				mockExec.EXPECT().Command(iptablesExecutable,
 					expectedArgs("filter", "-D", "INPUT", localhostTrafficFilterInputRouteArgs)).Return(mockCmd),
 				mockCmd.EXPECT().CombinedOutput().Return([]byte{0}, nil),
-				mockExec.EXPECT().Command(iptablesExecutable,
-					expectedArgs("filter", "-D", "INPUT", blockIntrospectionOffhostAccessInputRouteArgs)).Return(mockCmd),
-				mockCmd.EXPECT().CombinedOutput().Return([]byte{0}, nil),
 			}
-
-			if tc.useIp6tables {
-				mocks = append(mocks,
-					mockExec.EXPECT().LookPath(ip6tablesExecutable).Return("", nil),
-					mockExec.EXPECT().Command(ip6tablesExecutable,
-						expectedArgs("filter", "-D", "INPUT", blockIntrospectionOffhostAccessInputRouteArgs)).Return(mockCmd),
-					mockCmd.EXPECT().CombinedOutput().Return([]byte{0}, nil),
-				)
-			} else {
-				mocks = append(mocks,
-					mockExec.EXPECT().LookPath(ip6tablesExecutable).Return("", errors.New("error")),
-				)
-			}
+			mocks = appendIpv6Mocks(mockExec, mockCmd, mocks, "filter", string(iptablesDelete), "INPUT", blockIntrospectionOffhostAccessInputRouteArgs, tc.useIp6tables)
+			mocks = appendIpv6Mocks(mockExec, mockCmd, mocks, "filter", string(iptablesDelete), "INPUT", allowIntrospectionForDockerArgs, tc.useIp6tables)
 			mocks = append(mocks,
 				mockExec.EXPECT().Command(iptablesExecutable,
 					expectedArgs("nat", "-D", "OUTPUT", outputRouteArgs)).Return(mockCmd),
@@ -593,7 +558,7 @@ func TestRemoveAllowIntrospectionOffhostAccess(t *testing.T) {
 				mocks...,
 			)
 
-			route, err := NewNetfilterRoute(mockExec)
+			route, err := NewNetfilterRoute(mockExec, mockNetlink)
 			require.NoError(t, err, "Error creating netfilter route object")
 
 			err = route.Remove()
@@ -603,14 +568,18 @@ func TestRemoveAllowIntrospectionOffhostAccess(t *testing.T) {
 }
 
 func TestRemoveErrorOnPreroutingChainCommandError(t *testing.T) {
-	defer overrideIPRouteInput(testIPV4RouteInput)()
+	defer func() {
+		defaultLoopbackInterfaceName = ""
+	}()
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
 
 	mockCmd := NewMockCmd(ctrl)
 	mockExec := NewMockExec(ctrl)
+	mockNetlink := mock_nlwrapper.NewMockNetLink(ctrl)
 	gomock.InOrder(
 		mockExec.EXPECT().LookPath(iptablesExecutable).Return("", nil),
+		mockNetlink.EXPECT().LinkList().Return([]netlink.Link{defaultLoLink}, nil),
 		mockExec.EXPECT().Command(iptablesExecutable,
 			expectedArgs("nat", "-D", "PREROUTING", preroutingRouteArgs)).Return(mockCmd),
 		// Mock a failed execution of the iptables command to delete the route
@@ -626,11 +595,18 @@ func TestRemoveErrorOnPreroutingChainCommandError(t *testing.T) {
 			expectedArgs("filter", "-D", "INPUT", blockIntrospectionOffhostAccessInputRouteArgs)).Return(mockCmd),
 		mockCmd.EXPECT().CombinedOutput().Return([]byte{0}, nil),
 		mockExec.EXPECT().Command(iptablesExecutable,
+			expectedArgs("filter", "-D", "INPUT", allowIntrospectionForDockerArgs)).Return(mockCmd),
+		mockCmd.EXPECT().CombinedOutput().Return([]byte{0}, nil),
+		mockExec.EXPECT().LookPath(ip6tablesExecutable).Return("", nil),
+		mockExec.EXPECT().Command(ip6tablesExecutable,
+			expectedArgs("filter", "-D", "INPUT", allowIntrospectionForDockerArgs)).Return(mockCmd),
+		mockCmd.EXPECT().CombinedOutput().Return([]byte{0}, nil),
+		mockExec.EXPECT().Command(iptablesExecutable,
 			expectedArgs("nat", "-D", "OUTPUT", outputRouteArgs)).Return(mockCmd),
 		mockCmd.EXPECT().CombinedOutput().Return([]byte{0}, nil),
 	)
 
-	route, err := NewNetfilterRoute(mockExec)
+	route, err := NewNetfilterRoute(mockExec, mockNetlink)
 	require.NoError(t, err, "Error creating netfilter route object")
 
 	err = route.Remove()
@@ -638,14 +614,18 @@ func TestRemoveErrorOnPreroutingChainCommandError(t *testing.T) {
 }
 
 func TestRemoveErrorOnOutputChainCommandError(t *testing.T) {
-	defer overrideIPRouteInput(testIPV4RouteInput)()
+	defer func() {
+		defaultLoopbackInterfaceName = ""
+	}()
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
 
 	mockCmd := NewMockCmd(ctrl)
 	mockExec := NewMockExec(ctrl)
+	mockNetlink := mock_nlwrapper.NewMockNetLink(ctrl)
 	gomock.InOrder(
 		mockExec.EXPECT().LookPath(iptablesExecutable).Return("", nil),
+		mockNetlink.EXPECT().LinkList().Return([]netlink.Link{defaultLoLink}, nil),
 		mockExec.EXPECT().Command(iptablesExecutable,
 			expectedArgs("nat", "-D", "PREROUTING", preroutingRouteArgs)).Return(mockCmd),
 		mockCmd.EXPECT().CombinedOutput().Return([]byte{0}, nil),
@@ -660,12 +640,19 @@ func TestRemoveErrorOnOutputChainCommandError(t *testing.T) {
 			expectedArgs("filter", "-D", "INPUT", blockIntrospectionOffhostAccessInputRouteArgs)).Return(mockCmd),
 		mockCmd.EXPECT().CombinedOutput().Return([]byte{0}, nil),
 		mockExec.EXPECT().Command(iptablesExecutable,
+			expectedArgs("filter", "-D", "INPUT", allowIntrospectionForDockerArgs)).Return(mockCmd),
+		mockCmd.EXPECT().CombinedOutput().Return([]byte{0}, nil),
+		mockExec.EXPECT().LookPath(ip6tablesExecutable).Return("", nil),
+		mockExec.EXPECT().Command(ip6tablesExecutable,
+			expectedArgs("filter", "-D", "INPUT", allowIntrospectionForDockerArgs)).Return(mockCmd),
+		mockCmd.EXPECT().CombinedOutput().Return([]byte{0}, nil),
+		mockExec.EXPECT().Command(iptablesExecutable,
 			expectedArgs("nat", "-D", "OUTPUT", outputRouteArgs)).Return(mockCmd),
 		// Mock a failed execution of the iptables command to delete the route
 		mockCmd.EXPECT().CombinedOutput().Return([]byte{0}, fmt.Errorf("no cpu cycles to spare, sorry")),
 	)
 
-	route, err := NewNetfilterRoute(mockExec)
+	route, err := NewNetfilterRoute(mockExec, mockNetlink)
 	require.NoError(t, err, "Error creating netfilter route object")
 
 	err = route.Remove()
@@ -673,14 +660,18 @@ func TestRemoveErrorOnOutputChainCommandError(t *testing.T) {
 }
 
 func TestRemoveErrorOnInputChainCommandsErrors(t *testing.T) {
-	defer overrideIPRouteInput(testIPV4RouteInput)()
+	defer func() {
+		defaultLoopbackInterfaceName = ""
+	}()
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
 
 	mockCmd := NewMockCmd(ctrl)
 	mockExec := NewMockExec(ctrl)
+	mockNetlink := mock_nlwrapper.NewMockNetLink(ctrl)
 	gomock.InOrder(
 		mockExec.EXPECT().LookPath(iptablesExecutable).Return("", nil),
+		mockNetlink.EXPECT().LinkList().Return([]netlink.Link{defaultLoLink}, nil),
 		mockExec.EXPECT().Command(iptablesExecutable,
 			expectedArgs("nat", "-D", "PREROUTING", preroutingRouteArgs)).Return(mockCmd),
 		mockCmd.EXPECT().CombinedOutput().Return([]byte{0}, nil),
@@ -695,11 +686,18 @@ func TestRemoveErrorOnInputChainCommandsErrors(t *testing.T) {
 			expectedArgs("filter", "-D", "INPUT", blockIntrospectionOffhostAccessInputRouteArgs)).Return(mockCmd),
 		mockCmd.EXPECT().CombinedOutput().Return([]byte{0}, nil),
 		mockExec.EXPECT().Command(iptablesExecutable,
+			expectedArgs("filter", "-D", "INPUT", allowIntrospectionForDockerArgs)).Return(mockCmd),
+		mockCmd.EXPECT().CombinedOutput().Return([]byte{0}, nil),
+		mockExec.EXPECT().LookPath(ip6tablesExecutable).Return("", nil),
+		mockExec.EXPECT().Command(ip6tablesExecutable,
+			expectedArgs("filter", "-D", "INPUT", allowIntrospectionForDockerArgs)).Return(mockCmd),
+		mockCmd.EXPECT().CombinedOutput().Return([]byte{0}, nil),
+		mockExec.EXPECT().Command(iptablesExecutable,
 			expectedArgs("nat", "-D", "OUTPUT", outputRouteArgs)).Return(mockCmd),
 		mockCmd.EXPECT().CombinedOutput().Return([]byte{0}, nil),
 	)
 
-	route, err := NewNetfilterRoute(mockExec)
+	route, err := NewNetfilterRoute(mockExec, mockNetlink)
 	require.NoError(t, err, "Error creating netfilter route object")
 
 	err = route.Remove()
@@ -743,15 +741,27 @@ func TestGetLocalhostTrafficFilterInputChainArgs(t *testing.T) {
 }
 
 func TestGetBlockIntrospectionOffhostAccessInputChainArgs(t *testing.T) {
-	defer overrideIPRouteInput(testIPV4RouteInput)()
-	defaultOffhostIntrospectionInterface, _ = getOffhostIntrospectionInterface()
+	defer func() {
+		defaultLoopbackInterfaceName = ""
+	}()
+	defaultLoopbackInterfaceName = testLoopbackInterfaceName
 	assert.Equal(t, []string{
 		"INPUT",
 		"-p", "tcp",
-		"-i", "ens5",
-		"--dport", "51678",
+		"--dport", agentIntrospectionServerPort,
+		"!", "-i", testLoopbackInterfaceName,
 		"-j", "DROP",
 	}, getBlockIntrospectionOffhostAccessInputChainArgs())
+}
+
+func TestAllowIntrospectionForDocker(t *testing.T) {
+	assert.Equal(t, []string{
+		"INPUT",
+		"-p", "tcp",
+		"--dport", agentIntrospectionServerPort,
+		"-i", dockerVirtualBridgeInterfaceName,
+		"-j", "ACCEPT",
+	}, allowIntrospectionForDockerIptablesInputChainArgs())
 }
 
 func TestGetOutputChainArgs(t *testing.T) {
@@ -775,61 +785,4 @@ func TestGetActionName(t *testing.T) {
 
 func expectedArgs(table, action, chain string, args []string) []string {
 	return append([]string{"-t", table, action, chain}, args...)
-}
-
-func TestScanIPv4RoutesHappyCase(t *testing.T) {
-	iface, err := scanIPv4RoutesForDefaultInterface(strings.NewReader(testIPV4RouteInput))
-	assert.NoError(t, err)
-	assert.Equal(t, offhostIntrospectionInterface, iface)
-}
-
-func TestScanIPv4RoutesNoDefaultRoute(t *testing.T) {
-	iface, err := scanIPv4RoutesForDefaultInterface(strings.NewReader(""))
-	assert.Error(t, err)
-	assert.Equal(t, "", iface)
-}
-
-func TestScanIPv4RoutesNoDefaultRouteExceptLoopback(t *testing.T) {
-	var testInput = `Iface	Destination	Gateway 	Flags	RefCnt	Use	Metric	Mask		MTU	Window	IRTT
-lo	00000000	01201FAC	0003	0	0	0	00000000	0	0	0
-`
-	iface, err := scanIPv4RoutesForDefaultInterface(strings.NewReader(testInput))
-	assert.Error(t, err)
-	assert.Equal(t, "", iface)
-}
-
-func TestGetOffhostIntrospectionInterfaceWithEnvOverride(t *testing.T) {
-	os.Setenv(offhostIntrospectonAccessInterfaceEnv, "test_iface")
-	defer os.Unsetenv(offhostIntrospectonAccessInterfaceEnv)
-
-	iface, err := getOffhostIntrospectionInterface()
-	assert.NoError(t, err)
-	assert.Equal(t, "test_iface", iface)
-}
-
-func TestGetOffhostIntrospectionInterfaceWithEnvOverride_InvalidIfname(t *testing.T) {
-	os.Setenv(offhostIntrospectonAccessInterfaceEnv, "invalid ifname")
-	defer os.Unsetenv(offhostIntrospectonAccessInterfaceEnv)
-	defer overrideIPRouteInput(testIPV4RouteInput)()
-
-	iface, err := getOffhostIntrospectionInterface()
-	assert.NoError(t, err)
-	// falls back to default
-	assert.Equal(t, offhostIntrospectionInterface, iface)
-}
-
-func TestGetOffhostIntrospectionInterfaceUseDefaultV4(t *testing.T) {
-	defer overrideIPRouteInput(testIPV4RouteInput)()
-
-	iface, err := getOffhostIntrospectionInterface()
-	assert.NoError(t, err)
-	assert.Equal(t, offhostIntrospectionInterface, iface)
-}
-
-func TestGetOffhostIntrospectionInterfaceFailure(t *testing.T) {
-	defer overrideIPRouteInput("")()
-
-	iface, err := getOffhostIntrospectionInterface()
-	assert.Error(t, err)
-	assert.Equal(t, "", iface)
 }

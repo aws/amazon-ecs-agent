@@ -21,6 +21,7 @@ import (
 	"os"
 	"time"
 
+	"github.com/aws/amazon-ecs-agent/ecs-agent/utils/netlinkwrapper"
 	"github.com/aws/amazon-ecs-agent/ecs-init/apparmor"
 	"github.com/aws/amazon-ecs-agent/ecs-init/backoff"
 	"github.com/aws/amazon-ecs-agent/ecs-init/cache"
@@ -99,7 +100,7 @@ func New() (*Engine, error) {
 	if err != nil {
 		return nil, err
 	}
-	credentialsProxyRoute, err := iptables.NewNetfilterRoute(cmdExec)
+	credentialsProxyRoute, err := iptables.NewNetfilterRoute(cmdExec, netlinkwrapper.New())
 	if err != nil {
 		return nil, err
 	}
