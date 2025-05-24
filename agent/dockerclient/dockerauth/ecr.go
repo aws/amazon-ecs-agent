@@ -162,16 +162,13 @@ func (authProvider *ecrAuthProvider) getAuthConfigFromECR(image string, key cach
 		return registry.AuthConfig{}, fmt.Errorf("ecr auth: missing AuthorizationData in ECR response for %s", image)
 	}
 
-	// Verify the auth data has the correct format for ECR
-	if ecrAuthData.ProxyEndpoint != nil &&
-		strings.HasPrefix(proxyEndpointScheme+image, aws.ToString(ecrAuthData.ProxyEndpoint)) &&
-		ecrAuthData.AuthorizationToken != nil {
-
+	if ecrAuthData.AuthorizationToken != nil {
 		// Cache the new token
 		authProvider.tokenCache.Set(key.String(), ecrAuthData)
 		return extractToken(ecrAuthData)
 	}
-	return registry.AuthConfig{}, fmt.Errorf("ecr auth: AuthorizationData is malformed for %s", image)
+
+	return registry.AuthConfig{}, fmt.Errorf("ecr auth: AuthorizationData is nil for %s", image)
 }
 
 func extractToken(authData *types.AuthorizationData) (registry.AuthConfig, error) {

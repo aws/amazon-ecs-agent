@@ -26,6 +26,7 @@ import (
 	"github.com/aws/amazon-ecs-agent/ecs-agent/credentials"
 	"github.com/aws/amazon-ecs-agent/ecs-agent/credentials/providers"
 	"github.com/aws/amazon-ecs-agent/ecs-agent/httpclient"
+	"github.com/aws/amazon-ecs-agent/ecs-agent/logger"
 	"github.com/aws/amazon-ecs-agent/ecs-agent/utils"
 
 	"github.com/aws/aws-sdk-go-v2/aws"
@@ -40,7 +41,8 @@ type ECRFactory interface {
 }
 
 type ecrFactory struct {
-	httpClient *http.Client
+	httpClient           *http.Client
+	useDualStackEndpoint bool
 }
 
 const (
@@ -48,15 +50,16 @@ const (
 )
 
 // NewECRFactory returns an ECRFactory capable of producing ECRSDK clients
-func NewECRFactory(acceptInsecureCert bool) ECRFactory {
+func NewECRFactory(acceptInsecureCert bool, useDualStackEndpoint bool) ECRFactory {
 	return &ecrFactory{
-		httpClient: httpclient.New(roundtripTimeout, acceptInsecureCert, agentversion.String(), config.OSType),
+		httpClient:           httpclient.New(roundtripTimeout, acceptInsecureCert, agentversion.String(), config.OSType),
+		useDualStackEndpoint: useDualStackEndpoint,
 	}
 }
 
 // GetClient creates the ECR SDK client based on the authdata
 func (factory *ecrFactory) GetClient(authData *apicontainer.ECRAuthData) (ECRClient, error) {
-	clientConfig, err := getClientConfig(factory.httpClient, authData)
+	clientConfig, err := getClientConfig(factory.httpClient, authData, factory.useDualStackEndpoint)
 	if err != nil {
 		return &ecrClient{}, err
 	}
@@ -65,7 +68,7 @@ func (factory *ecrFactory) GetClient(authData *apicontainer.ECRAuthData) (ECRCli
 }
 
 // getClientConfig returns the config for the ecr client based on authData
-func getClientConfig(httpClient *http.Client, authData *apicontainer.ECRAuthData) (*aws.Config, error) {
+func getClientConfig(httpClient *http.Client, authData *apicontainer.ECRAuthData, useDualStackEndpoint bool) (*aws.Config, error) {
 	opts := []func(*awsconfig.LoadOptions) error{
 		awsconfig.WithRegion(authData.Region),
 		awsconfig.WithHTTPClient(httpClient),
@@ -73,6 +76,9 @@ func getClientConfig(httpClient *http.Client, authData *apicontainer.ECRAuthData
 
 	if authData.EndpointOverride != "" {
 		opts = append(opts, awsconfig.WithBaseEndpoint(utils.AddScheme(authData.EndpointOverride)))
+	} else if useDualStackEndpoint {
+		logger.Debug("Configuring ECR Client DualStack endpoint")
+		opts = append(opts, awsconfig.WithUseDualStackEndpoint(aws.DualStackEndpointStateEnabled))
 	}
 
 	var credentialsOpt awsconfig.LoadOptionsFunc
