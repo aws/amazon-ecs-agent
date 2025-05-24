@@ -153,7 +153,7 @@ var (
 )
 
 func init() {
-	defaultConfig = config.DefaultConfig()
+	defaultConfig = config.DefaultConfig(ipcompatibility.NewIPv4OnlyCompatibility())
 	defaultConfig.TaskCPUMemLimit.Value = config.ExplicitlyDisabled
 }
 
@@ -1241,7 +1241,7 @@ func TestStopPauseContainerCleanupDelayAwsvpc(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.TODO())
 	defer cancel()
 
-	cfg := config.DefaultConfig()
+	cfg := config.DefaultConfig(ipcompatibility.NewIPv4OnlyCompatibility())
 	cfg.TaskCPUMemLimit.Value = config.ExplicitlyDisabled
 	cfg.ENIPauseContainerCleanupDelaySeconds = expectedDelaySeconds
 
@@ -3075,7 +3075,7 @@ func TestCreateContainerAwslogsLogDriver(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			ctx, cancel := context.WithCancel(context.TODO())
 			defer cancel()
-			cfg := config.DefaultConfig()
+			cfg := config.DefaultConfig(ipcompatibility.NewIPv4OnlyCompatibility())
 			cfg.InstanceIPCompatibility = tc.instanceIPCompatibility
 			ctrl, client, _, taskEngine, _, _, _, _ := mocks(t, ctx, &cfg)
 			defer ctrl.Finish()
@@ -4676,7 +4676,7 @@ func TestManifestPullTaskShouldContinue(t *testing.T) {
 	for _, tc := range tcs {
 		t.Run(tc.name, func(t *testing.T) {
 			// Set up config
-			cfg := config.DefaultConfig()
+			cfg := config.DefaultConfig(ipcompatibility.NewIPv4OnlyCompatibility())
 			cfg.TaskCPUMemLimit.Value = config.ExplicitlyDisabled
 			cfg.ImagePullBehavior = tc.imagePullBehavior
 
@@ -4902,7 +4902,7 @@ func TestManifestPullFailuresTaskShouldStop(t *testing.T) {
 	for _, tc := range tcs {
 		t.Run(tc.name, func(t *testing.T) {
 			// Set up config
-			cfg := config.DefaultConfig()
+			cfg := config.DefaultConfig(ipcompatibility.NewIPv4OnlyCompatibility())
 			cfg.TaskCPUMemLimit.Value = config.ExplicitlyDisabled
 			cfg.ImagePullBehavior = tc.imagePullBehavior
 
@@ -5502,7 +5502,7 @@ func TestSetAWSLogsDualStackEndpoint(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			// Set up config and task engine
-			cfg := config.DefaultConfig()
+			cfg := config.DefaultConfig(ipcompatibility.NewIPv4OnlyCompatibility())
 			cfg.InstanceIPCompatibility = ipcompatibility.NewIPv6OnlyCompatibility()
 			ctrl, client, _, taskEngine, _, _, _, _ := mocks(t, context.TODO(), &cfg)
 			defer ctrl.Finish()

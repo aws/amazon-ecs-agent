@@ -398,3 +398,26 @@ func TestIPCompatibilityFallback(t *testing.T) {
 	assert.Equal(t, config.InstanceIPCompatibility.IsIPv4Compatible(), true)
 	assert.Equal(t, config.InstanceIPCompatibility.IsIPv6Compatible(), false)
 }
+
+func TestShouldExcludeIPv6PortBindingDefault(t *testing.T) {
+	t.Run("ipv6-only instance", func(t *testing.T) {
+		assert.False(t,
+			DefaultConfig(ipcompatibility.NewIPv6OnlyCompatibility()).
+				ShouldExcludeIPv6PortBinding.Enabled())
+	})
+	t.Run("dual-stack instance", func(t *testing.T) {
+		assert.True(t,
+			DefaultConfig(ipcompatibility.NewDualStackCompatibility()).
+				ShouldExcludeIPv6PortBinding.Enabled())
+	})
+	t.Run("ipv4-only instance", func(t *testing.T) {
+		assert.True(t,
+			DefaultConfig(ipcompatibility.NewIPv4OnlyCompatibility()).
+				ShouldExcludeIPv6PortBinding.Enabled())
+	})
+	t.Run("no ip compatibility", func(t *testing.T) {
+		assert.True(t,
+			DefaultConfig(ipcompatibility.NewIPCompatibility(false, false)).
+				ShouldExcludeIPv6PortBinding.Enabled())
+	})
+}

@@ -80,7 +80,12 @@ var (
 )
 
 // DefaultConfig returns the default configuration for Linux
-func DefaultConfig() Config {
+func DefaultConfig(instanceIPCompatibility ipcompatibility.IPCompatibility) Config {
+	shouldExcludeIPv6PortBinding := BooleanDefaultTrue{Value: ExplicitlyEnabled}
+	if instanceIPCompatibility.IsIPv6Only() {
+		// If the instance is IPv6-only then IPv6 port bindings should be included by default
+		shouldExcludeIPv6PortBinding = BooleanDefaultTrue{Value: ExplicitlyDisabled}
+	}
 	return Config{
 		DockerEndpoint:                      "unix:///var/run/docker.sock",
 		ReservedPorts:                       []uint16{SSHPort, DockerReservedPort, DockerReservedSSLPort, AgentIntrospectionPort, tmds.Port},
@@ -128,7 +133,7 @@ func DefaultConfig() Config {
 		FSxWindowsFileServerCapable:         BooleanDefaultTrue{Value: ExplicitlyDisabled},
 		RuntimeStatsLogFile:                 defaultRuntimeStatsLogFile,
 		EnableRuntimeStats:                  BooleanDefaultFalse{Value: NotSet},
-		ShouldExcludeIPv6PortBinding:        BooleanDefaultTrue{Value: ExplicitlyEnabled},
+		ShouldExcludeIPv6PortBinding:        shouldExcludeIPv6PortBinding,
 		CSIDriverSocketPath:                 defaultCSIDriverSocketPath,
 		NodeStageTimeout:                    nodeStageTimeout,
 		NodeUnstageTimeout:                  nodeUnstageTimeout,

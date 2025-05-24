@@ -55,6 +55,14 @@ func WithIPv6PortBindingExcluded(val bool) ECSClientOption {
 	}
 }
 
+// WithIPv4PortBindingExcluded is an ECSClientOption that configures the
+// ecsClient.shouldExcludeIPv4PortBinding with the value passed as a parameter.
+func WithIPv4PortBindingExcluded(val bool) ECSClientOption {
+	return func(client *ecsClient) {
+		client.shouldExcludeIPv4PortBinding = val
+	}
+}
+
 // WithSASCCustomRetryBackoff is an ECSClientOption that configures the
 // ecsClient.sascCustomRetryBackoff with the value passed as a parameter.
 func WithSASCCustomRetryBackoff(f func(func() error) error) ECSClientOption {

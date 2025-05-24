@@ -82,7 +82,7 @@ const (
 )
 
 func init() {
-	defaultConfig = config.DefaultConfig()
+	defaultConfig = config.DefaultConfig(ipcompatibility.NewIPv4OnlyCompatibility())
 	defaultConfig.TaskCPUMemLimit.Value = config.ExplicitlyDisabled
 }
 
