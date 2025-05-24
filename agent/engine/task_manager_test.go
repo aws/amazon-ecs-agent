@@ -29,6 +29,7 @@ import (
 	apicontainer "github.com/aws/amazon-ecs-agent/agent/api/container"
 	apitask "github.com/aws/amazon-ecs-agent/agent/api/task"
 	"github.com/aws/amazon-ecs-agent/agent/config"
+	"github.com/aws/amazon-ecs-agent/agent/config/ipcompatibility"
 	"github.com/aws/amazon-ecs-agent/agent/data"
 	"github.com/aws/amazon-ecs-agent/agent/dockerclient/dockerapi"
 	mock_dockerapi "github.com/aws/amazon-ecs-agent/agent/dockerclient/dockerapi/mocks"
@@ -2403,7 +2404,7 @@ func TestStartVolumeResourceTransitionsEmpty(t *testing.T) {
 }
 
 func getTestConfig() config.Config {
-	cfg := config.DefaultConfig()
+	cfg := config.DefaultConfig(ipcompatibility.NewIPv4OnlyCompatibility())
 	cfg.TaskCPUMemLimit.Value = config.ExplicitlyDisabled
 	return cfg
 }
@@ -2544,7 +2545,7 @@ func TestUnstageVolumes(t *testing.T) {
 			defer mockCtrl.Finish()
 			ctx, cancel := context.WithCancel(context.TODO())
 			defer cancel()
-			defaultConfig := config.DefaultConfig()
+			defaultConfig := config.DefaultConfig(ipcompatibility.NewIPv4OnlyCompatibility())
 			mtask := &managedTask{
 				Task: &apitask.Task{
 					ResourcesMapUnsafe:  make(map[string][]taskresource.TaskResource),

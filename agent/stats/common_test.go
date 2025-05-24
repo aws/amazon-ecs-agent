@@ -25,6 +25,7 @@ import (
 	apicontainer "github.com/aws/amazon-ecs-agent/agent/api/container"
 	apitask "github.com/aws/amazon-ecs-agent/agent/api/task"
 	"github.com/aws/amazon-ecs-agent/agent/config"
+	"github.com/aws/amazon-ecs-agent/agent/config/ipcompatibility"
 	"github.com/aws/amazon-ecs-agent/agent/data"
 	dm "github.com/aws/amazon-ecs-agent/agent/engine/daemonmanager"
 	"github.com/aws/amazon-ecs-agent/agent/statechange"
@@ -65,7 +66,7 @@ const (
 )
 
 var (
-	cfg                      = config.DefaultConfig()
+	cfg                      = config.DefaultConfig(ipcompatibility.NewIPv4OnlyCompatibility())
 	defaultCluster           = "default"
 	defaultContainerInstance = "ci"
 )

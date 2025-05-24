@@ -23,6 +23,7 @@ import (
 	"testing"
 
 	"github.com/aws/amazon-ecs-agent/agent/config"
+	"github.com/aws/amazon-ecs-agent/agent/config/ipcompatibility"
 	"github.com/aws/amazon-ecs-agent/agent/dockerclient/dockerapi"
 	mock_sdkclient "github.com/aws/amazon-ecs-agent/agent/dockerclient/sdkclient/mocks"
 	mock_sdkclientfactory "github.com/aws/amazon-ecs-agent/agent/dockerclient/sdkclientfactory/mocks"
@@ -37,7 +38,7 @@ const (
 	tarballPath = "/path/to/container.tar"
 )
 
-var defaultConfig = config.DefaultConfig()
+var defaultConfig = config.DefaultConfig(ipcompatibility.NewIPv4OnlyCompatibility())
 
 func TestGetContainerImageInspectImageError(t *testing.T) {
 	ctrl := gomock.NewController(t)

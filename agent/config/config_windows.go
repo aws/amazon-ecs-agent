@@ -98,7 +98,7 @@ var (
 )
 
 // DefaultConfig returns the default configuration for Windows
-func DefaultConfig() Config {
+func DefaultConfig(instanceIPCompatibility ipcompatibility.IPCompatibility) Config {
 	programData := utils.DefaultIfBlank(os.Getenv("ProgramData"), `C:\ProgramData`)
 	ecsRoot := filepath.Join(programData, "Amazon", "ECS")
 	dataDir := filepath.Join(ecsRoot, "data")

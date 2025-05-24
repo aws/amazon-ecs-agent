@@ -34,6 +34,11 @@ func NewIPv6OnlyCompatibility() IPCompatibility {
 	return NewIPCompatibility(false, true)
 }
 
+// NewDualStackCompatibility returns a dual-stack IPCompatibility value.
+func NewDualStackCompatibility() IPCompatibility {
+	return NewIPCompatibility(true, true)
+}
+
 // IsIPv4Compatible returns the current IPv4 compatibility status.
 func (ic *IPCompatibility) IsIPv4Compatible() bool {
 	return ic.ipv4Compatible

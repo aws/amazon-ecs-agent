@@ -1728,6 +1728,156 @@ func TestDiscoverPollEndpointCacheTTLNotSet(t *testing.T) {
 	assert.Equal(t, endpoint, aws.ToString(cachedEndpoint.(*ecsservice.DiscoverPollEndpointOutput).Endpoint))
 }
 
+func TestPortBindingExclusions(t *testing.T) {
+	ipv4PortBinding := types.NetworkBinding{
+		BindIP:        aws.String("0.0.0.0"),
+		ContainerPort: aws.Int32(1),
+		HostPort:      aws.Int32(2),
+		Protocol:      "tcp",
+	}
+	ipv6PortBinding := types.NetworkBinding{
+		BindIP:        aws.String("::"),
+		ContainerPort: aws.Int32(3),
+		HostPort:      aws.Int32(4),
+		Protocol:      "tcp",
+	}
+
+	testcases := []struct {
+		name                    string
+		clientOpts              []ECSClientOption
+		expectedNetworkBindings []types.NetworkBinding
+	}{
+		{
+			name:                    "exclude ipv4 true",
+			clientOpts:              []ECSClientOption{WithIPv4PortBindingExcluded(true)},
+			expectedNetworkBindings: []types.NetworkBinding{ipv6PortBinding},
+		},
+		{
+			name:                    "exclude ipv4 false",
+			clientOpts:              []ECSClientOption{WithIPv4PortBindingExcluded(false)},
+			expectedNetworkBindings: []types.NetworkBinding{ipv4PortBinding, ipv6PortBinding},
+		},
+		{
+			name:                    "exclude ipv6 true",
+			clientOpts:              []ECSClientOption{WithIPv6PortBindingExcluded(true)},
+			expectedNetworkBindings: []types.NetworkBinding{ipv4PortBinding},
+		},
+		{
+			name:                    "exclude ipv6 false",
+			clientOpts:              []ECSClientOption{WithIPv6PortBindingExcluded(false)},
+			expectedNetworkBindings: []types.NetworkBinding{ipv4PortBinding, ipv6PortBinding},
+		},
+		{
+			name: "exclude ipv4 and ipv6",
+			clientOpts: []ECSClientOption{
+				WithIPv4PortBindingExcluded(true),
+				WithIPv6PortBindingExcluded(true),
+			},
+			expectedNetworkBindings: nil,
+		},
+		{
+			name:                    "no options set",
+			clientOpts:              []ECSClientOption{},
+			expectedNetworkBindings: []types.NetworkBinding{ipv4PortBinding, ipv6PortBinding},
+		},
+		{
+			name: "false - false",
+			clientOpts: []ECSClientOption{
+				WithIPv4PortBindingExcluded(false),
+				WithIPv6PortBindingExcluded(false),
+			},
+			expectedNetworkBindings: []types.NetworkBinding{ipv4PortBinding, ipv6PortBinding},
+		},
+		{
+			name: "false - true",
+			clientOpts: []ECSClientOption{
+				WithIPv4PortBindingExcluded(false),
+				WithIPv6PortBindingExcluded(true),
+			},
+			expectedNetworkBindings: []types.NetworkBinding{ipv4PortBinding},
+		},
+		{
+			name: "true - false",
+			clientOpts: []ECSClientOption{
+				WithIPv4PortBindingExcluded(true),
+				WithIPv6PortBindingExcluded(false),
+			},
+			expectedNetworkBindings: []types.NetworkBinding{ipv6PortBinding},
+		},
+		{
+			name: "true - true",
+			clientOpts: []ECSClientOption{
+				WithIPv4PortBindingExcluded(true),
+				WithIPv6PortBindingExcluded(true),
+			},
+			expectedNetworkBindings: nil,
+		},
+	}
+
+	for _, tt := range testcases {
+		t.Run(tt.name, func(t *testing.T) {
+			ctrl := gomock.NewController(t)
+			defer ctrl.Finish()
+			tester := setup(t, ctrl, ec2.NewBlackholeEC2MetadataClient(), nil, tt.clientOpts...)
+
+			// Test SubmitContainerStateChange
+			tester.mockSubmitStateClient.EXPECT().SubmitContainerStateChange(gomock.Any(),
+				&ecsservice.SubmitContainerStateChangeInput{
+					Cluster:         aws.String(configuredCluster),
+					Task:            aws.String(taskARN),
+					ContainerName:   aws.String(containerName),
+					RuntimeId:       aws.String(runtimeID),
+					Status:          aws.String("RUNNING"),
+					NetworkBindings: tt.expectedNetworkBindings,
+				})
+			err := tester.client.SubmitContainerStateChange(ecs.ContainerStateChange{
+				TaskArn:       taskARN,
+				ContainerName: containerName,
+				RuntimeID:     runtimeID,
+				Status:        apicontainerstatus.ContainerRunning,
+				NetworkBindings: []types.NetworkBinding{
+					ipv4PortBinding,
+					ipv6PortBinding,
+				},
+			})
+			assert.NoError(t, err, "Unable to submit container state change")
+
+			// Test SubmitTaskStateChange
+			tester.mockSubmitStateClient.EXPECT().SubmitTaskStateChange(gomock.Any(),
+				&ecsservice.SubmitTaskStateChangeInput{
+					Cluster: aws.String(configuredCluster),
+					Task:    aws.String(taskARN),
+					Status:  aws.String("RUNNING"),
+					Reason:  aws.String(""),
+					Containers: []types.ContainerStateChange{
+						{
+							ContainerName:   aws.String(containerName),
+							RuntimeId:       aws.String(runtimeID),
+							Status:          aws.String("RUNNING"),
+							NetworkBindings: tt.expectedNetworkBindings,
+						},
+					}})
+			err = tester.client.SubmitTaskStateChange(ecs.TaskStateChange{
+				ClusterARN: configuredCluster,
+				TaskARN:    taskARN,
+				Status:     apitaskstatus.TaskRunning,
+				Containers: []types.ContainerStateChange{
+					{
+						ContainerName: aws.String(containerName),
+						RuntimeId:     aws.String(runtimeID),
+						Status:        aws.String("RUNNING"),
+						NetworkBindings: []types.NetworkBinding{
+							ipv4PortBinding,
+							ipv6PortBinding,
+						},
+					},
+				},
+			})
+			assert.NoError(t, err)
+		})
+	}
+}
+
 func TestWithIPv6PortBindingExcludedSetTrue(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
