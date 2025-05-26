@@ -84,6 +84,7 @@ const (
 	capabilityEBSTaskAttach                                = "storage.ebs-task-volume-attach"
 	capabilityContainerRestartPolicy                       = "container-restart-policy"
 	capabilityFaultInjection                               = "fault-injection"
+	capabilityIPv6Only                                     = "ipv6-only"
 
 	// network capabilities, going forward, please append "network." prefix to any new networking capability we introduce
 	networkCapabilityPrefix      = "network."
@@ -317,6 +318,9 @@ func (agent *ecsAgent) capabilities() ([]types.Attribute, error) {
 	}
 
 	capabilities = agent.appendFaultInjectionCapabilities(capabilities)
+
+	// IPv6-only cap
+	capabilities = appendNameOnlyAttribute(capabilities, attributePrefix+capabilityIPv6Only)
 
 	return capabilities, nil
 }
