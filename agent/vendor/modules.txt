@@ -43,6 +43,7 @@ github.com/aws/amazon-ecs-agent/ecs-agent/httpclient/mock
 github.com/aws/amazon-ecs-agent/ecs-agent/introspection
 github.com/aws/amazon-ecs-agent/ecs-agent/introspection/v1
 github.com/aws/amazon-ecs-agent/ecs-agent/introspection/v1/handlers
+github.com/aws/amazon-ecs-agent/ecs-agent/ipcompatibility
 github.com/aws/amazon-ecs-agent/ecs-agent/logger
 github.com/aws/amazon-ecs-agent/ecs-agent/logger/audit
 github.com/aws/amazon-ecs-agent/ecs-agent/logger/audit/mocks

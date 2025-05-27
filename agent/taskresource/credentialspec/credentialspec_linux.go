@@ -28,7 +28,6 @@ import (
 
 	"github.com/aws/amazon-ecs-agent/agent/asm"
 	asmfactory "github.com/aws/amazon-ecs-agent/agent/asm/factory"
-	"github.com/aws/amazon-ecs-agent/agent/config/ipcompatibility"
 	"github.com/aws/amazon-ecs-agent/agent/s3"
 	s3factory "github.com/aws/amazon-ecs-agent/agent/s3/factory"
 	"github.com/aws/amazon-ecs-agent/agent/ssm"
@@ -36,6 +35,7 @@ import (
 	"github.com/aws/amazon-ecs-agent/agent/utils"
 	"github.com/aws/amazon-ecs-agent/ecs-agent/credentials"
 	credentialsfetcherclient "github.com/aws/amazon-ecs-agent/ecs-agent/gmsacredclient"
+	"github.com/aws/amazon-ecs-agent/ecs-agent/ipcompatibility"
 
 	"github.com/aws/aws-sdk-go-v2/aws/arn"
 	"github.com/cihub/seelog"

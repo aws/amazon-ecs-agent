@@ -26,7 +26,6 @@ import (
 	"time"
 
 	asmfactory "github.com/aws/amazon-ecs-agent/agent/asm/factory"
-	"github.com/aws/amazon-ecs-agent/agent/config/ipcompatibility"
 	"github.com/aws/amazon-ecs-agent/agent/s3"
 	s3factory "github.com/aws/amazon-ecs-agent/agent/s3/factory"
 	"github.com/aws/amazon-ecs-agent/agent/ssm"
@@ -34,6 +33,7 @@ import (
 	"github.com/aws/amazon-ecs-agent/agent/utils/ioutilwrapper"
 	"github.com/aws/amazon-ecs-agent/agent/utils/oswrapper"
 	"github.com/aws/amazon-ecs-agent/ecs-agent/credentials"
+	"github.com/aws/amazon-ecs-agent/ecs-agent/ipcompatibility"
 	internalarn "github.com/aws/amazon-ecs-agent/ecs-agent/utils/arn"
 
 	"github.com/aws/aws-sdk-go-v2/aws/arn"

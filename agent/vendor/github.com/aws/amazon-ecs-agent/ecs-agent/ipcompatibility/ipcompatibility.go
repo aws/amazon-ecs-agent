@@ -13,23 +13,23 @@
 
 package ipcompatibility
 
-// Helper struct to track IP compatibility of a network.
+// IPCompatibility is used to track IP compatibility of a network.
 type IPCompatibility struct {
 	ipv4Compatible bool
 	ipv6Compatible bool
 }
 
-// Returns a new IPCompatibility instance.
+// NewIPCompatibility returns a new IPCompatibility instance.
 func NewIPCompatibility(ipv4Compatible, ipv6Compatible bool) IPCompatibility {
 	return IPCompatibility{ipv4Compatible: ipv4Compatible, ipv6Compatible: ipv6Compatible}
 }
 
-// Returns an IPv4-only IPCompatibility value.
+// NewIPv4OnlyCompatibility returns an IPv4-only IPCompatibility value.
 func NewIPv4OnlyCompatibility() IPCompatibility {
 	return NewIPCompatibility(true, false)
 }
 
-// Returns an IPv6-only IPCompatibility value.
+// NewIPv6OnlyCompatibility returns an IPv6-only IPCompatibility value.
 func NewIPv6OnlyCompatibility() IPCompatibility {
 	return NewIPCompatibility(false, true)
 }
@@ -49,7 +49,7 @@ func (ic *IPCompatibility) IsIPv6Compatible() bool {
 	return ic.ipv6Compatible
 }
 
-// InstanceIsIPv6Only checks if the IP compatibility is IPv6-only.
+// IsIPv6Only checks if the IP compatibility is IPv6-only.
 func (ic *IPCompatibility) IsIPv6Only() bool {
 	return ic.IsIPv6Compatible() && !ic.IsIPv4Compatible()
 }

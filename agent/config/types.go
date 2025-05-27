@@ -18,8 +18,8 @@ import (
 
 	cniTypes "github.com/containernetworking/cni/pkg/types"
 
-	"github.com/aws/amazon-ecs-agent/agent/config/ipcompatibility"
 	"github.com/aws/amazon-ecs-agent/agent/dockerclient"
+	"github.com/aws/amazon-ecs-agent/ecs-agent/ipcompatibility"
 )
 
 // ImagePullBehaviorType is an enum variable type corresponding to different agent pull

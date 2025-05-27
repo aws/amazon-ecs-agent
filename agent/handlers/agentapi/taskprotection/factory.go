@@ -16,12 +16,12 @@ import (
 	"context"
 
 	"github.com/aws/amazon-ecs-agent/agent/config"
-	"github.com/aws/amazon-ecs-agent/agent/config/ipcompatibility"
 	"github.com/aws/amazon-ecs-agent/agent/version"
 	ecsapi "github.com/aws/amazon-ecs-agent/ecs-agent/api/ecs"
 	ecsclient "github.com/aws/amazon-ecs-agent/ecs-agent/api/ecs/client"
 	"github.com/aws/amazon-ecs-agent/ecs-agent/credentials"
 	"github.com/aws/amazon-ecs-agent/ecs-agent/httpclient"
+	"github.com/aws/amazon-ecs-agent/ecs-agent/ipcompatibility"
 	"github.com/aws/amazon-ecs-agent/ecs-agent/logger"
 	"github.com/aws/amazon-ecs-agent/ecs-agent/utils"
 

@@ -21,9 +21,9 @@ package mock_factory
 import (
 	reflect "reflect"
 
-	ipcompatibility "github.com/aws/amazon-ecs-agent/agent/config/ipcompatibility"
 	s3 "github.com/aws/amazon-ecs-agent/agent/s3"
 	credentials "github.com/aws/amazon-ecs-agent/ecs-agent/credentials"
+	ipcompatibility "github.com/aws/amazon-ecs-agent/ecs-agent/ipcompatibility"
 	gomock "github.com/golang/mock/gomock"
 )
 
