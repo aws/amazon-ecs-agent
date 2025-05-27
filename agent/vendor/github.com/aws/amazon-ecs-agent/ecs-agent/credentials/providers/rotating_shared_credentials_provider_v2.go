@@ -25,6 +25,15 @@ import (
 	"github.com/aws/aws-sdk-go-v2/config"
 )
 
+const (
+	ALTERNATE_CREDENTIAL_PROFILE_ENV_VAR = "ECS_ALTERNATE_CREDENTIAL_PROFILE"
+	DEFAULT_CREDENTIAL_PROFILE           = "default"
+	// defaultRotationInterval is how frequently to expire and re-retrieve the credentials from file.
+	defaultRotationInterval = time.Minute
+	// RotatingSharedCredentialsProviderName is the name of this provider
+	RotatingSharedCredentialsProviderName = "RotatingSharedCredentialsProvider"
+)
+
 // RotatingSharedCredentialsProviderV2 is a provider that retrieves credentials from the
 // shared credentials file and adds the functionality of expiring and re-retrieving
 // those credentials from the file.
