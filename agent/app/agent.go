@@ -328,6 +328,9 @@ func (agent *ecsAgent) start() int {
 
 		// Exclusion of IPv6 port bindings is controlled by configuration for historical reasons.
 		ecsclient.WithIPv6PortBindingExcluded(agent.cfg.ShouldExcludeIPv6PortBinding.Enabled()),
+
+		// If instance is IPv6-only then we must use dualstack ECS endpoints
+		ecsclient.WithDualStackEnabled(agent.cfg.InstanceIPCompatibility.IsIPv6Only()),
 	}
 
 	clientFactory := ecsclient.NewECSClientFactory(agent.credentialsCache, cfgAccessor, agent.ec2MetadataClient,
