@@ -34,7 +34,7 @@ func TestCreateTags(t *testing.T) {
 	defer ctrl.Finish()
 
 	mockClientSDK := mock_ec2.NewMockClientSDK(ctrl)
-	testClient, err := ec2.NewClientImpl("us-west-2")
+	testClient, err := ec2.NewClientImpl("us-west-2", aws.DualStackEndpointStateDisabled)
 	assert.NoError(t, err)
 	testClient.(*ec2.ClientImpl).SetClientSDK(mockClientSDK)
 
@@ -54,7 +54,7 @@ func TestDescribeECSTagsForInstance(t *testing.T) {
 
 	instanceID := "iid"
 	mockClientSDK := mock_ec2.NewMockClientSDK(ctrl)
-	testClient, err := ec2.NewClientImpl("us-west-2")
+	testClient, err := ec2.NewClientImpl("us-west-2", aws.DualStackEndpointStateDisabled)
 	assert.NoError(t, err)
 	testClient.(*ec2.ClientImpl).SetClientSDK(mockClientSDK)
 

@@ -210,7 +210,11 @@ func newAgent(blackholeEC2Metadata bool, acceptInsecureCert *bool) (agent, error
 		cfg.NoIID = true
 	}
 
-	ec2Client, err := ec2.NewClientImpl(cfg.AWSRegion)
+	ec2ClientDualStackEndpointState := aws.DualStackEndpointStateDisabled
+	if cfg.InstanceIPCompatibility.IsIPv6Only() {
+		ec2ClientDualStackEndpointState = aws.DualStackEndpointStateEnabled
+	}
+	ec2Client, err := ec2.NewClientImpl(cfg.AWSRegion, ec2ClientDualStackEndpointState)
 	if err != nil {
 		logger.Critical("Error creating EC2 client", logger.Fields{
 			field.Error: err,
