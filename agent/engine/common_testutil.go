@@ -30,6 +30,7 @@ import (
 	apicontainer "github.com/aws/amazon-ecs-agent/agent/api/container"
 	apitask "github.com/aws/amazon-ecs-agent/agent/api/task"
 	"github.com/aws/amazon-ecs-agent/agent/config"
+	"github.com/aws/amazon-ecs-agent/agent/config/ipcompatibility"
 	"github.com/aws/amazon-ecs-agent/agent/dockerclient"
 	"github.com/aws/amazon-ecs-agent/agent/dockerclient/dockerapi"
 	mock_dockerapi "github.com/aws/amazon-ecs-agent/agent/dockerclient/dockerapi/mocks"
@@ -234,7 +235,7 @@ func validateContainerRunWorkflow(t *testing.T,
 				containerEventsWG.Done()
 			}()
 		}).Return(dockerapi.DockerContainerMetadata{DockerID: containerID})
-	defaultConfig := config.DefaultConfig()
+	defaultConfig := config.DefaultConfig(ipcompatibility.NewIPv4OnlyCompatibility())
 	client.EXPECT().StartContainer(gomock.Any(), containerID, defaultConfig.ContainerStartTimeout).Do(
 		func(ctx interface{}, id string, timeout time.Duration) {
 			containerEventsWG.Add(1)

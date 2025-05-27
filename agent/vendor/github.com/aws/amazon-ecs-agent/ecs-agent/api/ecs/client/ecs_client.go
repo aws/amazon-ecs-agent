@@ -92,6 +92,7 @@ type ecsClient struct {
 	pollEndpointCache                async.TTLCache
 	pollEndpointLock                 sync.Mutex
 	isFIPSDetected                   bool
+	shouldExcludeIPv4PortBinding     bool
 	shouldExcludeIPv6PortBinding     bool
 	sascCustomRetryBackoff           func(func() error) error
 	stscAttachmentCustomRetryBackoff func(func() error) error
@@ -648,7 +649,10 @@ func (client *ecsClient) submitTaskStateChange(change ecs.TaskStateChange) error
 		PullStoppedAt:      change.PullStoppedAt,
 		ExecutionStoppedAt: change.ExecutionStoppedAt,
 		ManagedAgents:      formatManagedAgents(change.ManagedAgents),
-		Containers:         formatContainers(change.Containers, client.shouldExcludeIPv6PortBinding, change.TaskARN),
+		Containers: formatContainers(
+			change.Containers,
+			client.shouldExcludeIPv4PortBinding, client.shouldExcludeIPv6PortBinding,
+			change.TaskARN),
 	}
 
 	_, err := client.submitStateChangeClient.SubmitTaskStateChange(context.TODO(), &req)
@@ -699,6 +703,10 @@ func (client *ecsClient) SubmitContainerStateChange(change ecs.ContainerStateCha
 	}
 
 	networkBindings := change.NetworkBindings
+	if client.shouldExcludeIPv4PortBinding {
+		networkBindings = excludeIPv4PortBindingFromNetworkBindings(networkBindings, change.ContainerName,
+			change.TaskArn)
+	}
 	if client.shouldExcludeIPv6PortBinding {
 		networkBindings = excludeIPv6PortBindingFromNetworkBindings(networkBindings, change.ContainerName,
 			change.TaskArn)
@@ -914,8 +922,9 @@ func formatManagedAgents(managedAgents []types.ManagedAgentStateChange) []types.
 	return result
 }
 
-func formatContainers(containers []types.ContainerStateChange, shouldExcludeIPv6PortBinding bool,
-	taskARN string) []types.ContainerStateChange {
+func formatContainers(containers []types.ContainerStateChange,
+	shouldExcludeIPv4PortBinding, shouldExcludeIPv6PortBinding bool, taskARN string,
+) []types.ContainerStateChange {
 	var result []types.ContainerStateChange
 	for _, c := range containers {
 		if c.RuntimeId != nil {
@@ -927,6 +936,10 @@ func formatContainers(containers []types.ContainerStateChange, shouldExcludeIPv6
 		if c.ImageDigest != nil {
 			c.ImageDigest = trimStringPtr(c.ImageDigest, ecsMaxImageDigestLength)
 		}
+		if shouldExcludeIPv4PortBinding {
+			c.NetworkBindings = excludeIPv4PortBindingFromNetworkBindings(c.NetworkBindings,
+				aws.ToString(c.ContainerName), taskARN)
+		}
 		if shouldExcludeIPv6PortBinding {
 			c.NetworkBindings = excludeIPv6PortBindingFromNetworkBindings(c.NetworkBindings,
 				aws.ToString(c.ContainerName), taskARN)
@@ -936,13 +949,25 @@ func formatContainers(containers []types.ContainerStateChange, shouldExcludeIPv6
 	return result
 }
 
+func excludeIPv4PortBindingFromNetworkBindings(networkBindings []types.NetworkBinding, containerName,
+	taskARN string) []types.NetworkBinding {
+	return excludePortBindingFromNetworkBindings("0.0.0.0", networkBindings, containerName, taskARN)
+}
+
 func excludeIPv6PortBindingFromNetworkBindings(networkBindings []types.NetworkBinding, containerName,
 	taskARN string) []types.NetworkBinding {
+	return excludePortBindingFromNetworkBindings("::", networkBindings, containerName, taskARN)
+}
+
+func excludePortBindingFromNetworkBindings(
+	bindIPToExclude string, networkBindings []types.NetworkBinding, containerName, taskARN string,
+) []types.NetworkBinding {
 	var result []types.NetworkBinding
 	for _, binding := range networkBindings {
-		if aws.ToString(binding.BindIP) == "::" {
-			logger.Debug("Exclude IPv6 port binding", logger.Fields{
+		if aws.ToString(binding.BindIP) == bindIPToExclude {
+			logger.Debug("Exclude port binding", logger.Fields{
 				"portBinding":       binding,
+				"bindIP":            bindIPToExclude,
 				field.ContainerName: containerName,
 				field.TaskARN:       taskARN,
 			})

@@ -275,7 +275,7 @@ func NewConfig(ec2client ec2.EC2MetadataClient) (*Config, error) {
 
 func (config *Config) mergeDefaultConfig(errs []error) error {
 	config.trimWhitespace()
-	config.Merge(DefaultConfig())
+	config.Merge(DefaultConfig(config.InstanceIPCompatibility))
 	err := config.validateAndOverrideBounds()
 	if err != nil {
 		errs = append(errs, err)
