@@ -25,6 +25,7 @@ github.com/aws/amazon-ecs-agent/ecs-agent/api/errors
 github.com/aws/amazon-ecs-agent/ecs-agent/api/task/status
 github.com/aws/amazon-ecs-agent/ecs-agent/async
 github.com/aws/amazon-ecs-agent/ecs-agent/async/mocks
+github.com/aws/amazon-ecs-agent/ecs-agent/awsrulesfn
 github.com/aws/amazon-ecs-agent/ecs-agent/config
 github.com/aws/amazon-ecs-agent/ecs-agent/credentials
 github.com/aws/amazon-ecs-agent/ecs-agent/credentials/mocks
