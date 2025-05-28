@@ -28,6 +28,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/aws/amazon-ecs-agent/ecs-agent/ipcompatibility"
 	mock_metrics "github.com/aws/amazon-ecs-agent/ecs-agent/metrics/mocks"
 	"github.com/aws/amazon-ecs-agent/ecs-agent/tmds/handlers/fault/v1/types"
 	v2 "github.com/aws/amazon-ecs-agent/ecs-agent/tmds/handlers/v2"
@@ -89,23 +90,22 @@ var (
 
 	happyV4OnlyNetworkInterfaces = []*state.NetworkInterface{
 		{
-			DeviceName:    deviceName,
-			IPV4Addresses: []string{ipv4Addr},
+			DeviceName:      deviceName,
+			IPCompatibility: ipcompatibility.NewIPv4OnlyCompatibility(),
 		},
 	}
 
 	happyV6OnlyNetworkInterfaces = []*state.NetworkInterface{
 		{
-			DeviceName:    deviceName,
-			IPV6Addresses: []string{ipv6Addr},
+			DeviceName:      deviceName,
+			IPCompatibility: ipcompatibility.NewIPv6OnlyCompatibility(),
 		},
 	}
 
 	happyV4V6NetworkInterfaces = []*state.NetworkInterface{
 		{
-			DeviceName:    deviceName,
-			IPV4Addresses: []string{ipv4Addr},
-			IPV6Addresses: []string{ipv6Addr},
+			DeviceName:      deviceName,
+			IPCompatibility: ipcompatibility.NewDualStackCompatibility(),
 		},
 	}
 

@@ -20,6 +20,7 @@ import (
 
 	"github.com/aws/amazon-ecs-agent/ecs-agent/acs/model/ecsacs"
 	"github.com/aws/amazon-ecs-agent/ecs-agent/acs/session/testconst"
+	"github.com/aws/amazon-ecs-agent/ecs-agent/ipcompatibility"
 	"github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/stretchr/testify/assert"
 )
@@ -161,6 +162,43 @@ func TestGetIPv6SubnetCIDRBlock(t *testing.T) {
 			if result != tt.expected {
 				t.Errorf("GetIPv6SubnetCIDRBlock() = %v, want %v", result, tt.expected)
 			}
+		})
+	}
+}
+
+func TestIPCompatibility(t *testing.T) {
+	testcases := []struct {
+		name             string
+		networkInterface *NetworkInterface
+		expected         ipcompatibility.IPCompatibility
+	}{
+		{
+			name: "IPv4-only",
+			networkInterface: &NetworkInterface{
+				IPV4Addresses: []*IPV4Address{{Address: "1.2.3.4"}},
+			},
+			expected: ipcompatibility.NewIPv4OnlyCompatibility(),
+		},
+		{
+			name: "dual-stack",
+			networkInterface: &NetworkInterface{
+				IPV4Addresses: []*IPV4Address{{Address: "1.2.3.4"}},
+				IPV6Addresses: []*IPV6Address{{Address: "2:3:4:5::"}},
+			},
+			expected: ipcompatibility.NewDualStackCompatibility(),
+		},
+		{
+			name: "IPv6-only",
+			networkInterface: &NetworkInterface{
+				IPV6Addresses: []*IPV6Address{{Address: "2:3:4:5::"}},
+			},
+			expected: ipcompatibility.NewIPv6OnlyCompatibility(),
+		},
+	}
+
+	for _, tt := range testcases {
+		t.Run(tt.name, func(t *testing.T) {
+			assert.Equal(t, tt.expected, tt.networkInterface.IPCompatibility())
 		})
 	}
 }
