@@ -154,3 +154,8 @@ var isFaultInjectionToolingAvailable = checkFaultInjectionTooling
 func checkFaultInjectionTooling() bool {
 	return false
 }
+
+// appendIPv6OnlyCapability is a no-op.
+func appendIPv6OnlyCapability(capabilities []types.Attribute) []types.Attribute {
+	return capabilities
+}
