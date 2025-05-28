@@ -198,10 +198,6 @@ func getConfigFileName() (string, error) {
 // determining the IP compatibility of the container instance.
 // This is a fallback to help with graceful adoption of Agent in IPv6-only environments
 // without disrupting existing environments.
-//
-// TODO:feat:IPv6-only - Remove lint rule below
-//
-//lint:ignore U1000 Function will be used in the future
 func (c *Config) determineIPCompatibility() {
 	var err error
 	c.InstanceIPCompatibility, err = netutils.DetermineIPCompatibility(nlWrapper, "")

@@ -1154,3 +1154,18 @@ func convertToInterfaceList(strings []string) []interface{} {
 	}
 	return interfaces
 }
+
+func TestAppendIPv6OnlyCapability(t *testing.T) {
+	capabilities := []types.Attribute{
+		types.Attribute{Name: aws.String("cap1")},
+		types.Attribute{Name: aws.String("cap2")},
+	}
+	capabilities = appendIPv6OnlyCapability(capabilities)
+	assert.Equal(t,
+		[]types.Attribute{
+			types.Attribute{Name: aws.String("cap1")},
+			types.Attribute{Name: aws.String("cap2")},
+			types.Attribute{Name: aws.String("ecs.capability.ipv6-only")},
+		},
+		capabilities)
+}
