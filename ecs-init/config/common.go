@@ -22,7 +22,7 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/aws/amazon-ecs-agent/ecs-init/config/awsrulesfn"
+	"github.com/aws/amazon-ecs-agent/ecs-agent/awsrulesfn"
 	"github.com/cihub/seelog"
 	godocker "github.com/fsouza/go-dockerclient"
 	"github.com/pkg/errors"
