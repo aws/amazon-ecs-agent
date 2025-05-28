@@ -54,7 +54,10 @@ type ClientImpl struct {
 	client ClientSDK
 }
 
-func NewClientImpl(awsRegion string) (Client, error) {
+func NewClientImpl(
+	awsRegion string,
+	dualStackEndpointState aws.DualStackEndpointState,
+) (Client, error) {
 	credentialsProvider := providers.NewInstanceCredentialsCache(
 		false,
 		providers.NewRotatingSharedCredentialsProviderV2(),
@@ -65,6 +68,7 @@ func NewClientImpl(awsRegion string) (Client, error) {
 		config.WithRegion(awsRegion),
 		config.WithCredentialsProvider(credentialsProvider),
 		config.WithRetryMaxAttempts(clientRetriesNum),
+		config.WithUseDualStackEndpoint(dualStackEndpointState),
 	)
 	if err != nil {
 		return nil, err
