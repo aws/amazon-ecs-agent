@@ -1214,8 +1214,8 @@ func validateTaskMetadata(w http.ResponseWriter, agentState state.AgentState, re
 }
 
 func isIPv6OnlyTask(taskMetadata *state.TaskResponse) bool {
-	return len(taskMetadata.TaskNetworkConfig.NetworkNamespaces[0].NetworkInterfaces[0].IPV4Addresses) == 0 &&
-		len(taskMetadata.TaskNetworkConfig.NetworkNamespaces[0].NetworkInterfaces[0].IPV6Addresses) >= 1
+	return taskMetadata.TaskNetworkConfig.NetworkNamespaces[0].NetworkInterfaces[0].
+		IPCompatibility.IsIPv6Only()
 }
 
 // getTaskMetadataErrorResponse will be used to classify certain errors that was returned from a GetTaskMetadata function call.

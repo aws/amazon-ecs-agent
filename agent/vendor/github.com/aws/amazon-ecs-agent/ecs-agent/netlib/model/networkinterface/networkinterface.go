@@ -22,6 +22,7 @@ import (
 	"sync"
 
 	"github.com/aws/amazon-ecs-agent/ecs-agent/acs/model/ecsacs"
+	"github.com/aws/amazon-ecs-agent/ecs-agent/ipcompatibility"
 	"github.com/aws/amazon-ecs-agent/ecs-agent/logger"
 	loggerfield "github.com/aws/amazon-ecs-agent/ecs-agent/logger/field"
 	"github.com/aws/amazon-ecs-agent/ecs-agent/netlib/model/status"
@@ -382,6 +383,13 @@ func (ni *NetworkInterface) IsStandardENI() bool {
 	default:
 		return false
 	}
+}
+
+// IPCompatibility returns the IP version compatibility information of the Network Interface.
+func (ni *NetworkInterface) IPCompatibility() ipcompatibility.IPCompatibility {
+	return ipcompatibility.NewIPCompatibility(
+		len(ni.GetIPV4Addresses()) > 0,
+		len(ni.GetIPV6Addresses()) > 0)
 }
 
 // String returns a human-readable version of the NetworkInterface object

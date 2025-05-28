@@ -27,6 +27,8 @@ import (
 	agentV4 "github.com/aws/amazon-ecs-agent/agent/handlers/v4"
 	mock_stats "github.com/aws/amazon-ecs-agent/agent/stats/mock"
 	mock_ecs "github.com/aws/amazon-ecs-agent/ecs-agent/api/ecs/mocks"
+	"github.com/aws/amazon-ecs-agent/ecs-agent/ipcompatibility"
+	"github.com/aws/amazon-ecs-agent/ecs-agent/netlib/model/networkinterface"
 	v4 "github.com/aws/amazon-ecs-agent/ecs-agent/tmds/handlers/v4/state"
 	"github.com/aws/amazon-ecs-agent/ecs-agent/tmds/utils/netconfig"
 	mock_netlinkwrapper "github.com/aws/amazon-ecs-agent/ecs-agent/utils/netlinkwrapper/mocks"
@@ -68,7 +70,57 @@ func TestV4GetTaskMetadataWithTaskNetworkConfig(t *testing.T) {
 					state.EXPECT().PulledContainerMapByArn(taskARN).Return(nil, true),
 				)
 			},
-			expectedTaskNetworkConfig: expectedV4TaskNetworkConfig(true, apitask.AWSVPCNetworkMode, networkNamespace, defaultIfname),
+			expectedTaskNetworkConfig: expectedV4TaskNetworkConfig(
+				true, apitask.AWSVPCNetworkMode, networkNamespace, defaultIfname,
+				ipcompatibility.NewIPv4OnlyCompatibility(),
+			),
+		},
+		{
+			name: "happy case with awsvpc mode - IPv6-only task ENI",
+			setStateExpectations: func(state *mock_dockerstate.MockTaskEngineState) {
+				task := standardTask()
+				task.EnableFaultInjection = true
+				task.NetworkNamespace = networkNamespace
+				task.DefaultIfname = defaultIfname
+				task.ENIs[0].IPV4Addresses = nil
+				task.ENIs[0].IPV6Addresses = []*networkinterface.IPV6Address{{Address: "1:2:3:4::"}}
+				gomock.InOrder(
+					state.EXPECT().TaskARNByV3EndpointID(v3EndpointID).Return(taskARN, true),
+					state.EXPECT().TaskByArn(taskARN).Return(task, true).Times(2),
+					state.EXPECT().ContainerByID(containerID).Return(dockerContainer, true).AnyTimes(),
+					state.EXPECT().ContainerMapByArn(taskARN).Return(containerNameToDockerContainer, true),
+					state.EXPECT().TaskByArn(taskARN).Return(task, true),
+					state.EXPECT().ContainerByID(containerID).Return(dockerContainer, true).AnyTimes(),
+					state.EXPECT().PulledContainerMapByArn(taskARN).Return(nil, true),
+				)
+			},
+			expectedTaskNetworkConfig: expectedV4TaskNetworkConfig(
+				true, apitask.AWSVPCNetworkMode, networkNamespace, defaultIfname,
+				ipcompatibility.NewIPv6OnlyCompatibility(),
+			),
+		},
+		{
+			name: "happy case with awsvpc mode - dual-stack task ENI",
+			setStateExpectations: func(state *mock_dockerstate.MockTaskEngineState) {
+				task := standardTask()
+				task.EnableFaultInjection = true
+				task.NetworkNamespace = networkNamespace
+				task.DefaultIfname = defaultIfname
+				task.ENIs[0].IPV6Addresses = []*networkinterface.IPV6Address{{Address: "1:2:3:4::"}}
+				gomock.InOrder(
+					state.EXPECT().TaskARNByV3EndpointID(v3EndpointID).Return(taskARN, true),
+					state.EXPECT().TaskByArn(taskARN).Return(task, true).Times(2),
+					state.EXPECT().ContainerByID(containerID).Return(dockerContainer, true).AnyTimes(),
+					state.EXPECT().ContainerMapByArn(taskARN).Return(containerNameToDockerContainer, true),
+					state.EXPECT().TaskByArn(taskARN).Return(task, true),
+					state.EXPECT().ContainerByID(containerID).Return(dockerContainer, true).AnyTimes(),
+					state.EXPECT().PulledContainerMapByArn(taskARN).Return(nil, true),
+				)
+			},
+			expectedTaskNetworkConfig: expectedV4TaskNetworkConfig(
+				true, apitask.AWSVPCNetworkMode, networkNamespace, defaultIfname,
+				ipcompatibility.NewDualStackCompatibility(),
+			),
 		},
 		{
 			name: "happy case with host mode",
@@ -105,7 +157,10 @@ func TestV4GetTaskMetadataWithTaskNetworkConfig(t *testing.T) {
 					netLink.EXPECT().LinkByIndex(link.Attrs().Index).Return(link, nil).AnyTimes(),
 				)
 			},
-			expectedTaskNetworkConfig: expectedV4TaskNetworkConfig(true, apitask.HostNetworkMode, hostNetworkNamespace, defaultIfname),
+			expectedTaskNetworkConfig: expectedV4TaskNetworkConfig(
+				true, apitask.HostNetworkMode, hostNetworkNamespace, defaultIfname,
+				ipcompatibility.NewIPv4OnlyCompatibility(),
+			),
 		},
 		{
 			name: "happy bridge mode",
@@ -119,7 +174,8 @@ func TestV4GetTaskMetadataWithTaskNetworkConfig(t *testing.T) {
 					state.EXPECT().ContainerByID(containerID).Return(bridgeContainer, true).AnyTimes(),
 				)
 			},
-			expectedTaskNetworkConfig: expectedV4TaskNetworkConfig(true, bridgeMode, "", ""),
+			expectedTaskNetworkConfig: expectedV4TaskNetworkConfig(
+				true, bridgeMode, "", "", ipcompatibility.NewIPv4OnlyCompatibility()),
 		},
 		{
 			name: "unhappy case with host mode",
@@ -149,9 +205,10 @@ func TestV4GetTaskMetadataWithTaskNetworkConfig(t *testing.T) {
 					netLink.EXPECT().RouteList(nil, netlink.FAMILY_ALL).Return(routes, errors.New(internalError)).Times(1),
 				)
 			},
-			expectedTaskNetworkConfig: expectedV4TaskNetworkConfig(true, apitask.HostNetworkMode, hostNetworkNamespace, ""),
-			shouldError:               true,
-			errorMessage:              fmt.Sprintf(defaultNetworkInterfaceNameErrorMessage, v3EndpointID),
+			expectedTaskNetworkConfig: expectedV4TaskNetworkConfig(true, apitask.HostNetworkMode,
+				hostNetworkNamespace, "", ipcompatibility.NewIPv4OnlyCompatibility()),
+			shouldError:  true,
+			errorMessage: fmt.Sprintf(defaultNetworkInterfaceNameErrorMessage, v3EndpointID),
 		},
 	}
 
@@ -167,7 +224,8 @@ func TestV4GetTaskMetadataWithTaskNetworkConfig(t *testing.T) {
 			if tc.setStateExpectations != nil {
 				tc.setStateExpectations(state)
 			}
-			tmdsAgentState := agentV4.NewTMDSAgentState(state, statsEngine, ecsClient, clusterName, availabilityzone, vpcID, containerInstanceArn)
+			tmdsAgentState := agentV4.NewTMDSAgentState(state, statsEngine, ecsClient, clusterName,
+				availabilityzone, vpcID, containerInstanceArn, ipcompatibility.NewIPv4OnlyCompatibility())
 
 			netConfigClient := netconfig.NewNetworkConfigClient()
 

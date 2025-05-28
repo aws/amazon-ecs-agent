@@ -18,6 +18,7 @@ import (
 	"github.com/aws/amazon-ecs-agent/agent/engine/dockerstate"
 	"github.com/aws/amazon-ecs-agent/agent/stats"
 	"github.com/aws/amazon-ecs-agent/ecs-agent/api/ecs"
+	"github.com/aws/amazon-ecs-agent/ecs-agent/ipcompatibility"
 	"github.com/aws/amazon-ecs-agent/ecs-agent/logger"
 	"github.com/aws/amazon-ecs-agent/ecs-agent/logger/field"
 	tmdsv4 "github.com/aws/amazon-ecs-agent/ecs-agent/tmds/handlers/v4/state"
@@ -29,13 +30,14 @@ const (
 
 // Implements AgentState interface for TMDS v4.
 type TMDSAgentState struct {
-	state                dockerstate.TaskEngineState
-	statsEngine          stats.Engine
-	ecsClient            ecs.ECSClient
-	cluster              string
-	availabilityZone     string
-	vpcID                string
-	containerInstanceARN string
+	state                   dockerstate.TaskEngineState
+	statsEngine             stats.Engine
+	ecsClient               ecs.ECSClient
+	cluster                 string
+	availabilityZone        string
+	vpcID                   string
+	containerInstanceARN    string
+	instanceIPCompatibility ipcompatibility.IPCompatibility
 }
 
 func NewTMDSAgentState(
@@ -46,15 +48,17 @@ func NewTMDSAgentState(
 	availabilityZone string,
 	vpcID string,
 	containerInstanceARN string,
+	instanceIPCompatibility ipcompatibility.IPCompatibility,
 ) *TMDSAgentState {
 	return &TMDSAgentState{
-		state:                state,
-		statsEngine:          statsEngine,
-		ecsClient:            ecsClient,
-		cluster:              cluster,
-		availabilityZone:     availabilityZone,
-		vpcID:                vpcID,
-		containerInstanceARN: containerInstanceARN,
+		state:                   state,
+		statsEngine:             statsEngine,
+		ecsClient:               ecsClient,
+		cluster:                 cluster,
+		availabilityZone:        availabilityZone,
+		vpcID:                   vpcID,
+		containerInstanceARN:    containerInstanceARN,
+		instanceIPCompatibility: instanceIPCompatibility,
 	}
 }
 
@@ -161,9 +165,24 @@ func (s *TMDSAgentState) getTaskMetadata(v3EndpointID string, includeTags bool, 
 		if task.IsNetworkModeHost() {
 			// For host most, we don't really need the network namespace in order to do anything within the host instance network namespace
 			// and so we will set this to an arbitrary value such as "host".
-			taskNetworkConfig = tmdsv4.NewTaskNetworkConfig(task.GetNetworkMode(), defaultHostNetworkNamespace, task.GetDefaultIfname())
+			taskNetworkConfig = tmdsv4.NewTaskNetworkConfig(
+				task.GetNetworkMode(), defaultHostNetworkNamespace, task.GetDefaultIfname(),
+				s.instanceIPCompatibility,
+			)
+		} else if task.IsNetworkModeAWSVPC() {
+			taskENI := task.GetPrimaryENI()
+			if taskENI == nil {
+				return *taskResponse, fmt.Errorf("awsvpc mode task has no primary ENI")
+			}
+			taskNetworkConfig = tmdsv4.NewTaskNetworkConfig(
+				task.GetNetworkMode(), task.GetNetworkNamespace(), task.GetDefaultIfname(),
+				taskENI.IPCompatibility(),
+			)
 		} else {
-			taskNetworkConfig = tmdsv4.NewTaskNetworkConfig(task.GetNetworkMode(), task.GetNetworkNamespace(), task.GetDefaultIfname())
+			taskNetworkConfig = tmdsv4.NewTaskNetworkConfig(
+				task.GetNetworkMode(), task.GetNetworkNamespace(), task.GetDefaultIfname(),
+				s.instanceIPCompatibility, // Assume instance IP compatibilty for bridge mode
+			)
 		}
 		taskResponse.TaskNetworkConfig = taskNetworkConfig
 	}
