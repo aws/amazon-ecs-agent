@@ -2,9 +2,14 @@ package awsrulesfn
 
 import "regexp"
 
-// aws-sdk-go-v2 does not export partition metadata, so copy the files from vendor to make it accessible.
+const (
+	// Partition identifiers
+	AwsPartitionID      = "aws"        // AWS Standard partition.
+	AwsCnPartitionID    = "aws-cn"     // AWS China partition.
+	AwsUsGovPartitionID = "aws-us-gov" // AWS GovCloud (US) partition.
 
-//go:generate cp ../../vendor/github.com/aws/aws-sdk-go-v2/internal/endpoints/awsrulesfn/partition.go ../../vendor/github.com/aws/aws-sdk-go-v2/internal/endpoints/awsrulesfn/partitions.go .
+	DnsSuffix = "amazonaws.com" // Default DNS suffix for AWS Standard partition.
+)
 
 // GetPartitionForRegion returns an AWS partition for the region provided.
 // Unlike GetPartition, this function

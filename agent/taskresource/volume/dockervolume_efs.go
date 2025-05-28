@@ -17,8 +17,8 @@ import (
 	"fmt"
 	"strconv"
 
-	"github.com/aws/amazon-ecs-agent/agent/awsrulesfn"
 	"github.com/aws/amazon-ecs-agent/agent/config"
+	"github.com/aws/amazon-ecs-agent/ecs-agent/awsrulesfn"
 
 	"github.com/cihub/seelog"
 )
