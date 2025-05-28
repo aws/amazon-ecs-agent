@@ -38,6 +38,7 @@ type dockerClient interface {
 	StartAgent() (int, error)
 	StopAgent() error
 	LoadEnvVars() map[string]string
+	FindDefaultBridgeNetworkInterfaceName() (string, error)
 }
 
 type loopbackRouting interface {

@@ -100,7 +100,15 @@ func New() (*Engine, error) {
 	if err != nil {
 		return nil, err
 	}
-	credentialsProxyRoute, err := iptables.NewNetfilterRoute(cmdExec, netlinkwrapper.New())
+	docker, err := getDockerClient()
+	if err != nil {
+		return nil, err
+	}
+	dockerBridgeNetworkName, err := docker.FindDefaultBridgeNetworkInterfaceName()
+	if err != nil {
+		return nil, err
+	}
+	credentialsProxyRoute, err := iptables.NewNetfilterRoute(cmdExec, netlinkwrapper.New(), dockerBridgeNetworkName)
 	if err != nil {
 		return nil, err
 	}

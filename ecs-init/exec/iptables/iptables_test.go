@@ -29,7 +29,8 @@ import (
 )
 
 const (
-	testLoopbackInterfaceName = "lo0"
+	testLoopbackInterfaceName     = "lo0"
+	testDockerBridgeInterfaceName = "docker0"
 )
 
 var (
@@ -52,7 +53,7 @@ var (
 	allowIntrospectionForDockerArgs = []string{
 		"-p", "tcp",
 		"--dport", agentIntrospectionServerPort,
-		"-i", dockerVirtualBridgeInterfaceName,
+		"-i", testDockerBridgeInterfaceName,
 		"-j", "ACCEPT",
 	}
 	blockIntrospectionOffhostAccessInputRouteArgs = []string{
@@ -77,6 +78,13 @@ var (
 		"--to-ports", localhostCredentialsProxyPort,
 	}
 )
+
+func resetDefaultNetworkInterfaceVariables() func() {
+	return func() {
+		defaultLoopbackInterfaceName = ""
+		defaultDockerBridgeNetworkName = ""
+	}
+}
 
 func TestNewNetfilterRoute(t *testing.T) {
 
@@ -104,20 +112,17 @@ func TestNewNetfilterRoute(t *testing.T) {
 		},
 		{
 			name:        "default loopback not found",
-			shouldError: false,
+			shouldError: true,
 			setMockExpectations: func(mockExec *MockExec, mockNetlink *mock_nlwrapper.MockNetLink) {
 				mockExec.EXPECT().LookPath(iptablesExecutable).Return("", nil)
 				mockNetlink.EXPECT().LinkList().Return(nil, fmt.Errorf("loopback not found"))
 			},
-			expectedLoopbackInterfaceName: fallbackLoopbackInterfaceName,
 		},
 	}
 
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
-			defer func() {
-				defaultLoopbackInterfaceName = ""
-			}()
+			defer resetDefaultNetworkInterfaceVariables()
 			ctrl := gomock.NewController(t)
 			defer ctrl.Finish()
 
@@ -127,7 +132,7 @@ func TestNewNetfilterRoute(t *testing.T) {
 				tc.setMockExpectations(mockExec, mockNetlink)
 			}
 
-			netRoute, err := NewNetfilterRoute(mockExec, mockNetlink)
+			netRoute, err := NewNetfilterRoute(mockExec, mockNetlink, testDockerBridgeInterfaceName)
 			if tc.shouldError {
 				assert.Error(t, err)
 			} else {
@@ -178,9 +183,7 @@ func TestCreate(t *testing.T) {
 	}
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
-			defer func() {
-				defaultLoopbackInterfaceName = ""
-			}()
+			defer resetDefaultNetworkInterfaceVariables()
 			ctrl := gomock.NewController(t)
 			defer ctrl.Finish()
 
@@ -213,7 +216,7 @@ func TestCreate(t *testing.T) {
 				mocks...,
 			)
 
-			route, err := NewNetfilterRoute(mockExec, mockNetlink)
+			route, err := NewNetfilterRoute(mockExec, mockNetlink, testDockerBridgeInterfaceName)
 			require.NoError(t, err, "Error creating netfilter route object")
 
 			err = route.Create()
@@ -223,9 +226,7 @@ func TestCreate(t *testing.T) {
 }
 
 func TestCreateSkipLocalTrafficFilter(t *testing.T) {
-	defer func() {
-		defaultLoopbackInterfaceName = ""
-	}()
+	defer resetDefaultNetworkInterfaceVariables()
 	os.Setenv("ECS_SKIP_LOCALHOST_TRAFFIC_FILTER", "true")
 	defer os.Unsetenv("ECS_SKIP_LOCALHOST_TRAFFIC_FILTER")
 
@@ -261,7 +262,7 @@ func TestCreateSkipLocalTrafficFilter(t *testing.T) {
 		mockCmd.EXPECT().CombinedOutput().Return([]byte{0}, nil),
 	)
 
-	route, err := NewNetfilterRoute(mockExec, mockNetlink)
+	route, err := NewNetfilterRoute(mockExec, mockNetlink, testDockerBridgeInterfaceName)
 	require.NoError(t, err, "Error creating netfilter route object")
 
 	err = route.Create()
@@ -269,9 +270,7 @@ func TestCreateSkipLocalTrafficFilter(t *testing.T) {
 }
 
 func TestCreateAllowOffhostIntrospectionAccess(t *testing.T) {
-	defer func() {
-		defaultLoopbackInterfaceName = ""
-	}()
+	defer resetDefaultNetworkInterfaceVariables()
 	os.Setenv(offhostIntrospectionAccessConfigEnv, "true")
 	defer os.Unsetenv(offhostIntrospectionAccessConfigEnv)
 
@@ -295,17 +294,86 @@ func TestCreateAllowOffhostIntrospectionAccess(t *testing.T) {
 		mockCmd.EXPECT().CombinedOutput().Return([]byte{0}, nil),
 	)
 
-	route, err := NewNetfilterRoute(mockExec, mockNetlink)
+	route, err := NewNetfilterRoute(mockExec, mockNetlink, testDockerBridgeInterfaceName)
 	require.NoError(t, err, "Error creating netfilter route object")
 
 	err = route.Create()
 	assert.NoError(t, err, "Error creating route")
 }
 
+func TestCreateBlockOffhostIntrospectionAccessErrors(t *testing.T) {
+	testCases := []struct {
+		name             string
+		mockExpectations func(mockExec *MockExec, mockCmd *MockCmd, mockNetlink *mock_nlwrapper.MockNetLink)
+	}{
+		{
+			name: "iptables drop connections fail",
+			mockExpectations: func(mockExec *MockExec, mockCmd *MockCmd, mockNetlink *mock_nlwrapper.MockNetLink) {
+				gomock.InOrder(
+					mockExec.EXPECT().LookPath(iptablesExecutable).Return("", nil),
+					mockNetlink.EXPECT().LinkList().Return([]netlink.Link{defaultLoLink}, nil),
+					mockExec.EXPECT().Command(iptablesExecutable,
+						expectedArgs("nat", "-A", "PREROUTING", preroutingRouteArgs)).Return(mockCmd),
+					mockCmd.EXPECT().CombinedOutput().Return([]byte{0}, nil),
+					mockExec.EXPECT().Command(iptablesExecutable,
+						expectedArgs("filter", "-I", "INPUT", localhostTrafficFilterInputRouteArgs)).Return(mockCmd),
+					mockCmd.EXPECT().CombinedOutput().Return([]byte{0}, nil),
+					mockExec.EXPECT().Command(iptablesExecutable,
+						expectedArgs("filter", "-I", "INPUT", blockIntrospectionOffhostAccessInputRouteArgs)).Return(mockCmd),
+					mockCmd.EXPECT().CombinedOutput().Return([]byte{0}, fmt.Errorf("error unable to drop connections for offhost access to introspection server")),
+				)
+			},
+		},
+		{
+			name: "iptables allow connections from docker bridge fail",
+			mockExpectations: func(mockExec *MockExec, mockCmd *MockCmd, mockNetlink *mock_nlwrapper.MockNetLink) {
+				gomock.InOrder(
+					mockExec.EXPECT().LookPath(iptablesExecutable).Return("", nil),
+					mockNetlink.EXPECT().LinkList().Return([]netlink.Link{defaultLoLink}, nil),
+					mockExec.EXPECT().Command(iptablesExecutable,
+						expectedArgs("nat", "-A", "PREROUTING", preroutingRouteArgs)).Return(mockCmd),
+					mockCmd.EXPECT().CombinedOutput().Return([]byte{0}, nil),
+					mockExec.EXPECT().Command(iptablesExecutable,
+						expectedArgs("filter", "-I", "INPUT", localhostTrafficFilterInputRouteArgs)).Return(mockCmd),
+					mockCmd.EXPECT().CombinedOutput().Return([]byte{0}, nil),
+					mockExec.EXPECT().Command(iptablesExecutable,
+						expectedArgs("filter", "-I", "INPUT", blockIntrospectionOffhostAccessInputRouteArgs)).Return(mockCmd),
+					mockCmd.EXPECT().CombinedOutput().Return([]byte{0}, nil),
+					mockExec.EXPECT().LookPath(ip6tablesExecutable).Return("", nil),
+					mockExec.EXPECT().Command(ip6tablesExecutable,
+						expectedArgs("filter", "-I", "INPUT", blockIntrospectionOffhostAccessInputRouteArgs)).Return(mockCmd),
+					mockCmd.EXPECT().CombinedOutput().Return([]byte{0}, nil),
+					mockExec.EXPECT().Command(iptablesExecutable,
+						expectedArgs("filter", "-I", "INPUT", allowIntrospectionForDockerArgs)).Return(mockCmd),
+					mockCmd.EXPECT().CombinedOutput().Return([]byte{0}, fmt.Errorf("error unable to accept connections from docker bridge interface to introspection server")),
+				)
+			},
+		},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			defer resetDefaultNetworkInterfaceVariables()
+			ctrl := gomock.NewController(t)
+			defer ctrl.Finish()
+
+			mockExec := NewMockExec(ctrl)
+			mockCmd := NewMockCmd(ctrl)
+			mockNetlink := mock_nlwrapper.NewMockNetLink(ctrl)
+
+			tc.mockExpectations(mockExec, mockCmd, mockNetlink)
+
+			route, err := NewNetfilterRoute(mockExec, mockNetlink, testDockerBridgeInterfaceName)
+			require.NoError(t, err, "Error creating netfilter route object")
+
+			err = route.Create()
+			assert.Error(t, err)
+		})
+	}
+}
+
 func TestCreateErrorOnPreRoutingCommandError(t *testing.T) {
-	defer func() {
-		defaultLoopbackInterfaceName = ""
-	}()
+	defer resetDefaultNetworkInterfaceVariables()
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
 
@@ -321,7 +389,7 @@ func TestCreateErrorOnPreRoutingCommandError(t *testing.T) {
 		mockCmd.EXPECT().CombinedOutput().Return([]byte{0}, fmt.Errorf("didn't expect this, did you?")),
 	)
 
-	route, err := NewNetfilterRoute(mockExec, mockNetlink)
+	route, err := NewNetfilterRoute(mockExec, mockNetlink, testDockerBridgeInterfaceName)
 	require.NoError(t, err, "Error creating netfilter route object")
 
 	err = route.Create()
@@ -329,6 +397,7 @@ func TestCreateErrorOnPreRoutingCommandError(t *testing.T) {
 }
 
 func TestCreateErrorOnInputChainCommandError(t *testing.T) {
+	defer resetDefaultNetworkInterfaceVariables()
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
 
@@ -346,7 +415,7 @@ func TestCreateErrorOnInputChainCommandError(t *testing.T) {
 		mockCmd.EXPECT().CombinedOutput().Return([]byte{0}, testErr),
 	)
 
-	route, err := NewNetfilterRoute(mockExec, mockNetlink)
+	route, err := NewNetfilterRoute(mockExec, mockNetlink, testDockerBridgeInterfaceName)
 	require.NoError(t, err)
 
 	err = route.Create()
@@ -354,7 +423,7 @@ func TestCreateErrorOnInputChainCommandError(t *testing.T) {
 }
 
 func TestCreateErrorOnOutputChainCommandError(t *testing.T) {
-	// defer overrideIPRouteInput(testIPV4RouteInput)()
+	defer resetDefaultNetworkInterfaceVariables()
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
 
@@ -390,7 +459,7 @@ func TestCreateErrorOnOutputChainCommandError(t *testing.T) {
 		mockCmd.EXPECT().CombinedOutput().Return([]byte{0}, fmt.Errorf("didn't expect this, did you?")),
 	)
 
-	route, err := NewNetfilterRoute(mockExec, mockNetlink)
+	route, err := NewNetfilterRoute(mockExec, mockNetlink, testDockerBridgeInterfaceName)
 	require.NoError(t, err, "Error creating netfilter route object")
 
 	err = route.Create()
@@ -414,9 +483,7 @@ func TestRemove(t *testing.T) {
 
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
-			defer func() {
-				defaultLoopbackInterfaceName = ""
-			}()
+			defer resetDefaultNetworkInterfaceVariables()
 			ctrl := gomock.NewController(t)
 			defer ctrl.Finish()
 
@@ -451,7 +518,7 @@ func TestRemove(t *testing.T) {
 				mocks...,
 			)
 
-			route, err := NewNetfilterRoute(mockExec, mockNetlink)
+			route, err := NewNetfilterRoute(mockExec, mockNetlink, testDockerBridgeInterfaceName)
 			require.NoError(t, err, "Error creating netfilter route object")
 
 			err = route.Remove()
@@ -461,9 +528,7 @@ func TestRemove(t *testing.T) {
 }
 
 func TestRemoveSkipLocalTrafficFilter(t *testing.T) {
-	defer func() {
-		defaultLoopbackInterfaceName = ""
-	}()
+	defer resetDefaultNetworkInterfaceVariables()
 	os.Setenv("ECS_SKIP_LOCALHOST_TRAFFIC_FILTER", "true")
 	defer os.Unsetenv("ECS_SKIP_LOCALHOST_TRAFFIC_FILTER")
 
@@ -498,7 +563,7 @@ func TestRemoveSkipLocalTrafficFilter(t *testing.T) {
 		mockCmd.EXPECT().CombinedOutput().Return([]byte{0}, nil),
 	)
 
-	route, err := NewNetfilterRoute(mockExec, mockNetlink)
+	route, err := NewNetfilterRoute(mockExec, mockNetlink, testDockerBridgeInterfaceName)
 	require.NoError(t, err, "Error creating netfilter route object")
 
 	err = route.Remove()
@@ -526,9 +591,7 @@ func TestRemoveAllowIntrospectionOffhostAccess(t *testing.T) {
 
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
-			defer func() {
-				defaultLoopbackInterfaceName = ""
-			}()
+			defer resetDefaultNetworkInterfaceVariables()
 			ctrl := gomock.NewController(t)
 			defer ctrl.Finish()
 
@@ -558,7 +621,7 @@ func TestRemoveAllowIntrospectionOffhostAccess(t *testing.T) {
 				mocks...,
 			)
 
-			route, err := NewNetfilterRoute(mockExec, mockNetlink)
+			route, err := NewNetfilterRoute(mockExec, mockNetlink, testDockerBridgeInterfaceName)
 			require.NoError(t, err, "Error creating netfilter route object")
 
 			err = route.Remove()
@@ -568,9 +631,7 @@ func TestRemoveAllowIntrospectionOffhostAccess(t *testing.T) {
 }
 
 func TestRemoveErrorOnPreroutingChainCommandError(t *testing.T) {
-	defer func() {
-		defaultLoopbackInterfaceName = ""
-	}()
+	defer resetDefaultNetworkInterfaceVariables()
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
 
@@ -606,7 +667,7 @@ func TestRemoveErrorOnPreroutingChainCommandError(t *testing.T) {
 		mockCmd.EXPECT().CombinedOutput().Return([]byte{0}, nil),
 	)
 
-	route, err := NewNetfilterRoute(mockExec, mockNetlink)
+	route, err := NewNetfilterRoute(mockExec, mockNetlink, testDockerBridgeInterfaceName)
 	require.NoError(t, err, "Error creating netfilter route object")
 
 	err = route.Remove()
@@ -614,9 +675,7 @@ func TestRemoveErrorOnPreroutingChainCommandError(t *testing.T) {
 }
 
 func TestRemoveErrorOnOutputChainCommandError(t *testing.T) {
-	defer func() {
-		defaultLoopbackInterfaceName = ""
-	}()
+	defer resetDefaultNetworkInterfaceVariables()
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
 
@@ -652,7 +711,7 @@ func TestRemoveErrorOnOutputChainCommandError(t *testing.T) {
 		mockCmd.EXPECT().CombinedOutput().Return([]byte{0}, fmt.Errorf("no cpu cycles to spare, sorry")),
 	)
 
-	route, err := NewNetfilterRoute(mockExec, mockNetlink)
+	route, err := NewNetfilterRoute(mockExec, mockNetlink, testDockerBridgeInterfaceName)
 	require.NoError(t, err, "Error creating netfilter route object")
 
 	err = route.Remove()
@@ -660,9 +719,7 @@ func TestRemoveErrorOnOutputChainCommandError(t *testing.T) {
 }
 
 func TestRemoveErrorOnInputChainCommandsErrors(t *testing.T) {
-	defer func() {
-		defaultLoopbackInterfaceName = ""
-	}()
+	defer resetDefaultNetworkInterfaceVariables()
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
 
@@ -697,7 +754,7 @@ func TestRemoveErrorOnInputChainCommandsErrors(t *testing.T) {
 		mockCmd.EXPECT().CombinedOutput().Return([]byte{0}, nil),
 	)
 
-	route, err := NewNetfilterRoute(mockExec, mockNetlink)
+	route, err := NewNetfilterRoute(mockExec, mockNetlink, testDockerBridgeInterfaceName)
 	require.NoError(t, err, "Error creating netfilter route object")
 
 	err = route.Remove()
@@ -741,9 +798,7 @@ func TestGetLocalhostTrafficFilterInputChainArgs(t *testing.T) {
 }
 
 func TestGetBlockIntrospectionOffhostAccessInputChainArgs(t *testing.T) {
-	defer func() {
-		defaultLoopbackInterfaceName = ""
-	}()
+	defer resetDefaultNetworkInterfaceVariables()
 	defaultLoopbackInterfaceName = testLoopbackInterfaceName
 	assert.Equal(t, []string{
 		"INPUT",
@@ -755,11 +810,13 @@ func TestGetBlockIntrospectionOffhostAccessInputChainArgs(t *testing.T) {
 }
 
 func TestAllowIntrospectionForDocker(t *testing.T) {
+	defer resetDefaultNetworkInterfaceVariables()
+	defaultDockerBridgeNetworkName = testDockerBridgeInterfaceName
 	assert.Equal(t, []string{
 		"INPUT",
 		"-p", "tcp",
 		"--dport", agentIntrospectionServerPort,
-		"-i", dockerVirtualBridgeInterfaceName,
+		"-i", testDockerBridgeInterfaceName,
 		"-j", "ACCEPT",
 	}, allowIntrospectionForDockerIptablesInputChainArgs())
 }
