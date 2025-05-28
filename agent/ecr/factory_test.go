@@ -21,7 +21,7 @@ import (
 	"testing"
 
 	apicontainer "github.com/aws/amazon-ecs-agent/agent/api/container"
-	"github.com/aws/amazon-ecs-agent/agent/config/ipcompatibility"
+	"github.com/aws/amazon-ecs-agent/ecs-agent/ipcompatibility"
 
 	"github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/aws/aws-sdk-go-v2/config"

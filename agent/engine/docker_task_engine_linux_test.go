@@ -32,7 +32,6 @@ import (
 	apitask "github.com/aws/amazon-ecs-agent/agent/api/task"
 	mock_asm_factory "github.com/aws/amazon-ecs-agent/agent/asm/factory/mocks"
 	"github.com/aws/amazon-ecs-agent/agent/config"
-	"github.com/aws/amazon-ecs-agent/agent/config/ipcompatibility"
 	"github.com/aws/amazon-ecs-agent/agent/data"
 	"github.com/aws/amazon-ecs-agent/agent/dockerclient"
 	"github.com/aws/amazon-ecs-agent/agent/dockerclient/dockerapi"
@@ -57,6 +56,7 @@ import (
 	apicontainerstatus "github.com/aws/amazon-ecs-agent/ecs-agent/api/container/status"
 	apitaskstatus "github.com/aws/amazon-ecs-agent/ecs-agent/api/task/status"
 	"github.com/aws/amazon-ecs-agent/ecs-agent/credentials"
+	"github.com/aws/amazon-ecs-agent/ecs-agent/ipcompatibility"
 	"github.com/aws/amazon-ecs-agent/ecs-agent/netlib/model/appmesh"
 	ni "github.com/aws/amazon-ecs-agent/ecs-agent/netlib/model/networkinterface"
 

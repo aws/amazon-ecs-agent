@@ -25,11 +25,11 @@ import (
 	apicontainer "github.com/aws/amazon-ecs-agent/agent/api/container"
 	apitask "github.com/aws/amazon-ecs-agent/agent/api/task"
 	"github.com/aws/amazon-ecs-agent/agent/config"
-	"github.com/aws/amazon-ecs-agent/agent/config/ipcompatibility"
 	"github.com/aws/amazon-ecs-agent/agent/data"
 	dm "github.com/aws/amazon-ecs-agent/agent/engine/daemonmanager"
 	"github.com/aws/amazon-ecs-agent/agent/statechange"
 	"github.com/aws/amazon-ecs-agent/ecs-agent/eventstream"
+	"github.com/aws/amazon-ecs-agent/ecs-agent/ipcompatibility"
 	"github.com/aws/amazon-ecs-agent/ecs-agent/tcs/model/ecstcs"
 
 	"github.com/aws/aws-sdk-go-v2/aws"

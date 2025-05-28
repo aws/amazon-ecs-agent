@@ -84,3 +84,9 @@ func TestIsIPv6Only(t *testing.T) {
 		})
 	}
 }
+
+func TestNewDualStackCompatibility(t *testing.T) {
+	ipcompat := NewDualStackCompatibility()
+	assert.True(t, ipcompat.IsIPv4Compatible())
+	assert.True(t, ipcompat.IsIPv6Compatible())
+}

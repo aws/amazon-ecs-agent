@@ -24,11 +24,11 @@ import (
 	"testing"
 	"time"
 
-	"github.com/aws/amazon-ecs-agent/agent/config/ipcompatibility"
 	"github.com/aws/amazon-ecs-agent/agent/dockerclient"
 	"github.com/aws/amazon-ecs-agent/agent/utils"
 	ec2testutil "github.com/aws/amazon-ecs-agent/agent/utils/test/ec2util"
 	mock_ec2 "github.com/aws/amazon-ecs-agent/ecs-agent/ec2/mocks"
+	"github.com/aws/amazon-ecs-agent/ecs-agent/ipcompatibility"
 	"github.com/aws/aws-sdk-go-v2/feature/ec2/imds"
 
 	"github.com/golang/mock/gomock"

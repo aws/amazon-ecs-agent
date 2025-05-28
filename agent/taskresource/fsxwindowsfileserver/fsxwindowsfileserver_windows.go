@@ -28,7 +28,6 @@ import (
 	"github.com/aws/amazon-ecs-agent/agent/asm"
 	asmfactory "github.com/aws/amazon-ecs-agent/agent/asm/factory"
 	"github.com/aws/amazon-ecs-agent/agent/config"
-	"github.com/aws/amazon-ecs-agent/agent/config/ipcompatibility"
 	"github.com/aws/amazon-ecs-agent/agent/fsx"
 	fsxfactory "github.com/aws/amazon-ecs-agent/agent/fsx/factory"
 	"github.com/aws/amazon-ecs-agent/agent/ssm"
@@ -39,6 +38,7 @@ import (
 	apicontainerstatus "github.com/aws/amazon-ecs-agent/ecs-agent/api/container/status"
 	"github.com/aws/amazon-ecs-agent/ecs-agent/api/task/status"
 	"github.com/aws/amazon-ecs-agent/ecs-agent/credentials"
+	"github.com/aws/amazon-ecs-agent/ecs-agent/ipcompatibility"
 
 	"github.com/aws/aws-sdk-go-v2/aws/arn"
 	"github.com/cihub/seelog"

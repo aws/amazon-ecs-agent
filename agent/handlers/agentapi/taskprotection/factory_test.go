@@ -18,9 +18,9 @@ package taskprotection
 import (
 	"testing"
 
-	"github.com/aws/amazon-ecs-agent/agent/config/ipcompatibility"
 	"github.com/aws/amazon-ecs-agent/ecs-agent/api/ecs"
 	"github.com/aws/amazon-ecs-agent/ecs-agent/credentials"
+	"github.com/aws/amazon-ecs-agent/ecs-agent/ipcompatibility"
 
 	"github.com/aws/aws-sdk-go-v2/aws"
 	ecsservice "github.com/aws/aws-sdk-go-v2/service/ecs"

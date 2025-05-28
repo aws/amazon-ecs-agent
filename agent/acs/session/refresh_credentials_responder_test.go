@@ -21,12 +21,12 @@ import (
 
 	apicontainer "github.com/aws/amazon-ecs-agent/agent/api/container"
 	apitask "github.com/aws/amazon-ecs-agent/agent/api/task"
-	"github.com/aws/amazon-ecs-agent/agent/config/ipcompatibility"
 	mock_engine "github.com/aws/amazon-ecs-agent/agent/engine/mocks"
 	"github.com/aws/amazon-ecs-agent/ecs-agent/acs/model/ecsacs"
 	acssession "github.com/aws/amazon-ecs-agent/ecs-agent/acs/session"
 	"github.com/aws/amazon-ecs-agent/ecs-agent/acs/session/testconst"
 	"github.com/aws/amazon-ecs-agent/ecs-agent/credentials"
+	"github.com/aws/amazon-ecs-agent/ecs-agent/ipcompatibility"
 	"github.com/aws/amazon-ecs-agent/ecs-agent/metrics"
 	"github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/golang/mock/gomock"

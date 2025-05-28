@@ -18,9 +18,9 @@ package session
 
 import (
 	"github.com/aws/amazon-ecs-agent/agent/api/task"
-	"github.com/aws/amazon-ecs-agent/agent/config/ipcompatibility"
 	"github.com/aws/amazon-ecs-agent/agent/taskresource/credentialspec"
 	"github.com/aws/amazon-ecs-agent/ecs-agent/credentials"
+	"github.com/aws/amazon-ecs-agent/ecs-agent/ipcompatibility"
 )
 
 // setDomainlessGMSATaskExecutionRoleCredentials sets the taskExecutionRoleCredentials to a Windows Registry Key so that

@@ -22,8 +22,8 @@ import (
 	"fmt"
 	"net"
 
-	"github.com/aws/amazon-ecs-agent/agent/config/ipcompatibility"
 	"github.com/aws/amazon-ecs-agent/agent/utils/netlinkwrapper"
+	"github.com/aws/amazon-ecs-agent/ecs-agent/ipcompatibility"
 	"github.com/vishvananda/netlink"
 )
 

@@ -26,7 +26,6 @@ import (
 
 	app_mocks "github.com/aws/amazon-ecs-agent/agent/app/mocks"
 	"github.com/aws/amazon-ecs-agent/agent/config"
-	"github.com/aws/amazon-ecs-agent/agent/config/ipcompatibility"
 	"github.com/aws/amazon-ecs-agent/agent/dockerclient"
 	mock_dockerapi "github.com/aws/amazon-ecs-agent/agent/dockerclient/dockerapi/mocks"
 	mock_ecscni "github.com/aws/amazon-ecs-agent/agent/ecscni/mocks"
@@ -35,6 +34,7 @@ import (
 	mock_serviceconnect "github.com/aws/amazon-ecs-agent/agent/engine/serviceconnect/mock"
 	mock_loader "github.com/aws/amazon-ecs-agent/agent/utils/loader/mocks"
 	mock_mobypkgwrapper "github.com/aws/amazon-ecs-agent/agent/utils/mobypkgwrapper/mocks"
+	"github.com/aws/amazon-ecs-agent/ecs-agent/ipcompatibility"
 	md "github.com/aws/amazon-ecs-agent/ecs-agent/manageddaemon"
 
 	"github.com/aws/aws-sdk-go-v2/aws"

@@ -21,11 +21,11 @@ import (
 	"os"
 	"time"
 
-	"github.com/aws/amazon-ecs-agent/agent/config/ipcompatibility"
 	"github.com/aws/amazon-ecs-agent/agent/dockerclient"
 	"github.com/aws/amazon-ecs-agent/agent/utils"
 	netutils "github.com/aws/amazon-ecs-agent/agent/utils/net"
 	"github.com/aws/amazon-ecs-agent/agent/utils/netlinkwrapper"
+	"github.com/aws/amazon-ecs-agent/ecs-agent/ipcompatibility"
 
 	"github.com/aws/amazon-ecs-agent/ecs-agent/ec2"
 	"github.com/aws/amazon-ecs-agent/ecs-agent/logger"
