@@ -301,3 +301,9 @@ func checkTCShowTooling() bool {
 	}
 	return true
 }
+
+// appendIPv6OnlyCapability appends ecs.capability.ipv6-only to passed capabilities and returns
+// the updated capabilities slice.
+func appendIPv6OnlyCapability(capabilities []types.Attribute) []types.Attribute {
+	return appendNameOnlyAttribute(capabilities, attributePrefix+capabilityIPv6Only)
+}
