@@ -51,15 +51,11 @@ const (
 	offhostIntrospectionAccessConfigEnv   = "ECS_ALLOW_OFFHOST_INTROSPECTION_ACCESS"
 	offhostIntrospectonAccessInterfaceEnv = "ECS_OFFHOST_INTROSPECTION_INTERFACE_NAME"
 	agentIntrospectionServerPort          = "51678"
-
-	ipv4RouteFile                    = "/proc/net/route"
-	ipv4ZeroAddrInHex                = "00000000"
-	fallbackLoopbackInterfaceName    = "lo"
-	dockerVirtualBridgeInterfaceName = "docker0"
 )
 
 var (
-	defaultLoopbackInterfaceName = ""
+	defaultLoopbackInterfaceName   = ""
+	defaultDockerBridgeNetworkName = ""
 )
 
 // NetfilterRoute implements the engine.credentialsProxyRoute interface by
@@ -74,7 +70,7 @@ type NetfilterRoute struct {
 type getNetfilterChainArgsFunc func() []string
 
 // NewNetfilterRoute creates a new NetfilterRoute object
-func NewNetfilterRoute(cmdExec exec.Exec, nlWrapper netlinkwrapper.NetLink) (*NetfilterRoute, error) {
+func NewNetfilterRoute(cmdExec exec.Exec, nlWrapper netlinkwrapper.NetLink, dockerBridgeNetworkName string) (*NetfilterRoute, error) {
 	// Return an error if 'iptables' command cannot be found in the path
 	_, err := cmdExec.LookPath(iptablesExecutable)
 	if err != nil {
@@ -85,12 +81,11 @@ func NewNetfilterRoute(cmdExec exec.Exec, nlWrapper netlinkwrapper.NetLink) (*Ne
 	// Obtain the loopback interface on the host to restrict introspection server access
 	loopbackInterface, err := netutils.GetLoopbackInterface(nlWrapper)
 	if err != nil {
-		// fall back to using 'lo' as the default loopback interface name.
-		log.Warnf("Error resolving loopback interface on the host, will use %s as fallback: %w", fallbackLoopbackInterfaceName, err)
-		defaultLoopbackInterfaceName = fallbackLoopbackInterfaceName
-	} else {
-		defaultLoopbackInterfaceName = loopbackInterface.Attrs().Name
+		log.Errorf("Error resolving loopback interface on the host: %w", err)
+		return nil, err
 	}
+	defaultLoopbackInterfaceName = loopbackInterface.Attrs().Name
+	defaultDockerBridgeNetworkName = dockerBridgeNetworkName
 
 	return &NetfilterRoute{
 		cmdExec:   cmdExec,
@@ -256,7 +251,7 @@ func allowIntrospectionForDockerIptablesInputChainArgs() []string {
 		"INPUT",
 		"-p", "tcp",
 		"--dport", agentIntrospectionServerPort,
-		"-i", dockerVirtualBridgeInterfaceName,
+		"-i", defaultDockerBridgeNetworkName,
 		"-j", "ACCEPT",
 	}
 }

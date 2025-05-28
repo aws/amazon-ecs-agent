@@ -1,5 +1,5 @@
-//go:build test
-// +build test
+//go:build unit
+// +build unit
 
 // Copyright 2015 Amazon.com, Inc. or its affiliates. All Rights Reserved.
 //

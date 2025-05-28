@@ -16,6 +16,7 @@ package docker
 import (
 	"bytes"
 	"encoding/json"
+	"fmt"
 	"io"
 	"os"
 	"os/exec"
@@ -130,6 +131,10 @@ const (
 	// fault inject functionality. Ref: https://man7.org/linux/man-pages/man8/modinfo.8.html
 	modInfoSbinDir    = "/sbin/modinfo"
 	modInfoUsrSbinDir = "/usr/sbin/modinfo"
+
+	// Docker Network options to filter for the default bridge network interface of docker
+	dockerDefaultBridgeInterfaceOption = "com.docker.network.bridge.default_bridge"
+	dockerInterfaceNameOption          = "com.docker.network.bridge.name"
 )
 
 // Do NOT include "CAP_" in capability string
@@ -667,4 +672,27 @@ func isDomainJoined() bool {
 	}
 
 	return true
+}
+
+// FindDefaultBridgeNetworkInterfaceName is used to find the name of the default network interface
+// for docker bridge network mode.
+func (c *client) FindDefaultBridgeNetworkInterfaceName() (string, error) {
+	networks, err := c.docker.FilteredListNetworks(godocker.NetworkFilterOpts{
+		"driver": map[string]bool{"bridge": true},
+	})
+	if err != nil {
+		return "", err
+	}
+	for _, network := range networks {
+		val, ok := network.Options[dockerDefaultBridgeInterfaceOption]
+		if ok {
+			if val == "true" {
+				interfaceName, ok := network.Options[dockerInterfaceNameOption]
+				if ok {
+					return interfaceName, nil
+				}
+			}
+		}
+	}
+	return "", fmt.Errorf("unable to find any virtual docker bridge network interfaces on the host")
 }
