@@ -24,6 +24,7 @@ import (
 	agentV4 "github.com/aws/amazon-ecs-agent/agent/handlers/v4"
 	mock_stats "github.com/aws/amazon-ecs-agent/agent/stats/mock"
 	mock_ecs "github.com/aws/amazon-ecs-agent/ecs-agent/api/ecs/mocks"
+	"github.com/aws/amazon-ecs-agent/ecs-agent/ipcompatibility"
 	v4 "github.com/aws/amazon-ecs-agent/ecs-agent/tmds/handlers/v4/state"
 
 	"github.com/golang/mock/gomock"
@@ -102,7 +103,10 @@ func TestV4GetTaskMetadataWithTaskNetworkConfig(t *testing.T) {
 			if tc.setStateExpectations != nil {
 				tc.setStateExpectations(state)
 			}
-			tmdsAgentState := agentV4.NewTMDSAgentState(state, statsEngine, ecsClient, clusterName, availabilityzone, vpcID, containerInstanceArn)
+			tmdsAgentState := agentV4.NewTMDSAgentState(state, statsEngine, ecsClient,
+				clusterName, availabilityzone, vpcID, containerInstanceArn,
+				ipcompatibility.NewIPv4OnlyCompatibility(),
+			)
 			actualTaskResponse, err := tmdsAgentState.GetTaskMetadataWithTaskNetworkConfig(v3EndpointID, nil)
 
 			assert.NoError(t, err)

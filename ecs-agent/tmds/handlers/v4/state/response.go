@@ -15,6 +15,7 @@ package state
 import (
 	"time"
 
+	"github.com/aws/amazon-ecs-agent/ecs-agent/ipcompatibility"
 	"github.com/aws/amazon-ecs-agent/ecs-agent/stats"
 	"github.com/aws/amazon-ecs-agent/ecs-agent/tmds/handlers/response"
 	v2 "github.com/aws/amazon-ecs-agent/ecs-agent/tmds/handlers/v2"
@@ -47,7 +48,9 @@ type TaskNetworkConfig struct {
 	NetworkNamespaces []*NetworkNamespace
 }
 
-func NewTaskNetworkConfig(networkMode, path, deviceName string) *TaskNetworkConfig {
+func NewTaskNetworkConfig(
+	networkMode, path, deviceName string, ipcompatibility ipcompatibility.IPCompatibility,
+) *TaskNetworkConfig {
 	return &TaskNetworkConfig{
 		NetworkMode: networkMode,
 		NetworkNamespaces: []*NetworkNamespace{
@@ -55,7 +58,8 @@ func NewTaskNetworkConfig(networkMode, path, deviceName string) *TaskNetworkConf
 				Path: path,
 				NetworkInterfaces: []*NetworkInterface{
 					{
-						DeviceName: deviceName,
+						DeviceName:      deviceName,
+						IPCompatibility: ipcompatibility,
 					},
 				},
 			},
@@ -72,10 +76,8 @@ type NetworkNamespace struct {
 type NetworkInterface struct {
 	// DeviceName is the device name on the host.
 	DeviceName string
-	// IPV4Addresses is the ipv4 address associated with the eni
-	IPV4Addresses []string
-	// IPV6Addresses is the ipv6 address associated with the eni
-	IPV6Addresses []string
+	// IPCompatibility contains the IP version compatibility information for the network interface.
+	IPCompatibility ipcompatibility.IPCompatibility
 }
 
 // Instance's clock drift status

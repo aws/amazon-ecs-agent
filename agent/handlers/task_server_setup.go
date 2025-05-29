@@ -28,6 +28,7 @@ import (
 	"github.com/aws/amazon-ecs-agent/agent/stats"
 	"github.com/aws/amazon-ecs-agent/ecs-agent/api/ecs"
 	"github.com/aws/amazon-ecs-agent/ecs-agent/credentials"
+	"github.com/aws/amazon-ecs-agent/ecs-agent/ipcompatibility"
 	auditinterface "github.com/aws/amazon-ecs-agent/ecs-agent/logger/audit"
 	"github.com/aws/amazon-ecs-agent/ecs-agent/metrics"
 	"github.com/aws/amazon-ecs-agent/ecs-agent/tmds"
@@ -72,6 +73,7 @@ func taskServerSetup(
 	vpcID string,
 	containerInstanceArn string,
 	taskProtectionClientFactory tp.TaskProtectionClientFactoryInterface,
+	instanceIPCompatibility ipcompatibility.IPCompatibility,
 ) (*http.Server, error) {
 	muxRouter := mux.NewRouter()
 
@@ -82,7 +84,10 @@ func taskServerSetup(
 	muxRouter.HandleFunc(tmdsv1.CredentialsPath,
 		tmdsv1.CredentialsHandler(credentialsManager, auditLogger))
 
-	tmdsAgentState := v4.NewTMDSAgentState(state, statsEngine, ecsClient, cluster, availabilityZone, vpcID, containerInstanceArn)
+	tmdsAgentState := v4.NewTMDSAgentState(
+		state, statsEngine, ecsClient, cluster, availabilityZone, vpcID,
+		containerInstanceArn, instanceIPCompatibility,
+	)
 	metricsFactory := metrics.NewNopEntryFactory()
 
 	v2HandlersSetup(muxRouter, state, ecsClient, statsEngine, cluster, credentialsManager, auditLogger, availabilityZone, containerInstanceArn)
@@ -360,7 +365,8 @@ func ServeTaskHTTPEndpoint(
 	}
 	server, err := taskServerSetup(credentialsManager, auditLogger, state, ecsClient, cfg.Cluster,
 		statsEngine, cfg.TaskMetadataSteadyStateRate, cfg.TaskMetadataBurstRate,
-		availabilityZone, vpcID, containerInstanceArn, taskProtectionClientFactory)
+		availabilityZone, vpcID, containerInstanceArn, taskProtectionClientFactory,
+		cfg.InstanceIPCompatibility)
 	if err != nil {
 		seelog.Criticalf("Failed to set up Task Metadata Server: %v", err)
 		return

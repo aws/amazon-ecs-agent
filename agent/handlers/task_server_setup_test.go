@@ -43,6 +43,7 @@ import (
 	apitaskstatus "github.com/aws/amazon-ecs-agent/ecs-agent/api/task/status"
 	"github.com/aws/amazon-ecs-agent/ecs-agent/credentials"
 	mock_credentials "github.com/aws/amazon-ecs-agent/ecs-agent/credentials/mocks"
+	"github.com/aws/amazon-ecs-agent/ecs-agent/ipcompatibility"
 	mock_audit "github.com/aws/amazon-ecs-agent/ecs-agent/logger/audit/mocks"
 	mock_metrics "github.com/aws/amazon-ecs-agent/ecs-agent/metrics/mocks"
 	ni "github.com/aws/amazon-ecs-agent/ecs-agent/netlib/model/networkinterface"
@@ -735,8 +736,11 @@ func expectedV4TaskResponse() v4.TaskResponse {
 	)
 }
 
-func expectedV4TaskNetworkConfig(enableFaultInjection bool, networkMode, path, deviceName string) *v4.TaskNetworkConfig {
-	return v4.NewTaskNetworkConfig(networkMode, path, deviceName)
+func expectedV4TaskNetworkConfig(
+	enableFaultInjection bool, networkMode, path,
+	deviceName string, ipcompatibility ipcompatibility.IPCompatibility,
+) *v4.TaskNetworkConfig {
+	return v4.NewTaskNetworkConfig(networkMode, path, deviceName, ipcompatibility)
 }
 
 // expectedV4TaskResponseHostModeWithFaultInjectionEnabled returns a standard v4 task response with
@@ -1056,7 +1060,8 @@ func testErrorResponsesFromServer(t *testing.T, path string, expectedErrorMessag
 	ecsClient := mock_ecs.NewMockECSClient(ctrl)
 	server, err := taskServerSetup(credentialsManager, auditLog, nil, ecsClient, "", nil,
 		config.DefaultTaskMetadataSteadyStateRate, config.DefaultTaskMetadataBurstRate, "", vpcID,
-		containerInstanceArn, tp.NewMockTaskProtectionClientFactoryInterface(ctrl))
+		containerInstanceArn, tp.NewMockTaskProtectionClientFactoryInterface(ctrl),
+		ipcompatibility.NewIPv4OnlyCompatibility())
 	require.NoError(t, err)
 
 	recorder := httptest.NewRecorder()
@@ -1093,7 +1098,8 @@ func getResponseForCredentialsRequest(t *testing.T, expectedStatus int,
 	ecsClient := mock_ecs.NewMockECSClient(ctrl)
 	server, err := taskServerSetup(credentialsManager, auditLog, nil, ecsClient, "", nil,
 		config.DefaultTaskMetadataSteadyStateRate, config.DefaultTaskMetadataBurstRate, "", vpcID,
-		containerInstanceArn, tp.NewMockTaskProtectionClientFactoryInterface(ctrl))
+		containerInstanceArn, tp.NewMockTaskProtectionClientFactoryInterface(ctrl),
+		ipcompatibility.NewIPv4OnlyCompatibility())
 	require.NoError(t, err)
 
 	recorder := httptest.NewRecorder()
@@ -1152,7 +1158,8 @@ func TestV3ContainerAssociations(t *testing.T) {
 	)
 	server, err := taskServerSetup(credentials.NewManager(), auditLog, state, ecsClient, clusterName, statsEngine,
 		config.DefaultTaskMetadataSteadyStateRate, config.DefaultTaskMetadataBurstRate, "", vpcID,
-		containerInstanceArn, tp.NewMockTaskProtectionClientFactoryInterface(ctrl))
+		containerInstanceArn, tp.NewMockTaskProtectionClientFactoryInterface(ctrl),
+		ipcompatibility.NewIPv4OnlyCompatibility())
 	require.NoError(t, err)
 	recorder := httptest.NewRecorder()
 	req, _ := http.NewRequest("GET", v3BasePath+v3EndpointID+"/associations/"+associationType, nil)
@@ -1184,7 +1191,8 @@ func TestV3ContainerAssociation(t *testing.T) {
 	)
 	server, err := taskServerSetup(credentials.NewManager(), auditLog, state, ecsClient, clusterName, statsEngine,
 		config.DefaultTaskMetadataSteadyStateRate, config.DefaultTaskMetadataBurstRate, "", vpcID,
-		containerInstanceArn, tp.NewMockTaskProtectionClientFactoryInterface(ctrl))
+		containerInstanceArn, tp.NewMockTaskProtectionClientFactoryInterface(ctrl),
+		ipcompatibility.NewIPv4OnlyCompatibility())
 	require.NoError(t, err)
 	recorder := httptest.NewRecorder()
 	req, _ := http.NewRequest("GET", v3BasePath+v3EndpointID+"/associations/"+associationType+"/"+associationName, nil)
@@ -1215,7 +1223,8 @@ func TestV4ContainerAssociations(t *testing.T) {
 	)
 	server, err := taskServerSetup(credentials.NewManager(), auditLog, state, ecsClient, clusterName, statsEngine,
 		config.DefaultTaskMetadataSteadyStateRate, config.DefaultTaskMetadataBurstRate, "", vpcID,
-		containerInstanceArn, tp.NewMockTaskProtectionClientFactoryInterface(ctrl))
+		containerInstanceArn, tp.NewMockTaskProtectionClientFactoryInterface(ctrl),
+		ipcompatibility.NewIPv4OnlyCompatibility())
 	require.NoError(t, err)
 	recorder := httptest.NewRecorder()
 	req, _ := http.NewRequest("GET", v4BasePath+v3EndpointID+"/associations/"+associationType, nil)
@@ -1247,7 +1256,8 @@ func TestV4ContainerAssociation(t *testing.T) {
 	)
 	server, err := taskServerSetup(credentials.NewManager(), auditLog, state, ecsClient, clusterName, statsEngine,
 		config.DefaultTaskMetadataSteadyStateRate, config.DefaultTaskMetadataBurstRate, "", vpcID,
-		containerInstanceArn, tp.NewMockTaskProtectionClientFactoryInterface(ctrl))
+		containerInstanceArn, tp.NewMockTaskProtectionClientFactoryInterface(ctrl),
+		ipcompatibility.NewIPv4OnlyCompatibility())
 	require.NoError(t, err)
 	recorder := httptest.NewRecorder()
 	req, _ := http.NewRequest("GET", v4BasePath+v3EndpointID+"/associations/"+associationType+"/"+associationName, nil)
@@ -1274,7 +1284,8 @@ func TestTaskHTTPEndpoint301Redirect(t *testing.T) {
 
 	server, err := taskServerSetup(credentials.NewManager(), auditLog, state, ecsClient, clusterName, statsEngine,
 		config.DefaultTaskMetadataSteadyStateRate, config.DefaultTaskMetadataBurstRate, "", vpcID,
-		containerInstanceArn, tp.NewMockTaskProtectionClientFactoryInterface(ctrl))
+		containerInstanceArn, tp.NewMockTaskProtectionClientFactoryInterface(ctrl),
+		ipcompatibility.NewIPv4OnlyCompatibility())
 	require.NoError(t, err)
 
 	for testPath, expectedPath := range testPathsMap {
@@ -1317,7 +1328,8 @@ func TestTaskHTTPEndpointErrorCode404(t *testing.T) {
 
 	server, err := taskServerSetup(credentials.NewManager(), auditLog, state, ecsClient, clusterName, statsEngine,
 		config.DefaultTaskMetadataSteadyStateRate, config.DefaultTaskMetadataBurstRate, "", vpcID,
-		containerInstanceArn, tp.NewMockTaskProtectionClientFactoryInterface(ctrl))
+		containerInstanceArn, tp.NewMockTaskProtectionClientFactoryInterface(ctrl),
+		ipcompatibility.NewIPv4OnlyCompatibility())
 	require.NoError(t, err)
 
 	for _, testPath := range testPaths {
@@ -1357,7 +1369,8 @@ func TestTaskHTTPEndpointErrorCode400(t *testing.T) {
 
 	server, err := taskServerSetup(credentials.NewManager(), auditLog, state, ecsClient, clusterName, statsEngine,
 		config.DefaultTaskMetadataSteadyStateRate, config.DefaultTaskMetadataBurstRate, "", vpcID,
-		containerInstanceArn, tp.NewMockTaskProtectionClientFactoryInterface(ctrl))
+		containerInstanceArn, tp.NewMockTaskProtectionClientFactoryInterface(ctrl),
+		ipcompatibility.NewIPv4OnlyCompatibility())
 	require.NoError(t, err)
 
 	for _, testPath := range testPaths {
@@ -1396,7 +1409,8 @@ func TestTaskHTTPEndpointErrorCode500(t *testing.T) {
 
 	server, err := taskServerSetup(credentials.NewManager(), auditLog, state, ecsClient, clusterName, statsEngine,
 		config.DefaultTaskMetadataSteadyStateRate, config.DefaultTaskMetadataBurstRate, "", vpcID,
-		containerInstanceArn, tp.NewMockTaskProtectionClientFactoryInterface(ctrl))
+		containerInstanceArn, tp.NewMockTaskProtectionClientFactoryInterface(ctrl),
+		ipcompatibility.NewIPv4OnlyCompatibility())
 	require.NoError(t, err)
 
 	for _, testPath := range testPaths {
@@ -1466,7 +1480,8 @@ func TestV4TaskNotFoundError404(t *testing.T) {
 
 			server, err := taskServerSetup(credentials.NewManager(), auditLog, state, ecsClient, clusterName, statsEngine,
 				config.DefaultTaskMetadataSteadyStateRate, config.DefaultTaskMetadataBurstRate, "", vpcID,
-				containerInstanceArn, tp.NewMockTaskProtectionClientFactoryInterface(ctrl))
+				containerInstanceArn, tp.NewMockTaskProtectionClientFactoryInterface(ctrl),
+				ipcompatibility.NewIPv4OnlyCompatibility())
 			require.NoError(t, err)
 
 			state.EXPECT().TaskARNByV3EndpointID(gomock.Any()).Return("", tc.taskFound).AnyTimes()
@@ -1522,7 +1537,8 @@ func TestV4Unexpected500Error(t *testing.T) {
 
 			server, err := taskServerSetup(credentials.NewManager(), auditLog, state, ecsClient, clusterName, statsEngine,
 				config.DefaultTaskMetadataSteadyStateRate, config.DefaultTaskMetadataBurstRate, "", vpcID,
-				containerInstanceArn, tp.NewMockTaskProtectionClientFactoryInterface(ctrl))
+				containerInstanceArn, tp.NewMockTaskProtectionClientFactoryInterface(ctrl),
+				ipcompatibility.NewIPv4OnlyCompatibility())
 			require.NoError(t, err)
 
 			// Initial lookups succeed
@@ -1630,7 +1646,7 @@ func testTMDSRequest[R TMDSResponse](t *testing.T, tc TMDSTestCase[R]) {
 	server, err := taskServerSetup(credsManager, auditLog, state, ecsClient,
 		clusterName, statsEngine,
 		config.DefaultTaskMetadataSteadyStateRate, config.DefaultTaskMetadataBurstRate, availabilityzone, vpcID,
-		containerInstanceArn, taskProtectionClientFactory)
+		containerInstanceArn, taskProtectionClientFactory, ipcompatibility.NewIPv4OnlyCompatibility())
 	require.NoError(t, err)
 
 	// Create the request
@@ -4224,7 +4240,10 @@ func testRegisterFaultHandler(t *testing.T, tcs []networkFaultTestCase, tmdsEndp
 			statsEngine := mock_stats.NewMockEngine(ctrl)
 			ecsClient := mock_ecs.NewMockECSClient(ctrl)
 
-			agentState := agentV4.NewTMDSAgentState(state, statsEngine, ecsClient, clusterName, availabilityzone, vpcID, containerInstanceArn)
+			agentState := agentV4.NewTMDSAgentState(
+				state, statsEngine, ecsClient, clusterName, availabilityzone, vpcID,
+				containerInstanceArn, ipcompatibility.NewIPv4OnlyCompatibility(),
+			)
 			metricsFactory := mock_metrics.NewMockEntryFactory(ctrl)
 			durationMetricEntry := mock_metrics.NewMockEntry(ctrl)
 			gomock.InOrder(
