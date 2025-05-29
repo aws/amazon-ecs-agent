@@ -18,9 +18,16 @@ package engine
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
+	"net"
+	"net/http"
+	"net/http/httptest"
+	"net/url"
 	"os"
+	"path/filepath"
 	"runtime"
+	"syscall"
 	"testing"
 	"time"
 
@@ -39,18 +46,40 @@ import (
 	ssmfactory "github.com/aws/amazon-ecs-agent/agent/ssm/factory"
 	"github.com/aws/amazon-ecs-agent/agent/statechange"
 	"github.com/aws/amazon-ecs-agent/agent/taskresource"
+	"github.com/aws/amazon-ecs-agent/agent/taskresource/firelens"
 	ec2testutil "github.com/aws/amazon-ecs-agent/agent/utils/test/ec2util"
 	apicontainerstatus "github.com/aws/amazon-ecs-agent/ecs-agent/api/container/status"
 	apitaskstatus "github.com/aws/amazon-ecs-agent/ecs-agent/api/task/status"
 	"github.com/aws/amazon-ecs-agent/ecs-agent/credentials"
+	"github.com/aws/amazon-ecs-agent/ecs-agent/ec2"
 	"github.com/aws/amazon-ecs-agent/ecs-agent/eventstream"
+	"github.com/aws/amazon-ecs-agent/ecs-agent/utils/userparser"
 
+	"github.com/aws/aws-sdk-go/aws"
+	"github.com/aws/aws-sdk-go/aws/awserr"
+	"github.com/aws/aws-sdk-go/aws/session"
+	"github.com/aws/aws-sdk-go/service/cloudwatchlogs"
 	log "github.com/cihub/seelog"
+	dockercontainer "github.com/docker/docker/api/types/container"
+	"github.com/pborman/uuid"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 var (
-	sdkClientFactory sdkclientfactory.Factory
+	sdkClientFactory        sdkclientfactory.Factory
+	mockTaskMetadataHandler = http.HandlerFunc(func(rw http.ResponseWriter, req *http.Request) {
+		rw.Write([]byte(`{"TaskARN": "arn:aws:ecs:region:account-id:task/task-id"}`))
+	})
+)
+
+const (
+	testECSRegion         = "us-east-1"
+	testLogGroupName      = "test-fluentbit"
+	testLogGroupPrefix    = "firelens-fluentbit-"
+	validTaskArnPrefix    = "arn:aws:ecs:region:account-id:task/"
+	testAppContainerImage = "public.ecr.aws/docker/library/busybox:latest"
+	TestCluster           = "testCluster"
 )
 
 func init() {
@@ -417,4 +446,228 @@ func RecordTestEvent(testEvents *TestEvents, event statechange.Event) {
 		}
 		testEvents.RecordedEvents[statechange.ContainerEvent][containerEvent.Status.String()][containerEvent.TaskArn+":"+containerEvent.ContainerName] = true
 	}
+}
+
+// setupTaskMetadataServer sets up a mock TMDS that the Firelens container needs access to.
+func setupTaskMetadataServer(t *testing.T) {
+	// Note that the listener has to be overwritten here, because the default one from httptest.NewServer
+	// only listens to localhost and isn't reachable from container running in bridge network mode.
+	l, err := net.Listen("tcp", ":0")
+	require.NoError(t, err)
+	server := httptest.NewUnstartedServer(mockTaskMetadataHandler)
+	server.Listener = l
+	server.Start()
+	defer server.Close()
+	port := getPortFromAddr(t, server.URL)
+	ec2MetadataClient, err := ec2.NewEC2MetadataClient(nil)
+	require.NoError(t, err)
+	serverURL := fmt.Sprintf("http://%s:%s", getHostPrivateIP(t, ec2MetadataClient), port)
+	defer setV3MetadataURLFormat(serverURL + "/v3/%s")()
+}
+
+// getPortFromAddr returns the port part of an address in format "http://<addr>:<port>".
+func getPortFromAddr(t *testing.T, addr string) string {
+	u, err := url.Parse(addr)
+	require.NoErrorf(t, err, "unable to parse address: %s", addr)
+	_, port, err := net.SplitHostPort(u.Host)
+	require.NoErrorf(t, err, "unable to get port from address: %s", addr)
+	return port
+}
+
+// getHostPrivateIP returns the host's private IP.
+func getHostPrivateIP(t *testing.T, ec2MetadataClient ec2.EC2MetadataClient) string {
+	ip, err := ec2MetadataClient.PrivateIPv4Address()
+	require.NoError(t, err)
+	return ip
+}
+
+// setV3MetadataURLFormat sets the container metadata URI format and returns a function to set it back.
+func setV3MetadataURLFormat(fmt string) func() {
+	backup := apicontainer.MetadataURIFormat
+	apicontainer.MetadataURIFormat = fmt
+	return func() {
+		apicontainer.MetadataURIFormat = backup
+	}
+}
+
+// createFirelensTask creates an ECS task with 2 containers – 1) Log-sender 2) Firelens container
+func createFirelensTask(t *testing.T, firelensContainerImage, firelensContainerUser string) *apitask.Task {
+	rawHostConfigInputForLogSender := dockercontainer.HostConfig{
+		LogConfig: dockercontainer.LogConfig{
+			Type: logDriverTypeFirelens,
+			Config: map[string]string{
+				"Name":              "cloudwatch_logs",
+				"exclude-pattern":   "exclude",
+				"include-pattern":   "include",
+				"log_group_name":    testLogGroupName,
+				"log_stream_prefix": testLogGroupPrefix,
+				"region":            testECSRegion,
+				"auto_create_group": "true",
+			},
+		},
+	}
+	rawHostConfigForLogSender, err := json.Marshal(&rawHostConfigInputForLogSender)
+	require.NoError(t, err)
+
+	rawConfigInputForLogRouter := dockercontainer.Config{
+		User: firelensContainerUser,
+	}
+	rawConfigForLogRouter, err := json.Marshal(&rawConfigInputForLogRouter)
+	require.NoError(t, err)
+
+	testTask := CreateTestTask(validTaskArnPrefix + uuid.New())
+	testTask.Containers = []*apicontainer.Container{
+		{
+			Name:      "app",
+			Image:     testAppContainerImage,
+			Essential: true,
+			Command:   []string{"echo exclude; echo include"},
+			DockerConfig: apicontainer.DockerConfig{
+				HostConfig: func() *string {
+					s := string(rawHostConfigForLogSender)
+					return &s
+				}(),
+			},
+		},
+		{
+			Name:      "log-router",
+			Image:     firelensContainerImage,
+			Essential: true,
+			FirelensConfig: &apicontainer.FirelensConfig{
+				Type: firelens.FirelensConfigTypeFluentbit,
+				Options: map[string]string{
+					"enable-ecs-log-metadata": "true",
+				},
+			},
+			DockerConfig: apicontainer.DockerConfig{
+				Config: func() *string {
+					s := string(rawConfigForLogRouter)
+					return &s
+				}(),
+			},
+			Environment: map[string]string{
+				"AWS_EXECUTION_ENV": "AWS_ECS_EC2",
+				"FLB_LOG_LEVEL":     "debug",
+			},
+			TransitionDependenciesMap: make(map[apicontainerstatus.ContainerStatus]apicontainer.TransitionDependencySet),
+		},
+	}
+	testTask.ResourcesMapUnsafe = make(map[string][]taskresource.TaskResource)
+	return testTask
+}
+
+// verifyTaskStatusBasedOnAction verifies the task and container statuses
+func verifyTaskStatusBasedOnAction(t *testing.T, taskEngine TaskEngine, action string) {
+	switch action {
+	case "start":
+		// Verify 'log-router' container runs first, followed by the 'app' container
+		verifySpecificContainerStateChange(t, taskEngine, "log-router", apicontainerstatus.ContainerRunning)
+		verifySpecificContainerStateChange(t, taskEngine, "app", apicontainerstatus.ContainerRunning)
+		// Verify task is in running state
+		VerifyTaskRunningStateChange(t, taskEngine)
+	case "stop":
+		// Verify 'app' container stops first, followed by the 'log-router' container
+		verifySpecificContainerStateChange(t, taskEngine, "app", apicontainerstatus.ContainerStopped)
+		verifySpecificContainerStateChange(t, taskEngine, "log-router", apicontainerstatus.ContainerStopped)
+		// Verify the task has stopped
+		VerifyTaskStoppedStateChange(t, taskEngine)
+	default:
+		t.Errorf("Unexpected action: %s", action)
+	}
+}
+
+// verifyFirelensDataDir verifies the configuration of the data directory, that is created for the Firelens task
+func verifyFirelensDataDir(t *testing.T, firelensDataDir, firelensContainerUser string) {
+	// Verify Firelens data directory exists
+	_, err := os.Stat(firelensDataDir)
+	require.NoError(t, err)
+
+	// Validate subdirectories - config and socket
+	firelensConfigDir := filepath.Join(firelensDataDir, "config")
+	firelensSocketDir := filepath.Join(firelensDataDir, "socket")
+	// Verify config directory exists
+	configDirInfo, err := os.Stat(firelensConfigDir)
+	require.NoError(t, err)
+	// Verify socket directory exists
+	socketDirInfo, err := os.Stat(firelensSocketDir)
+	require.NoError(t, err)
+
+	// Verify config directory ownership is set as per the ECS agent's user config
+	sys := configDirInfo.Sys().(*syscall.Stat_t)
+	assert.Equal(t, os.Getuid, sys.Uid,
+		"Config directory owner UID doesn't match expected ECS agent UID")
+	assert.Equal(t, os.Getgid, sys.Gid,
+		"Config directory owner GID doesn't match expected ECS agent GID")
+
+	// Verify socket directory ownership is set as per the Firelens container's user config
+	userPart, groupPart, err := userparser.ParseUser(firelensContainerUser)
+	require.NoError(t, err)
+	sys = socketDirInfo.Sys().(*syscall.Stat_t)
+	assert.Equal(t, userPart, sys.Uid,
+		"Socket directory owner UID doesn't match expected Firelens container UID")
+	assert.Equal(t, groupPart, sys.Gid,
+		"Socket directory owner GID doesn't match expected Firelens container GID")
+}
+
+// verifyFirelensLogs verifies that the Firelens container sent app logs to CloudWatch as expected
+func verifyFirelensLogs(t *testing.T, testTask *apitask.Task) {
+	taskID := testTask.GetID()
+	// Declare a cloudwatch client
+	cwlClient := cloudwatchlogs.New(session.New(), aws.NewConfig().WithRegion(testECSRegion))
+	params := &cloudwatchlogs.GetLogEventsInput{
+		LogGroupName:  aws.String(testLogGroupName),
+		LogStreamName: aws.String(fmt.Sprintf("firelens-fluentbit-logsender-firelens-%s", taskID)),
+	}
+	// Wait for logs to appear in CloudWatch Logs
+	resp, err := waitCloudwatchLogs(cwlClient, params)
+	require.NoError(t, err)
+	// There should only be one event as we are echoing only one thing that part of the include-filter
+	assert.Equal(t, 1, len(resp.Events))
+	message := aws.StringValue(resp.Events[0].Message)
+	jsonBlob := make(map[string]string)
+	err = json.Unmarshal([]byte(message), &jsonBlob)
+	require.NoError(t, err)
+	assert.Equal(t, "stdout", jsonBlob["source"])
+	assert.Equal(t, "include", jsonBlob["log"])
+	assert.Contains(t, jsonBlob, "container_id")
+	assert.Contains(t, jsonBlob["container_name"], "logsender")
+	assert.Equal(t, TestCluster, jsonBlob["ecs_cluster"])
+	assert.Equal(t, testTask.Arn, jsonBlob["ecs_task_arn"])
+}
+
+func waitCloudwatchLogs(client *cloudwatchlogs.CloudWatchLogs, params *cloudwatchlogs.GetLogEventsInput) (*cloudwatchlogs.GetLogEventsOutput, error) {
+	// The test could fail for timing issue, so retry for 60 seconds to make this test more stable
+	for i := 0; i < 60; i++ {
+		resp, err := client.GetLogEvents(params)
+		if err != nil {
+			awsError, ok := err.(awserr.Error)
+			if !ok || awsError.Code() != "ResourceNotFoundException" {
+				return nil, err
+			}
+		} else if len(resp.Events) > 0 {
+			return resp, nil
+		}
+		time.Sleep(time.Second)
+	}
+	return nil, fmt.Errorf("timeout waiting for the logs to be sent to cloud watch logs")
+}
+
+// cleanupFirelensTask helps cleanup the Firelens task resources created during the test execution
+func stopAndCleanupFirelensTask(t *testing.T, cfg *config.Config, testTask *apitask.Task, taskEngine TaskEngine,
+	firelensDataDir string) {
+	// Stop the Firelens task and cleanup
+	testTask.SetSentStatus(apitaskstatus.TaskStopped)
+	// Sleep for 3 times the task cleanup wait duration
+	time.Sleep(3 * cfg.TaskCleanupWaitDuration)
+	// Wait for Firelens task to be removed from the task engine
+	for i := 0; i < 60; i++ {
+		_, ok := taskEngine.(*DockerTaskEngine).State().TaskByArn(testTask.Arn)
+		if !ok {
+			break
+		}
+		time.Sleep(1 * time.Second)
+	}
+	// Make sure all the resource is cleaned up
+	_, err := os.ReadDir(firelensDataDir)
+	assert.Error(t, err)
 }
