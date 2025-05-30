@@ -28,6 +28,7 @@ type NetLink interface {
 	LinkList() ([]netlink.Link, error)
 	RouteAdd(route *netlink.Route) error
 	RouteDel(route *netlink.Route) error
+	AddrList(link netlink.Link, family int) ([]netlink.Addr, error)
 }
 
 type netLink struct{}
@@ -65,4 +66,8 @@ func (nl *netLink) RouteAdd(route *netlink.Route) error {
 
 func (nl *netLink) RouteDel(route *netlink.Route) error {
 	return netlink.RouteDel(route)
+}
+
+func (nl *netLink) AddrList(link netlink.Link, family int) ([]netlink.Addr, error) {
+	return netlink.AddrList(link, family)
 }

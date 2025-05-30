@@ -20,6 +20,7 @@ import (
 	"errors"
 	"fmt"
 	"net"
+	"os"
 	"testing"
 
 	mock_netlinkwrapper "github.com/aws/amazon-ecs-agent/ecs-agent/utils/netlinkwrapper/mocks"
@@ -644,6 +645,393 @@ func TestGetLoopbackInterface(t *testing.T) {
 			} else {
 				assert.NoError(t, err)
 				assert.Equal(t, tt.expectedLink, link)
+			}
+		})
+	}
+}
+
+func TestGetDefaultNetworkInterface(t *testing.T) {
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+
+	ipv4Gateway := net.ParseIP("192.168.1.1")
+	ipv6Gateway := net.ParseIP("fe80::1")
+
+	tests := []struct {
+		name          string
+		ipFamily      int
+		setupMock     func(*mock_netlinkwrapper.MockNetLink)
+		expectedLink  netlink.Link
+		expectedError error
+	}{
+		{
+			name:     "IPv4 default route exists",
+			ipFamily: netlink.FAMILY_V4,
+			setupMock: func(mockNl *mock_netlinkwrapper.MockNetLink) {
+				routes := []netlink.Route{
+					{Dst: nil, Gw: ipv4Gateway, Priority: 200, LinkIndex: 2},
+					{Dst: nil, Gw: ipv4Gateway, Priority: 100, LinkIndex: 1},
+					{Dst: &net.IPNet{IP: net.IPv4(192, 168, 1, 0), Mask: net.CIDRMask(24, 32)}, Gw: nil, Priority: 100, LinkIndex: 3}, // Non-default route
+				}
+				expectedLink := &netlink.Bridge{LinkAttrs: netlink.LinkAttrs{Index: 1}}
+				mockNl.EXPECT().RouteList(gomock.Any(), netlink.FAMILY_V4).Return(routes, nil)
+				mockNl.EXPECT().LinkByIndex(1).Return(expectedLink, nil)
+			},
+			expectedLink:  &netlink.Bridge{LinkAttrs: netlink.LinkAttrs{Index: 1}},
+			expectedError: nil,
+		},
+		{
+			name:     "IPv6 default route exists",
+			ipFamily: netlink.FAMILY_V6,
+			setupMock: func(mockNl *mock_netlinkwrapper.MockNetLink) {
+				routes := []netlink.Route{
+					{Dst: &net.IPNet{IP: net.IPv6zero, Mask: net.CIDRMask(0, 128)}, Gw: ipv6Gateway, Priority: 100, LinkIndex: 1},
+				}
+				expectedLink := &netlink.Bridge{LinkAttrs: netlink.LinkAttrs{Index: 1}}
+				mockNl.EXPECT().RouteList(gomock.Any(), netlink.FAMILY_V6).Return(routes, nil)
+				mockNl.EXPECT().LinkByIndex(1).Return(expectedLink, nil)
+			},
+			expectedLink:  &netlink.Bridge{LinkAttrs: netlink.LinkAttrs{Index: 1}},
+			expectedError: nil,
+		},
+		{
+			name:     "No default route",
+			ipFamily: netlink.FAMILY_V4,
+			setupMock: func(mockNl *mock_netlinkwrapper.MockNetLink) {
+				routes := []netlink.Route{
+					{Dst: &net.IPNet{IP: net.IPv4(192, 168, 1, 0), Mask: net.CIDRMask(24, 32)}, Gw: nil, Priority: 100, LinkIndex: 1},
+					{Dst: nil, Gw: nil, Priority: 100, LinkIndex: 2}, // Invalid default route (no gateway)
+				}
+				mockNl.EXPECT().RouteList(gomock.Any(), netlink.FAMILY_V4).Return(routes, nil)
+			},
+			expectedLink:  nil,
+			expectedError: os.ErrNotExist,
+		},
+		{
+			name:     "RouteList error",
+			ipFamily: netlink.FAMILY_V4,
+			setupMock: func(mockNl *mock_netlinkwrapper.MockNetLink) {
+				mockNl.EXPECT().RouteList(gomock.Any(), netlink.FAMILY_V4).Return(nil, errors.New("failed to list routes"))
+			},
+			expectedLink:  nil,
+			expectedError: errors.New("failed to get routes: failed to list routes"),
+		},
+		{
+			name:     "LinkByIndex error",
+			ipFamily: netlink.FAMILY_V4,
+			setupMock: func(mockNl *mock_netlinkwrapper.MockNetLink) {
+				routes := []netlink.Route{{Dst: nil, Gw: ipv4Gateway, Priority: 100, LinkIndex: 1}}
+				mockNl.EXPECT().RouteList(gomock.Any(), netlink.FAMILY_V4).Return(routes, nil)
+				mockNl.EXPECT().LinkByIndex(1).Return(nil, errors.New("failed to get link"))
+			},
+			expectedLink:  nil,
+			expectedError: errors.New("failed to get link for default route: failed to get link"),
+		},
+		{
+			name:     "invalid IP family",
+			ipFamily: netlink.FAMILY_ALL,
+			setupMock: func(mockNl *mock_netlinkwrapper.MockNetLink) {
+			},
+			expectedError: fmt.Errorf("ipFamily must be FAMILY_V4 or FAMILY_V6, got FAMILY_ALL"),
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			mockNl := mock_netlinkwrapper.NewMockNetLink(ctrl)
+			tt.setupMock(mockNl)
+
+			link, err := GetDefaultNetworkInterface(mockNl, tt.ipFamily)
+
+			if tt.expectedError != nil {
+				assert.Error(t, err)
+				assert.Contains(t, err.Error(), tt.expectedError.Error())
+			} else {
+				assert.NoError(t, err)
+			}
+
+			assert.Equal(t, tt.expectedLink, link)
+		})
+	}
+}
+
+func TestIsIPv4GlobalUnicast(t *testing.T) {
+	tests := []struct {
+		name     string
+		ip       string
+		expected bool
+	}{
+		{
+			name:     "valid IPv4 global unicast",
+			ip:       "1.2.3.4",
+			expected: true,
+		},
+		{
+			name:     "IPv4 private address",
+			ip:       "10.0.0.1",
+			expected: true, // private addresses are still global unicast
+		},
+		{
+			name:     "IPv4 loopback",
+			ip:       "127.0.0.1",
+			expected: false,
+		},
+		{
+			name:     "IPv4 link-local",
+			ip:       "169.254.0.1",
+			expected: false,
+		},
+		{
+			name:     "IPv4 multicast",
+			ip:       "224.0.0.1",
+			expected: false,
+		},
+		{
+			name:     "IPv6 global unicast",
+			ip:       "2001:db8::1",
+			expected: false,
+		},
+		{
+			name:     "IPv4-mapped IPv6 address",
+			ip:       "::ffff:192.0.2.1",
+			expected: true, // these are treated as IPv4 addresses
+		},
+		{
+			name:     "unspecified IPv4",
+			ip:       "0.0.0.0",
+			expected: false,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			ip := net.ParseIP(tt.ip)
+			result := IsIPv4GlobalUnicast(ip)
+			assert.Equal(t, tt.expected, result, "IP: %s", tt.ip)
+		})
+	}
+}
+
+func TestIsIPv6GlobalUnicast(t *testing.T) {
+	tests := []struct {
+		name     string
+		ip       string
+		expected bool
+	}{
+		{
+			name:     "valid IPv6 global unicast",
+			ip:       "2001:db8::1",
+			expected: true,
+		},
+		{
+			name:     "IPv6 link-local",
+			ip:       "fe80::1",
+			expected: false,
+		},
+		{
+			name:     "IPv6 multicast",
+			ip:       "ff00::1",
+			expected: false,
+		},
+		{
+			name:     "IPv6 loopback",
+			ip:       "::1",
+			expected: false,
+		},
+		{
+			name:     "IPv4 address",
+			ip:       "192.0.2.1",
+			expected: false,
+		},
+		{
+			name:     "IPv4-mapped IPv6 address",
+			ip:       "::ffff:192.0.2.1",
+			expected: false,
+		},
+		{
+			name:     "unspecified address",
+			ip:       "::",
+			expected: false,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			ip := net.ParseIP(tt.ip)
+			result := IsIPv6GlobalUnicast(ip)
+			assert.Equal(t, tt.expected, result, "IP: %s", tt.ip)
+		})
+	}
+}
+
+func TestStringifyIPAddrs(t *testing.T) {
+	ips := []net.IP{
+		net.ParseIP("1.2.3.4"),
+		net.ParseIP("2001:db8::1"),
+	}
+	expected := []string{
+		"1.2.3.4",
+		"2001:db8::1",
+	}
+
+	result := StringifyIPAddrs(ips)
+	assert.Equal(t, expected, result)
+}
+
+func TestFilterIPv4GlobalUnicast(t *testing.T) {
+	testCases := []struct {
+		name     string
+		input    []net.IP
+		expected []net.IP
+	}{
+		{
+			name: "Mixed IPv4 addresses",
+			input: []net.IP{
+				net.ParseIP("192.168.1.1"), // private
+				net.ParseIP("127.0.0.1"),   // loopback
+				net.ParseIP("10.0.0.1"),    // private
+				net.ParseIP("169.254.0.1"), // link-local
+				net.ParseIP("2001:db8::1"), // IPv6
+			},
+			expected: []net.IP{
+				net.ParseIP("192.168.1.1"),
+				net.ParseIP("10.0.0.1"),
+			},
+		},
+		{
+			name:     "Empty input",
+			input:    []net.IP{},
+			expected: []net.IP{},
+		},
+		{
+			name:     "Nil input",
+			input:    nil,
+			expected: []net.IP{},
+		},
+		{
+			name: "All filtered out",
+			input: []net.IP{
+				net.ParseIP("127.0.0.1"),   // loopback
+				net.ParseIP("169.254.0.1"), // link-local
+				net.ParseIP("2001:db8::1"), // IPv6
+			},
+			expected: []net.IP{},
+		},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			result := FilterIPv4GlobalUnicast(tc.input)
+			assert.Equal(t, tc.expected, result)
+		})
+	}
+}
+
+func TestFilterIPv6GlobalUnicast(t *testing.T) {
+	testCases := []struct {
+		name     string
+		input    []net.IP
+		expected []net.IP
+	}{
+		{
+			name: "Mixed IPv6 addresses",
+			input: []net.IP{
+				net.ParseIP("2001:db8::1"), // global unicast
+				net.ParseIP("fe80::1"),     // link-local
+				net.ParseIP("::1"),         // loopback
+				net.ParseIP("192.168.1.1"), // IPv4
+				net.ParseIP("2002:db8::1"), // global unicast
+			},
+			expected: []net.IP{
+				net.ParseIP("2001:db8::1"),
+				net.ParseIP("2002:db8::1"),
+			},
+		},
+		{
+			name:     "Empty input",
+			input:    []net.IP{},
+			expected: []net.IP{},
+		},
+		{
+			name:     "Nil input",
+			input:    nil,
+			expected: []net.IP{},
+		},
+		{
+			name: "All filtered out",
+			input: []net.IP{
+				net.ParseIP("fe80::1"),     // link-local
+				net.ParseIP("::1"),         // loopback
+				net.ParseIP("192.168.1.1"), // IPv4
+			},
+			expected: []net.IP{},
+		},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			result := FilterIPv6GlobalUnicast(tc.input)
+			assert.Equal(t, tc.expected, result)
+		})
+	}
+}
+
+func TestGetLinkGlobalIPAddrs(t *testing.T) {
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+
+	mockNetlink := mock_netlinkwrapper.NewMockNetLink(ctrl)
+	link := &netlink.Bridge{
+		LinkAttrs: netlink.LinkAttrs{
+			Name: "eth0",
+		},
+	}
+
+	testCases := []struct {
+		name        string
+		addrs       []netlink.Addr
+		addrListErr error
+		expectedV4  []net.IP
+		expectedV6  []net.IP
+		expectedErr error
+	}{
+		{
+			name: "mixed addresses",
+			addrs: []netlink.Addr{
+				{IPNet: &net.IPNet{IP: net.ParseIP("192.168.1.1")}}, // IPv4 private
+				{IPNet: &net.IPNet{IP: net.ParseIP("127.0.0.1")}},   // IPv4 loopback
+				{IPNet: &net.IPNet{IP: net.ParseIP("2001:db8::1")}}, // IPv6 global
+				{IPNet: &net.IPNet{IP: net.ParseIP("fe80::1")}},     // IPv6 link-local
+				{IPNet: &net.IPNet{IP: net.ParseIP("10.0.0.1")}},    // IPv4 private
+			},
+			expectedV4: []net.IP{
+				net.ParseIP("192.168.1.1"),
+				net.ParseIP("10.0.0.1"),
+			},
+			expectedV6: []net.IP{
+				net.ParseIP("2001:db8::1"),
+			},
+		},
+		{
+			name:        "AddrList error",
+			addrListErr: fmt.Errorf("AddrList failed"),
+			expectedErr: fmt.Errorf("failed to list IP addresses for 'eth0': AddrList failed"),
+		},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			mockNetlink.EXPECT().AddrList(link, netlink.FAMILY_ALL).Return(tc.addrs, tc.addrListErr)
+
+			v4Addrs, v6Addrs, err := GetLinkGlobalIPAddrs(mockNetlink, link)
+
+			if tc.expectedErr != nil {
+				assert.Error(t, err)
+				assert.Contains(t, err.Error(), tc.expectedErr.Error())
+			} else {
+				assert.NoError(t, err)
+				assert.Equal(t, tc.expectedV4, v4Addrs)
+				assert.Equal(t, tc.expectedV6, v6Addrs)
 			}
 		})
 	}
