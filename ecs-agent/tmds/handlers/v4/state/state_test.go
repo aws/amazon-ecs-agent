@@ -16,6 +16,7 @@
 package state
 
 import (
+	"fmt"
 	"testing"
 
 	"github.com/pkg/errors"
@@ -121,4 +122,79 @@ func TestAsErrorStatsLookupFailure(t *testing.T) {
 		var target *ErrorStatsLookupFailure
 		require.False(t, errors.As(errors.New("other error"), &target))
 	})
+}
+
+func TestErrorDefaultNetworkInterface_Is(t *testing.T) {
+	baseErr := errors.New("base error")
+	networkErr := NewErrorDefaultNetworkInterface(baseErr)
+	wrappedErr := fmt.Errorf("outer error: %w", networkErr)
+
+	tests := []struct {
+		name     string
+		err      error
+		target   error
+		expected bool
+	}{
+		{
+			name:     "can detect wrapped ErrorDefaultNetworkInterface",
+			err:      wrappedErr,
+			target:   &ErrorDefaultNetworkInterface{},
+			expected: true,
+		},
+		{
+			name:     "can detect base error through wrapping",
+			err:      wrappedErr,
+			target:   baseErr,
+			expected: true,
+		},
+		{
+			name:     "different error type",
+			err:      errors.New("some other error"),
+			target:   &ErrorDefaultNetworkInterface{},
+			expected: false,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			result := errors.Is(tt.err, tt.target)
+			assert.Equal(t, tt.expected, result)
+		})
+	}
+}
+
+func TestErrorDefaultNetworkInterface_As(t *testing.T) {
+	baseErr := errors.New("base error")
+	networkErr := NewErrorDefaultNetworkInterface(baseErr)
+	wrappedErr := fmt.Errorf("outer error: %w", networkErr)
+
+	tests := []struct {
+		name     string
+		err      error
+		expected bool
+	}{
+		{
+			name:     "can extract wrapped ErrorDefaultNetworkInterface",
+			err:      wrappedErr,
+			expected: true,
+		},
+		{
+			name:     "can extract ErrorDefaultNetworkInterface directly",
+			err:      networkErr,
+			expected: true,
+		},
+		{
+			name:     "different error type",
+			err:      errors.New("some other error"),
+			expected: false,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			var target *ErrorDefaultNetworkInterface
+			result := errors.As(tt.err, &target)
+			assert.Equal(t, tt.expected, result)
+		})
+	}
 }
