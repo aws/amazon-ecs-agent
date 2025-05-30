@@ -12,7 +12,9 @@
 // permissions and limitations under the License.
 package utils
 
-import "testing"
+import (
+	"testing"
+)
 
 func TestIsIPv4(t *testing.T) {
 	tests := []struct {
