@@ -95,6 +95,8 @@ func (e *ErrorStatsFetchFailure) Unwrap() error {
 }
 
 // Error to be returned when we're unable to obtain the default network interface name on the host namespace for a task
+//
+// Deprecated: Use the more general ErrorDefaultNetworkInterface type
 type ErrorDefaultNetworkInterfaceName struct {
 	externalReason string // Reason to be returned in TMDS response
 }
@@ -109,6 +111,35 @@ func (e *ErrorDefaultNetworkInterfaceName) ExternalReason() string {
 
 func (e *ErrorDefaultNetworkInterfaceName) Error() string {
 	return fmt.Sprintf("failed to obtain default network interface name: %s", e.externalReason)
+}
+
+// Error to be returned when we're unable to obtain the default network interface
+// on the host namespace for a task.
+type ErrorDefaultNetworkInterface struct {
+	internalError error
+}
+
+func NewErrorDefaultNetworkInterface(internalError error) *ErrorDefaultNetworkInterface {
+	return &ErrorDefaultNetworkInterface{internalError: internalError}
+}
+
+func (e *ErrorDefaultNetworkInterface) ExternalReason() string {
+	return "failed to resolve default host network interface"
+}
+
+func (e *ErrorDefaultNetworkInterface) Error() string {
+	return fmt.Sprintf("failed to resolve default host network interface: %v", e.internalError)
+}
+
+// Unwrap implements the errors.Unwrap interface
+func (e *ErrorDefaultNetworkInterface) Unwrap() error {
+	return e.internalError
+}
+
+// Is implements the errors.Is interface
+func (e *ErrorDefaultNetworkInterface) Is(target error) bool {
+	_, ok := target.(*ErrorDefaultNetworkInterface)
+	return ok
 }
 
 // Interface for interacting with Agent State relevant to TMDS

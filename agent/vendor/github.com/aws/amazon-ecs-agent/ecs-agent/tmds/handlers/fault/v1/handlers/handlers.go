@@ -1238,13 +1238,23 @@ func getTaskMetadataErrorResponse(endpointContainerID, requestType string, err e
 		return http.StatusInternalServerError, errors.New(errFailedToGetContainerMetadata.ExternalReason())
 	}
 
+	// TODO: remove when all usage of ErrorDefaultNetworkInterfaceName are removed from Agents
 	var errDefaultNetworkInterfaceName *state.ErrorDefaultNetworkInterfaceName
 	if errors.As(err, &errDefaultNetworkInterfaceName) {
-		logger.Error("Unable to obtain default network interface on host", logger.Fields{
+		logger.Error("Unable to obtain default network interface name on host", logger.Fields{
 			field.Error:                   errDefaultNetworkInterfaceName.ExternalReason(),
 			field.TMDSEndpointContainerID: endpointContainerID,
 		})
 		return http.StatusInternalServerError, errors.New(errDefaultNetworkInterfaceName.ExternalReason())
+	}
+
+	var errDefaultNetworkInterface *state.ErrorDefaultNetworkInterface
+	if errors.As(err, &errDefaultNetworkInterface) {
+		logger.Error("Unable to obtain default network interface on host", logger.Fields{
+			field.Error:                   errDefaultNetworkInterface,
+			field.TMDSEndpointContainerID: endpointContainerID,
+		})
+		return http.StatusInternalServerError, errors.New(errDefaultNetworkInterface.ExternalReason())
 	}
 
 	logger.Error("Unknown error encountered when handling task metadata fetch failure", logger.Fields{
