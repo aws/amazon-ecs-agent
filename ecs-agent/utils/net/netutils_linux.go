@@ -21,6 +21,7 @@ import (
 	"errors"
 	"fmt"
 	"net"
+	"os"
 
 	"github.com/aws/amazon-ecs-agent/ecs-agent/ipcompatibility"
 	"github.com/aws/amazon-ecs-agent/ecs-agent/utils/netlinkwrapper"
@@ -177,4 +178,103 @@ func GetLoopbackInterface(nlWrapper netlinkwrapper.NetLink) (netlink.Link, error
 	}
 
 	return nil, fmt.Errorf("no loopback interface found")
+}
+
+// GetDefaultNetworkInterface returns the link with the highest priority default route of the specified
+// IP family. Returns os.ErrNotExist if no default route is found.
+func GetDefaultNetworkInterface(nlWrapper netlinkwrapper.NetLink, ipFamily int) (netlink.Link, error) {
+	// Get all routes
+	routes, err := nlWrapper.RouteList(nil, ipFamily)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get routes: %w", err)
+	}
+
+	// Find the default route with highest priority
+	var defaultRoute *netlink.Route
+	for _, route := range routes {
+		// Check if it's a default route (destination is nil or 0.0.0.0/0 for IPv4, ::/0 for IPv6)
+		if isDefaultRoute(route, ipFamily) {
+			if defaultRoute == nil || route.Priority < defaultRoute.Priority {
+				defaultRoute = &route
+			}
+		}
+	}
+
+	if defaultRoute == nil {
+		return nil, os.ErrNotExist
+	}
+
+	// Get the link associated with the default route
+	link, err := nlWrapper.LinkByIndex(defaultRoute.LinkIndex)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get link for default route: %w", err)
+	}
+
+	return link, nil
+}
+
+// AddrsToIPs translates a slice of netlink.Addrs to net.IPs
+func AddrsToIPs(addrs []netlink.Addr) []net.IP {
+	ips := []net.IP{}
+	for _, addr := range addrs {
+		ips = append(ips, addr.IP)
+	}
+	return ips
+}
+
+// IsIPv4GlobalUnicast checks if the passed IP is an IPv4 Global Unicast address.
+func IsIPv4GlobalUnicast(ipAddr net.IP) bool {
+	return ipAddr.IsGlobalUnicast() && ipAddr.To4() != nil
+}
+
+// IsIPv6GlobalUnicast checks if the passed IP is an IPv6 Global Unicast address.
+func IsIPv6GlobalUnicast(ipAddr net.IP) bool {
+	return ipAddr.IsGlobalUnicast() && ipAddr.To4() == nil
+}
+
+// StringifyIPAddrs stringifies a slice of IP addresses.
+func StringifyIPAddrs(addrs []net.IP) []string {
+	var strs []string
+	for _, addr := range addrs {
+		strs = append(strs, addr.String())
+	}
+	return strs
+}
+
+// GetLinkGlobalIPAddrs returns global IPv4 and IPv6 addresses associated to a link.
+func GetLinkGlobalIPAddrs(
+	netlinkClient netlinkwrapper.NetLink, link netlink.Link,
+) ([]net.IP, []net.IP, error) {
+	addrs, err := netlinkClient.AddrList(link, netlink.FAMILY_ALL)
+	if err != nil {
+		return nil, nil, fmt.Errorf("failed to list IP addresses for '%s': %w",
+			link.Attrs().Name, err)
+	}
+
+	v4Addrs := FilterIPv4GlobalUnicast(AddrsToIPs(addrs))
+	v6Addrs := FilterIPv6GlobalUnicast(AddrsToIPs(addrs))
+
+	return v4Addrs, v6Addrs, nil
+}
+
+// FilterIPv4GlobalUnicast filters Global Unicast IPv4 addresses.
+func FilterIPv4GlobalUnicast(ipAddrs []net.IP) []net.IP {
+	ipv4Addrs := []net.IP{}
+	for _, ipAddr := range ipAddrs {
+		if IsIPv4GlobalUnicast(ipAddr) {
+			ipv4Addrs = append(ipv4Addrs, ipAddr)
+		}
+	}
+	return ipv4Addrs
+}
+
+// FilterIPv6GlobalUnicast filters Global Unicast IPv6 addresses.
+func FilterIPv6GlobalUnicast(ipAddrs []net.IP) []net.IP {
+	ipv6Addrs := []net.IP{}
+	for _, ipAddr := range ipAddrs {
+		if IsIPv6GlobalUnicast(ipAddr) {
+			ipv6Addrs = append(ipv6Addrs, ipAddr)
+		}
+	}
+	return ipv6Addrs
 }
