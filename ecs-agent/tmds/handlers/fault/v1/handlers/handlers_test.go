@@ -72,6 +72,7 @@ const (
 	missingHostInterfaceError    = "unable to obtain default network interface name on host"
 	jsonStringMarshalError       = "json: cannot unmarshal string into Go struct field %s of type %s"
 	jsonIntMarshalError          = "json: cannot unmarshal number %s into Go struct field %s of type %s"
+	defaultIfaceResolveErr       = "failed to resolve default host network interface"
 )
 
 var (
@@ -571,6 +572,18 @@ func generateCommonNetworkBlackHolePortTestCases(name string) []networkFaultInje
 			expectedResponseJSON: fmt.Sprintf(errorResponse, taskMetdataUnknownFailureError),
 		},
 		{
+			name:                 "Agent failed to resolve default host network interface",
+			expectedStatusCode:   500,
+			requestBody:          happyBlackHolePortReqBody,
+			expectedResponseBody: types.NewNetworkFaultInjectionErrorResponse(defaultIfaceResolveErr),
+			setAgentStateExpectations: func(agentState *mock_state.MockAgentState, netConfigClient *netconfig.NetworkConfigClient) {
+				agentState.EXPECT().GetTaskMetadataWithTaskNetworkConfig(endpointId, netConfigClient).
+					Return(state.TaskResponse{}, state.NewErrorDefaultNetworkInterface(nil)).
+					Times(1)
+			},
+			expectedResponseJSON: fmt.Sprintf(errorResponse, defaultIfaceResolveErr),
+		},
+		{
 			name:                 fmt.Sprintf("%s request timed out", name),
 			expectedStatusCode:   500,
 			requestBody:          happyBlackHolePortReqBody,
@@ -811,12 +824,6 @@ func generateStartBlackHolePortFaultTestCases() []networkFaultInjectionTestCase 
 					// Create the chain in IPv6 table
 					exec.EXPECT().CommandContext(gomock.Any(), gomock.Any(), gomock.Any()).Times(1).Return(cmdExec),
 					cmdExec.EXPECT().CombinedOutput().Times(1).Return([]byte(internalError), errors.New("fail the ipv6 table update")),
-					// Insert the rule to drop packets
-					//exec.EXPECT().CommandContext(gomock.Any(), gomock.Any(), gomock.Any()).Times(1).Return(cmdExec),
-					//cmdExec.EXPECT().CombinedOutput().Times(1).Return([]byte{}, nil),
-					// Insert the chain
-					//exec.EXPECT().CommandContext(gomock.Any(), gomock.Any(), gomock.Any()).Times(1).Return(cmdExec),
-					//cmdExec.EXPECT().CombinedOutput().Times(1).Return([]byte{}, nil),
 				)
 			},
 			expectedResponseJSON: fmt.Sprintf(errorResponse, internalError),
@@ -1747,6 +1754,18 @@ func generateCommonNetworkLatencyTestCases(name string) []networkFaultInjectionT
 			expectedResponseJSON: fmt.Sprintf(errorResponse, taskMetdataUnknownFailureError),
 		},
 		{
+			name:                 "Agent failed to resolve host default network interface",
+			expectedStatusCode:   500,
+			requestBody:          happyNetworkLatencyReqBody,
+			expectedResponseBody: types.NewNetworkFaultInjectionErrorResponse(defaultIfaceResolveErr),
+			setAgentStateExpectations: func(agentState *mock_state.MockAgentState, netConfigClient *netconfig.NetworkConfigClient) {
+				agentState.EXPECT().GetTaskMetadataWithTaskNetworkConfig(endpointId, netConfigClient).
+					Return(state.TaskResponse{}, state.NewErrorDefaultNetworkInterface(nil)).
+					Times(1)
+			},
+			expectedResponseJSON: fmt.Sprintf(errorResponse, defaultIfaceResolveErr),
+		},
+		{
 			name:               "failed-to-unmarshal-json",
 			expectedStatusCode: 500,
 			requestBody: map[string]interface{}{
@@ -2355,6 +2374,18 @@ func generateCommonNetworkPacketLossTestCases(name string) []networkFaultInjecti
 				mockCMD.EXPECT().CombinedOutput().Times(1).Return([]byte("["), nil)
 			},
 			expectedResponseJSON: fmt.Sprintf(errorResponse, internalError),
+		},
+		{
+			name:                 "Agent failed to resolve host default network interface",
+			expectedStatusCode:   500,
+			requestBody:          happyNetworkPacketLossReqBody,
+			expectedResponseBody: types.NewNetworkFaultInjectionErrorResponse(defaultIfaceResolveErr),
+			setAgentStateExpectations: func(agentState *mock_state.MockAgentState, netConfigClient *netconfig.NetworkConfigClient) {
+				agentState.EXPECT().GetTaskMetadataWithTaskNetworkConfig(endpointId, netConfigClient).
+					Return(state.TaskResponse{}, state.NewErrorDefaultNetworkInterface(nil)).
+					Times(1)
+			},
+			expectedResponseJSON: fmt.Sprintf(errorResponse, defaultIfaceResolveErr),
 		},
 		{
 			name:                 "request timed out",
