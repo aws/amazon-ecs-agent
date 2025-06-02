@@ -732,7 +732,7 @@ func TestGetDefaultNetworkInterface(t *testing.T) {
 			ipFamily: netlink.FAMILY_ALL,
 			setupMock: func(mockNl *mock_netlinkwrapper.MockNetLink) {
 			},
-			expectedError: fmt.Errorf("ipFamily must be FAMILY_V4 or FAMILY_V6, got FAMILY_ALL"),
+			expectedError: fmt.Errorf("ipFamily must be FAMILY_V4 or FAMILY_V6, got 0"),
 		},
 	}
 

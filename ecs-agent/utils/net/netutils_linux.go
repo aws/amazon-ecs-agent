@@ -198,7 +198,7 @@ func GetLoopbackInterface(nlWrapper netlinkwrapper.NetLink) (netlink.Link, error
 // - An error if ipFamily is invalid or if there's a problem accessing route information
 func GetDefaultNetworkInterface(nlWrapper netlinkwrapper.NetLink, ipFamily int) (netlink.Link, error) {
 	if ipFamily != netlink.FAMILY_V4 && ipFamily != netlink.FAMILY_V6 {
-		return nil, fmt.Errorf("ipFamily must be FAMILY_V4 or FAMILY_V6, got FAMILY_ALL")
+		return nil, fmt.Errorf("ipFamily must be FAMILY_V4 or FAMILY_V6, got %d", ipFamily)
 	}
 
 	// Get all routes
