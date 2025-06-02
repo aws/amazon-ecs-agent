@@ -82,6 +82,7 @@ github.com/aws/amazon-ecs-agent/ecs-agent/utils/cipher
 github.com/aws/amazon-ecs-agent/ecs-agent/utils/execwrapper
 github.com/aws/amazon-ecs-agent/ecs-agent/utils/execwrapper/mocks
 github.com/aws/amazon-ecs-agent/ecs-agent/utils/httpproxy
+github.com/aws/amazon-ecs-agent/ecs-agent/utils/net
 github.com/aws/amazon-ecs-agent/ecs-agent/utils/netlinkwrapper
 github.com/aws/amazon-ecs-agent/ecs-agent/utils/netlinkwrapper/mocks
 github.com/aws/amazon-ecs-agent/ecs-agent/utils/netwrapper

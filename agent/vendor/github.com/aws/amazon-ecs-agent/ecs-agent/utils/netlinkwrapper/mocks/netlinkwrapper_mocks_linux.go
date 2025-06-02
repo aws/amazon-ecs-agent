@@ -48,6 +48,21 @@ func (m *MockNetLink) EXPECT() *MockNetLinkMockRecorder {
 	return m.recorder
 }
 
+// AddrList mocks base method.
+func (m *MockNetLink) AddrList(arg0 netlink.Link, arg1 int) ([]netlink.Addr, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "AddrList", arg0, arg1)
+	ret0, _ := ret[0].([]netlink.Addr)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// AddrList indicates an expected call of AddrList.
+func (mr *MockNetLinkMockRecorder) AddrList(arg0, arg1 interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "AddrList", reflect.TypeOf((*MockNetLink)(nil).AddrList), arg0, arg1)
+}
+
 // LinkByIndex mocks base method.
 func (m *MockNetLink) LinkByIndex(arg0 int) (netlink.Link, error) {
 	m.ctrl.T.Helper()
