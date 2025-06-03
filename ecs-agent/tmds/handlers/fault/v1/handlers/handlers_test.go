@@ -3490,3 +3490,59 @@ func TestCheckTCFault(t *testing.T) {
 		})
 	}
 }
+
+// TestIsIPv6OnlyTask does focused testing for isIPv6OnlyTask function.
+func TestIsIPv6OnlyTask(t *testing.T) {
+	tests := []struct {
+		name     string
+		task     *state.TaskResponse
+		expected bool
+	}{
+		{
+			name:     "IPv6-only single interface",
+			task:     &happyV6OnlyTaskResponse,
+			expected: true,
+		},
+		{
+			name:     "IPv4-only single interface",
+			task:     &happyV4OnlyTaskResponse,
+			expected: false,
+		},
+		{
+			name:     "Dual-stack single interface",
+			task:     &happyV4V6TaskResponse,
+			expected: false,
+		},
+		{
+			name:     "Multiple interfaces",
+			task:     &happyTaskResponseTwoInterfaces,
+			expected: false,
+		},
+		{
+			name: "Single interface with no addresses",
+			task: &state.TaskResponse{
+				TaskNetworkConfig: &state.TaskNetworkConfig{
+					NetworkMode: awsvpcNetworkMode,
+					NetworkNamespaces: []*state.NetworkNamespace{
+						{
+							Path: nspath,
+							NetworkInterfaces: []*state.NetworkInterface{
+								{
+									DeviceName: deviceName,
+								},
+							},
+						},
+					},
+				},
+			},
+			expected: false,
+		},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			result := isIPv6OnlyTask(tc.task)
+			assert.Equal(t, tc.expected, result)
+		})
+	}
+}
