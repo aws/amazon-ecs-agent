@@ -53,11 +53,14 @@ const (
 	lossPercent        = 6
 	taskARN            = "taskArn"
 	awsvpcNetworkMode  = "awsvpc"
+	hostNetworkMode    = "host"
 	deviceName         = "eth0"
+	deviceName2        = "eth1"
 	ipv4Addr           = "10.0.0.1"
 	ipv6Addr           = "2600:1f13:4d9:e602:6aea:cdb1:2b2b:8d62"
 	invalidNetworkMode = "invalid"
 	nspath             = "/some/path"
+	nspathHost         = "host"
 	// Fault injection tooling errors output
 	iptablesChainNotFoundError        = "iptables: Bad rule (does a matching rule exist in that chain?)."
 	tcLatencyFaultExistsCommandOutput = `[{"kind":"netem","handle":"10:","parent":"1:1","options":{"limit":1000,"delay":{"delay":123456789,"jitter":4567,"correlation":0},"ecn":false,"gap":0}}]`
@@ -110,6 +113,17 @@ var (
 		},
 	}
 
+	happyTwoNetworkInterfaces = []*state.NetworkInterface{
+		{
+			DeviceName:    deviceName,
+			IPV4Addresses: []string{ipv4Addr},
+		},
+		{
+			DeviceName:    deviceName2,
+			IPV6Addresses: []string{ipv6Addr},
+		},
+	}
+
 	happyNetworkNamespaces = []*state.NetworkNamespace{
 		{
 			Path:              nspath,
@@ -135,6 +149,13 @@ var (
 		{
 			Path:              nspath,
 			NetworkInterfaces: happyV4V6NetworkInterfaces,
+		},
+	}
+
+	happyNetworkNamespacesTwoInterfaces = []*state.NetworkNamespace{
+		{
+			Path:              nspathHost,
+			NetworkInterfaces: happyTwoNetworkInterfaces,
 		},
 	}
 
@@ -165,6 +186,11 @@ var (
 		NetworkNamespaces: happyV4V6NetworkNamespaces,
 	}
 
+	happyTaskNetworkConfigTwoInterfaces = state.TaskNetworkConfig{
+		NetworkMode:       hostNetworkMode,
+		NetworkNamespaces: happyNetworkNamespacesTwoInterfaces,
+	}
+
 	happyTaskResponse = state.TaskResponse{
 		TaskResponse:          &v2.TaskResponse{TaskARN: taskARN},
 		TaskNetworkConfig:     &happyTaskNetworkConfig,
@@ -186,6 +212,12 @@ var (
 	happyV4V6TaskResponse = state.TaskResponse{
 		TaskResponse:          &v2.TaskResponse{TaskARN: taskARN},
 		TaskNetworkConfig:     &happyV4V6TaskNetworkConfig,
+		FaultInjectionEnabled: true,
+	}
+
+	happyTaskResponseTwoInterfaces = state.TaskResponse{
+		TaskResponse:          &v2.TaskResponse{TaskARN: taskARN},
+		TaskNetworkConfig:     &happyTaskNetworkConfigTwoInterfaces,
 		FaultInjectionEnabled: true,
 	}
 
@@ -2876,4 +2908,60 @@ func TestStopNetworkPacketLoss(t *testing.T) {
 func TestCheckNetworkPacketLoss(t *testing.T) {
 	tcs := generateCheckNetworkPacketLossTestCases()
 	testNetworkFaultInjectionCommon(t, tcs, NetworkFaultPath(types.PacketLossFaultType, types.CheckNetworkFaultPostfix))
+}
+
+// TestIsIPv6OnlyTask does focused testing for isIPv6OnlyTask function.
+func TestIsIPv6OnlyTask(t *testing.T) {
+	tests := []struct {
+		name     string
+		task     *state.TaskResponse
+		expected bool
+	}{
+		{
+			name:     "IPv6-only single interface",
+			task:     &happyV6OnlyTaskResponse,
+			expected: true,
+		},
+		{
+			name:     "IPv4-only single interface",
+			task:     &happyV4OnlyTaskResponse,
+			expected: false,
+		},
+		{
+			name:     "Dual-stack single interface",
+			task:     &happyV4V6TaskResponse,
+			expected: false,
+		},
+		{
+			name:     "Multiple interfaces",
+			task:     &happyTaskResponseTwoInterfaces,
+			expected: false,
+		},
+		{
+			name: "Single interface with no addresses",
+			task: &state.TaskResponse{
+				TaskNetworkConfig: &state.TaskNetworkConfig{
+					NetworkMode: awsvpcNetworkMode,
+					NetworkNamespaces: []*state.NetworkNamespace{
+						{
+							Path: nspath,
+							NetworkInterfaces: []*state.NetworkInterface{
+								{
+									DeviceName: deviceName,
+								},
+							},
+						},
+					},
+				},
+			},
+			expected: false,
+		},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			result := isIPv6OnlyTask(tc.task)
+			assert.Equal(t, tc.expected, result)
+		})
+	}
 }

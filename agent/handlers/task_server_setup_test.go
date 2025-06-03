@@ -735,10 +735,6 @@ func expectedV4TaskResponse() v4.TaskResponse {
 	)
 }
 
-func expectedV4TaskNetworkConfig(enableFaultInjection bool, networkMode, path, deviceName string) *v4.TaskNetworkConfig {
-	return v4.NewTaskNetworkConfig(networkMode, path, deviceName)
-}
-
 // expectedV4TaskResponseHostModeWithFaultInjectionEnabled returns a standard v4 task response with
 // FaultInjection enabled.
 func expectedV4TaskResponseHostModeWithFaultInjectionEnabled() v4.TaskResponse {
