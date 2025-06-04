@@ -17,39 +17,33 @@
 package v4
 
 import (
-	"fmt"
-
 	"github.com/aws/amazon-ecs-agent/ecs-agent/logger"
 	"github.com/aws/amazon-ecs-agent/ecs-agent/logger/field"
 	tmdsv4 "github.com/aws/amazon-ecs-agent/ecs-agent/tmds/handlers/v4/state"
+	tmdsutils "github.com/aws/amazon-ecs-agent/ecs-agent/tmds/utils"
 	"github.com/aws/amazon-ecs-agent/ecs-agent/tmds/utils/netconfig"
-)
-
-const (
-	defaultNetworkInterfaceNameNotFoundError = "unable to obtain default network interface name on host from endpoint ID: %s"
+	"github.com/aws/amazon-ecs-agent/ecs-agent/utils"
 )
 
 // Returns task metadata including the task network configuration in v4 format for the
 // task identified by the provided endpointContainerID.
-func (s *TMDSAgentState) GetTaskMetadataWithTaskNetworkConfig(v3EndpointID string, networkConfigClient *netconfig.NetworkConfigClient) (tmdsv4.TaskResponse, error) {
+func (s *TMDSAgentState) GetTaskMetadataWithTaskNetworkConfig(
+	v3EndpointID string, networkConfigClient *netconfig.NetworkConfigClient,
+) (tmdsv4.TaskResponse, error) {
 	taskResponse, err := s.getTaskMetadata(v3EndpointID, false, true)
 	if err == nil {
 		if taskResponse.TaskNetworkConfig != nil && taskResponse.TaskNetworkConfig.NetworkMode == "host" {
-			hostDeviceName, netErr := netconfig.DefaultNetInterfaceName(networkConfigClient.NetlinkClient)
+			networkInterfaces, netErr := tmdsutils.GetDefaultNetworkInterfaces(networkConfigClient.NetlinkClient)
 			if netErr != nil {
-				err = tmdsv4.NewErrorDefaultNetworkInterfaceName(fmt.Sprintf(defaultNetworkInterfaceNameNotFoundError, v3EndpointID))
-				logger.Error("Unable to obtain default network interface on host", logger.Fields{
+				err := tmdsv4.NewErrorDefaultNetworkInterface(netErr)
+				logger.Error("Unable to obtain default network interfaces on host", logger.Fields{
 					field.TaskARN:  taskResponse.TaskARN,
 					field.Error:    err,
 					"netlinkError": netErr,
 				})
-			} else {
-				logger.Info("Obtained default network interface name on host", logger.Fields{
-					field.TaskARN:       taskResponse.TaskARN,
-					"defaultDeviceName": hostDeviceName,
-				})
+				return taskResponse, err
 			}
-			taskResponse.TaskNetworkConfig.NetworkNamespaces[0].NetworkInterfaces[0].DeviceName = hostDeviceName
+			taskResponse.TaskNetworkConfig.NetworkNamespaces[0].NetworkInterfaces = utils.ToPtrSlice(networkInterfaces)
 		}
 	}
 	return taskResponse, err

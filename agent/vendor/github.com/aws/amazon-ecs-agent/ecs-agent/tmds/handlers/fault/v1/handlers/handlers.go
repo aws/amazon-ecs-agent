@@ -1213,9 +1213,16 @@ func validateTaskMetadata(w http.ResponseWriter, agentState state.AgentState, re
 	return &taskMetadata, nil
 }
 
+// isIPv6OnlyTask determines if a task is IPv6-only by examining its network interfaces.
+// A task is considered IPv6-only if it has exactly one network interface with no IPv4
+// addresses and at least one IPv6 address. This is because IPv6-only tasks can only
+// have a single interface - multi-interface tasks must be either IPv4+IPv6 or IPv6+IPv4.
 func isIPv6OnlyTask(taskMetadata *state.TaskResponse) bool {
-	return len(taskMetadata.TaskNetworkConfig.NetworkNamespaces[0].NetworkInterfaces[0].IPV4Addresses) == 0 &&
-		len(taskMetadata.TaskNetworkConfig.NetworkNamespaces[0].NetworkInterfaces[0].IPV6Addresses) >= 1
+	interfaces := taskMetadata.TaskNetworkConfig.NetworkNamespaces[0].NetworkInterfaces
+	if len(interfaces) != 1 {
+		return false
+	}
+	return len(interfaces[0].IPV4Addresses) == 0 && len(interfaces[0].IPV6Addresses) > 0
 }
 
 // getTaskMetadataErrorResponse will be used to classify certain errors that was returned from a GetTaskMetadata function call.

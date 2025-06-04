@@ -24,6 +24,7 @@ import (
 	agentV4 "github.com/aws/amazon-ecs-agent/agent/handlers/v4"
 	mock_stats "github.com/aws/amazon-ecs-agent/agent/stats/mock"
 	mock_ecs "github.com/aws/amazon-ecs-agent/ecs-agent/api/ecs/mocks"
+	"github.com/aws/amazon-ecs-agent/ecs-agent/tmds/handlers/v4/state"
 	v4 "github.com/aws/amazon-ecs-agent/ecs-agent/tmds/handlers/v4/state"
 
 	"github.com/golang/mock/gomock"
@@ -54,7 +55,13 @@ func TestV4GetTaskMetadataWithTaskNetworkConfig(t *testing.T) {
 					state.EXPECT().PulledContainerMapByArn(taskARN).Return(nil, true),
 				)
 			},
-			expectedTaskNetworkConfig: expectedV4TaskNetworkConfig(true, apitask.AWSVPCNetworkMode, networkNamespace, defaultIfname),
+			expectedTaskNetworkConfig: state.NewTaskNetworkConfig(apitask.AWSVPCNetworkMode,
+				networkNamespace,
+				[]*state.NetworkInterface{{
+					DeviceName:    defaultIfname,
+					IPV4Addresses: []string{eniIPv4Address},
+				}},
+			),
 		},
 		{
 			name: "happy case with host mode",
@@ -72,7 +79,10 @@ func TestV4GetTaskMetadataWithTaskNetworkConfig(t *testing.T) {
 					state.EXPECT().ContainerByID(containerID).Return(nil, false).AnyTimes(),
 				)
 			},
-			expectedTaskNetworkConfig: expectedV4TaskNetworkConfig(true, apitask.HostNetworkMode, hostNetworkNamespace, defaultIfname),
+			expectedTaskNetworkConfig: state.NewTaskNetworkConfig(apitask.HostNetworkMode,
+				hostNetworkNamespace,
+				[]*state.NetworkInterface{{DeviceName: defaultIfname}},
+			),
 		},
 		{
 			name: "happy bridge mode",
@@ -86,7 +96,7 @@ func TestV4GetTaskMetadataWithTaskNetworkConfig(t *testing.T) {
 					state.EXPECT().ContainerByID(containerID).Return(bridgeContainer, true).AnyTimes(),
 				)
 			},
-			expectedTaskNetworkConfig: expectedV4TaskNetworkConfig(true, bridgeMode, "", ""),
+			expectedTaskNetworkConfig: state.NewTaskNetworkConfig(bridgeMode, "", nil),
 		},
 	}
 

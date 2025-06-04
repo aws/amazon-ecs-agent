@@ -21,6 +21,7 @@ import (
 	"github.com/aws/amazon-ecs-agent/ecs-agent/logger"
 	"github.com/aws/amazon-ecs-agent/ecs-agent/logger/field"
 	tmdsv4 "github.com/aws/amazon-ecs-agent/ecs-agent/tmds/handlers/v4/state"
+	"github.com/pkg/errors"
 )
 
 const (
@@ -161,9 +162,27 @@ func (s *TMDSAgentState) getTaskMetadata(v3EndpointID string, includeTags bool, 
 		if task.IsNetworkModeHost() {
 			// For host most, we don't really need the network namespace in order to do anything within the host instance network namespace
 			// and so we will set this to an arbitrary value such as "host".
-			taskNetworkConfig = tmdsv4.NewTaskNetworkConfig(task.GetNetworkMode(), defaultHostNetworkNamespace, task.GetDefaultIfname())
+			taskNetworkConfig = tmdsv4.NewTaskNetworkConfig(
+				task.GetNetworkMode(),
+				defaultHostNetworkNamespace,
+				[]*tmdsv4.NetworkInterface{{DeviceName: task.GetDefaultIfname()}})
+		} else if task.IsNetworkModeAWSVPC() {
+			taskENI := task.GetPrimaryENI()
+			if taskENI == nil {
+				return tmdsv4.TaskResponse{}, errors.New("found no primary ENI for awsvpc task")
+			}
+			taskNetworkConfig = tmdsv4.NewTaskNetworkConfig(
+				task.GetNetworkMode(),
+				task.GetNetworkNamespace(),
+				[]*tmdsv4.NetworkInterface{{
+					DeviceName:    task.GetDefaultIfname(),
+					IPV4Addresses: taskENI.GetIPV4Addresses(),
+					IPV6Addresses: taskENI.GetIPV6Addresses(),
+				}})
 		} else {
-			taskNetworkConfig = tmdsv4.NewTaskNetworkConfig(task.GetNetworkMode(), task.GetNetworkNamespace(), task.GetDefaultIfname())
+			// For bridge mode there is no concept of task network interfaces in ECS
+			taskNetworkConfig = tmdsv4.NewTaskNetworkConfig(
+				task.GetNetworkMode(), task.GetNetworkNamespace(), nil)
 		}
 		taskResponse.TaskNetworkConfig = taskNetworkConfig
 	}
