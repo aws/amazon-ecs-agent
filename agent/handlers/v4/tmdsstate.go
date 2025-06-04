@@ -13,6 +13,7 @@
 package v4
 
 import (
+	"errors"
 	"fmt"
 
 	"github.com/aws/amazon-ecs-agent/agent/engine/dockerstate"
@@ -21,7 +22,6 @@ import (
 	"github.com/aws/amazon-ecs-agent/ecs-agent/logger"
 	"github.com/aws/amazon-ecs-agent/ecs-agent/logger/field"
 	tmdsv4 "github.com/aws/amazon-ecs-agent/ecs-agent/tmds/handlers/v4/state"
-	"github.com/pkg/errors"
 )
 
 const (
@@ -180,7 +180,7 @@ func (s *TMDSAgentState) getTaskMetadata(v3EndpointID string, includeTags bool, 
 					IPV6Addresses: taskENI.GetIPV6Addresses(),
 				}})
 		} else {
-			// For bridge mode there is no concept of task network interfaces in ECS
+			// For other network modes there is no concept of task network interfaces in ECS
 			taskNetworkConfig = tmdsv4.NewTaskNetworkConfig(
 				task.GetNetworkMode(), task.GetNetworkNamespace(), nil)
 		}
