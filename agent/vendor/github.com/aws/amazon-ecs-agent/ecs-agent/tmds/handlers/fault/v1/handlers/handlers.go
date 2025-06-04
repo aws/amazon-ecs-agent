@@ -1360,16 +1360,18 @@ func (h *FaultHandler) startNetworkLatencyFaultForInterface(
 	cmdOutput, err := h.runExecCommand(ctx, cmdList)
 	if err != nil {
 		logger.Error("Command execution failed", logger.Fields{
-			field.CommandString: tcAddQdiscRootCommandComposed,
-			field.Error:         err,
-			field.CommandOutput: string(cmdOutput[:]),
-			field.TaskARN:       taskMetadata.TaskARN,
+			field.CommandString:    tcAddQdiscRootCommandComposed,
+			field.Error:            err,
+			field.CommandOutput:    string(cmdOutput[:]),
+			field.TaskARN:          taskMetadata.TaskARN,
+			field.NetworkInterface: interfaceName,
 		})
 		return err
 	}
 	logger.Info("Command execution completed", logger.Fields{
-		field.CommandString: tcAddQdiscRootCommandComposed,
-		field.CommandOutput: string(cmdOutput[:]),
+		field.CommandString:    tcAddQdiscRootCommandComposed,
+		field.CommandOutput:    string(cmdOutput[:]),
+		field.NetworkInterface: interfaceName,
 	})
 	tcAddQdiscLossCommandComposed := nsenterPrefix + fmt.Sprintf(
 		tcAddQdiscLatencyCommandString, interfaceName, delayInMs, jitterInMs)
@@ -1377,16 +1379,18 @@ func (h *FaultHandler) startNetworkLatencyFaultForInterface(
 	cmdOutput, err = h.runExecCommand(ctx, cmdList)
 	if err != nil {
 		logger.Error("Command execution failed", logger.Fields{
-			field.CommandString: tcAddQdiscLossCommandComposed,
-			field.Error:         err,
-			field.CommandOutput: string(cmdOutput[:]),
-			field.TaskARN:       taskMetadata.TaskARN,
+			field.CommandString:    tcAddQdiscLossCommandComposed,
+			field.Error:            err,
+			field.CommandOutput:    string(cmdOutput[:]),
+			field.TaskARN:          taskMetadata.TaskARN,
+			field.NetworkInterface: interfaceName,
 		})
 		return err
 	}
 	logger.Info("Command execution completed", logger.Fields{
-		field.CommandString: tcAddQdiscLossCommandComposed,
-		field.CommandOutput: string(cmdOutput[:]),
+		field.CommandString:    tcAddQdiscLossCommandComposed,
+		field.CommandOutput:    string(cmdOutput[:]),
+		field.NetworkInterface: interfaceName,
 	})
 	// After creating the queueing discipline, create filters to associate the IPs in the request with the handle.
 	// First redirect the allowlisted ip addresses to band 1:3 where is no network impairments.
@@ -1436,32 +1440,36 @@ func (h *FaultHandler) startNetworkPacketLossFaultForInterface(
 	cmdOutput, err := h.runExecCommand(ctx, cmdList)
 	if err != nil {
 		logger.Error("Command execution failed", logger.Fields{
-			field.CommandString: tcAddQdiscRootCommandComposed,
-			field.Error:         err,
-			field.CommandOutput: string(cmdOutput[:]),
-			field.TaskARN:       taskMetadata.TaskARN,
+			field.CommandString:    tcAddQdiscRootCommandComposed,
+			field.Error:            err,
+			field.CommandOutput:    string(cmdOutput[:]),
+			field.TaskARN:          taskMetadata.TaskARN,
+			field.NetworkInterface: interfaceName,
 		})
 		return err
 	}
 	logger.Info("Command execution completed", logger.Fields{
-		field.CommandString: tcAddQdiscRootCommandComposed,
-		field.CommandOutput: string(cmdOutput[:]),
+		field.CommandString:    tcAddQdiscRootCommandComposed,
+		field.CommandOutput:    string(cmdOutput[:]),
+		field.NetworkInterface: interfaceName,
 	})
 	tcAddQdiscLossCommandComposed := nsenterPrefix + fmt.Sprintf(tcAddQdiscLossCommandString, interfaceName, lossPercent)
 	cmdList = strings.Split(tcAddQdiscLossCommandComposed, " ")
 	cmdOutput, err = h.runExecCommand(ctx, cmdList)
 	if err != nil {
 		logger.Error("Command execution failed", logger.Fields{
-			field.CommandString: tcAddQdiscLossCommandComposed,
-			field.Error:         err,
-			field.CommandOutput: string(cmdOutput[:]),
-			field.TaskARN:       taskMetadata.TaskARN,
+			field.CommandString:    tcAddQdiscLossCommandComposed,
+			field.Error:            err,
+			field.CommandOutput:    string(cmdOutput[:]),
+			field.TaskARN:          taskMetadata.TaskARN,
+			field.NetworkInterface: interfaceName,
 		})
 		return err
 	}
 	logger.Info("Command execution completed", logger.Fields{
-		field.CommandString: tcAddQdiscLossCommandComposed,
-		field.CommandOutput: string(cmdOutput[:]),
+		field.CommandString:    tcAddQdiscLossCommandComposed,
+		field.CommandOutput:    string(cmdOutput[:]),
+		field.NetworkInterface: interfaceName,
 	})
 	// After creating the queueing discipline, create filters to associate the IPs in the request with the handle.
 	// First redirect the allowlisted ip addresses to band 1:3 where is no network impairments.
@@ -1509,32 +1517,36 @@ func (h *FaultHandler) stopTCFaultForInterface(
 	cmdOutput, err := h.runExecCommand(ctx, cmdList)
 	if err != nil {
 		logger.Error("Command execution failed", logger.Fields{
-			field.CommandString: tcDeleteQdiscParentCommandComposed,
-			field.Error:         err,
-			field.CommandOutput: string(cmdOutput[:]),
-			field.TaskARN:       taskMetadata.TaskARN,
+			field.CommandString:    tcDeleteQdiscParentCommandComposed,
+			field.Error:            err,
+			field.CommandOutput:    string(cmdOutput[:]),
+			field.TaskARN:          taskMetadata.TaskARN,
+			field.NetworkInterface: interfaceName,
 		})
 		return err
 	}
 	logger.Info("Command execution completed", logger.Fields{
-		field.CommandString: tcDeleteQdiscParentCommandComposed,
-		field.CommandOutput: string(cmdOutput[:]),
+		field.CommandString:    tcDeleteQdiscParentCommandComposed,
+		field.CommandOutput:    string(cmdOutput[:]),
+		field.NetworkInterface: interfaceName,
 	})
 	tcDeleteQdiscRootCommandComposed := nsenterPrefix + fmt.Sprintf(tcDeleteQdiscRootCommandString, interfaceName)
 	cmdList = strings.Split(tcDeleteQdiscRootCommandComposed, " ")
 	_, err = h.runExecCommand(ctx, cmdList)
 	if err != nil {
 		logger.Error("Command execution failed", logger.Fields{
-			field.CommandString: tcDeleteQdiscRootCommandComposed,
-			field.Error:         err,
-			field.CommandOutput: string(cmdOutput[:]),
-			field.TaskARN:       taskMetadata.TaskARN,
+			field.CommandString:    tcDeleteQdiscRootCommandComposed,
+			field.Error:            err,
+			field.CommandOutput:    string(cmdOutput[:]),
+			field.TaskARN:          taskMetadata.TaskARN,
+			field.NetworkInterface: interfaceName,
 		})
 		return err
 	}
 	logger.Info("Command execution completed", logger.Fields{
-		field.CommandString: tcDeleteQdiscRootCommandComposed,
-		field.CommandOutput: string(cmdOutput[:]),
+		field.CommandString:    tcDeleteQdiscRootCommandComposed,
+		field.CommandOutput:    string(cmdOutput[:]),
+		field.NetworkInterface: interfaceName,
 	})
 
 	return nil
@@ -1581,18 +1593,20 @@ func (h *FaultHandler) checkTCFaultForInterface(
 	cmdOutput, err := h.runExecCommand(ctx, cmdList)
 	if err != nil {
 		logger.Error("Command execution failed", logger.Fields{
-			field.CommandString: tcCheckInjectionCommandComposed,
-			field.Error:         err,
-			field.CommandOutput: string(cmdOutput[:]),
-			field.TaskARN:       taskMetadata.TaskARN,
+			field.CommandString:    tcCheckInjectionCommandComposed,
+			field.Error:            err,
+			field.CommandOutput:    string(cmdOutput[:]),
+			field.TaskARN:          taskMetadata.TaskARN,
+			field.NetworkInterface: interfaceName,
 		})
 		return false, false, fmt.Errorf("failed to check existing network fault: '%s' command failed with the following error: '%s'. std output: '%s'. TaskArn: %s",
 			tcCheckInjectionCommandComposed, err, string(cmdOutput[:]), taskMetadata.TaskARN)
 	}
 	// Log the command output to better help us debug.
 	logger.Info("Command execution completed", logger.Fields{
-		field.CommandString: tcCheckInjectionCommandComposed,
-		field.CommandOutput: string(cmdOutput[:]),
+		field.CommandString:    tcCheckInjectionCommandComposed,
+		field.CommandOutput:    string(cmdOutput[:]),
+		field.NetworkInterface: interfaceName,
 	})
 
 	// Check whether latency fault exists and whether packet loss fault exists separately.

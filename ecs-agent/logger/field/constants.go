@@ -74,4 +74,5 @@ const (
 	ExecutionStoppedAt      = "executionStoppedAt"
 	Region                  = "region"
 	DockerVersion           = "dockerVersion"
+	NetworkInterface        = "networkInterface"
 )
