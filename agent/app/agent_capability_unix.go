@@ -258,8 +258,13 @@ var networkConfigClient = netconfig.NewNetworkConfigClient()
 
 // checkFaultInjectionTooling checks for the required network packages like iptables, tc
 // to be available on the host before ecs.capability.fault-injection can be advertised
-func checkFaultInjectionTooling() bool {
+func checkFaultInjectionTooling(cfg *config.Config) bool {
 	tools := []string{"iptables", "tc", "nsenter"}
+	if cfg.InstanceIPCompatibility.IsIPv6Only() {
+		// ip6tables is a required dependency on IPv6-only instances.
+		// TODO: Consider making ip6tables a required dependency for all instances (ned to consider backwards compatibility)
+		tools = append(tools, "ip6tables")
+	}
 	for _, tool := range tools {
 		if _, err := lookPathFunc(tool); err != nil {
 			seelog.Warnf(
