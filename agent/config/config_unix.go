@@ -180,23 +180,8 @@ func getConfigFileName() (string, error) {
 //
 //lint:ignore U1000 Function will be used in the future
 func (c *Config) determineIPCompatibility(ec2client ec2.EC2MetadataClient) {
-	// Load primary ENI's MAC address on EC2 Launch Type
-	var primaryENIMAC string
-	if !c.External.Enabled() {
-		logger.Info("Calling IMDS to fetch mac address of the primary ENI")
-		var eniMACFetchErr error
-		primaryENIMAC, eniMACFetchErr = ec2client.PrimaryENIMAC()
-		if eniMACFetchErr != nil {
-			logger.Warn("Failed to fetch primary ENI's mac address from IMDS."+
-				" Failing back instance IP compatibility to IPv4-only.",
-				logger.Fields{field.Error: eniMACFetchErr})
-			c.InstanceIPCompatibility = ipcompatibility.NewIPv4OnlyCompatibility()
-			return
-		}
-	}
-
 	var err error
-	c.InstanceIPCompatibility, err = netutils.DetermineIPCompatibility(nlWrapper, primaryENIMAC)
+	c.InstanceIPCompatibility, err = netutils.DetermineIPCompatibility(nlWrapper, "")
 	if err != nil {
 		logger.Warn("Failed to determine instance IP compatibility."+
 			" Failing back instance IP compatibility to IPv4-only.",

@@ -298,47 +298,17 @@ func TestCPUPeriodSettings(t *testing.T) {
 }
 
 func TestDetermineIPCompatibility(t *testing.T) {
-	mac, err := net.ParseMAC("02:34:80:c5:c0:e1")
-	require.NoError(t, err)
-	macLink := &netlink.Dummy{LinkAttrs: netlink.LinkAttrs{HardwareAddr: mac}}
 	ipv6Gw := net.ParseIP("1:2:3:4::")
 	require.NotNil(t, ipv6Gw)
 	ipv6DefaultRoute := netlink.Route{Gw: ipv6Gw, Dst: nil}
 
 	testCases := []struct {
 		name            string
-		externalMode    BooleanDefaultFalse
 		setExpectations func(*mock_ec2.MockEC2MetadataClient, *mock_netlinkwrapper.MockNetLink)
 		expected        ipcompatibility.IPCompatibility
 	}{
 		{
-			name: "external disabled, IP compatibility determined successfully",
-			setExpectations: func(ec2c *mock_ec2.MockEC2MetadataClient, nl *mock_netlinkwrapper.MockNetLink) {
-				ec2c.EXPECT().PrimaryENIMAC().Return(mac.String(), nil)
-				nl.EXPECT().LinkList().Return([]netlink.Link{macLink}, nil)
-				nl.EXPECT().RouteList(macLink, netlink.FAMILY_V4).Return([]netlink.Route{}, nil)
-				nl.EXPECT().RouteList(macLink, netlink.FAMILY_V6).Return([]netlink.Route{ipv6DefaultRoute}, nil)
-			},
-			expected: ipcompatibility.NewIPCompatibility(false, true),
-		},
-		{
-			name: "external disabled, IP compatibility could not be determined",
-			setExpectations: func(ec2c *mock_ec2.MockEC2MetadataClient, nl *mock_netlinkwrapper.MockNetLink) {
-				ec2c.EXPECT().PrimaryENIMAC().Return(mac.String(), nil)
-				nl.EXPECT().LinkList().Return(nil, errors.New("some error"))
-			},
-			expected: ipcompatibility.NewIPv4OnlyCompatibility(),
-		},
-		{
-			name: "external disabled, primary ENI's mac could not be fetched",
-			setExpectations: func(ec2c *mock_ec2.MockEC2MetadataClient, nl *mock_netlinkwrapper.MockNetLink) {
-				ec2c.EXPECT().PrimaryENIMAC().Return("", errors.New("some error"))
-			},
-			expected: ipcompatibility.NewIPv4OnlyCompatibility(),
-		},
-		{
-			name:         "external enabled, IP compatibility determined successfully",
-			externalMode: BooleanDefaultFalse{Value: ExplicitlyEnabled},
+			name: "IP compatibility determined successfully",
 			setExpectations: func(ec2c *mock_ec2.MockEC2MetadataClient, nl *mock_netlinkwrapper.MockNetLink) {
 				nl.EXPECT().RouteList(nil, netlink.FAMILY_V4).Return([]netlink.Route{}, nil)
 				nl.EXPECT().RouteList(nil, netlink.FAMILY_V6).Return([]netlink.Route{ipv6DefaultRoute}, nil)
@@ -346,8 +316,7 @@ func TestDetermineIPCompatibility(t *testing.T) {
 			expected: ipcompatibility.NewIPCompatibility(false, true),
 		},
 		{
-			name:         "external enabled, IP compatibility could not be determined",
-			externalMode: BooleanDefaultFalse{Value: ExplicitlyEnabled},
+			name: "IP compatibility could not be determined",
 			setExpectations: func(ec2c *mock_ec2.MockEC2MetadataClient, nl *mock_netlinkwrapper.MockNetLink) {
 				nl.EXPECT().RouteList(nil, netlink.FAMILY_V4).Return(nil, errors.New("some error"))
 			},
@@ -374,7 +343,7 @@ func TestDetermineIPCompatibility(t *testing.T) {
 			tc.setExpectations(imdsClient, mockNLWrapper)
 
 			// Run the test
-			cfg := Config{External: tc.externalMode}
+			cfg := Config{}
 			cfg.determineIPCompatibility(imdsClient)
 			assert.Equal(t, tc.expected, cfg.InstanceIPCompatibility)
 		})
