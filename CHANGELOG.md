@@ -1,4 +1,25 @@
 # Changelog
+# 1.95.0
+* Enhancement - IPv6-only support
+  * Add support for IPv6 targets to network-latency and network-packet-loss faults [#4645](https://github.com/aws/amazon-ecs-agent/pull/4645)
+  * SubnetGatewayIPV6Address and IPv6SubnetCIDRBlock metadata for IPv6-only tasks [#4649](https://github.com/aws/amazon-ecs-agent/pull/4649)
+  * Network bindings for IPv6-only instances [#4651](https://github.com/aws/amazon-ecs-agent/pull/4651)
+  * ECS Client dual stack endpoint usage [#4652](https://github.com/aws/amazon-ecs-agent/pull/4652)
+  * Dual stack EC2 client on IPv6-only instances [#4658](https://github.com/aws/amazon-ecs-agent/pull/4658)
+  * Net utils for finding default network interfaces [#4665](https://github.com/aws/amazon-ecs-agent/pull/4665)
+* Enhancement - clean up v1 credentials chain [#4647](https://github.com/aws/amazon-ecs-agent/pull/4647)
+* Enhancement - Set DeviceName to eth1 for managed instances [#4636](https://github.com/aws/amazon-ecs-agent/pull/4636)
+* Enhancement - Migrate from github.com/docker/distribution/reference to github.com/distribution/reference [#4643](https://github.com/aws/amazon-ecs-agent/pull/4643)
+* Enhancement - Enable DualStack ECR Image URI [#4612](https://github.com/aws/amazon-ecs-agent/pull/4612)
+* Enhancement - Move duplicate awsrulesfn package to the ecs-agent module [#4661](https://github.com/aws/amazon-ecs-agent/pull/4661)
+* Enhancement - Fault Injection - Add a general error case for default network interface resolution errors [#4666](https://github.com/aws/amazon-ecs-agent/pull/4666)
+* Enhancement - Consume dns server from payload [#4668](https://github.com/aws/amazon-ecs-agent/pull/4668)
+* Enhancement - [TMDS Fault Injection] Improve network interface detection to handle multiple default interfaces in host mode and update IPv6-only task identification [#4670](https://github.com/aws/amazon-ecs-agent/pull/4670)
+* Bugfix - Make loopback interface lookup more robust [#4648](https://github.com/aws/amazon-ecs-agent/pull/4648)
+* Bugfix - SubnetGatewayIPv6Address metadata field name fix [#4650](https://github.com/aws/amazon-ecs-agent/pull/4650)
+* Bugfix - Remove duplicate ipcompatibilty package [#4654](https://github.com/aws/amazon-ecs-agent/pull/4654)
+* Bugfix: Network latency and packet loss faults should apply to all default network interfaces in host mode [#4671](https://github.com/aws/amazon-ecs-agent/pull/4671)
+
 # 1.94.0
 * Enhancement - aws-sdk-go-v2 migration
   * Migrate awserr/request to aws-go-sdk-v2 [#4624](https://github.com/aws/amazon-ecs-agent/pull/4624)
