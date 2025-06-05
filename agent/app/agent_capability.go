@@ -551,7 +551,7 @@ func (agent *ecsAgent) appendFaultInjectionCapabilities(capabilities []types.Att
 		return capabilities
 	}
 
-	if isFaultInjectionToolingAvailable() {
+	if isFaultInjectionToolingAvailable(agent.cfg) {
 		capabilities = appendNameOnlyAttribute(capabilities, attributePrefix+capabilityFaultInjection)
 		seelog.Debug("Fault injection capability is enabled.")
 	} else {

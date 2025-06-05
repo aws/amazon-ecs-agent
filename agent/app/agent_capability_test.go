@@ -1564,7 +1564,7 @@ func TestAppendFaultInjectionCapabilities(t *testing.T) {
 	defer func() { isFaultInjectionToolingAvailable = originalIsFaultInjectionToolingAvailable }()
 	t.Run("Fault Injection Capability Available", func(t *testing.T) {
 		// Test case where required tooling is available
-		isFaultInjectionToolingAvailable = func() bool { return true }
+		isFaultInjectionToolingAvailable = func(cfg *config.Config) bool { return true }
 		capabilities := []types.Attribute{}
 		agent := &ecsAgent{
 			cfg: &config.Config{},
@@ -1576,7 +1576,7 @@ func TestAppendFaultInjectionCapabilities(t *testing.T) {
 	})
 	t.Run("Fault Injection Capability Not Available", func(t *testing.T) {
 		// Test case where required tooling is not available
-		isFaultInjectionToolingAvailable = func() bool { return false }
+		isFaultInjectionToolingAvailable = func(cfg *config.Config) bool { return false }
 		capabilities := []types.Attribute{}
 		agent := &ecsAgent{
 			cfg: &config.Config{},
@@ -1588,7 +1588,7 @@ func TestAppendFaultInjectionCapabilities(t *testing.T) {
 
 	t.Run("Fault Injection Capability Not Available for EXTERNAL Launch Type", func(t *testing.T) {
 		// Test case where required tooling is available but EXTERNAL Launch Type
-		isFaultInjectionToolingAvailable = func() bool { return true }
+		isFaultInjectionToolingAvailable = func(cfg *config.Config) bool { return true }
 		capabilities := []types.Attribute{}
 		agent := &ecsAgent{
 			cfg: &config.Config{
