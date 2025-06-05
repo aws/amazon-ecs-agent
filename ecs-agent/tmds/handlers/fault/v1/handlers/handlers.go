@@ -1323,9 +1323,26 @@ func validateTaskNetworkConfig(taskNetworkConfig *state.TaskNetworkConfig) error
 	return nil
 }
 
-// startNetworkLatencyFault invokes the linux TC utility tool to start the network-latency fault.
-func (h *FaultHandler) startNetworkLatencyFault(ctx context.Context, taskMetadata *state.TaskResponse, request types.NetworkLatencyRequest) error {
-	interfaceName := taskMetadata.TaskNetworkConfig.NetworkNamespaces[0].NetworkInterfaces[0].DeviceName
+// startNetworkLatencyFault invokes the linux TC utility tool to start the
+// network-latency fault for the given task.
+func (h *FaultHandler) startNetworkLatencyFault(
+	ctx context.Context, taskMetadata *state.TaskResponse, request types.NetworkLatencyRequest,
+) error {
+	for _, netInterface := range taskMetadata.TaskNetworkConfig.NetworkNamespaces[0].NetworkInterfaces {
+		err := h.startNetworkLatencyFaultForInterface(ctx, taskMetadata, request, netInterface.DeviceName)
+		if err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+// startNetworkLatencyFaultForInterface invokes the linux TC utility tool to start the
+// network-latency fault for the given interface.
+func (h *FaultHandler) startNetworkLatencyFaultForInterface(
+	ctx context.Context, taskMetadata *state.TaskResponse, request types.NetworkLatencyRequest,
+	interfaceName string,
+) error {
 	networkMode := ecstypes.NetworkMode(taskMetadata.TaskNetworkConfig.NetworkMode)
 	// If task's network mode is awsvpc, we need to run nsenter to access the task's network namespace.
 	nsenterPrefix := ""
@@ -1343,16 +1360,18 @@ func (h *FaultHandler) startNetworkLatencyFault(ctx context.Context, taskMetadat
 	cmdOutput, err := h.runExecCommand(ctx, cmdList)
 	if err != nil {
 		logger.Error("Command execution failed", logger.Fields{
-			field.CommandString: tcAddQdiscRootCommandComposed,
-			field.Error:         err,
-			field.CommandOutput: string(cmdOutput[:]),
-			field.TaskARN:       taskMetadata.TaskARN,
+			field.CommandString:    tcAddQdiscRootCommandComposed,
+			field.Error:            err,
+			field.CommandOutput:    string(cmdOutput[:]),
+			field.TaskARN:          taskMetadata.TaskARN,
+			field.NetworkInterface: interfaceName,
 		})
 		return err
 	}
 	logger.Info("Command execution completed", logger.Fields{
-		field.CommandString: tcAddQdiscRootCommandComposed,
-		field.CommandOutput: string(cmdOutput[:]),
+		field.CommandString:    tcAddQdiscRootCommandComposed,
+		field.CommandOutput:    string(cmdOutput[:]),
+		field.NetworkInterface: interfaceName,
 	})
 	tcAddQdiscLossCommandComposed := nsenterPrefix + fmt.Sprintf(
 		tcAddQdiscLatencyCommandString, interfaceName, delayInMs, jitterInMs)
@@ -1360,16 +1379,18 @@ func (h *FaultHandler) startNetworkLatencyFault(ctx context.Context, taskMetadat
 	cmdOutput, err = h.runExecCommand(ctx, cmdList)
 	if err != nil {
 		logger.Error("Command execution failed", logger.Fields{
-			field.CommandString: tcAddQdiscLossCommandComposed,
-			field.Error:         err,
-			field.CommandOutput: string(cmdOutput[:]),
-			field.TaskARN:       taskMetadata.TaskARN,
+			field.CommandString:    tcAddQdiscLossCommandComposed,
+			field.Error:            err,
+			field.CommandOutput:    string(cmdOutput[:]),
+			field.TaskARN:          taskMetadata.TaskARN,
+			field.NetworkInterface: interfaceName,
 		})
 		return err
 	}
 	logger.Info("Command execution completed", logger.Fields{
-		field.CommandString: tcAddQdiscLossCommandComposed,
-		field.CommandOutput: string(cmdOutput[:]),
+		field.CommandString:    tcAddQdiscLossCommandComposed,
+		field.CommandOutput:    string(cmdOutput[:]),
+		field.NetworkInterface: interfaceName,
 	})
 	// After creating the queueing discipline, create filters to associate the IPs in the request with the handle.
 	// First redirect the allowlisted ip addresses to band 1:3 where is no network impairments.
@@ -1385,8 +1406,24 @@ func (h *FaultHandler) startNetworkLatencyFault(ctx context.Context, taskMetadat
 }
 
 // startNetworkPacketLossFault invokes the linux TC utility tool to start the network-packet-loss fault.
-func (h *FaultHandler) startNetworkPacketLossFault(ctx context.Context, taskMetadata *state.TaskResponse, request types.NetworkPacketLossRequest) error {
-	interfaceName := taskMetadata.TaskNetworkConfig.NetworkNamespaces[0].NetworkInterfaces[0].DeviceName
+func (h *FaultHandler) startNetworkPacketLossFault(
+	ctx context.Context, taskMetadata *state.TaskResponse, request types.NetworkPacketLossRequest,
+) error {
+	for _, netInterface := range taskMetadata.TaskNetworkConfig.NetworkNamespaces[0].NetworkInterfaces {
+		err := h.startNetworkPacketLossFaultForInterface(ctx, taskMetadata, request, netInterface.DeviceName)
+		if err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+// startNetworkPacketLossFault invokes the linux TC utility tool to start the network-packet-loss fault
+// for the given network interface.
+func (h *FaultHandler) startNetworkPacketLossFaultForInterface(
+	ctx context.Context, taskMetadata *state.TaskResponse, request types.NetworkPacketLossRequest,
+	interfaceName string,
+) error {
 	networkMode := ecstypes.NetworkMode(taskMetadata.TaskNetworkConfig.NetworkMode)
 	// If task's network mode is awsvpc, we need to run nsenter to access the task's network namespace.
 	nsenterPrefix := ""
@@ -1403,32 +1440,36 @@ func (h *FaultHandler) startNetworkPacketLossFault(ctx context.Context, taskMeta
 	cmdOutput, err := h.runExecCommand(ctx, cmdList)
 	if err != nil {
 		logger.Error("Command execution failed", logger.Fields{
-			field.CommandString: tcAddQdiscRootCommandComposed,
-			field.Error:         err,
-			field.CommandOutput: string(cmdOutput[:]),
-			field.TaskARN:       taskMetadata.TaskARN,
+			field.CommandString:    tcAddQdiscRootCommandComposed,
+			field.Error:            err,
+			field.CommandOutput:    string(cmdOutput[:]),
+			field.TaskARN:          taskMetadata.TaskARN,
+			field.NetworkInterface: interfaceName,
 		})
 		return err
 	}
 	logger.Info("Command execution completed", logger.Fields{
-		field.CommandString: tcAddQdiscRootCommandComposed,
-		field.CommandOutput: string(cmdOutput[:]),
+		field.CommandString:    tcAddQdiscRootCommandComposed,
+		field.CommandOutput:    string(cmdOutput[:]),
+		field.NetworkInterface: interfaceName,
 	})
 	tcAddQdiscLossCommandComposed := nsenterPrefix + fmt.Sprintf(tcAddQdiscLossCommandString, interfaceName, lossPercent)
 	cmdList = strings.Split(tcAddQdiscLossCommandComposed, " ")
 	cmdOutput, err = h.runExecCommand(ctx, cmdList)
 	if err != nil {
 		logger.Error("Command execution failed", logger.Fields{
-			field.CommandString: tcAddQdiscLossCommandComposed,
-			field.Error:         err,
-			field.CommandOutput: string(cmdOutput[:]),
-			field.TaskARN:       taskMetadata.TaskARN,
+			field.CommandString:    tcAddQdiscLossCommandComposed,
+			field.Error:            err,
+			field.CommandOutput:    string(cmdOutput[:]),
+			field.TaskARN:          taskMetadata.TaskARN,
+			field.NetworkInterface: interfaceName,
 		})
 		return err
 	}
 	logger.Info("Command execution completed", logger.Fields{
-		field.CommandString: tcAddQdiscLossCommandComposed,
-		field.CommandOutput: string(cmdOutput[:]),
+		field.CommandString:    tcAddQdiscLossCommandComposed,
+		field.CommandOutput:    string(cmdOutput[:]),
+		field.NetworkInterface: interfaceName,
 	})
 	// After creating the queueing discipline, create filters to associate the IPs in the request with the handle.
 	// First redirect the allowlisted ip addresses to band 1:3 where is no network impairments.
@@ -1446,7 +1487,20 @@ func (h *FaultHandler) startNetworkPacketLossFault(ctx context.Context, taskMeta
 // stopTCFault invokes the linux TC utility tool to stop the network fault started by TC,
 // including both network-latency fault and network-packet-loss fault.
 func (h *FaultHandler) stopTCFault(ctx context.Context, taskMetadata *state.TaskResponse) error {
-	interfaceName := taskMetadata.TaskNetworkConfig.NetworkNamespaces[0].NetworkInterfaces[0].DeviceName
+	for _, netInterface := range taskMetadata.TaskNetworkConfig.NetworkNamespaces[0].NetworkInterfaces {
+		err := h.stopTCFaultForInterface(ctx, taskMetadata, netInterface.DeviceName)
+		if err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+// stopTCFaultForInterface invokes the linux TC utility tool to stop the network fault started by TC,
+// including both network-latency fault and network-packet-loss fault, for the given network interface.
+func (h *FaultHandler) stopTCFaultForInterface(
+	ctx context.Context, taskMetadata *state.TaskResponse, interfaceName string,
+) error {
 	networkMode := ecstypes.NetworkMode(taskMetadata.TaskNetworkConfig.NetworkMode)
 	// If task's network mode is awsvpc, we need to run nsenter to access the task's network namespace.
 	nsenterPrefix := ""
@@ -1463,40 +1517,66 @@ func (h *FaultHandler) stopTCFault(ctx context.Context, taskMetadata *state.Task
 	cmdOutput, err := h.runExecCommand(ctx, cmdList)
 	if err != nil {
 		logger.Error("Command execution failed", logger.Fields{
-			field.CommandString: tcDeleteQdiscParentCommandComposed,
-			field.Error:         err,
-			field.CommandOutput: string(cmdOutput[:]),
-			field.TaskARN:       taskMetadata.TaskARN,
+			field.CommandString:    tcDeleteQdiscParentCommandComposed,
+			field.Error:            err,
+			field.CommandOutput:    string(cmdOutput[:]),
+			field.TaskARN:          taskMetadata.TaskARN,
+			field.NetworkInterface: interfaceName,
 		})
 		return err
 	}
 	logger.Info("Command execution completed", logger.Fields{
-		field.CommandString: tcDeleteQdiscParentCommandComposed,
-		field.CommandOutput: string(cmdOutput[:]),
+		field.CommandString:    tcDeleteQdiscParentCommandComposed,
+		field.CommandOutput:    string(cmdOutput[:]),
+		field.NetworkInterface: interfaceName,
 	})
 	tcDeleteQdiscRootCommandComposed := nsenterPrefix + fmt.Sprintf(tcDeleteQdiscRootCommandString, interfaceName)
 	cmdList = strings.Split(tcDeleteQdiscRootCommandComposed, " ")
 	_, err = h.runExecCommand(ctx, cmdList)
 	if err != nil {
 		logger.Error("Command execution failed", logger.Fields{
-			field.CommandString: tcDeleteQdiscRootCommandComposed,
-			field.Error:         err,
-			field.CommandOutput: string(cmdOutput[:]),
-			field.TaskARN:       taskMetadata.TaskARN,
+			field.CommandString:    tcDeleteQdiscRootCommandComposed,
+			field.Error:            err,
+			field.CommandOutput:    string(cmdOutput[:]),
+			field.TaskARN:          taskMetadata.TaskARN,
+			field.NetworkInterface: interfaceName,
 		})
 		return err
 	}
 	logger.Info("Command execution completed", logger.Fields{
-		field.CommandString: tcDeleteQdiscRootCommandComposed,
-		field.CommandOutput: string(cmdOutput[:]),
+		field.CommandString:    tcDeleteQdiscRootCommandComposed,
+		field.CommandOutput:    string(cmdOutput[:]),
+		field.NetworkInterface: interfaceName,
 	})
 
 	return nil
 }
 
-// checkTCFault check if there's existing network-latency fault or network-packet-loss fault.
-func (h *FaultHandler) checkTCFault(ctx context.Context, taskMetadata *state.TaskResponse) (bool, bool, error) {
-	interfaceName := taskMetadata.TaskNetworkConfig.NetworkNamespaces[0].NetworkInterfaces[0].DeviceName
+// checkTCFault checks if there's existing network-latency fault or network-packet-loss fault.
+func (h *FaultHandler) checkTCFault(
+	ctx context.Context, taskMetadata *state.TaskResponse,
+) (bool, bool, error) {
+	var latencyFound, packetLossFound bool
+	for _, netInterface := range taskMetadata.TaskNetworkConfig.NetworkNamespaces[0].NetworkInterfaces {
+		hasLatency, hasPacketLoss, err := h.checkTCFaultForInterface(ctx, taskMetadata, netInterface.DeviceName)
+		if err != nil {
+			return false, false, err
+		}
+		if hasLatency {
+			latencyFound = true
+		}
+		if hasPacketLoss {
+			packetLossFound = true
+		}
+	}
+	return latencyFound, packetLossFound, nil
+}
+
+// checkTCFaultForInterface checks if there's existing network-latency fault or
+// network-packet-loss fault for the given network interface.
+func (h *FaultHandler) checkTCFaultForInterface(
+	ctx context.Context, taskMetadata *state.TaskResponse, interfaceName string,
+) (bool, bool, error) {
 	networkMode := ecstypes.NetworkMode(taskMetadata.TaskNetworkConfig.NetworkMode)
 	// If task's network mode is awsvpc, we need to run nsenter to access the task's network namespace.
 	nsenterPrefix := ""
@@ -1513,18 +1593,20 @@ func (h *FaultHandler) checkTCFault(ctx context.Context, taskMetadata *state.Tas
 	cmdOutput, err := h.runExecCommand(ctx, cmdList)
 	if err != nil {
 		logger.Error("Command execution failed", logger.Fields{
-			field.CommandString: tcCheckInjectionCommandComposed,
-			field.Error:         err,
-			field.CommandOutput: string(cmdOutput[:]),
-			field.TaskARN:       taskMetadata.TaskARN,
+			field.CommandString:    tcCheckInjectionCommandComposed,
+			field.Error:            err,
+			field.CommandOutput:    string(cmdOutput[:]),
+			field.TaskARN:          taskMetadata.TaskARN,
+			field.NetworkInterface: interfaceName,
 		})
 		return false, false, fmt.Errorf("failed to check existing network fault: '%s' command failed with the following error: '%s'. std output: '%s'. TaskArn: %s",
 			tcCheckInjectionCommandComposed, err, string(cmdOutput[:]), taskMetadata.TaskARN)
 	}
 	// Log the command output to better help us debug.
 	logger.Info("Command execution completed", logger.Fields{
-		field.CommandString: tcCheckInjectionCommandComposed,
-		field.CommandOutput: string(cmdOutput[:]),
+		field.CommandString:    tcCheckInjectionCommandComposed,
+		field.CommandOutput:    string(cmdOutput[:]),
+		field.NetworkInterface: interfaceName,
 	})
 
 	// Check whether latency fault exists and whether packet loss fault exists separately.
