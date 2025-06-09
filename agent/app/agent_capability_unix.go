@@ -262,7 +262,7 @@ func checkFaultInjectionTooling(cfg *config.Config) bool {
 	tools := []string{"iptables", "tc", "nsenter"}
 	if cfg.InstanceIPCompatibility.IsIPv6Only() {
 		// ip6tables is a required dependency on IPv6-only instances.
-		// TODO: Consider making ip6tables a required dependency for all instances (ned to consider backwards compatibility)
+		// TODO: Consider making ip6tables a required dependency for all instances (need to consider backwards compatibility)
 		tools = append(tools, "ip6tables")
 	}
 	for _, tool := range tools {
