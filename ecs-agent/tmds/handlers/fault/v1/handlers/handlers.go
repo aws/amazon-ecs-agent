@@ -1316,8 +1316,11 @@ func validateTaskNetworkConfig(taskNetworkConfig *state.TaskNetworkConfig) error
 	}
 
 	// Device name is required to inject network faults to given ENI in the task.
-	if taskNetworkConfig.NetworkNamespaces[0].NetworkInterfaces[0].DeviceName == "" {
-		return errors.New("no ENI device name in the network namespace within task network config")
+	// Verify all network interfaces have a non-empty DeviceName
+	for i, netInterface := range taskNetworkConfig.NetworkNamespaces[0].NetworkInterfaces {
+		if netInterface.DeviceName == "" {
+			return fmt.Errorf("no ENI device name for network interface %d in the network namespace within task network config", i)
+		}
 	}
 
 	return nil
