@@ -49,13 +49,13 @@ import (
 )
 
 const (
-	testRegistryImage     = "127.0.0.1:51670/amazon/amazon-ecs-netkitten:latest"
-	dockerEndpoint        = "unix:///var/run/docker.sock"
-	validTaskArnPrefix    = "arn:aws:ecs:region:account-id:task/"
-	testAppContainerImage = "public.ecr.aws/docker/library/busybox:latest"
-	testFluentBitImage    = "public.ecr.aws/aws-observability/aws-for-fluent-bit:stable"
-	TestCluster           = "testCluster"
-	TestInstanceID        = "testInstanceID"
+	testRegistryImage           = "127.0.0.1:51670/amazon/amazon-ecs-netkitten:latest"
+	dockerEndpoint              = "unix:///var/run/docker.sock"
+	validTaskArnPrefix          = "arn:aws:ecs:region:account-id:task/"
+	testAppContainerImage       = "public.ecr.aws/docker/library/busybox:latest"
+	TestCluster                 = "testCluster"
+	TestInstanceID              = "testInstanceID"
+	firelensCheckLogMaxAttempts = 60
 )
 
 var (
@@ -81,6 +81,8 @@ func isDockerRunning() bool {
 
 // createFirelensLogDir creates a temporary directory where the log router container can write logs to
 func createFirelensLogDir(t *testing.T, directoryPrefix, firelensContainerUser string) string {
+	// os.MkdirTemp creates a dir with a random string appended to its name.
+	// Reference: https://pkg.go.dev/os#MkdirTemp
 	tmpDir, err := os.MkdirTemp("", directoryPrefix)
 	require.NoError(t, err)
 
@@ -175,17 +177,34 @@ func verifyFirelensTaskEvents(t *testing.T, taskEngine TaskEngine, firelensTask 
 
 // createFirelensTask creates an ECS task with 2 containers – 1) App 2) Log router container
 // The app writes the date to stdout, and the log router forwards it to a local file on disk
-func createFirelensTask(t *testing.T, testName, firelensContainerUser, tmpDir string) *apitask.Task {
-	rawHostConfigInputForApp := dockercontainer.HostConfig{
-		LogConfig: dockercontainer.LogConfig{
-			Type: logDriverTypeFirelens,
-			Config: map[string]string{
-				"Name":   "file",
-				"Path":   "/logs",
-				"File":   "app.log",
-				"Format": "plain",
+func createFirelensTask(t *testing.T, testName, firelensContainerImage, firelensContainerUser,
+	firelensType, tmpDir string) *apitask.Task {
+	// Generate the config depending on which log router is being used.
+	var rawHostConfigInputForApp dockercontainer.HostConfig
+	if firelensType == firelens.FirelensConfigTypeFluentbit {
+		rawHostConfigInputForApp = dockercontainer.HostConfig{
+			LogConfig: dockercontainer.LogConfig{
+				Type: logDriverTypeFirelens,
+				Config: map[string]string{
+					"Name":   "file",
+					"Path":   "/logs",
+					"File":   "app.log",
+					"Format": "plain",
+				},
 			},
-		},
+		}
+	} else {
+		rawHostConfigInputForApp = dockercontainer.HostConfig{
+			LogConfig: dockercontainer.LogConfig{
+				Type: logDriverTypeFirelens,
+				Config: map[string]string{
+					"@type":  "file",
+					"path":   "/logs/",
+					"format": "json",
+					"append": "true",
+				},
+			},
+		}
 	}
 	rawHostConfigForApp, err := json.Marshal(&rawHostConfigInputForApp)
 	require.NoError(t, err)
@@ -196,8 +215,10 @@ func createFirelensTask(t *testing.T, testName, firelensContainerUser, tmpDir st
 			Name:      "app",
 			Image:     testAppContainerImage,
 			Essential: true,
+			// Since the app container is essential, the app exit also immediately makes the log router container stop.
+			// Sleeping here before the exit gives the log router sometime to process the log and write to the destination.
 			Command: []string{"sh", "-c",
-				"date +%T; exit 42"},
+				"date +%T; sleep 10; exit 42"},
 			DockerConfig: apicontainer.DockerConfig{
 				HostConfig: func() *string {
 					s := string(rawHostConfigForApp)
@@ -207,10 +228,10 @@ func createFirelensTask(t *testing.T, testName, firelensContainerUser, tmpDir st
 		},
 		{
 			Name:      "log-router",
-			Image:     testFluentBitImage,
+			Image:     firelensContainerImage,
 			Essential: true,
 			FirelensConfig: &apicontainer.FirelensConfig{
-				Type: firelens.FirelensConfigTypeFluentbit,
+				Type: firelensType,
 				Options: map[string]string{
 					"enable-ecs-log-metadata": "true",
 				},
@@ -294,23 +315,47 @@ func verifyFirelensDataDir(t *testing.T, firelensDataDir, firelensContainerUser 
 }
 
 // verifyFirelensLogs verifies that the Firelens container sent app logs to a local file as expected
-func verifyFirelensLogs(t *testing.T, firelensTask *apitask.Task, tmpDir string) {
-	logFilePath := filepath.Join(tmpDir, "app.log")
+func verifyFirelensLogs(t *testing.T, firelensTask *apitask.Task, firelensType, tmpDir string) {
+	// Define the expected log file path based on the firelens type
+	var logFilePath string
+	var logFilePattern string
+	if firelensType == firelens.FirelensConfigTypeFluentbit {
+		// For Fluentbit, we expect a specific file name
+		logFilePath = filepath.Join(tmpDir, "app.log")
+		logFilePattern = logFilePath // Exact file path
+	} else {
+		// For Fluentd, we'll look for any .log file, since the file name is not deterministic
+		logFilePattern = filepath.Join(tmpDir, "*.log")
+	}
 
-	// Wait for the log file to be created and populated
+	// Wait for the log file to appear and have content
 	var logContent []byte
 	var err error
-	for i := 0; i < 30; i++ {
-		logContent, err = os.ReadFile(logFilePath)
-		if err == nil && len(logContent) > 0 {
+	var found bool
+	for i := 0; i < firelensCheckLogMaxAttempts; i++ {
+		if firelensType == firelens.FirelensConfigTypeFluentbit {
+			// For Fluentbit, check the specific file
+			logContent, err = os.ReadFile(logFilePath)
+			found = err == nil && len(logContent) > 0
+		} else {
+			// For Fluentd, find any .log file
+			matches, globErr := filepath.Glob(logFilePattern)
+			if globErr == nil && len(matches) > 0 {
+				// Use the first match
+				logFilePath = matches[0]
+				logContent, err = os.ReadFile(logFilePath)
+				found = err == nil && len(logContent) > 0
+			}
+		}
+		if found {
+			t.Logf("Found log file with content at %s", logFilePath)
 			break
 		}
 		time.Sleep(1 * time.Second)
 	}
 
-	// Check if we successfully read the log file
-	require.NoError(t, err, "Failed to read log file at %s", logFilePath)
-	require.NotEmpty(t, logContent, "Log file is empty")
+	// Verify we found a log file with content
+	require.True(t, found, "Failed to find app logs")
 
 	// Parse the JSON log object
 	jsonBlob := make(map[string]string)

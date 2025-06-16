@@ -61,10 +61,13 @@ var (
 )
 
 const (
-	testVolumeImage   = "127.0.0.1:51670/amazon/amazon-ecs-volumes-test:latest"
-	testDataDir       = "/var/lib/ecs/data/"
-	testDataDirOnHost = "/var/lib/ecs/"
-
+	testVolumeImage    = "127.0.0.1:51670/amazon/amazon-ecs-volumes-test:latest"
+	testFluentBitImage = "public.ecr.aws/aws-observability/aws-for-fluent-bit:stable"
+	// the fluentd image release is outside our direct control, hence we use a specific version to not get impacted by
+	// a bad rollout.
+	testFluentdImage             = "public.ecr.aws/docker/library/fluentd:v1.18-1"
+	testDataDir                  = "/var/lib/ecs/data/"
+	testDataDirOnHost            = "/var/lib/ecs/"
 	testExecCommandAgentImage    = "127.0.0.1:51670/amazon/amazon-ecs-exec-command-agent-test:latest"
 	testExecCommandAgentSleepBin = "/sleep"
 	testExecCommandAgentKillBin  = "/kill"
@@ -164,16 +167,17 @@ func createTestLocalVolumeMountTask() *apitask.Task {
 	return testTask
 }
 
-// TestFirelensFluentBit integration test verifies the following:
+// TestFirelens integration test verifies the following:
 //
 // 1. Firelens data directory creation and ownership configuration
 // 2. Task and container state events
 // 3. Firelens container's ability to log to a destination (local file)
 // 4. Firelens resource cleanup after the task stops
+// 5. Verifies all the above across both Fluentd and Fluent Bit log router options.
 //
 // This test validates the integration of different ECS agent components. It mocks the payload received from ECS backend,
 // and does not rely on external logging destinations (like CloudWatch) for logging functionality verification.
-func TestFirelensFluentBit(t *testing.T) {
+func TestFirelens(t *testing.T) {
 	// Setup agent config
 	cfg := DefaultTestConfigIntegTest()
 	cfg.DataDir = testDataDir
@@ -194,33 +198,56 @@ func TestFirelensFluentBit(t *testing.T) {
 	setupTaskMetadataServer(t)
 
 	testCases := []struct {
-		name                  string
-		firelensContainerUser string
+		name                   string
+		firelensType           string
+		firelensContainerImage string
+		firelensContainerUser  string
 	}{
 		{
-			name: "default",
+			name:                   "fluent_bit_default",
+			firelensType:           "fluentbit",
+			firelensContainerImage: testFluentBitImage,
 		},
 		{
-			name:                  "root-user",
-			firelensContainerUser: "0:1000",
+			name:                   "fluent_bit_root_user",
+			firelensType:           "fluentbit",
+			firelensContainerImage: testFluentBitImage,
+			firelensContainerUser:  "0:1000",
 		},
 		{
-			name:                  "non-root-user",
-			firelensContainerUser: "1234:5678",
+			name:                   "fluent_bit_non_root_user",
+			firelensType:           "fluentbit",
+			firelensContainerImage: testFluentBitImage,
+			firelensContainerUser:  "1234:5678",
 		},
+		{
+			name:                   "fluent_d_root_user",
+			firelensType:           "fluentd",
+			firelensContainerImage: testFluentdImage,
+			firelensContainerUser:  "0:1000",
+		},
+		{
+			name:                   "fluent_d_non_root_user",
+			firelensType:           "fluentd",
+			firelensContainerImage: testFluentdImage,
+			firelensContainerUser:  "1234:5678",
+		},
+		// No fluentd default config test case since all the available fluentd images hard-code a container user in the image.
+		// We will rely on functional test for this test case, where we build our own custom fluentd log router image.
 	}
 
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
 			// Create a temporary directory to send app logs to
-			tmpDir := createFirelensLogDir(t, tc.name, tc.firelensContainerUser)
+			tmpDir := createFirelensLogDir(t, "firelens", tc.firelensContainerUser)
 			defer func() {
 				err := os.RemoveAll(tmpDir)
 				require.NoError(t, err)
 			}()
 
 			// Create the Firelens task
-			firelensTask := createFirelensTask(t, tc.name, tc.firelensContainerUser, tmpDir)
+			firelensTask := createFirelensTask(t, tc.name, tc.firelensContainerImage, tc.firelensContainerUser,
+				tc.firelensType, tmpDir)
 
 			// Start the Firelens task
 			go taskEngine.AddTask(firelensTask)
@@ -233,7 +260,7 @@ func TestFirelensFluentBit(t *testing.T) {
 			verifyFirelensDataDir(t, firelensDataDir, tc.firelensContainerUser)
 
 			// Verify app logs from the destination file
-			verifyFirelensLogs(t, firelensTask, tmpDir)
+			verifyFirelensLogs(t, firelensTask, tc.firelensType, tmpDir)
 
 			// Validate the Firelens task/container statuses during task stop
 			verifyFirelensTaskEvents(t, taskEngine, firelensTask, "stop")
