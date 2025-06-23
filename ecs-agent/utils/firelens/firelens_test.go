@@ -67,6 +67,13 @@ func TestSetOwnership(t *testing.T) {
 			expectedGID: testCurrGID,
 		},
 		{
+			name:        "Valid userID:groupID format",
+			input:       "100:200",
+			wantErr:     false,
+			expectedUID: 100,
+			expectedGID: 200,
+		},
+		{
 			name:        "Invalid user format, too many colons",
 			input:       "1234:dog:cat",
 			wantErr:     true,
