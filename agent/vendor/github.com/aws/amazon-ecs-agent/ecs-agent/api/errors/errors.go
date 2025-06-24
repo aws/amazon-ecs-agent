@@ -58,7 +58,15 @@ func IsInstanceTypeChangedError(err error) bool {
 
 func IsClusterNotFoundError(err error) bool {
 	var notFoundErr *types.ClusterNotFoundException
-	return errors.As(err, &notFoundErr)
+	if errors.As(err, &notFoundErr) {
+		return true
+	}
+
+	var apiErr smithy.APIError
+	if errors.As(err, &apiErr) {
+		return strings.Contains(apiErr.ErrorMessage(), ClusterNotFoundErrorMessage)
+	}
+	return false
 }
 
 // BadVolumeError represents an error caused by bad volume
