@@ -69,7 +69,7 @@ func isS3FIPSCompliantRegion(region string) bool {
 // createAWSConfig returns a new AWS Config object that will be used to create new S3 clients
 func createAWSConfig(region string, creds credentials.IAMRoleCredentials, useFIPSEndpoint, useDualStackEndpoint bool) (aws.Config, error) {
 	configOpts := []func(*awsconfig.LoadOptions) error{
-		awsconfig.WithHTTPClient(httpclient.New(roundtripTimeout, false, agentversion.String(), config.OSType)),
+		awsconfig.WithHTTPClient(httpclient.New(roundtripTimeout, false, agentversion.String(), config.OSType, config.GetOSFamily())),
 		awsconfig.WithCredentialsProvider(
 			awscreds.NewStaticCredentialsProvider(creds.AccessKeyID, creds.SecretAccessKey, creds.SessionToken),
 		),

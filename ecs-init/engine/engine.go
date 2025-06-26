@@ -121,6 +121,10 @@ func New() (*Engine, error) {
 // to handle credentials requests from containers by rerouting these requests to
 // to the ECS Agent's credentials endpoint
 func (e *Engine) PreStart() error {
+	// Set the OS family environment variable for the agent to use
+	log.Info("pre-start: setting OS family environment variable")
+	config.GetLinuxOSFamily()
+	
 	// setup gpu if necessary
 	err := e.PreStartGPU()
 	if err != nil {

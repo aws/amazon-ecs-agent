@@ -109,3 +109,23 @@ func TestParseTaskPidsLimit(t *testing.T) {
 func TestParseTaskPidsLimit_Unset(t *testing.T) {
 	assert.Equal(t, 0, parseTaskPidsLimit())
 }
+
+func TestGetOSFamilyWithValidValue(t *testing.T) {
+	t.Setenv(OSFamilyEnvVar, "debian_11")
+
+	result := GetOSFamily()
+	assert.Equal(t, "debian_11", result)
+}
+
+func TestGetOSFamilyWithEmptyValue(t *testing.T) {
+	t.Setenv(OSFamilyEnvVar, "")
+
+	result := GetOSFamily()
+	assert.Equal(t, "", result)
+}
+
+func TestGetOSFamilyNotSet(t *testing.T) {
+	result := GetOSFamily()
+
+	assert.Equal(t, "LINUX", result)
+}

@@ -30,10 +30,11 @@ import (
 const (
 	agentVersionStr = "Amazon ECS Agent - v0.0.0 (fffffff)"
 	osType          = "linux"
+	osFamily        = "debian_11"
 )
 
 func TestNewHttpClient(t *testing.T) {
-	expectedResult := New(time.Duration(10), true, agentVersionStr, osType)
+	expectedResult := New(time.Duration(10), true, agentVersionStr, osType, osFamily)
 	transport := expectedResult.Transport.(*ecsRoundTripper)
 	assert.Equal(t, cipher.SupportedCipherSuites, transport.transport.(*http.Transport).TLSClientConfig.CipherSuites)
 	assert.Equal(t, true, transport.transport.(*http.Transport).TLSClientConfig.InsecureSkipVerify)
@@ -45,7 +46,7 @@ func TestNewHttpClientProxy(t *testing.T) {
 	os.Setenv("HTTP_PROXY", proxy_url)
 	defer os.Unsetenv("HTTP_PROXY")
 
-	client := New(time.Duration(10*time.Second), true, agentVersionStr, osType)
+	client := New(time.Duration(10*time.Second), true, agentVersionStr, osType, osFamily)
 	_, err := client.Get("http://www.amazon.com")
 	// Client won't be able to connect because we have given a arbitrary proxy
 	assert.Error(t, err)

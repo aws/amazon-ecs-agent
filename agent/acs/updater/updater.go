@@ -80,7 +80,7 @@ func NewUpdater(cfg *config.Config, state dockerstate.TaskEngineState, dataClien
 	taskEngine engine.TaskEngine) *updater {
 	return &updater{
 		config:     cfg,
-		httpclient: httpclient.New(updateDownloadTimeout, false, agentversion.String(), config.OSType),
+		httpclient: httpclient.New(updateDownloadTimeout, false, agentversion.String(), config.OSType, config.GetOSFamily()),
 		state:      state,
 		dataClient: dataClient,
 		taskEngine: taskEngine,
