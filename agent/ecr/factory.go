@@ -52,7 +52,7 @@ const (
 // NewECRFactory returns an ECRFactory capable of producing ECRSDK clients
 func NewECRFactory(acceptInsecureCert bool, useDualStackEndpoint bool) ECRFactory {
 	return &ecrFactory{
-		httpClient:           httpclient.New(roundtripTimeout, acceptInsecureCert, agentversion.String(), config.OSType),
+		httpClient:           httpclient.New(roundtripTimeout, acceptInsecureCert, agentversion.String(), config.OSType, config.GetOSFamily()),
 		useDualStackEndpoint: useDualStackEndpoint,
 	}
 }

@@ -113,7 +113,7 @@ func NewECSClient(
 		credentialsCache:  credentialsCache,
 		configAccessor:    configAccessor,
 		ec2metadata:       ec2MetadataClient,
-		httpClient:        httpclient.New(RoundtripTimeout, configAccessor.AcceptInsecureCert(), agentVer, configAccessor.OSType()),
+		httpClient:        httpclient.New(RoundtripTimeout, configAccessor.AcceptInsecureCert(), agentVer, configAccessor.OSType(), configAccessor.OSFamily()),
 		pollEndpointCache: async.NewTTLCache(&async.TTL{Duration: defaultPollEndpointCacheTTL}),
 	}
 

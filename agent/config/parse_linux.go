@@ -27,6 +27,10 @@ import (
 	"github.com/cihub/seelog"
 )
 
+const (
+	OSFamilyEnvVar      = "ECS_OS_FAMILY"
+)
+
 func parseGMSACapability() BooleanDefaultFalse {
 	envStatus := utils.ParseBool(os.Getenv(envGmsaEcsSupport), false)
 	if envStatus {
@@ -107,9 +111,14 @@ var IsWindows2016 = func() (bool, error) {
 	return false, errors.New("unsupported platform")
 }
 
-// GetOSFamily returns "LINUX" as operating system family for linux based ecs instances.
+// GetOSFamily returns the operating system family for linux based ecs instances.
+// it first checks the ECS_OS_FAMILY environment variable set by ecs-init, and falls back to "LINUX" if not set
 func GetOSFamily() string {
-	return strings.ToUpper(OSType)
+	osFamily, ok := os.LookupEnv(OSFamilyEnvVar)
+	if !ok {
+		return strings.ToUpper(OSType)
+	}
+	return osFamily 
 }
 
 func parseTaskPidsLimit() int {

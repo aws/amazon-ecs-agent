@@ -40,10 +40,16 @@ type ecsRoundTripper struct {
 	insecureSkipVerify bool
 	agentVersion       string
 	osType             string
+	osFamily           string
 	transport          http.RoundTripper
 }
 
 func (client *ecsRoundTripper) userAgent() string {
+	if client.osFamily != "" {
+		return fmt.Sprintf("%s (%s; %s) (+http://aws.amazon.com/ecs/)", 
+			client.agentVersion, client.osType, client.osFamily)
+	}
+	// Fallback to current behavior when osFamily is not set
 	return fmt.Sprintf("%s (%s) (+http://aws.amazon.com/ecs/)", client.agentVersion, client.osType)
 }
 
@@ -59,7 +65,7 @@ func (client *ecsRoundTripper) CancelRequest(req *http.Request) {
 }
 
 // New returns an ECS httpClient with a roundtrip timeout of the given duration
-func New(timeout time.Duration, insecureSkipVerify bool, agentVersion string, osType string) *http.Client {
+func New(timeout time.Duration, insecureSkipVerify bool, agentVersion string, osType string, osFamily string) *http.Client {
 	// Transport is the transport requests will be made over
 	// Note, these defaults are taken from the golang http library. We do not
 	// explicitly do not use theirs to avoid changing their behavior.
@@ -80,6 +86,7 @@ func New(timeout time.Duration, insecureSkipVerify bool, agentVersion string, os
 			insecureSkipVerify: insecureSkipVerify,
 			agentVersion:       agentVersion,
 			osType:             osType,
+			osFamily:           osFamily,
 			transport:          transport,
 		},
 		Timeout: timeout,

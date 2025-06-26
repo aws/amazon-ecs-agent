@@ -51,7 +51,7 @@ func (*ssmClientCreator) NewSSMClient(region string,
 	ipCompatibility ipcompatibility.IPCompatibility) (ssmclient.SSMClient, error) {
 
 	opts := []func(*awsconfig.LoadOptions) error{
-		awsconfig.WithHTTPClient(httpclient.New(roundtripTimeout, false, agentversion.String(), config.OSType)),
+		awsconfig.WithHTTPClient(httpclient.New(roundtripTimeout, false, agentversion.String(), config.OSType, config.GetOSFamily())),
 		awsconfig.WithRegion(region),
 		awsconfig.WithCredentialsProvider(
 			awscreds.NewStaticCredentialsProvider(creds.AccessKeyID, creds.SecretAccessKey,

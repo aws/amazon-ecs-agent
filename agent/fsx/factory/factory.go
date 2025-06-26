@@ -56,7 +56,7 @@ func (*fsxClientCreator) NewFSxClient(region string,
 		context.TODO(),
 		awsconfig.WithRegion(region),
 		awsconfig.WithCredentialsProvider(staticCreds),
-		awsconfig.WithHTTPClient(httpclient.New(roundtripTimeout, false, agentversion.String(), config.OSType)),
+		awsconfig.WithHTTPClient(httpclient.New(roundtripTimeout, false, agentversion.String(), config.OSType, config.GetOSFamily())),
 	)
 	if err != nil {
 		return nil, err
