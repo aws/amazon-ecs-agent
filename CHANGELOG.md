@@ -1282,4 +1282,3 @@ API [#1271](https://github.com/aws/amazon-ecs-agent/pull/1271)
 
 * Bug - Worked around an issue preventing some tasks to start due to devicemapper
   issues.
-   version to 1.23.10
