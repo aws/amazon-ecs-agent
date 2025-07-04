@@ -345,7 +345,7 @@ func TestDetermineIPCompatibility(t *testing.T) {
 
 			// Run the test
 			cfg := Config{}
-			cfg.determineIPCompatibility(imdsClient)
+			cfg.determineIPCompatibility()
 			assert.Equal(t, tc.expected, cfg.InstanceIPCompatibility)
 		})
 	}

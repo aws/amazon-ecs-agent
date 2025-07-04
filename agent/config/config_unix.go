@@ -27,7 +27,6 @@ import (
 	"github.com/aws/amazon-ecs-agent/agent/utils/netlinkwrapper"
 	"github.com/aws/amazon-ecs-agent/ecs-agent/ipcompatibility"
 
-	"github.com/aws/amazon-ecs-agent/ecs-agent/ec2"
 	"github.com/aws/amazon-ecs-agent/ecs-agent/logger"
 	"github.com/aws/amazon-ecs-agent/ecs-agent/logger/field"
 	"github.com/aws/amazon-ecs-agent/ecs-agent/tmds"
@@ -179,7 +178,7 @@ func getConfigFileName() (string, error) {
 // TODO feat:IPv6-only - Remove lint rule below
 //
 //lint:ignore U1000 Function will be used in the future
-func (c *Config) determineIPCompatibility(ec2client ec2.EC2MetadataClient) {
+func (c *Config) determineIPCompatibility() {
 	var err error
 	c.InstanceIPCompatibility, err = netutils.DetermineIPCompatibility(nlWrapper, "")
 	if err != nil {
