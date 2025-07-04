@@ -25,6 +25,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/aws/amazon-ecs-agent/agent/utils/netlinkwrapper"
 	mock_netlinkwrapper "github.com/aws/amazon-ecs-agent/agent/utils/netlinkwrapper/mocks"
 	mock_ec2 "github.com/aws/amazon-ecs-agent/ecs-agent/ec2/mocks"
 	cniTypes "github.com/containernetworking/cni/pkg/types"
@@ -356,16 +357,31 @@ func TestIPCompatibilityFallback(t *testing.T) {
 	// TODO feat:IPv6-only - Remove skip
 	t.Skip("Enable when launching IPv6-only support")
 	defer setTestRegion()()
-	ctrl := gomock.NewController(t)
-	mockEc2Metadata := mock_ec2.NewMockEC2MetadataClient(ctrl)
 
-	mockEc2Metadata.EXPECT().PrimaryENIMAC().Return("invalid", nil) // fails to parse
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+
+	mockEc2Metadata := mock_ec2.NewMockEC2MetadataClient(ctrl)
+	mockNLWrapper := mock_netlinkwrapper.NewMockNetLink(ctrl)
+	defer setMockNLWrapper(mockNLWrapper)()
+
+	mockNLWrapper.EXPECT().RouteList(nil, netlink.FAMILY_V4).Return(nil, assert.AnError)
 	mockEc2Metadata.EXPECT().GetUserData()
 
 	config, err := NewConfig(mockEc2Metadata)
 	assert.NoError(t, err)
 	assert.Equal(t, config.InstanceIPCompatibility.IsIPv4Compatible(), true)
 	assert.Equal(t, config.InstanceIPCompatibility.IsIPv6Compatible(), false)
+}
+
+// setMockNLWrapper is a helper function to set nlWrapper to a mock value.
+// Returns a function that resets nlWrapper to its original value.
+//
+// Usage: defer setMockNLWrapper(mock)()
+func setMockNLWrapper(mock netlinkwrapper.NetLink) func() {
+	original := nlWrapper
+	nlWrapper = mock
+	return func() { nlWrapper = original }
 }
 
 func TestShouldExcludeIPv6PortBindingDefault(t *testing.T) {
