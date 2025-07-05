@@ -23,9 +23,9 @@ import (
 
 	"github.com/aws/amazon-ecs-agent/agent/dockerclient"
 	"github.com/aws/amazon-ecs-agent/agent/utils"
-	netutils "github.com/aws/amazon-ecs-agent/agent/utils/net"
-	"github.com/aws/amazon-ecs-agent/agent/utils/netlinkwrapper"
 	"github.com/aws/amazon-ecs-agent/ecs-agent/ipcompatibility"
+	netutils "github.com/aws/amazon-ecs-agent/ecs-agent/utils/net"
+	"github.com/aws/amazon-ecs-agent/ecs-agent/utils/netlinkwrapper"
 
 	"github.com/aws/amazon-ecs-agent/ecs-agent/logger"
 	"github.com/aws/amazon-ecs-agent/ecs-agent/logger/field"

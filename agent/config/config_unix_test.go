@@ -25,9 +25,9 @@ import (
 	"testing"
 	"time"
 
-	"github.com/aws/amazon-ecs-agent/agent/utils/netlinkwrapper"
-	mock_netlinkwrapper "github.com/aws/amazon-ecs-agent/agent/utils/netlinkwrapper/mocks"
 	mock_ec2 "github.com/aws/amazon-ecs-agent/ecs-agent/ec2/mocks"
+	"github.com/aws/amazon-ecs-agent/ecs-agent/utils/netlinkwrapper"
+	mock_netlinkwrapper "github.com/aws/amazon-ecs-agent/ecs-agent/utils/netlinkwrapper/mocks"
 	cniTypes "github.com/containernetworking/cni/pkg/types"
 	"github.com/golang/mock/gomock"
 	"github.com/stretchr/testify/assert"

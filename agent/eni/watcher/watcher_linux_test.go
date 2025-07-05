@@ -39,8 +39,8 @@ import (
 	mock_dockerstate "github.com/aws/amazon-ecs-agent/agent/engine/dockerstate/mocks"
 	"github.com/aws/amazon-ecs-agent/agent/eni/udevwrapper"
 	mock_udevwrapper "github.com/aws/amazon-ecs-agent/agent/eni/udevwrapper/mocks"
-	"github.com/aws/amazon-ecs-agent/agent/utils/netlinkwrapper"
-	mock_netlinkwrapper "github.com/aws/amazon-ecs-agent/agent/utils/netlinkwrapper/mocks"
+	"github.com/aws/amazon-ecs-agent/ecs-agent/utils/netlinkwrapper"
+	mock_netlinkwrapper "github.com/aws/amazon-ecs-agent/ecs-agent/utils/netlinkwrapper/mocks"
 )
 
 const (

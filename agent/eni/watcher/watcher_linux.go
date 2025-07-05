@@ -33,7 +33,7 @@ import (
 	"github.com/aws/amazon-ecs-agent/agent/eni/networkutils"
 	"github.com/aws/amazon-ecs-agent/agent/eni/udevwrapper"
 	"github.com/aws/amazon-ecs-agent/agent/statechange"
-	"github.com/aws/amazon-ecs-agent/agent/utils/netlinkwrapper"
+	"github.com/aws/amazon-ecs-agent/ecs-agent/utils/netlinkwrapper"
 )
 
 const (
