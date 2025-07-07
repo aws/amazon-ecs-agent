@@ -45,8 +45,9 @@ type ecsRoundTripper struct {
 }
 
 func (client *ecsRoundTripper) userAgent() string {
+	// Include osFamily when available
 	if client.osFamily != "" {
-		return fmt.Sprintf("%s (%s; %s) (+http://aws.amazon.com/ecs/)", 
+		return fmt.Sprintf("%s (%s; %s) (+http://aws.amazon.com/ecs/)",
 			client.agentVersion, client.osType, client.osFamily)
 	}
 	// Fallback to current behavior when osFamily is not set
