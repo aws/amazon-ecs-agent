@@ -11,61 +11,44 @@ import (
 	smithyhttp "github.com/aws/smithy-go/transport/http"
 )
 
-// Describes the permissions for a Amazon Web Services Systems Manager document
-// (SSM document). If you created the document, you are the owner. If a document is
-// shared, it can either be shared privately (by specifying a user's Amazon Web
-// Services account ID) or publicly (All).
-func (c *Client) DescribeDocumentPermission(ctx context.Context, params *DescribeDocumentPermissionInput, optFns ...func(*Options)) (*DescribeDocumentPermissionOutput, error) {
+// Starts the workflow for just-in-time node access sessions.
+func (c *Client) StartAccessRequest(ctx context.Context, params *StartAccessRequestInput, optFns ...func(*Options)) (*StartAccessRequestOutput, error) {
 	if params == nil {
-		params = &DescribeDocumentPermissionInput{}
+		params = &StartAccessRequestInput{}
 	}
 
-	result, metadata, err := c.invokeOperation(ctx, "DescribeDocumentPermission", params, optFns, c.addOperationDescribeDocumentPermissionMiddlewares)
+	result, metadata, err := c.invokeOperation(ctx, "StartAccessRequest", params, optFns, c.addOperationStartAccessRequestMiddlewares)
 	if err != nil {
 		return nil, err
 	}
 
-	out := result.(*DescribeDocumentPermissionOutput)
+	out := result.(*StartAccessRequestOutput)
 	out.ResultMetadata = metadata
 	return out, nil
 }
 
-type DescribeDocumentPermissionInput struct {
+type StartAccessRequestInput struct {
 
-	// The name of the document for which you are the owner.
+	// A brief description explaining why you are requesting access to the node.
 	//
 	// This member is required.
-	Name *string
+	Reason *string
 
-	// The permission type for the document. The permission type can be Share.
+	// The node you are requesting access to.
 	//
 	// This member is required.
-	PermissionType types.DocumentPermissionType
+	Targets []types.Target
 
-	// The maximum number of items to return for this call. The call also returns a
-	// token that you can specify in a subsequent call to get the next set of results.
-	MaxResults *int32
-
-	// The token for the next set of items to return. (You received this token from a
-	// previous call.)
-	NextToken *string
+	// Key-value pairs of metadata you want to assign to the access request.
+	Tags []types.Tag
 
 	noSmithyDocumentSerde
 }
 
-type DescribeDocumentPermissionOutput struct {
+type StartAccessRequestOutput struct {
 
-	// The account IDs that have permission to use this document. The ID can be either
-	// an Amazon Web Services account number or all .
-	AccountIds []string
-
-	// A list of Amazon Web Services accounts where the current document is shared and
-	// the version shared with each account.
-	AccountSharingInfoList []types.AccountSharingInfo
-
-	// The token for the next set of items to return. Use this token to get the next
-	// set of results.
-	NextToken *string
+	// The ID of the access request.
+	AccessRequestId *string
 
 	// Metadata pertaining to the operation's result.
 	ResultMetadata middleware.Metadata
@@ -73,19 +56,19 @@ type DescribeDocumentPermissionOutput struct {
 	noSmithyDocumentSerde
 }
 
-func (c *Client) addOperationDescribeDocumentPermissionMiddlewares(stack *middleware.Stack, options Options) (err error) {
+func (c *Client) addOperationStartAccessRequestMiddlewares(stack *middleware.Stack, options Options) (err error) {
 	if err := stack.Serialize.Add(&setOperationInputMiddleware{}, middleware.After); err != nil {
 		return err
 	}
-	err = stack.Serialize.Add(&awsAwsjson11_serializeOpDescribeDocumentPermission{}, middleware.After)
+	err = stack.Serialize.Add(&awsAwsjson11_serializeOpStartAccessRequest{}, middleware.After)
 	if err != nil {
 		return err
 	}
-	err = stack.Deserialize.Add(&awsAwsjson11_deserializeOpDescribeDocumentPermission{}, middleware.After)
+	err = stack.Deserialize.Add(&awsAwsjson11_deserializeOpStartAccessRequest{}, middleware.After)
 	if err != nil {
 		return err
 	}
-	if err := addProtocolFinalizerMiddlewares(stack, options, "DescribeDocumentPermission"); err != nil {
+	if err := addProtocolFinalizerMiddlewares(stack, options, "StartAccessRequest"); err != nil {
 		return fmt.Errorf("add protocol finalizers: %v", err)
 	}
 
@@ -140,10 +123,10 @@ func (c *Client) addOperationDescribeDocumentPermissionMiddlewares(stack *middle
 	if err = addCredentialSource(stack, options); err != nil {
 		return err
 	}
-	if err = addOpDescribeDocumentPermissionValidationMiddleware(stack); err != nil {
+	if err = addOpStartAccessRequestValidationMiddleware(stack); err != nil {
 		return err
 	}
-	if err = stack.Initialize.Add(newServiceMetadataMiddleware_opDescribeDocumentPermission(options.Region), middleware.Before); err != nil {
+	if err = stack.Initialize.Add(newServiceMetadataMiddleware_opStartAccessRequest(options.Region), middleware.Before); err != nil {
 		return err
 	}
 	if err = addRecursionDetection(stack); err != nil {
@@ -176,10 +159,10 @@ func (c *Client) addOperationDescribeDocumentPermissionMiddlewares(stack *middle
 	return nil
 }
 
-func newServiceMetadataMiddleware_opDescribeDocumentPermission(region string) *awsmiddleware.RegisterServiceMetadata {
+func newServiceMetadataMiddleware_opStartAccessRequest(region string) *awsmiddleware.RegisterServiceMetadata {
 	return &awsmiddleware.RegisterServiceMetadata{
 		Region:        region,
 		ServiceID:     ServiceID,
-		OperationName: "DescribeDocumentPermission",
+		OperationName: "StartAccessRequest",
 	}
 }

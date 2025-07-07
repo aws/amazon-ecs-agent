@@ -117,7 +117,7 @@ github.com/aws/aws-sdk-go/private/protocol
 github.com/aws/aws-sdk-go/private/protocol/rest
 github.com/aws/aws-sdk-go/private/protocol/xml/xmlutil
 github.com/aws/aws-sdk-go/private/util
-# github.com/aws/aws-sdk-go-v2 v1.36.3
+# github.com/aws/aws-sdk-go-v2 v1.36.5
 ## explicit; go 1.22
 github.com/aws/aws-sdk-go-v2/aws
 github.com/aws/aws-sdk-go-v2/aws/arn
@@ -169,10 +169,10 @@ github.com/aws/aws-sdk-go-v2/feature/ec2/imds/internal/config
 # github.com/aws/aws-sdk-go-v2/feature/s3/manager v1.17.72
 ## explicit; go 1.22
 github.com/aws/aws-sdk-go-v2/feature/s3/manager
-# github.com/aws/aws-sdk-go-v2/internal/configsources v1.3.34
+# github.com/aws/aws-sdk-go-v2/internal/configsources v1.3.36
 ## explicit; go 1.22
 github.com/aws/aws-sdk-go-v2/internal/configsources
-# github.com/aws/aws-sdk-go-v2/internal/endpoints/v2 v2.6.34
+# github.com/aws/aws-sdk-go-v2/internal/endpoints/v2 v2.6.36
 ## explicit; go 1.22
 github.com/aws/aws-sdk-go-v2/internal/endpoints/v2
 # github.com/aws/aws-sdk-go-v2/internal/ini v1.8.3
@@ -234,7 +234,7 @@ github.com/aws/aws-sdk-go-v2/service/s3/types
 github.com/aws/aws-sdk-go-v2/service/secretsmanager
 github.com/aws/aws-sdk-go-v2/service/secretsmanager/internal/endpoints
 github.com/aws/aws-sdk-go-v2/service/secretsmanager/types
-# github.com/aws/aws-sdk-go-v2/service/ssm v1.58.1
+# github.com/aws/aws-sdk-go-v2/service/ssm v1.60.0
 ## explicit; go 1.22
 github.com/aws/aws-sdk-go-v2/service/ssm
 github.com/aws/aws-sdk-go-v2/service/ssm/internal/endpoints
@@ -254,7 +254,7 @@ github.com/aws/aws-sdk-go-v2/service/ssooidc/types
 github.com/aws/aws-sdk-go-v2/service/sts
 github.com/aws/aws-sdk-go-v2/service/sts/internal/endpoints
 github.com/aws/aws-sdk-go-v2/service/sts/types
-# github.com/aws/smithy-go v1.22.3
+# github.com/aws/smithy-go v1.22.4
 ## explicit; go 1.22
 github.com/aws/smithy-go
 github.com/aws/smithy-go/auth
