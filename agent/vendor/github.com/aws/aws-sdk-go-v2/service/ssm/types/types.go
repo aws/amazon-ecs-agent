@@ -1842,6 +1842,34 @@ type CreateAssociationBatchRequestEntry struct {
 	noSmithyDocumentSerde
 }
 
+// The temporary security credentials, which include an access key ID, a secret
+// access key, and a security (or session) token.
+type Credentials struct {
+
+	// The access key ID that identifies the temporary security credentials.
+	//
+	// This member is required.
+	AccessKeyId *string
+
+	// The datetime on which the current credentials expire.
+	//
+	// This member is required.
+	ExpirationTime *time.Time
+
+	// The secret access key that can be used to sign requests.
+	//
+	// This member is required.
+	SecretAccessKey *string
+
+	// The token that users must pass to the service API to use the temporary
+	// credentials.
+	//
+	// This member is required.
+	SessionToken *string
+
+	noSmithyDocumentSerde
+}
+
 // Filter for the DescribeActivation API.
 type DescribeActivationsFilter struct {
 
@@ -2669,7 +2697,7 @@ type InstanceInformationStringFilter struct {
 	// The filter key name to describe your managed nodes.
 	//
 	// Valid filter key values: ActivationIds | AgentVersion | AssociationStatus |
-	// IamRole | InstanceIds | PingStatus | PlatformTypes | ResourceType | SourceIds |
+	// IamRole | InstanceIds | PingStatus | PlatformType | ResourceType | SourceIds |
 	// SourceTypes | "tag-key" | "tag: {keyname}
 	//
 	//   - Valid values for the AssociationStatus filter key: Success | Pending | Failed
@@ -5586,6 +5614,12 @@ type ServiceSetting struct {
 
 // Information about a Session Manager connection to a managed node.
 type Session struct {
+
+	// Standard access type is the default for Session Manager sessions. JustInTime is
+	// the access type for [Just-in-time node access].
+	//
+	// [Just-in-time node access]: https://docs.aws.amazon.com/systems-manager/latest/userguide/systems-manager-just-in-time-node-access.html
+	AccessType AccessType
 
 	// Reserved for future use.
 	Details *string
