@@ -314,6 +314,7 @@ func (c *client) getContainerConfig(envVarsFromFiles map[string]string) *godocke
 		"ECS_EBSTA_SUPPORTED":                   "true",
 		"ECS_AGENT_LABELS":                      "",
 		"ECS_VOLUME_PLUGIN_CAPABILITIES":        `["efsAuth"]`,
+		"ECS_DETAILED_OS_FAMILY": 				config.GetLinuxOSFamily(),
 	}
 
 	// for al, al2 add host ssl cert directory envvar if available

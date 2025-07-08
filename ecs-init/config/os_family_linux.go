@@ -19,8 +19,8 @@ package config
 import (
 	"bufio"
 	"fmt"
+	"io"
 	"os"
-	"os/exec"
 	"strings"
 
 	"github.com/cihub/seelog"
@@ -28,22 +28,47 @@ import (
 
 const (
 	unsupportedOSFamily = "linux"
-	OSFamilyEnvVar      = "ECS_OS_FAMILY"
+	OSFamilyEnvVar      = "ECS_DETAILED_OS_FAMILY"
 	osReleaseFilePath   = "/etc/os-release"
 )
 
-var execCommand = exec.Command
-
 func GetLinuxOSFamily() string {
-	cmd := execCommand("cat", osReleaseFilePath)
-	output, err := cmd.Output()
+	file, err := os.Open(osReleaseFilePath)
 	if err != nil {
-		seelog.Errorf("failed to execute 'cat %s' command: %v", osReleaseFilePath, err)
+		seelog.Errorf("failed to read file %s: %v", osReleaseFilePath, err)
+		return unsupportedOSFamily
+	}
+	defer file.Close()
+
+	return getLinuxOSFamilyFromReader(file)
+}
+
+func getLinuxOSFamilyFromReader(reader io.Reader) string {
+	id, versionID, err := parseOSReleaseFromReader(reader)
+	if err != nil {
+		seelog.Errorf("error parsing os-release content: %v", err)
 		return unsupportedOSFamily
 	}
 
+	if id == "" {
+		seelog.Error("could not determine OS ID from os-release")
+		return unsupportedOSFamily
+	}
+
+	if versionID == "" {
+		seelog.Error("could not determine VERSION_ID from os-release")
+		return unsupportedOSFamily
+	}
+
+	osFamily := fmt.Sprintf("%s_%s", id, versionID)
+	seelog.Infof("operating system family is: %s", osFamily)
+	return osFamily
+}
+
+// parseOSReleaseFromReader parses os-release content from an io.Reader and extracts ID and VERSION_ID
+func parseOSReleaseFromReader(reader io.Reader) (string, string, error) {
 	var id, versionID string
-	scanner := bufio.NewScanner(strings.NewReader(string(output)))
+	scanner := bufio.NewScanner(reader)
 
 	for scanner.Scan() {
 		line := scanner.Text()
@@ -55,30 +80,7 @@ func GetLinuxOSFamily() string {
 		}
 	}
 
-	if err := scanner.Err(); err != nil {
-		seelog.Errorf("error scanning output from 'cat %s': %v", osReleaseFilePath, err)
-		return unsupportedOSFamily
-	}
-
-	if id == "" {
-		seelog.Error("could not determine OS ID from /etc/os-release")
-		return unsupportedOSFamily
-	}
-
-	if versionID == "" {
-		seelog.Error("could not determine VERSION_ID from /etc/os-release")
-		return unsupportedOSFamily
-	}
-
-	osFamily := fmt.Sprintf("%s_%s", id, versionID)
-
-	if err := os.Setenv(OSFamilyEnvVar, osFamily); err != nil {
-		seelog.Errorf("failed to set environment variable %s: %v", OSFamilyEnvVar, err)
-		return unsupportedOSFamily
-	}
-
-	seelog.Debugf("operating system family is: %s", osFamily)
-	return osFamily
+	return id, versionID, scanner.Err()
 }
 
 // parseOSReleaseValue parses a value from /etc/os-release by trimming whitespace and removing quotation marks

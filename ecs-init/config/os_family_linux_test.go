@@ -17,8 +17,7 @@
 package config
 
 import (
-	"os"
-	"os/exec"
+	"strings"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -26,7 +25,6 @@ import (
 
 const (
 	expectedDebianOSFamily = "debian_11"
-	expectedExistingValue  = "existing_value"
 
 	// Base OS release content without ID/VERSION_ID lines
 	debianOSReleaseBase = `PRETTY_NAME="Debian GNU/Linux 11 (bullseye)"
@@ -52,107 +50,34 @@ ID=debian
 `
 )
 
-func mockCommand(command string, args ...string) *exec.Cmd {
-	if command == "cat" && len(args) > 0 && args[0] == osReleaseFilePath {
-		cs := []string{"-test.run=TestHelperProcess", "--", command}
-		cs = append(cs, args...)
-		cmd := exec.Command(os.Args[0], cs...)
-		return cmd
-	}
-	return exec.Command(command, args...)
-}
-
-func TestHelperProcess(t *testing.T) {
-	if os.Getenv("GO_WANT_HELPER_PROCESS") != "1" {
-		return
-	}
-	defer os.Exit(0)
-
-	switch {
-	case os.Getenv("MOCK_OS_RELEASE") == "1":
-		os.Stdout.WriteString(debianOSRelease)
-	case os.Getenv("MOCK_OS_RELEASE_MISSING_ID") == "1":
-		os.Stdout.WriteString(debianOSReleaseMissingID)
-	case os.Getenv("MOCK_OS_RELEASE_MISSING_VERSION_ID") == "1":
-		os.Stdout.WriteString(debianOSReleaseMissingVersion)
-	}
-}
-
-func setupTest(t *testing.T, mockFunc func(string, ...string) *exec.Cmd) func() {
-	originalExecCommand := execCommand
-	execCommand = mockFunc
-
-	originalValue := os.Getenv(OSFamilyEnvVar)
-
-	return func() {
-		execCommand = originalExecCommand
-		if originalValue == "" {
-			os.Unsetenv(OSFamilyEnvVar)
-		} else {
-			os.Setenv(OSFamilyEnvVar, originalValue)
-		}
-	}
-}
-
-// TestGetLinuxOSFamily tests parsing a happy path /etc/os-release file
-func TestGetLinuxOSFamily(t *testing.T) {
-	cleanup := setupTest(t, func(command string, args ...string) *exec.Cmd {
-		cmd := mockCommand(command, args...)
-		if command == "cat" && len(args) > 0 && args[0] == osReleaseFilePath {
-			cmd.Env = []string{"GO_WANT_HELPER_PROCESS=1", "MOCK_OS_RELEASE=1"}
-		}
-		return cmd
-	})
-	defer cleanup()
-
-	osFamily := GetLinuxOSFamily()
+// TestGetLinuxOSFamilyFromReader tests the complete workflow with valid content
+func TestGetLinuxOSFamilyFromReader(t *testing.T) {
+	reader := strings.NewReader(debianOSRelease)
+	osFamily := getLinuxOSFamilyFromReader(reader)
 
 	assert.Equal(t, expectedDebianOSFamily, osFamily)
-
-	envValue := os.Getenv(OSFamilyEnvVar)
-	assert.Equal(t, expectedDebianOSFamily, envValue)
 }
 
-// TestGetLinuxOSFamilyMissingID tests when /etc/os-release file is missing the ID field
+// TestGetLinuxOSFamilyMissingID tests when /etc/os-release content is missing ID
 func TestGetLinuxOSFamilyMissingID(t *testing.T) {
-	cleanup := setupTest(t, func(command string, args ...string) *exec.Cmd {
-		cmd := mockCommand(command, args...)
-		if command == "cat" && len(args) > 0 && args[0] == osReleaseFilePath {
-			cmd.Env = []string{"GO_WANT_HELPER_PROCESS=1", "MOCK_OS_RELEASE_MISSING_ID=1"}
-		}
-		return cmd
-	})
-	defer cleanup()
-
-	osFamily := GetLinuxOSFamily()
+	reader := strings.NewReader(debianOSReleaseMissingID)
+	osFamily := getLinuxOSFamilyFromReader(reader)
 
 	assert.Equal(t, unsupportedOSFamily, osFamily)
 }
 
-// TestGetLinuxOSFamilyMissingVersionID tests when /etc/os-release file is missing the VERSION_ID field
+// TestGetLinuxOSFamilyMissingVersionID tests when /etc/os-release content is missing VERSION_ID
 func TestGetLinuxOSFamilyMissingVersionID(t *testing.T) {
-	cleanup := setupTest(t, func(command string, args ...string) *exec.Cmd {
-		cmd := mockCommand(command, args...)
-		if command == "cat" && len(args) > 0 && args[0] == osReleaseFilePath {
-			cmd.Env = []string{"GO_WANT_HELPER_PROCESS=1", "MOCK_OS_RELEASE_MISSING_VERSION_ID=1"}
-		}
-		return cmd
-	})
-	defer cleanup()
-
-	osFamily := GetLinuxOSFamily()
+	reader := strings.NewReader(debianOSReleaseMissingVersion)
+	osFamily := getLinuxOSFamilyFromReader(reader)
 
 	assert.Equal(t, unsupportedOSFamily, osFamily)
 }
 
-// TestGetLinuxOSFamilyCommandError tests when the cat command fails to execute
-func TestGetLinuxOSFamilyCommandError(t *testing.T) {
-	cleanup := setupTest(t, func(command string, args ...string) *exec.Cmd {
-		return exec.Command("false")
-	})
-	defer cleanup()
-
-	osFamily := GetLinuxOSFamily()
+// TestGetLinuxOSFamilyEmptyContent tests when os-release content is empty
+func TestGetLinuxOSFamilyEmptyContent(t *testing.T) {
+	reader := strings.NewReader("")
+	osFamily := getLinuxOSFamilyFromReader(reader)
 
 	assert.Equal(t, unsupportedOSFamily, osFamily)
 }
@@ -185,22 +110,27 @@ func TestParseOSReleaseValue(t *testing.T) {
 	}
 }
 
-func TestGetLinuxOSFamilyEnvironmentVariableHandling(t *testing.T) {
-	cleanup := setupTest(t, func(command string, args ...string) *exec.Cmd {
-		cmd := mockCommand(command, args...)
-		if command == "cat" && len(args) > 0 && args[0] == osReleaseFilePath {
-			cmd.Env = []string{"GO_WANT_HELPER_PROCESS=1", "MOCK_OS_RELEASE=1"}
-		}
-		return cmd
-	})
-	defer cleanup()
+// TestParseOSReleaseFromReader tests the core parsing logic directly
+func TestParseOSReleaseFromReader(t *testing.T) {
+	testCases := []struct {
+		name              string
+		content           string
+		expectedID        string
+		expectedVersionID string
+	}{
+		{"Valid content", debianOSRelease, "debian", "11"},
+		{"Missing ID", debianOSReleaseMissingID, "", "11"},
+		{"Missing VERSION_ID", debianOSReleaseMissingVersion, "debian", ""},
+		{"Empty content", "", "", ""},
+	}
 
-	os.Setenv(OSFamilyEnvVar, expectedExistingValue)
-
-	osFamily := GetLinuxOSFamily()
-
-	assert.Equal(t, expectedDebianOSFamily, osFamily)
-
-	envValue := os.Getenv(OSFamilyEnvVar)
-	assert.Equal(t, expectedDebianOSFamily, envValue)
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			reader := strings.NewReader(tc.content)
+			id, versionID, err := parseOSReleaseFromReader(reader)
+			assert.NoError(t, err)
+			assert.Equal(t, tc.expectedID, id)
+			assert.Equal(t, tc.expectedVersionID, versionID)
+		})
+	}
 }
