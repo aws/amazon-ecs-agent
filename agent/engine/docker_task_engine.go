@@ -45,6 +45,7 @@ import (
 	"github.com/aws/amazon-ecs-agent/agent/taskresource/credentialspec"
 	"github.com/aws/amazon-ecs-agent/agent/taskresource/firelens"
 	"github.com/aws/amazon-ecs-agent/agent/utils"
+	"github.com/aws/amazon-ecs-agent/agent/utils/endpoints"
 	referenceutil "github.com/aws/amazon-ecs-agent/agent/utils/reference"
 	"github.com/aws/amazon-ecs-agent/ecs-agent/api/appnet"
 	apicontainerstatus "github.com/aws/amazon-ecs-agent/ecs-agent/api/container/status"
@@ -58,8 +59,6 @@ import (
 	"github.com/aws/amazon-ecs-agent/ecs-agent/utils/ttime"
 
 	"github.com/aws/aws-sdk-go-v2/aws"
-	"github.com/aws/aws-sdk-go-v2/service/cloudwatchlogs"
-	"github.com/aws/smithy-go/ptr"
 	"github.com/docker/docker/api/types"
 	dockercontainer "github.com/docker/docker/api/types/container"
 	"github.com/docker/docker/api/types/registry"
@@ -1955,10 +1954,7 @@ func (engine *DockerTaskEngine) createContainer(task *apitask.Task, container *a
 			// This is a short term solution only for specific regions
 			region := engine.cfg.AWSRegion
 			if _, ok := unresolvedIsolatedRegions[region]; ok {
-				resolvedEndpoint, err := cloudwatchlogs.NewDefaultEndpointResolverV2().ResolveEndpoint(context.TODO(),
-					cloudwatchlogs.EndpointParameters{
-						Region: ptr.String(region),
-					})
+				resolvedEndpoint, err := endpoints.ResolveCloudWatchLogsEndpoint(region, false)
 				if err != nil {
 					logger.Warn("failed to resolve CloudWatch Logs endpoint for region", logger.Fields{
 						field.TaskARN:   task.Arn,
@@ -1967,7 +1963,7 @@ func (engine *DockerTaskEngine) createContainer(task *apitask.Task, container *a
 						field.Error:     err,
 					})
 				} else {
-					hostConfig.LogConfig.Config[awsLogsEndpointKey] = resolvedEndpoint.URI.String()
+					hostConfig.LogConfig.Config[awsLogsEndpointKey] = resolvedEndpoint
 				}
 			}
 		}
@@ -3021,7 +3017,7 @@ func (engine *DockerTaskEngine) setAWSLogsDualStackEndpoint(
 	}
 
 	// Resolve the endpoint
-	endpoint, err := getAWSLogsDualStackEndpoint(region)
+	endpoint, err := endpoints.ResolveCloudWatchLogsEndpoint(region, true)
 	if err != nil {
 		logger.Error(
 			"Failed to get CloudWatch Logs dual stack endpoint. Skipping setting it.",
@@ -3035,17 +3031,4 @@ func (engine *DockerTaskEngine) setAWSLogsDualStackEndpoint(
 			field.Region:   region,
 		}))
 	hostConfig.LogConfig.Config[awsLogsEndpointKey] = endpoint
-}
-
-// Returns CloudWatch Logs dual stack endpoint for the given region.
-func getAWSLogsDualStackEndpoint(region string) (string, error) {
-	endpoint, err := cloudwatchlogs.NewDefaultEndpointResolverV2().ResolveEndpoint(context.TODO(),
-		cloudwatchlogs.EndpointParameters{
-			UseDualStack: ptr.Bool(true),
-			Region:       ptr.String(region),
-		})
-	if err != nil {
-		return "", fmt.Errorf("failed to resolve dual stack CloudWatch Logs endpoint for region '%s': %w", region, err)
-	}
-	return endpoint.URI.String(), nil
 }
