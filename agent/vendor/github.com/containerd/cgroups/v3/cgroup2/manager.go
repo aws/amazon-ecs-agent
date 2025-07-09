@@ -27,6 +27,7 @@ import (
 	"path/filepath"
 	"strconv"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/containerd/cgroups/v3/cgroup2/stats"
@@ -45,9 +46,17 @@ const (
 	typeFile           = "cgroup.type"
 	defaultCgroup2Path = "/sys/fs/cgroup"
 	defaultSlice       = "system.slice"
+
+	// systemd only supports CPUQuotaPeriodUSec since v2.42.0
+	cpuQuotaPeriodUSecSupportedVersion = 242
 )
 
-var canDelegate bool
+var (
+	canDelegate bool
+
+	versionOnce sync.Once
+	version     int
+)
 
 type Event struct {
 	Low     uint64
@@ -472,10 +481,6 @@ func (c *Manager) fallbackKill() error {
 }
 
 func (c *Manager) Delete() error {
-	var (
-		tasks    []uint64
-		threaded bool
-	)
 	// Kernel prevents cgroups with running process from being removed,
 	// check the tree is empty.
 	//
@@ -485,13 +490,13 @@ func (c *Manager) Delete() error {
 		if !os.IsNotExist(err) {
 			return err
 		}
-	} else {
-		threaded = cgType == Threaded
 	}
 
-	if threaded {
+	var tasks []uint64
+	switch cgType {
+	case Threaded, DomainThreaded:
 		tasks, err = c.Threads(true)
-	} else {
+	default:
 		tasks, err = c.Procs(true)
 	}
 	if err != nil {
@@ -716,7 +721,7 @@ func (c *Manager) MemoryEventFD() (int, uint32, error) {
 	fpath := filepath.Join(c.path, "memory.events")
 	fd, err := unix.InotifyInit()
 	if err != nil {
-		return 0, 0, errors.New("failed to create inotify fd")
+		return 0, 0, fmt.Errorf("failed to create inotify fd: %w", err)
 	}
 	wd, err := unix.InotifyAddWatch(fd, fpath, unix.IN_MODIFY)
 	if err != nil {
@@ -879,7 +884,19 @@ func NewSystemd(slice, group string, pid int, resources *Resources) (*Manager, e
 	}
 
 	if resources.CPU != nil && resources.CPU.Max != "" {
-		quota, period := resources.CPU.Max.extractQuotaAndPeriod()
+		quota, period, err := resources.CPU.Max.extractQuotaAndPeriod()
+		if err != nil {
+			return &Manager{}, err
+		}
+
+		if period != 0 {
+			if sdVer := systemdVersion(conn); sdVer >= cpuQuotaPeriodUSecSupportedVersion {
+				properties = append(properties, newSystemdProperty("CPUQuotaPeriodUSec", period))
+			} else {
+				log.G(context.TODO()).WithField("version", sdVer).Debug("Systemd version is too old to support CPUQuotaPeriodUSec")
+			}
+		}
+
 		// cpu.cfs_quota_us and cpu.cfs_period_us are controlled by systemd.
 		// corresponds to USEC_INFINITY in systemd
 		// if USEC_INFINITY is provided, CPUQuota is left unbound by systemd
@@ -917,6 +934,41 @@ func NewSystemd(slice, group string, pid int, resources *Resources) (*Manager, e
 	return &Manager{
 		path: path,
 	}, nil
+}
+
+// Adapted from https://github.com/opencontainers/cgroups/blob/9657f5a18b8d60a0f39fbb34d0cb7771e28e6278/systemd/common.go#L245-L281
+func systemdVersion(conn *systemdDbus.Conn) int {
+	versionOnce.Do(func() {
+		version = -1
+		verStr, err := conn.GetManagerProperty("Version")
+		if err == nil {
+			version, err = systemdVersionAtoi(verStr)
+		}
+
+		if err != nil {
+			log.G(context.TODO()).WithError(err).Error("Unable to get systemd version")
+		}
+	})
+
+	return version
+}
+
+func systemdVersionAtoi(str string) (int, error) {
+	// Unconditionally remove the leading prefix ("v).
+	str = strings.TrimLeft(str, `"v`)
+	// Match on the first integer we can grab.
+	for i := range len(str) {
+		if str[i] < '0' || str[i] > '9' {
+			// First non-digit: cut the tail.
+			str = str[:i]
+			break
+		}
+	}
+	ver, err := strconv.Atoi(str)
+	if err != nil {
+		return -1, fmt.Errorf("can't parse version: %w", err)
+	}
+	return ver, nil
 }
 
 func startUnit(conn *systemdDbus.Conn, group string, properties []systemdDbus.Property, ignoreExists bool) error {
