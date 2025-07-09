@@ -347,7 +347,7 @@ func (agent *ecsAgent) start() int {
 		return exitcodes.ExitError
 	}
 	agent.initializeResourceFields(credentialsManager)
-	return agent.doStart(containerChangeEventStream, credentialsManager, state, imageManager, client, execcmd.NewManager())
+	return agent.doStart(containerChangeEventStream, credentialsManager, state, imageManager, client, execcmd.NewManager(agent.cfg))
 }
 
 // doStart is the worker invoked by start for starting the ECS Agent. This involves
