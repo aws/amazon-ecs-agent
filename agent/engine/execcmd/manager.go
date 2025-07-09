@@ -20,6 +20,7 @@ import (
 
 	apicontainer "github.com/aws/amazon-ecs-agent/agent/api/container"
 	apitask "github.com/aws/amazon-ecs-agent/agent/api/task"
+	"github.com/aws/amazon-ecs-agent/agent/config"
 	"github.com/aws/amazon-ecs-agent/agent/dockerclient/dockerapi"
 
 	"github.com/aws/aws-sdk-go-v2/service/ecs/types"
@@ -66,7 +67,7 @@ func (e StartError) Retry() bool {
 }
 
 type Manager interface {
-	InitializeContainer(taskId string, container *apicontainer.Container, hostConfig *dockercontainer.HostConfig) error
+	InitializeContainer(task *apitask.Task, container *apicontainer.Container, hostConfig *dockercontainer.HostConfig) error
 	StartAgent(ctx context.Context, client dockerapi.DockerClient, task *apitask.Task, container *apicontainer.Container, containerId string) error
 	RestartAgentIfStopped(ctx context.Context, client dockerapi.DockerClient, task *apitask.Task, container *apicontainer.Container, containerId string) (RestartStatus, error)
 }
@@ -77,20 +78,22 @@ type manager struct {
 	retryMinDelay       time.Duration
 	startRetryTimeout   time.Duration
 	inspectRetryTimeout time.Duration
+	agentConfig         *config.Config
 }
 
-func NewManager() *manager {
+func NewManager(cfg *config.Config) *manager {
 	return &manager{
 		hostBinDir:          HostBinDir,
 		retryMaxDelay:       defaultRetryMaxDelay,
 		retryMinDelay:       defaultRetryMinDelay,
 		startRetryTimeout:   defaultStartRetryTimeout,
 		inspectRetryTimeout: defaultInspectRetryTimeout,
+		agentConfig:         cfg,
 	}
 }
 
-func NewManagerWithBinDir(hostBinDir string) *manager {
-	m := NewManager()
+func NewManagerWithBinDir(hostBinDir string, cfg *config.Config) *manager {
+	m := NewManager(cfg)
 	m.hostBinDir = hostBinDir
 	return m
 }

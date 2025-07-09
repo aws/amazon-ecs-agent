@@ -16,6 +16,7 @@
 package execcmd
 
 import (
+	"encoding/json"
 	"errors"
 	"fmt"
 	"io/ioutil"
@@ -25,9 +26,14 @@ import (
 	dockercontainer "github.com/docker/docker/api/types/container"
 	"github.com/pborman/uuid"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 
 	apicontainer "github.com/aws/amazon-ecs-agent/agent/api/container"
+	apitask "github.com/aws/amazon-ecs-agent/agent/api/task"
+	"github.com/aws/amazon-ecs-agent/agent/config"
 	apicontainerstatus "github.com/aws/amazon-ecs-agent/ecs-agent/api/container/status"
+	"github.com/aws/amazon-ecs-agent/ecs-agent/ipcompatibility"
+	ni "github.com/aws/amazon-ecs-agent/ecs-agent/netlib/model/networkinterface"
 )
 
 func TestInitializeContainer(t *testing.T) {
@@ -126,7 +132,7 @@ func TestInitializeContainer(t *testing.T) {
 
 			execCmdMgr := newTestManager()
 
-			GetExecAgentConfigFileName = func(s int) (string, error) {
+			GetExecAgentConfigFileName = func(s int, cfg *config.Config, task *apitask.Task) (string, error) {
 				return "amazon-ssm-agent.json", test.getExecAgentConfigFileNameError
 			}
 
@@ -166,7 +172,8 @@ func TestInitializeContainer(t *testing.T) {
 
 			for _, container := range containers {
 				hc := &dockercontainer.HostConfig{}
-				err := execCmdMgr.InitializeContainer("task-id", container, hc)
+				task := &apitask.Task{Arn: "arn:aws:ecs:us-west-2:abc:task/my-cluster/task-id"}
+				err := execCmdMgr.InitializeContainer(task, container, hc)
 
 				assert.Equal(t, test.expectedError, err)
 
@@ -230,6 +237,21 @@ func TestGetExecAgentConfigFileName(t *testing.T) {
 		"Region": "",
 		"OrchestrationRootDir": "",
 		"ContainerMode": true
+	},
+	"Ssm": {
+		"Endpoint": ""
+	},
+	"Mds": {
+		"Endpoint": ""
+	},
+	"S3": {
+		"Endpoint": ""
+	},
+	"Kms": {
+		"Endpoint": ""
+	},
+	"CloudWatch": {
+		"Endpoint": ""
 	}
 }`
 	sha := getExecAgentConfigHash(execAgentConfig)
@@ -303,7 +325,9 @@ func TestGetExecAgentConfigFileName(t *testing.T) {
 		createNewExecAgentConfigFile = func(c, f string) error {
 			return tc.createConfigFileErr
 		}
-		fileName, err := GetExecAgentConfigFileName(2)
+		agentCfg := &config.Config{}
+		task := &apitask.Task{}
+		fileName, err := GetExecAgentConfigFileName(2, agentCfg, task)
 		assert.Equal(t, tc.expectedConfigFileName, fileName, "incorrect config file name")
 		assert.Equal(t, tc.expectedError, err)
 	}
@@ -450,5 +474,161 @@ func TestGetValidConfigExists(t *testing.T) {
 			return []byte(tc.existingLogConfig), tc.existingLogConfigReadErr
 		}
 		assert.Equal(t, tc.isValid, validConfigExists("configpath", getExecAgentConfigHash(execAgentLogConfigTemplate)))
+	}
+}
+
+func TestFormatSSMAgentConfig(t *testing.T) {
+	// Define a struct that matches the SSM agent config structure
+	type SSMAgentConfig struct {
+		Mgs struct {
+			Region              string `json:"Region"`
+			Endpoint            string `json:"Endpoint"`
+			StopTimeoutMillis   int    `json:"StopTimeoutMillis"`
+			SessionWorkersLimit int    `json:"SessionWorkersLimit"`
+		} `json:"Mgs"`
+		Agent struct {
+			Region               string `json:"Region"`
+			OrchestrationRootDir string `json:"OrchestrationRootDir"`
+			ContainerMode        bool   `json:"ContainerMode"`
+		} `json:"Agent"`
+		Ssm struct {
+			Endpoint string `json:"Endpoint"`
+		} `json:"Ssm"`
+		Mds struct {
+			Endpoint string `json:"Endpoint"`
+		} `json:"Mds"`
+		S3 struct {
+			Endpoint string `json:"Endpoint"`
+		} `json:"S3"`
+		Kms struct {
+			Endpoint string `json:"Endpoint"`
+		} `json:"Kms"`
+		CloudWatch struct {
+			Endpoint string `json:"Endpoint"`
+		} `json:"CloudWatch"`
+	}
+
+	type expectedEndpoints struct {
+		mgs        string
+		ssm        string
+		mds        string
+		s3         string
+		kms        string
+		cloudWatch string
+	}
+
+	// Create mock ENIs for testing
+	ipv6OnlyENI := &ni.NetworkInterface{
+		IPV6Addresses: []*ni.IPV6Address{{Address: "2001:db8::1", Primary: true}},
+	}
+	dualStackENI := &ni.NetworkInterface{
+		IPV4Addresses: []*ni.IPV4Address{{Address: "192.168.1.1", Primary: true}},
+		IPV6Addresses: []*ni.IPV6Address{{Address: "2001:db8::1", Primary: true}},
+	}
+
+	// Create mock tasks for testing
+	ipv6OnlyTask := &apitask.Task{
+		NetworkMode: apitask.AWSVPCNetworkMode,
+		ENIs:        []*ni.NetworkInterface{ipv6OnlyENI},
+	}
+	dualStackTask := &apitask.Task{
+		NetworkMode: apitask.AWSVPCNetworkMode,
+		ENIs:        []*ni.NetworkInterface{dualStackENI},
+	}
+	bridgeTask := &apitask.Task{
+		NetworkMode: apitask.BridgeNetworkMode,
+	}
+
+	expectedDualstackEndpointsIAD := expectedEndpoints{
+		mgs:        "https://ssmmessages.us-east-1.api.aws",
+		ssm:        "https://ssm.us-east-1.api.aws",
+		mds:        "https://ec2messages.us-east-1.api.aws",
+		s3:         "https://s3.dualstack.us-east-1.amazonaws.com",
+		kms:        "https://kms.us-east-1.api.aws",
+		cloudWatch: "https://logs.us-east-1.api.aws",
+	}
+
+	testCases := []struct {
+		name              string
+		sessionLimit      int
+		cfg               *config.Config
+		task              *apitask.Task
+		expectedEndpoints expectedEndpoints
+		expectError       bool
+	}{
+		{
+			name:         "non-IPv6-only environment with bridge mode task",
+			sessionLimit: 5,
+			cfg: &config.Config{
+				InstanceIPCompatibility: ipcompatibility.NewIPv4OnlyCompatibility(),
+				AWSRegion:               "us-west-2",
+			},
+			task:        bridgeTask,
+			expectError: false,
+		},
+		{
+			name:         "IPv6-only environment with bridge mode task",
+			sessionLimit: 8,
+			cfg: &config.Config{
+				InstanceIPCompatibility: ipcompatibility.NewIPv6OnlyCompatibility(),
+				AWSRegion:               "us-east-1",
+			},
+			task:              bridgeTask,
+			expectError:       false,
+			expectedEndpoints: expectedDualstackEndpointsIAD,
+		},
+		{
+			name:         "IPv6-only task ENI with AWSVPC mode",
+			sessionLimit: 15,
+			cfg: &config.Config{
+				InstanceIPCompatibility: ipcompatibility.NewIPv4OnlyCompatibility(),
+				AWSRegion:               "us-east-1",
+			},
+			task:              ipv6OnlyTask,
+			expectError:       false,
+			expectedEndpoints: expectedDualstackEndpointsIAD,
+		},
+		{
+			name:         "Dual-stack task ENI with AWSVPC mode",
+			sessionLimit: 15,
+			cfg: &config.Config{
+				InstanceIPCompatibility: ipcompatibility.NewIPv6OnlyCompatibility(),
+				AWSRegion:               "us-east-1",
+			},
+			task:        dualStackTask,
+			expectError: false,
+		},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			result, err := formatSSMAgentConfig(tc.sessionLimit, tc.cfg, tc.task)
+
+			if tc.expectError {
+				assert.Error(t, err)
+				return
+			}
+
+			assert.NoError(t, err)
+
+			// Parse the JSON result into our struct
+			var config SSMAgentConfig
+			err = json.Unmarshal([]byte(result), &config)
+			require.NoError(t, err, "Result should be valid JSON")
+
+			// Check session workers limit is set correctly
+			assert.Equal(t, tc.sessionLimit, config.Mgs.SessionWorkersLimit, "Session workers limit should match")
+
+			// Verify container mode is true
+			assert.True(t, config.Agent.ContainerMode, "Agent.ContainerMode should be true")
+
+			// Assert each endpoint directly with its expected value from the test case
+			assert.Equal(t, tc.expectedEndpoints.mgs, config.Mgs.Endpoint)
+			assert.Equal(t, tc.expectedEndpoints.ssm, config.Ssm.Endpoint)
+			assert.Equal(t, tc.expectedEndpoints.mds, config.Mds.Endpoint)
+			assert.Equal(t, tc.expectedEndpoints.s3, config.S3.Endpoint)
+			assert.Equal(t, tc.expectedEndpoints.kms, config.Kms.Endpoint)
+			assert.Equal(t, tc.expectedEndpoints.cloudWatch, config.CloudWatch.Endpoint)
+		})
 	}
 }

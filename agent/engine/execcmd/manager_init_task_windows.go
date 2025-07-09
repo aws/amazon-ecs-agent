@@ -21,7 +21,9 @@ import (
 	"path/filepath"
 	"strings"
 
+	apitask "github.com/aws/amazon-ecs-agent/agent/api/task"
 	"github.com/aws/amazon-ecs-agent/agent/config"
+
 	dockercontainer "github.com/docker/docker/api/types/container"
 )
 
@@ -151,9 +153,13 @@ func validConfigDirExists(configDirPath, expectedHash string) bool {
 
 // This function creates any necessary config directories/files and ensures that
 // the ssm-agent binaries, configs, logs, and plugin is bind mounted
-func addRequiredBindMounts(taskId, cn, latestBinVersionDir, uuid string, sessionWorkersLimit int, hostConfig *dockercontainer.HostConfig) error {
+func addRequiredBindMounts(
+	task *apitask.Task, cn, latestBinVersionDir, uuid string,
+	sessionWorkersLimit int, hostConfig *dockercontainer.HostConfig,
+	cfg *config.Config,
+) error {
 	// In windows host mounts are not created automatically, so need to create
-	rErr := os.MkdirAll(filepath.Join(HostLogDir, taskId, cn), folderPerm)
+	rErr := os.MkdirAll(filepath.Join(HostLogDir, task.GetID(), cn), folderPerm)
 	if rErr != nil {
 		return rErr
 	}
@@ -176,7 +182,7 @@ func addRequiredBindMounts(taskId, cn, latestBinVersionDir, uuid string, session
 
 	// Add ssm log bind mount
 	hostConfig.Binds = append(hostConfig.Binds, getBindMountMapping(
-		filepath.Join(HostLogDir, taskId, cn),
+		filepath.Join(HostLogDir, task.GetID(), cn),
 		ContainerLogDir))
 
 	// add ssm plugin bind mount (needed for execcmd windows)

@@ -54,7 +54,7 @@ func (m *MockManager) EXPECT() *MockManagerMockRecorder {
 }
 
 // InitializeContainer mocks base method.
-func (m *MockManager) InitializeContainer(arg0 string, arg1 *container.Container, arg2 *container0.HostConfig) error {
+func (m *MockManager) InitializeContainer(arg0 *task.Task, arg1 *container.Container, arg2 *container0.HostConfig) error {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "InitializeContainer", arg0, arg1, arg2)
 	ret0, _ := ret[0].(error)
