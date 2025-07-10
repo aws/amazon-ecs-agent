@@ -1,3 +1,6 @@
+//go:build unit
+// +build unit
+
 // Copyright Amazon.com Inc. or its affiliates. All Rights Reserved.
 //
 // Licensed under the Apache License, Version 2.0 (the "License"). You may
@@ -589,6 +592,168 @@ func TestResolveCloudWatchLogsEndpoint(t *testing.T) {
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
 			endpoint, err := ResolveCloudWatchLogsEndpoint(tc.region, tc.useDualStack)
+
+			if tc.expectedError != "" {
+				assert.EqualError(t, err, tc.expectedError)
+			} else {
+				assert.NoError(t, err)
+				assert.Equal(t, tc.expected, endpoint)
+			}
+		})
+	}
+}
+
+func TestResolveSSMEndpoint(t *testing.T) {
+	testCases := []struct {
+		name          string
+		region        string
+		useDualStack  bool
+		expectedError string
+		expected      string
+	}{
+		{
+			name:          "Empty region",
+			region:        "",
+			useDualStack:  true,
+			expectedError: "region is required to resolve SSM endpoint",
+		},
+		// Standard AWS partition - dual-stack
+		{
+			name:         "Standard region dual-stack (us-east-1)",
+			region:       "us-east-1",
+			useDualStack: true,
+			expected:     "https://ssm.us-east-1.api.aws",
+		},
+		{
+			name:         "Standard region dual-stack (eu-west-1)",
+			region:       "eu-west-1",
+			useDualStack: true,
+			expected:     "https://ssm.eu-west-1.api.aws",
+		},
+		{
+			name:         "Standard region dual-stack (ap-northeast-1)",
+			region:       "ap-northeast-1",
+			useDualStack: true,
+			expected:     "https://ssm.ap-northeast-1.api.aws",
+		},
+		{
+			name:         "Standard region dual-stack (sa-east-1)",
+			region:       "sa-east-1",
+			useDualStack: true,
+			expected:     "https://ssm.sa-east-1.api.aws",
+		},
+		// Standard AWS partition - non-dual-stack
+		{
+			name:         "Standard region non-dual-stack (us-east-1)",
+			region:       "us-east-1",
+			useDualStack: false,
+			expected:     "https://ssm.us-east-1.amazonaws.com",
+		},
+		{
+			name:         "Standard region non-dual-stack (eu-central-1)",
+			region:       "eu-central-1",
+			useDualStack: false,
+			expected:     "https://ssm.eu-central-1.amazonaws.com",
+		},
+		{
+			name:         "Standard region non-dual-stack (ap-south-1)",
+			region:       "ap-south-1",
+			useDualStack: false,
+			expected:     "https://ssm.ap-south-1.amazonaws.com",
+		},
+		// China partition - dual-stack
+		{
+			name:         "China region dual-stack (cn-north-1)",
+			region:       "cn-north-1",
+			useDualStack: true,
+			expected:     "https://ssm.cn-north-1.api.amazonwebservices.com.cn",
+		},
+		{
+			name:         "China region dual-stack (cn-northwest-1)",
+			region:       "cn-northwest-1",
+			useDualStack: true,
+			expected:     "https://ssm.cn-northwest-1.api.amazonwebservices.com.cn",
+		},
+		// China partition - non-dual-stack
+		{
+			name:         "China region non-dual-stack (cn-north-1)",
+			region:       "cn-north-1",
+			useDualStack: false,
+			expected:     "https://ssm.cn-north-1.amazonaws.com.cn",
+		},
+		{
+			name:         "China region non-dual-stack (cn-northwest-1)",
+			region:       "cn-northwest-1",
+			useDualStack: false,
+			expected:     "https://ssm.cn-northwest-1.amazonaws.com.cn",
+		},
+		// AWS GovCloud partition - dual-stack
+		{
+			name:         "GovCloud region dual-stack (us-gov-east-1)",
+			region:       "us-gov-east-1",
+			useDualStack: true,
+			expected:     "https://ssm.us-gov-east-1.api.aws",
+		},
+		{
+			name:         "GovCloud region dual-stack (us-gov-west-1)",
+			region:       "us-gov-west-1",
+			useDualStack: true,
+			expected:     "https://ssm.us-gov-west-1.api.aws",
+		},
+		// AWS GovCloud partition - non-dual-stack
+		{
+			name:         "GovCloud region non-dual-stack (us-gov-west-1)",
+			region:       "us-gov-west-1",
+			useDualStack: false,
+			expected:     "https://ssm.us-gov-west-1.amazonaws.com",
+		},
+		{
+			name:         "GovCloud region non-dual-stack (us-gov-east-1)",
+			region:       "us-gov-east-1",
+			useDualStack: false,
+			expected:     "https://ssm.us-gov-east-1.amazonaws.com",
+		},
+		// AWS Isolated partition - non-dual-stack
+		{
+			name:         "Isolated region non-dual-stack (us-iso-east-1)",
+			region:       "us-iso-east-1",
+			useDualStack: false,
+			expected:     "https://ssm.us-iso-east-1.c2s.ic.gov",
+		},
+		{
+			name:         "Isolated region non-dual-stack (us-iso-west-1)",
+			region:       "us-iso-west-1",
+			useDualStack: false,
+			expected:     "https://ssm.us-iso-west-1.c2s.ic.gov",
+		},
+		// AWS Isolated partition - dual-stack (not supported)
+		{
+			name:         "Isolated region dual-stack (us-iso-east-1)",
+			region:       "us-iso-east-1",
+			useDualStack: true,
+			expectedError: "failed to resolve SSM endpoint for region 'us-iso-east-1':" +
+				" endpoint rule error, DualStack is enabled but this partition does not support DualStack",
+		},
+		// AWS Isolated-E partition - non-dual-stack
+		{
+			name:         "Isolated-E region non-dual-stack (eu-isoe-west-1)",
+			region:       "eu-isoe-west-1",
+			useDualStack: false,
+			expected:     "https://ssm.eu-isoe-west-1.cloud.adc-e.uk",
+		},
+		// AWS Isolated-E partition - dual-stack (not supported)
+		{
+			name:         "Isolated-E region dual-stack (eu-isoe-west-1)",
+			region:       "eu-isoe-west-1",
+			useDualStack: true,
+			expectedError: "failed to resolve SSM endpoint for region 'eu-isoe-west-1':" +
+				" endpoint rule error, DualStack is enabled but this partition does not support DualStack",
+		},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			endpoint, err := ResolveSSMEndpoint(tc.region, tc.useDualStack)
 
 			if tc.expectedError != "" {
 				assert.EqualError(t, err, tc.expectedError)
