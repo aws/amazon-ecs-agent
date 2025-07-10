@@ -142,3 +142,10 @@ func TestParseTaskPidsLimit(t *testing.T) {
 func TestParseTaskPidsLimit_Unset(t *testing.T) {
 	assert.Equal(t, 0, parseTaskPidsLimit())
 }
+
+func TestGetDetailedOSFamilyWindows(t *testing.T) {
+	// GetDetailedOSFamily should return the same as GetOSFamily on Windows
+	osFamily := GetOSFamily()
+	detailedOSFamily := GetDetailedOSFamily()
+	assert.Equal(t, osFamily, detailedOSFamily)
+}

@@ -50,6 +50,9 @@ type AgentConfigAccessor interface {
 	// OSType returns the operating system type of the instance.
 	// (e.g., "windows")
 	OSType() string
+	// OSFamilyDetailed returns the detailed operating system family of Linux instances
+	// (e.g., "debian_11")
+	OSFamilyDetailed() string
 	// ReservedMemory returns the reduction (in MiB) of the memory
 	// capacity of the instance that is reported to Amazon ECS.
 	// It is used by ECS service to influence task placement and does NOT reserve

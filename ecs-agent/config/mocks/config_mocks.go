@@ -187,6 +187,20 @@ func (mr *MockAgentConfigAccessorMockRecorder) OSType() *gomock.Call {
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "OSType", reflect.TypeOf((*MockAgentConfigAccessor)(nil).OSType))
 }
 
+// OSFamilyDetailed mocks base method.
+func (m *MockAgentConfigAccessor) OSFamilyDetailed() string {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "OSFamilyDetailed")
+	ret0, _ := ret[0].(string)
+	return ret0
+}
+
+// OSFamilyDetailed indicates an expected call of OSFamilyDetailed.
+func (mr *MockAgentConfigAccessorMockRecorder) OSFamilyDetailed() *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "OSFamilyDetailed", reflect.TypeOf((*MockAgentConfigAccessor)(nil).OSFamilyDetailed))
+}
+
 // ReservedMemory mocks base method.
 func (m *MockAgentConfigAccessor) ReservedMemory() uint16 {
 	m.ctrl.T.Helper()

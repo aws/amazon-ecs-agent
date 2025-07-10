@@ -60,7 +60,7 @@ func (factory TaskProtectionClientFactory) NewTaskProtectionClient(
 				factory.AcceptInsecureCert,
 				version.String(),
 				config.OSType,
-				config.GetOSFamily(),
+				config.GetDetailedOSFamily(),
 			),
 		),
 	}

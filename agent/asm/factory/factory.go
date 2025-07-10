@@ -47,7 +47,7 @@ func (*asmClientCreator) NewASMClient(region string,
 	cfg, err := awsconfig.LoadDefaultConfig(
 		context.TODO(),
 		awsconfig.WithRegion(region),
-		awsconfig.WithHTTPClient(httpclient.New(roundtripTimeout, false, agentversion.String(), config.OSType, config.GetOSFamily())),
+		awsconfig.WithHTTPClient(httpclient.New(roundtripTimeout, false, agentversion.String(), config.OSType, config.GetDetailedOSFamily())),
 		awsconfig.WithCredentialsProvider(
 			awscreds.NewStaticCredentialsProvider(
 				creds.AccessKeyID,

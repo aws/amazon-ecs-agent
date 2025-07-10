@@ -28,7 +28,7 @@ import (
 )
 
 const (
-	OSFamilyEnvVar = "ECS_OS_FAMILY"
+	OSFamilyEnvVar = "ECS_DETAILED_OS_FAMILY"
 )
 
 func parseGMSACapability() BooleanDefaultFalse {
@@ -111,14 +111,19 @@ var IsWindows2016 = func() (bool, error) {
 	return false, errors.New("unsupported platform")
 }
 
-// GetOSFamily returns the operating system family for linux based ecs instances.
-// it first checks the ECS_OS_FAMILY environment variable set by ecs-init, and falls back to "LINUX" if not set
+// GetOSFamily returns "LINUX" as operating system family for linux based ecs instances.
 func GetOSFamily() string {
-	osFamily, ok := os.LookupEnv(OSFamilyEnvVar)
+	return strings.ToUpper(OSType)
+}
+
+// GetDetailedOSFamily returns the operating system family for linux based ecs instances.
+// it first checks the ECS_DETAILED_OS_FAMILY environment variable set by ecs-init, and falls back to "LINUX" if not set
+func GetDetailedOSFamily() string {
+	detailedOSFamily, ok := os.LookupEnv(OSFamilyEnvVar)
 	if !ok {
 		return strings.ToUpper(OSType)
 	}
-	return osFamily
+	return detailedOSFamily
 }
 
 func parseTaskPidsLimit() int {
