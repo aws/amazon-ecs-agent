@@ -86,7 +86,7 @@ var GetExecAgentConfigDir = getAgentConfigDir
 
 // Retrieves cached config dir, creates new one if needed
 func getAgentConfigDir(sessionLimit int) (string, error) {
-	agentConfig := fmt.Sprintf(execAgentConfigTemplate, sessionLimit)
+	agentConfig := fmt.Sprintf(execAgentConfigTemplate, "", sessionLimit, "", "", "", "", "")
 	hash := getExecAgentConfigHash(agentConfig + execAgentLogConfigTemplate)
 	// check if cached config dir exists already
 	configDirPath := filepath.Join(ECSAgentExecConfigDir, hash)
