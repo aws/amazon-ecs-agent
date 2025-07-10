@@ -42,6 +42,11 @@ func GetOSFamily() string {
 	return strings.ToUpper(OSType)
 }
 
+// GetDetailedOSFamily returns the same as GetOSFamily() for unsupported platforms.
+func GetDetailedOSFamily() string {
+	return GetOSFamily()
+}
+
 func parseTaskPidsLimit() int {
 	return 0
 }

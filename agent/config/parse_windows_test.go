@@ -20,7 +20,9 @@ import (
 	"os"
 	"testing"
 
+	"github.com/aws/amazon-ecs-agent/agent/statemanager/dependencies"
 	"github.com/stretchr/testify/assert"
+	"golang.org/x/sys/windows"
 )
 
 func TestParseGMSACapability(t *testing.T) {
@@ -141,4 +143,16 @@ func TestParseTaskPidsLimit(t *testing.T) {
 
 func TestParseTaskPidsLimit_Unset(t *testing.T) {
 	assert.Equal(t, 0, parseTaskPidsLimit())
+}
+
+func TestGetDetailedOSFamilyWindows(t *testing.T) {
+	// GetDetailedOSFamily should return the same as GetOSFamily on Windows
+	defer func() {
+		winRegistry = dependencies.StdRegistry{}
+		windowsGetVersionFunc = windows.RtlGetVersion
+	}()
+
+	osFamily := GetOSFamily()
+	detailedOSFamily := GetDetailedOSFamily()
+	assert.Equal(t, osFamily, detailedOSFamily)
 }

@@ -110,22 +110,32 @@ func TestParseTaskPidsLimit_Unset(t *testing.T) {
 	assert.Equal(t, 0, parseTaskPidsLimit())
 }
 
-func TestGetOSFamilyWithValidValue(t *testing.T) {
+func TestGetDetailedOSFamilyWithValidValue(t *testing.T) {
 	t.Setenv(OSFamilyEnvVar, "debian_11")
 
-	result := GetOSFamily()
+	result := GetDetailedOSFamily()
 	assert.Equal(t, "debian_11", result)
 }
 
-func TestGetOSFamilyWithEmptyValue(t *testing.T) {
+func TestGetDetailedOSFamilyWithEmptyValue(t *testing.T) {
 	t.Setenv(OSFamilyEnvVar, "")
 
-	result := GetOSFamily()
+	result := GetDetailedOSFamily()
 	assert.Equal(t, "", result)
 }
 
-func TestGetOSFamilyNotSet(t *testing.T) {
-	result := GetOSFamily()
+func TestGetDetailedOSFamilyNotSet(t *testing.T) {
+	result := GetDetailedOSFamily()
 
 	assert.Equal(t, "LINUX", result)
+}
+
+// verifies that GetOSFamily() always returns "LINUX"
+func TestGetOSFamilyAlwaysReturnsLinux(t *testing.T) {
+	osFamily := GetOSFamily()
+	assert.Equal(t, "LINUX", osFamily)
+
+	t.Setenv(OSFamilyEnvVar, "debian_11")
+	osFamily = GetOSFamily()
+	assert.Equal(t, "LINUX", osFamily)
 }
