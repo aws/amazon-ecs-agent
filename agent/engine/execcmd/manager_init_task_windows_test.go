@@ -28,7 +28,7 @@ import (
 func TestInitializeContainer(t *testing.T) {}
 
 func TestGetExecAgentConfigDir(t *testing.T) {
-	hash := getExecAgentConfigHash(fmt.Sprintf(execAgentConfigTemplate, 2) + execAgentLogConfigTemplate)
+	hash := getExecAgentConfigHash(fmt.Sprintf(execAgentConfigTemplate, "", 2, "", "", "", "", "") + execAgentLogConfigTemplate)
 
 	var tests = []struct {
 		expectedDir                string
@@ -50,21 +50,21 @@ func TestGetExecAgentConfigDir(t *testing.T) {
 			expectedError:           nil,
 			execAgentConfigDirExist: true,
 			existingLogConfig:       execAgentLogConfigTemplate,
-			existingAgentConfig:     fmt.Sprintf(execAgentConfigTemplate, 2),
+			existingAgentConfig:     fmt.Sprintf(execAgentConfigTemplate, "", 2, "", "", "", "", ""),
 		},
 		{
 			expectedDir:             hash,
 			expectedError:           nil,
 			execAgentConfigDirExist: false,
 			existingLogConfig:       execAgentLogConfigTemplate,
-			existingAgentConfig:     fmt.Sprintf(execAgentConfigTemplate, 2),
+			existingAgentConfig:     fmt.Sprintf(execAgentConfigTemplate, "", 2, "", "", "", "", ""),
 		},
 		{
 			expectedDir:             hash,
 			expectedError:           nil,
 			execAgentConfigDirExist: true,
 			existingLogConfig:       "junk",
-			existingAgentConfig:     fmt.Sprintf(execAgentConfigTemplate, 2),
+			existingAgentConfig:     fmt.Sprintf(execAgentConfigTemplate, "", 2, "", "", "", "", ""),
 		},
 		{
 			expectedDir:              hash,
@@ -72,7 +72,7 @@ func TestGetExecAgentConfigDir(t *testing.T) {
 			execAgentConfigDirExist:  true,
 			existingLogConfigReadErr: errors.New("read file error"),
 			existingLogConfig:        "",
-			existingAgentConfig:      fmt.Sprintf(execAgentConfigTemplate, 2),
+			existingAgentConfig:      fmt.Sprintf(execAgentConfigTemplate, "", 2, "", "", "", "", ""),
 		},
 		{
 			expectedDir:                hash,
@@ -88,7 +88,7 @@ func TestGetExecAgentConfigDir(t *testing.T) {
 			execAgentConfigDirExist: true,
 			configDirIsFile:         true,
 			existingLogConfig:       execAgentLogConfigTemplate,
-			existingAgentConfig:     fmt.Sprintf(execAgentConfigTemplate, 2),
+			existingAgentConfig:     fmt.Sprintf(execAgentConfigTemplate, "", 2, "", "", "", "", ""),
 		},
 		{
 			expectedDir:              "",
@@ -177,28 +177,28 @@ func TestGetValidConfigDirExists(t *testing.T) {
 			existingLogConfigReadErr:   nil,
 			existingLogConfig:          execAgentLogConfigTemplate,
 			existingAgentConfigReadErr: nil,
-			existingAgentConfig:        fmt.Sprintf(execAgentConfigTemplate, 2),
+			existingAgentConfig:        fmt.Sprintf(execAgentConfigTemplate, "", 2, "", "", "", "", ""),
 		},
 		{
 			isValid:                    false,
 			existingLogConfigReadErr:   nil,
 			existingLogConfig:          execAgentLogConfigTemplate,
 			existingAgentConfigReadErr: nil,
-			existingAgentConfig:        fmt.Sprintf(execAgentConfigTemplate, 3),
+			existingAgentConfig:        fmt.Sprintf(execAgentConfigTemplate, "", 3, "", "", "", "", ""),
 		},
 		{
 			isValid:                    false,
 			existingLogConfigReadErr:   nil,
 			existingLogConfig:          "junk",
 			existingAgentConfigReadErr: nil,
-			existingAgentConfig:        fmt.Sprintf(execAgentConfigTemplate, 2),
+			existingAgentConfig:        fmt.Sprintf(execAgentConfigTemplate, "", 2, "", "", "", "", ""),
 		},
 		{
 			isValid:                    false,
 			existingLogConfigReadErr:   errors.New("read file error"),
 			existingLogConfig:          "",
 			existingAgentConfigReadErr: nil,
-			existingAgentConfig:        fmt.Sprintf(execAgentConfigTemplate, 2),
+			existingAgentConfig:        fmt.Sprintf(execAgentConfigTemplate, "", 2, "", "", "", "", ""),
 		},
 		{
 			isValid:                    false,
@@ -213,14 +213,14 @@ func TestGetValidConfigDirExists(t *testing.T) {
 			existingLogConfig:          execAgentLogConfigTemplate,
 			existingLogConfigIsDir:     true,
 			existingAgentConfigReadErr: nil,
-			existingAgentConfig:        fmt.Sprintf(execAgentConfigTemplate, 2),
+			existingAgentConfig:        fmt.Sprintf(execAgentConfigTemplate, "", 2, "", "", "", "", ""),
 		},
 		{
 			isValid:                    false,
 			existingLogConfigReadErr:   nil,
 			existingLogConfig:          execAgentLogConfigTemplate,
 			existingAgentConfigReadErr: nil,
-			existingAgentConfig:        fmt.Sprintf(execAgentConfigTemplate, 2),
+			existingAgentConfig:        fmt.Sprintf(execAgentConfigTemplate, "", 2, "", "", "", "", ""),
 			existingAgentConfigIsDir:   true,
 		},
 	}
@@ -255,6 +255,10 @@ func TestGetValidConfigDirExists(t *testing.T) {
 
 			return &mockFileInfo{}, errors.New("no such file")
 		}
-		assert.Equal(t, tc.isValid, validConfigDirExists(configDirPath, getExecAgentConfigHash(fmt.Sprintf(execAgentConfigTemplate, 2)+execAgentLogConfigTemplate)))
+		assert.Equal(t, tc.isValid,
+			validConfigDirExists(
+				configDirPath,
+				getExecAgentConfigHash(fmt.Sprintf(execAgentConfigTemplate, "", 2, "", "", "", "", "")+execAgentLogConfigTemplate),
+			))
 	}
 }
