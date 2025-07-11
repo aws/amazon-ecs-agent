@@ -20,8 +20,29 @@ import (
 	"os"
 	"testing"
 
+	mock_dependencies "github.com/aws/amazon-ecs-agent/agent/statemanager/dependencies/mocks"
+
+	"github.com/golang/mock/gomock"
 	"github.com/stretchr/testify/assert"
+	"golang.org/x/sys/windows"
+	"golang.org/x/sys/windows/registry"
 )
+
+func fakeWindowsGetVersionFunc(buildNumber int) func() *windows.OsVersionInfoEx {
+	return func() *windows.OsVersionInfoEx {
+		return &windows.OsVersionInfoEx{BuildNumber: uint32(buildNumber)}
+	}
+}
+
+func getMockWindowsRegistryKey(ctrl *gomock.Controller) *mock_dependencies.MockRegistryKey {
+	mockWinRegistry := mock_dependencies.NewMockWindowsRegistry(ctrl)
+	mockKey := mock_dependencies.NewMockRegistryKey(ctrl)
+
+	winRegistry = mockWinRegistry
+	mockWinRegistry.EXPECT().OpenKey(ecsWinRegistryRootKey, ecsWinRegistryRootPath, gomock.Any()).Return(mockKey, nil)
+
+	return mockKey
+}
 
 func TestParseGMSACapability(t *testing.T) {
 	os.Setenv("ECS_GMSA_SUPPORTED", "False")
@@ -144,8 +165,20 @@ func TestParseTaskPidsLimit_Unset(t *testing.T) {
 }
 
 func TestGetDetailedOSFamilyWindows(t *testing.T) {
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+
+	// Mock a Windows Server 2022 Full installation
+	windowsGetVersionFunc = fakeWindowsGetVersionFunc(20348)
+	mockKey := getMockWindowsRegistryKey(ctrl)
+	gomock.InOrder(
+		mockKey.EXPECT().GetStringValue("InstallationType").Return(`Server`, uint32(0), nil),
+		mockKey.EXPECT().Close(),
+	)
+
 	// GetDetailedOSFamily should return the same as GetOSFamily on Windows
 	osFamily := GetOSFamily()
 	detailedOSFamily := GetDetailedOSFamily()
 	assert.Equal(t, osFamily, detailedOSFamily)
+	assert.Equal(t, "WINDOWS_SERVER_2022_FULL", detailedOSFamily)
 }

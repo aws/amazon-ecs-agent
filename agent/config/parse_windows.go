@@ -186,7 +186,7 @@ func isDomainlessGmsaPluginInstalled() (bool, error) {
 // GetDetailedOSFamily returns the same as GetOSFamily() on Windows for consistency with Linux.
 func GetDetailedOSFamily() string {
 	return GetOSFamily()
-}
+} 
 
 func parseTaskPidsLimit() int {
 	pidsLimitEnvVal := os.Getenv("ECS_TASK_PIDS_LIMIT")

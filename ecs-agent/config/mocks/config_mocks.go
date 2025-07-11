@@ -173,20 +173,6 @@ func (mr *MockAgentConfigAccessorMockRecorder) OSFamily() *gomock.Call {
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "OSFamily", reflect.TypeOf((*MockAgentConfigAccessor)(nil).OSFamily))
 }
 
-// OSType mocks base method.
-func (m *MockAgentConfigAccessor) OSType() string {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "OSType")
-	ret0, _ := ret[0].(string)
-	return ret0
-}
-
-// OSType indicates an expected call of OSType.
-func (mr *MockAgentConfigAccessorMockRecorder) OSType() *gomock.Call {
-	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "OSType", reflect.TypeOf((*MockAgentConfigAccessor)(nil).OSType))
-}
-
 // OSFamilyDetailed mocks base method.
 func (m *MockAgentConfigAccessor) OSFamilyDetailed() string {
 	m.ctrl.T.Helper()
@@ -199,6 +185,20 @@ func (m *MockAgentConfigAccessor) OSFamilyDetailed() string {
 func (mr *MockAgentConfigAccessorMockRecorder) OSFamilyDetailed() *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "OSFamilyDetailed", reflect.TypeOf((*MockAgentConfigAccessor)(nil).OSFamilyDetailed))
+}
+
+// OSType mocks base method.
+func (m *MockAgentConfigAccessor) OSType() string {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "OSType")
+	ret0, _ := ret[0].(string)
+	return ret0
+}
+
+// OSType indicates an expected call of OSType.
+func (mr *MockAgentConfigAccessorMockRecorder) OSType() *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "OSType", reflect.TypeOf((*MockAgentConfigAccessor)(nil).OSType))
 }
 
 // ReservedMemory mocks base method.
