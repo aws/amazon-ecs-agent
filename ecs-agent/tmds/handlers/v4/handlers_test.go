@@ -34,7 +34,7 @@ import (
 	mock_state "github.com/aws/amazon-ecs-agent/ecs-agent/tmds/handlers/v4/state/mocks"
 
 	"github.com/aws/aws-sdk-go-v2/aws"
-	"github.com/docker/docker/api/types"
+	"github.com/docker/docker/api/types/container"
 	"github.com/golang/mock/gomock"
 	"github.com/gorilla/mux"
 	"github.com/stretchr/testify/assert"
@@ -147,11 +147,11 @@ var (
 	now            = time.Now()
 	credentialsID  = "credentialsID"
 	containerStats = state.StatsResponse{
-		StatsJSON: &types.StatsJSON{
-			Stats:    types.Stats{NumProcs: numProcs},
+		StatsResponse: &container.StatsResponse{
+			NumProcs: numProcs,
 			Name:     containerStatsName,
 			ID:       containerStatsId,
-			Networks: map[string]types.NetworkStats{networkStatsKey: {RxBytes: rxBytes}},
+			Networks: map[string]container.NetworkStats{networkStatsKey: {RxBytes: rxBytes}},
 		},
 		Network_rate_stats: &stats.NetworkStatsPerSec{
 			RxBytesPerSecond: rxBytesPerSecond,
