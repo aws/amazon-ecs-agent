@@ -87,13 +87,13 @@ const (
 		`"KnownStatus":"%s","Limits":{"CPU":%d,"Memory":%d},"PullStartedAt":"%s","PullStoppedAt":"%s","ExecutionStoppedAt":"%s",` +
 		`"AvailabilityZone":"%s","LaunchType":"%s","Containers":[%s],"VPCID":"%s","ClockDrift":{"ClockErrorBound":%d,` +
 		`"ClockSynchronizationStatus":"%s"},"EphemeralStorageMetrics":{"Utilized":%d,"Reserved":%d},"FaultInjectionEnabled":%t}`
-	containerStatsResponseJSON = `{"read":"0001-01-01T00:00:00Z","preread":"0001-01-01T00:00:00Z","pids_stats":{},"blkio_stats":` +
+	containerStatsResponseJSON = `{"name":"%s","id":"%s","read":"0001-01-01T00:00:00Z","preread":"0001-01-01T00:00:00Z","pids_stats":{},"blkio_stats":` +
 		`{"io_service_bytes_recursive":null,"io_serviced_recursive":null,"io_queue_recursive":null,"io_service_time_recursive":null,` +
 		`"io_wait_time_recursive":null,"io_merged_recursive":null,"io_time_recursive":null,"sectors_recursive":null},"num_procs":%d,` +
 		`"storage_stats":{},"cpu_stats":{"cpu_usage":{"total_usage":0,"usage_in_kernelmode":0,"usage_in_usermode":0},"throttling_data"` +
 		`:{"periods":0,"throttled_periods":0,"throttled_time":0}},"precpu_stats":{"cpu_usage":{"total_usage":0,"usage_in_kernelmode":0,` +
-		`"usage_in_usermode":0},"throttling_data":{"periods":0,"throttled_periods":0,"throttled_time":0}},"memory_stats":{},"name":"%s",` +
-		`"id":"%s","networks":{"%s":{"rx_bytes":%d,"rx_packets":0,"rx_errors":0,"rx_dropped":0,"tx_bytes":0,"tx_packets":0,"tx_errors":0,` +
+		`"usage_in_usermode":0},"throttling_data":{"periods":0,"throttled_periods":0,"throttled_time":0}},"memory_stats":{},` +
+		`"networks":{"%s":{"rx_bytes":%d,"rx_packets":0,"rx_errors":0,"rx_dropped":0,"tx_bytes":0,"tx_packets":0,"tx_errors":0,` +
 		`"tx_dropped":0}},"network_rate_stats":{"rx_bytes_per_sec":%d,"tx_bytes_per_sec":%d}}`
 	taskStatsResponseJSON = `{"%s":%s}`
 	// Common Container/Task metadata string response template
@@ -185,9 +185,9 @@ var (
 		subnetGatewayIpv6Address,
 	)
 	happyContainerStatsResponseJSON = fmt.Sprintf(containerStatsResponseJSON,
-		numProcs,
 		containerStatsName,
 		containerStatsId,
+		numProcs,
 		networkStatsKey,
 		rxBytes,
 		rxBytesPerSecond,
