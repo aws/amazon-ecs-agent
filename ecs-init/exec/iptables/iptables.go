@@ -14,15 +14,15 @@
 package iptables
 
 import (
-	"bufio"
 	"fmt"
-	"io"
 	"os"
 	"strconv"
 	"strings"
-	"unicode"
 
+	netutils "github.com/aws/amazon-ecs-agent/ecs-agent/utils/net"
+	"github.com/aws/amazon-ecs-agent/ecs-agent/utils/netlinkwrapper"
 	"github.com/aws/amazon-ecs-agent/ecs-init/exec"
+
 	log "github.com/cihub/seelog"
 	"github.com/pkg/errors"
 )
@@ -33,6 +33,7 @@ type iptablesAction string
 const (
 	iptablesExecutable            = "iptables"
 	CredentialsProxyIpAddress     = "169.254.170.2"
+	ip6tablesExecutable           = "ip6tables"
 	credentialsProxyPort          = "80"
 	localhostIpAddress            = "127.0.0.1"
 	localhostCredentialsProxyPort = "51679"
@@ -50,23 +51,18 @@ const (
 	offhostIntrospectionAccessConfigEnv   = "ECS_ALLOW_OFFHOST_INTROSPECTION_ACCESS"
 	offhostIntrospectonAccessInterfaceEnv = "ECS_OFFHOST_INTROSPECTION_INTERFACE_NAME"
 	agentIntrospectionServerPort          = "51678"
-
-	ipv4RouteFile                         = "/proc/net/route"
-	ipv4ZeroAddrInHex                     = "00000000"
-	loopbackInterfaceName                 = "lo"
-	fallbackOffhostIntrospectionInterface = "eth0"
-
-	ifNameSize = 16
 )
 
 var (
-	defaultOffhostIntrospectionInterface = ""
+	defaultLoopbackInterfaceName   = ""
+	defaultDockerBridgeNetworkName = ""
 )
 
 // NetfilterRoute implements the engine.credentialsProxyRoute interface by
 // running the external 'iptables' command
 type NetfilterRoute struct {
-	cmdExec exec.Exec
+	cmdExec   exec.Exec
+	nlWrapper netlinkwrapper.NetLink
 }
 
 // getNetfilterChainArgsFunc defines a function pointer type that returns
@@ -74,7 +70,7 @@ type NetfilterRoute struct {
 type getNetfilterChainArgsFunc func() []string
 
 // NewNetfilterRoute creates a new NetfilterRoute object
-func NewNetfilterRoute(cmdExec exec.Exec) (*NetfilterRoute, error) {
+func NewNetfilterRoute(cmdExec exec.Exec, nlWrapper netlinkwrapper.NetLink, dockerBridgeNetworkName string) (*NetfilterRoute, error) {
 	// Return an error if 'iptables' command cannot be found in the path
 	_, err := cmdExec.LookPath(iptablesExecutable)
 	if err != nil {
@@ -82,72 +78,89 @@ func NewNetfilterRoute(cmdExec exec.Exec) (*NetfilterRoute, error) {
 		return nil, err
 	}
 
-	defaultOffhostIntrospectionInterface, err = getOffhostIntrospectionInterface()
+	// Obtain the loopback interface on the host to restrict introspection server access
+	loopbackInterface, err := netutils.GetLoopbackInterface(nlWrapper)
 	if err != nil {
-		log.Warnf("Error resolving default offhost introspection network interface, will use eth0 as fallback: %+v", err)
-		// fall back to the previous behavior (always use 'eth0') in the rare case that it
-		// might affect some customer with a special routing setup that's previously working.
-		defaultOffhostIntrospectionInterface = fallbackOffhostIntrospectionInterface
+		log.Errorf("Error resolving loopback interface on the host: %w", err)
+		return nil, err
 	}
+	defaultLoopbackInterfaceName = loopbackInterface.Attrs().Name
+	defaultDockerBridgeNetworkName = dockerBridgeNetworkName
 
 	return &NetfilterRoute{
-		cmdExec: cmdExec,
+		cmdExec:   cmdExec,
+		nlWrapper: nlWrapper,
 	}, nil
 }
 
 // Create creates the credentials proxy endpoint route in the netfilter table
 func (route *NetfilterRoute) Create() error {
-	err := route.modifyNetfilterEntry(iptablesTableNat, iptablesAppend, getPreroutingChainArgs)
+	err := route.modifyNetfilterEntry(iptablesTableNat, iptablesAppend, getPreroutingChainArgs, false)
 	if err != nil {
 		return err
 	}
 
 	if !skipLocalhostTrafficFilter() {
-		err = route.modifyNetfilterEntry(iptablesTableFilter, iptablesInsert, getLocalhostTrafficFilterInputChainArgs)
+		err = route.modifyNetfilterEntry(iptablesTableFilter, iptablesInsert, getLocalhostTrafficFilterInputChainArgs, false)
 		if err != nil {
 			return err
 		}
 	}
 
 	if !allowOffhostIntrospection() {
-		err = route.modifyNetfilterEntry(iptablesTableFilter, iptablesInsert, getBlockIntrospectionOffhostAccessInputChainArgs)
+		// Drop all connections to introspection server except the loopback interface.
+		err = route.modifyNetfilterEntry(iptablesTableFilter, iptablesInsert, getBlockIntrospectionOffhostAccessInputChainArgs, true)
 		if err != nil {
 			log.Errorf("Error adding input chain entry to block offhost introspection access: %v", err)
+			return err
+		}
+
+		// Allow docker's virtual bridge interface to access the introspection server. Inserting it after applying
+		// the rule to drop all connections other than loopback interface will push it on top of priority.
+		err = route.modifyNetfilterEntry(iptablesTableFilter, iptablesInsert, allowIntrospectionForDockerIptablesInputChainArgs, true)
+		if err != nil {
+			log.Errorf("Error adding input chain entry to allow %s access to introspection server: %w", err)
+			return err
 		}
 	}
 
-	return route.modifyNetfilterEntry(iptablesTableNat, iptablesAppend, getOutputChainArgs)
+	return route.modifyNetfilterEntry(iptablesTableNat, iptablesAppend, getOutputChainArgs, false)
 }
 
 // Remove removes the route for the credentials endpoint from the netfilter
 // table
 func (route *NetfilterRoute) Remove() error {
-	preroutingErr := route.modifyNetfilterEntry(iptablesTableNat, iptablesDelete, getPreroutingChainArgs)
+	preroutingErr := route.modifyNetfilterEntry(iptablesTableNat, iptablesDelete, getPreroutingChainArgs, false)
 	if preroutingErr != nil {
 		// Add more context for error in modifying the prerouting chain
 		preroutingErr = fmt.Errorf("error removing prerouting chain entry: %v", preroutingErr)
 	}
 
-	var localhostInputError, introspectionInputError error
+	var localhostInputError, introspectionInputError, dockerIntrospectionInputError error
 	if !skipLocalhostTrafficFilter() {
-		localhostInputError = route.modifyNetfilterEntry(iptablesTableFilter, iptablesDelete, getLocalhostTrafficFilterInputChainArgs)
+		localhostInputError = route.modifyNetfilterEntry(iptablesTableFilter, iptablesDelete, getLocalhostTrafficFilterInputChainArgs, false)
 		if localhostInputError != nil {
 			localhostInputError = fmt.Errorf("error removing input chain entry: %v", localhostInputError)
 		}
 	}
 
-	introspectionInputError = route.modifyNetfilterEntry(iptablesTableFilter, iptablesDelete, getBlockIntrospectionOffhostAccessInputChainArgs)
+	introspectionInputError = route.modifyNetfilterEntry(iptablesTableFilter, iptablesDelete, getBlockIntrospectionOffhostAccessInputChainArgs, true)
 	if introspectionInputError != nil {
 		introspectionInputError = fmt.Errorf("error removing input chain entry: %v", introspectionInputError)
 	}
 
-	outputErr := route.modifyNetfilterEntry(iptablesTableNat, iptablesDelete, getOutputChainArgs)
+	dockerIntrospectionInputError = route.modifyNetfilterEntry(iptablesTableFilter, iptablesDelete, allowIntrospectionForDockerIptablesInputChainArgs, true)
+	if dockerIntrospectionInputError != nil {
+		dockerIntrospectionInputError = fmt.Errorf("error removing input chain entry: %v", dockerIntrospectionInputError)
+	}
+
+	outputErr := route.modifyNetfilterEntry(iptablesTableNat, iptablesDelete, getOutputChainArgs, false)
 	if outputErr != nil {
 		// Add more context for error in modifying the output chain
 		outputErr = fmt.Errorf("error removing output chain entry: %v", outputErr)
 	}
 
-	return combinedError(preroutingErr, localhostInputError, introspectionInputError, outputErr)
+	return combinedError(preroutingErr, localhostInputError, dockerIntrospectionInputError, introspectionInputError, outputErr)
 }
 
 func combinedError(errs ...error) error {
@@ -168,16 +181,33 @@ func combinedError(errs ...error) error {
 // modifyNetfilterEntry modifies an entry in the netfilter table based on
 // the action and the function pointer to get arguments for modifying the
 // chain
-func (route *NetfilterRoute) modifyNetfilterEntry(table string, action iptablesAction, getNetfilterChainArgs getNetfilterChainArgsFunc) error {
+func (route *NetfilterRoute) modifyNetfilterEntry(table string, action iptablesAction, getNetfilterChainArgs getNetfilterChainArgsFunc, useIp6tables bool) error {
 	args := append(getTableArgs(table), string(action))
 	args = append(args, getNetfilterChainArgs()...)
 	cmd := route.cmdExec.Command(iptablesExecutable, args...)
 	out, err := cmd.CombinedOutput()
 	if err != nil {
 		log.Errorf("Error performing action '%s' for iptables route: %v; raw output: %s", getActionName(action), err, out)
+		return err
 	}
 
-	return err
+	// Checking if we need to apply the netfilter table action for IPv6 as well.
+	if useIp6tables {
+		_, err = route.cmdExec.LookPath(ip6tablesExecutable)
+		if err != nil {
+			log.Warnf("%s unable to be found on the host. Assuming IPv6 isn't available on the host and will not apply %s.", ip6tablesExecutable, getActionName(action))
+		} else {
+			cmd = route.cmdExec.Command(ip6tablesExecutable, args...)
+			out, err = cmd.CombinedOutput()
+			if err != nil {
+				log.Errorf("Error performing action '%s' for ip6tables route: %v; raw output: %s", getActionName(action), err, out)
+				return err
+			}
+			log.Infof("Successfully blocked IPv6 off-host access for introspection server with %s.", ip6tablesExecutable)
+		}
+	}
+
+	return nil
 }
 
 func getTableArgs(table string) []string {
@@ -210,79 +240,20 @@ func getBlockIntrospectionOffhostAccessInputChainArgs() []string {
 	return []string{
 		"INPUT",
 		"-p", "tcp",
-		"-i", defaultOffhostIntrospectionInterface,
 		"--dport", agentIntrospectionServerPort,
+		"!", "-i", defaultLoopbackInterfaceName,
 		"-j", "DROP",
 	}
 }
 
-// checkValidIfname checks that the string is a valid eth interface name. Returns
-// an error if the interface name is invalid.
-// see kernel dev_valid_name function for reference.
-// https://github.com/torvalds/linux/blob/d7e78951a8b8b53e4d52c689d927a6887e6cfadf/net/core/dev.c#L1056-L1079
-func checkValidIfname(name string) error {
-	if name == "" {
-		return fmt.Errorf("Invalid ifname [%s]: empty string not allowed", name)
+func allowIntrospectionForDockerIptablesInputChainArgs() []string {
+	return []string{
+		"INPUT",
+		"-p", "tcp",
+		"--dport", agentIntrospectionServerPort,
+		"-i", defaultDockerBridgeNetworkName,
+		"-j", "ACCEPT",
 	}
-	if len(name) >= ifNameSize {
-		return fmt.Errorf("Invalid ifname [%s]: length of name must be less than %d chars", name, ifNameSize)
-	}
-	if name == "." || name == ".." {
-		return fmt.Errorf("Invalid ifname [%s]: '.' or '..' not allowed", name)
-	}
-
-	for _, char := range name {
-		if char == '/' || char == ':' || unicode.IsSpace(char) {
-			return fmt.Errorf("Invalid ifname [%s]: invalid character found: space, ':', and '/' not allowed", name)
-		}
-	}
-	return nil
-}
-
-func getOffhostIntrospectionInterface() (string, error) {
-	s := os.Getenv(offhostIntrospectonAccessInterfaceEnv)
-	if s != "" {
-		err := checkValidIfname(s)
-		if err != nil {
-			log.Errorf("ECS_OFFHOST_INTROSPECTION_INTERFACE_NAME interface name is invalid, falling back to default. %s", err)
-		} else {
-			return s, nil
-		}
-	}
-	return getDefaultNetworkInterfaceIPv4()
-}
-
-// Parse /proc/net/route file and retrieves a non-loopback default network interface for IPv4 (which maps to default 0.0.0.0/0 destination)
-// Example file content:
-// $ sudo cat /proc/net/route
-// Iface   Destination Gateway     Flags   RefCnt  Use Metric  Mask   MTU Window  IRTT
-// ens5    00000000    01201FAC    0003    0   		0   512 00000000    0   0   	0
-// ...
-//
-// 1st column contains interface name
-// 2nd column contains destination network in hex
-var getDefaultNetworkInterfaceIPv4 = func() (string, error) {
-	input, err := os.Open(ipv4RouteFile)
-	if err != nil {
-		return "", fmt.Errorf("could not get IPv4 route input: %v", err)
-	}
-	defer input.Close()
-	return scanIPv4RoutesForDefaultInterface(input)
-}
-
-func scanIPv4RoutesForDefaultInterface(input io.Reader) (string, error) {
-	scanner := bufio.NewScanner(input)
-	for scanner.Scan() {
-		line := scanner.Text()
-		if strings.HasPrefix(line, "Iface") { // skip header line
-			continue
-		}
-		fields := strings.Fields(line)
-		if (fields[1] == ipv4ZeroAddrInHex) && (fields[0] != loopbackInterfaceName) {
-			return fields[0], nil
-		}
-	}
-	return "", fmt.Errorf("could not find a default IPv4 route through non-loopback interface")
 }
 
 func getOutputChainArgs() []string {

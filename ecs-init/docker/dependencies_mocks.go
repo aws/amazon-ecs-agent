@@ -62,6 +62,21 @@ func (mr *MockdockerclientMockRecorder) CreateContainer(opts interface{}) *gomoc
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "CreateContainer", reflect.TypeOf((*Mockdockerclient)(nil).CreateContainer), opts)
 }
 
+// FilteredListNetworks mocks base method.
+func (m *Mockdockerclient) FilteredListNetworks(opts docker.NetworkFilterOpts) ([]docker.Network, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "FilteredListNetworks", opts)
+	ret0, _ := ret[0].([]docker.Network)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// FilteredListNetworks indicates an expected call of FilteredListNetworks.
+func (mr *MockdockerclientMockRecorder) FilteredListNetworks(opts interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "FilteredListNetworks", reflect.TypeOf((*Mockdockerclient)(nil).FilteredListNetworks), opts)
+}
+
 // ListContainers mocks base method.
 func (m *Mockdockerclient) ListContainers(opts docker.ListContainersOptions) ([]docker.APIContainers, error) {
 	m.ctrl.T.Helper()
