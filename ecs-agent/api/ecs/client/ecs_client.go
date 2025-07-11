@@ -34,6 +34,7 @@ import (
 	"github.com/aws/amazon-ecs-agent/ecs-agent/metrics"
 	"github.com/aws/amazon-ecs-agent/ecs-agent/utils"
 	"github.com/aws/amazon-ecs-agent/ecs-agent/utils/retry"
+	"github.com/aws/aws-sdk-go-v2/aws/ratelimit"
 
 	"github.com/aws/aws-sdk-go-v2/aws"
 	awsconfig "github.com/aws/aws-sdk-go-v2/config"
@@ -73,6 +74,14 @@ const (
 	rciMaxBackoff          = 192 * time.Second
 	rciRetryJitter         = 0.2
 	rciRetryMultiple       = 2.0
+
+	// Below constants are used for GetResourceTags retry with exponential backoff when receiving non-terminal errors.
+	getResourceTagsTimeout    = 30 * time.Second
+	getResourceTagsBackoffMin = 500 * time.Millisecond
+	getResourceTagsBackoffMax = 10 * time.Second
+	getResourceTagsJitter     = 0.1
+	getResourceTagsMultiplier = 1.5
+	getResourceTagsCooldown   = 1 * time.Second
 )
 
 var nonRetriableErrors = []smithy.APIError{
@@ -889,13 +898,61 @@ func (client *ecsClient) discoverPollEndpoint(containerInstanceArn string,
 }
 
 func (client *ecsClient) GetResourceTags(resourceArn string) ([]types.Tag, error) {
-	output, err := client.standardClient.ListTagsForResource(context.TODO(), &ecsservice.ListTagsForResourceInput{
-		ResourceArn: &resourceArn,
+	backoff := retry.NewExponentialBackoff(
+		getResourceTagsBackoffMin,
+		getResourceTagsBackoffMax,
+		getResourceTagsJitter,
+		getResourceTagsMultiplier,
+	)
+	ctx, cancel := context.WithTimeout(context.Background(), getResourceTagsTimeout)
+	defer cancel()
+
+	var (
+		tags       []types.Tag
+		lastErr    error
+		retryCount int
+	)
+
+	err := retry.RetryWithBackoffCtx(ctx, backoff, func() error {
+		retryCount++
+
+		output, err := client.standardClient.ListTagsForResource(ctx, &ecsservice.ListTagsForResourceInput{
+			ResourceArn: &resourceArn,
+		})
+		if err == nil {
+			tags = output.Tags
+			return nil
+		}
+
+		lastErr = err
+
+		if isTransientError(err) {
+			logger.Warn("ListTagsForResource throttled or rate limited", logger.Fields{
+				field.Error: err,
+				"resource":  resourceArn,
+				"attempt":   retryCount,
+			})
+			return apierrors.NewRetriableError(apierrors.NewRetriable(true), err)
+		}
+
+		logger.Error("ListTagsForResource failed", logger.Fields{
+			field.Error: err,
+			"resource":  resourceArn,
+			"attempt":   retryCount,
+		})
+		return apierrors.NewRetriableError(apierrors.NewRetriable(false), err)
 	})
+
 	if err != nil {
-		return nil, err
+		logger.Error("GetResourceTags exhausted retries", logger.Fields{
+			field.Error: lastErr,
+			"resource":  resourceArn,
+			"attempts":  retryCount,
+		})
+		return nil, fmt.Errorf("GetResourceTags failed for %s after %d attempts: %v", resourceArn, retryCount, lastErr)
 	}
-	return output.Tags, nil
+
+	return tags, nil
 }
 
 func (client *ecsClient) UpdateContainerInstancesState(instanceARN string, status types.ContainerInstanceStatus) error {
@@ -995,13 +1052,21 @@ func trimString(inputString string, maxLen int) string {
 }
 
 func isTransientError(err error) bool {
-	var apiErr smithy.APIError
-	// Using errors.As to unwrap as opposed to errors.Is.
-	if errors.As(err, &apiErr) {
+	var (
+		apiErr   smithy.APIError
+		quotaErr ratelimit.QuotaExceededError
+	)
+
+	switch {
+	case errors.As(err, &apiErr):
 		switch apiErr.ErrorCode() {
-		case apierrors.ErrCodeServerException, apierrors.ErrCodeLimitExceededException:
+		case "ThrottlingException",
+			apierrors.ErrCodeServerException,
+			apierrors.ErrCodeLimitExceededException:
 			return true
 		}
+	case errors.As(err, &quotaErr):
+		return true
 	}
 	return false
 }

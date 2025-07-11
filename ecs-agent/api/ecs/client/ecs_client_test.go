@@ -34,6 +34,7 @@ import (
 	apicontainerstatus "github.com/aws/amazon-ecs-agent/ecs-agent/api/container/status"
 	"github.com/aws/amazon-ecs-agent/ecs-agent/api/ecs"
 	mock_ecs "github.com/aws/amazon-ecs-agent/ecs-agent/api/ecs/mocks"
+	mock_client "github.com/aws/amazon-ecs-agent/ecs-agent/api/ecs/mocks/client"
 	mock_credentials "github.com/aws/amazon-ecs-agent/ecs-agent/api/ecs/mocks/credentialsprovider"
 	apitaskstatus "github.com/aws/amazon-ecs-agent/ecs-agent/api/task/status"
 	"github.com/aws/amazon-ecs-agent/ecs-agent/async"
@@ -1154,8 +1155,9 @@ func TestGetResourceTags(t *testing.T) {
 		Tags: containerInstanceTags,
 	}, nil)
 
-	_, err := tester.client.GetResourceTags(containerInstanceARN)
+	tags, err := tester.client.GetResourceTags(containerInstanceARN)
 	assert.NoError(t, err, fmt.Sprintf("Unexpected error calling GetResourceTags: %s", err))
+	assert.Equal(t, containerInstanceTags, tags, "Unexpected tags returned")
 }
 
 func TestGetResourceTagsError(t *testing.T) {
@@ -1165,11 +1167,154 @@ func TestGetResourceTagsError(t *testing.T) {
 	tester := setup(t, ctrl, ec2.NewBlackholeEC2MetadataClient(), nil)
 	tester.mockStandardClient.EXPECT().ListTagsForResource(gomock.Any(), &ecsservice.ListTagsForResourceInput{
 		ResourceArn: aws.String(containerInstanceARN),
-	}).Return(nil, fmt.Errorf("ERROR"))
+	}).Return(nil, fmt.Errorf("ERROR")).MinTimes(1)
 
 	_, err := tester.client.GetResourceTags(containerInstanceARN)
-	assert.ErrorContains(t, err, "ERROR",
-		"Expected an error calling GetResourceTags but got nil")
+
+	assert.Error(t, err, "Expected GetResourceTags to fail after retries")
+	assert.ErrorContains(t, err, "GetResourceTags failed for",
+		"Expected GetResourceTags to fail after retries")
+	assert.ErrorContains(t, err, "attempts",
+		"Expected error message to include attempt count")
+}
+
+// TestGetResourceTagsWithRetry tests the exponential backoff retry functionality
+// for both transient and non-transient errors.
+func TestGetResourceTagsWithRetry(t *testing.T) {
+	testCases := []struct {
+		name          string
+		errors        []error
+		finalResponse *ecsservice.ListTagsForResourceOutput
+		finalError    error
+		expectSuccess bool
+		expectedTags  []types.Tag
+		expectedCalls int
+	}{
+		{
+			name: "Success after throttling retries",
+			errors: []error{
+				mock_client.NewThrottlingException(),
+				mock_client.NewLimitExceededException(),
+			},
+			finalResponse: &ecsservice.ListTagsForResourceOutput{
+				Tags: containerInstanceTags,
+			},
+			finalError:    nil,
+			expectSuccess: true,
+			expectedTags:  containerInstanceTags,
+			expectedCalls: 3,
+		},
+		{
+			name: "Success after server exception retries",
+			errors: []error{
+				mock_client.NewServerException(),
+			},
+			finalResponse: &ecsservice.ListTagsForResourceOutput{
+				Tags: containerInstanceTags,
+			},
+			finalError:    nil,
+			expectSuccess: true,
+			expectedTags:  containerInstanceTags,
+			expectedCalls: 2,
+		},
+		{
+			name: "Success after mixed transient errors",
+			errors: []error{
+				mock_client.NewThrottlingException(),
+				mock_client.NewServerException(),
+				mock_client.NewQuotaExceededError(),
+			},
+			finalResponse: &ecsservice.ListTagsForResourceOutput{
+				Tags: containerInstanceTags,
+			},
+			finalError:    nil,
+			expectSuccess: true,
+			expectedTags:  containerInstanceTags,
+			expectedCalls: 4,
+		},
+		{
+			name: "Non-transient error - retries until timeout",
+			errors: []error{
+				mock_client.NewInvalidParameterException(),
+			},
+			finalResponse: nil,
+			finalError:    mock_client.NewInvalidParameterException(),
+			expectSuccess: false,
+			expectedCalls: 10, // Will retry until timeout
+		},
+		{
+			name: "Non-transient error - client exception retries until timeout",
+			errors: []error{
+				mock_client.NewClientException(),
+			},
+			finalResponse: nil,
+			finalError:    mock_client.NewClientException(),
+			expectSuccess: false,
+			expectedCalls: 10, // Will retry until timeout
+		},
+		{
+			name: "Success after multiple throttling retries",
+			errors: []error{
+				mock_client.NewThrottlingException(),
+				mock_client.NewThrottlingException(),
+				mock_client.NewThrottlingException(),
+				mock_client.NewThrottlingException(),
+			},
+			finalResponse: &ecsservice.ListTagsForResourceOutput{
+				Tags: containerInstanceTags,
+			},
+			finalError:    nil,
+			expectSuccess: true,
+			expectedTags:  containerInstanceTags,
+			expectedCalls: 5,
+		},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			ctrl := gomock.NewController(t)
+			defer ctrl.Finish()
+
+			tester := setup(t, ctrl, ec2.NewBlackholeEC2MetadataClient(), nil)
+
+			if tc.expectSuccess {
+				for _, err := range tc.errors {
+					tester.mockStandardClient.EXPECT().ListTagsForResource(gomock.Any(), &ecsservice.ListTagsForResourceInput{
+						ResourceArn: aws.String(containerInstanceARN),
+					}).Return(nil, err)
+				}
+				tester.mockStandardClient.EXPECT().ListTagsForResource(gomock.Any(), &ecsservice.ListTagsForResourceInput{
+					ResourceArn: aws.String(containerInstanceARN),
+				}).Return(tc.finalResponse, tc.finalError).Times(1)
+			} else {
+				if tc.name == "Exhausted retries" {
+					tester.mockStandardClient.EXPECT().ListTagsForResource(gomock.Any(), &ecsservice.ListTagsForResourceInput{
+						ResourceArn: aws.String(containerInstanceARN),
+					}).Return(nil, tc.errors[0]).AnyTimes()
+				} else {
+					if len(tc.errors) > 0 {
+						tester.mockStandardClient.EXPECT().ListTagsForResource(gomock.Any(), &ecsservice.ListTagsForResourceInput{
+							ResourceArn: aws.String(containerInstanceARN),
+						}).Return(nil, tc.errors[0]).MinTimes(1)
+					}
+				}
+			}
+
+			tags, err := tester.client.GetResourceTags(containerInstanceARN)
+
+			if tc.expectSuccess {
+				assert.NoError(t, err, "Expected GetResourceTags to succeed")
+				assert.Equal(t, tc.expectedTags, tags, "Unexpected tags returned")
+			} else {
+				assert.Error(t, err, "Expected GetResourceTags to fail")
+				assert.Nil(t, tags, "Expected no tags on failure")
+
+				if len(tc.errors) == 1 && tc.name != "Exhausted retries" {
+					assert.ErrorContains(t, err, "GetResourceTags failed for", "Expected wrapped error message")
+				}
+			}
+		})
+	}
 }
 
 func TestDiscoverPollEndpointCacheHit(t *testing.T) {
