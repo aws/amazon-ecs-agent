@@ -28,7 +28,7 @@ import (
 )
 
 const (
-	OSFamilyEnvVar = "ECS_DETAILED_OS_FAMILY"
+	osFamilyEnvVar = "ECS_DETAILED_OS_FAMILY"
 )
 
 func parseGMSACapability() BooleanDefaultFalse {
@@ -119,7 +119,7 @@ func GetOSFamily() string {
 // GetDetailedOSFamily returns the operating system family for linux based ecs instances.
 // it first checks the ECS_DETAILED_OS_FAMILY environment variable set by ecs-init, and falls back to "LINUX" if not set
 func GetDetailedOSFamily() string {
-	detailedOSFamily, ok := os.LookupEnv(OSFamilyEnvVar)
+	detailedOSFamily, ok := os.LookupEnv(osFamilyEnvVar)
 	if !ok {
 		return strings.ToUpper(OSType)
 	}

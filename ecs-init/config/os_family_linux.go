@@ -1,6 +1,3 @@
-//go:build linux
-// +build linux
-
 // Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
 //
 // Licensed under the Apache License, Version 2.0 (the "License"). You may
@@ -28,7 +25,6 @@ import (
 
 const (
 	unsupportedOSFamily = "linux"
-	OSFamilyEnvVar      = "ECS_DETAILED_OS_FAMILY"
 	osReleaseFilePath   = "/etc/os-release"
 )
 
