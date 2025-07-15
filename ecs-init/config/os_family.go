@@ -57,11 +57,12 @@ func getLinuxOSFamilyFromReader(reader io.Reader) string {
 	}
 
 	osFamily := fmt.Sprintf("%s_%s", id, versionID)
-	seelog.Infof("operating system family is: %s", osFamily)
+	seelog.Infof("Operating system family is: %s", osFamily)
 	return osFamily
 }
 
 // parseOSReleaseFromReader parses os-release content from an io.Reader and extracts ID and VERSION_ID
+// See https://man7.org/linux/man-pages/man5/os-release.5.html for information about the os-release file format
 func parseOSReleaseFromReader(reader io.Reader) (string, string, error) {
 	var id, versionID string
 	scanner := bufio.NewScanner(reader)
