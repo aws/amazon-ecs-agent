@@ -7,11 +7,6 @@ updates:
     time: "11:06"
   open-pull-requests-limit: 1
   target-branch: "dev"
-  ignore:
-    # aws sdk is explicitly excluded from bot auto upgrade because: (1) currently the auto upgrade of it breaks test, and
-    # the bot stuck at trying to upgrade it; (2) sdk change has higher risk of breaking the agent so probably safer to
-    # upgrade manually.
-    - dependency-name: "github.com/aws/aws-sdk-go"
 - package-ecosystem: gomod
   directory: "/ecs-agent"
   schedule:
