@@ -121,6 +121,10 @@ func (agent *ecsAgent) appendFirelensConfigCapabilities(capabilities []types.Att
 	return capabilities
 }
 
+func (agent *ecsAgent) appendFirelensNonRootUserCapability(capabilities []types.Attribute) []types.Attribute {
+	return capabilities
+}
+
 func (agent *ecsAgent) appendGMSACapabilities(capabilities []types.Attribute) []types.Attribute {
 	return capabilities
 }
@@ -151,6 +155,6 @@ var isFaultInjectionToolingAvailable = checkFaultInjectionTooling
 
 // checkFaultInjectionTooling checks for the required network packages like iptables, tc
 // to be available on the host before ecs.capability.fault-injection can be advertised
-func checkFaultInjectionTooling() bool {
+func checkFaultInjectionTooling(_ *config.Config) bool {
 	return false
 }

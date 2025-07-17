@@ -1,4 +1,17 @@
 # Changelog
+# 1.96.0
+* Feature - Support ECS Firelens non-root user mode [#4697](https://github.com/aws/amazon-ecs-agent/pull/4697)
+* Enhancement - Consume dns server from payload [#4668](https://github.com/aws/amazon-ecs-agent/pull/4668)
+* Enhancement - [TMDS Fault Injection] Improve network interface detection to handle multiple default interfaces in host mode and update IPv6-only task identification [#4670](https://github.com/aws/amazon-ecs-agent/pull/4670)
+* Enhancement - Stricter validation for task metadata in fault injection handlers [#4676](https://github.com/aws/amazon-ecs-agent/pull/4676)
+* Enhancement - Require ip6tables for fault injection capability on IPv6-only instances [#4675](https://github.com/aws/amazon-ecs-agent/pull/4675)
+* Enhancement - Add empty implementation for GetDefaultNetworkInterfaces method on unsupported platforms [#4681](https://github.com/aws/amazon-ecs-agent/pull/4681)
+* Enhancement - Update SSM Agent for Exec for ECS Anywhere to 3.3.2299.0 [#4690](https://github.com/aws/amazon-ecs-agent/pull/4690)
+* Enhancement - Update Go version to 1.23.10 [#4698](https://github.com/aws/amazon-ecs-agent/pull/4698)
+* Bugfix - Network latency and packet loss faults should apply to all default network interfaces in host mode [#4671](https://github.com/aws/amazon-ecs-agent/pull/4671)
+* Bugfix - Determine IP compatibility of the instance using all ENIS and not just the primary ENI [#4674](https://github.com/aws/amazon-ecs-agent/pull/4674)
+* Bugfix - Fix "default" ecs cluster auto-create logic [#4689](https://github.com/aws/amazon-ecs-agent/pull/4689)
+
 # 1.95.0
 * Enhancement - IPv6-only support
   * Add support for IPv6 targets to network-latency and network-packet-loss faults [#4645](https://github.com/aws/amazon-ecs-agent/pull/4645)
@@ -13,12 +26,9 @@
 * Enhancement - Enable DualStack ECR Image URI [#4612](https://github.com/aws/amazon-ecs-agent/pull/4612)
 * Enhancement - Move duplicate awsrulesfn package to the ecs-agent module [#4661](https://github.com/aws/amazon-ecs-agent/pull/4661)
 * Enhancement - Fault Injection - Add a general error case for default network interface resolution errors [#4666](https://github.com/aws/amazon-ecs-agent/pull/4666)
-* Enhancement - Consume dns server from payload [#4668](https://github.com/aws/amazon-ecs-agent/pull/4668)
-* Enhancement - [TMDS Fault Injection] Improve network interface detection to handle multiple default interfaces in host mode and update IPv6-only task identification [#4670](https://github.com/aws/amazon-ecs-agent/pull/4670)
 * Bugfix - Make loopback interface lookup more robust [#4648](https://github.com/aws/amazon-ecs-agent/pull/4648)
 * Bugfix - SubnetGatewayIPv6Address metadata field name fix [#4650](https://github.com/aws/amazon-ecs-agent/pull/4650)
 * Bugfix - Remove duplicate ipcompatibilty package [#4654](https://github.com/aws/amazon-ecs-agent/pull/4654)
-* Bugfix: Network latency and packet loss faults should apply to all default network interfaces in host mode [#4671](https://github.com/aws/amazon-ecs-agent/pull/4671)
 
 # 1.94.0
 * Enhancement - aws-sdk-go-v2 migration

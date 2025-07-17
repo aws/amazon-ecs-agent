@@ -881,9 +881,10 @@ func TestInitializeFirelensResource(t *testing.T) {
 		shouldHaveInstanceID  bool
 		shouldDisableMetadata bool
 		expectedLogOptions    map[string]map[string]string
+		expectedUser          string
 	}{
 		{
-			name:                 "test initialize firelens resource fluentd",
+			name:                 "fluentd",
 			task:                 getFirelensTask(t),
 			shouldHaveInstanceID: true,
 			expectedLogOptions: map[string]map[string]string{
@@ -895,7 +896,7 @@ func TestInitializeFirelensResource(t *testing.T) {
 			},
 		},
 		{
-			name: "test initialize firelens resource fluentbit",
+			name: "fluentbit",
 			task: func() *Task {
 				task := getFirelensTask(t)
 				task.Containers[1].FirelensConfig.Type = firelens.FirelensConfigTypeFluentbit
@@ -911,7 +912,7 @@ func TestInitializeFirelensResource(t *testing.T) {
 			},
 		},
 		{
-			name: "test initialize firelens resource without ec2 instance id",
+			name: "without ec2 instance id",
 			task: func() *Task {
 				task := getFirelensTask(t)
 				task.Containers[1].Environment = nil
@@ -926,7 +927,7 @@ func TestInitializeFirelensResource(t *testing.T) {
 			},
 		},
 		{
-			name: "test initialize firelens resource disables ecs log metadata",
+			name: "disables ecs log metadata",
 			task: func() *Task {
 				task := getFirelensTask(t)
 				task.Containers[1].FirelensConfig.Options["enable-ecs-log-metadata"] = "false"
@@ -943,7 +944,29 @@ func TestInitializeFirelensResource(t *testing.T) {
 			},
 		},
 		{
-			name: "test initialize firelens resource invalid host config",
+			name: "non-root firelens container user",
+			task: func() *Task {
+				task := getFirelensTask(t)
+				rawDockerConfigInput := &dockercontainer.Config{
+					User: "1000:1000",
+				}
+				rawDockerCfg, err := json.Marshal(&rawDockerConfigInput)
+				require.NoError(t, err)
+				task.Containers[1].DockerConfig.Config = strptr(string(rawDockerCfg))
+				return task
+			}(),
+			expectedUser:         "1000:1000",
+			shouldHaveInstanceID: true,
+			expectedLogOptions: map[string]map[string]string{
+				"logsender": {
+					"key1":        "value1",
+					"key2":        "value2",
+					"secret-name": "\"#{ENV['secret-name_0']}\"",
+				},
+			},
+		},
+		{
+			name: "invalid host config",
 			task: func() *Task {
 				task := getFirelensTask(t)
 				task.Containers[0].DockerConfig.HostConfig = strptr(string("invalid"))
@@ -952,7 +975,7 @@ func TestInitializeFirelensResource(t *testing.T) {
 			shouldFail: true,
 		},
 		{
-			name: "test initialize firelens resource no firelens container",
+			name: "no firelens container",
 			task: func() *Task {
 				task := getFirelensTask(t)
 				task.Containers[1].FirelensConfig = nil
@@ -984,6 +1007,7 @@ func TestInitializeFirelensResource(t *testing.T) {
 				assert.NotNil(t, firelensResource.GetContainerToLogOptions())
 				assert.Equal(t, tc.expectedLogOptions, firelensResource.GetContainerToLogOptions())
 				assert.Equal(t, !tc.shouldDisableMetadata, firelensResource.GetECSMetadataEnabled())
+				assert.Equal(t, tc.expectedUser, firelensResource.GetUser())
 
 				if tc.shouldHaveInstanceID {
 					assert.Equal(t, testInstanceID, firelensResource.GetEC2InstanceID())

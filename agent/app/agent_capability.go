@@ -67,6 +67,7 @@ const (
 	capabilityFireLensLoggingDriverConfigBufferLimitSuffix = ".log-driver-buffer-limit"
 	capabilityFirelensConfigFile                           = "firelens.options.config.file"
 	capabilityFirelensConfigS3                             = "firelens.options.config.s3"
+	capabilityFirelensNonRootUser                          = "firelens.non-root-user"
 	capabilityFullTaskSync                                 = "full-sync"
 	capabilityGMSA                                         = "gmsa"
 	capabilityGMSADomainless                               = "gmsa-domainless"
@@ -191,6 +192,7 @@ var (
 //	ecs.capability.logging-driver.awsfirelens.log-driver-buffer-limit
 //	ecs.capability.firelens.options.config.file
 //	ecs.capability.firelens.options.config.s3
+//	ecs.capability.firelens.non-root-user
 //	ecs.capability.full-sync
 //	ecs.capability.gmsa
 //	ecs.capability.efsAuth
@@ -275,6 +277,9 @@ func (agent *ecsAgent) capabilities() ([]types.Attribute, error) {
 
 	// support aws router capabilities for log driver router config
 	capabilities = agent.appendFirelensLoggingDriverConfigCapabilities(capabilities)
+
+	// support firelens non root user mode
+	capabilities = agent.appendFirelensNonRootUserCapability(capabilities)
 
 	// support efs on ecs capabilities
 	capabilities = agent.appendEFSCapabilities(capabilities)
@@ -551,7 +556,7 @@ func (agent *ecsAgent) appendFaultInjectionCapabilities(capabilities []types.Att
 		return capabilities
 	}
 
-	if isFaultInjectionToolingAvailable() {
+	if isFaultInjectionToolingAvailable(agent.cfg) {
 		capabilities = appendNameOnlyAttribute(capabilities, attributePrefix+capabilityFaultInjection)
 		seelog.Debug("Fault injection capability is enabled.")
 	} else {

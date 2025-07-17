@@ -17,6 +17,7 @@
 package container
 
 import (
+	"encoding/json"
 	"fmt"
 	"reflect"
 	"testing"
@@ -1515,4 +1516,49 @@ func TestDigestResolved(t *testing.T) {
 		imageDigest := "sha256:ed6d2c43c8fbcd3eaa44c9dab6d94cb346234476230dc1681227aa72d07181ee"
 		assert.False(t, (&Container{Image: image, ImageDigest: imageDigest}).DigestResolved())
 	})
+}
+
+func TestGetUser(t *testing.T) {
+	tests := []struct {
+		name         string
+		dockerConfig string
+		expectedUser string
+	}{
+		{
+			name: "Valid user configuration",
+			dockerConfig: func() string {
+				config := &dockercontainer.Config{
+					User: "12345",
+				}
+				configBytes, _ := json.Marshal(config)
+				return string(configBytes)
+			}(),
+			expectedUser: "12345",
+		},
+		{
+			name:         "Empty config",
+			dockerConfig: "",
+			expectedUser: "",
+		},
+		{
+			name:         "Invalid JSON config",
+			dockerConfig: "invalid-json",
+			expectedUser: "",
+		},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			container := &Container{
+				Name: "foo",
+			}
+
+			if tc.dockerConfig != "" {
+				container.DockerConfig.Config = &tc.dockerConfig
+			}
+
+			result := container.GetUser()
+			assert.Equal(t, tc.expectedUser, result)
+		})
+	}
 }

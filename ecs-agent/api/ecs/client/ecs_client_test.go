@@ -788,12 +788,15 @@ func TestRegisterContainerInstanceWithNegativeResource(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
 
-	mem := getHostMemoryInMiB()
+	mem := 1024
 	mockEC2Metadata := mock_ec2.NewMockEC2MetadataClient(ctrl)
 	cfgAccessorOverrideFunc := func(cfgAccessor *mock_config.MockAgentConfigAccessor) {
 		cfgAccessor.EXPECT().ReservedMemory().Return(uint16(mem) + 1).AnyTimes()
 	}
-	tester := setup(t, ctrl, mockEC2Metadata, cfgAccessorOverrideFunc)
+	tester := setup(t, ctrl, mockEC2Metadata, cfgAccessorOverrideFunc,
+		WithAvailableMemoryProvider(func() int32 {
+			return int32(mem)
+		}))
 
 	gomock.InOrder(
 		mockEC2Metadata.EXPECT().GetDynamicData(ec2.InstanceIdentityDocumentResource).

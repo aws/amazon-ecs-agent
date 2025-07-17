@@ -53,11 +53,14 @@ const (
 	lossPercent        = 6
 	taskARN            = "taskArn"
 	awsvpcNetworkMode  = "awsvpc"
+	hostNetworkMode    = "host"
 	deviceName         = "eth0"
+	deviceName2        = "eth1"
 	ipv4Addr           = "10.0.0.1"
 	ipv6Addr           = "2600:1f13:4d9:e602:6aea:cdb1:2b2b:8d62"
 	invalidNetworkMode = "invalid"
 	nspath             = "/some/path"
+	nspathHost         = "host"
 	// Fault injection tooling errors output
 	iptablesChainNotFoundError        = "iptables: Bad rule (does a matching rule exist in that chain?)."
 	tcLatencyFaultExistsCommandOutput = `[{"kind":"netem","handle":"10:","parent":"1:1","options":{"limit":1000,"delay":{"delay":123456789,"jitter":4567,"correlation":0},"ecn":false,"gap":0}}]`
@@ -110,6 +113,17 @@ var (
 		},
 	}
 
+	happyTwoNetworkInterfaces = []*state.NetworkInterface{
+		{
+			DeviceName:    deviceName,
+			IPV4Addresses: []string{ipv4Addr},
+		},
+		{
+			DeviceName:    deviceName2,
+			IPV6Addresses: []string{ipv6Addr},
+		},
+	}
+
 	happyNetworkNamespaces = []*state.NetworkNamespace{
 		{
 			Path:              nspath,
@@ -135,6 +149,13 @@ var (
 		{
 			Path:              nspath,
 			NetworkInterfaces: happyV4V6NetworkInterfaces,
+		},
+	}
+
+	happyNetworkNamespacesTwoInterfaces = []*state.NetworkNamespace{
+		{
+			Path:              nspathHost,
+			NetworkInterfaces: happyTwoNetworkInterfaces,
 		},
 	}
 
@@ -165,6 +186,11 @@ var (
 		NetworkNamespaces: happyV4V6NetworkNamespaces,
 	}
 
+	happyTaskNetworkConfigTwoInterfaces = state.TaskNetworkConfig{
+		NetworkMode:       hostNetworkMode,
+		NetworkNamespaces: happyNetworkNamespacesTwoInterfaces,
+	}
+
 	happyTaskResponse = state.TaskResponse{
 		TaskResponse:          &v2.TaskResponse{TaskARN: taskARN},
 		TaskNetworkConfig:     &happyTaskNetworkConfig,
@@ -186,6 +212,12 @@ var (
 	happyV4V6TaskResponse = state.TaskResponse{
 		TaskResponse:          &v2.TaskResponse{TaskARN: taskARN},
 		TaskNetworkConfig:     &happyV4V6TaskNetworkConfig,
+		FaultInjectionEnabled: true,
+	}
+
+	happyTaskResponseTwoInterfaces = state.TaskResponse{
+		TaskResponse:          &v2.TaskResponse{TaskARN: taskARN},
+		TaskNetworkConfig:     &happyTaskNetworkConfigTwoInterfaces,
 		FaultInjectionEnabled: true,
 	}
 
@@ -228,6 +260,300 @@ var (
 	taskMetdataFetchFailError      = fmt.Sprintf("Unable to generate metadata for v4 task: '%s'", taskARN)
 	taskMetdataUnknownFailureError = fmt.Sprintf("failed to get task metadata due to internal server error for container: %s", endpointId)
 )
+
+// setStartLatencyFaultExpectations sets up all mock expectations for start network latency fault
+func setStartLatencyFaultExpectations(
+	exec *mock_execwrapper.MockExec,
+	ctrl *gomock.Controller,
+	interfaces []string,
+	delayMs uint64,
+	jitterMs uint64,
+	sourcesToFilter []string,
+	sources []string,
+) {
+	ctx, cancel := context.WithTimeout(context.Background(), ctxTimeoutDuration)
+	mockCMD := mock_execwrapper.NewMockCmd(ctrl)
+
+	// Set up context expectations
+	expectations := []*gomock.Call{
+		exec.EXPECT().
+			NewExecContextWithTimeout(gomock.Any(), gomock.Any()).Times(1).
+			Return(ctx, cancel),
+	}
+
+	// Check existing faults for each interface
+	for _, interfaceName := range interfaces {
+		expectations = append(expectations,
+			exec.EXPECT().
+				CommandContext(gomock.Any(), "tc", []string{"-j", "q", "show", "dev", interfaceName, "parent", "1:1"}).
+				Return(mockCMD),
+			mockCMD.EXPECT().CombinedOutput().Return([]byte(tcCommandEmptyOutput), nil),
+		)
+	}
+
+	// Apply latency fault to each interface
+	for _, interfaceName := range interfaces {
+		expectations = append(expectations,
+			// Create root qdisc
+			exec.EXPECT().
+				CommandContext(gomock.Any(), "tc",
+					[]string{
+						"qdisc", "add", "dev", interfaceName, "root",
+						"handle", "1:", "prio", "priomap",
+						"2", "2", "2", "2",
+						"2", "2", "2", "2",
+						"2", "2", "2", "2",
+						"2", "2", "2", "2",
+					}).
+				Return(mockCMD),
+			mockCMD.EXPECT().CombinedOutput().Return([]byte(tcCommandEmptyOutput), nil),
+
+			// Add latency qdisc
+			exec.EXPECT().
+				CommandContext(gomock.Any(), "tc",
+					[]string{
+						"qdisc", "add", "dev", interfaceName, "parent", "1:1",
+						"handle", "10:", "netem", "delay",
+						fmt.Sprintf("%dms", delayMs),
+						fmt.Sprintf("%dms", jitterMs),
+					}).
+				Return(mockCMD),
+			mockCMD.EXPECT().CombinedOutput().Return([]byte(tcCommandEmptyOutput), nil),
+		)
+
+		// Set up SourcesToFilter expectations
+		for _, source := range sourcesToFilter {
+			if isIPv4(source) {
+				expectations = append(expectations,
+					exec.EXPECT().
+						CommandContext(gomock.Any(), "tc",
+							[]string{
+								"filter", "add", "dev", interfaceName,
+								"protocol", "all", "parent", "1:0", "prio", "1",
+								"u32", "match", "ip", "dst", source, "flowid", "1:3",
+							}).
+						Return(mockCMD),
+					mockCMD.EXPECT().CombinedOutput().Return([]byte(tcCommandEmptyOutput), nil),
+				)
+			} else {
+				expectations = append(expectations,
+					exec.EXPECT().
+						CommandContext(gomock.Any(), "tc",
+							[]string{
+								"filter", "add", "dev", interfaceName,
+								"protocol", "all", "parent", "1:0", "prio", "1",
+								"u32", "match", "ip6", "dst", source, "flowid", "1:3",
+							}).
+						Return(mockCMD),
+					mockCMD.EXPECT().CombinedOutput().Return([]byte(tcCommandEmptyOutput), nil),
+				)
+			}
+		}
+
+		// Set up Sources expectations
+		for _, source := range sources {
+			if isIPv4(source) {
+				expectations = append(expectations,
+					exec.EXPECT().
+						CommandContext(gomock.Any(), "tc",
+							[]string{
+								"filter", "add", "dev", interfaceName,
+								"protocol", "all", "parent", "1:0", "prio", "2",
+								"u32", "match", "ip", "dst", source, "flowid", "1:1",
+							}).
+						Return(mockCMD),
+					mockCMD.EXPECT().CombinedOutput().Return([]byte(tcCommandEmptyOutput), nil),
+				)
+			} else {
+				expectations = append(expectations,
+					exec.EXPECT().
+						CommandContext(gomock.Any(), "tc",
+							[]string{
+								"filter", "add", "dev", interfaceName,
+								"protocol", "all", "parent", "1:0", "prio", "2",
+								"u32", "match", "ip6", "dst", source, "flowid", "1:1",
+							}).
+						Return(mockCMD),
+					mockCMD.EXPECT().CombinedOutput().Return([]byte(tcCommandEmptyOutput), nil),
+				)
+			}
+		}
+	}
+	gomock.InOrder(expectations...)
+}
+
+// setStartPacketLossFaultExpectations sets up mock expectations for applying network packet loss fault to network interfaces
+func setStartPacketLossFaultExpectations(
+	exec *mock_execwrapper.MockExec,
+	ctrl *gomock.Controller,
+	interfaces []string,
+	lossPercent uint64,
+	sourcesToFilter []string,
+	sources []string,
+) {
+	ctx, cancel := context.WithTimeout(context.Background(), ctxTimeoutDuration)
+	mockCMD := mock_execwrapper.NewMockCmd(ctrl)
+
+	// Set up context expectations
+	expectations := []*gomock.Call{
+		exec.EXPECT().
+			NewExecContextWithTimeout(gomock.Any(), gomock.Any()).Times(1).
+			Return(ctx, cancel),
+	}
+
+	// Check existing faults for each interface
+	for _, iface := range interfaces {
+		expectations = append(expectations,
+			exec.EXPECT().
+				CommandContext(gomock.Any(), "tc", []string{"-j", "q", "show", "dev", iface, "parent", "1:1"}).
+				Return(mockCMD),
+			mockCMD.EXPECT().CombinedOutput().Return([]byte(tcCommandEmptyOutput), nil),
+		)
+	}
+
+	// Apply packet loss fault to each interface
+	for _, iface := range interfaces {
+		expectations = append(expectations,
+			// Create root qdisc
+			exec.EXPECT().
+				CommandContext(gomock.Any(), "tc",
+					[]string{
+						"qdisc", "add", "dev", iface, "root",
+						"handle", "1:", "prio", "priomap",
+						"2", "2", "2", "2",
+						"2", "2", "2", "2",
+						"2", "2", "2", "2",
+						"2", "2", "2", "2",
+					}).
+				Return(mockCMD),
+			mockCMD.EXPECT().CombinedOutput().Return([]byte(tcCommandEmptyOutput), nil),
+
+			// Add packet loss qdisc
+			exec.EXPECT().
+				CommandContext(gomock.Any(), "tc",
+					[]string{
+						"qdisc", "add", "dev", iface, "parent", "1:1",
+						"handle", "10:", "netem", "loss",
+						fmt.Sprintf("%d%%", lossPercent),
+					}).
+				Return(mockCMD),
+			mockCMD.EXPECT().CombinedOutput().Return([]byte(tcCommandEmptyOutput), nil),
+		)
+
+		// Set up SourcesToFilter expectations
+		for _, source := range sourcesToFilter {
+			if isIPv4(source) {
+				expectations = append(expectations,
+					exec.EXPECT().
+						CommandContext(gomock.Any(), "tc",
+							[]string{
+								"filter", "add", "dev", iface,
+								"protocol", "all", "parent", "1:0", "prio", "1",
+								"u32", "match", "ip", "dst", source, "flowid", "1:3",
+							}).
+						Return(mockCMD),
+					mockCMD.EXPECT().CombinedOutput().Return([]byte(tcCommandEmptyOutput), nil),
+				)
+			} else {
+				expectations = append(expectations,
+					exec.EXPECT().
+						CommandContext(gomock.Any(), "tc",
+							[]string{
+								"filter", "add", "dev", iface,
+								"protocol", "all", "parent", "1:0", "prio", "1",
+								"u32", "match", "ip6", "dst", source, "flowid", "1:3",
+							}).
+						Return(mockCMD),
+					mockCMD.EXPECT().CombinedOutput().Return([]byte(tcCommandEmptyOutput), nil),
+				)
+			}
+		}
+
+		// Set up Sources expectations
+		for _, source := range sources {
+			if isIPv4(source) {
+				expectations = append(expectations,
+					exec.EXPECT().
+						CommandContext(gomock.Any(), "tc",
+							[]string{
+								"filter", "add", "dev", iface,
+								"protocol", "all", "parent", "1:0", "prio", "2",
+								"u32", "match", "ip", "dst", source, "flowid", "1:1",
+							}).
+						Return(mockCMD),
+					mockCMD.EXPECT().CombinedOutput().Return([]byte(tcCommandEmptyOutput), nil),
+				)
+			} else {
+				expectations = append(expectations,
+					exec.EXPECT().
+						CommandContext(gomock.Any(), "tc",
+							[]string{
+								"filter", "add", "dev", iface,
+								"protocol", "all", "parent", "1:0", "prio", "2",
+								"u32", "match", "ip6", "dst", source, "flowid", "1:1",
+							}).
+						Return(mockCMD),
+					mockCMD.EXPECT().CombinedOutput().Return([]byte(tcCommandEmptyOutput), nil),
+				)
+			}
+		}
+	}
+
+	gomock.InOrder(expectations...)
+}
+
+// setStopTCFaultExpectations sets up all mock expectations for stopping
+// tc based faults - latency and packet loss
+func setStopTCFaultExpectations(
+	exec *mock_execwrapper.MockExec,
+	ctrl *gomock.Controller,
+	interfaces []string,
+	lossExistsCommandOutput string,
+) {
+	ctx, cancel := context.WithTimeout(context.Background(), ctxTimeoutDuration)
+	mockCMD := mock_execwrapper.NewMockCmd(ctrl)
+
+	// Set up context expectations
+	exec.EXPECT().NewExecContextWithTimeout(gomock.Any(), gomock.Any()).Times(1).Return(ctx, cancel)
+
+	// Check existing fault on each interface
+	expectations := []*gomock.Call{}
+	for _, iface := range interfaces {
+		expectations = append(expectations,
+			exec.EXPECT().
+				CommandContext(gomock.Any(), "tc", []string{"-j", "q", "show", "dev", iface, "parent", "1:1"}).
+				Return(mockCMD),
+			mockCMD.EXPECT().CombinedOutput().Return([]byte(lossExistsCommandOutput), nil),
+		)
+	}
+	for _, iface := range interfaces {
+		expectations = append(expectations,
+			// Delete netem qdisc
+			exec.EXPECT().
+				CommandContext(gomock.Any(), "tc", []string{"qdisc", "del", "dev", iface, "parent", "1:1", "handle", "10:"}).
+				Return(mockCMD),
+			mockCMD.EXPECT().CombinedOutput().Return([]byte(""), nil),
+
+			// Delete root qdisc
+			exec.EXPECT().
+				CommandContext(gomock.Any(), "tc", []string{"qdisc", "del", "dev", iface, "root", "handle", "1:", "prio"}).
+				Return(mockCMD),
+			mockCMD.EXPECT().CombinedOutput().Return([]byte(""), nil),
+		)
+	}
+	gomock.InOrder(expectations...)
+}
+
+// Helper function to check if an IP address is IPv4
+func isIPv4(ip string) bool {
+	// Simple check - if it contains ':', it's IPv6
+	for i := 0; i < len(ip); i++ {
+		if ip[i] == ':' {
+			return false
+		}
+	}
+	return true
+}
 
 type networkFaultInjectionTestCase struct {
 	name                      string
@@ -1850,6 +2176,29 @@ func generateStartNetworkLatencyTestCases() []networkFaultInjectionTestCase {
 			expectedResponseJSON: happyFaultRunningResponse,
 		},
 		{
+			name:                 "no-existing-fault - two interfaces",
+			expectedStatusCode:   200,
+			requestBody:          happyNetworkLatencyReqBody,
+			expectedResponseBody: types.NewNetworkFaultInjectionSuccessResponse("running"),
+			setAgentStateExpectations: func(agentState *mock_state.MockAgentState, netConfigClient *netconfig.NetworkConfigClient) {
+				agentState.EXPECT().
+					GetTaskMetadataWithTaskNetworkConfig(endpointId, netConfigClient).
+					Return(happyTaskResponseTwoInterfaces, nil)
+			},
+			setExecExpectations: func(exec *mock_execwrapper.MockExec, ctrl *gomock.Controller) {
+				setStartLatencyFaultExpectations(
+					exec,
+					ctrl,
+					[]string{"eth0", "eth1"},
+					delayMilliseconds,
+					jitterMilliseconds,
+					ipSourcesToFilter,
+					ipSources,
+				)
+			},
+			expectedResponseJSON: happyFaultRunningResponse,
+		},
+		{
 			name:                 "existing-network-latency-fault",
 			expectedStatusCode:   409,
 			requestBody:          happyNetworkLatencyReqBody,
@@ -2110,6 +2459,20 @@ func generateStopNetworkLatencyTestCases() []networkFaultInjectionTestCase {
 			expectedResponseJSON: happyFaultStoppedResponse,
 		},
 		{
+			name:                 "existing-network-latency-fault-empty-request-payload-two-interfaces",
+			expectedStatusCode:   200,
+			expectedResponseBody: types.NewNetworkFaultInjectionSuccessResponse("stopped"),
+			setAgentStateExpectations: func(agentState *mock_state.MockAgentState, netConfigClient *netconfig.NetworkConfigClient) {
+				agentState.EXPECT().
+					GetTaskMetadataWithTaskNetworkConfig(endpointId, netConfigClient).
+					Return(happyTaskResponseTwoInterfaces, nil)
+			},
+			setExecExpectations: func(exec *mock_execwrapper.MockExec, ctrl *gomock.Controller) {
+				setStopTCFaultExpectations(exec, ctrl, []string{"eth0", "eth1"}, tcLatencyFaultExistsCommandOutput)
+			},
+			expectedResponseJSON: happyFaultStoppedResponse,
+		},
+		{
 			name:                 "existing-network-latency-fault-happy-request-payload",
 			expectedStatusCode:   200,
 			requestBody:          happyNetworkLatencyReqBody,
@@ -2177,6 +2540,38 @@ func generateStopNetworkLatencyTestCases() []networkFaultInjectionTestCase {
 func generateCheckNetworkLatencyTestCases() []networkFaultInjectionTestCase {
 	commonTcs := generateCommonNetworkLatencyTestCases(checkNetworkLatencyTestPrefix)
 	tcs := []networkFaultInjectionTestCase{
+		{
+			name:                 "existing-network-latency-fault-two-interfaces",
+			expectedStatusCode:   200,
+			requestBody:          happyNetworkLatencyReqBody,
+			expectedResponseBody: types.NewNetworkFaultInjectionSuccessResponse("running"),
+			setAgentStateExpectations: func(agentState *mock_state.MockAgentState, netConfigClient *netconfig.NetworkConfigClient) {
+				agentState.EXPECT().
+					GetTaskMetadataWithTaskNetworkConfig(endpointId, netConfigClient).
+					Return(happyTaskResponseTwoInterfaces, nil)
+			},
+			setExecExpectations: func(exec *mock_execwrapper.MockExec, ctrl *gomock.Controller) {
+				ctx, cancel := context.WithTimeout(context.Background(), ctxTimeoutDuration)
+				mockCMD := mock_execwrapper.NewMockCmd(ctrl)
+				expectations := []*gomock.Call{
+					exec.EXPECT().
+						NewExecContextWithTimeout(gomock.Any(), gomock.Any()).Times(1).
+						Return(ctx, cancel),
+				}
+
+				// Check existing fault on each interface
+				for _, iface := range []string{"eth0", "eth1"} {
+					expectations = append(expectations,
+						exec.EXPECT().
+							CommandContext(gomock.Any(), "tc", []string{"-j", "q", "show", "dev", iface, "parent", "1:1"}).
+							Return(mockCMD),
+						mockCMD.EXPECT().CombinedOutput().Return([]byte(tcLatencyFaultExistsCommandOutput), nil),
+					)
+				}
+				gomock.InOrder(expectations...)
+			},
+			expectedResponseJSON: happyFaultRunningResponse,
+		},
 		{
 			name:                 "no-existing-fault-empty-request-payload",
 			expectedStatusCode:   200,
@@ -2428,6 +2823,28 @@ func generateCommonNetworkPacketLossTestCases(name string) []networkFaultInjecti
 func generateStartNetworkPacketLossTestCases() []networkFaultInjectionTestCase {
 	commonTcs := generateCommonNetworkPacketLossTestCases(startNetworkPacketLossTestPrefix)
 	tcs := []networkFaultInjectionTestCase{
+		{
+			name:                 "no-existing-fault - two interfaces",
+			expectedStatusCode:   200,
+			requestBody:          happyNetworkPacketLossReqBody,
+			expectedResponseBody: types.NewNetworkFaultInjectionSuccessResponse("running"),
+			setAgentStateExpectations: func(agentState *mock_state.MockAgentState, netConfigClient *netconfig.NetworkConfigClient) {
+				agentState.EXPECT().
+					GetTaskMetadataWithTaskNetworkConfig(endpointId, netConfigClient).
+					Return(happyTaskResponseTwoInterfaces, nil)
+			},
+			setExecExpectations: func(exec *mock_execwrapper.MockExec, ctrl *gomock.Controller) {
+				setStartPacketLossFaultExpectations(
+					exec,
+					ctrl,
+					[]string{"eth0", "eth1"},
+					lossPercent,
+					ipSourcesToFilter,
+					ipSources,
+				)
+			},
+			expectedResponseJSON: happyFaultRunningResponse,
+		},
 		{
 			name:                 "no-existing-fault",
 			expectedStatusCode:   200,
@@ -2750,6 +3167,20 @@ func generateStopNetworkPacketLossTestCases() []networkFaultInjectionTestCase {
 			expectedResponseJSON: happyFaultStoppedResponse,
 		},
 		{
+			name:                 "existing-network-packet-loss-fault-empty-request-payload-two-interfaces",
+			expectedStatusCode:   200,
+			expectedResponseBody: types.NewNetworkFaultInjectionSuccessResponse("stopped"),
+			setAgentStateExpectations: func(agentState *mock_state.MockAgentState, netConfigClient *netconfig.NetworkConfigClient) {
+				agentState.EXPECT().
+					GetTaskMetadataWithTaskNetworkConfig(endpointId, netConfigClient).
+					Return(happyTaskResponseTwoInterfaces, nil)
+			},
+			setExecExpectations: func(exec *mock_execwrapper.MockExec, ctrl *gomock.Controller) {
+				setStopTCFaultExpectations(exec, ctrl, []string{"eth0", "eth1"}, tcLossFaultExistsCommandOutput)
+			},
+			expectedResponseJSON: happyFaultStoppedResponse,
+		},
+		{
 			name:               "unknown-request-body-no-existing-fault-invalid-request-payload",
 			expectedStatusCode: 200,
 			requestBody: map[string]interface{}{
@@ -2779,6 +3210,38 @@ func generateStopNetworkPacketLossTestCases() []networkFaultInjectionTestCase {
 func generateCheckNetworkPacketLossTestCases() []networkFaultInjectionTestCase {
 	commonTcs := generateCommonNetworkPacketLossTestCases(checkNetworkPacketLossTestPrefix)
 	tcs := []networkFaultInjectionTestCase{
+		{
+			name:                 "existing-network-packet-loss-fault-two-interfaces",
+			expectedStatusCode:   200,
+			requestBody:          happyNetworkPacketLossReqBody,
+			expectedResponseBody: types.NewNetworkFaultInjectionSuccessResponse("running"),
+			setAgentStateExpectations: func(agentState *mock_state.MockAgentState, netConfigClient *netconfig.NetworkConfigClient) {
+				agentState.EXPECT().
+					GetTaskMetadataWithTaskNetworkConfig(endpointId, netConfigClient).
+					Return(happyTaskResponseTwoInterfaces, nil)
+			},
+			setExecExpectations: func(exec *mock_execwrapper.MockExec, ctrl *gomock.Controller) {
+				ctx, cancel := context.WithTimeout(context.Background(), ctxTimeoutDuration)
+				mockCMD := mock_execwrapper.NewMockCmd(ctrl)
+				expectations := []*gomock.Call{
+					exec.EXPECT().
+						NewExecContextWithTimeout(gomock.Any(), gomock.Any()).Times(1).
+						Return(ctx, cancel),
+				}
+
+				// Check existing fault on each interface
+				for _, iface := range []string{"eth0", "eth1"} {
+					expectations = append(expectations,
+						exec.EXPECT().
+							CommandContext(gomock.Any(), "tc", []string{"-j", "q", "show", "dev", iface, "parent", "1:1"}).
+							Return(mockCMD),
+						mockCMD.EXPECT().CombinedOutput().Return([]byte(tcLossFaultExistsCommandOutput), nil),
+					)
+				}
+				gomock.InOrder(expectations...)
+			},
+			expectedResponseJSON: happyFaultRunningResponse,
+		},
 		{
 			name:                 "no-existing-fault-empty-request-payload",
 			expectedStatusCode:   200,
@@ -2876,4 +3339,226 @@ func TestStopNetworkPacketLoss(t *testing.T) {
 func TestCheckNetworkPacketLoss(t *testing.T) {
 	tcs := generateCheckNetworkPacketLossTestCases()
 	testNetworkFaultInjectionCommon(t, tcs, NetworkFaultPath(types.PacketLossFaultType, types.CheckNetworkFaultPostfix))
+}
+
+// TestIsIPv6OnlyTask does focused testing for isIPv6OnlyTask function.
+func TestIsIPv6OnlyTask(t *testing.T) {
+	tests := []struct {
+		name     string
+		task     *state.TaskResponse
+		expected bool
+	}{
+		{
+			name:     "IPv6-only single interface",
+			task:     &happyV6OnlyTaskResponse,
+			expected: true,
+		},
+		{
+			name:     "IPv4-only single interface",
+			task:     &happyV4OnlyTaskResponse,
+			expected: false,
+		},
+		{
+			name:     "Dual-stack single interface",
+			task:     &happyV4V6TaskResponse,
+			expected: false,
+		},
+		{
+			name:     "Multiple interfaces",
+			task:     &happyTaskResponseTwoInterfaces,
+			expected: false,
+		},
+		{
+			name: "Single interface with no addresses",
+			task: &state.TaskResponse{
+				TaskNetworkConfig: &state.TaskNetworkConfig{
+					NetworkMode: awsvpcNetworkMode,
+					NetworkNamespaces: []*state.NetworkNamespace{
+						{
+							Path: nspath,
+							NetworkInterfaces: []*state.NetworkInterface{
+								{
+									DeviceName: deviceName,
+								},
+							},
+						},
+					},
+				},
+			},
+			expected: false,
+		},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			result := isIPv6OnlyTask(tc.task)
+			assert.Equal(t, tc.expected, result)
+		})
+	}
+}
+
+// TestCheckTCFault does focused testing for CheckTCFault function.
+func TestCheckTCFault(t *testing.T) {
+	createTestTaskMetadata := func(deviceNames []string) *state.TaskResponse {
+		interfaces := make([]*state.NetworkInterface, len(deviceNames))
+		for i, name := range deviceNames {
+			interfaces[i] = &state.NetworkInterface{
+				DeviceName: name,
+			}
+		}
+
+		return &state.TaskResponse{
+			TaskResponse: &v2.TaskResponse{TaskARN: "test-task"},
+			TaskNetworkConfig: &state.TaskNetworkConfig{
+				NetworkMode: "host",
+				NetworkNamespaces: []*state.NetworkNamespace{
+					{
+						Path:              "host",
+						NetworkInterfaces: interfaces,
+					},
+				},
+			},
+		}
+	}
+
+	tests := []struct {
+		name                string
+		deviceNames         []string
+		expectedLatency     bool
+		expectedPacketLoss  bool
+		expectedError       error
+		commandExpectations func(*mock_execwrapper.MockExec, *mock_execwrapper.MockCmd)
+	}{
+		{
+			name:               "No faults exist",
+			deviceNames:        []string{"eth0"},
+			expectedLatency:    false,
+			expectedPacketLoss: false,
+			expectedError:      nil,
+			commandExpectations: func(exec *mock_execwrapper.MockExec, cmd *mock_execwrapper.MockCmd) {
+				exec.EXPECT().CommandContext(gomock.Any(), "tc", []string{"-j", "q", "show", "dev", "eth0", "parent", "1:1"}).Return(cmd)
+				cmd.EXPECT().CombinedOutput().Return([]byte(tcCommandEmptyOutput), nil)
+			},
+		},
+		{
+			name:               "Latency fault exists",
+			deviceNames:        []string{"eth0"},
+			expectedLatency:    true,
+			expectedPacketLoss: false,
+			expectedError:      nil,
+			commandExpectations: func(exec *mock_execwrapper.MockExec, cmd *mock_execwrapper.MockCmd) {
+				exec.EXPECT().CommandContext(gomock.Any(), "tc", []string{"-j", "q", "show", "dev", "eth0", "parent", "1:1"}).Return(cmd)
+				cmd.EXPECT().CombinedOutput().Return([]byte(tcLatencyFaultExistsCommandOutput), nil)
+			},
+		},
+		{
+			name:               "Packet loss fault exists",
+			deviceNames:        []string{"eth0"},
+			expectedLatency:    false,
+			expectedPacketLoss: true,
+			expectedError:      nil,
+			commandExpectations: func(exec *mock_execwrapper.MockExec, cmd *mock_execwrapper.MockCmd) {
+				exec.EXPECT().CommandContext(gomock.Any(), "tc", []string{"-j", "q", "show", "dev", "eth0", "parent", "1:1"}).Return(cmd)
+				cmd.EXPECT().CombinedOutput().Return([]byte(tcLossFaultExistsCommandOutput), nil)
+			},
+		},
+		{
+			name:               "Command execution error",
+			deviceNames:        []string{"eth0"},
+			expectedLatency:    false,
+			expectedPacketLoss: false,
+			expectedError:      errors.New("failed to check existing network fault: 'tc -j q show dev eth0 parent 1:1' command failed with the following error: 'command failed'. std output: ''. TaskArn: test-task"),
+			commandExpectations: func(exec *mock_execwrapper.MockExec, cmd *mock_execwrapper.MockCmd) {
+				exec.EXPECT().CommandContext(gomock.Any(), "tc", []string{"-j", "q", "show", "dev", "eth0", "parent", "1:1"}).Return(cmd)
+				cmd.EXPECT().CombinedOutput().Return([]byte(""), errors.New("command failed"))
+			},
+		},
+		{
+			name:               "Invalid JSON output",
+			deviceNames:        []string{"eth0"},
+			expectedLatency:    false,
+			expectedPacketLoss: false,
+			expectedError:      errors.New("failed to check existing network fault: failed to unmarshal tc command output: invalid character 'i' looking for beginning of value. TaskArn: test-task"),
+			commandExpectations: func(exec *mock_execwrapper.MockExec, cmd *mock_execwrapper.MockCmd) {
+				exec.EXPECT().CommandContext(gomock.Any(), "tc", []string{"-j", "q", "show", "dev", "eth0", "parent", "1:1"}).Return(cmd)
+				cmd.EXPECT().CombinedOutput().Return([]byte("invalid json"), nil)
+			},
+		},
+		{
+			name:               "Multiple network interfaces - no faults",
+			deviceNames:        []string{"eth0", "eth1"},
+			expectedLatency:    false,
+			expectedPacketLoss: false,
+			expectedError:      nil,
+			commandExpectations: func(exec *mock_execwrapper.MockExec, cmd *mock_execwrapper.MockCmd) {
+				// First interface check
+				exec.EXPECT().CommandContext(gomock.Any(), "tc", []string{"-j", "q", "show", "dev", "eth0", "parent", "1:1"}).Return(cmd)
+				cmd.EXPECT().CombinedOutput().Return([]byte(tcCommandEmptyOutput), nil)
+
+				// Second interface check
+				exec.EXPECT().CommandContext(gomock.Any(), "tc", []string{"-j", "q", "show", "dev", "eth1", "parent", "1:1"}).Return(cmd)
+				cmd.EXPECT().CombinedOutput().Return([]byte(tcCommandEmptyOutput), nil)
+			},
+		},
+		{
+			name:               "Multiple network interfaces - latency fault on second interface",
+			deviceNames:        []string{"eth0", "eth1"},
+			expectedLatency:    true,
+			expectedPacketLoss: false,
+			expectedError:      nil,
+			commandExpectations: func(exec *mock_execwrapper.MockExec, cmd *mock_execwrapper.MockCmd) {
+				// First interface check - no fault
+				exec.EXPECT().CommandContext(gomock.Any(), "tc", []string{"-j", "q", "show", "dev", "eth0", "parent", "1:1"}).Return(cmd)
+				cmd.EXPECT().CombinedOutput().Return([]byte(tcCommandEmptyOutput), nil)
+
+				// Second interface check - has fault
+				exec.EXPECT().CommandContext(gomock.Any(), "tc", []string{"-j", "q", "show", "dev", "eth1", "parent", "1:1"}).Return(cmd)
+				cmd.EXPECT().CombinedOutput().Return([]byte(tcLatencyFaultExistsCommandOutput), nil)
+			},
+		},
+		{
+			name:               "Multiple network interfaces - packet loss fault on second interface",
+			deviceNames:        []string{"eth0", "eth1"},
+			expectedLatency:    false,
+			expectedPacketLoss: true,
+			expectedError:      nil,
+			commandExpectations: func(exec *mock_execwrapper.MockExec, cmd *mock_execwrapper.MockCmd) {
+				// First interface check - no fault
+				exec.EXPECT().CommandContext(gomock.Any(), "tc", []string{"-j", "q", "show", "dev", "eth0", "parent", "1:1"}).Return(cmd)
+				cmd.EXPECT().CombinedOutput().Return([]byte(tcCommandEmptyOutput), nil)
+
+				// Second interface check - has fault
+				exec.EXPECT().CommandContext(gomock.Any(), "tc", []string{"-j", "q", "show", "dev", "eth1", "parent", "1:1"}).Return(cmd)
+				cmd.EXPECT().CombinedOutput().Return([]byte(tcLossFaultExistsCommandOutput), nil)
+			},
+		},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			ctrl := gomock.NewController(t)
+			defer ctrl.Finish()
+
+			mockExec := mock_execwrapper.NewMockExec(ctrl)
+			mockCmd := mock_execwrapper.NewMockCmd(ctrl)
+
+			handler := &FaultHandler{
+				osExecWrapper: mockExec,
+			}
+
+			tc.commandExpectations(mockExec, mockCmd)
+
+			taskMetadata := createTestTaskMetadata(tc.deviceNames)
+			latencyExists, packetLossExists, err := handler.checkTCFault(context.Background(), taskMetadata)
+
+			if tc.expectedError != nil {
+				assert.EqualError(t, err, tc.expectedError.Error())
+			} else {
+				assert.NoError(t, err)
+			}
+
+			assert.Equal(t, tc.expectedLatency, latencyExists)
+			assert.Equal(t, tc.expectedPacketLoss, packetLossExists)
+		})
+	}
 }

@@ -427,14 +427,15 @@ func (c *common) createDNSConfig(
 		"ReuseHostDNSConfig": reuseHostDNSConfig,
 	})
 
-	// For debug mode, resolv.conf and hosts files are same as the host machine.
+	// For debug mode, resolv.conf and hosts files are same as the host machine if no available
+	// data in the ENI, like DNS resolver.
 	// But for non debug mode they are all created using the data available in the ENI.
 	primaryIF := netNS.GetPrimaryInterface()
 	if primaryIF == nil {
 		return errors.New("unable to find primary interface")
 	}
 	if reuseHostDNSConfig {
-		if err := c.generateNetworkConfigFilesForDebugPlatforms(netNS.Name, primaryIF); err != nil {
+		if err := c.generateNetworkConfigFiles(netNS.Name, primaryIF); err != nil {
 			return errors.Wrap(err, "unable to copy dns config files")
 		}
 	} else {
@@ -507,10 +508,11 @@ func (c *common) copyNetworkConfigFilesToTask(taskID, netNSName string) error {
 	return nil
 }
 
-// generateNetworkConfigFilesForDebugPlatforms generates network configuration files needed by containers
-// when agent is running on a debug platform. In this case, instead of always creating new files, it just
-// copies the relevant ones as required from the host.
-func (c *common) generateNetworkConfigFilesForDebugPlatforms(
+// generateNetworkConfigFiles generates network configuration files needed by containers.
+// In this case, instead of always creating new files, it just copies the relevant ones as required from
+// the host except resolv.conf. The resolv.conf will be generated from associated payload if that has DNS
+// resolver information otherwise it will be also copied from the host.
+func (c *common) generateNetworkConfigFiles(
 	filesDirName string,
 	iface *networkinterface.NetworkInterface) error {
 	err := c.createHostnameFileForDefaultNetNS()
@@ -532,12 +534,29 @@ func (c *common) generateNetworkConfigFilesForDebugPlatforms(
 		return errors.Wrap(err, "unable to create hostname file for netns")
 	}
 
-	// Copy Host's resolv.conf file.
-	err = c.copyFile(filepath.Join(netNSDir, ResolveConfFileName),
-		filepath.Join(c.resolvConfPath, ResolveConfFileName),
-		taskDNSConfigFileMode)
-	if err != nil {
-		return err
+	if len(iface.DomainNameServers) > 0 {
+		// Use DNS resolver information from the payload.
+		logger.Info("Creating resolv.conf file", map[string]interface{}{
+			"ResolveConfFile": filepath.Join(netNSDir, ResolveConfFileName),
+		})
+
+		data := c.nsUtil.BuildResolvConfig(iface.DomainNameServers, iface.DomainNameSearchList)
+		err := c.ioutil.WriteFile(
+			filepath.Join(netNSDir, ResolveConfFileName),
+			[]byte(data),
+			taskDNSConfigFileMode,
+		)
+		if err != nil {
+			return err
+		}
+	} else {
+		// Copy Host's resolv.conf file.
+		err = c.copyFile(filepath.Join(netNSDir, ResolveConfFileName),
+			filepath.Join(c.resolvConfPath, ResolveConfFileName),
+			taskDNSConfigFileMode)
+		if err != nil {
+			return err
+		}
 	}
 
 	err = c.copyFile(filepath.Join(netNSDir, HostsFileName), "/etc/hosts", taskDNSConfigFileMode)

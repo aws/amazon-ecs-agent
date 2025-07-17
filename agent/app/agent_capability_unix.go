@@ -194,12 +194,8 @@ func (agent *ecsAgent) appendFirelensFluentbitCapabilities(capabilities []types.
 	return appendNameOnlyAttribute(capabilities, attributePrefix+capabilityFirelensFluentbit)
 }
 
-func (agent *ecsAgent) appendEFSCapabilities(capabilities []types.Attribute) []types.Attribute {
-	return appendNameOnlyAttribute(capabilities, attributePrefix+capabilityEFS)
-}
-
-func (agent *ecsAgent) appendEFSVolumePluginCapabilities(capabilities []types.Attribute, pluginCapability string) []types.Attribute {
-	return appendNameOnlyAttribute(capabilities, attributePrefix+pluginCapability)
+func (agent *ecsAgent) appendFirelensNonRootUserCapability(capabilities []types.Attribute) []types.Attribute {
+	return appendNameOnlyAttribute(capabilities, attributePrefix+capabilityFirelensNonRootUser)
 }
 
 func (agent *ecsAgent) appendFirelensLoggingDriverCapabilities(capabilities []types.Attribute) []types.Attribute {
@@ -207,12 +203,21 @@ func (agent *ecsAgent) appendFirelensLoggingDriverCapabilities(capabilities []ty
 }
 
 func (agent *ecsAgent) appendFirelensLoggingDriverConfigCapabilities(capabilities []types.Attribute) []types.Attribute {
-	return appendNameOnlyAttribute(capabilities, attributePrefix+capabilityFirelensLoggingDriver+capabilityFireLensLoggingDriverConfigBufferLimitSuffix)
+	return appendNameOnlyAttribute(capabilities,
+		attributePrefix+capabilityFirelensLoggingDriver+capabilityFireLensLoggingDriverConfigBufferLimitSuffix)
 }
 
 func (agent *ecsAgent) appendFirelensConfigCapabilities(capabilities []types.Attribute) []types.Attribute {
 	capabilities = appendNameOnlyAttribute(capabilities, attributePrefix+capabilityFirelensConfigFile)
 	return appendNameOnlyAttribute(capabilities, attributePrefix+capabilityFirelensConfigS3)
+}
+
+func (agent *ecsAgent) appendEFSCapabilities(capabilities []types.Attribute) []types.Attribute {
+	return appendNameOnlyAttribute(capabilities, attributePrefix+capabilityEFS)
+}
+
+func (agent *ecsAgent) appendEFSVolumePluginCapabilities(capabilities []types.Attribute, pluginCapability string) []types.Attribute {
+	return appendNameOnlyAttribute(capabilities, attributePrefix+pluginCapability)
 }
 
 func (agent *ecsAgent) appendIPv6Capability(capabilities []types.Attribute) []types.Attribute {
@@ -258,8 +263,13 @@ var networkConfigClient = netconfig.NewNetworkConfigClient()
 
 // checkFaultInjectionTooling checks for the required network packages like iptables, tc
 // to be available on the host before ecs.capability.fault-injection can be advertised
-func checkFaultInjectionTooling() bool {
+func checkFaultInjectionTooling(cfg *config.Config) bool {
 	tools := []string{"iptables", "tc", "nsenter"}
+	if cfg.InstanceIPCompatibility.IsIPv6Only() {
+		// ip6tables is a required dependency on IPv6-only instances.
+		// TODO: Consider making ip6tables a required dependency for all instances (need to consider backwards compatibility)
+		tools = append(tools, "ip6tables")
+	}
 	for _, tool := range tools {
 		if _, err := lookPathFunc(tool); err != nil {
 			seelog.Warnf(

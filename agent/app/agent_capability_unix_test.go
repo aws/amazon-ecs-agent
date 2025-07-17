@@ -906,10 +906,11 @@ func TestCapabilitiesUnix(t *testing.T) {
 		attributePrefix + taskEIAAttributeSuffix,
 		attributePrefix + capabilityFirelensFluentd,
 		attributePrefix + capabilityFirelensFluentbit,
-		attributePrefix + capabilityEFS,
-		attributePrefix + capabilityEFSAuth,
 		capabilityPrefix + capabilityFirelensLoggingDriver,
 		attributePrefix + capabilityFirelensLoggingDriver + capabilityFireLensLoggingDriverConfigBufferLimitSuffix,
+		attributePrefix + capabilityFirelensNonRootUser,
+		attributePrefix + capabilityEFS,
+		attributePrefix + capabilityEFSAuth,
 		attributePrefix + capabilityEnvFilesS3,
 		attributePrefix + capabilityContainerPortRange,
 		attributePrefix + capabilityContainerRestartPolicy,
@@ -1041,7 +1042,7 @@ func TestCheckFaultInjectionTooling(t *testing.T) {
 		)
 		osExecWrapper = mockExec
 		assert.True(t,
-			checkFaultInjectionTooling(),
+			checkFaultInjectionTooling(&config.Config{}),
 			"Expected checkFaultInjectionTooling to return true when all tools are available")
 	})
 
@@ -1059,7 +1060,7 @@ func TestCheckFaultInjectionTooling(t *testing.T) {
 		)
 		osExecWrapper = mockExec
 		assert.False(t,
-			checkFaultInjectionTooling(),
+			checkFaultInjectionTooling(&config.Config{}),
 			"Expected checkFaultInjectionTooling to return false when kernel modules are not available")
 	})
 
@@ -1083,7 +1084,7 @@ func TestCheckFaultInjectionTooling(t *testing.T) {
 		)
 		osExecWrapper = mockExec
 		assert.False(t,
-			checkFaultInjectionTooling(),
+			checkFaultInjectionTooling(&config.Config{}),
 			"Expected checkFaultInjectionTooling to return false when unable to find default host interface name")
 	})
 
@@ -1112,7 +1113,7 @@ func TestCheckFaultInjectionTooling(t *testing.T) {
 		)
 		osExecWrapper = mockExec
 		assert.False(t,
-			checkFaultInjectionTooling(),
+			checkFaultInjectionTooling(&config.Config{}),
 			"Expected checkFaultInjectionTooling to return false when required tc show command failed")
 	})
 
@@ -1126,10 +1127,24 @@ func TestCheckFaultInjectionTooling(t *testing.T) {
 				return "/usr/bin/" + file, nil
 			}
 			assert.False(t,
-				checkFaultInjectionTooling(),
+				checkFaultInjectionTooling(&config.Config{}),
 				"Expected checkFaultInjectionTooling to return false when a tool is missing")
 		})
 	}
+
+	t.Run("missing ip6tables on IPv6-only instance", func(t *testing.T) {
+		lookPathFunc = func(file string) (string, error) {
+			if file == "ip6tables" {
+				return "", exec.ErrNotFound
+			}
+			return "/usr/bin/" + file, nil
+		}
+		assert.False(t,
+			checkFaultInjectionTooling(&config.Config{
+				InstanceIPCompatibility: ipcompatibility.NewIPv6OnlyCompatibility(),
+			}),
+			"Expected checkFaultInjectionTooling to return false when ip6tables is missing on IPv6-only instance")
+	})
 }
 
 func convertToInterfaceList(strings []string) []interface{} {

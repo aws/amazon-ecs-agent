@@ -78,6 +78,13 @@ func getTestIPv4OnlyInterface() *networkinterface.NetworkInterface {
 	}
 }
 
+func getTestIPv4OnlyInterfaceWithoutDNS() *networkinterface.NetworkInterface {
+	iface := getTestIPv4OnlyInterface()
+	iface.DomainNameServers = nil
+	iface.DomainNameSearchList = nil
+	return iface
+}
+
 func getTestIPv6OnlyInterface() *networkinterface.NetworkInterface {
 	return &networkinterface.NetworkInterface{
 		PrivateDNSName:    dnsName,
@@ -112,6 +119,13 @@ func getTestIPv6OnlyInterface() *networkinterface.NetworkInterface {
 		DesiredStatus:                status.NetworkReadyPull,
 		Name:                         primaryENIName,
 	}
+}
+
+func getTestIPv6OnlyInterfaceWithoutDNS() *networkinterface.NetworkInterface {
+	iface := getTestIPv6OnlyInterface()
+	iface.DomainNameServers = nil
+	iface.DomainNameSearchList = nil
+	return iface
 }
 
 func getTestDualStackInterface() *networkinterface.NetworkInterface {

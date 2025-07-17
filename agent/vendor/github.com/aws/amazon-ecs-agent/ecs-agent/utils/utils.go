@@ -149,3 +149,12 @@ func (t *Timestamp) UnmarshalJSON(data []byte) error {
 	*t = Timestamp(timestamp)
 	return err
 }
+
+// ToPtrSlice converts a slices of values to a slice of pointers to those values.
+func ToPtrSlice[V any](xs []V) []*V {
+	var result []*V
+	for _, x := range xs {
+		result = append(result, &x)
+	}
+	return result
+}

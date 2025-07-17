@@ -345,3 +345,44 @@ func TestUnmarshalJSON(t *testing.T) {
 		})
 	}
 }
+
+func TestToPtrSlice(t *testing.T) {
+	t.Run("Empty slice", func(t *testing.T) {
+		input := []int{}
+		result := ToPtrSlice(input)
+		assert.Empty(t, result, "Result should be an empty slice")
+	})
+
+	t.Run("Slice of ints", func(t *testing.T) {
+		input := []int{1, 2, 3}
+		result := ToPtrSlice(input)
+		assert.Len(t, result, 3, "Result should have the same length as input")
+		for i, ptr := range result {
+			assert.NotNil(t, ptr, "Pointer should not be nil")
+			assert.Equal(t, input[i], *ptr, "Pointed value should match input")
+		}
+	})
+
+	t.Run("Slice of strings", func(t *testing.T) {
+		input := []string{"a", "b", "c"}
+		result := ToPtrSlice(input)
+		assert.Len(t, result, 3, "Result should have the same length as input")
+		for i, ptr := range result {
+			assert.NotNil(t, ptr, "Pointer should not be nil")
+			assert.Equal(t, input[i], *ptr, "Pointed value should match input")
+		}
+	})
+
+	t.Run("Slice of structs", func(t *testing.T) {
+		type TestStruct struct {
+			Value int
+		}
+		input := []TestStruct{{1}, {2}, {3}}
+		result := ToPtrSlice(input)
+		assert.Len(t, result, 3, "Result should have the same length as input")
+		for i, ptr := range result {
+			assert.NotNil(t, ptr, "Pointer should not be nil")
+			assert.Equal(t, input[i], *ptr, "Pointed value should match input")
+		}
+	})
+}

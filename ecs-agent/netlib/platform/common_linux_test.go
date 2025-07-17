@@ -204,19 +204,58 @@ func TestCommon_CreateDNSFilesForDebug(t *testing.T) {
 	for _, testCase := range []struct {
 		name           string
 		resolvConfPath string
+		iface          *networkinterface.NetworkInterface
 	}{
-		{name: "al", resolvConfPath: "/etc"},
-		{name: "br", resolvConfPath: "/run/netdog"},
+		{
+			name:           "al-ipv4",
+			resolvConfPath: "/etc",
+			iface:          getTestIPv4OnlyInterface(),
+		},
+		{
+			name:           "al-ipv4-withoutdns",
+			resolvConfPath: "/etc",
+			iface:          getTestIPv4OnlyInterfaceWithoutDNS(),
+		},
+		{
+			name:           "br-ipv4",
+			resolvConfPath: "/run/netdog",
+			iface:          getTestIPv4OnlyInterface(),
+		},
+		{
+			name:           "br-ipv4-withoutdns",
+			resolvConfPath: "/run/netdog",
+			iface:          getTestIPv4OnlyInterfaceWithoutDNS(),
+		},
+		{
+			name:           "al-ipv6",
+			resolvConfPath: "/etc",
+			iface:          getTestIPv6OnlyInterface(),
+		},
+		{
+			name:           "al-ipv6-withoutdns",
+			resolvConfPath: "/etc",
+			iface:          getTestIPv6OnlyInterfaceWithoutDNS(),
+		},
+		{
+			name:           "br-ipv6",
+			resolvConfPath: "/run/netdog",
+			iface:          getTestIPv6OnlyInterface(),
+		},
+		{
+			name:           "br-ipv6-withoutdns",
+			resolvConfPath: "/run/netdog",
+			iface:          getTestIPv6OnlyInterfaceWithoutDNS(),
+		},
 	} {
 		t.Run(testCase.name, func(t *testing.T) {
+			t.Parallel()
+
 			netNSName := "netns-name"
 			netNSPath := "/etc/netns/" + netNSName
-			iface := getTestIPv4OnlyInterface()
-
 			netns := &tasknetworkconfig.NetworkNamespace{
 				Name:              netNSName,
 				Path:              netNSPath,
-				NetworkInterfaces: []*networkinterface.NetworkInterface{iface},
+				NetworkInterfaces: []*networkinterface.NetworkInterface{testCase.iface},
 			}
 
 			ioutil := mock_ioutilwrapper.NewMockIOUtil(ctrl)
@@ -232,7 +271,7 @@ func TestCommon_CreateDNSFilesForDebug(t *testing.T) {
 				resolvConfPath:    testCase.resolvConfPath,
 			}
 
-			hostnameData := fmt.Sprintf("%s\n", iface.GetHostname())
+			hostnameData := fmt.Sprintf("%s\n", testCase.iface.GetHostname())
 
 			taskID := "taskID"
 			gomock.InOrder(
@@ -247,11 +286,22 @@ func TestCommon_CreateDNSFilesForDebug(t *testing.T) {
 
 				// Write hostname file.
 				ioutil.EXPECT().WriteFile(netNSPath+"/hostname", []byte(hostnameData), fs.FileMode(0644)),
+			)
 
-				// Copy resolv.conf file.
-				ioutil.EXPECT().ReadFile(testCase.resolvConfPath+"/resolv.conf"),
-				ioutil.EXPECT().WriteFile(netNSPath+"/resolv.conf", gomock.Any(), gomock.Any()),
+			// Copy resolv.conf file if no DNS resolver information in the payload, otherwise create it manually.
+			if len(testCase.iface.DomainNameServers) == 0 {
+				gomock.InOrder(
+					ioutil.EXPECT().ReadFile(testCase.resolvConfPath+"/resolv.conf"),
+					ioutil.EXPECT().WriteFile(netNSPath+"/resolv.conf", gomock.Any(), gomock.Any()),
+				)
+			} else {
+				gomock.InOrder(
+					nsUtil.EXPECT().BuildResolvConfig(testCase.iface.DomainNameServers, testCase.iface.DomainNameSearchList),
+					ioutil.EXPECT().WriteFile(netNSPath+"/resolv.conf", gomock.Any(), gomock.Any()),
+				)
+			}
 
+			gomock.InOrder(
 				// Creation of hosts file.
 				ioutil.EXPECT().ReadFile("/etc/hosts"),
 				ioutil.EXPECT().WriteFile(netNSPath+"/hosts", gomock.Any(), gomock.Any()),

@@ -47,20 +47,17 @@ type TaskNetworkConfig struct {
 	NetworkNamespaces []*NetworkNamespace
 }
 
-func NewTaskNetworkConfig(networkMode, path, deviceName string) *TaskNetworkConfig {
-	return &TaskNetworkConfig{
+func NewTaskNetworkConfig(networkMode, path string, networkInterfaces []*NetworkInterface) *TaskNetworkConfig {
+	cfg := &TaskNetworkConfig{
 		NetworkMode: networkMode,
 		NetworkNamespaces: []*NetworkNamespace{
 			{
-				Path: path,
-				NetworkInterfaces: []*NetworkInterface{
-					{
-						DeviceName: deviceName,
-					},
-				},
+				Path:              path,
+				NetworkInterfaces: networkInterfaces,
 			},
 		},
 	}
+	return cfg
 }
 
 type NetworkNamespace struct {

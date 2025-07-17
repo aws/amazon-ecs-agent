@@ -18,17 +18,11 @@ package engine
 
 import (
 	"context"
-	"encoding/json"
 	"fmt"
 	"io/ioutil"
-	"net"
-	"net/http"
-	"net/http/httptest"
-	"net/url"
 	"os"
 	"path/filepath"
 	"regexp"
-	"runtime"
 	"strings"
 	"testing"
 	"time"
@@ -45,26 +39,18 @@ import (
 	engineserviceconnect "github.com/aws/amazon-ecs-agent/agent/engine/serviceconnect"
 	"github.com/aws/amazon-ecs-agent/agent/taskresource"
 	cgroup "github.com/aws/amazon-ecs-agent/agent/taskresource/cgroup/control"
-	"github.com/aws/amazon-ecs-agent/agent/taskresource/firelens"
 	taskresourcevolume "github.com/aws/amazon-ecs-agent/agent/taskresource/volume"
 	"github.com/aws/amazon-ecs-agent/agent/utils"
 	"github.com/aws/amazon-ecs-agent/agent/utils/ioutilwrapper"
 	apicontainerstatus "github.com/aws/amazon-ecs-agent/ecs-agent/api/container/status"
 	apitaskstatus "github.com/aws/amazon-ecs-agent/ecs-agent/api/task/status"
 	"github.com/aws/amazon-ecs-agent/ecs-agent/credentials"
-	"github.com/aws/amazon-ecs-agent/ecs-agent/ec2"
 	"github.com/aws/amazon-ecs-agent/ecs-agent/eventstream"
 
-	"github.com/aws/aws-sdk-go-v2/aws"
-	awsconfig "github.com/aws/aws-sdk-go-v2/config"
-	"github.com/aws/aws-sdk-go-v2/service/cloudwatchlogs"
-	cloudwatchlogs_errors "github.com/aws/aws-sdk-go-v2/service/cloudwatchlogs/types"
 	ecstypes "github.com/aws/aws-sdk-go-v2/service/ecs/types"
 	"github.com/cihub/seelog"
 	"github.com/docker/docker/api/types"
-	dockercontainer "github.com/docker/docker/api/types/container"
 	sdkClient "github.com/docker/docker/client"
-	"github.com/pborman/uuid"
 	"github.com/pkg/errors"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -75,26 +61,16 @@ var (
 )
 
 const (
-	testLogSenderImage           = "public.ecr.aws/amazonlinux/amazonlinux:2.0.20210126.0"
-	testFluentBitImage           = "public.ecr.aws/aws-observability/aws-for-fluent-bit:2.10.1"
-	testVolumeImage              = "127.0.0.1:51670/amazon/amazon-ecs-volumes-test:latest"
-	testCluster                  = "testCluster"
-	validTaskArnPrefix           = "arn:aws:ecs:region:account-id:task/"
+	testVolumeImage    = "127.0.0.1:51670/amazon/amazon-ecs-volumes-test:latest"
+	testFluentBitImage = "public.ecr.aws/aws-observability/aws-for-fluent-bit:stable"
+	// the fluentd image release is outside our direct control, hence we use a specific version to not get impacted by
+	// a bad rollout.
+	testFluentdImage             = "public.ecr.aws/docker/library/fluentd:v1.18-1"
 	testDataDir                  = "/var/lib/ecs/data/"
 	testDataDirOnHost            = "/var/lib/ecs/"
-	testInstanceID               = "testInstanceID"
-	testECSRegion                = "us-east-1"
-	testLogGroupName             = "test-fluentbit"
-	testLogGroupPrefix           = "firelens-fluentbit-"
 	testExecCommandAgentImage    = "127.0.0.1:51670/amazon/amazon-ecs-exec-command-agent-test:latest"
 	testExecCommandAgentSleepBin = "/sleep"
 	testExecCommandAgentKillBin  = "/kill"
-)
-
-var (
-	mockTaskMeatadataHandler = http.HandlerFunc(func(rw http.ResponseWriter, req *http.Request) {
-		rw.Write([]byte(`{"TaskARN": "arn:aws:ecs:region:account-id:task/task-id"}`))
-	})
 )
 
 func TestStartStopWithCgroup(t *testing.T) {
@@ -191,206 +167,108 @@ func createTestLocalVolumeMountTask() *apitask.Task {
 	return testTask
 }
 
-func TestFirelensFluentbit(t *testing.T) {
-	// Skipping the test for arm as they do not have official support for Arm images
-	if runtime.GOARCH == "arm64" {
-		t.Skip("Skipping test, unsupported image for arm64")
-	}
+// TestFirelens integration test verifies the following:
+//
+// 1. Firelens data directory creation and ownership configuration
+// 2. Task and container state events
+// 3. Firelens container's ability to log to a destination (local file)
+// 4. Firelens resource cleanup after the task stops
+// 5. Verifies all the above across both Fluentd and Fluent Bit log router options.
+//
+// This test validates the integration of different ECS agent components. It mocks the payload received from ECS backend,
+// and does not rely on external logging destinations (like CloudWatch) for logging functionality verification.
+func TestFirelens(t *testing.T) {
+	// Setup agent config
 	cfg := DefaultTestConfigIntegTest()
 	cfg.DataDir = testDataDir
 	cfg.DataDirOnHost = testDataDirOnHost
 	cfg.TaskCleanupWaitDuration = 1 * time.Second
-	cfg.Cluster = testCluster
+	cfg.Cluster = TestCluster
+
+	// Setup task engine
 	taskEngine, done, _, _ := SetupIntegTestTaskEngine(cfg, nil, t)
-	defer done()
-
-	// Mock task metadata server as the firelens container needs to access it.
-	// Note that the listener has to be overwritten here, because the default one from httptest.NewServer
-	// only listens to localhost and isn't reachable from container running in bridge network mode.
-	l, err := net.Listen("tcp", ":0")
-	require.NoError(t, err)
-	server := httptest.NewUnstartedServer(mockTaskMeatadataHandler)
-	server.Listener = l
-	server.Start()
-	defer server.Close()
-
-	port := getPortFromAddr(t, server.URL)
-	ec2MetadataClient, err := ec2.NewEC2MetadataClient(nil)
-	require.NoError(t, err)
-	serverURL := fmt.Sprintf("http://%s:%s", getHostPrivateIP(t, ec2MetadataClient), port)
-	defer setV3MetadataURLFormat(serverURL + "/v3/%s")()
-
-	testTask := createFirelensTask(t)
 	taskEngine.(*DockerTaskEngine).resourceFields = &taskresource.ResourceFields{
 		ResourceFieldsCommon: &taskresource.ResourceFieldsCommon{
-			EC2InstanceID: testInstanceID,
+			EC2InstanceID: TestInstanceID,
 		},
 	}
-	go taskEngine.AddTask(testTask)
-	testEvents := InitTestEventCollection(taskEngine)
+	defer done()
 
-	//Verify logsender container is running
-	VerifyContainerStatus(apicontainerstatus.ContainerRunning, testTask.Arn+":logsender", testEvents, t)
+	// Setup task metadata server
+	setupTaskMetadataServer(t)
 
-	//Verify firelens container is running
-	VerifyContainerStatus(apicontainerstatus.ContainerRunning, testTask.Arn+":firelens", testEvents, t)
-
-	//Verify task is in running state
-	VerifyTaskStatus(apitaskstatus.TaskRunning, testTask.Arn, testEvents, t)
-
-	//Verify logsender container is stopped
-	VerifyContainerStatus(apicontainerstatus.ContainerStopped, testTask.Arn+":logsender", testEvents, t)
-
-	//Verify firelens container is stopped
-	VerifyContainerStatus(apicontainerstatus.ContainerStopped, testTask.Arn+":firelens", testEvents, t)
-
-	//Verify the task itself has stopped
-	VerifyTaskStatus(apitaskstatus.TaskStopped, testTask.Arn, testEvents, t)
-
-	taskID := testTask.GetID()
-
-	//declare a cloudwatch client
-	awsCfg, err := awsconfig.LoadDefaultConfig(context.TODO(), awsconfig.WithRegion(testECSRegion))
-	require.NoError(t, err, "Unable to load AWS config")
-	cwlClient := cloudwatchlogs.NewFromConfig(awsCfg)
-	params := &cloudwatchlogs.GetLogEventsInput{
-		LogGroupName:  aws.String(testLogGroupName),
-		LogStreamName: aws.String(fmt.Sprintf("firelens-fluentbit-logsender-firelens-%s", taskID)),
-	}
-
-	// wait for the cloud watch logs
-	resp, err := waitCloudwatchLogs(cwlClient, params)
-	require.NoError(t, err)
-	// there should only be one event as we are echoing only one thing that part of the include-filter
-	assert.Equal(t, 1, len(resp.Events))
-
-	message := aws.ToString(resp.Events[0].Message)
-	jsonBlob := make(map[string]string)
-	err = json.Unmarshal([]byte(message), &jsonBlob)
-	require.NoError(t, err)
-	assert.Equal(t, "stdout", jsonBlob["source"])
-	assert.Equal(t, "include", jsonBlob["log"])
-	assert.Contains(t, jsonBlob, "container_id")
-	assert.Contains(t, jsonBlob["container_name"], "logsender")
-	assert.Equal(t, testCluster, jsonBlob["ecs_cluster"])
-	assert.Equal(t, testTask.Arn, jsonBlob["ecs_task_arn"])
-
-	testTask.SetSentStatus(apitaskstatus.TaskStopped)
-	time.Sleep(3 * cfg.TaskCleanupWaitDuration)
-
-	for i := 0; i < 60; i++ {
-		_, ok := taskEngine.(*DockerTaskEngine).State().TaskByArn(testTask.Arn)
-		if !ok {
-			break
-		}
-		time.Sleep(1 * time.Second)
-	}
-	// Make sure all the resource is cleaned up
-	_, err = ioutil.ReadDir(filepath.Join(testDataDir, "firelens", testTask.Arn))
-	assert.Error(t, err)
-}
-
-// getPortFromAddr returns the port part of an address in format "http://<addr>:<port>".
-func getPortFromAddr(t *testing.T, addr string) string {
-	u, err := url.Parse(addr)
-	require.NoErrorf(t, err, "unable to parse address: %s", addr)
-	_, port, err := net.SplitHostPort(u.Host)
-	require.NoErrorf(t, err, "unable to get port from address: %s", addr)
-	return port
-}
-
-// getHostPrivateIP returns the host's private IP.
-func getHostPrivateIP(t *testing.T, ec2MetadataClient ec2.EC2MetadataClient) string {
-	ip, err := ec2MetadataClient.PrivateIPv4Address()
-	require.NoError(t, err)
-	return ip
-}
-
-// setV3MetadataURLFormat sets the container metadata URI format and returns a function to set it back.
-func setV3MetadataURLFormat(fmt string) func() {
-	backup := apicontainer.MetadataURIFormat
-	apicontainer.MetadataURIFormat = fmt
-	return func() {
-		apicontainer.MetadataURIFormat = backup
-	}
-}
-
-func createFirelensTask(t *testing.T) *apitask.Task {
-	testTask := CreateTestTask(validTaskArnPrefix + uuid.New())
-	rawHostConfigInputForLogSender := dockercontainer.HostConfig{
-		LogConfig: dockercontainer.LogConfig{
-			Type: logDriverTypeFirelens,
-			Config: map[string]string{
-				"Name":              "cloudwatch",
-				"exclude-pattern":   "exclude",
-				"include-pattern":   "include",
-				"log_group_name":    testLogGroupName,
-				"log_stream_prefix": testLogGroupPrefix,
-				"region":            testECSRegion,
-				"auto_create_group": "true",
-			},
-		},
-	}
-	rawHostConfigForLogSender, err := json.Marshal(&rawHostConfigInputForLogSender)
-	require.NoError(t, err)
-	testTask.Containers = []*apicontainer.Container{
+	testCases := []struct {
+		name                   string
+		firelensType           string
+		firelensContainerImage string
+		firelensContainerUser  string
+	}{
 		{
-			Name:      "logsender",
-			Image:     testLogSenderImage,
-			Essential: true,
-			// TODO: the firelens router occasionally failed to send logs when it's shut down very quickly after started.
-			// Let the task run for a while with a sleep helps avoid that failure, but still needs to figure out the
-			// root cause.
-			Command: []string{"sh", "-c", "echo exclude; echo include; sleep 10;"},
-			DockerConfig: apicontainer.DockerConfig{
-				HostConfig: func() *string {
-					s := string(rawHostConfigForLogSender)
-					return &s
-				}(),
-			},
-			DependsOnUnsafe: []apicontainer.DependsOn{
-				{
-					ContainerName: "firelens",
-					Condition:     "START",
-				},
-			},
+			name:                   "fluent_bit_default",
+			firelensType:           "fluentbit",
+			firelensContainerImage: testFluentBitImage,
 		},
 		{
-			Name:      "firelens",
-			Image:     testFluentBitImage,
-			Essential: true,
-			FirelensConfig: &apicontainer.FirelensConfig{
-				Type: firelens.FirelensConfigTypeFluentbit,
-				Options: map[string]string{
-					"enable-ecs-log-metadata": "true",
-				},
-			},
-			Environment: map[string]string{
-				"AWS_EXECUTION_ENV": "AWS_ECS_EC2",
-				"FLB_LOG_LEVEL":     "debug",
-			},
-			TransitionDependenciesMap: make(map[apicontainerstatus.ContainerStatus]apicontainer.TransitionDependencySet),
+			name:                   "fluent_bit_root_user",
+			firelensType:           "fluentbit",
+			firelensContainerImage: testFluentBitImage,
+			firelensContainerUser:  "0:1000",
 		},
+		{
+			name:                   "fluent_bit_non_root_user",
+			firelensType:           "fluentbit",
+			firelensContainerImage: testFluentBitImage,
+			firelensContainerUser:  "1234:5678",
+		},
+		{
+			name:                   "fluent_d_root_user",
+			firelensType:           "fluentd",
+			firelensContainerImage: testFluentdImage,
+			firelensContainerUser:  "0:1000",
+		},
+		{
+			name:                   "fluent_d_non_root_user",
+			firelensType:           "fluentd",
+			firelensContainerImage: testFluentdImage,
+			firelensContainerUser:  "1234:5678",
+		},
+		// No fluentd default config test case since all the available fluentd images hard-code a container user in the image.
+		// We will rely on functional test for this test case, where we build our own custom fluentd log router image.
 	}
-	testTask.ResourcesMapUnsafe = make(map[string][]taskresource.TaskResource)
-	return testTask
-}
 
-func waitCloudwatchLogs(client *cloudwatchlogs.Client, params *cloudwatchlogs.GetLogEventsInput) (*cloudwatchlogs.GetLogEventsOutput, error) {
-	// The test could fail for timing issue, so retry for 60 seconds to make this test more stable
-	for i := 0; i < 60; i++ {
-		resp, err := client.GetLogEvents(context.TODO(), params)
-		if err != nil {
-			var notFoundErr *cloudwatchlogs_errors.ResourceNotFoundException
-			if !errors.As(err, &notFoundErr) {
-				return nil, err
-			}
-		} else if len(resp.Events) > 0 {
-			return resp, nil
-		}
-		time.Sleep(time.Second)
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			// Create a temporary directory to send app logs to
+			tmpDir := createFirelensLogDir(t, "firelens", tc.firelensContainerUser)
+			defer func() {
+				err := os.RemoveAll(tmpDir)
+				require.NoError(t, err)
+			}()
+
+			// Create the Firelens task
+			firelensTask := createFirelensTask(t, tc.name, tc.firelensContainerImage, tc.firelensContainerUser,
+				tc.firelensType, tmpDir)
+
+			// Start the Firelens task
+			go taskEngine.AddTask(firelensTask)
+
+			// Validate the Firelens task/container statuses during task start
+			verifyFirelensTaskEvents(t, taskEngine, firelensTask, "start")
+
+			// Verify Firelens data directory configuration
+			firelensDataDir := filepath.Join(testDataDir, "firelens", firelensTask.GetID())
+			verifyFirelensDataDir(t, firelensDataDir, tc.firelensContainerUser)
+
+			// Verify app logs from the destination file
+			verifyFirelensLogs(t, firelensTask, tc.firelensType, tmpDir)
+
+			// Validate the Firelens task/container statuses during task stop
+			verifyFirelensTaskEvents(t, taskEngine, firelensTask, "stop")
+
+			// Verify Firelens task resource cleanup
+			verifyFirelensResourceCleanup(t, cfg, firelensTask, taskEngine, firelensDataDir)
+		})
 	}
-	return nil, fmt.Errorf("timeout waiting for the logs to be sent to cloud watch logs")
 }
 
 // TestExecCommandAgent validates ExecCommandAgent start and monitor processes. The algorithm to test is as follows:
