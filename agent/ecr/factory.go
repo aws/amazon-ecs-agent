@@ -81,6 +81,11 @@ func getClientConfig(httpClient *http.Client, authData *apicontainer.ECRAuthData
 		opts = append(opts, awsconfig.WithUseDualStackEndpoint(aws.DualStackEndpointStateEnabled))
 	}
 
+	// The aws sdk is not correctly resolving the THF endpoint for ECR.
+	if authData.Region == "eusc-de-east-1" && !config.IsFIPSEnabled() {
+		authData.EndpointOverride = "https://api.ecr.eusc-de-east-1.amazonaws.eu"
+	}
+
 	var credentialsOpt awsconfig.LoadOptionsFunc
 	if authData.UseExecutionRole {
 		if authData.GetPullCredentials() == (credentials.IAMRoleCredentials{}) {
