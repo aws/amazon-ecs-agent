@@ -501,6 +501,7 @@ func TestRegisterContainerInstance(t *testing.T) {
 			expectedAttributes := map[string]string{
 				"ecs.os-type":               tester.mockCfgAccessor.OSType(),
 				"ecs.os-family":             tester.mockCfgAccessor.OSFamily(),
+				"ecs.os-type-detailed":      tester.mockCfgAccessor.OSFamilyDetailed(),
 				"my_custom_attribute":       "Custom_Value1",
 				"my_other_custom_attribute": "Custom_Value2",
 				"ecs.availability-zone":     availabilityZone,
@@ -552,12 +553,12 @@ func TestRegisterContainerInstance(t *testing.T) {
 			var expectedNumOfAttributes int
 			if !tester.mockCfgAccessor.External() {
 				// 2 capability attributes: capability1, capability2
-				// and 5 other attributes:
-				// ecs.os-type, ecs.os-family, ecs.outpost-arn, my_custom_attribute, my_other_custom_attribute.
-				expectedNumOfAttributes = 7
+				// and 6 other attributes:
+				// ecs.os-type, ecs.os-family, ecs.os-type-detailed, ecs.outpost-arn, my_custom_attribute, my_other_custom_attribute.
+				expectedNumOfAttributes = 8
 			} else {
 				// One more attribute for external case: ecs.cpu-architecture.
-				expectedNumOfAttributes = 8
+				expectedNumOfAttributes = 9
 			}
 
 			gomock.InOrder(
@@ -629,6 +630,7 @@ func TestRegisterContainerInstanceWithRetryNonTerminalError(t *testing.T) {
 	expectedAttributes := map[string]string{
 		"ecs.os-type":               tester.mockCfgAccessor.OSType(),
 		"ecs.os-family":             tester.mockCfgAccessor.OSFamily(),
+		"ecs.os-type-detailed":      tester.mockCfgAccessor.OSFamilyDetailed(),
 		"my_custom_attribute":       "Custom_Value1",
 		"my_other_custom_attribute": "Custom_Value2",
 		"ecs.availability-zone":     availabilityZone,
@@ -724,6 +726,7 @@ func TestReRegisterContainerInstance(t *testing.T) {
 	expectedAttributes := map[string]string{
 		"ecs.os-type":           tester.mockCfgAccessor.OSType(),
 		"ecs.os-family":         tester.mockCfgAccessor.OSFamily(),
+		"ecs.os-type-detailed":  tester.mockCfgAccessor.OSFamilyDetailed(),
 		"ecs.availability-zone": availabilityZone,
 		"ecs.outpost-arn":       outpostARN,
 	}
@@ -748,8 +751,8 @@ func TestReRegisterContainerInstance(t *testing.T) {
 				resource, ok := findResource(req.TotalResources, "PORTS_UDP")
 				assert.True(t, ok, `Could not find resource "PORTS_UDP"`)
 				assert.Equal(t, "STRINGSET", *resource.Type, `Wrong type for resource "PORTS_UDP"`)
-				// "ecs.os-type", ecs.os-family, ecs.outpost-arn and the 2 that we specified as additionalAttributes.
-				assert.Equal(t, 5, len(req.Attributes), "Wrong number of Attributes")
+				// "ecs.os-type", ecs.os-family, ecs.os-type-detailed, ecs.outpost-arn and the 2 that we specified as additionalAttributes.
+				assert.Equal(t, 6, len(req.Attributes), "Wrong number of Attributes")
 				reqAttributes := func() map[string]string {
 					rv := make(map[string]string, len(req.Attributes))
 					for i := range req.Attributes {
@@ -817,6 +820,7 @@ func TestRegisterContainerInstanceWithEmptyTags(t *testing.T) {
 	expectedAttributes := map[string]string{
 		"ecs.os-type":               tester.mockCfgAccessor.OSType(),
 		"ecs.os-family":             tester.mockCfgAccessor.OSFamily(),
+		"ecs.os-type-detailed":      tester.mockCfgAccessor.OSFamilyDetailed(),
 		"my_custom_attribute":       "Custom_Value1",
 		"my_other_custom_attribute": "Custom_Value2",
 	}
@@ -882,8 +886,9 @@ func TestRegisterBlankCluster(t *testing.T) {
 	tester := setup(t, ctrl, mockEC2Metadata, cfgAccessorOverrideFunc)
 
 	expectedAttributes := map[string]string{
-		"ecs.os-type":   tester.mockCfgAccessor.OSType(),
-		"ecs.os-family": tester.mockCfgAccessor.OSFamily(),
+		"ecs.os-type":           tester.mockCfgAccessor.OSType(),
+		"ecs.os-family":         tester.mockCfgAccessor.OSFamily(),
+		"ecs.os-type-detailed":  tester.mockCfgAccessor.OSFamilyDetailed(),
 	}
 	defaultCluster := tester.mockCfgAccessor.DefaultClusterName()
 	gomock.InOrder(
@@ -931,8 +936,9 @@ func TestRegisterBlankClusterNotCreatingClusterWhenErrorNotClusterNotFound(t *te
 	tester := setup(t, ctrl, mockEC2Metadata, cfgAccessorOverrideFunc)
 
 	expectedAttributes := map[string]string{
-		"ecs.os-type":   tester.mockCfgAccessor.OSType(),
-		"ecs.os-family": tester.mockCfgAccessor.OSFamily(),
+		"ecs.os-type":           tester.mockCfgAccessor.OSType(),
+		"ecs.os-family":         tester.mockCfgAccessor.OSFamily(),
+		"ecs.os-type-detailed":  tester.mockCfgAccessor.OSFamilyDetailed(),
 	}
 
 	defaultCluster := tester.mockCfgAccessor.DefaultClusterName()
