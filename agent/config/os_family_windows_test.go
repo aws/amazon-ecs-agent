@@ -19,6 +19,7 @@ package config
 import (
 	"testing"
 
+	"github.com/aws/amazon-ecs-agent/agent/statemanager/dependencies"
 	mock_dependencies "github.com/aws/amazon-ecs-agent/agent/statemanager/dependencies/mocks"
 
 	"github.com/golang/mock/gomock"
@@ -43,9 +44,15 @@ func getMockWindowsRegistryKey(ctrl *gomock.Controller) *mock_dependencies.MockR
 	return mockKey
 }
 
+func restoreGlobalState() {
+	winRegistry = dependencies.StdRegistry{}
+	windowsGetVersionFunc = windows.RtlGetVersion
+}
+
 func TestGetOSFamilyForWS2025Full(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
+	defer restoreGlobalState()
 
 	windowsGetVersionFunc = fakeWindowsGetVersionFunc(26100)
 	mockKey := getMockWindowsRegistryKey(ctrl)
@@ -60,6 +67,7 @@ func TestGetOSFamilyForWS2025Full(t *testing.T) {
 func TestGetOSFamilyForWS2025Core(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
+	defer restoreGlobalState()
 
 	windowsGetVersionFunc = fakeWindowsGetVersionFunc(26100)
 	mockKey := getMockWindowsRegistryKey(ctrl)
@@ -74,6 +82,7 @@ func TestGetOSFamilyForWS2025Core(t *testing.T) {
 func TestGetOSFamilyForWS2022Core(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
+	defer restoreGlobalState()
 
 	windowsGetVersionFunc = fakeWindowsGetVersionFunc(20348)
 	mockKey := getMockWindowsRegistryKey(ctrl)
@@ -88,6 +97,7 @@ func TestGetOSFamilyForWS2022Core(t *testing.T) {
 func TestGetOSFamilyForWS2022Full(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
+	defer restoreGlobalState()
 
 	windowsGetVersionFunc = fakeWindowsGetVersionFunc(20348)
 	mockKey := getMockWindowsRegistryKey(ctrl)
@@ -102,6 +112,7 @@ func TestGetOSFamilyForWS2022Full(t *testing.T) {
 func TestGetOSFamilyForWS2019Core(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
+	defer restoreGlobalState()
 
 	windowsGetVersionFunc = fakeWindowsGetVersionFunc(17763)
 	mockKey := getMockWindowsRegistryKey(ctrl)
@@ -116,6 +127,7 @@ func TestGetOSFamilyForWS2019Core(t *testing.T) {
 func TestGetOSFamilyForWS2019Full(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
+	defer restoreGlobalState()
 
 	windowsGetVersionFunc = fakeWindowsGetVersionFunc(17763)
 	mockKey := getMockWindowsRegistryKey(ctrl)
@@ -130,6 +142,7 @@ func TestGetOSFamilyForWS2019Full(t *testing.T) {
 func TestGetOSFamilyForWS2016Full(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
+	defer restoreGlobalState()
 
 	windowsGetVersionFunc = fakeWindowsGetVersionFunc(14393)
 	mockKey := getMockWindowsRegistryKey(ctrl)
@@ -144,6 +157,7 @@ func TestGetOSFamilyForWS2016Full(t *testing.T) {
 func TestGetOSFamilyForWS2004Core(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
+	defer restoreGlobalState()
 
 	windowsGetVersionFunc = fakeWindowsGetVersionFunc(19041)
 	mockKey := getMockWindowsRegistryKey(ctrl)
@@ -158,6 +172,7 @@ func TestGetOSFamilyForWS2004Core(t *testing.T) {
 func TestGetOSFamilyForWS20H2Core(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
+	defer restoreGlobalState()
 
 	windowsGetVersionFunc = fakeWindowsGetVersionFunc(19042)
 	mockKey := getMockWindowsRegistryKey(ctrl)
@@ -172,6 +187,7 @@ func TestGetOSFamilyForWS20H2Core(t *testing.T) {
 func TestGetOSFamilyForInvalidBuildNumber(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
+	defer restoreGlobalState()
 
 	windowsGetVersionFunc = fakeWindowsGetVersionFunc(12345)
 	assert.Equal(t, unsupportedWindowsOSFamily, GetOSFamily())
@@ -180,6 +196,7 @@ func TestGetOSFamilyForInvalidBuildNumber(t *testing.T) {
 func TestGetOSFamilyForKeyError(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
+	defer restoreGlobalState()
 
 	windowsGetVersionFunc = fakeWindowsGetVersionFunc(19042)
 	mockWinRegistry := mock_dependencies.NewMockWindowsRegistry(ctrl)
@@ -196,6 +213,7 @@ func TestGetOSFamilyForKeyError(t *testing.T) {
 func TestGetOSFamilyForInstallationTypeNotExistError(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
+	defer restoreGlobalState()
 
 	windowsGetVersionFunc = fakeWindowsGetVersionFunc(19042)
 	mockKey := getMockWindowsRegistryKey(ctrl)
@@ -210,6 +228,7 @@ func TestGetOSFamilyForInstallationTypeNotExistError(t *testing.T) {
 func TestGetOSFamilyForInvalidInstallationType(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
+	defer restoreGlobalState()
 
 	windowsGetVersionFunc = fakeWindowsGetVersionFunc(19042)
 	mockKey := getMockWindowsRegistryKey(ctrl)

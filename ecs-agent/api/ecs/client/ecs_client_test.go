@@ -66,6 +66,7 @@ const (
 	attachmentARN        = "eniArn"
 	agentVer             = "0.0.0"
 	osType               = "linux"
+	detailedOSFamily     = "debian_11"
 )
 
 var (
@@ -149,6 +150,7 @@ func applyMockCfgAccessorDefaults(cfgAccessor *mock_config.MockAgentConfigAccess
 	cfgAccessor.EXPECT().InstanceAttributes().Return(nil).AnyTimes()
 	cfgAccessor.EXPECT().NoInstanceIdentityDocument().Return(false).AnyTimes()
 	cfgAccessor.EXPECT().OSFamily().Return("LINUX").AnyTimes()
+	cfgAccessor.EXPECT().OSFamilyDetailed().Return(detailedOSFamily).AnyTimes()
 	cfgAccessor.EXPECT().OSType().Return(osType).AnyTimes()
 	cfgAccessor.EXPECT().ReservedMemory().Return(uint16(20)).AnyTimes()
 	cfgAccessor.EXPECT().ReservedPorts().Return([]uint16{22, 2375, 2376, 51678}).AnyTimes()
@@ -418,7 +420,10 @@ func TestSetInstanceIdentity(t *testing.T) {
 			mockConfigAccessor := mock_config.NewMockAgentConfigAccessor(ctrl)
 			mockEC2Metadata := mock_ec2.NewMockEC2MetadataClient(ctrl)
 			mockCredentialsProvider := mock_credentials.NewMockCredentialsProvider(ctrl)
-
+			mockConfigAccessor.EXPECT().AcceptInsecureCert().Return(false).AnyTimes()
+			mockConfigAccessor.EXPECT().OSType().Return(osType).AnyTimes()
+			mockConfigAccessor.EXPECT().OSFamilyDetailed().Return(detailedOSFamily).AnyTimes()
+			mockConfigAccessor.EXPECT().AWSRegion().Return(region).AnyTimes()
 			mockConfigAccessor.EXPECT().NoInstanceIdentityDocument().Return(tc.noInstanceIdentity).AnyTimes()
 			tc.mockEC2MetadataSetup(mockEC2Metadata)
 			tc.mockCredentialsSetup(mockCredentialsProvider)
