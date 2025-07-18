@@ -48,6 +48,7 @@ type dockerclient interface {
 	WaitContainer(id string) (int, error)
 	StopContainer(id string, timeout uint) error
 	Ping() error
+	FilteredListNetworks(opts godocker.NetworkFilterOpts) ([]godocker.Network, error)
 }
 
 type _dockerclient struct {
@@ -247,4 +248,8 @@ func isRetryablePingError(err error) bool {
 		return godockerError.Status != http.StatusOK
 	}
 	return false
+}
+
+func (d *_dockerclient) FilteredListNetworks(opts godocker.NetworkFilterOpts) ([]godocker.Network, error) {
+	return d.docker.FilteredListNetworks(opts)
 }

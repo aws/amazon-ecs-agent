@@ -157,6 +157,21 @@ func (m *MockdockerClient) EXPECT() *MockdockerClientMockRecorder {
 	return m.recorder
 }
 
+// FindDefaultBridgeNetworkInterfaceName mocks base method.
+func (m *MockdockerClient) FindDefaultBridgeNetworkInterfaceName() (string, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "FindDefaultBridgeNetworkInterfaceName")
+	ret0, _ := ret[0].(string)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// FindDefaultBridgeNetworkInterfaceName indicates an expected call of FindDefaultBridgeNetworkInterfaceName.
+func (mr *MockdockerClientMockRecorder) FindDefaultBridgeNetworkInterfaceName() *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "FindDefaultBridgeNetworkInterfaceName", reflect.TypeOf((*MockdockerClient)(nil).FindDefaultBridgeNetworkInterfaceName))
+}
+
 // GetContainerLogTail mocks base method.
 func (m *MockdockerClient) GetContainerLogTail(logWindowSize string) string {
 	m.ctrl.T.Helper()

@@ -21,6 +21,7 @@ import (
 	"os"
 	"time"
 
+	"github.com/aws/amazon-ecs-agent/ecs-agent/utils/netlinkwrapper"
 	"github.com/aws/amazon-ecs-agent/ecs-init/apparmor"
 	"github.com/aws/amazon-ecs-agent/ecs-init/backoff"
 	"github.com/aws/amazon-ecs-agent/ecs-init/cache"
@@ -99,7 +100,15 @@ func New() (*Engine, error) {
 	if err != nil {
 		return nil, err
 	}
-	credentialsProxyRoute, err := iptables.NewNetfilterRoute(cmdExec)
+	docker, err := getDockerClient()
+	if err != nil {
+		return nil, err
+	}
+	dockerBridgeNetworkName, err := docker.FindDefaultBridgeNetworkInterfaceName()
+	if err != nil {
+		return nil, err
+	}
+	credentialsProxyRoute, err := iptables.NewNetfilterRoute(cmdExec, netlinkwrapper.New(), dockerBridgeNetworkName)
 	if err != nil {
 		return nil, err
 	}
