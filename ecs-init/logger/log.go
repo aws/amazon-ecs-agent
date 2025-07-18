@@ -62,11 +62,14 @@ func init() {
 
 // Setup sets the custom logging config
 func Setup() {
+	// Register the custom formatter first, before any logging configuration is loaded
+	if err := seelog.RegisterCustomFormatter("InitLogfmt", logfmtFormatter); err != nil {
+		// Use fmt.Printf for error logging since seelog might not be configured yet
+		fmt.Printf("Failed to register InitLogfmt formatter: %v\n", err)
+	}
+
 	if logLevel := os.Getenv(LOGLEVEL_ENV_VAR); logLevel != "" {
 		SetLogLevel(logLevel)
-	}
-	if err := seelog.RegisterCustomFormatter("InitLogfmt", logfmtFormatter); err != nil {
-		seelog.Error(err)
 	}
 	reloadConfig()
 }
