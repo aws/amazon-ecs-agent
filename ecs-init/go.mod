@@ -7,7 +7,7 @@ toolchain go1.23.2
 require (
 	github.com/NVIDIA/go-nvml v0.12.4-0
 	github.com/aws/amazon-ecs-agent/ecs-agent v0.0.0
-	github.com/aws/aws-sdk-go-v2 v1.32.6
+	github.com/aws/aws-sdk-go-v2 v1.36.6
 	github.com/aws/aws-sdk-go-v2/config v1.28.1
 	github.com/aws/aws-sdk-go-v2/feature/ec2/imds v1.16.18
 	github.com/aws/aws-sdk-go-v2/feature/s3/manager v1.17.23
@@ -39,7 +39,7 @@ require (
 	github.com/aws/aws-sdk-go-v2/service/sso v1.24.3 // indirect
 	github.com/aws/aws-sdk-go-v2/service/ssooidc v1.28.3 // indirect
 	github.com/aws/aws-sdk-go-v2/service/sts v1.32.3 // indirect
-	github.com/aws/smithy-go v1.22.1 // indirect
+	github.com/aws/smithy-go v1.22.4 // indirect
 	github.com/containerd/log v0.1.0 // indirect
 	github.com/coreos/go-systemd v0.0.0-20190321100706-95778dfbb74e // indirect
 	github.com/davecgh/go-spew v1.1.1 // indirect
