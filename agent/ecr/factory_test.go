@@ -36,3 +36,16 @@ func TestGetClientConfigEndpointOverride(t *testing.T) {
 	assert.Nil(t, err)
 	assert.Equal(t, "https://"+testAuthData.EndpointOverride, *cfg.BaseEndpoint)
 }
+
+func TestGetClientConfigEndpointOverrideEuscDeEast1(t *testing.T) {
+	testAuthData := &apicontainer.ECRAuthData{
+		EndpointOverride: "https://api.ecr.eusc-de-east-1.amazonaws.eu",
+		Region:           "eusc-de-east-1",
+		UseExecutionRole: false,
+	}
+
+	cfg, err := getClientConfig(nil, testAuthData)
+
+	assert.Nil(t, err)
+	assert.Equal(t, testAuthData.EndpointOverride, *cfg.BaseEndpoint)
+}
