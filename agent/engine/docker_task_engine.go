@@ -132,9 +132,9 @@ const (
 var (
 	newExponentialBackoff = retry.NewExponentialBackoff
 
-	// List of isolated regions where AWS SDK Go V1 cannot resolve the endpoints for.
+	// List of regions where Docker cannot resolve the endpoints for via AWS SDK Go.
 	// This is a short term solution only for specific regions and ideally we should not be keeping a list of hardcoded regions.
-	unresolvedIsolatedRegions = map[string]bool{
+	unresolvedRegions = map[string]bool{
 		"us-isob-east-1":  true,
 		"us-iso-east-1":   true,
 		"us-iso-west-1":   true,
@@ -142,6 +142,7 @@ var (
 		"us-isof-south-1": true,
 		"us-isof-east-1":  true,
 		"us-isob-west-1":  true,
+		"eusc-de-east-1":  true,
 	}
 )
 
@@ -1953,7 +1954,7 @@ func (engine *DockerTaskEngine) createContainer(task *apitask.Task, container *a
 		} else {
 			// This is a short term solution only for specific regions
 			region := engine.cfg.AWSRegion
-			if _, ok := unresolvedIsolatedRegions[region]; ok {
+			if _, ok := unresolvedRegions[region]; ok {
 				resolvedEndpoint, err := endpoints.ResolveCloudWatchLogsEndpoint(region, false)
 				if err != nil {
 					logger.Warn("failed to resolve CloudWatch Logs endpoint for region", logger.Fields{
