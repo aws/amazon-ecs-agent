@@ -3070,6 +3070,17 @@ func TestCreateContainerAwslogsLogDriver(t *testing.T) {
 			expectedLogConfigEndpoint: "", // dual stack endpoint not supported
 			instanceIPCompatibility:   ipcompatibility.NewIPv6OnlyCompatibility(),
 		},
+		{
+			name:                      "test container that uses awslogs log driver in eusc-de-east-1",
+			region:                    "eusc-de-east-1",
+			expectedLogConfigEndpoint: "https://logs.eusc-de-east-1.amazonaws.eu",
+		},
+		{
+			name:                      "test container that uses awslogs log driver in eusc-de-east-1 - IPv6",
+			region:                    "eusc-de-east-1",
+			expectedLogConfigEndpoint: "", // dual stack endpoint not supported
+			instanceIPCompatibility:   ipcompatibility.NewIPv6OnlyCompatibility(),
+		},
 	}
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
