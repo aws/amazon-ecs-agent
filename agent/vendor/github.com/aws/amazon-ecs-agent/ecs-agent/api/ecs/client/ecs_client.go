@@ -54,6 +54,7 @@ const (
 	cpuArchAttrName             = "ecs.cpu-architecture"
 	osTypeAttrName              = "ecs.os-type"
 	osFamilyAttrName            = "ecs.os-family"
+	osTypeDetailedAttrName      = "ecs.os-type-detailed"
 	// RoundtripTimeout should only time out after dial and TLS handshake timeouts have elapsed.
 	// Add additional 2 seconds to the sum of these 2 timeouts to be extra sure of this.
 	RoundtripTimeout = httpclient.DefaultDialTimeout + httpclient.DefaultTLSHandshakeTimeout + 2*time.Second
@@ -565,6 +566,17 @@ func (client *ecsClient) getAdditionalAttributes() []types.Attribute {
 			Value: aws.String(client.configAccessor.OSFamily()),
 		})
 	}
+
+	// OSFamilyDetailed should be treated as an optional field as it is not applicable for all agents
+	// using ecs client shared library. Add a check to ensure only non-empty values are added
+	// to API call.
+	if client.configAccessor.OSFamilyDetailed() != "" {
+		attrs = append(attrs, types.Attribute{
+			Name:  aws.String(osTypeDetailedAttrName),
+			Value: aws.String(client.configAccessor.OSFamilyDetailed()),
+		})
+	}
+
 	// Send CPU arch attribute directly when running on external capacity. When running on EC2 or Fargate launch type,
 	// this is not needed since the CPU arch is reported via instance identity document in those cases.
 	if client.configAccessor.External() {
