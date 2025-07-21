@@ -26,6 +26,8 @@ import (
 	"time"
 
 	"github.com/aws/aws-sdk-go-v2/aws"
+	ecsservice "github.com/aws/aws-sdk-go-v2/service/ecs"
+	"github.com/aws/aws-sdk-go-v2/service/ecs/types"
 	"github.com/golang/mock/gomock"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -44,8 +46,6 @@ import (
 	mock_ec2 "github.com/aws/amazon-ecs-agent/ecs-agent/ec2/mocks"
 	ni "github.com/aws/amazon-ecs-agent/ecs-agent/netlib/model/networkinterface"
 	"github.com/aws/amazon-ecs-agent/ecs-agent/utils/retry"
-	ecsservice "github.com/aws/aws-sdk-go-v2/service/ecs"
-	"github.com/aws/aws-sdk-go-v2/service/ecs/types"
 )
 
 const (
@@ -890,9 +890,9 @@ func TestRegisterBlankCluster(t *testing.T) {
 	tester := setup(t, ctrl, mockEC2Metadata, cfgAccessorOverrideFunc)
 
 	expectedAttributes := map[string]string{
-		"ecs.os-type":   tester.mockCfgAccessor.OSType(),
-		"ecs.os-family": tester.mockCfgAccessor.OSFamily(),
-		"ecs.os-type-detailed":  tester.mockCfgAccessor.OSFamilyDetailed(),
+		"ecs.os-type":          tester.mockCfgAccessor.OSType(),
+		"ecs.os-family":        tester.mockCfgAccessor.OSFamily(),
+		"ecs.os-type-detailed": tester.mockCfgAccessor.OSFamilyDetailed(),
 	}
 	defaultCluster := tester.mockCfgAccessor.DefaultClusterName()
 	gomock.InOrder(
@@ -940,9 +940,9 @@ func TestRegisterBlankClusterNotCreatingClusterWhenErrorNotClusterNotFound(t *te
 	tester := setup(t, ctrl, mockEC2Metadata, cfgAccessorOverrideFunc)
 
 	expectedAttributes := map[string]string{
-		"ecs.os-type":   tester.mockCfgAccessor.OSType(),
-		"ecs.os-family": tester.mockCfgAccessor.OSFamily(),
-		"ecs.os-type-detailed":  tester.mockCfgAccessor.OSFamilyDetailed(),
+		"ecs.os-type":          tester.mockCfgAccessor.OSType(),
+		"ecs.os-family":        tester.mockCfgAccessor.OSFamily(),
+		"ecs.os-type-detailed": tester.mockCfgAccessor.OSFamilyDetailed(),
 	}
 
 	defaultCluster := tester.mockCfgAccessor.DefaultClusterName()
