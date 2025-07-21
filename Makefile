@@ -386,6 +386,13 @@ static-check-init: gocyclo govet importcheck gogenerate-check-init
 goimports:
 	goimports -w $(GOFMTFILES)
 
+.PHONY: gomod
+gomod:
+	cd ./ecs-agent/daemonimages/csidriver && go mod tidy && go mod vendor
+	cd ./ecs-agent && go mod tidy && go mod vendor
+	cd ./agent && go mod tidy && go mod vendor
+	cd ./ecs-init && go mod tidy && go mod vendor
+
 GOPATH=$(shell go env GOPATH)
 
 install-golang:

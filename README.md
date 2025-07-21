@@ -303,6 +303,7 @@ The following targets are available. Each may be run with `make <target>`.
 | `test-in-docker`       | Runs all tests inside a Docker container |
 | `run-integ-tests`      | Runs all integration tests in the `engine` and `stats` packages |
 | `clean`                | Removes build artifacts. *Note: this does not remove Docker images* |
+| `gomod`                | Update go module dependencies in this repository |
 
 
 ## Contributing
