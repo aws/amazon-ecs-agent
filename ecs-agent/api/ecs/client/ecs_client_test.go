@@ -480,6 +480,12 @@ func TestRegisterContainerInstance(t *testing.T) {
 				cfgAccessor.EXPECT().External().Return(true).AnyTimes()
 			},
 		},
+		{
+			name: "empty os detailed attribute",
+			mockCfgAccessorOverride: func(cfgAccessor *mock_config.MockAgentConfigAccessor) {
+				cfgAccessor.EXPECT().OSFamilyDetailed().Return("").AnyTimes()
+			},
+		},
 	}
 
 	for _, tc := range testCases {
@@ -502,12 +508,15 @@ func TestRegisterContainerInstance(t *testing.T) {
 			expectedAttributes := map[string]string{
 				"ecs.os-type":               tester.mockCfgAccessor.OSType(),
 				"ecs.os-family":             tester.mockCfgAccessor.OSFamily(),
-				"ecs.os-type-detailed":      tester.mockCfgAccessor.OSFamilyDetailed(),
 				"my_custom_attribute":       "Custom_Value1",
 				"my_other_custom_attribute": "Custom_Value2",
 				"ecs.availability-zone":     availabilityZone,
 				"ecs.outpost-arn":           outpostARN,
 				cpuArchAttrName:             getCPUArch(),
+			}
+			// Add ecs.os-type-detailed only if OSFamilyDetailed() returns a non-empty value
+			if tester.mockCfgAccessor.OSFamilyDetailed() != "" {
+				expectedAttributes["ecs.os-type-detailed"] = tester.mockCfgAccessor.OSFamilyDetailed()
 			}
 			capabilities := buildAttributeList(fakeCapabilities, nil)
 			platformDevices := []types.PlatformDevice{
@@ -554,12 +563,18 @@ func TestRegisterContainerInstance(t *testing.T) {
 			var expectedNumOfAttributes int
 			if !tester.mockCfgAccessor.External() {
 				// 2 capability attributes: capability1, capability2
-				// and 6 other attributes:
-				// ecs.os-type, ecs.os-family, ecs.os-type-detailed, ecs.outpost-arn, my_custom_attribute, my_other_custom_attribute.
-				expectedNumOfAttributes = 8
+				// Base attributes: ecs.os-type, ecs.os-family, ecs.outpost-arn, my_custom_attribute, my_other_custom_attribute (5)
+				// Plus ecs.os-type-detailed if OSFamilyDetailed() is not empty
+				expectedNumOfAttributes = 7 // 2 capabilities + 5 base attributes
+				if tester.mockCfgAccessor.OSFamilyDetailed() != "" {
+					expectedNumOfAttributes = 8
+				}
 			} else {
 				// One more attribute for external case: ecs.cpu-architecture.
-				expectedNumOfAttributes = 9
+				expectedNumOfAttributes = 8
+				if tester.mockCfgAccessor.OSFamilyDetailed() != "" {
+					expectedNumOfAttributes = 9
+				}
 			}
 
 			gomock.InOrder(
