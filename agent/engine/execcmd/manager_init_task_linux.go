@@ -147,46 +147,44 @@ func formatSSMAgentConfig(sessionLimit int, cfg *config.Config, task *apitask.Ta
 	}
 
 	if useDualStackEndpoints {
-		region := cfg.AWSRegion // Region is guaranteed to exist
-
 		// Resolve SSM Messages endpoint
-		mgsEndpoint, err = endpoints.ResolveSSMMessagesDualStackEndpoint(region)
+		mgsEndpoint, err = endpoints.ResolveSSMMessagesDualStackEndpoint(cfg.AWSRegion)
 		if err != nil {
 			return "", fmt.Errorf("failed to resolve SSM Messages endpoint: %w", err)
 		}
 
 		// Resolve SSM endpoint
-		ssmEndpoint, err = endpoints.ResolveSSMEndpoint(region, true)
+		ssmEndpoint, err = endpoints.ResolveSSMEndpoint(cfg.AWSRegion, true)
 		if err != nil {
 			return "", fmt.Errorf("failed to resolve SSM endpoint: %w", err)
 		}
 
 		// Resolve EC2 Messages endpoint
-		mdsEndpoint, err = endpoints.ResolveEC2MessagesDualStackEndpoint(region)
+		mdsEndpoint, err = endpoints.ResolveEC2MessagesDualStackEndpoint(cfg.AWSRegion)
 		if err != nil {
 			return "", fmt.Errorf("failed to resolve EC2 Messages endpoint: %w", err)
 		}
 
 		// Resolve S3 endpoint
-		s3Endpoint, err = endpoints.ResolveS3Endpoint(region, true)
+		s3Endpoint, err = endpoints.ResolveS3Endpoint(cfg.AWSRegion, true)
 		if err != nil {
 			return "", fmt.Errorf("failed to resolve S3 endpoint: %w", err)
 		}
 
 		// Resolve KMS endpoint
-		kmsEndpoint, err = endpoints.ResolveKMSEndpoint(region, true)
+		kmsEndpoint, err = endpoints.ResolveKMSEndpoint(cfg.AWSRegion, true)
 		if err != nil {
 			return "", fmt.Errorf("failed to resolve KMS endpoint: %w", err)
 		}
 
 		// Resolve CloudWatch Logs endpoint
-		cwlEndpoint, err = endpoints.ResolveCloudWatchLogsEndpoint(region, true)
+		cwlEndpoint, err = endpoints.ResolveCloudWatchLogsEndpoint(cfg.AWSRegion, true)
 		if err != nil {
 			return "", fmt.Errorf("failed to resolve CloudWatch Logs endpoint: %w", err)
 		}
 
 		logger.Info("Using dualstack endpoints for SSM Agent in IPv6-only environment", logger.Fields{
-			"region":      region,
+			"region":      cfg.AWSRegion,
 			"mgsEndpoint": mgsEndpoint,
 			"ssmEndpoint": ssmEndpoint,
 			"mdsEndpoint": mdsEndpoint,
