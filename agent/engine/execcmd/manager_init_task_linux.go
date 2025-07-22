@@ -122,13 +122,15 @@ var GetExecAgentConfigFileName = getAgentConfigFileName
 // formatSSMAgentConfig creates the SSM agent configuration with the appropriate endpoints
 // based on whether we're in an IPv6-only environment
 func formatSSMAgentConfig(sessionLimit int, cfg *config.Config, task *apitask.Task) (string, error) {
-	// Default empty endpoints
-	mgsEndpoint := ""
-	ssmEndpoint := ""
-	mdsEndpoint := ""
-	s3Endpoint := ""
-	kmsEndpoint := ""
-	cwlEndpoint := ""
+	var (
+		mgsEndpoint string
+		ssmEndpoint string
+		mdsEndpoint string
+		s3Endpoint  string
+		kmsEndpoint string
+		cwlEndpoint string
+		err         error
+	)
 
 	// SSM Agent needs to use dualstack endpoints for its dependencies
 	// if the network only supports IPv6.
@@ -148,69 +150,39 @@ func formatSSMAgentConfig(sessionLimit int, cfg *config.Config, task *apitask.Ta
 		region := cfg.AWSRegion // Region is guaranteed to exist
 
 		// Resolve SSM Messages endpoint
-		mgsEndpointResolved, err := endpoints.ResolveSSMMessagesDualStackEndpoint(region)
+		mgsEndpoint, err = endpoints.ResolveSSMMessagesDualStackEndpoint(region)
 		if err != nil {
-			logger.Warn("Failed to resolve dualstack endpoint for SSM Messages", logger.Fields{
-				"region": region,
-				"error":  err,
-			})
-		} else {
-			mgsEndpoint = mgsEndpointResolved
+			return "", fmt.Errorf("failed to resolve SSM Messages endpoint: %w", err)
 		}
 
 		// Resolve SSM endpoint
-		ssmEndpointResolved, err := endpoints.ResolveSSMEndpoint(region, true)
+		ssmEndpoint, err = endpoints.ResolveSSMEndpoint(region, true)
 		if err != nil {
-			logger.Warn("Failed to resolve dualstack endpoint for SSM", logger.Fields{
-				"region": region,
-				"error":  err,
-			})
-		} else {
-			ssmEndpoint = ssmEndpointResolved
+			return "", fmt.Errorf("failed to resolve SSM endpoint: %w", err)
 		}
 
 		// Resolve EC2 Messages endpoint
-		mdsEndpointResolved, err := endpoints.ResolveEC2MessagesDualStackEndpoint(region)
+		mdsEndpoint, err = endpoints.ResolveEC2MessagesDualStackEndpoint(region)
 		if err != nil {
-			logger.Warn("Failed to resolve dualstack endpoint for EC2 Messages", logger.Fields{
-				"region": region,
-				"error":  err,
-			})
-		} else {
-			mdsEndpoint = mdsEndpointResolved
+			return "", fmt.Errorf("failed to resolve EC2 Messages endpoint: %w", err)
 		}
 
 		// Resolve S3 endpoint
-		s3EndpointResolved, err := endpoints.ResolveS3Endpoint(region, true)
+		s3Endpoint, err = endpoints.ResolveS3Endpoint(region, true)
 		if err != nil {
-			logger.Warn("Failed to resolve dualstack endpoint for S3", logger.Fields{
-				"region": region,
-				"error":  err,
-			})
-		} else {
-			s3Endpoint = s3EndpointResolved
+			return "", fmt.Errorf("failed to resolve S3 endpoint: %w", err)
 		}
 
 		// Resolve KMS endpoint
-		kmsEndpointResolved, err := endpoints.ResolveKMSEndpoint(region, true)
+		kmsEndpoint, err = endpoints.ResolveKMSEndpoint(region, true)
 		if err != nil {
-			logger.Warn("Failed to resolve dualstack endpoint for KMS", logger.Fields{
-				"region": region,
-				"error":  err,
-			})
-		} else {
-			kmsEndpoint = kmsEndpointResolved
+			return "", fmt.Errorf("failed to resolve KMS endpoint: %w", err)
 		}
 
 		// Resolve CloudWatch Logs endpoint
-		cwlEndpointResolved, err := endpoints.ResolveCloudWatchLogsEndpoint(region, true)
+		cwlEndpoint, err = endpoints.ResolveCloudWatchLogsEndpoint(region, true)
 		if err != nil {
-			logger.Warn("Failed to resolve dualstack endpoint for CloudWatch Logs", logger.Fields{
-				"region": region,
-				"error":  err,
-			})
-		} else {
-			cwlEndpoint = cwlEndpointResolved
+			return "", fmt.Errorf("failed to resolve CloudWatch Logs endpoint: %w", err)
 		}
 
 		logger.Info("Using dualstack endpoints for SSM Agent in IPv6-only environment", logger.Fields{

@@ -538,6 +538,9 @@ func TestFormatSSMAgentConfig(t *testing.T) {
 	bridgeTask := &apitask.Task{
 		NetworkMode: apitask.BridgeNetworkMode,
 	}
+	taskWithoutENI := &apitask.Task{
+		NetworkMode: apitask.AWSVPCNetworkMode,
+	}
 
 	expectedDualstackEndpointsIAD := expectedEndpoints{
 		mgs:        "https://ssmmessages.us-east-1.api.aws",
@@ -554,7 +557,7 @@ func TestFormatSSMAgentConfig(t *testing.T) {
 		cfg               *config.Config
 		task              *apitask.Task
 		expectedEndpoints expectedEndpoints
-		expectError       bool
+		expectedError     string
 	}{
 		{
 			name:         "non-IPv6-only environment with bridge mode task",
@@ -563,8 +566,7 @@ func TestFormatSSMAgentConfig(t *testing.T) {
 				InstanceIPCompatibility: ipcompatibility.NewIPv4OnlyCompatibility(),
 				AWSRegion:               "us-west-2",
 			},
-			task:        bridgeTask,
-			expectError: false,
+			task: bridgeTask,
 		},
 		{
 			name:         "IPv6-only environment with bridge mode task",
@@ -574,7 +576,6 @@ func TestFormatSSMAgentConfig(t *testing.T) {
 				AWSRegion:               "us-east-1",
 			},
 			task:              bridgeTask,
-			expectError:       false,
 			expectedEndpoints: expectedDualstackEndpointsIAD,
 		},
 		{
@@ -585,7 +586,6 @@ func TestFormatSSMAgentConfig(t *testing.T) {
 				AWSRegion:               "us-east-1",
 			},
 			task:              ipv6OnlyTask,
-			expectError:       false,
 			expectedEndpoints: expectedDualstackEndpointsIAD,
 		},
 		{
@@ -595,8 +595,27 @@ func TestFormatSSMAgentConfig(t *testing.T) {
 				InstanceIPCompatibility: ipcompatibility.NewIPv6OnlyCompatibility(),
 				AWSRegion:               "us-east-1",
 			},
-			task:        dualStackTask,
-			expectError: false,
+			task: dualStackTask,
+		},
+		{
+			name:         "AWSVPC task without ENI",
+			sessionLimit: 5,
+			cfg: &config.Config{
+				InstanceIPCompatibility: ipcompatibility.NewIPv4OnlyCompatibility(),
+				AWSRegion:               "us-west-2",
+			},
+			task:          taskWithoutENI,
+			expectedError: "awsvpc mode task does not have a primary ENI",
+		},
+		{
+			name:         "Invalid region causes endpoint resolution failure",
+			sessionLimit: 5,
+			cfg: &config.Config{
+				InstanceIPCompatibility: ipcompatibility.NewIPv6OnlyCompatibility(),
+				AWSRegion:               "", // Empty region will cause endpoint resolution to fail
+			},
+			task:          bridgeTask,
+			expectedError: "failed to resolve SSM Messages endpoint: region is required to resolve ssmmessages dual stack endpoint",
 		},
 	}
 
@@ -604,8 +623,8 @@ func TestFormatSSMAgentConfig(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			result, err := formatSSMAgentConfig(tc.sessionLimit, tc.cfg, tc.task)
 
-			if tc.expectError {
-				assert.Error(t, err)
+			if tc.expectedError != "" {
+				assert.EqualError(t, err, tc.expectedError)
 				return
 			}
 
