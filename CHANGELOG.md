@@ -1,4 +1,15 @@
 # Changelog
+# 1.97.0
+* Enhancement - Bump github.com/aws/aws-sdk-go-v2/service/ssm to 1.60.0 in /agent [#4704](https://github.com/aws/amazon-ecs-agent/pull/4704)
+* Enhancement - Add Exponential/Backoff retry to GetResourceTags [#4710](https://github.com/aws/amazon-ecs-agent/pull/4710)
+* Enhancement - Add detailed OS family value to HTTPClient User Agent header [#4705](https://github.com/aws/amazon-ecs-agent/pull/4705)
+* Enhancement - Bump github.com/aws/aws-sdk-go-v2/service/ecr to 1.45.1 in /agent [#4713](https://github.com/aws/amazon-ecs-agent/pull/4713)
+* Enhancement - Fixed "unrecognized formatter" error by registering custom log formatter before loading seelog configuration [#4718](https://github.com/aws/amazon-ecs-agent/pull/4718)
+* Enhancement - Update aws-sdk-go-v2 to 1.36.6 [#4723](https://github.com/aws/amazon-ecs-agent/pull/4723)
+* Enhancement - Add eusc-de-east-1 to unresolved regions for CW logs endpoint [#4725](https://github.com/aws/amazon-ecs-agent/pull/4725)
+* Enhancement - Restrict introspection server access to local network by default [#4706](https://github.com/aws/amazon-ecs-agent/pull/4706)
+* Enhancement - Update Go version to 1.23.11 [#4728](https://github.com/aws/amazon-ecs-agent/pull/4728)
+
 # 1.96.0
 * Feature - Support ECS Firelens non-root user mode [#4697](https://github.com/aws/amazon-ecs-agent/pull/4697)
 * Enhancement - Consume dns server from payload [#4668](https://github.com/aws/amazon-ecs-agent/pull/4668)
