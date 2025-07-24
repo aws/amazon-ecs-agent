@@ -576,7 +576,7 @@ func setupGMSA(cfg *config.Config, state dockerstate.TaskEngineState, t *testing
 
 	taskEngine := NewDockerTaskEngine(cfg, dockerClient, credentialsManager,
 		eventstream.NewEventStream("ENGINEINTEGTEST", context.Background()), imageManager, &hostResourceManager, state, metadataManager,
-		resourceFields, execcmd.NewManager(), engineserviceconnect.NewManager(), getTestDaemonManagers())
+		resourceFields, execcmd.NewManager(cfg), engineserviceconnect.NewManager(), getTestDaemonManagers())
 	taskEngine.MustInit(context.TODO())
 	return taskEngine, func() {
 		taskEngine.Shutdown()
@@ -814,7 +814,7 @@ func setupEngineForExecCommandAgent(t *testing.T, hostBinDir string) (TaskEngine
 	imageManager := NewImageManager(cfg, dockerClient, state)
 	imageManager.SetDataClient(data.NewNoopClient())
 	metadataManager := containermetadata.NewManager(dockerClient, cfg)
-	execCmdMgr := execcmd.NewManagerWithBinDir(hostBinDir)
+	execCmdMgr := execcmd.NewManagerWithBinDir(hostBinDir, cfg)
 	hostResources := getTestHostResources()
 	hostResourceManager := NewHostResourceManager(hostResources)
 
