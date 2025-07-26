@@ -46,7 +46,7 @@ type NetworkInterface struct {
 	// SubnetGatewayIPV4Address is the IPv4 address of the subnet gateway of the NetworkInterface
 	SubnetGatewayIPV4Address string `json:",omitempty"`
 	// SubnetGatewayIPV6Address is the IPv6 address of the subnet gateway of the NetworkInterface
-	SubnetGatewayIPV6Address string `json:",omitempty`
+	SubnetGatewayIPV6Address string `json:",omitempty"`
 	// DomainNameServers specifies the nameserver IP addresses for the eni
 	DomainNameServers []string `json:",omitempty"`
 	// DomainNameSearchList specifies the search list for the domain
