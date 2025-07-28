@@ -296,7 +296,7 @@ func TestExecCommandAgent(t *testing.T) {
 
 	testExecCmdHostBinDir := "/managed-agents/execute-command/bin"
 
-	taskEngine, done, _ := setupEngineForExecCommandAgent(t, testExecCmdHostBinDir)
+	taskEngine, done, _, cfg := setupEngineForExecCommandAgent(t, testExecCmdHostBinDir)
 	stateChangeEvents := taskEngine.StateChangeEvents()
 	defer done()
 
@@ -323,7 +323,7 @@ func TestExecCommandAgent(t *testing.T) {
 	cid := containerMap[testTask.Containers[0].Name].DockerID
 
 	// session limit is 2
-	testConfigFileName, _ := execcmd.GetExecAgentConfigFileName(2)
+	testConfigFileName, _ := execcmd.GetExecAgentConfigFileName(2, cfg, testTask)
 	testLogConfigFileName, _ := execcmd.GetExecAgentLogConfigFile()
 	verifyExecCmdAgentExpectedMounts(t, ctx, client, testTaskId, cid, testContainerName, testExecCmdHostBinDir+"/1.0.0.0", testConfigFileName, testLogConfigFileName)
 	pidA := verifyMockExecCommandAgentIsRunning(t, client, cid)
@@ -391,7 +391,7 @@ func TestManagedAgentEvent(t *testing.T) {
 
 			testExecCmdHostBinDir := "/managed-agents/execute-command/bin"
 
-			taskEngine, done, _ := setupEngineForExecCommandAgent(t, testExecCmdHostBinDir)
+			taskEngine, done, _, _ := setupEngineForExecCommandAgent(t, testExecCmdHostBinDir)
 			defer done()
 
 			testTask := createTestExecCommandAgentTask(testTaskId, testContainerName, time.Minute*tc.ManagedAgentLifetime)
@@ -448,7 +448,9 @@ func createTestExecCommandAgentTask(taskId, containerName string, sleepFor time.
 // setupEngineForExecCommandAgent creates a new TaskEngine with a custom execcmd.Manager that will attempt to read the
 // host binaries from the directory passed as parameter (as opposed to the default directory).
 // Additionally, it overrides the engine's monitorExecAgentsInterval to one second.
-func setupEngineForExecCommandAgent(t *testing.T, hostBinDir string) (TaskEngine, func(), credentials.Manager) {
+func setupEngineForExecCommandAgent(
+	t *testing.T, hostBinDir string,
+) (TaskEngine, func(), credentials.Manager, *config.Config) {
 	ctx, cancel := context.WithCancel(context.TODO())
 	defer cancel()
 
@@ -465,7 +467,7 @@ func setupEngineForExecCommandAgent(t *testing.T, hostBinDir string) (TaskEngine
 	imageManager := NewImageManager(cfg, dockerClient, state)
 	imageManager.SetDataClient(data.NewNoopClient())
 	metadataManager := containermetadata.NewManager(dockerClient, cfg)
-	execCmdMgr := execcmd.NewManagerWithBinDir(hostBinDir)
+	execCmdMgr := execcmd.NewManagerWithBinDir(hostBinDir, cfg)
 	hostResources := getTestHostResources()
 	hostResourceManager := NewHostResourceManager(hostResources)
 	daemonManagers := getTestDaemonManagers()
@@ -477,7 +479,7 @@ func setupEngineForExecCommandAgent(t *testing.T, hostBinDir string) (TaskEngine
 	taskEngine.MustInit(context.TODO())
 	return taskEngine, func() {
 		taskEngine.Shutdown()
-	}, credentialsManager
+	}, credentialsManager, cfg
 }
 
 const (

@@ -467,7 +467,7 @@ func TestRestartAgentIfStopped(t *testing.T) {
 }
 
 func newTestManager() *manager {
-	m := NewManager()
+	m := NewManager(nil)
 	m.retryMaxDelay = time.Millisecond * 30
 	m.retryMinDelay = time.Millisecond * 1
 	m.startRetryTimeout = time.Second * 2
