@@ -17,7 +17,10 @@
 package config
 
 import (
+	"bufio"
 	"errors"
+	"fmt"
+	"io"
 	"io/fs"
 	"os"
 	"strconv"
@@ -29,6 +32,8 @@ import (
 
 const (
 	osFamilyEnvVar = "ECS_DETAILED_OS_FAMILY"
+	unsupportedOSFamily = "linux"
+	osReleaseFilePath   = "/etc/os-release"
 )
 
 func parseGMSACapability() BooleanDefaultFalse {
@@ -117,10 +122,19 @@ func GetOSFamily() string {
 }
 
 // GetDetailedOSFamily returns the operating system family for linux based ecs instances.
-// it first checks the ECS_DETAILED_OS_FAMILY environment variable set by ecs-init, and falls back to "LINUX" if not set
+// it first checks the ECS_DETAILED_OS_FAMILY environment variable set by ecs-init, and falls back to parsing /etc/os-release directly if not set
 func GetDetailedOSFamily() string {
 	detailedOSFamily, ok := os.LookupEnv(osFamilyEnvVar)
 	if !ok {
+		// Fallback: call ecs-init parsing logic directly when environment variable is not set
+		seelog.Debug("ECS_DETAILED_OS_FAMILY environment variable not set, calling ecs-init parsing logic directly")
+		if parsedFamily := callEcsInitOSFamilyParser(); parsedFamily != "" && parsedFamily != "linux" {
+			seelog.Infof("Parsed detailed OS family using ecs-init logic: %s", parsedFamily)
+			// Set the environment variable for future calls
+			os.Setenv(osFamilyEnvVar, parsedFamily)
+			return parsedFamily
+		}
+		seelog.Warn("Failed to parse detailed OS family using ecs-init logic, falling back to LINUX")
 		return strings.ToUpper(OSType)
 	}
 	return detailedOSFamily
@@ -148,4 +162,65 @@ func parseTaskPidsLimit() int {
 	}
 
 	return taskPidsLimit
+}
+
+// callEcsInitOSFamilyParser calls the same OS family parsing logic used by ecs-init
+// This is a fallback when the ECS_DETAILED_OS_FAMILY environment variable is not set
+func callEcsInitOSFamilyParser() string {
+	file, err := os.Open(osReleaseFilePath)
+	if err != nil {
+		seelog.Errorf("failed to read file %s: %v", osReleaseFilePath, err)
+		return unsupportedOSFamily
+	}
+	defer file.Close()
+
+	return getLinuxOSFamilyFromReader(file)
+}
+
+// getLinuxOSFamilyFromReader parses OS family from an io.Reader using ecs-init logic
+func getLinuxOSFamilyFromReader(reader io.Reader) string {
+	id, versionID, err := parseOSReleaseFromReader(reader)
+	if err != nil {
+		seelog.Errorf("error parsing os-release content: %v", err)
+		return unsupportedOSFamily
+	}
+
+	if id == "" {
+		seelog.Error("could not determine OS ID from os-release")
+		return unsupportedOSFamily
+	}
+
+	if versionID == "" {
+		seelog.Error("could not determine VERSION_ID from os-release")
+		return unsupportedOSFamily
+	}
+
+	osFamily := fmt.Sprintf("%s_%s", id, versionID)
+	seelog.Infof("Operating system family is: %s", osFamily)
+	return osFamily
+}
+
+// parseOSReleaseFromReader parses os-release content from an io.Reader and extracts ID and VERSION_ID
+// See https://man7.org/linux/man-pages/man5/os-release.5.html for information about the os-release file format
+func parseOSReleaseFromReader(reader io.Reader) (string, string, error) {
+	var id, versionID string
+	scanner := bufio.NewScanner(reader)
+
+	for scanner.Scan() {
+		line := scanner.Text()
+		if strings.HasPrefix(line, "ID=") {
+			id = parseOSReleaseValue(strings.TrimPrefix(line, "ID="))
+		}
+		if strings.HasPrefix(line, "VERSION_ID=") {
+			versionID = parseOSReleaseValue(strings.TrimPrefix(line, "VERSION_ID="))
+		}
+	}
+
+	return id, versionID, scanner.Err()
+}
+
+// parseOSReleaseValue parses a value from /etc/os-release by trimming whitespace and removing quotation marks
+func parseOSReleaseValue(value string) string {
+	value = strings.TrimSpace(value)
+	return strings.Trim(value, `"'`)
 }

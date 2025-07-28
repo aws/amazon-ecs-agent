@@ -127,7 +127,14 @@ func TestGetDetailedOSFamilyWithEmptyValue(t *testing.T) {
 func TestGetDetailedOSFamilyNotSet(t *testing.T) {
 	result := GetDetailedOSFamily()
 
-	assert.Equal(t, "LINUX", result)
+	// Should automatically parse the OS family instead of falling back to "LINUX"
+	assert.NotEqual(t, "LINUX", result)
+	assert.NotEmpty(t, result)
+	// On Amazon Linux 2, it should return "amzn_2"
+	if result != "amzn_2" {
+		// If not on Amazon Linux 2, it should still be a valid OS family format
+		assert.Contains(t, result, "_")
+	}
 }
 
 // verifies that GetOSFamily() always returns "LINUX"
