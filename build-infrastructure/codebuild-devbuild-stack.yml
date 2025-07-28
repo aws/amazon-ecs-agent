@@ -34,7 +34,7 @@ Resources:
       ConcurrentBuildLimit: 10
       Description: A CodeBuild project to build artifacts (AMD/x86_64). Builds are triggered by PR creation, updates, and merges, and artifacts are saved in S3
       Environment:
-        ComputeType: BUILD_GENERAL1_SMALL
+        ComputeType: BUILD_GENERAL1_MEDIUM
         Image: 'public.ecr.aws/lts/ubuntu:20.04'
         ImagePullCredentialsType: CODEBUILD
         PrivilegedMode: false
@@ -63,7 +63,7 @@ Resources:
       ConcurrentBuildLimit: 10
       Description: A CodeBuild project to build artifacts (ARM). Builds are triggered by PR creation, updates, and merges, and artifacts are saved in S3
       Environment:
-        ComputeType: BUILD_GENERAL1_SMALL
+        ComputeType: BUILD_GENERAL1_MEDIUM
         Image: 'public.ecr.aws/lts/ubuntu:20.04'
         ImagePullCredentialsType: CODEBUILD
         PrivilegedMode: false
@@ -92,7 +92,7 @@ Resources:
       ConcurrentBuildLimit: 10
       Description: A CodeBuild project to build artifacts (ARM). Builds are triggered by PR creation, updates, and merges, and artifacts are saved in S3
       Environment:
-        ComputeType: BUILD_GENERAL1_SMALL
+        ComputeType: BUILD_GENERAL1_MEDIUM
         Image: 'aws/codebuild/amazonlinux2-aarch64-standard:3.0'
         ImagePullCredentialsType: CODEBUILD
         PrivilegedMode: true
@@ -121,7 +121,7 @@ Resources:
       ConcurrentBuildLimit: 10
       Description: A CodeBuild project to build artifacts (AMD/x86_64). Builds are triggered by PR creation, updates, and merges, and artifacts are saved in S3
       Environment:
-        ComputeType: BUILD_GENERAL1_SMALL
+        ComputeType: BUILD_GENERAL1_MEDIUM
         Image: 'aws/codebuild/amazonlinux2-x86_64-standard:5.0'
         ImagePullCredentialsType: CODEBUILD
         PrivilegedMode: true
@@ -136,7 +136,7 @@ Resources:
       TimeoutInMinutes: 60
       Visibility: PRIVATE
 
-  # Creates a CodeBuild project for Amazon Linux 2 ARM    
+  # Creates a CodeBuild project for Amazon Linux 2 ARM
   Amzn2ArmProject:
     Type: 'AWS::CodeBuild::Project'
     Properties:
@@ -152,7 +152,7 @@ Resources:
       ConcurrentBuildLimit: 10
       Description: A CodeBuild project to build artifacts (ARM) on Amazon Linux 2. Builds are triggered by PR creation, updates, and merges, and artifacts are saved in S3.
       Environment:
-        ComputeType: BUILD_GENERAL1_SMALL
+        ComputeType: BUILD_GENERAL1_MEDIUM
         Image: 'aws/codebuild/amazonlinux2-aarch64-standard:2.0'
         ImagePullCredentialsType: CODEBUILD
         PrivilegedMode: true
@@ -183,7 +183,7 @@ Resources:
       ConcurrentBuildLimit: 10
       Description: A CodeBuild project to build artifacts (AMD/x86_64) on Amazon Linux 2. Builds are triggered by PR creation, updates, and merges, and artifacts are saved in S3.
       Environment:
-        ComputeType: BUILD_GENERAL1_SMALL
+        ComputeType: BUILD_GENERAL1_MEDIUM
         Image: 'aws/codebuild/amazonlinux2-x86_64-standard:4.0'
         ImagePullCredentialsType: CODEBUILD
         PrivilegedMode: true
@@ -214,7 +214,7 @@ Resources:
       ConcurrentBuildLimit: 10
       Description: A CodeBuild project to build artifacts (ARM) on Amazon-Linux 2023. Builds are triggered by PR creation, updates, and merges, and artifacts are saved in S3.
       Environment:
-        ComputeType: BUILD_GENERAL1_SMALL
+        ComputeType: BUILD_GENERAL1_MEDIUM
         Image: 'aws/codebuild/amazonlinux2-aarch64-standard:3.0'
         ImagePullCredentialsType: CODEBUILD
         PrivilegedMode: true
@@ -245,7 +245,7 @@ Resources:
       ConcurrentBuildLimit: 10
       Description: A CodeBuild project to build artifacts (AMD/x86_64) on Amazon-Linux 2023. Builds are triggered by PR creation, updates, and merges, and artifacts are saved in S3.
       Environment:
-        ComputeType: BUILD_GENERAL1_SMALL
+        ComputeType: BUILD_GENERAL1_MEDIUM
         Image: 'aws/codebuild/amazonlinux2-x86_64-standard:5.0'
         ImagePullCredentialsType: CODEBUILD
         PrivilegedMode: true
@@ -258,8 +258,8 @@ Resources:
         Location: !Ref GithubFullRepoName
         Type: GITHUB
       TimeoutInMinutes: 60
-      Visibility: PRIVATE     
-  
+      Visibility: PRIVATE
+
   # Defines the service roles for the CodeBuild projects
   ServiceRoleAmd:
     Type: 'AWS::IAM::Role'
@@ -303,7 +303,7 @@ Resources:
                   - 's3:GetBucketAcl'
                   - 's3:GetBucketLocation'
           PolicyName: !Sub '${AWS::StackName}-ServicePolicyAmd'
-      RoleName: !Sub '${AWS::StackName}-ServiceRoleAmd'   
+      RoleName: !Sub '${AWS::StackName}-ServiceRoleAmd'
   ServiceRoleUbuntuAmd:
     Type: 'AWS::IAM::Role'
     Properties:
@@ -432,7 +432,7 @@ Resources:
                   - 's3:GetBucketAcl'
                   - 's3:GetBucketLocation'
           PolicyName: !Sub '${AWS::StackName}-ServicePolicyUbuntuArm'
-      RoleName: !Sub '${AWS::StackName}-ServiceRoleUbuntuArm'   
+      RoleName: !Sub '${AWS::StackName}-ServiceRoleUbuntuArm'
   ServiceRoleAmzn2Arm:
     Type: 'AWS::IAM::Role'
     Properties:
