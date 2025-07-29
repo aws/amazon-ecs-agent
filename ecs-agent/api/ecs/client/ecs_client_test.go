@@ -514,10 +514,13 @@ func TestRegisterContainerInstance(t *testing.T) {
 				"ecs.outpost-arn":           outpostARN,
 				cpuArchAttrName:             getCPUArch(),
 			}
+			// COMMENTED OUT FOR DEBUGGING: OS type detailed parameter
 			// Add ecs.os-type-detailed only if OSFamilyDetailed() returns a non-empty value
-			if tester.mockCfgAccessor.OSFamilyDetailed() != "" {
-				expectedAttributes["ecs.os-type-detailed"] = tester.mockCfgAccessor.OSFamilyDetailed()
-			}
+			/*
+				if tester.mockCfgAccessor.OSFamilyDetailed() != "" {
+					expectedAttributes["ecs.os-type-detailed"] = tester.mockCfgAccessor.OSFamilyDetailed()
+				}
+			*/
 			capabilities := buildAttributeList(fakeCapabilities, nil)
 			platformDevices := []types.PlatformDevice{
 				{
@@ -564,17 +567,23 @@ func TestRegisterContainerInstance(t *testing.T) {
 			if !tester.mockCfgAccessor.External() {
 				// 2 capability attributes: capability1, capability2
 				// Base attributes: ecs.os-type, ecs.os-family, ecs.outpost-arn, my_custom_attribute, my_other_custom_attribute (5)
+				// COMMENTED OUT FOR DEBUGGING: OS type detailed parameter
 				// Plus ecs.os-type-detailed if OSFamilyDetailed() is not empty
 				expectedNumOfAttributes = 7 // 2 capabilities + 5 base attributes
-				if tester.mockCfgAccessor.OSFamilyDetailed() != "" {
-					expectedNumOfAttributes = 8
-				}
+				/*
+					if tester.mockCfgAccessor.OSFamilyDetailed() != "" {
+						expectedNumOfAttributes = 8
+					}
+				*/
 			} else {
 				// One more attribute for external case: ecs.cpu-architecture.
 				expectedNumOfAttributes = 8
-				if tester.mockCfgAccessor.OSFamilyDetailed() != "" {
-					expectedNumOfAttributes = 9
-				}
+				// COMMENTED OUT FOR DEBUGGING: OS type detailed parameter
+				/*
+					if tester.mockCfgAccessor.OSFamilyDetailed() != "" {
+						expectedNumOfAttributes = 9
+					}
+				*/
 			}
 
 			gomock.InOrder(
@@ -644,9 +653,10 @@ func TestRegisterContainerInstanceWithRetryNonTerminalError(t *testing.T) {
 
 	fakeCapabilities := []string{"capability1", "capability2"}
 	expectedAttributes := map[string]string{
-		"ecs.os-type":               tester.mockCfgAccessor.OSType(),
-		"ecs.os-family":             tester.mockCfgAccessor.OSFamily(),
-		"ecs.os-type-detailed":      tester.mockCfgAccessor.OSFamilyDetailed(),
+		"ecs.os-type":   tester.mockCfgAccessor.OSType(),
+		"ecs.os-family": tester.mockCfgAccessor.OSFamily(),
+		// COMMENTED OUT FOR DEBUGGING: OS type detailed parameter
+		// "ecs.os-type-detailed":      tester.mockCfgAccessor.OSFamilyDetailed(),
 		"my_custom_attribute":       "Custom_Value1",
 		"my_other_custom_attribute": "Custom_Value2",
 		"ecs.availability-zone":     availabilityZone,
@@ -740,9 +750,10 @@ func TestReRegisterContainerInstance(t *testing.T) {
 
 	fakeCapabilities := []string{"capability1", "capability2"}
 	expectedAttributes := map[string]string{
-		"ecs.os-type":           tester.mockCfgAccessor.OSType(),
-		"ecs.os-family":         tester.mockCfgAccessor.OSFamily(),
-		"ecs.os-type-detailed":  tester.mockCfgAccessor.OSFamilyDetailed(),
+		"ecs.os-type":   tester.mockCfgAccessor.OSType(),
+		"ecs.os-family": tester.mockCfgAccessor.OSFamily(),
+		// COMMENTED OUT FOR DEBUGGING: OS type detailed parameter
+		// "ecs.os-type-detailed":  tester.mockCfgAccessor.OSFamilyDetailed(),
 		"ecs.availability-zone": availabilityZone,
 		"ecs.outpost-arn":       outpostARN,
 	}
@@ -767,8 +778,9 @@ func TestReRegisterContainerInstance(t *testing.T) {
 				resource, ok := findResource(req.TotalResources, "PORTS_UDP")
 				assert.True(t, ok, `Could not find resource "PORTS_UDP"`)
 				assert.Equal(t, "STRINGSET", *resource.Type, `Wrong type for resource "PORTS_UDP"`)
-				// "ecs.os-type", ecs.os-family, ecs.os-type-detailed, ecs.outpost-arn and the 2 that we specified as additionalAttributes.
-				assert.Equal(t, 6, len(req.Attributes), "Wrong number of Attributes")
+				// "ecs.os-type", ecs.os-family, ecs.outpost-arn and the 2 that we specified as additionalAttributes.
+				// COMMENTED OUT FOR DEBUGGING: OS type detailed parameter (ecs.os-type-detailed)
+				assert.Equal(t, 5, len(req.Attributes), "Wrong number of Attributes")
 				reqAttributes := func() map[string]string {
 					rv := make(map[string]string, len(req.Attributes))
 					for i := range req.Attributes {

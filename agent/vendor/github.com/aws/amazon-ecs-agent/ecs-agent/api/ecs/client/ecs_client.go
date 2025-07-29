@@ -572,12 +572,12 @@ func (client *ecsClient) getAdditionalAttributes() []types.Attribute {
 	// to API call.
 	// COMMENTED OUT FOR DEBUGGING: OS type detailed parameter
 	/*
-	if client.configAccessor.OSFamilyDetailed() != "" {
-		attrs = append(attrs, types.Attribute{
-			Name:  aws.String(osTypeDetailedAttrName),
-			Value: aws.String(client.configAccessor.OSFamilyDetailed()),
-		})
-	}
+		if client.configAccessor.OSFamilyDetailed() != "" {
+			attrs = append(attrs, types.Attribute{
+				Name:  aws.String(osTypeDetailedAttrName),
+				Value: aws.String(client.configAccessor.OSFamilyDetailed()),
+			})
+		}
 	*/
 
 	// Send CPU arch attribute directly when running on external capacity. When running on EC2 or Fargate launch type,
