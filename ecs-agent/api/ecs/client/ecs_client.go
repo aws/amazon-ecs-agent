@@ -570,12 +570,15 @@ func (client *ecsClient) getAdditionalAttributes() []types.Attribute {
 	// OSFamilyDetailed should be treated as an optional field as it is not applicable for all agents
 	// using ecs client shared library. Add a check to ensure only non-empty values are added
 	// to API call.
+	// COMMENTED OUT FOR DEBUGGING: OS type detailed parameter
+	/*
 	if client.configAccessor.OSFamilyDetailed() != "" {
 		attrs = append(attrs, types.Attribute{
 			Name:  aws.String(osTypeDetailedAttrName),
 			Value: aws.String(client.configAccessor.OSFamilyDetailed()),
 		})
 	}
+	*/
 
 	// Send CPU arch attribute directly when running on external capacity. When running on EC2 or Fargate launch type,
 	// this is not needed since the CPU arch is reported via instance identity document in those cases.
