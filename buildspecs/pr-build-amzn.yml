@@ -49,23 +49,20 @@ phases:
       # Need to install GOLANG explicitly as required versions do not come preinstalled
       # Remove existing go installation (goenv utility)
       - sudo rm -rf /root/.goenv
-      - sudo rm -rf /usr/local/go/bin/go 
+      - sudo rm -rf /usr/local/go/bin/go
 
-      # Define the Go version to install
-      - GOVERSION="$(cat GO_VERSION)"
-      
       # Install Go and define variables based on Amazon Linux version (2 or 2023)
       # Amazon Linux 2023 uses package manager DNF, while older versions use YUM
       # Set the appropriate AL23 version echo string to include in build log
       - |
         if [[ "$amzn_version" = "amzn2023" ]]; then
           sudo dnf --releasever="$AL23_VERSION" update -y
-          sudo dnf install -y golang-$GOVERSION
+          sudo dnf install -y golang
           echo "Amazon Linux 2023 Version: $AL23_VERSION" 2>&1 | tee -a $BUILD_LOG
-          
+
         elif [[ "$amzn_version" = "amzn2" ]]; then
-          sudo yum install -y golang-$GOVERSION
-          
+          sudo yum install -y golang
+
         else
           echo "Unsupported Amazon Linux version"
           exit 1
@@ -74,10 +71,10 @@ phases:
       # Define the log file with AL version (amzn2 or amzn23) and the architecture
       - BUILD_LOG="build_${amzn_version}_${architecture}.log"
 
-      # Print all environment variables to the log file 
+      # Print all environment variables to the log file
       - which go | tee -a $BUILD_LOG
       - go version | tee -a $BUILD_LOG
-      
+
   build:
     commands:
       # Print the current working directory to the log file
@@ -108,7 +105,7 @@ phases:
           AMZN_LINUX_RPM="ecs-init-${AGENT_VERSION}-1.${amzn_version}.aarch64.rpm"
         fi
 
-      # List directory files to view artifacts in build log 
+      # List directory files to view artifacts in build log
       - ls
 
   post_build:
