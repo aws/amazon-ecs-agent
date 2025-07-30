@@ -567,6 +567,10 @@ func (client *ecsClient) getAdditionalAttributes() []types.Attribute {
 		})
 	}
 
+	logger.Info("Attempt to print OSFamilyDetailed", logger.Fields{
+		"value": client.configAccessor.OSFamilyDetailed(),
+	})
+
 	// OSFamilyDetailed should be treated as an optional field as it is not applicable for all agents
 	// using ecs client shared library. Add a check to ensure only non-empty values are added
 	// to API call.

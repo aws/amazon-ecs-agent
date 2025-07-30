@@ -29,6 +29,7 @@ const (
 )
 
 func GetLinuxOSFamily() string {
+	seelog.Info("Called GetLinuxOSFamily")
 	file, err := os.Open(osReleaseFilePath)
 	if err != nil {
 		seelog.Errorf("failed to read file %s: %v", osReleaseFilePath, err)
@@ -40,6 +41,7 @@ func GetLinuxOSFamily() string {
 }
 
 func getLinuxOSFamilyFromReader(reader io.Reader) string {
+	seelog.Info("Called getLinuxOSFamilyFromReader")
 	id, versionID, err := parseOSReleaseFromReader(reader)
 	if err != nil {
 		seelog.Errorf("error parsing os-release content: %v", err)
