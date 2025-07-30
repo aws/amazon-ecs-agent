@@ -608,6 +608,7 @@ func environmentConfig() (Config, error) {
 		DynamicHostPortRange:                parseDynamicHostPortRange("ECS_DYNAMIC_HOST_PORT_RANGE"),
 		TaskPidsLimit:                       parseTaskPidsLimit(),
 		FirelensAsyncEnabled:                parseBooleanDefaultTrueConfig("ECS_ENABLE_FIRELENS_ASYNC"),
+		OsTypeDetailed:                      os.Getenv("ECS_DETAILED_OS_FAMILY"),
 	}, err
 }
 

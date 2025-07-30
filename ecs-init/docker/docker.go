@@ -372,6 +372,7 @@ func (c *client) getContainerConfig(envVarsFromFiles map[string]string) *godocke
 	for envKey, envValue := range envVariables {
 		env = append(env, envKey+"="+envValue)
 	}
+	log.Info("Expected env values: %v", env)
 	cfg := &godocker.Config{
 		Env:   env,
 		Image: config.AgentImageName,
