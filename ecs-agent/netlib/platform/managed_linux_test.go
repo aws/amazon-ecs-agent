@@ -17,14 +17,20 @@
 package platform
 
 import (
+	"context"
 	"fmt"
 	"net"
+	"path/filepath"
 	"testing"
 
 	mock_ec2 "github.com/aws/amazon-ecs-agent/ecs-agent/ec2/mocks"
+	"github.com/aws/amazon-ecs-agent/ecs-agent/netlib/model/ecscni"
+	mock_ecscni2 "github.com/aws/amazon-ecs-agent/ecs-agent/netlib/model/ecscni/mocks_ecscni"
+	"github.com/aws/amazon-ecs-agent/ecs-agent/netlib/model/networkinterface"
 	"github.com/aws/amazon-ecs-agent/ecs-agent/netlib/model/status"
 	mock_netlinkwrapper "github.com/aws/amazon-ecs-agent/ecs-agent/utils/netlinkwrapper/mocks"
 	mock_netwrapper "github.com/aws/amazon-ecs-agent/ecs-agent/utils/netwrapper/mocks"
+	mock_oswrapper "github.com/aws/amazon-ecs-agent/ecs-agent/utils/oswrapper/mocks"
 
 	"github.com/golang/mock/gomock"
 	"github.com/stretchr/testify/assert"
@@ -35,6 +41,88 @@ import (
 const (
 	macAddress = "0a:1b:2c:3d:4e:5f"
 )
+
+func TestManagedLinux_TestConfigureInterface(t *testing.T) {
+	t.Run("regular-eni", testManagedLinuxRegularENIConfiguration)
+	t.Run("branch-eni", testManagedLinuxBranchENIConfiguration)
+}
+
+// testRegularENIConfiguration verifies the precise list of operations are invoked
+// with the correct arguments while configuring a regular ENI on a host.
+func testManagedLinuxRegularENIConfiguration(t *testing.T) {
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+
+	ctx, osWrapper, cniClient, eni, managedLinuxPlatform := setupManagedLinuxTestConfigureInterface(ctrl, getTestRegularV4ENI)
+
+	// When the ENI is the primary ENI.
+	eniConfig := createENIPluginConfigs(netNSPath, eni)
+	bridgeConfig := createBridgePluginConfig(netNSPath)
+	gomock.InOrder(
+		osWrapper.EXPECT().Setenv("ECS_CNI_LOG_FILE", ecscni.PluginLogPath).Times(1),
+		osWrapper.EXPECT().Setenv("IPAM_DB_PATH", filepath.Join(managedLinuxPlatform.stateDBDir, "eni-ipam.db")),
+		cniClient.EXPECT().Add(gomock.Any(), bridgeConfig).Return(nil, nil).Times(1),
+		cniClient.EXPECT().Add(gomock.Any(), eniConfig).Return(nil, nil).Times(1),
+	)
+	err := managedLinuxPlatform.configureInterface(ctx, netNSPath, eni, nil)
+	require.NoError(t, err)
+
+	// Non-primary ENI case.
+	eni.Default = false
+	eniConfig = createENIPluginConfigs(netNSPath, eni)
+	gomock.InOrder(
+		osWrapper.EXPECT().Setenv("ECS_CNI_LOG_FILE", ecscni.PluginLogPath).Times(1),
+		osWrapper.EXPECT().Setenv("IPAM_DB_PATH", filepath.Join(managedLinuxPlatform.stateDBDir, "eni-ipam.db")),
+		cniClient.EXPECT().Add(gomock.Any(), eniConfig).Return(nil, nil).Times(1),
+	)
+	err = managedLinuxPlatform.configureInterface(ctx, netNSPath, eni, nil)
+	require.NoError(t, err)
+
+	// Delete workflow.
+	eni.Default = true
+	eni.DesiredStatus = status.NetworkDeleted
+	eniConfig = createENIPluginConfigs(netNSPath, eni)
+	gomock.InOrder(
+		osWrapper.EXPECT().Setenv("ECS_CNI_LOG_FILE", ecscni.PluginLogPath).Times(1),
+		osWrapper.EXPECT().Setenv("IPAM_DB_PATH", filepath.Join(managedLinuxPlatform.stateDBDir, "eni-ipam.db")),
+		cniClient.EXPECT().Del(gomock.Any(), bridgeConfig).Return(nil).Times(1),
+		cniClient.EXPECT().Del(gomock.Any(), eniConfig).Return(nil).Times(1),
+	)
+	err = managedLinuxPlatform.configureInterface(ctx, netNSPath, eni, nil)
+	require.NoError(t, err)
+}
+
+func testManagedLinuxBranchENIConfiguration(t *testing.T) {
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+
+	ctx, osWrapper, cniClient, eni, managedLinuxPlatform := setupManagedLinuxTestConfigureInterface(ctrl, getTestBranchV4ENI)
+
+	eni.DesiredStatus = status.NetworkReadyPull
+	bridgeConfig := createBridgePluginConfig(netNSPath)
+	cniConfig := createBranchENIConfig(netNSPath, eni, VPCBranchENIInterfaceTypeVlan, blockInstanceMetadataDefault)
+	gomock.InOrder(
+		osWrapper.EXPECT().Setenv("IPAM_DB_PATH", filepath.Join(managedLinuxPlatform.stateDBDir, "eni-ipam.db")),
+		cniClient.EXPECT().Add(gomock.Any(), bridgeConfig).Return(nil, nil).Times(1),
+		cniClient.EXPECT().Add(gomock.Any(), cniConfig).Return(nil, nil).Times(1),
+	)
+	err := managedLinuxPlatform.configureInterface(ctx, netNSPath, eni, nil)
+	require.NoError(t, err)
+
+	// Ready-Pull to Ready transition
+	eni.DesiredStatus = status.NetworkReady
+	osWrapper.EXPECT().Setenv("IPAM_DB_PATH", filepath.Join(managedLinuxPlatform.stateDBDir, "eni-ipam.db"))
+	err = managedLinuxPlatform.configureInterface(ctx, netNSPath, eni, nil)
+	require.NoError(t, err)
+
+	// Delete workflow.
+	eni.DesiredStatus = status.NetworkDeleted
+	osWrapper.EXPECT().Setenv("IPAM_DB_PATH", filepath.Join(managedLinuxPlatform.stateDBDir, "eni-ipam.db"))
+	cniClient.EXPECT().Del(gomock.Any(), bridgeConfig).Return(nil).Times(1)
+	cniClient.EXPECT().Del(gomock.Any(), cniConfig).Return(nil).Times(1)
+	err = managedLinuxPlatform.configureInterface(ctx, netNSPath, eni, nil)
+	require.NoError(t, err)
+}
 
 func TestBuildDefaultNetworkNamespace(t *testing.T) {
 	tests := []struct {
@@ -225,4 +313,24 @@ func TestBuildDefaultNetworkNamespace(t *testing.T) {
 			}
 		})
 	}
+}
+
+// setupManagedLinuxTestConfigureInterface provisions all the resources needed to facilitate the two
+// subtests in TestManagedLinux_TestConfigureInterface.
+func setupManagedLinuxTestConfigureInterface(
+	ctrl *gomock.Controller, getTestENI func() *networkinterface.NetworkInterface) (
+	context.Context, *mock_oswrapper.MockOS, *mock_ecscni2.MockCNI, *networkinterface.NetworkInterface, *managedLinux) {
+	ctx := context.TODO()
+	osWrapper := mock_oswrapper.NewMockOS(ctrl)
+	cniClient := mock_ecscni2.NewMockCNI(ctrl)
+	eni := getTestENI()
+	managedLinuxPlatform := &managedLinux{
+		common: common{
+			os:         osWrapper,
+			cniClient:  cniClient,
+			stateDBDir: "dummy-db-dir",
+		},
+		client: nil,
+	}
+	return ctx, osWrapper, cniClient, eni, managedLinuxPlatform
 }

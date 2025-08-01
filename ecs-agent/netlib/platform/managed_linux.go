@@ -4,6 +4,7 @@ import (
 	"context"
 	goErr "errors"
 	"fmt"
+	"path/filepath"
 
 	"github.com/aws/amazon-ecs-agent/ecs-agent/acs/model/ecsacs"
 	"github.com/aws/amazon-ecs-agent/ecs-agent/ec2"
@@ -11,6 +12,7 @@ import (
 	loggerfield "github.com/aws/amazon-ecs-agent/ecs-agent/logger/field"
 	netlibdata "github.com/aws/amazon-ecs-agent/ecs-agent/netlib/data"
 	"github.com/aws/amazon-ecs-agent/ecs-agent/netlib/model/appmesh"
+	"github.com/aws/amazon-ecs-agent/ecs-agent/netlib/model/ecscni"
 	"github.com/aws/amazon-ecs-agent/ecs-agent/netlib/model/networkinterface"
 	"github.com/aws/amazon-ecs-agent/ecs-agent/netlib/model/serviceconnect"
 	"github.com/aws/amazon-ecs-agent/ecs-agent/netlib/model/status"
@@ -80,7 +82,107 @@ func (m *managedLinux) ConfigureInterface(
 ) error {
 	// Set the network interface name on the task network namespace to eth1.
 	iface.DeviceName = NetworkInterfaceDeviceName
-	return m.common.configureInterface(ctx, netNSPath, iface, netDAO)
+	return m.configureInterface(ctx, netNSPath, iface, netDAO)
+}
+
+func (m *managedLinux) configureInterface(
+	ctx context.Context,
+	netNSPath string,
+	iface *networkinterface.NetworkInterface,
+	netDAO netlibdata.NetworkDataClient,
+) error {
+	var err error
+	switch iface.InterfaceAssociationProtocol {
+	case networkinterface.DefaultInterfaceAssociationProtocol:
+		err = m.configureRegularENI(ctx, netNSPath, iface)
+	case networkinterface.VLANInterfaceAssociationProtocol:
+		err = m.configureBranchENI(ctx, netNSPath, iface)
+	case networkinterface.V2NInterfaceAssociationProtocol:
+		err = m.common.configureGENEVEInterface(ctx, netNSPath, iface, netDAO)
+	case networkinterface.VETHInterfaceAssociationProtocol:
+		// Do nothing.
+		return nil
+	default:
+		err = errors.New("invalid interface association protocol " + iface.InterfaceAssociationProtocol)
+	}
+	return err
+}
+
+func (m *managedLinux) configureRegularENI(ctx context.Context, netNSPath string, eni *networkinterface.NetworkInterface) error {
+	logger.Info("Configuring regular ENI", map[string]interface{}{
+		"ENIName":   eni.Name,
+		"NetNSPath": netNSPath,
+	})
+
+	var cniNetConf []ecscni.PluginConfig
+	var add bool
+	var err error
+
+	m.common.os.Setenv(CNIPluginLogFileEnv, ecscni.PluginLogPath)
+	m.common.os.Setenv(IPAMDataPathEnv, filepath.Join(m.common.stateDBDir, IPAMDataFileName))
+
+	switch eni.DesiredStatus {
+	case status.NetworkReadyPull:
+		// The task metadata interface setup by bridge plugin is required only for the primary ENI.
+		if eni.IsPrimary() {
+			cniNetConf = append(cniNetConf, createBridgePluginConfig(netNSPath))
+		}
+		cniNetConf = append(cniNetConf, createENIPluginConfigs(netNSPath, eni))
+		add = true
+	case status.NetworkDeleted:
+		if eni.IsPrimary() {
+			cniNetConf = append(cniNetConf, createBridgePluginConfig(netNSPath))
+		}
+		cniNetConf = append(cniNetConf, createENIPluginConfigs(netNSPath, eni))
+		add = false
+	}
+
+	_, err = m.common.executeCNIPlugin(ctx, add, cniNetConf...)
+	if err != nil {
+		err = errors.Wrap(err, "failed to setup regular eni")
+	}
+
+	return err
+}
+
+// configureBranchENI configures a network interface for a branch ENI.
+func (m *managedLinux) configureBranchENI(ctx context.Context, netNSPath string, eni *networkinterface.NetworkInterface) error {
+	logger.Info("Configuring branch ENI", map[string]interface{}{
+		"ENIName":   eni.Name,
+		"NetNSPath": netNSPath,
+	})
+
+	// Set the path for the IPAM CNI local db to track assigned IPs.
+	// Default path is /data but in some linux distros (i.e.Amazon BottleRocket) the root volume is read-only.
+	m.common.os.Setenv(IPAMDataPathEnv, filepath.Join(m.common.stateDBDir, IPAMDataFileName))
+
+	var cniNetConf []ecscni.PluginConfig
+	var err error
+	add := true
+
+	// Generate CNI network configuration based on the ENI's desired state.
+	switch eni.DesiredStatus {
+	case status.NetworkReadyPull:
+		// Setup bridge to connect task network namespace to TMDS running in host's primary netns.
+		if eni.IsPrimary() {
+			cniNetConf = append(cniNetConf, createBridgePluginConfig(netNSPath))
+		}
+		// We block IMDS access in awsvpc tasks.
+		cniNetConf = append(cniNetConf, createBranchENIConfig(netNSPath, eni, VPCBranchENIInterfaceTypeVlan, blockInstanceMetadataDefault))
+	case status.NetworkDeleted:
+		if eni.IsPrimary() {
+			cniNetConf = append(cniNetConf, createBridgePluginConfig(netNSPath))
+		}
+		cniNetConf = append(cniNetConf, createBranchENIConfig(netNSPath, eni, VPCBranchENIInterfaceTypeVlan, blockInstanceMetadataDefault))
+		add = false
+	}
+
+	_, err = m.common.executeCNIPlugin(ctx, add, cniNetConf...)
+	if err != nil {
+		err = errors.Wrap(err, "failed to setup branch eni")
+	}
+
+	return err
 }
 
 func (m *managedLinux) ConfigureAppMesh(ctx context.Context,
