@@ -48,14 +48,15 @@ const (
 	iptablesTableFilter = "filter"
 	iptablesTableNat    = "nat"
 
-	offhostIntrospectionAccessConfigEnv   = "ECS_ALLOW_OFFHOST_INTROSPECTION_ACCESS"
-	offhostIntrospectonAccessInterfaceEnv = "ECS_OFFHOST_INTROSPECTION_INTERFACE_NAME"
-	agentIntrospectionServerPort          = "51678"
+	offhostIntrospectionAccessConfigEnv = "ECS_ALLOW_OFFHOST_INTROSPECTION_ACCESS"
+	agentIntrospectionServerPort        = "51678"
+	ipv6KernelConfigPath                = "/proc/sys/net/ipv6"
 )
 
 var (
 	defaultLoopbackInterfaceName   = ""
 	defaultDockerBridgeNetworkName = ""
+	checkForPath                   = os.Stat
 )
 
 // NetfilterRoute implements the engine.credentialsProxyRoute interface by
@@ -192,7 +193,7 @@ func (route *NetfilterRoute) modifyNetfilterEntry(table string, action iptablesA
 	}
 
 	// Checking if we need to apply the netfilter table action for IPv6 as well.
-	if useIp6tables {
+	if checkIpv6KernelConfigExist() && useIp6tables {
 		_, err = route.cmdExec.LookPath(ip6tablesExecutable)
 		if err != nil {
 			log.Warnf("%s unable to be found on the host. Assuming IPv6 isn't available on the host and will not apply %s.", ip6tablesExecutable, getActionName(action))
@@ -303,4 +304,12 @@ func allowOffhostIntrospection() bool {
 		return false
 	}
 	return b
+}
+
+// checkIpv6KernelConfig checks if the IPv6 kernel config path exists.
+// If the path does not exists then we will assume that the host environment
+// has explicitly disabled IPv6 capability
+func checkIpv6KernelConfigExist() bool {
+	_, err := checkForPath(ipv6KernelConfigPath)
+	return err == nil
 }

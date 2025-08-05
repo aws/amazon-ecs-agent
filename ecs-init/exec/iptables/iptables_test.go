@@ -77,6 +77,7 @@ var (
 		"-j", "REDIRECT",
 		"--to-ports", localhostCredentialsProxyPort,
 	}
+	osStatFileNotFoundError = fmt.Errorf("file not found")
 )
 
 func resetDefaultNetworkInterfaceVariables() func() {
@@ -145,24 +146,27 @@ func TestNewNetfilterRoute(t *testing.T) {
 
 }
 
-func appendIpv6Mocks(mockExec *MockExec, mockCmd *MockCmd, mocks []*gomock.Call, table, action, chain string, args []string, useIp6tables bool) []*gomock.Call {
+func appendIpv6Mocks(mockExec *MockExec, mockCmd *MockCmd, mocks []*gomock.Call, table, action, chain string, args []string, useIp6tables bool, osStatError error) []*gomock.Call {
 	mocks = append(mocks,
 		mockExec.EXPECT().Command(iptablesExecutable,
 			expectedArgs(table, action, chain, args)).Return(mockCmd),
 		mockCmd.EXPECT().CombinedOutput().Return([]byte{0}, nil),
 	)
-	if useIp6tables {
-		mocks = append(mocks,
-			mockExec.EXPECT().LookPath(ip6tablesExecutable).Return("", nil),
-			mockExec.EXPECT().Command(ip6tablesExecutable,
-				expectedArgs(table, action, chain, args)).Return(mockCmd),
-			mockCmd.EXPECT().CombinedOutput().Return([]byte{0}, nil),
-		)
-	} else {
-		mocks = append(mocks,
-			mockExec.EXPECT().LookPath(ip6tablesExecutable).Return("", errors.New("error")),
-		)
+	if osStatError == nil {
+		if useIp6tables {
+			mocks = append(mocks,
+				mockExec.EXPECT().LookPath(ip6tablesExecutable).Return("", nil),
+				mockExec.EXPECT().Command(ip6tablesExecutable,
+					expectedArgs(table, action, chain, args)).Return(mockCmd),
+				mockCmd.EXPECT().CombinedOutput().Return([]byte{0}, nil),
+			)
+		} else {
+			mocks = append(mocks,
+				mockExec.EXPECT().LookPath(ip6tablesExecutable).Return("", errors.New("error")),
+			)
+		}
 	}
+
 	return mocks
 }
 
@@ -171,21 +175,37 @@ func TestCreate(t *testing.T) {
 	testCases := []struct {
 		name         string
 		useIp6tables bool
+		osStatError  error
 	}{
 		{
 			name:         "create iptables route",
 			useIp6tables: false,
+			osStatError:  nil,
 		},
 		{
 			name:         "create ip6tables route",
 			useIp6tables: true,
+			osStatError:  nil,
+		},
+		{
+			name:         "create ip6tables route when ipv6 kernel configs not found",
+			useIp6tables: true,
+			osStatError:  osStatFileNotFoundError,
 		},
 	}
+
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
 			defer resetDefaultNetworkInterfaceVariables()
 			ctrl := gomock.NewController(t)
 			defer ctrl.Finish()
+
+			defer func() {
+				checkForPath = os.Stat
+			}()
+			checkForPath = func(name string) (os.FileInfo, error) {
+				return nil, tc.osStatError
+			}
 
 			mockCmd := NewMockCmd(ctrl)
 			// Mock a successful execution of the iptables command to create the
@@ -204,8 +224,10 @@ func TestCreate(t *testing.T) {
 					expectedArgs("filter", "-I", "INPUT", localhostTrafficFilterInputRouteArgs)).Return(mockCmd),
 				mockCmd.EXPECT().CombinedOutput().Return([]byte{0}, nil),
 			}
-			mocks = appendIpv6Mocks(mockExec, mockCmd, mocks, "filter", string(iptablesInsert), "INPUT", blockIntrospectionOffhostAccessInputRouteArgs, tc.useIp6tables)
-			mocks = appendIpv6Mocks(mockExec, mockCmd, mocks, "filter", string(iptablesInsert), "INPUT", allowIntrospectionForDockerArgs, tc.useIp6tables)
+
+			mocks = appendIpv6Mocks(mockExec, mockCmd, mocks, "filter", string(iptablesInsert), "INPUT", blockIntrospectionOffhostAccessInputRouteArgs, tc.useIp6tables, tc.osStatError)
+			mocks = appendIpv6Mocks(mockExec, mockCmd, mocks, "filter", string(iptablesInsert), "INPUT", allowIntrospectionForDockerArgs, tc.useIp6tables, tc.osStatError)
+
 			mocks = append(mocks,
 				mockExec.EXPECT().Command(iptablesExecutable,
 					expectedArgs("nat", "-A", "OUTPUT", outputRouteArgs)).Return(mockCmd),
@@ -232,6 +254,13 @@ func TestCreateSkipLocalTrafficFilter(t *testing.T) {
 
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
+
+	defer func() {
+		checkForPath = os.Stat
+	}()
+	checkForPath = func(name string) (os.FileInfo, error) {
+		return nil, nil
+	}
 
 	mockCmd := NewMockCmd(ctrl)
 	mockExec := NewMockExec(ctrl)
@@ -351,6 +380,13 @@ func TestCreateBlockOffhostIntrospectionAccessErrors(t *testing.T) {
 		},
 	}
 
+	defer func() {
+		checkForPath = os.Stat
+	}()
+	checkForPath = func(name string) (os.FileInfo, error) {
+		return nil, nil
+	}
+
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
 			defer resetDefaultNetworkInterfaceVariables()
@@ -427,6 +463,13 @@ func TestCreateErrorOnOutputChainCommandError(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
 
+	defer func() {
+		checkForPath = os.Stat
+	}()
+	checkForPath = func(name string) (os.FileInfo, error) {
+		return nil, nil
+	}
+
 	mockCmd := NewMockCmd(ctrl)
 	mockExec := NewMockExec(ctrl)
 	mockNetlink := mock_nlwrapper.NewMockNetLink(ctrl)
@@ -470,14 +513,22 @@ func TestRemove(t *testing.T) {
 	testCases := []struct {
 		name         string
 		useIp6tables bool
+		osStatError  error
 	}{
 		{
 			name:         "test remove with iptables only",
 			useIp6tables: false,
+			osStatError:  nil,
 		},
 		{
 			name:         "test remove with ip6tables",
 			useIp6tables: true,
+			osStatError:  nil,
+		},
+		{
+			name:         "test remove with ip6tables with file not found error",
+			useIp6tables: true,
+			osStatError:  osStatFileNotFoundError,
 		},
 	}
 
@@ -486,6 +537,13 @@ func TestRemove(t *testing.T) {
 			defer resetDefaultNetworkInterfaceVariables()
 			ctrl := gomock.NewController(t)
 			defer ctrl.Finish()
+
+			defer func() {
+				checkForPath = os.Stat
+			}()
+			checkForPath = func(name string) (os.FileInfo, error) {
+				return nil, tc.osStatError
+			}
 
 			mockCmd := NewMockCmd(ctrl)
 			mockExec := NewMockExec(ctrl)
@@ -505,8 +563,8 @@ func TestRemove(t *testing.T) {
 				mockCmd.EXPECT().CombinedOutput().Return([]byte{0}, nil),
 			}
 
-			mocks = appendIpv6Mocks(mockExec, mockCmd, mocks, "filter", string(iptablesDelete), "INPUT", blockIntrospectionOffhostAccessInputRouteArgs, tc.useIp6tables)
-			mocks = appendIpv6Mocks(mockExec, mockCmd, mocks, "filter", string(iptablesDelete), "INPUT", allowIntrospectionForDockerArgs, tc.useIp6tables)
+			mocks = appendIpv6Mocks(mockExec, mockCmd, mocks, "filter", string(iptablesDelete), "INPUT", blockIntrospectionOffhostAccessInputRouteArgs, tc.useIp6tables, tc.osStatError)
+			mocks = appendIpv6Mocks(mockExec, mockCmd, mocks, "filter", string(iptablesDelete), "INPUT", allowIntrospectionForDockerArgs, tc.useIp6tables, tc.osStatError)
 
 			mocks = append(mocks,
 				mockExec.EXPECT().Command(iptablesExecutable,
@@ -534,6 +592,14 @@ func TestRemoveSkipLocalTrafficFilter(t *testing.T) {
 
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
+
+	defer func() {
+		checkForPath = os.Stat
+	}()
+
+	checkForPath = func(name string) (os.FileInfo, error) {
+		return nil, nil
+	}
 
 	mockCmd := NewMockCmd(ctrl)
 	mockExec := NewMockExec(ctrl)
@@ -578,14 +644,22 @@ func TestRemoveAllowIntrospectionOffhostAccess(t *testing.T) {
 	testCases := []struct {
 		name         string
 		useIp6tables bool
+		osStatError  error
 	}{
 		{
 			name:         "remove allow instrocpection off-host access with iptables only",
 			useIp6tables: false,
+			osStatError:  nil,
 		},
 		{
 			name:         "remove allow instrocpection off-host access with ip6tables",
 			useIp6tables: true,
+			osStatError:  nil,
+		},
+		{
+			name:         "remove allow instrocpection off-host access with ip6tables and file not found error",
+			useIp6tables: true,
+			osStatError:  osStatFileNotFoundError,
 		},
 	}
 
@@ -594,6 +668,13 @@ func TestRemoveAllowIntrospectionOffhostAccess(t *testing.T) {
 			defer resetDefaultNetworkInterfaceVariables()
 			ctrl := gomock.NewController(t)
 			defer ctrl.Finish()
+
+			defer func() {
+				checkForPath = os.Stat
+			}()
+			checkForPath = func(name string) (os.FileInfo, error) {
+				return nil, tc.osStatError
+			}
 
 			mockCmd := NewMockCmd(ctrl)
 			mockExec := NewMockExec(ctrl)
@@ -609,8 +690,8 @@ func TestRemoveAllowIntrospectionOffhostAccess(t *testing.T) {
 					expectedArgs("filter", "-D", "INPUT", localhostTrafficFilterInputRouteArgs)).Return(mockCmd),
 				mockCmd.EXPECT().CombinedOutput().Return([]byte{0}, nil),
 			}
-			mocks = appendIpv6Mocks(mockExec, mockCmd, mocks, "filter", string(iptablesDelete), "INPUT", blockIntrospectionOffhostAccessInputRouteArgs, tc.useIp6tables)
-			mocks = appendIpv6Mocks(mockExec, mockCmd, mocks, "filter", string(iptablesDelete), "INPUT", allowIntrospectionForDockerArgs, tc.useIp6tables)
+			mocks = appendIpv6Mocks(mockExec, mockCmd, mocks, "filter", string(iptablesDelete), "INPUT", blockIntrospectionOffhostAccessInputRouteArgs, tc.useIp6tables, tc.osStatError)
+			mocks = appendIpv6Mocks(mockExec, mockCmd, mocks, "filter", string(iptablesDelete), "INPUT", allowIntrospectionForDockerArgs, tc.useIp6tables, tc.osStatError)
 			mocks = append(mocks,
 				mockExec.EXPECT().Command(iptablesExecutable,
 					expectedArgs("nat", "-D", "OUTPUT", outputRouteArgs)).Return(mockCmd),
@@ -634,6 +715,14 @@ func TestRemoveErrorOnPreroutingChainCommandError(t *testing.T) {
 	defer resetDefaultNetworkInterfaceVariables()
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
+
+	defer func() {
+		checkForPath = os.Stat
+	}()
+
+	checkForPath = func(name string) (os.FileInfo, error) {
+		return nil, nil
+	}
 
 	mockCmd := NewMockCmd(ctrl)
 	mockExec := NewMockExec(ctrl)
@@ -679,6 +768,14 @@ func TestRemoveErrorOnOutputChainCommandError(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
 
+	defer func() {
+		checkForPath = os.Stat
+	}()
+
+	checkForPath = func(name string) (os.FileInfo, error) {
+		return nil, nil
+	}
+
 	mockCmd := NewMockCmd(ctrl)
 	mockExec := NewMockExec(ctrl)
 	mockNetlink := mock_nlwrapper.NewMockNetLink(ctrl)
@@ -722,6 +819,14 @@ func TestRemoveErrorOnInputChainCommandsErrors(t *testing.T) {
 	defer resetDefaultNetworkInterfaceVariables()
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
+
+	defer func() {
+		checkForPath = os.Stat
+	}()
+
+	checkForPath = func(name string) (os.FileInfo, error) {
+		return nil, nil
+	}
 
 	mockCmd := NewMockCmd(ctrl)
 	mockExec := NewMockExec(ctrl)
