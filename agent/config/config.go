@@ -240,9 +240,6 @@ func NewConfig(ec2client ec2.EC2MetadataClient) (*Config, error) {
 		ec2client = ec2.NewBlackholeEC2MetadataClient()
 	}
 
-	// TODO feat:IPv6-only - Enable when launching IPv6-only support
-	// config.determineIPCompatibility(ec2client)
-
 	if config.complete() {
 		// No need to do file / network IO
 		return config, nil
@@ -608,6 +605,9 @@ func environmentConfig() (Config, error) {
 		DynamicHostPortRange:                parseDynamicHostPortRange("ECS_DYNAMIC_HOST_PORT_RANGE"),
 		TaskPidsLimit:                       parseTaskPidsLimit(),
 		FirelensAsyncEnabled:                parseBooleanDefaultTrueConfig("ECS_ENABLE_FIRELENS_ASYNC"),
+
+		// TODO:feat:ipv6-only Enable InstanceIPCompatibility parameter when the feature is ready
+		// InstanceIPCompatibility:             parseInstanceIPCompatibility(),
 	}, err
 }
 

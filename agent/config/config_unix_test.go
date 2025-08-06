@@ -385,24 +385,38 @@ func setMockNLWrapper(mock netlinkwrapper.NetLink) func() {
 }
 
 func TestShouldExcludeIPv6PortBindingDefault(t *testing.T) {
-	t.Run("ipv6-only instance", func(t *testing.T) {
-		assert.False(t,
-			DefaultConfig(ipcompatibility.NewIPv6OnlyCompatibility()).
-				ShouldExcludeIPv6PortBinding.Enabled())
-	})
-	t.Run("dual-stack instance", func(t *testing.T) {
-		assert.True(t,
-			DefaultConfig(ipcompatibility.NewDualStackCompatibility()).
-				ShouldExcludeIPv6PortBinding.Enabled())
-	})
-	t.Run("ipv4-only instance", func(t *testing.T) {
-		assert.True(t,
-			DefaultConfig(ipcompatibility.NewIPv4OnlyCompatibility()).
-				ShouldExcludeIPv6PortBinding.Enabled())
-	})
-	t.Run("no ip compatibility", func(t *testing.T) {
-		assert.True(t,
-			DefaultConfig(ipcompatibility.NewIPCompatibility(false, false)).
-				ShouldExcludeIPv6PortBinding.Enabled())
-	})
+	testCases := []struct {
+		name                    string
+		instanceIPCompatibility ipcompatibility.IPCompatibility
+		expectedExcludeIPv6     bool
+	}{
+		{
+			name:                    "ipv6-only instance",
+			instanceIPCompatibility: ipcompatibility.NewIPv6OnlyCompatibility(),
+			expectedExcludeIPv6:     false, // IPv6 port bindings should be included for IPv6-only instances
+		},
+		{
+			name:                    "dual-stack instance",
+			instanceIPCompatibility: ipcompatibility.NewDualStackCompatibility(),
+			expectedExcludeIPv6:     true, // IPv6 port bindings should be excluded by default
+		},
+		{
+			name:                    "ipv4-only instance",
+			instanceIPCompatibility: ipcompatibility.NewIPv4OnlyCompatibility(),
+			expectedExcludeIPv6:     true, // IPv6 port bindings should be excluded by default
+		},
+		{
+			name:                    "no ip compatibility",
+			instanceIPCompatibility: ipcompatibility.NewIPCompatibility(false, false),
+			expectedExcludeIPv6:     true, // IPv6 port bindings should be excluded by default
+		},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			cfg := &Config{}
+			cfg.setIPv6PortBindingDefault(tc.instanceIPCompatibility)
+			assert.Equal(t, tc.expectedExcludeIPv6, cfg.ShouldExcludeIPv6PortBinding.Enabled())
+		})
+	}
 }

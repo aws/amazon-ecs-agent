@@ -24,6 +24,8 @@ import (
 	"unsafe"
 
 	"github.com/aws/amazon-ecs-agent/agent/utils"
+	"github.com/aws/amazon-ecs-agent/ecs-agent/ipcompatibility"
+	"github.com/aws/amazon-ecs-agent/ecs-agent/logger"
 
 	"github.com/cihub/seelog"
 	"golang.org/x/sys/windows/registry"
@@ -196,4 +198,13 @@ func parseTaskPidsLimit() int {
 	}
 	seelog.Warnf(`"ECS_TASK_PIDS_LIMIT" is not supported on windows`)
 	return 0
+}
+
+// parseInstanceIPCompatibility always returns IPv4-only IP compatibility as the config
+// parameter to override instance IP compatibility is not supported on Windows.
+func parseInstanceIPCompatibility() ipcompatibility.IPCompatibility {
+	if os.Getenv(envInstanceIPCompatibility) != "" {
+		logger.Warn(envInstanceIPCompatibility + " is not supported on Windows")
+	}
+	return ipcompatibility.IPCompatibility{}
 }

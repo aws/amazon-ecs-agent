@@ -44,6 +44,8 @@ const (
 	// envCredentialsFetcherHostDir is an environment setting that is set in ecs-init identifying
 	// location of the credentials-fetcher location on the machine
 	envCredentialsFetcherHostDir = "CREDENTIALS_FETCHER_HOST_DIR"
+	// envInstanceIPCompatibility is an environment setting to override IP compatibility detection
+	envInstanceIPCompatibility = "ECS_INSTANCE_IP_COMPATIBILITY"
 )
 
 func parseCheckpoint(dataDir string) BooleanDefaultFalse {
