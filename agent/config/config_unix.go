@@ -199,7 +199,7 @@ func getConfigFileName() (string, error) {
 // This is a fallback to help with graceful adoption of Agent in IPv6-only environments
 // without disrupting existing environments.
 //
-// TODO feat:IPv6-only - Remove lint rule below
+// TODO:feat:IPv6-only - Remove lint rule below
 //
 //lint:ignore U1000 Function will be used in the future
 func (c *Config) determineIPCompatibility() {

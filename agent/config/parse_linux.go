@@ -158,6 +158,10 @@ func parseTaskPidsLimit() int {
 //   - "ipv4": Returns IPv4-only compatibility
 //   - "ipv6": Returns IPv6-only compatibility
 //   - empty/unset or invalid: Returns zero value
+//
+// TODO:feat:IPv6-only - Remove lint rule below
+//
+//lint:ignore U1000 Function will be used in the future
 func parseInstanceIPCompatibility() ipcompatibility.IPCompatibility {
 	val := strings.TrimSpace(os.Getenv(envInstanceIPCompatibility))
 	if val == "" {
