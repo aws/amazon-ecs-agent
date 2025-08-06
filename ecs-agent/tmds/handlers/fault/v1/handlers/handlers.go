@@ -1376,7 +1376,6 @@ func (h *FaultHandler) startNetworkLatencyFaultForInterface(
 		field.CommandOutput:    string(cmdOutput[:]),
 		field.NetworkInterface: interfaceName,
 	})
-
 	tcAddQdiscLossCommandComposed := nsenterPrefix + fmt.Sprintf(
 		tcAddQdiscLatencyCommandString, interfaceName, delayInMs, jitterInMs)
 	cmdList = strings.Split(tcAddQdiscLossCommandComposed, " ")
@@ -1632,23 +1631,14 @@ func (h *FaultHandler) checkTCFaultForInterface(
 
 // checkLatencyFault parses the tc command output and checks if there's existing network-latency fault running.
 func checkLatencyFault(outputUnmarshalled []map[string]interface{}) (bool, error) {
-	packetLossFaultExist, err := checkPacketLossFault(outputUnmarshalled)
-	if err != nil {
-		return false, err
-	}
-
-	// Make sure no existing packet loss fault because only one tc fault is allowed.
-	if packetLossFaultExist {
-		return false, nil
-	}
-
 	for _, line := range outputUnmarshalled {
 		// Check if field "kind":"netem" exists.
 		if line["kind"] == "netem" {
+			// Now check if network packet loss fault exists.
 			if options := line["options"]; options != nil {
-				// We don't check the "delay" field in the output of "options" intentionally because
-				// it is not present if the delay is zero and the jitter is non-zero.
-				return true, nil
+				if delay := options.(map[string]interface{})["delay"]; delay != nil {
+					return true, nil
+				}
 			}
 		}
 	}
