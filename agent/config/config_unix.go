@@ -24,7 +24,6 @@ import (
 	"github.com/aws/amazon-ecs-agent/agent/dockerclient"
 	"github.com/aws/amazon-ecs-agent/agent/utils"
 	"github.com/aws/amazon-ecs-agent/ecs-agent/ipcompatibility"
-	commonutils "github.com/aws/amazon-ecs-agent/ecs-agent/utils"
 	netutils "github.com/aws/amazon-ecs-agent/ecs-agent/utils/net"
 	"github.com/aws/amazon-ecs-agent/ecs-agent/utils/netlinkwrapper"
 
@@ -140,13 +139,14 @@ func DefaultConfig(ipCompatOverride ipcompatibility.IPCompatibility) Config {
 	}
 
 	// TODO:feat:ipv6-only Enable IP compatibility detection when the feature is ready
-	if commonutils.ZeroOrNil(ipCompatOverride) {
-		logger.Info("No IP compatibility override provided, detecting instance IP compatibility for default config")
-		cfg.determineIPCompatibility()
-		cfg.setIPv6PortBindingDefault(cfg.InstanceIPCompatibility)
-	} else {
-		cfg.setIPv6PortBindingDefault(ipCompatOverride)
-	}
+	// if commonutils.ZeroOrNil(ipCompatOverride) {
+	// 	logger.Info("No IP compatibility override provided, detecting instance IP compatibility for default config")
+	// 	cfg.determineIPCompatibility()
+	// 	cfg.setIPv6PortBindingDefault(cfg.InstanceIPCompatibility)
+	// } else {
+	// 	cfg.setIPv6PortBindingDefault(ipCompatOverride)
+	// }
+	cfg.setIPv6PortBindingDefault(ipCompatOverride)
 
 	return cfg
 }
