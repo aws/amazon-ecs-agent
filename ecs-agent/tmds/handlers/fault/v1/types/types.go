@@ -20,7 +20,6 @@ import (
 
 	"github.com/aws/amazon-ecs-agent/ecs-agent/tmds/utils"
 	"github.com/aws/aws-sdk-go-v2/aws"
-	"github.com/pkg/errors"
 )
 
 const (
@@ -35,7 +34,6 @@ const (
 	// Request Payload Errors
 	MissingRequiredFieldError = "required parameter %s is missing"
 	MissingRequestBodyError   = "required request body is missing"
-	ZeroDelayAndJitterError   = "required either DelayMilliseconds or JitterMilliseconds to be non-zero"
 	InvalidValueError         = "invalid value %s for parameter %s"
 )
 
@@ -131,11 +129,6 @@ func (request NetworkLatencyRequest) ValidateRequest() error {
 	if request.JitterMilliseconds == nil {
 		return fmt.Errorf(MissingRequiredFieldError, "JitterMilliseconds")
 	}
-
-	if aws.ToUint64(request.DelayMilliseconds) == 0 && aws.ToUint64(request.JitterMilliseconds) == 0 {
-		return errors.New(ZeroDelayAndJitterError)
-	}
-
 	if len(request.Sources) == 0 {
 		return fmt.Errorf(MissingRequiredFieldError, "Sources")
 	}

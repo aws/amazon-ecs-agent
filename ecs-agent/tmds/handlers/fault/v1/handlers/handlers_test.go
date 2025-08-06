@@ -25,7 +25,6 @@ import (
 	"io"
 	"net/http"
 	"net/http/httptest"
-	"strings"
 	"testing"
 	"time"
 
@@ -63,11 +62,10 @@ const (
 	nspath             = "/some/path"
 	nspathHost         = "host"
 	// Fault injection tooling errors output
-	iptablesChainNotFoundError                     = "iptables: Bad rule (does a matching rule exist in that chain?)."
-	tcLatencyFaultExistsCommandOutput              = `[{"kind":"netem","handle":"10:","parent":"1:1","options":{"limit":1000,"delay":{"delay":123456789,"jitter":4567,"correlation":0},"ecn":false,"gap":0}}]`
-	tcLatencyFaultWithZeroDelayExistsCommandOutput = `[{"kind":"netem","handle":"10:","parent":"1:1","options":{"limit":1000,"ecn":false,"gap":0}}]`
-	tcLossFaultExistsCommandOutput                 = `[{"kind":"netem","handle":"10:","dev":"eth0","parent":"1:1","options":{"limit":1000,"loss-random":{"loss":0.06,"correlation":0},"ecn":false,"gap":0}}]`
-	tcCommandEmptyOutput                           = `[]`
+	iptablesChainNotFoundError        = "iptables: Bad rule (does a matching rule exist in that chain?)."
+	tcLatencyFaultExistsCommandOutput = `[{"kind":"netem","handle":"10:","parent":"1:1","options":{"limit":1000,"delay":{"delay":123456789,"jitter":4567,"correlation":0},"ecn":false,"gap":0}}]`
+	tcLossFaultExistsCommandOutput    = `[{"kind":"netem","handle":"10:","dev":"eth0","parent":"1:1","options":{"limit":1000,"loss-random":{"loss":0.06,"correlation":0},"ecn":false,"gap":0}}]`
+	tcCommandEmptyOutput              = `[]`
 	// Common Fault injection JSON responses
 	happyFaultRunningResponse    = `{"Status":"running"}`
 	happyFaultStoppedResponse    = `{"Status":"stopped"}`
@@ -231,13 +229,6 @@ var (
 
 	happyNetworkLatencyReqBody = map[string]interface{}{
 		"DelayMilliseconds":  delayMilliseconds,
-		"JitterMilliseconds": jitterMilliseconds,
-		"Sources":            ipSources,
-		"SourcesToFilter":    ipSourcesToFilter,
-	}
-
-	happyNetworkLatencyReqBodyWithZeroDelay = map[string]interface{}{
-		"DelayMilliseconds":  0,
 		"JitterMilliseconds": jitterMilliseconds,
 		"Sources":            ipSources,
 		"SourcesToFilter":    ipSourcesToFilter,
@@ -2185,39 +2176,6 @@ func generateStartNetworkLatencyTestCases() []networkFaultInjectionTestCase {
 			expectedResponseJSON: happyFaultRunningResponse,
 		},
 		{
-			name:                 "zero-delay",
-			expectedStatusCode:   200,
-			requestBody:          happyNetworkLatencyReqBodyWithZeroDelay,
-			expectedResponseBody: types.NewNetworkFaultInjectionSuccessResponse("running"),
-			setAgentStateExpectations: func(agentState *mock_state.MockAgentState, netConfigClient *netconfig.NetworkConfigClient) {
-				agentState.EXPECT().GetTaskMetadataWithTaskNetworkConfig(endpointId, netConfigClient).Return(happyTaskResponse, nil)
-			},
-			setExecExpectations: func(exec *mock_execwrapper.MockExec, ctrl *gomock.Controller) {
-				ctx, cancel := context.WithTimeout(context.Background(), ctxTimeoutDuration)
-				mockCMD := mock_execwrapper.NewMockCmd(ctrl)
-
-				commandList := strings.Split(
-					fmt.Sprintf("nsenter --net=/some/path "+tcAddQdiscLatencyCommandString, "eth0", 0, jitterMilliseconds),
-					" ")
-				gomock.InOrder(
-					exec.EXPECT().NewExecContextWithTimeout(gomock.Any(), gomock.Any()).Times(1).Return(ctx, cancel),
-					// Check existing fault
-					exec.EXPECT().CommandContext(gomock.Any(), gomock.Any(), gomock.Any()).Times(1).Return(mockCMD),
-					mockCMD.EXPECT().CombinedOutput().Times(1).Return([]byte(tcCommandEmptyOutput), nil),
-				)
-				// Add root handler
-				exec.EXPECT().CommandContext(gomock.Any(), gomock.Any(), gomock.Any()).Times(1).Return(mockCMD)
-				mockCMD.EXPECT().CombinedOutput().Times(1).Return([]byte(tcCommandEmptyOutput), nil)
-				// Add lantecy handler
-				exec.EXPECT().CommandContext(gomock.Any(), commandList[0], commandList[1:]).Times(1).Return(mockCMD)
-				mockCMD.EXPECT().CombinedOutput().Times(1).Return([]byte(tcCommandEmptyOutput), nil)
-				// Add targets to the handler
-				exec.EXPECT().CommandContext(gomock.Any(), gomock.Any(), gomock.Any()).Times(5).Return(mockCMD)
-				mockCMD.EXPECT().CombinedOutput().Times(5).Return([]byte(tcCommandEmptyOutput), nil)
-			},
-			expectedResponseJSON: happyFaultRunningResponse,
-		},
-		{
 			name:                 "no-existing-fault - two interfaces",
 			expectedStatusCode:   200,
 			requestBody:          happyNetworkLatencyReqBody,
@@ -2254,23 +2212,6 @@ func generateStartNetworkLatencyTestCases() []networkFaultInjectionTestCase {
 				exec.EXPECT().NewExecContextWithTimeout(gomock.Any(), gomock.Any()).Times(1).Return(ctx, cancel)
 				exec.EXPECT().CommandContext(gomock.Any(), gomock.Any(), gomock.Any()).Times(1).Return(mockCMD)
 				mockCMD.EXPECT().CombinedOutput().Times(1).Return([]byte(tcLatencyFaultExistsCommandOutput), nil)
-			},
-			expectedResponseJSON: fmt.Sprintf(errorResponse, latencyFaultAlreadyRunningError),
-		},
-		{
-			name:                 "existing-network-latency-fault-with-0-delay",
-			expectedStatusCode:   409,
-			requestBody:          happyNetworkLatencyReqBody,
-			expectedResponseBody: types.NewNetworkFaultInjectionErrorResponse(latencyFaultAlreadyRunningError),
-			setAgentStateExpectations: func(agentState *mock_state.MockAgentState, netConfigClient *netconfig.NetworkConfigClient) {
-				agentState.EXPECT().GetTaskMetadataWithTaskNetworkConfig(endpointId, netConfigClient).Return(happyTaskResponse, nil)
-			},
-			setExecExpectations: func(exec *mock_execwrapper.MockExec, ctrl *gomock.Controller) {
-				ctx, cancel := context.WithTimeout(context.Background(), ctxTimeoutDuration)
-				mockCMD := mock_execwrapper.NewMockCmd(ctrl)
-				exec.EXPECT().NewExecContextWithTimeout(gomock.Any(), gomock.Any()).Times(1).Return(ctx, cancel)
-				exec.EXPECT().CommandContext(gomock.Any(), gomock.Any(), gomock.Any()).Times(1).Return(mockCMD)
-				mockCMD.EXPECT().CombinedOutput().Times(1).Return([]byte(tcLatencyFaultWithZeroDelayExistsCommandOutput), nil)
 			},
 			expectedResponseJSON: fmt.Sprintf(errorResponse, latencyFaultAlreadyRunningError),
 		},
@@ -2417,21 +2358,6 @@ func generateStartNetworkLatencyTestCases() []networkFaultInjectionTestCase {
 			expectedResponseJSON: fmt.Sprintf(errorResponse, fmt.Sprintf(types.MissingRequiredFieldError, "JitterMilliseconds")),
 		},
 		{
-			name:               fmt.Sprintf("%s invalid delay and jitter", startNetworkLatencyTestPrefix),
-			expectedStatusCode: 400,
-			requestBody: map[string]interface{}{
-				"DelayMilliseconds":  0,
-				"JitterMilliseconds": 0,
-				"Sources":            ipSources,
-				"SourcesToFilter":    ipSourcesToFilter,
-			},
-			expectedResponseBody: types.NewNetworkFaultInjectionErrorResponse(types.ZeroDelayAndJitterError),
-			setAgentStateExpectations: func(agentState *mock_state.MockAgentState, netConfigClient *netconfig.NetworkConfigClient) {
-				agentState.EXPECT().GetTaskMetadataWithTaskNetworkConfig(endpointId, netConfigClient).Return(state.TaskResponse{}, nil).Times(0)
-			},
-			expectedResponseJSON: fmt.Sprintf(errorResponse, types.ZeroDelayAndJitterError),
-		},
-		{
 			name:               fmt.Sprintf("%s invalid DelayMilliseconds in the request body 1", startNetworkLatencyTestPrefix),
 			expectedStatusCode: 400,
 			requestBody: map[string]interface{}{
@@ -2568,27 +2494,6 @@ func generateStopNetworkLatencyTestCases() []networkFaultInjectionTestCase {
 			expectedResponseJSON: happyFaultStoppedResponse,
 		},
 		{
-			name:                 "existing-network-latency-fault-with-0-delay-happy-request-payload",
-			expectedStatusCode:   200,
-			requestBody:          happyNetworkLatencyReqBody,
-			expectedResponseBody: types.NewNetworkFaultInjectionSuccessResponse("stopped"),
-			setAgentStateExpectations: func(agentState *mock_state.MockAgentState, netConfigClient *netconfig.NetworkConfigClient) {
-				agentState.EXPECT().GetTaskMetadataWithTaskNetworkConfig(endpointId, netConfigClient).Return(happyTaskResponse, nil)
-			},
-			setExecExpectations: func(exec *mock_execwrapper.MockExec, ctrl *gomock.Controller) {
-				ctx, cancel := context.WithTimeout(context.Background(), ctxTimeoutDuration)
-				mockCMD := mock_execwrapper.NewMockCmd(ctrl)
-				gomock.InOrder(
-					exec.EXPECT().NewExecContextWithTimeout(gomock.Any(), gomock.Any()).Times(1).Return(ctx, cancel),
-					exec.EXPECT().CommandContext(gomock.Any(), gomock.Any(), gomock.Any()).Times(1).Return(mockCMD),
-					mockCMD.EXPECT().CombinedOutput().Times(1).Return([]byte(tcLatencyFaultWithZeroDelayExistsCommandOutput), nil),
-				)
-				exec.EXPECT().CommandContext(gomock.Any(), gomock.Any(), gomock.Any()).Times(2).Return(mockCMD)
-				mockCMD.EXPECT().CombinedOutput().Times(2).Return([]byte(""), nil)
-			},
-			expectedResponseJSON: happyFaultStoppedResponse,
-		},
-		{
 			name:                 "existing-network-packet-loss-fault-empty-request-payload",
 			expectedStatusCode:   200,
 			requestBody:          nil,
@@ -2701,25 +2606,6 @@ func generateCheckNetworkLatencyTestCases() []networkFaultInjectionTestCase {
 					exec.EXPECT().NewExecContextWithTimeout(gomock.Any(), gomock.Any()).Times(1).Return(ctx, cancel),
 					exec.EXPECT().CommandContext(gomock.Any(), gomock.Any(), gomock.Any()).Times(1).Return(mockCMD),
 					mockCMD.EXPECT().CombinedOutput().Times(1).Return([]byte(tcLatencyFaultExistsCommandOutput), nil),
-				)
-			},
-			expectedResponseJSON: happyFaultRunningResponse,
-		},
-		{
-			name:                 "existing-network-latency-fault-with-0-delay-happy-request-payload",
-			expectedStatusCode:   200,
-			requestBody:          happyNetworkLatencyReqBody,
-			expectedResponseBody: types.NewNetworkFaultInjectionSuccessResponse("running"),
-			setAgentStateExpectations: func(agentState *mock_state.MockAgentState, netConfigClient *netconfig.NetworkConfigClient) {
-				agentState.EXPECT().GetTaskMetadataWithTaskNetworkConfig(endpointId, netConfigClient).Return(happyTaskResponse, nil)
-			},
-			setExecExpectations: func(exec *mock_execwrapper.MockExec, ctrl *gomock.Controller) {
-				ctx, cancel := context.WithTimeout(context.Background(), ctxTimeoutDuration)
-				mockCMD := mock_execwrapper.NewMockCmd(ctrl)
-				gomock.InOrder(
-					exec.EXPECT().NewExecContextWithTimeout(gomock.Any(), gomock.Any()).Times(1).Return(ctx, cancel),
-					exec.EXPECT().CommandContext(gomock.Any(), gomock.Any(), gomock.Any()).Times(1).Return(mockCMD),
-					mockCMD.EXPECT().CombinedOutput().Times(1).Return([]byte(tcLatencyFaultWithZeroDelayExistsCommandOutput), nil),
 				)
 			},
 			expectedResponseJSON: happyFaultRunningResponse,
@@ -2994,23 +2880,6 @@ func generateStartNetworkPacketLossTestCases() []networkFaultInjectionTestCase {
 				exec.EXPECT().NewExecContextWithTimeout(gomock.Any(), gomock.Any()).Times(1).Return(ctx, cancel)
 				exec.EXPECT().CommandContext(gomock.Any(), gomock.Any(), gomock.Any()).Times(1).Return(mockCMD)
 				mockCMD.EXPECT().CombinedOutput().Times(1).Return([]byte(tcLatencyFaultExistsCommandOutput), nil)
-			},
-			expectedResponseJSON: fmt.Sprintf(errorResponse, latencyFaultAlreadyRunningError),
-		},
-		{
-			name:                 "existing-network-latency-fault-with-0-delay",
-			expectedStatusCode:   409,
-			requestBody:          happyNetworkPacketLossReqBody,
-			expectedResponseBody: types.NewNetworkFaultInjectionErrorResponse(latencyFaultAlreadyRunningError),
-			setAgentStateExpectations: func(agentState *mock_state.MockAgentState, netConfigClient *netconfig.NetworkConfigClient) {
-				agentState.EXPECT().GetTaskMetadataWithTaskNetworkConfig(endpointId, netConfigClient).Return(happyTaskResponse, nil)
-			},
-			setExecExpectations: func(exec *mock_execwrapper.MockExec, ctrl *gomock.Controller) {
-				ctx, cancel := context.WithTimeout(context.Background(), ctxTimeoutDuration)
-				mockCMD := mock_execwrapper.NewMockCmd(ctrl)
-				exec.EXPECT().NewExecContextWithTimeout(gomock.Any(), gomock.Any()).Times(1).Return(ctx, cancel)
-				exec.EXPECT().CommandContext(gomock.Any(), gomock.Any(), gomock.Any()).Times(1).Return(mockCMD)
-				mockCMD.EXPECT().CombinedOutput().Times(1).Return([]byte(tcLatencyFaultWithZeroDelayExistsCommandOutput), nil)
 			},
 			expectedResponseJSON: fmt.Sprintf(errorResponse, latencyFaultAlreadyRunningError),
 		},
@@ -3412,25 +3281,6 @@ func generateCheckNetworkPacketLossTestCases() []networkFaultInjectionTestCase {
 			expectedResponseJSON: happyFaultNotRunningResponse,
 		},
 		{
-			name:                 "existing-network-latency-fault-with-0-delay-happy-request-payload",
-			expectedStatusCode:   200,
-			requestBody:          happyNetworkPacketLossReqBody,
-			expectedResponseBody: types.NewNetworkFaultInjectionSuccessResponse("not-running"),
-			setAgentStateExpectations: func(agentState *mock_state.MockAgentState, netConfigClient *netconfig.NetworkConfigClient) {
-				agentState.EXPECT().GetTaskMetadataWithTaskNetworkConfig(endpointId, netConfigClient).Return(happyTaskResponse, nil)
-			},
-			setExecExpectations: func(exec *mock_execwrapper.MockExec, ctrl *gomock.Controller) {
-				ctx, cancel := context.WithTimeout(context.Background(), ctxTimeoutDuration)
-				mockCMD := mock_execwrapper.NewMockCmd(ctrl)
-				gomock.InOrder(
-					exec.EXPECT().NewExecContextWithTimeout(gomock.Any(), gomock.Any()).Times(1).Return(ctx, cancel),
-					exec.EXPECT().CommandContext(gomock.Any(), gomock.Any(), gomock.Any()).Times(1).Return(mockCMD),
-					mockCMD.EXPECT().CombinedOutput().Times(1).Return([]byte(tcLatencyFaultWithZeroDelayExistsCommandOutput), nil),
-				)
-			},
-			expectedResponseJSON: happyFaultNotRunningResponse,
-		},
-		{
 			name:                 "existing-network-packet-loss-fault-empty-request-payload",
 			expectedStatusCode:   200,
 			requestBody:          nil,
@@ -3599,17 +3449,6 @@ func TestCheckTCFault(t *testing.T) {
 			commandExpectations: func(exec *mock_execwrapper.MockExec, cmd *mock_execwrapper.MockCmd) {
 				exec.EXPECT().CommandContext(gomock.Any(), "tc", []string{"-j", "q", "show", "dev", "eth0", "parent", "1:1"}).Return(cmd)
 				cmd.EXPECT().CombinedOutput().Return([]byte(tcLatencyFaultExistsCommandOutput), nil)
-			},
-		},
-		{
-			name:               "Latency fault with 0 delay exists",
-			deviceNames:        []string{"eth0"},
-			expectedLatency:    true,
-			expectedPacketLoss: false,
-			expectedError:      nil,
-			commandExpectations: func(exec *mock_execwrapper.MockExec, cmd *mock_execwrapper.MockCmd) {
-				exec.EXPECT().CommandContext(gomock.Any(), "tc", []string{"-j", "q", "show", "dev", "eth0", "parent", "1:1"}).Return(cmd)
-				cmd.EXPECT().CombinedOutput().Return([]byte(tcLatencyFaultWithZeroDelayExistsCommandOutput), nil)
 			},
 		},
 		{
