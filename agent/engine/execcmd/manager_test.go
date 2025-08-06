@@ -23,30 +23,25 @@ import (
 
 	apicontainer "github.com/aws/amazon-ecs-agent/agent/api/container"
 	apitask "github.com/aws/amazon-ecs-agent/agent/api/task"
-	"github.com/aws/amazon-ecs-agent/agent/config"
 )
 
 func TestNewManager(t *testing.T) {
-	cfg := &config.Config{Cluster: "cluster"}
-	m := NewManager(cfg)
+	m := NewManager()
 	assert.Equal(t, HostBinDir, m.hostBinDir)
 	assert.Equal(t, defaultInspectRetryTimeout, m.inspectRetryTimeout)
 	assert.Equal(t, defaultRetryMinDelay, m.retryMinDelay)
 	assert.Equal(t, defaultRetryMaxDelay, m.retryMaxDelay)
 	assert.Equal(t, defaultStartRetryTimeout, m.startRetryTimeout)
-	assert.Equal(t, cfg, m.agentConfig)
 }
 
 func TestNewManagerWithBinDir(t *testing.T) {
-	cfg := &config.Config{Cluster: "cluster"}
 	const customHostBinDir = "/test"
-	m := NewManagerWithBinDir(customHostBinDir, cfg)
+	m := NewManagerWithBinDir(customHostBinDir)
 	assert.Equal(t, customHostBinDir, m.hostBinDir)
 	assert.Equal(t, defaultInspectRetryTimeout, m.inspectRetryTimeout)
 	assert.Equal(t, defaultRetryMinDelay, m.retryMinDelay)
 	assert.Equal(t, defaultRetryMaxDelay, m.retryMaxDelay)
 	assert.Equal(t, defaultStartRetryTimeout, m.startRetryTimeout)
-	assert.Equal(t, cfg, m.agentConfig)
 }
 
 func TestIsExecEnabledTask(t *testing.T) {

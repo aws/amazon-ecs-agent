@@ -2034,7 +2034,8 @@ func (engine *DockerTaskEngine) createContainer(task *apitask.Task, container *a
 	}
 
 	if execcmd.IsExecEnabledContainer(container) {
-		err := engine.execCmdMgr.InitializeContainer(task, container, hostConfig)
+		tID := task.GetID()
+		err := engine.execCmdMgr.InitializeContainer(tID, container, hostConfig)
 		if err != nil {
 			logger.Warn("Error initializing ExecCommandAgent; proceeding to start container without exec feature", logger.Fields{
 				field.TaskID:    task.GetID(),
