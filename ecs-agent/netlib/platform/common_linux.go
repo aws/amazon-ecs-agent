@@ -697,10 +697,8 @@ func (c *common) configureRegularENI(ctx context.Context, netNSPath string, eni 
 		cniNetConf = append(cniNetConf, createENIPluginConfigs(netNSPath, eni))
 		add = true
 	case status.NetworkDeleted:
-		if eni.IsPrimary() {
-			cniNetConf = append(cniNetConf, createBridgePluginConfig(netNSPath))
-		}
-		cniNetConf = append(cniNetConf, createENIPluginConfigs(netNSPath, eni))
+		// Regular ENIs are used in single-use warmpool instances, so cleanup isn't necessary.
+		cniNetConf = nil
 		add = false
 	}
 
@@ -737,9 +735,6 @@ func (c *common) configureBranchENI(ctx context.Context, netNSPath string, eni *
 		// We block IMDS access in awsvpc tasks.
 		cniNetConf = append(cniNetConf, createBranchENIConfig(netNSPath, eni, VPCBranchENIInterfaceTypeVlan, blockInstanceMetadataDefault))
 	case status.NetworkDeleted:
-		if eni.IsPrimary() {
-			cniNetConf = append(cniNetConf, createBridgePluginConfig(netNSPath))
-		}
 		cniNetConf = append(cniNetConf, createBranchENIConfig(netNSPath, eni, VPCBranchENIInterfaceTypeVlan, blockInstanceMetadataDefault))
 		add = false
 	}

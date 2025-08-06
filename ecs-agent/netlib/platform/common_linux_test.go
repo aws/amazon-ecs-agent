@@ -409,8 +409,6 @@ func testRegularENIConfiguration(t *testing.T) {
 	gomock.InOrder(
 		osWrapper.EXPECT().Setenv("ECS_CNI_LOG_FILE", ecscni.PluginLogPath).Times(1),
 		osWrapper.EXPECT().Setenv("IPAM_DB_PATH", filepath.Join(commonPlatform.stateDBDir, "eni-ipam.db")),
-		cniClient.EXPECT().Del(gomock.Any(), bridgeConfig).Return(nil).Times(1),
-		cniClient.EXPECT().Del(gomock.Any(), eniConfig).Return(nil).Times(1),
 	)
 	err = commonPlatform.configureInterface(ctx, netNSPath, eni, nil)
 	require.NoError(t, err)
@@ -450,7 +448,6 @@ func testBranchENIConfiguration(t *testing.T) {
 	// Delete workflow.
 	branchENI.DesiredStatus = status.NetworkDeleted
 	osWrapper.EXPECT().Setenv("IPAM_DB_PATH", filepath.Join(commonPlatform.stateDBDir, "eni-ipam.db"))
-	cniClient.EXPECT().Del(gomock.Any(), bridgeConfig).Return(nil).Times(1)
 	cniClient.EXPECT().Del(gomock.Any(), cniConfig).Return(nil).Times(1)
 	err = commonPlatform.configureInterface(ctx, netNSPath, branchENI, nil)
 	require.NoError(t, err)
