@@ -19,6 +19,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/aws/amazon-ecs-agent/ecs-agent/ipcompatibility"
 	"github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -66,6 +67,12 @@ func TestZeroOrNil(t *testing.T) {
 		{strMap, true, "map[string]string is zero or nil"},
 		{make(map[string]string), true, "empty map[string]string is zero or nil"},
 		{map[string]string{"foo": "bar"}, false, "map[string]string{foo:bar} is not zero or nil"},
+		// IPCompatibility test cases
+		{ipcompatibility.IPCompatibility{}, true, "Zero-value IPCompatibility should be zero"},
+		{ipcompatibility.NewIPv4OnlyCompatibility(), false, "IPv4-only IPCompatibility should not be zero"},
+		{ipcompatibility.NewIPv6OnlyCompatibility(), false, "IPv6-only IPCompatibility should not be zero"},
+		{ipcompatibility.NewDualStackCompatibility(), false, "Dual-stack IPCompatibility should not be zero"},
+		{ipcompatibility.NewIPCompatibility(false, false), true, "IPCompatibility with both false should be zero"},
 	}
 
 	for _, tc := range testCases {

@@ -21,6 +21,7 @@ import (
 	"testing"
 
 	"github.com/aws/amazon-ecs-agent/agent/statemanager/dependencies"
+	"github.com/aws/amazon-ecs-agent/ecs-agent/ipcompatibility"
 	"github.com/stretchr/testify/assert"
 	"golang.org/x/sys/windows"
 )
@@ -155,4 +156,24 @@ func TestGetDetailedOSFamilyWindows(t *testing.T) {
 	osFamily := GetOSFamily()
 	detailedOSFamily := GetDetailedOSFamily()
 	assert.Equal(t, osFamily, detailedOSFamily)
+}
+
+func TestParseInstanceIPCompatibility(t *testing.T) {
+	testCases := []struct {
+		name                    string
+		envValue                string
+		expectedIPCompatibility ipcompatibility.IPCompatibility
+	}{
+		{"empty value", "", ipcompatibility.IPCompatibility{}},
+		{"ipv4 value", "ipv4", ipcompatibility.IPCompatibility{}},
+		{"ipv6 value", "ipv6", ipcompatibility.IPCompatibility{}},
+		{"invalid value", "invalid", ipcompatibility.IPCompatibility{}},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			t.Setenv(envInstanceIPCompatibility, tc.envValue)
+			assert.Equal(t, tc.expectedIPCompatibility, parseInstanceIPCompatibility())
+		})
+	}
 }
