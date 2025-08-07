@@ -25,6 +25,8 @@ import (
 
 const systemPingTimeout = time.Second * 2
 
+var timeNow = time.Now
+
 type dockerRuntimeHealthcheck struct {
 	// HealthcheckType is the reported healthcheck type
 	HealthcheckType string `json:"HealthcheckType,omitempty"`
@@ -45,12 +47,13 @@ type dockerRuntimeHealthcheck struct {
 }
 
 func NewDockerRuntimeHealthcheck(client dockerapi.DockerClient) *dockerRuntimeHealthcheck {
-	nowTime := time.Now()
+	nowTime := timeNow()
 	return &dockerRuntimeHealthcheck{
 		HealthcheckType:  doctor.HealthcheckTypeContainerRuntime,
 		Status:           doctor.HealthcheckStatusInitializing,
 		TimeStamp:        nowTime,
 		StatusChangeTime: nowTime,
+		LastTimeStamp:    nowTime,
 		client:           client,
 	}
 }

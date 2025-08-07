@@ -19,8 +19,23 @@ func TestNewDockerRuntimeHealthCheck(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
 	mockDockerClient := mock_dockerapi.NewMockDockerClient(ctrl)
-	dockerRuntimeHealthCheck := NewDockerRuntimeHealthcheck(mockDockerClient)
-	assert.Equal(t, doctor.HealthcheckStatusInitializing, dockerRuntimeHealthCheck.Status)
+
+	// Mock the time to have predictable values
+	mockTime := time.Now()
+	originalTimeNow := timeNow
+	timeNow = func() time.Time { return mockTime }
+	defer func() { timeNow = originalTimeNow }()
+
+	expectedDockerRuntimeHealthcheck := &dockerRuntimeHealthcheck{
+		HealthcheckType:  doctor.HealthcheckTypeContainerRuntime,
+		Status:           doctor.HealthcheckStatusInitializing,
+		TimeStamp:        mockTime,
+		StatusChangeTime: mockTime,
+		LastTimeStamp:    mockTime,
+		client:           mockDockerClient,
+	}
+	actualDockerRuntimeHealthcheck := NewDockerRuntimeHealthcheck(mockDockerClient)
+	assert.Equal(t, expectedDockerRuntimeHealthcheck, actualDockerRuntimeHealthcheck)
 }
 
 func TestRunCheck(t *testing.T) {
