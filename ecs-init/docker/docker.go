@@ -306,6 +306,8 @@ func (c *client) GetContainerLogTail(logWindowSize string) string {
 }
 
 func (c *client) getContainerConfig(envVarsFromFiles map[string]string) *godocker.Config {
+	log.Info("Called getContainerConfig")
+	log.Infof("Expected ECS_DETAILED_OS_FAMILY: %s", config.GetLinuxOSFamily())
 	// default environment variables
 	envVariables := map[string]string{
 		"ECS_LOGFILE":                           logDir + "/" + config.AgentLogFile,
@@ -370,6 +372,7 @@ func (c *client) getContainerConfig(envVarsFromFiles map[string]string) *godocke
 	for envKey, envValue := range envVariables {
 		env = append(env, envKey+"="+envValue)
 	}
+	log.Info("Expected env values: %v", env)
 	cfg := &godocker.Config{
 		Env:   env,
 		Image: config.AgentImageName,

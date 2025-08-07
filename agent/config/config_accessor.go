@@ -15,6 +15,8 @@ package config
 
 import (
 	"errors"
+
+	"github.com/cihub/seelog"
 )
 
 // agentConfigAccessor struct implements AgentConfigAccessor interface defined in ecs-agent module.
@@ -72,6 +74,7 @@ func (aca *agentConfigAccessor) OSType() string {
 }
 
 func (aca *agentConfigAccessor) OSFamilyDetailed() string {
+	seelog.Infof("ECS_DETAILED_OS_FAMILY from param is: %s", aca.cfg.OsTypeDetailed)
 	return GetDetailedOSFamily()
 }
 

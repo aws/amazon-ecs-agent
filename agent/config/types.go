@@ -402,4 +402,6 @@ type Config struct {
 
 	// IP version compatibility for the container instance's default network
 	InstanceIPCompatibility ipcompatibility.IPCompatibility
+
+	OsTypeDetailed string
 }
