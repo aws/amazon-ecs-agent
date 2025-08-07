@@ -1,4 +1,8 @@
 # Changelog
+# 1.97.1
+* Enhancement - Check if IPv6 kernel config file exists before using ip6tables [#4744](https://github.com/aws/amazon-ecs-agent/pull/4744)
+* Bugfix - Scope down IP address depletion fix to managed linux platform only [#4741](https://github.com/aws/amazon-ecs-agent/pull/4741)
+
 # 1.97.0
 * Enhancement - Bump github.com/aws/aws-sdk-go-v2/service/ssm to 1.60.0 in /agent [#4704](https://github.com/aws/amazon-ecs-agent/pull/4704)
 * Enhancement - Add Exponential/Backoff retry to GetResourceTags [#4710](https://github.com/aws/amazon-ecs-agent/pull/4710)
