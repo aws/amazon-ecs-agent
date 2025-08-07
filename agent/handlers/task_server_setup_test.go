@@ -92,6 +92,7 @@ const (
 	containerType              = "NORMAL"
 	containerPort              = 80
 	containerPortProtocol      = "tcp"
+	containerARN               = "arn:aws:ecs:ap-northnorth-1:NNN:container/NNNNNNNN-aaaa-4444-bbbb-00000000000"
 	eniIPv4Address             = "10.0.0.2"
 	roleArn                    = "r1"
 	accessKeyID                = "ak"
@@ -835,6 +836,84 @@ func expectedV4TaskResponseNoContainers() v4.TaskResponse {
 	taskResponse := expectedV4TaskResponse()
 	taskResponse.Containers = nil
 	return taskResponse
+}
+
+// Returns a standard container. This getter function protects against tests mutating
+// the container.
+func getStandardBridgeContainer() *apicontainer.Container {
+	container := &apicontainer.Container{
+		Name:                containerName,
+		Image:               imageName,
+		ImageID:             imageID,
+		DesiredStatusUnsafe: apicontainerstatus.ContainerRunning,
+		KnownStatusUnsafe:   apicontainerstatus.ContainerRunning,
+		CPU:                 cpu,
+		Memory:              memory,
+		Type:                apicontainer.ContainerNormal,
+		ContainerArn:        containerARN,
+		KnownPortBindingsUnsafe: []apicontainer.PortBinding{
+			{
+				ContainerPort: containerPort,
+				Protocol:      apicontainer.TransportProtocolTCP,
+			},
+		},
+	}
+	container.SetLabels(map[string]string{
+		"foo": "bar",
+	})
+	// Set network settings so GetNetworkSettings() doesn't return nil
+	container.SetNetworkSettings(&types.NetworkSettings{
+		DefaultNetworkSettings: types.DefaultNetworkSettings{
+			IPAddress: bridgeIPAddr,
+		},
+	})
+	container.SetNetworkMode("bridge")
+	return container
+}
+
+// Returns a standard docker container. This getter function protects against tests mutating
+// the docker container.
+func getStandardDockerBridgeContainer() *apicontainer.DockerContainer {
+	return &apicontainer.DockerContainer{
+		DockerID:   containerID,
+		DockerName: containerName,
+		Container:  getStandardBridgeContainer(),
+	}
+}
+
+// Returns a standard v4 bridge container response. This getter function protects against tests mutating
+// the response.
+func getExpectedV4BridgeContainerResponse() v4.ContainerResponse {
+	return v4.ContainerResponse{
+		ContainerResponse: &v2.ContainerResponse{
+			ID:            containerID,
+			Name:          containerName,
+			DockerName:    containerName,
+			Image:         imageName,
+			ImageID:       imageID,
+			DesiredStatus: statusRunning,
+			KnownStatus:   statusRunning,
+			ContainerARN:  containerARN,
+			Limits: v2.LimitsResponse{
+				CPU:    aws.Float64(cpu),
+				Memory: aws.Int64(memory),
+			},
+			Type:   containerType,
+			Labels: map[string]string{"foo": "bar"},
+			Ports: []tmdsresponse.PortResponse{
+				{
+					ContainerPort: containerPort,
+					Protocol:      containerPortProtocol,
+				},
+			},
+		},
+		Networks: []v4.Network{{
+			Network: tmdsresponse.Network{
+				NetworkMode:   "bridge",
+				IPv4Addresses: []string{bridgeIPAddr},
+			},
+		}},
+	}
 }
 
 func taskRoleCredentials() credentials.TaskIAMRoleCredentials {
@@ -2440,6 +2519,54 @@ func TestV4TaskMetadata(t *testing.T) {
 			},
 			expectedStatusCode:   http.StatusOK,
 			expectedResponseBody: expectedV4BridgeTaskResponse(),
+		})
+	})
+	t.Run("containers are sorted with CNI_PAUSE first", func(t *testing.T) {
+		// Create containers with mixed types using getter functions and mutation
+		normalDockerContainer := getStandardDockerBridgeContainer()
+		normalDockerContainer.DockerID = "normal-id"
+		normalDockerContainer.Container.Type = apicontainer.ContainerNormal
+
+		pauseDockerContainer := getStandardDockerBridgeContainer()
+		pauseDockerContainer.DockerID = "pause-id"
+		pauseDockerContainer.Container.Type = apicontainer.ContainerCNIPause
+
+		// Return containers in mixed order: normal first, then pause
+		mixedContainerMap := map[string]*apicontainer.DockerContainer{
+			"app-container":   normalDockerContainer,
+			"pause-container": pauseDockerContainer,
+		}
+
+		testTMDSRequest(t, TMDSTestCase[v4.TaskResponse]{
+			path: v4BasePath + v3EndpointID + "/task",
+			setStateExpectations: func(state *mock_dockerstate.MockTaskEngineState) {
+				state.EXPECT().TaskARNByV3EndpointID(v3EndpointID).Return(taskARN, true).AnyTimes()
+				state.EXPECT().TaskByArn(taskARN).Return(standardBridgeTask(), true).Times(2).AnyTimes()
+				state.EXPECT().ContainerMapByArn(taskARN).Return(mixedContainerMap, true).AnyTimes()
+				state.EXPECT().ContainerByID("normal-id").Return(normalDockerContainer, true).AnyTimes()
+				state.EXPECT().ContainerByID("pause-id").Return(pauseDockerContainer, true).AnyTimes()
+				state.EXPECT().PulledContainerMapByArn(taskARN).Return(nil, true).AnyTimes()
+			},
+			expectedStatusCode: http.StatusOK,
+			expectedResponseBody: func() v4.TaskResponse {
+				// Start with bridge mode response and mutate only what's different
+				expectedResponse := expectedV4BridgeTaskResponse()
+
+				// Create CNI_PAUSE container by mutating bridge container response
+				pauseContainer := getExpectedV4BridgeContainerResponse()
+				pauseContainer.ContainerResponse.ID = "pause-id"
+				pauseContainer.ContainerResponse.Type = "CNI_PAUSE"
+
+				// Create NORMAL container by mutating bridge container response
+				normalContainer := getExpectedV4BridgeContainerResponse()
+				normalContainer.ContainerResponse.ID = "normal-id"
+				normalContainer.ContainerResponse.Type = "NORMAL"
+
+				// CNI_PAUSE should appear first after sorting
+				expectedResponse.Containers = []v4.ContainerResponse{pauseContainer, normalContainer}
+
+				return expectedResponse
+			}(),
 		})
 	})
 }
