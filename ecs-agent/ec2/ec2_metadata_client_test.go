@@ -294,6 +294,26 @@ func TestPublicIPv4Address(t *testing.T) {
 	assert.Equal(t, publicIP, publicIPResponse)
 }
 
+func TestIPv6Address(t *testing.T) {
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+
+	mockGetter := mock_ec2.NewMockHttpClient(ctrl)
+	testClient, err := ec2.NewEC2MetadataClient(mockGetter)
+	assert.NoError(t, err)
+
+	ipv6 := "2001:db8::1"
+	mockGetter.EXPECT().GetMetadata(gomock.Any(), &imds.GetMetadataInput{
+		Path: ec2.IPv6Resource,
+	}).Return(&imds.GetMetadataOutput{
+		Content: nopReadCloser(ipv6),
+	}, nil)
+
+	ipv6Response, err := testClient.IPv6Address()
+	assert.NoError(t, err)
+	assert.Equal(t, ipv6, ipv6Response)
+}
+
 func TestSpotInstanceAction(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
