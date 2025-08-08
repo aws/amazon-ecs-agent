@@ -45,10 +45,6 @@ const (
 	// location of the credentials-fetcher location on the machine
 	envCredentialsFetcherHostDir = "CREDENTIALS_FETCHER_HOST_DIR"
 	// envInstanceIPCompatibility is an environment setting to override IP compatibility detection
-	//
-	// TODO:feat:IPv6-only - Remove lint rule below
-	//
-	//lint:ignore U1000 Constant will be used in the future
 	envInstanceIPCompatibility = "ECS_INSTANCE_IP_COMPATIBILITY"
 )
 
