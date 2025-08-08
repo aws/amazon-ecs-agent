@@ -196,7 +196,7 @@ func (s *TMDSAgentState) getTaskMetadata(v3EndpointID string, includeTags bool, 
 	// Service Connect Agent versions v1.29.12.1 and older depend on the first container in the
 	// task metadata response to infer the task's supported IP families, so making pause containers
 	// appear first is needed for the infer logic to work correctly.
-	if task.IsNetworkModeBridge() {
+	if task.IsNetworkModeBridge() && task.IsServiceConnectEnabled() {
 		sortContainersCNIPauseFirst(taskResponse.Containers)
 	}
 
