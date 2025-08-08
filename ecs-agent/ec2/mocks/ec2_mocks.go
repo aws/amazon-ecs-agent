@@ -142,6 +142,21 @@ func (mr *MockEC2MetadataClientMockRecorder) GetUserData() *gomock.Call {
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetUserData", reflect.TypeOf((*MockEC2MetadataClient)(nil).GetUserData))
 }
 
+// IPv6Address mocks base method.
+func (m *MockEC2MetadataClient) IPv6Address() (string, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "IPv6Address")
+	ret0, _ := ret[0].(string)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// IPv6Address indicates an expected call of IPv6Address.
+func (mr *MockEC2MetadataClientMockRecorder) IPv6Address() *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "IPv6Address", reflect.TypeOf((*MockEC2MetadataClient)(nil).IPv6Address))
+}
+
 // InstanceID mocks base method.
 func (m *MockEC2MetadataClient) InstanceID() (string, error) {
 	m.ctrl.T.Helper()
