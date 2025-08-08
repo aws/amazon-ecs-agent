@@ -193,7 +193,7 @@ func (s *TMDSAgentState) getTaskMetadata(v3EndpointID string, includeTags bool, 
 	// Bridge tasks with pause containers are Service Connect enabled and only pause containers
 	// contain actual network information in that case.
 	//
-	// Service Connect Agent versions older than v1.29.12.1 depend on the first container in the
+	// Service Connect Agent versions v1.29.12.1 and older depend on the first container in the
 	// task metadata response to infer the task's supported IP families, so making pause containers
 	// appear first is needed for the infer logic to work correctly.
 	if task.IsNetworkModeBridge() {
