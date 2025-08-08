@@ -80,6 +80,10 @@ func (FakeEC2MetadataClient) PublicIPv4Address() (string, error) {
 	return "", errors.New("not implemented")
 }
 
+func (FakeEC2MetadataClient) IPv6Address() (string, error) {
+	return "", errors.New("not implemented")
+}
+
 func (FakeEC2MetadataClient) SpotInstanceAction() (string, error) {
 	return "", errors.New("not implemented")
 }
