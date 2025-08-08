@@ -15,7 +15,7 @@ check-option-value() {
 }
 
 usage() {
-    echo "$(basename "$0") [--help] --region REGION --activation-code CODE --activation-id ID [--cluster CLUSTER] [--enable-gpu] [--docker-install-source all|docker|distro|none] [--ecs-version VERSION] [--ecs-endpoint ENDPOINT] [--skip-registration] [--no-start]
+    echo "$(basename "$0") [--help] --region REGION --activation-code CODE --activation-id ID [--cluster CLUSTER] [--enable-gpu] [--docker-install-source all|docker|distro|none] [--ecs-version VERSION] [--ecs-endpoint ENDPOINT] [--skip-registration] [--no-start] [--ip-compatibility ipv4|ipv6]
 
   --help
         (optional) display this help message.
@@ -37,6 +37,8 @@ usage() {
         (optional) if this is enabled, SSM agent install and instance registration with SSM is skipped.
   --certs-file
         (optional) TLS certs for execute command feature. Defaults to searching for certs in known possible locations.
+  --ip-compatibility string
+        (optional) IP compatibility mode. Possible values are 'ipv4' or 'ipv6'. If not specified, auto-detects based on routing table.
   --no-start
         (optional) if this flag is provided, SSM agent, docker and ECS agent will not be started by the script despite being installed."
 }
@@ -59,6 +61,8 @@ CERTS_FILE=""
 # without having to sign it).
 CHECK_SIG=true
 NO_START=false
+IP_COMPATIBILITY=""
+
 while :; do
     case "$1" in
     --help)
@@ -131,6 +135,15 @@ while :; do
         CHECK_SIG=false
         shift 1
         ;;
+    --ip-compatibility)
+        check-option-value "$1" "$2"
+        if [ "$2" != "ipv4" ] && [ "$2" != "ipv6" ]; then
+            echo "Invalid value for --ip-compatibility: $2. Must be 'ipv4' or 'ipv6'."
+            fail
+        fi
+        IP_COMPATIBILITY="$2"
+        shift 2
+        ;;
     *)
         [ -z "$1" ] && break
         echo "invalid option: [$1]"
@@ -200,6 +213,44 @@ else
     fail
 fi
 
+# Determines if IPv6-only configuration should be used.
+# Uses --ip-compatibility flag if set, otherwise auto-detects from routing table.
+# Returns 0 for IPv6-only, 1 for IPv4
+is-ipv6() {
+    # If explicitly set to ipv6, return true
+    if [ "$IP_COMPATIBILITY" = "ipv6" ]; then
+        return 0
+    fi
+
+    # If explicitly set to ipv4, return false
+    if [ "$IP_COMPATIBILITY" = "ipv4" ]; then
+        return 1
+    fi
+
+    # Auto-detect when not explicitly set
+    # Check if ip command is available
+    if ! command -v ip >/dev/null 2>&1; then
+        echo "WARNING: ip command not found while detecting IP compatibility, assuming IPv4"
+        return 1
+    fi
+
+    # Auto-detect IPv6-only environment by checking routes
+    # Check if there's a default IPv4 route
+    if ip route show default | grep -q "default"; then
+        # IPv4 default route exists, not IPv6-only
+        return 1
+    fi
+
+    # Check if there's a default IPv6 route
+    if ip -6 route show default | grep -q "default"; then
+        # IPv6 default route exists but no IPv4, this is IPv6-only
+        return 0
+    fi
+
+    # No default routes found, assume IPv4
+    return 1
+}
+
 S3_BUCKET="amazon-ecs-agent-$REGION"
 RPM_PKG_NAME="amazon-ecs-init-$ECS_VERSION.$ARCH.rpm"
 DEB_PKG_NAME="amazon-ecs-init-$ECS_VERSION.$ARCH_ALT.deb"
@@ -207,7 +258,11 @@ S3_URL_SUFFIX=""
 if grep -q "^cn-" <<< "$REGION"; then
     S3_URL_SUFFIX=".cn"
 fi
-S3_URL="https://s3.${REGION}.amazonaws.com${S3_URL_SUFFIX}"
+S3_URL_DUALSTACK=""
+if is-ipv6; then
+    S3_URL_DUALSTACK="dualstack."
+fi
+S3_URL="https://s3.${S3_URL_DUALSTACK}${REGION}.amazonaws.com${S3_URL_SUFFIX}"
 SSM_S3_BUCKET="amazon-ssm-$REGION"
 
 if [ -z "$RPM_URL" ]; then
@@ -316,7 +371,44 @@ register-ssm-agent() {
     ok
 }
 
+configure-ssm-agent-ipv6() {
+    try "configure SSM agent for IPv6-only environment"
+    local ssm_config_dir="/etc/amazon/ssm"
+    local ssm_config_file="$ssm_config_dir/amazon-ssm-agent.json"
+
+    if [ -f "$ssm_config_file" ]; then
+        echo "SSM agent configuration file already exists at $ssm_config_file, skipping creation."
+    else
+        echo "Creating SSM agent configuration for IPv6-only environment"
+        mkdir -p "$ssm_config_dir"
+
+        local endpoint_suffix="api.aws"
+        if grep -q "^cn-" <<< "$REGION"; then
+            endpoint_suffix="api.amazonwebservices.com.cn"
+        fi
+
+        cat > "$ssm_config_file" << EOF
+{
+        "Ssm": {
+                "Endpoint": "https://ssm.$REGION.$endpoint_suffix"
+        },
+        "Mgs": {
+                "Endpoint": "https://ssmmessages.$REGION.$endpoint_suffix"
+        },
+        "Mds": {
+                "Endpoint": "https://ec2messages.$REGION.$endpoint_suffix"
+        }
+}
+EOF
+        echo "Created SSM agent configuration file at $ssm_config_file"
+    fi
+    ok
+}
+
 install-ssm-agent() {
+    if is-ipv6; then
+        configure-ssm-agent-ipv6
+    fi
     try "install ssm agent"
     if systemctl is-enabled $SSM_SERVICE_NAME &>/dev/null; then
         echo "SSM agent is already installed."

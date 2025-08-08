@@ -24,6 +24,7 @@ import (
 	"github.com/aws/amazon-ecs-agent/agent/dockerclient"
 	"github.com/aws/amazon-ecs-agent/agent/utils"
 	"github.com/aws/amazon-ecs-agent/ecs-agent/ipcompatibility"
+	commonutils "github.com/aws/amazon-ecs-agent/ecs-agent/utils"
 	netutils "github.com/aws/amazon-ecs-agent/ecs-agent/utils/net"
 	"github.com/aws/amazon-ecs-agent/ecs-agent/utils/netlinkwrapper"
 
@@ -138,15 +139,13 @@ func DefaultConfig(ipCompatOverride ipcompatibility.IPCompatibility) Config {
 		FirelensAsyncEnabled:                BooleanDefaultTrue{Value: ExplicitlyEnabled},
 	}
 
-	// TODO:feat:ipv6-only Enable IP compatibility detection when the feature is ready
-	// if commonutils.ZeroOrNil(ipCompatOverride) {
-	// 	logger.Info("No IP compatibility override provided, detecting instance IP compatibility for default config")
-	// 	cfg.determineIPCompatibility()
-	// 	cfg.setIPv6PortBindingDefault(cfg.InstanceIPCompatibility)
-	// } else {
-	// 	cfg.setIPv6PortBindingDefault(ipCompatOverride)
-	// }
-	cfg.setIPv6PortBindingDefault(ipCompatOverride)
+	if commonutils.ZeroOrNil(ipCompatOverride) {
+		logger.Info("No IP compatibility override provided, detecting instance IP compatibility for default config")
+		cfg.determineIPCompatibility()
+	} else {
+		cfg.InstanceIPCompatibility = ipCompatOverride
+	}
+	cfg.setIPv6PortBindingDefault(cfg.InstanceIPCompatibility)
 
 	return cfg
 }
@@ -198,10 +197,6 @@ func getConfigFileName() (string, error) {
 // determining the IP compatibility of the container instance.
 // This is a fallback to help with graceful adoption of Agent in IPv6-only environments
 // without disrupting existing environments.
-//
-// TODO:feat:IPv6-only - Remove lint rule below
-//
-//lint:ignore U1000 Function will be used in the future
 func (c *Config) determineIPCompatibility() {
 	var err error
 	c.InstanceIPCompatibility, err = netutils.DetermineIPCompatibility(nlWrapper, "")

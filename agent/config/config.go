@@ -605,9 +605,7 @@ func environmentConfig() (Config, error) {
 		DynamicHostPortRange:                parseDynamicHostPortRange("ECS_DYNAMIC_HOST_PORT_RANGE"),
 		TaskPidsLimit:                       parseTaskPidsLimit(),
 		FirelensAsyncEnabled:                parseBooleanDefaultTrueConfig("ECS_ENABLE_FIRELENS_ASYNC"),
-
-		// TODO:feat:ipv6-only Enable InstanceIPCompatibility parameter when the feature is ready
-		// InstanceIPCompatibility:             parseInstanceIPCompatibility(),
+		InstanceIPCompatibility:             parseInstanceIPCompatibility(),
 	}, err
 }
 

@@ -202,10 +202,6 @@ func parseTaskPidsLimit() int {
 
 // parseInstanceIPCompatibility always returns zero-value IP compatibility as the config
 // parameter to override instance IP compatibility is not supported on Windows.
-//
-// TODO:feat:IPv6-only - Remove lint rule below
-//
-//lint:ignore U1000 Constant will be used in the future
 func parseInstanceIPCompatibility() ipcompatibility.IPCompatibility {
 	if os.Getenv(envInstanceIPCompatibility) != "" {
 		logger.Warn(envInstanceIPCompatibility + " is not supported on Windows")
