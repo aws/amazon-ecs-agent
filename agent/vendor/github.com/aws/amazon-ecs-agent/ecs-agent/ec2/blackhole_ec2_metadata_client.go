@@ -77,6 +77,10 @@ func (blackholeMetadataClient) PrivateIPv4Address() (string, error) {
 	return "", errors.New("blackholed")
 }
 
+func (blackholeMetadataClient) IPv6Address() (string, error) {
+	return "", errors.New("blackholed")
+}
+
 func (blackholeMetadataClient) PublicIPv4Address() (string, error) {
 	return "", errors.New("blackholed")
 }

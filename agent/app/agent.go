@@ -505,8 +505,12 @@ func (agent *ecsAgent) doStart(containerChangeEventStream *eventstream.EventStre
 	if agent.cfg.ContainerMetadataEnabled.Enabled() {
 		agent.metadataManager.SetContainerInstanceARN(agent.containerInstanceARN)
 		agent.metadataManager.SetAvailabilityZone(agent.availabilityZone)
-		agent.metadataManager.SetHostPrivateIPv4Address(agent.getHostPrivateIPv4AddressFromEC2Metadata())
-		agent.metadataManager.SetHostPublicIPv4Address(agent.getHostPublicIPv4AddressFromEC2Metadata())
+		if agent.cfg.InstanceIPCompatibility.IsIPv6Only() {
+			agent.metadataManager.SetHostIPv6Address(agent.getHostIPv6AddressFromEC2Metadata())
+		} else {
+			agent.metadataManager.SetHostPrivateIPv4Address(agent.getHostPrivateIPv4AddressFromEC2Metadata())
+			agent.metadataManager.SetHostPublicIPv4Address(agent.getHostPublicIPv4AddressFromEC2Metadata())
+		}
 	}
 
 	if agent.cfg.Checkpoint.Enabled() {
@@ -1216,6 +1220,18 @@ func (agent *ecsAgent) getHostPublicIPv4AddressFromEC2Metadata() string {
 		return ""
 	}
 	return hostPublicIPv4Address
+}
+
+// getHostIPv6AddressFromEC2Metadata will retrieve the IPv6 address of this
+// instance through the EC2 API
+func (agent *ecsAgent) getHostIPv6AddressFromEC2Metadata() string {
+	// Get instance IPv6 address from ec2 metadata client.
+	hostIPv6Address, err := agent.ec2MetadataClient.IPv6Address()
+	if err != nil {
+		seelog.Errorf("Unable to retrieve Host Instance IPv6 Address: %v", err)
+		return ""
+	}
+	return hostIPv6Address
 }
 
 func (agent *ecsAgent) saveMetadata(key, val string) {

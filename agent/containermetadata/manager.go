@@ -40,6 +40,7 @@ type Manager interface {
 	SetAvailabilityZone(string)
 	SetHostPrivateIPv4Address(string)
 	SetHostPublicIPv4Address(string)
+	SetHostIPv6Address(string)
 	Create(*dockercontainer.Config, *dockercontainer.HostConfig, *apitask.Task, string, []string) error
 	Update(context.Context, string, *apitask.Task, string) error
 	Clean(string) error
@@ -66,6 +67,8 @@ type metadataManager struct {
 	hostPrivateIPv4Address string
 	// hostPublicIPv4Address is the public IPv4 address associated with the EC2 instance
 	hostPublicIPv4Address string
+	// hostIPv6Address is the IPv6 address associated with the EC2 instance
+	hostIPv6Address string
 }
 
 // NewManager creates a metadataManager for a given DockerTaskEngine settings.
@@ -100,6 +103,12 @@ func (manager *metadataManager) SetHostPrivateIPv4Address(ipv4address string) {
 // at its creation as this information is not present immediately at the agent's startup
 func (manager *metadataManager) SetHostPublicIPv4Address(ipv4address string) {
 	manager.hostPublicIPv4Address = ipv4address
+}
+
+// SetHostIPv6Address sets the metadataManager's hostIPv6Address which is not available
+// at its creation as this information is not present immediately at the agent's startup
+func (manager *metadataManager) SetHostIPv6Address(ipv6address string) {
+	manager.hostIPv6Address = ipv6address
 }
 
 var mkdirAll = os.MkdirAll

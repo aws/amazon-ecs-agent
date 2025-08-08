@@ -104,6 +104,18 @@ func (mr *MockManagerMockRecorder) SetContainerInstanceARN(arg0 interface{}) *go
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SetContainerInstanceARN", reflect.TypeOf((*MockManager)(nil).SetContainerInstanceARN), arg0)
 }
 
+// SetHostIPv6Address mocks base method.
+func (m *MockManager) SetHostIPv6Address(arg0 string) {
+	m.ctrl.T.Helper()
+	m.ctrl.Call(m, "SetHostIPv6Address", arg0)
+}
+
+// SetHostIPv6Address indicates an expected call of SetHostIPv6Address.
+func (mr *MockManagerMockRecorder) SetHostIPv6Address(arg0 interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SetHostIPv6Address", reflect.TypeOf((*MockManager)(nil).SetHostIPv6Address), arg0)
+}
+
 // SetHostPrivateIPv4Address mocks base method.
 func (m *MockManager) SetHostPrivateIPv4Address(arg0 string) {
 	m.ctrl.T.Helper()

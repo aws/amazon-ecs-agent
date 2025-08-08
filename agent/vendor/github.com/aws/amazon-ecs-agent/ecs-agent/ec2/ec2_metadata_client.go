@@ -41,6 +41,7 @@ const (
 	AvailabilityZoneID                        = "placement/availability-zone-id"
 	PrivateIPv4Resource                       = "local-ipv4"
 	PublicIPv4Resource                        = "public-ipv4"
+	IPv6Resource                              = "ipv6"
 	OutpostARN                                = "outpost-arn"
 	PrimaryIPV4VPCCIDRResourceFormat          = "network/interfaces/macs/%s/vpc-ipv4-cidr-block"
 	TargetLifecycleState                      = "autoscaling/target-lifecycle-state"
@@ -85,6 +86,7 @@ type EC2MetadataClient interface {
 	AvailabilityZoneID() (string, error)
 	PrivateIPv4Address() (string, error)
 	PublicIPv4Address() (string, error)
+	IPv6Address() (string, error)
 	SpotInstanceAction() (string, error)
 	OutpostARN() (string, error)
 	TargetLifecycleState() (string, error)
@@ -258,6 +260,11 @@ func (c *ec2MetadataClientImpl) PublicIPv4Address() (string, error) {
 // PrivateIPv4Address returns the private IPv4 of this instance
 func (c *ec2MetadataClientImpl) PrivateIPv4Address() (string, error) {
 	return c.GetMetadata(PrivateIPv4Resource)
+}
+
+// IPv6Address returns the IPv6 address of this instance
+func (c *ec2MetadataClientImpl) IPv6Address() (string, error) {
+	return c.GetMetadata(IPv6Resource)
 }
 
 // SpotInstanceAction returns the spot instance-action, if it has been set.

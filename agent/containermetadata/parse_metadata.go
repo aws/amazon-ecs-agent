@@ -44,6 +44,7 @@ func (manager *metadataManager) parseMetadataAtContainerCreate(task *apitask.Tas
 		availabilityZone:       manager.availabilityZone,
 		hostPrivateIPv4Address: manager.hostPrivateIPv4Address,
 		hostPublicIPv4Address:  manager.hostPublicIPv4Address,
+		hostIPv6Address:        manager.hostIPv6Address,
 	}
 }
 
@@ -67,6 +68,7 @@ func (manager *metadataManager) parseMetadata(dockerContainer *types.ContainerJS
 		availabilityZone:        manager.availabilityZone,
 		hostPrivateIPv4Address:  manager.hostPrivateIPv4Address,
 		hostPublicIPv4Address:   manager.hostPublicIPv4Address,
+		hostIPv6Address:         manager.hostIPv6Address,
 	}
 }
 

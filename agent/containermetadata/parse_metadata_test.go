@@ -49,6 +49,7 @@ func newBasicFixture() *testFixture {
 		availabilityZone:       availabilityZone,
 		hostPrivateIPv4Address: hostPrivateIPv4Address,
 		hostPublicIPv4Address:  hostPublicIPv4Address,
+		hostIPv6Address:        hostIPv6Address,
 	}
 
 	return &testFixture{
@@ -123,6 +124,7 @@ func validateBasicMetadata(t *testing.T, metadata *Metadata, fixture *testFixtur
 	assert.Equal(t, fixture.manager.availabilityZone, metadata.availabilityZone, "Expected availabilityZone "+fixture.manager.availabilityZone)
 	assert.Equal(t, fixture.manager.hostPrivateIPv4Address, metadata.hostPrivateIPv4Address, "Expected hostPrivateIPv4Address "+fixture.manager.hostPrivateIPv4Address)
 	assert.Equal(t, fixture.manager.hostPublicIPv4Address, metadata.hostPublicIPv4Address, "Expected hostPublicIPv4Address "+fixture.manager.hostPublicIPv4Address)
+	assert.Equal(t, fixture.manager.hostIPv6Address, metadata.hostIPv6Address, "Expected hostIPv6Address "+fixture.manager.hostIPv6Address)
 	assert.Equal(t, fixture.expectedStatus, string(metadata.metadataStatus), "Expected status "+fixture.expectedStatus)
 }
 

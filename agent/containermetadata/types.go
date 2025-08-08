@@ -125,6 +125,7 @@ type Metadata struct {
 	availabilityZone        string
 	hostPrivateIPv4Address  string
 	hostPublicIPv4Address   string
+	hostIPv6Address         string
 }
 
 // metadataSerializer is an intermediate struct that converts the information
@@ -146,6 +147,7 @@ type metadataSerializer struct {
 	AvailabilityZone       string                     `json:"AvailabilityZone,omitempty"`
 	HostPrivateIPv4Address string                     `json:"HostPrivateIPv4Address,omitempty"`
 	HostPublicIPv4Address  string                     `json:"HostPublicIPv4Address,omitempty"`
+	HostIPv6Address        string                     `json:"HostIPv6Address,omitempty"`
 }
 
 func (m Metadata) MarshalJSON() ([]byte, error) {
@@ -167,5 +169,6 @@ func (m Metadata) MarshalJSON() ([]byte, error) {
 			AvailabilityZone:       m.availabilityZone,
 			HostPrivateIPv4Address: m.hostPrivateIPv4Address,
 			HostPublicIPv4Address:  m.hostPublicIPv4Address,
+			HostIPv6Address:        m.hostIPv6Address,
 		})
 }
