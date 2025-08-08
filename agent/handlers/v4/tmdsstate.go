@@ -15,7 +15,9 @@ package v4
 import (
 	"errors"
 	"fmt"
+	"sort"
 
+	apicontainer "github.com/aws/amazon-ecs-agent/agent/api/container"
 	"github.com/aws/amazon-ecs-agent/agent/engine/dockerstate"
 	"github.com/aws/amazon-ecs-agent/agent/stats"
 	"github.com/aws/amazon-ecs-agent/ecs-agent/api/ecs"
@@ -187,6 +189,17 @@ func (s *TMDSAgentState) getTaskMetadata(v3EndpointID string, includeTags bool, 
 		taskResponse.TaskNetworkConfig = taskNetworkConfig
 	}
 
+	// For bridge mode tasks, sort containers so that CNI_PAUSE containers appear first.
+	// Bridge tasks with pause containers are Service Connect enabled and only pause containers
+	// contain actual network information in that case.
+	//
+	// Service Connect Agent versions v1.29.12.1 and older depend on the first container in the
+	// task metadata response to infer the task's supported IP families, so making pause containers
+	// appear first is needed for the infer logic to work correctly.
+	if task.IsNetworkModeBridge() && task.IsServiceConnectEnabled() {
+		sortContainersCNIPauseFirst(taskResponse.Containers)
+	}
+
 	return *taskResponse, nil
 }
 
@@ -234,4 +247,12 @@ func (s *TMDSAgentState) GetTaskStats(v3EndpointID string) (map[string]*tmdsv4.S
 	}
 
 	return taskStatsResponse, nil
+}
+
+// sortContainersCNIPauseFirst sorts containers so that CNI_PAUSE containers appear first.
+// Other containers maintain their relative order.
+func sortContainersCNIPauseFirst(containers []tmdsv4.ContainerResponse) {
+	sort.SliceStable(containers, func(i, j int) bool {
+		return containers[i].Type == apicontainer.ContainerCNIPause.String()
+	})
 }

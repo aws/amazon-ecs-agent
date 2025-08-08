@@ -31,6 +31,7 @@ import (
 	"time"
 
 	apicontainer "github.com/aws/amazon-ecs-agent/agent/api/container"
+	"github.com/aws/amazon-ecs-agent/agent/api/serviceconnect"
 	apitask "github.com/aws/amazon-ecs-agent/agent/api/task"
 	"github.com/aws/amazon-ecs-agent/agent/config"
 	mock_dockerstate "github.com/aws/amazon-ecs-agent/agent/engine/dockerstate/mocks"
@@ -92,6 +93,7 @@ const (
 	containerType              = "NORMAL"
 	containerPort              = 80
 	containerPortProtocol      = "tcp"
+	containerARN               = "arn:aws:ecs:ap-northnorth-1:NNN:container/NNNNNNNN-aaaa-4444-bbbb-00000000000"
 	eniIPv4Address             = "10.0.0.2"
 	roleArn                    = "r1"
 	accessKeyID                = "ak"
@@ -2440,6 +2442,60 @@ func TestV4TaskMetadata(t *testing.T) {
 			},
 			expectedStatusCode:   http.StatusOK,
 			expectedResponseBody: expectedV4BridgeTaskResponse(),
+		})
+	})
+	t.Run("containers are sorted with CNI_PAUSE first", func(t *testing.T) {
+		// Create containers with mixed types using getter functions and mutation
+		scDockerContainer := standardBridgeDockerContainer()
+		scDockerContainer.DockerID = "sc-id"
+		scDockerContainer.DockerName = "service-connect-agent"
+		scDockerContainer.Container.Name = "service-connect-agent"
+		scDockerContainer.Container.Type = apicontainer.ContainerNormal
+
+		pauseDockerContainer := standardBridgeDockerContainer()
+		pauseDockerContainer.DockerID = "pause-id"
+		pauseDockerContainer.Container.Type = apicontainer.ContainerCNIPause
+
+		mixedContainerMap := map[string]*apicontainer.DockerContainer{
+			"service-connect-agent": scDockerContainer,
+			"pause-container":       pauseDockerContainer,
+		}
+
+		testTMDSRequest(t, TMDSTestCase[v4.TaskResponse]{
+			path: v4BasePath + v3EndpointID + "/task",
+			setStateExpectations: func(state *mock_dockerstate.MockTaskEngineState) {
+				serviceConnectTask := standardBridgeTask()
+				serviceConnectTask.Containers = append(serviceConnectTask.Containers,
+					scDockerContainer.Container, pauseDockerContainer.Container)
+				serviceConnectTask.ServiceConnectConfig = &serviceconnect.Config{
+					ContainerName: scDockerContainer.Container.Name,
+				}
+
+				state.EXPECT().TaskARNByV3EndpointID(v3EndpointID).Return(taskARN, true).AnyTimes()
+				state.EXPECT().TaskByArn(taskARN).Return(serviceConnectTask, true).Times(2).AnyTimes()
+				state.EXPECT().ContainerMapByArn(taskARN).Return(mixedContainerMap, true).AnyTimes()
+				state.EXPECT().ContainerByID("sc-id").Return(scDockerContainer, true).AnyTimes()
+				state.EXPECT().ContainerByID("pause-id").Return(pauseDockerContainer, true).AnyTimes()
+				state.EXPECT().PulledContainerMapByArn(taskARN).Return(nil, true).AnyTimes()
+			},
+			expectedStatusCode: http.StatusOK,
+			expectedResponseBody: func() v4.TaskResponse {
+				expectedResponse := expectedV4BridgeTaskResponse()
+
+				pauseContainer := *standardV4BridgeContainerResponse()
+				pauseContainer.ContainerResponse.ID = "pause-id"
+				pauseContainer.ContainerResponse.Type = "CNI_PAUSE"
+
+				scContainer := *standardV4BridgeContainerResponse()
+				scContainer.ContainerResponse.ID = "sc-id"
+				scContainer.ContainerResponse.Name = "service-connect-agent"
+				scContainer.ContainerResponse.DockerName = "service-connect-agent"
+				scContainer.ContainerResponse.Type = "NORMAL"
+
+				// CNI_PAUSE should appear first after sorting
+				expectedResponse.Containers = []v4.ContainerResponse{pauseContainer, scContainer}
+				return expectedResponse
+			}(),
 		})
 	})
 }
