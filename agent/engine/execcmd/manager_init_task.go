@@ -72,7 +72,7 @@ var (
 	"Kms": {
 		"Endpoint": "%s"
 	},
-	"CloudWatch": {
+	"CloudWatchLogs": {
 		"Endpoint": "%s"
 	}
 }`
