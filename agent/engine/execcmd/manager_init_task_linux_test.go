@@ -250,7 +250,7 @@ func TestGetExecAgentConfigFileName(t *testing.T) {
 	"Kms": {
 		"Endpoint": ""
 	},
-	"CloudWatch": {
+	"CloudWatchLogs": {
 		"Endpoint": ""
 	}
 }`
@@ -503,18 +503,18 @@ func TestFormatSSMAgentConfig(t *testing.T) {
 		Kms struct {
 			Endpoint string `json:"Endpoint"`
 		} `json:"Kms"`
-		CloudWatch struct {
+		CloudWatchLogs struct {
 			Endpoint string `json:"Endpoint"`
-		} `json:"CloudWatch"`
+		} `json:"CloudWatchLogs"`
 	}
 
 	type expectedEndpoints struct {
-		mgs        string
-		ssm        string
-		mds        string
-		s3         string
-		kms        string
-		cloudWatch string
+		mgs            string
+		ssm            string
+		mds            string
+		s3             string
+		kms            string
+		cloudWatchLogs string
 	}
 
 	// Create mock ENIs for testing
@@ -543,12 +543,12 @@ func TestFormatSSMAgentConfig(t *testing.T) {
 	}
 
 	expectedDualstackEndpointsIAD := expectedEndpoints{
-		mgs:        "https://ssmmessages.us-east-1.api.aws",
-		ssm:        "https://ssm.us-east-1.api.aws",
-		mds:        "https://ec2messages.us-east-1.api.aws",
-		s3:         "https://s3.dualstack.us-east-1.amazonaws.com",
-		kms:        "https://kms.us-east-1.api.aws",
-		cloudWatch: "https://logs.us-east-1.api.aws",
+		mgs:            "https://ssmmessages.us-east-1.api.aws",
+		ssm:            "https://ssm.us-east-1.api.aws",
+		mds:            "https://ec2messages.us-east-1.api.aws",
+		s3:             "https://s3.dualstack.us-east-1.amazonaws.com",
+		kms:            "https://kms.us-east-1.api.aws",
+		cloudWatchLogs: "https://logs.us-east-1.api.aws",
 	}
 
 	testCases := []struct {
@@ -647,7 +647,7 @@ func TestFormatSSMAgentConfig(t *testing.T) {
 			assert.Equal(t, tc.expectedEndpoints.mds, config.Mds.Endpoint)
 			assert.Equal(t, tc.expectedEndpoints.s3, config.S3.Endpoint)
 			assert.Equal(t, tc.expectedEndpoints.kms, config.Kms.Endpoint)
-			assert.Equal(t, tc.expectedEndpoints.cloudWatch, config.CloudWatch.Endpoint)
+			assert.Equal(t, tc.expectedEndpoints.cloudWatchLogs, config.CloudWatchLogs.Endpoint)
 		})
 	}
 }
