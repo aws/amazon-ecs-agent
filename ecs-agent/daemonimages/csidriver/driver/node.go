@@ -22,17 +22,17 @@ package driver
 import (
 	"context"
 	"fmt"
+	"os"
 	"strconv"
 	"strings"
-
-	"github.com/container-storage-interface/spec/lib/go/csi"
-	"google.golang.org/grpc/codes"
-	"google.golang.org/grpc/status"
-	"k8s.io/klog/v2"
 
 	"github.com/aws/amazon-ecs-agent/ecs-agent/daemonimages/csidriver/driver/internal"
 	"github.com/aws/amazon-ecs-agent/ecs-agent/daemonimages/csidriver/util"
 	"github.com/aws/amazon-ecs-agent/ecs-agent/daemonimages/csidriver/volume"
+	"github.com/container-storage-interface/spec/lib/go/csi"
+	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/status"
+	"k8s.io/klog/v2"
 )
 
 const (
@@ -245,7 +245,39 @@ func (d *nodeService) NodeStageVolume(ctx context.Context, req *csi.NodeStageVol
 		}
 	}
 	klog.V(4).InfoS("NodeStageVolume: successfully staged volume", "source", source, "volumeID", volumeID, "target", target, "fstype", fsType)
+
+	const ebsPathPrefix = "/mnt/ecs/ebs/"
+	SourceVolumeHostPath := target
+	if strings.HasPrefix(target, ebsPathPrefix) {
+		SourceVolumeHostPath = strings.TrimPrefix(target, ebsPathPrefix)
+	}
+	
+	// Gid is generated based on SourceVolumeHostPath the same as in task.go
+	gid := util.GenerateGIDFromPath(SourceVolumeHostPath)
+	// Set permissions on the mount point to allow non-root users to access it
+	if err := setMountPointPermissions(target, gid); err != nil {
+		klog.Warningf("Failed to set permissions on mount point %s: %v", target, err)
+		// Continue even if permission setting fails, as the volume is still usable
+	} else {
+		klog.V(4).InfoS("Successfully set permissions on mount point", "target", target, "volumeID", volumeID, "gid", gid)
+	}
+
 	return &csi.NodeStageVolumeResponse{}, nil
+}
+
+// setMountPointPermissions sets the permissions on the mount point to allow non-root users to access it
+func setMountPointPermissions(mountPath string, gid int) error {
+	if err := os.Chown(mountPath, -1, gid); err != nil {
+		klog.Errorf("chown failed: %v", err)
+		return fmt.Errorf("failed to chown mount point: %w", err)
+	}
+
+	if err := os.Chmod(mountPath, 0775|os.ModeSetgid); err != nil {
+		klog.Errorf("chmod failed: %v", err)
+		return fmt.Errorf("failed to chmod mount point: %w", err)
+	}
+
+	return nil
 }
 
 func newNodeService() nodeService {
