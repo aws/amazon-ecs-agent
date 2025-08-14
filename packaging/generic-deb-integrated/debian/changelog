@@ -1,3 +1,9 @@
+amazon-ecs-init (1.98.0-1) stable; urgency=medium
+
+  * Cache Agent version 1.98.0
+
+ -- Shelby Hagman <shelbyzh@amazon.com>  Fri, 15 Aug 2025 00:00:00 +0000
+
 amazon-ecs-init (1.97.1-1) stable; urgency=medium
 
   * Cache Agent version 1.97.1
