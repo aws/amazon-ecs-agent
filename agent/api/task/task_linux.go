@@ -19,19 +19,22 @@ package task
 import (
 	"fmt"
 	"path/filepath"
+	"strconv"
 	"time"
 
-	"github.com/aws/amazon-ecs-agent/ecs-agent/logger"
-	"github.com/aws/amazon-ecs-agent/ecs-agent/logger/field"
-
+	apicontainer "github.com/aws/amazon-ecs-agent/agent/api/container"
 	"github.com/aws/amazon-ecs-agent/agent/config"
 	"github.com/aws/amazon-ecs-agent/agent/ecscni"
 	"github.com/aws/amazon-ecs-agent/agent/taskresource"
 	"github.com/aws/amazon-ecs-agent/agent/taskresource/cgroup"
 	resourcestatus "github.com/aws/amazon-ecs-agent/agent/taskresource/status"
 	resourcetype "github.com/aws/amazon-ecs-agent/agent/taskresource/types"
+	taskresourcevolume "github.com/aws/amazon-ecs-agent/agent/taskresource/volume"
+	"github.com/aws/amazon-ecs-agent/agent/utils"
 	apicontainerstatus "github.com/aws/amazon-ecs-agent/ecs-agent/api/container/status"
 	"github.com/aws/amazon-ecs-agent/ecs-agent/credentials"
+	"github.com/aws/amazon-ecs-agent/ecs-agent/logger"
+	"github.com/aws/amazon-ecs-agent/ecs-agent/logger/field"
 	ni "github.com/aws/amazon-ecs-agent/ecs-agent/netlib/model/networkinterface"
 	"github.com/aws/amazon-ecs-agent/ecs-agent/utils/arn"
 	"github.com/cihub/seelog"
@@ -52,6 +55,33 @@ const (
 	minimumCPUPercent = 0
 	bytesPerMegabyte  = 1024 * 1024
 )
+
+// getSupplementaryGroups returns the supplementary groups for a container
+// if it has EBS Task Attach volumes mounted
+func (task *Task) getSupplementaryGroups(container *apicontainer.Container) []string {
+	
+	if !task.IsEBSTaskAttachEnabled() {
+		return nil
+	}
+
+	// Check if container has mount points
+	if len(container.MountPoints) == 0 {
+		return nil
+	}
+
+	// Check container's mount points against task volumes
+	for _, mp := range container.MountPoints {
+		if vol, ok := task.HostVolumeByName(mp.SourceVolume); ok {
+			if ebsConfig, ok := vol.(*taskresourcevolume.EBSTaskVolumeConfig); ok {
+				// This container mounts an EBS volume, generate GID from SourceVolumeHostPath
+				gid := utils.GenerateGIDFromPath(ebsConfig.SourceVolumeHostPath)
+				logger.Info("gid from task linux go " + strconv.Itoa(gid))
+				return []string{strconv.Itoa(gid)}
+			}
+		}
+	}
+	return nil
+}
 
 // PlatformFields consists of fields specific to Linux for a task
 type PlatformFields struct{}
