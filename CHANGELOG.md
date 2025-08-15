@@ -1,4 +1,16 @@
 # Changelog
+
+# 1.98.0
+* Feature - Support for IPv6-only environments [4695](https://github.com/aws/amazon-ecs-agent/pull/4695)
+* Enhancement - Add groundwork for ECS_INSTANCE_IP_COMPATIBILITY override parameter [#4745](https://github.com/aws/amazon-ecs-agent/pull/4745)
+* Enhancement - Populate HostIPv6Address in container metadata file for IPv6-only instances [4753](https://github.com/aws/amazon-ecs-agent/pull/4753)
+* Enhancement - Update network latency fault check [4726](https://github.com/aws/amazon-ecs-agent/pull/4726)
+* Enhancement - Update exec agent configuration to support ipv6-only environments when ready [4708](https://github.com/aws/amazon-ecs-agent/pull/4708)
+* Enhancement - Bump minimum required docker version for ecs-init rpm to 20.10 [4732](https://github.com/aws/amazon-ecs-agent/pull/4732)
+* Bugfix - Initialize LastUpdated during healthcheck initialization. [#4750](https://github.com/aws/amazon-ecs-agent/pull/4750)
+* Bugfix - Make bridge pause containers appear first in task metadata response as a workaround for Service Connect Agents v1.29.12.1 and older [4749](https://github.com/aws/amazon-ecs-agent/pull/4749)
+* Bugfix - Fix CloudWatchLogs endpoints key in exec SSM Agent config for IPv6-only case [4755](https://github.com/aws/amazon-ecs-agent/pull/4755)
+
 # 1.97.1
 * Enhancement - Check if IPv6 kernel config file exists before using ip6tables [#4744](https://github.com/aws/amazon-ecs-agent/pull/4744)
 * Bugfix - Scope down IP address depletion fix to managed linux platform only [#4741](https://github.com/aws/amazon-ecs-agent/pull/4741)
