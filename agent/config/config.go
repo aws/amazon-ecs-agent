@@ -542,6 +542,8 @@ func environmentConfig() (Config, error) {
 		UpdatesEnabled:                      parseBooleanDefaultFalseConfig("ECS_UPDATES_ENABLED"),
 		UpdateDownloadDir:                   os.Getenv("ECS_UPDATE_DOWNLOAD_DIR"),
 		DisableMetrics:                      parseBooleanDefaultFalseConfig("ECS_DISABLE_METRICS"),
+		DisableNetworkMetrics:               parseBooleanDefaultFalseConfig("ECS_DISABLE_NETWORK_METRICS"),
+		DisableStorageMetrics:               parseBooleanDefaultFalseConfig("ECS_DISABLE_STORAGE_METRICS"),
 		ReservedMemory:                      parseEnvVariableUint16("ECS_RESERVED_MEMORY"),
 		AvailableLoggingDrivers:             parseAvailableLoggingDrivers(),
 		PrivilegedDisabled:                  parseBooleanDefaultFalseConfig("ECS_DISABLE_PRIVILEGED"),
@@ -629,6 +631,8 @@ func (cfg *Config) String() string {
 			"AuthType: %v, "+
 			"UpdatesEnabled: %v, "+
 			"DisableMetrics: %v, "+
+			"DisableNetworkMetrics: %v, "+
+			"DisableStorageMetrics: %v, "+
 			"PollMetrics: %v, "+
 			"PollingMetricsWaitDuration: %v, "+
 			"ReservedMem: %v, "+
@@ -649,6 +653,8 @@ func (cfg *Config) String() string {
 		cfg.EngineAuthType,
 		cfg.UpdatesEnabled,
 		cfg.DisableMetrics,
+		cfg.DisableNetworkMetrics,
+		cfg.DisableStorageMetrics,
 		cfg.PollMetrics,
 		cfg.PollingMetricsWaitDuration,
 		cfg.ReservedMemory,
