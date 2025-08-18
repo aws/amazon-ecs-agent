@@ -59,7 +59,7 @@ const (
 // getSupplementaryGroups returns the supplementary groups for a container
 // if it has EBS Task Attach volumes mounted
 func (task *Task) getSupplementaryGroups(container *apicontainer.Container) []string {
-	
+
 	if !task.IsEBSTaskAttachEnabled() {
 		return nil
 	}
