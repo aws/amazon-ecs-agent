@@ -8,7 +8,7 @@ jobs:
     name: Linux unit tests
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
         with:
           submodules: true
           path: src/github.com/aws/amazon-ecs-agent
