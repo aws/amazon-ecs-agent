@@ -251,7 +251,7 @@ func (d *nodeService) NodeStageVolume(ctx context.Context, req *csi.NodeStageVol
 	if strings.HasPrefix(target, ebsPathPrefix) {
 		SourceVolumeHostPath = strings.TrimPrefix(target, ebsPathPrefix)
 	}
-	
+
 	// Gid is generated based on SourceVolumeHostPath the same as in task.go
 	gid := util.GenerateGIDFromPath(SourceVolumeHostPath)
 	// Set permissions on the mount point to allow non-root users to access it
