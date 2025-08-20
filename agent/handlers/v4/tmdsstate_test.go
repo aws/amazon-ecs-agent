@@ -19,9 +19,17 @@ package v4
 import (
 	"testing"
 
+	apicontainer "github.com/aws/amazon-ecs-agent/agent/api/container"
+	apitask "github.com/aws/amazon-ecs-agent/agent/api/task"
+	mock_dockerstate "github.com/aws/amazon-ecs-agent/agent/engine/dockerstate/mocks"
+	mock_stats "github.com/aws/amazon-ecs-agent/agent/stats/mock"
+	mock_ecs "github.com/aws/amazon-ecs-agent/ecs-agent/api/ecs/mocks"
 	v2 "github.com/aws/amazon-ecs-agent/ecs-agent/tmds/handlers/v2"
 	tmdsv4 "github.com/aws/amazon-ecs-agent/ecs-agent/tmds/handlers/v4/state"
 
+	"github.com/aws/aws-sdk-go-v2/aws"
+	ecstypes "github.com/aws/aws-sdk-go-v2/service/ecs/types"
+	"github.com/golang/mock/gomock"
 	"github.com/stretchr/testify/assert"
 )
 
@@ -86,6 +94,88 @@ func TestSortContainersCNIPauseFirst(t *testing.T) {
 
 			// Verify the result
 			assert.Equal(t, tc.want, result)
+		})
+	}
+}
+
+// TestGetTaskMetadataWithTags verifies that GetTaskMetadataWithTags correctly retrieves
+// task metadata with tags included.
+func TestGetTaskMetadataWithTags(t *testing.T) {
+	testCases := []struct {
+		name                   string
+		v3EndpointID           string
+		taskARN                string
+		containerInstanceARN   string
+		expectedErrorSubstring string
+	}{
+		{
+			name:                   "successful metadata retrieval with tags",
+			v3EndpointID:           "test-endpoint-id",
+			taskARN:                "arn:aws:ecs:us-west-2:123456789:task/test-task",
+			containerInstanceARN:   "arn:aws:ecs:us-west-2:123456789:container-instance/test",
+			expectedErrorSubstring: "",
+		},
+		{
+			name:                   "task not found by endpoint ID",
+			v3EndpointID:           "non-existent-endpoint",
+			expectedErrorSubstring: "unable to get task arn from request",
+		},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			ctrl := gomock.NewController(t)
+			defer ctrl.Finish()
+
+			mockState := mock_dockerstate.NewMockTaskEngineState(ctrl)
+			mockStatsEngine := mock_stats.NewMockEngine(ctrl)
+			mockECSClient := mock_ecs.NewMockECSClient(ctrl)
+
+			// Create TMDSAgentState
+			agentState := &TMDSAgentState{
+				state:                mockState,
+				statsEngine:          mockStatsEngine,
+				ecsClient:            mockECSClient,
+				cluster:              "test-cluster",
+				availabilityZone:     "us-west-2a",
+				vpcID:                "vpc-12345",
+				containerInstanceARN: "arn:aws:ecs:us-west-2:123456789:container-instance/test",
+			}
+
+			expectedTags := []ecstypes.Tag{
+				{Key: aws.String("Environment"), Value: aws.String("test")},
+			}
+
+			// Setup mocks
+			mockState.EXPECT().TaskARNByV3EndpointID(tc.v3EndpointID).Return(tc.taskARN, tc.taskARN != "")
+			mockState.EXPECT().ContainerNameByV3EndpointID(tc.v3EndpointID).Return("test-container", true).AnyTimes()
+			mockState.EXPECT().ContainerMapByArn(tc.taskARN).Return(map[string]*apicontainer.DockerContainer{}, true).AnyTimes()
+			mockState.EXPECT().PulledContainerMapByArn(tc.taskARN).Return(map[string]*apicontainer.DockerContainer{}, true).AnyTimes()
+			if tc.taskARN != "" {
+				mockTask := &apitask.Task{
+					Arn: tc.taskARN,
+				}
+				mockState.EXPECT().TaskByArn(tc.taskARN).Return(mockTask, true).AnyTimes()
+				mockECSClient.EXPECT().GetResourceTags(gomock.Any(), tc.taskARN).Return(
+					expectedTags, nil).AnyTimes()
+			}
+			if tc.containerInstanceARN != "" {
+				mockECSClient.EXPECT().GetResourceTags(gomock.Any(), tc.containerInstanceARN).Return(
+					expectedTags, nil).AnyTimes()
+			}
+
+			response, err := agentState.GetTaskMetadataWithTags(tc.v3EndpointID)
+
+			// Verify results
+			if tc.expectedErrorSubstring != "" {
+				assert.Error(t, err)
+				assert.Contains(t, err.Error(), tc.expectedErrorSubstring)
+			} else {
+				assert.NoError(t, err)
+				assert.NotNil(t, response)
+				assert.Equal(t, tc.taskARN, response.TaskARN)
+				assert.Equal(t, map[string]string{"Environment": "test"}, response.TaskTags)
+			}
 		})
 	}
 }

@@ -56,7 +56,8 @@ type ECSClient interface {
 	// and returns the endpoint at which this Agent should send system logs.
 	DiscoverSystemLogsEndpoint(containerInstanceArn string, availabilityZone string) (string, error)
 	// GetResourceTags retrieves the Tags associated with a certain resource
-	GetResourceTags(resourceArn string) ([]types.Tag, error)
+	// It accepts a container name context key which influences the HTTP headers.
+	GetResourceTags(ctx context.Context, resourceArn string) ([]types.Tag, error)
 	// UpdateContainerInstancesState updates the given container Instance ID with
 	// the given status. Only valid statuses are ACTIVE and DRAINING.
 	UpdateContainerInstancesState(instanceARN string, status types.ContainerInstanceStatus) error

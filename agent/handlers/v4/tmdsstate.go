@@ -119,7 +119,7 @@ func (s *TMDSAgentState) getTaskMetadata(v3EndpointID string, includeTags bool, 
 			"Unable to generate metadata for v4 task: '%s'", taskARN))
 	}
 
-	taskResponse, err := NewTaskResponse(taskARN, s.state, s.ecsClient, s.cluster,
+	taskResponse, err := NewTaskResponse(v3EndpointID, taskARN, s.state, s.ecsClient, s.cluster,
 		s.availabilityZone, s.vpcID, s.containerInstanceARN, task.ServiceName, includeTags)
 	if err != nil {
 		logger.Error("Failed to get task metadata", logger.Fields{
