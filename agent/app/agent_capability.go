@@ -83,7 +83,7 @@ const (
 	capabilityServiceConnect                               = "service-connect-v1"
 	capabilityGpuDriverVersion                             = "gpu-driver-version"
 	capabilityEBSTaskAttach                                = "storage.ebs-task-volume-attach"
-	capabilityEBSTANonRootUser                             = "ebsta.non-root-user"
+	capabilityEBSTANonRootUser                             = "storage.ebsta-non-root-user"
 	capabilityContainerRestartPolicy                       = "container-restart-policy"
 	capabilityFaultInjection                               = "fault-injection"
 	capabilityIPv6Only                                     = "ipv6-only"

@@ -30,9 +30,9 @@ import (
 	resourcestatus "github.com/aws/amazon-ecs-agent/agent/taskresource/status"
 	resourcetype "github.com/aws/amazon-ecs-agent/agent/taskresource/types"
 	taskresourcevolume "github.com/aws/amazon-ecs-agent/agent/taskresource/volume"
-	"github.com/aws/amazon-ecs-agent/agent/utils"
 	apicontainerstatus "github.com/aws/amazon-ecs-agent/ecs-agent/api/container/status"
 	"github.com/aws/amazon-ecs-agent/ecs-agent/credentials"
+	"github.com/aws/amazon-ecs-agent/ecs-agent/daemonimages/csidriver/util"
 	"github.com/aws/amazon-ecs-agent/ecs-agent/logger"
 	"github.com/aws/amazon-ecs-agent/ecs-agent/logger/field"
 	ni "github.com/aws/amazon-ecs-agent/ecs-agent/netlib/model/networkinterface"
@@ -74,8 +74,9 @@ func (task *Task) getSupplementaryGroups(container *apicontainer.Container) []st
 		if vol, ok := task.HostVolumeByName(mp.SourceVolume); ok {
 			if ebsConfig, ok := vol.(*taskresourcevolume.EBSTaskVolumeConfig); ok {
 				// This container mounts an EBS volume, generate GID from SourceVolumeHostPath
-				gid := utils.GenerateGIDFromPath(ebsConfig.SourceVolumeHostPath)
-				logger.Info("gid from task linux go " + strconv.Itoa(gid))
+				gid := util.GenerateGIDFromPath(ebsConfig.SourceVolumeHostPath)
+				logger.Debug("Generated a GID from EBS volume's host path",
+					logger.Fields{field.TaskID: task.GetID(), "EBS SourceVolumeHostPath": ebsConfig.SourceVolumeHostPath, "GID": strconv.Itoa(gid)})
 				return []string{strconv.Itoa(gid)}
 			}
 		}
