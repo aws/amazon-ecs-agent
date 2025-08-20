@@ -40,6 +40,9 @@ const (
 	defaultFsType = FSTypeXfs
 
 	VolumeOperationAlreadyExists = "An operation with the given volume=%q is already in progress"
+
+	// Path prefix for EBS volumes
+	EBSPathPrefix = "/mnt/ecs/ebs/"
 )
 
 var (
@@ -56,6 +59,10 @@ var (
 		csi.NodeServiceCapability_RPC_STAGE_UNSTAGE_VOLUME,
 		csi.NodeServiceCapability_RPC_GET_VOLUME_STATS,
 	}
+
+	// Define function variables that can be mocked in tests
+	chownFunc = os.Chown
+	chmodFunc = os.Chmod
 )
 
 // nodeService represents the node service of CSI driver.
@@ -246,10 +253,9 @@ func (d *nodeService) NodeStageVolume(ctx context.Context, req *csi.NodeStageVol
 	}
 	klog.V(4).InfoS("NodeStageVolume: successfully staged volume", "source", source, "volumeID", volumeID, "target", target, "fstype", fsType)
 
-	const ebsPathPrefix = "/mnt/ecs/ebs/"
 	SourceVolumeHostPath := target
-	if strings.HasPrefix(target, ebsPathPrefix) {
-		SourceVolumeHostPath = strings.TrimPrefix(target, ebsPathPrefix)
+	if strings.HasPrefix(target, EBSPathPrefix) {
+		SourceVolumeHostPath = strings.TrimPrefix(target, EBSPathPrefix)
 	}
 
 	// Gid is generated based on SourceVolumeHostPath the same as in task.go
@@ -267,14 +273,14 @@ func (d *nodeService) NodeStageVolume(ctx context.Context, req *csi.NodeStageVol
 
 // setMountPointPermissions sets the permissions on the mount point to allow non-root users to access it
 func setMountPointPermissions(mountPath string, gid int) error {
-	if err := os.Chown(mountPath, -1, gid); err != nil {
-		klog.Errorf("chown failed: %v", err)
-		return fmt.Errorf("failed to chown mount point: %w", err)
+	// Change group ownership to the provided GID
+	if err := chownFunc(mountPath, -1, gid); err != nil {
+		return fmt.Errorf("failed to change group ownership of %s to GID %d: %v", mountPath, gid, err)
 	}
 
-	if err := os.Chmod(mountPath, 0775|os.ModeSetgid); err != nil {
-		klog.Errorf("chmod failed: %v", err)
-		return fmt.Errorf("failed to chmod mount point: %w", err)
+	// Set permissions to 0775 with setgid bit
+	if err := chmodFunc(mountPath, 0775|os.ModeSetgid); err != nil {
+		return fmt.Errorf("failed to set permissions on %s: %v", mountPath, err)
 	}
 
 	return nil

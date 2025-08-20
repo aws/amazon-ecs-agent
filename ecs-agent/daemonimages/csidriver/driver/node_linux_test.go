@@ -841,3 +841,98 @@ func expectErr(t *testing.T, actualErr error, expectedCode codes.Code) {
 		t.Fatalf("Expected error code %d, got %d message %s", codes.InvalidArgument, status.Code(), status.Message())
 	}
 }
+
+// TestSetMountPointPermissions tests the setMountPointPermissions function
+func TestSetMountPointPermissions(t *testing.T) {
+	// Store original functions to restore later
+	originalChown := chownFunc
+	originalChmod := chmodFunc
+	defer func() {
+		chownFunc = originalChown
+		chmodFunc = originalChmod
+	}()
+
+	testCases := []struct {
+		name          string
+		mountPath     string
+		gid           int
+		chownError    error
+		chmodError    error
+		expectedError bool
+	}{
+		{
+			name:          "success case",
+			mountPath:     "/mnt/test",
+			gid:           900001,
+			chownError:    nil,
+			chmodError:    nil,
+			expectedError: false,
+		},
+		{
+			name:          "chown error",
+			mountPath:     "/mnt/test",
+			gid:           900001,
+			chownError:    errors.New("chown error"),
+			chmodError:    nil,
+			expectedError: true,
+		},
+		{
+			name:          "chmod error",
+			mountPath:     "/mnt/test",
+			gid:           900001,
+			chownError:    nil,
+			chmodError:    errors.New("chmod error"),
+			expectedError: true,
+		},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			// Mock chown function
+			var chownCalled bool
+			var chownPath string
+			var chownGid int
+			chownFunc = func(name string, uid, gid int) error {
+				chownCalled = true
+				chownPath = name
+				chownGid = gid
+				return tc.chownError
+			}
+
+			// Mock chmod function
+			var chmodCalled bool
+			var chmodPath string
+			var chmodMode os.FileMode
+			chmodFunc = func(name string, mode os.FileMode) error {
+				chmodCalled = true
+				chmodPath = name
+				chmodMode = mode
+				return tc.chmodError
+			}
+
+			// Call the function
+			err := setMountPointPermissions(tc.mountPath, tc.gid)
+
+			// Verify results
+			if tc.expectedError {
+				assert.Error(t, err)
+			} else {
+				assert.NoError(t, err)
+			}
+
+			// Verify chown was called with correct parameters
+			assert.True(t, chownCalled)
+			assert.Equal(t, tc.mountPath, chownPath)
+			assert.Equal(t, tc.gid, chownGid)
+
+			// If chown didn't error, verify chmod was called with correct parameters
+			if tc.chownError == nil {
+				assert.True(t, chmodCalled)
+				assert.Equal(t, tc.mountPath, chmodPath)
+				assert.Equal(t, os.FileMode(0775|os.ModeSetgid), chmodMode)
+			} else {
+				assert.False(t, chmodCalled)
+			}
+		})
+	}
+}

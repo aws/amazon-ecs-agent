@@ -35,9 +35,9 @@ import (
 	"github.com/aws/amazon-ecs-agent/agent/taskresource/firelens"
 	"github.com/aws/amazon-ecs-agent/agent/taskresource/ssmsecret"
 	"github.com/aws/amazon-ecs-agent/agent/taskresource/volume"
-	"github.com/aws/amazon-ecs-agent/agent/utils"
 	mock_ioutilwrapper "github.com/aws/amazon-ecs-agent/agent/utils/ioutilwrapper/mocks"
 	apicontainerstatus "github.com/aws/amazon-ecs-agent/ecs-agent/api/container/status"
+	"github.com/aws/amazon-ecs-agent/ecs-agent/daemonimages/csidriver/util"
 	"github.com/aws/amazon-ecs-agent/ecs-agent/netlib/model/appmesh"
 	nlappmesh "github.com/aws/amazon-ecs-agent/ecs-agent/netlib/model/appmesh"
 	ni "github.com/aws/amazon-ecs-agent/ecs-agent/netlib/model/networkinterface"
@@ -1829,7 +1829,7 @@ func TestGetSupplementaryGroups(t *testing.T) {
 			},
 			ebsTaskAttachEnabled: true,
 			expectedGroups: []string{
-				strconv.Itoa(utils.GenerateGIDFromPath("/var/lib/ecs/data/ebs-volume")),
+				strconv.Itoa(util.GenerateGIDFromPath("/var/lib/ecs/data/ebs-volume")),
 			},
 		},
 		{
