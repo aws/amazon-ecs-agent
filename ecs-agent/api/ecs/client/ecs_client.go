@@ -897,14 +897,14 @@ func (client *ecsClient) discoverPollEndpoint(containerInstanceArn string,
 	return output, nil
 }
 
-func (client *ecsClient) GetResourceTags(resourceArn string) ([]types.Tag, error) {
+func (client *ecsClient) GetResourceTags(ctx context.Context, resourceArn string) ([]types.Tag, error) {
 	backoff := retry.NewExponentialBackoff(
 		getResourceTagsBackoffMin,
 		getResourceTagsBackoffMax,
 		getResourceTagsJitter,
 		getResourceTagsMultiplier,
 	)
-	ctx, cancel := context.WithTimeout(context.Background(), getResourceTagsTimeout)
+	ctx, cancel := context.WithTimeout(ctx, getResourceTagsTimeout)
 	defer cancel()
 
 	var (
