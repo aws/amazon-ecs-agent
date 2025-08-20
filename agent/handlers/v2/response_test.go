@@ -60,6 +60,7 @@ const (
 	availabilityZone     = "us-west-2b"
 	containerInstanceArn = "containerInstance-test"
 	hostIp               = "0.0.0.0"
+	testEndpointID       = "test-endpoint-id"
 )
 
 func TestTaskResponse(t *testing.T) {
@@ -131,7 +132,7 @@ func TestTaskResponse(t *testing.T) {
 		state.EXPECT().ContainerMapByArn(taskARN).Return(containerNameToDockerContainer, true),
 	)
 
-	taskResponse, err := NewTaskResponse(taskARN, state, ecsClient, cluster, availabilityZone, containerInstanceArn, false, false)
+	taskResponse, err := NewTaskResponse(testEndpointID, taskARN, state, ecsClient, cluster, availabilityZone, containerInstanceArn, false, false)
 	assert.NoError(t, err)
 	_, err = json.Marshal(taskResponse)
 	assert.NoError(t, err)
@@ -147,7 +148,7 @@ func TestTaskResponse(t *testing.T) {
 		state.EXPECT().ContainerMapByArn(taskARN).Return(containerNameToDockerContainer, true),
 	)
 	// verify that 'v4' response without log driver or options returns blank fields as well
-	taskResponse, err = NewTaskResponse(taskARN, state, ecsClient, cluster, availabilityZone, containerInstanceArn, false, true)
+	taskResponse, err = NewTaskResponse(testEndpointID, taskARN, state, ecsClient, cluster, availabilityZone, containerInstanceArn, false, true)
 	assert.NoError(t, err)
 	_, err = json.Marshal(taskResponse)
 	assert.NoError(t, err)
@@ -230,7 +231,7 @@ func TestTaskResponseWithV4Metadata(t *testing.T) {
 		state.EXPECT().ContainerMapByArn(taskARN).Return(containerNameToDockerContainer, true),
 	)
 
-	taskResponse, err := NewTaskResponse(taskARN, state, ecsClient, cluster, availabilityZone, containerInstanceArn, false, true)
+	taskResponse, err := NewTaskResponse(testEndpointID, taskARN, state, ecsClient, cluster, availabilityZone, containerInstanceArn, false, true)
 	assert.NoError(t, err)
 	_, err = json.Marshal(taskResponse)
 	assert.NoError(t, err)
@@ -455,7 +456,7 @@ func TestTaskResponseMarshal(t *testing.T) {
 	gomock.InOrder(
 		state.EXPECT().TaskByArn(taskARN).Return(task, true),
 		state.EXPECT().ContainerMapByArn(taskARN).Return(containerNameToDockerContainer, true),
-		ecsClient.EXPECT().GetResourceTags(containerInstanceArn).Return([]ecstypes.Tag{
+		ecsClient.EXPECT().GetResourceTags(gomock.Any(), containerInstanceArn).Return([]ecstypes.Tag{
 			{
 				Key:   &contInstTag1Key,
 				Value: &contInstTag1Val,
@@ -465,7 +466,7 @@ func TestTaskResponseMarshal(t *testing.T) {
 				Value: &contInstTag2Val,
 			},
 		}, nil),
-		ecsClient.EXPECT().GetResourceTags(taskARN).Return([]ecstypes.Tag{
+		ecsClient.EXPECT().GetResourceTags(gomock.Any(), taskARN).Return([]ecstypes.Tag{
 			{
 				Key:   &taskTag1Key,
 				Value: &taskTag1Val,
@@ -477,7 +478,7 @@ func TestTaskResponseMarshal(t *testing.T) {
 		}, nil),
 	)
 
-	taskResponse, err := NewTaskResponse(taskARN, state, ecsClient, cluster, availabilityZone, containerInstanceArn, true, false)
+	taskResponse, err := NewTaskResponse(testEndpointID, taskARN, state, ecsClient, cluster, availabilityZone, containerInstanceArn, true, false)
 	assert.NoError(t, err)
 
 	taskResponseJSON, err := json.Marshal(taskResponse)
@@ -711,11 +712,11 @@ func TestTaskResponseWithV4TagsError(t *testing.T) {
 	gomock.InOrder(
 		state.EXPECT().TaskByArn(taskARN).Return(task, true),
 		state.EXPECT().ContainerMapByArn(taskARN).Return(containerNameToDockerContainer, true),
-		ecsClient.EXPECT().GetResourceTags(containerInstanceArn).Return(nil, containerTagsErr),
-		ecsClient.EXPECT().GetResourceTags(taskARN).Return(nil, taskTagsErr),
+		ecsClient.EXPECT().GetResourceTags(gomock.Any(), containerInstanceArn).Return(nil, containerTagsErr),
+		ecsClient.EXPECT().GetResourceTags(gomock.Any(), taskARN).Return(nil, taskTagsErr),
 	)
 
-	taskWithTagsResponse, err := NewTaskResponse(taskARN, state, ecsClient, cluster, availabilityZone, containerInstanceArn, true, true)
+	taskWithTagsResponse, err := NewTaskResponse(testEndpointID, taskARN, state, ecsClient, cluster, availabilityZone, containerInstanceArn, true, true)
 	assert.NoError(t, err)
 	_, err = json.Marshal(taskWithTagsResponse)
 	assert.NoError(t, err)

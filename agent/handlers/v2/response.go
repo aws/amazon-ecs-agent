@@ -14,6 +14,8 @@
 package v2
 
 import (
+	"context"
+
 	apicontainer "github.com/aws/amazon-ecs-agent/agent/api/container"
 	"github.com/aws/amazon-ecs-agent/agent/engine/dockerstate"
 	v1 "github.com/aws/amazon-ecs-agent/agent/handlers/v1"
@@ -37,6 +39,7 @@ const minimumCPUUnit = 2
 
 // NewTaskResponse creates a new response object for the task
 func NewTaskResponse(
+	endpointID string,
 	taskARN string,
 	state dockerstate.TaskEngineState,
 	ecsClient ecs.ECSClient,
@@ -99,16 +102,23 @@ func NewTaskResponse(
 	}
 
 	if propagateTags {
-		propagateTagsToMetadata(ecsClient, containerInstanceArn, taskARN, resp, includeV4Metadata)
+		propagateTagsToMetadata(endpointID, ecsClient, state, containerInstanceArn, taskARN, resp, includeV4Metadata)
 	}
 
 	return resp, nil
 }
 
 // propagateTagsToMetadata retrieves container instance and task tags from ECS
-func propagateTagsToMetadata(ecsClient ecs.ECSClient, containerInstanceARN, taskARN string, resp *tmdsv2.TaskResponse, includeV4Metadata bool) {
-	containerInstanceTags, err := ecsClient.GetResourceTags(containerInstanceARN)
+func propagateTagsToMetadata(endpointID string, ecsClient ecs.ECSClient, state dockerstate.TaskEngineState, containerInstanceARN, taskARN string,
+	resp *tmdsv2.TaskResponse, includeV4Metadata bool) {
+	// Extract the container name and create a context for CloudTrail visibility
+	ctx := context.Background()
+	if containerName, found := state.ContainerNameByV3EndpointID(endpointID); found {
+		ctx = context.WithValue(ctx, "containerName", containerName)
+	}
 
+	// Get container instance tags from ECS
+	containerInstanceTags, err := ecsClient.GetResourceTags(ctx, containerInstanceARN)
 	if err == nil {
 		resp.ContainerInstanceTags = make(map[string]string)
 		for _, tag := range containerInstanceTags {
@@ -118,7 +128,8 @@ func propagateTagsToMetadata(ecsClient ecs.ECSClient, containerInstanceARN, task
 		metadataErrorHandling(resp, err, "ContainerInstanceTags", containerInstanceARN, includeV4Metadata)
 	}
 
-	taskTags, err := ecsClient.GetResourceTags(taskARN)
+	// Get task tags from ECS
+	taskTags, err := ecsClient.GetResourceTags(ctx, taskARN)
 	if err == nil {
 		resp.TaskTags = make(map[string]string)
 		for _, tag := range taskTags {

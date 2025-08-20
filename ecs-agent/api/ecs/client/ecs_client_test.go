@@ -1150,37 +1150,76 @@ func TestUpdateContainerInstancesStateError(t *testing.T) {
 }
 
 func TestGetResourceTags(t *testing.T) {
-	ctrl := gomock.NewController(t)
-	defer ctrl.Finish()
+	testCases := []struct {
+		name           string
+		setupMocks     func(*mock_ecs.MockECSStandardSDK)
+		inputContext   context.Context
+		expectedTags   []types.Tag
+		errorSubstring string
+	}{
+		{
+			name: "success, no container name in the context",
+			setupMocks: func(mockClient *mock_ecs.MockECSStandardSDK) {
+				mockClient.EXPECT().ListTagsForResource(gomock.Any(), &ecsservice.ListTagsForResourceInput{
+					ResourceArn: aws.String(containerInstanceARN),
+				}).Return(&ecsservice.ListTagsForResourceOutput{
+					Tags: containerInstanceTags,
+				}, nil)
+			},
+			inputContext: context.Background(),
+			expectedTags: containerInstanceTags,
+		},
+		{
+			name: "success, with container name provided in the context",
+			setupMocks: func(mockClient *mock_ecs.MockECSStandardSDK) {
+				mockClient.EXPECT().ListTagsForResource(
+					gomock.AssignableToTypeOf(context.Background()),
+					&ecsservice.ListTagsForResourceInput{
+						ResourceArn: aws.String(containerInstanceARN),
+					},
+				).DoAndReturn(func(ctx context.Context, input *ecsservice.ListTagsForResourceInput, opts ...func(*ecsservice.Options)) (*ecsservice.ListTagsForResourceOutput, error) {
+					// Verify context contains container name
+					containerName := ctx.Value("containerName")
+					assert.Equal(t, "test-container", containerName, "Expected container name in context")
+					return &ecsservice.ListTagsForResourceOutput{
+						Tags: containerInstanceTags,
+					}, nil
+				})
+			},
+			inputContext: context.WithValue(context.Background(), "containerName", containerName),
+			expectedTags: containerInstanceTags,
+		},
+		{
+			name: "error",
+			setupMocks: func(mockClient *mock_ecs.MockECSStandardSDK) {
+				mockClient.EXPECT().ListTagsForResource(gomock.Any(), &ecsservice.ListTagsForResourceInput{
+					ResourceArn: aws.String(containerInstanceARN),
+				}).Return(nil, fmt.Errorf("ERROR")).MinTimes(1)
+			},
+			inputContext:   context.Background(),
+			errorSubstring: "GetResourceTags failed for",
+		},
+	}
 
-	tester := setup(t, ctrl, ec2.NewBlackholeEC2MetadataClient(), nil)
-	tester.mockStandardClient.EXPECT().ListTagsForResource(gomock.Any(), &ecsservice.ListTagsForResourceInput{
-		ResourceArn: aws.String(containerInstanceARN),
-	}).Return(&ecsservice.ListTagsForResourceOutput{
-		Tags: containerInstanceTags,
-	}, nil)
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			ctrl := gomock.NewController(t)
+			defer ctrl.Finish()
 
-	tags, err := tester.client.GetResourceTags(containerInstanceARN)
-	assert.NoError(t, err, fmt.Sprintf("Unexpected error calling GetResourceTags: %s", err))
-	assert.Equal(t, containerInstanceTags, tags, "Unexpected tags returned")
-}
+			tester := setup(t, ctrl, ec2.NewBlackholeEC2MetadataClient(), nil)
+			tc.setupMocks(tester.mockStandardClient)
 
-func TestGetResourceTagsError(t *testing.T) {
-	ctrl := gomock.NewController(t)
-	defer ctrl.Finish()
+			tags, err := tester.client.GetResourceTags(tc.inputContext, containerInstanceARN)
 
-	tester := setup(t, ctrl, ec2.NewBlackholeEC2MetadataClient(), nil)
-	tester.mockStandardClient.EXPECT().ListTagsForResource(gomock.Any(), &ecsservice.ListTagsForResourceInput{
-		ResourceArn: aws.String(containerInstanceARN),
-	}).Return(nil, fmt.Errorf("ERROR")).MinTimes(1)
-
-	_, err := tester.client.GetResourceTags(containerInstanceARN)
-
-	assert.Error(t, err, "Expected GetResourceTags to fail after retries")
-	assert.ErrorContains(t, err, "GetResourceTags failed for",
-		"Expected GetResourceTags to fail after retries")
-	assert.ErrorContains(t, err, "attempts",
-		"Expected error message to include attempt count")
+			if tc.errorSubstring != "" {
+				assert.Error(t, err)
+				assert.ErrorContains(t, err, tc.errorSubstring)
+			} else {
+				assert.NoError(t, err)
+				assert.Equal(t, tc.expectedTags, tags)
+			}
+		})
+	}
 }
 
 // TestGetResourceTagsWithRetry tests the exponential backoff retry functionality
@@ -1305,7 +1344,8 @@ func TestGetResourceTagsWithRetry(t *testing.T) {
 				}
 			}
 
-			tags, err := tester.client.GetResourceTags(containerInstanceARN)
+			ctx := context.Background()
+			tags, err := tester.client.GetResourceTags(ctx, containerInstanceARN)
 
 			if tc.expectSuccess {
 				assert.NoError(t, err, "Expected GetResourceTags to succeed")

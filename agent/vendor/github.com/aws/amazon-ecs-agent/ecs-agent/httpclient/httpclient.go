@@ -36,6 +36,9 @@ const (
 
 //go:generate mockgen -destination=mock/$GOFILE -copyright_file=../../scripts/copyright_file net/http RoundTripper
 
+// ecsRoundTripper implements the http.RoundTripper interface to customize HTTP requests
+// made by the ECS agent. It wraps the default transport and adds ECS-specific headers
+// including a custom User-Agent. Ref: https://pkg.go.dev/net/http#RoundTripper
 type ecsRoundTripper struct {
 	insecureSkipVerify bool
 	agentVersion       string
@@ -44,18 +47,30 @@ type ecsRoundTripper struct {
 	transport          http.RoundTripper
 }
 
-func (client *ecsRoundTripper) userAgent() string {
+// userAgent generates the User-Agent header value for HTTP requests that the agent makes to ECS
+// Ref: https://www.rfc-editor.org/rfc/rfc9110.html#name-user-agent
+func (client *ecsRoundTripper) userAgent(req *http.Request) string {
+	var userAgentValue string
+
 	// Include detailedOSFamily when available
 	if client.detailedOSFamily != "" {
-		return fmt.Sprintf("%s (%s; %s) (+http://aws.amazon.com/ecs/)",
+		userAgentValue = fmt.Sprintf("%s (%s; %s) (+http://aws.amazon.com/ecs/)",
 			client.agentVersion, client.osType, client.detailedOSFamily)
+	} else {
+		userAgentValue = fmt.Sprintf("%s (%s) (+http://aws.amazon.com/ecs/)", client.agentVersion, client.osType)
 	}
-	// Fallback to current behavior when detailedOSFamily is not set
-	return fmt.Sprintf("%s (%s) (+http://aws.amazon.com/ecs/)", client.agentVersion, client.osType)
+
+	// In some cases like queries to TMDS, the ECS agent makes requests to ECS on behalf of the task containers.
+	// Append the container name when available, for CloudTrail visibility
+	if containerName, ok := req.Context().Value("containerName").(string); ok {
+		userAgentValue = fmt.Sprintf("%s container/%s", userAgentValue, containerName)
+	}
+
+	return userAgentValue
 }
 
 func (client *ecsRoundTripper) RoundTrip(req *http.Request) (*http.Response, error) {
-	req.Header.Set("User-Agent", client.userAgent())
+	req.Header.Set("User-Agent", client.userAgent(req))
 	return client.transport.RoundTrip(req)
 }
 
