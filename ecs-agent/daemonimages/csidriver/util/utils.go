@@ -66,7 +66,7 @@ func ParseEndpointNoRemove(endpoint string) (string, string, error) {
 }
 
 const (
-	// GID range for mount point permissions to minimize probability of collisions 
+	// GID range for mount point permissions to minimize probability of collisions
 	minGID = 900000
 	maxGID = 999999
 )
