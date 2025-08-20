@@ -2514,6 +2514,7 @@ func TestV2TaskMetadataWithTags(t *testing.T) {
 			state.EXPECT().GetTaskByIPAddress(remoteIP).Return(taskARN, true),
 			state.EXPECT().TaskByArn(taskARN).Return(task, true),
 			state.EXPECT().ContainerMapByArn(taskARN).Return(containerNameToDockerContainer, true),
+			state.EXPECT().ContainerNameByV3EndpointID("").Return(containerName, true),
 		)
 	}
 
@@ -2529,9 +2530,9 @@ func TestV2TaskMetadataWithTags(t *testing.T) {
 				setStateExpectations: happyStateExpectations,
 				setECSClientExpectations: func(ecsClient *mock_ecs.MockECSClient) {
 					gomock.InOrder(
-						ecsClient.EXPECT().GetResourceTags(containerInstanceArn).
+						ecsClient.EXPECT().GetResourceTags(gomock.Any(), containerInstanceArn).
 							Return(ecsInstanceTags, nil),
-						ecsClient.EXPECT().GetResourceTags(taskARN).Return(ecsTaskTags, nil),
+						ecsClient.EXPECT().GetResourceTags(gomock.Any(), taskARN).Return(ecsTaskTags, nil),
 					)
 				},
 				expectedStatusCode:   http.StatusOK,
@@ -2548,8 +2549,8 @@ func TestV2TaskMetadataWithTags(t *testing.T) {
 			setStateExpectations: happyStateExpectations,
 			setECSClientExpectations: func(ecsClient *mock_ecs.MockECSClient) {
 				gomock.InOrder(
-					ecsClient.EXPECT().GetResourceTags(containerInstanceArn).Return(ecsInstanceTags, nil),
-					ecsClient.EXPECT().GetResourceTags(taskARN).Return(nil, errors.New("error")),
+					ecsClient.EXPECT().GetResourceTags(gomock.Any(), containerInstanceArn).Return(ecsInstanceTags, nil),
+					ecsClient.EXPECT().GetResourceTags(gomock.Any(), taskARN).Return(nil, errors.New("error")),
 				)
 			},
 			expectedStatusCode:   http.StatusOK,
@@ -2564,8 +2565,8 @@ func TestV2TaskMetadataWithTags(t *testing.T) {
 			setStateExpectations: happyStateExpectations,
 			setECSClientExpectations: func(ecsClient *mock_ecs.MockECSClient) {
 				gomock.InOrder(
-					ecsClient.EXPECT().GetResourceTags(containerInstanceArn).Return(nil, errors.New("error")),
-					ecsClient.EXPECT().GetResourceTags(taskARN).Return(ecsTaskTags, nil),
+					ecsClient.EXPECT().GetResourceTags(gomock.Any(), containerInstanceArn).Return(nil, errors.New("error")),
+					ecsClient.EXPECT().GetResourceTags(gomock.Any(), taskARN).Return(ecsTaskTags, nil),
 				)
 			},
 			expectedStatusCode:   http.StatusOK,
@@ -2578,8 +2579,8 @@ func TestV2TaskMetadataWithTags(t *testing.T) {
 			setStateExpectations: happyStateExpectations,
 			setECSClientExpectations: func(ecsClient *mock_ecs.MockECSClient) {
 				gomock.InOrder(
-					ecsClient.EXPECT().GetResourceTags(containerInstanceArn).Return(nil, errors.New("error")),
-					ecsClient.EXPECT().GetResourceTags(taskARN).Return(nil, errors.New("error")),
+					ecsClient.EXPECT().GetResourceTags(gomock.Any(), containerInstanceArn).Return(nil, errors.New("error")),
+					ecsClient.EXPECT().GetResourceTags(gomock.Any(), taskARN).Return(nil, errors.New("error")),
 				)
 			},
 			expectedStatusCode:   http.StatusOK,
@@ -2644,8 +2645,8 @@ func TestV3TaskMetadataWithTags(t *testing.T) {
 
 	happyECSClientExpectations := func(ecsClient *mock_ecs.MockECSClient) {
 		gomock.InOrder(
-			ecsClient.EXPECT().GetResourceTags(containerInstanceArn).Return(ecsInstanceTags, nil),
-			ecsClient.EXPECT().GetResourceTags(taskARN).Return(ecsTaskTags, nil),
+			ecsClient.EXPECT().GetResourceTags(gomock.Any(), containerInstanceArn).Return(ecsInstanceTags, nil),
+			ecsClient.EXPECT().GetResourceTags(gomock.Any(), taskARN).Return(ecsTaskTags, nil),
 		)
 	}
 	happyStateExpectations := func(state *mock_dockerstate.MockTaskEngineState) {
@@ -2653,6 +2654,7 @@ func TestV3TaskMetadataWithTags(t *testing.T) {
 			state.EXPECT().TaskARNByV3EndpointID(v3EndpointID).Return(taskARN, true),
 			state.EXPECT().TaskByArn(taskARN).Return(task, true),
 			state.EXPECT().ContainerMapByArn(taskARN).Return(containerNameToDockerContainer, true),
+			state.EXPECT().ContainerNameByV3EndpointID("").Return(containerName, true),
 			state.EXPECT().TaskByArn(taskARN).Return(task, true),
 		)
 	}
@@ -2677,8 +2679,8 @@ func TestV3TaskMetadataWithTags(t *testing.T) {
 			setStateExpectations: happyStateExpectations,
 			setECSClientExpectations: func(ecsClient *mock_ecs.MockECSClient) {
 				gomock.InOrder(
-					ecsClient.EXPECT().GetResourceTags(containerInstanceArn).Return(nil, errors.New("error")),
-					ecsClient.EXPECT().GetResourceTags(taskARN).Return(ecsTaskTags, nil),
+					ecsClient.EXPECT().GetResourceTags(gomock.Any(), containerInstanceArn).Return(nil, errors.New("error")),
+					ecsClient.EXPECT().GetResourceTags(gomock.Any(), taskARN).Return(ecsTaskTags, nil),
 				)
 			},
 			expectedStatusCode:   http.StatusOK,
@@ -2693,8 +2695,8 @@ func TestV3TaskMetadataWithTags(t *testing.T) {
 			setStateExpectations: happyStateExpectations,
 			setECSClientExpectations: func(ecsClient *mock_ecs.MockECSClient) {
 				gomock.InOrder(
-					ecsClient.EXPECT().GetResourceTags(containerInstanceArn).Return(ecsInstanceTags, nil),
-					ecsClient.EXPECT().GetResourceTags(taskARN).Return(nil, errors.New("error")),
+					ecsClient.EXPECT().GetResourceTags(gomock.Any(), containerInstanceArn).Return(ecsInstanceTags, nil),
+					ecsClient.EXPECT().GetResourceTags(gomock.Any(), taskARN).Return(nil, errors.New("error")),
 				)
 			},
 			expectedStatusCode:   http.StatusOK,
@@ -2707,8 +2709,8 @@ func TestV3TaskMetadataWithTags(t *testing.T) {
 			setStateExpectations: happyStateExpectations,
 			setECSClientExpectations: func(ecsClient *mock_ecs.MockECSClient) {
 				gomock.InOrder(
-					ecsClient.EXPECT().GetResourceTags(containerInstanceArn).Return(nil, errors.New("error")),
-					ecsClient.EXPECT().GetResourceTags(taskARN).Return(nil, errors.New("error")),
+					ecsClient.EXPECT().GetResourceTags(gomock.Any(), containerInstanceArn).Return(nil, errors.New("error")),
+					ecsClient.EXPECT().GetResourceTags(gomock.Any(), taskARN).Return(nil, errors.New("error")),
 				)
 			},
 			expectedStatusCode:   http.StatusOK,
@@ -2768,6 +2770,7 @@ func TestV3TaskMetadataWithTags(t *testing.T) {
 					state.EXPECT().TaskARNByV3EndpointID(v3EndpointID).Return(taskARN, true),
 					state.EXPECT().TaskByArn(taskARN).Return(bridgeTask, true),
 					state.EXPECT().ContainerMapByArn(taskARN).Return(containerNameToBridgeContainer, true),
+					state.EXPECT().ContainerNameByV3EndpointID("").Return(containerName, true),
 					state.EXPECT().TaskByArn(taskARN).Return(bridgeTask, true),
 					state.EXPECT().ContainerByID(containerID).Return(nil, false),
 				)
@@ -2785,6 +2788,7 @@ func TestV3TaskMetadataWithTags(t *testing.T) {
 					state.EXPECT().TaskARNByV3EndpointID(v3EndpointID).Return(taskARN, true),
 					state.EXPECT().TaskByArn(taskARN).Return(bridgeTask, true),
 					state.EXPECT().ContainerMapByArn(taskARN).Return(containerNameToBridgeContainer, true),
+					state.EXPECT().ContainerNameByV3EndpointID("").Return(containerName, true),
 					state.EXPECT().TaskByArn(taskARN).Return(bridgeTask, true),
 					state.EXPECT().ContainerByID(containerID).Return(bridgeContainerNoNetwork, true),
 				)
@@ -2818,8 +2822,8 @@ func TestV4TaskMetadataWithTags(t *testing.T) {
 
 	happyECSClientExpectations := func(ecsClient *mock_ecs.MockECSClient) {
 		gomock.InOrder(
-			ecsClient.EXPECT().GetResourceTags(containerInstanceArn).Return(ecsInstanceTags, nil),
-			ecsClient.EXPECT().GetResourceTags(taskARN).Return(ecsTaskTags, nil),
+			ecsClient.EXPECT().GetResourceTags(gomock.Any(), containerInstanceArn).Return(ecsInstanceTags, nil),
+			ecsClient.EXPECT().GetResourceTags(gomock.Any(), taskARN).Return(ecsTaskTags, nil),
 		)
 	}
 	happyStateExpectations := func(state *mock_dockerstate.MockTaskEngineState) {
@@ -2828,6 +2832,7 @@ func TestV4TaskMetadataWithTags(t *testing.T) {
 			state.EXPECT().TaskByArn(taskARN).Return(task, true).AnyTimes(),
 			state.EXPECT().ContainerByID(containerID).Return(bridgeContainer, true).AnyTimes(),
 			state.EXPECT().ContainerMapByArn(taskARN).Return(containerNameToDockerContainer, true),
+			state.EXPECT().ContainerNameByV3EndpointID(v3EndpointID).Return(containerName, true),
 			state.EXPECT().TaskByArn(taskARN).Return(task, true).AnyTimes(),
 			state.EXPECT().ContainerByID(containerID).Return(bridgeContainer, true).AnyTimes(),
 			state.EXPECT().PulledContainerMapByArn(taskARN).Return(nil, true),
@@ -2857,8 +2862,8 @@ func TestV4TaskMetadataWithTags(t *testing.T) {
 			setStateExpectations: happyStateExpectations,
 			setECSClientExpectations: func(ecsClient *mock_ecs.MockECSClient) {
 				gomock.InOrder(
-					ecsClient.EXPECT().GetResourceTags(containerInstanceArn).Return(nil, errors.New("error")),
-					ecsClient.EXPECT().GetResourceTags(taskARN).Return(ecsTaskTags, nil),
+					ecsClient.EXPECT().GetResourceTags(gomock.Any(), containerInstanceArn).Return(nil, errors.New("error")),
+					ecsClient.EXPECT().GetResourceTags(gomock.Any(), taskARN).Return(ecsTaskTags, nil),
 				)
 			},
 			expectedStatusCode:   http.StatusOK,
@@ -2874,8 +2879,8 @@ func TestV4TaskMetadataWithTags(t *testing.T) {
 			setStateExpectations: happyStateExpectations,
 			setECSClientExpectations: func(ecsClient *mock_ecs.MockECSClient) {
 				gomock.InOrder(
-					ecsClient.EXPECT().GetResourceTags(containerInstanceArn).Return(ecsInstanceTags, nil),
-					ecsClient.EXPECT().GetResourceTags(taskARN).Return(nil, errors.New("error")),
+					ecsClient.EXPECT().GetResourceTags(gomock.Any(), containerInstanceArn).Return(ecsInstanceTags, nil),
+					ecsClient.EXPECT().GetResourceTags(gomock.Any(), taskARN).Return(nil, errors.New("error")),
 				)
 			},
 			expectedStatusCode:   http.StatusOK,
@@ -2891,8 +2896,8 @@ func TestV4TaskMetadataWithTags(t *testing.T) {
 			setStateExpectations: happyStateExpectations,
 			setECSClientExpectations: func(ecsClient *mock_ecs.MockECSClient) {
 				gomock.InOrder(
-					ecsClient.EXPECT().GetResourceTags(containerInstanceArn).Return(nil, errors.New("error")),
-					ecsClient.EXPECT().GetResourceTags(taskARN).Return(nil, errors.New("error")),
+					ecsClient.EXPECT().GetResourceTags(gomock.Any(), containerInstanceArn).Return(nil, errors.New("error")),
+					ecsClient.EXPECT().GetResourceTags(gomock.Any(), taskARN).Return(nil, errors.New("error")),
 				)
 			},
 			expectedStatusCode:   http.StatusOK,
@@ -2963,6 +2968,7 @@ func TestV4TaskMetadataWithTags(t *testing.T) {
 					state.EXPECT().TaskARNByV3EndpointID(v3EndpointID).Return(taskARN, true),
 					state.EXPECT().TaskByArn(taskARN).Return(task, true).Times(2),
 					state.EXPECT().ContainerMapByArn(taskARN).Return(containerNameToDockerContainer, true),
+					state.EXPECT().ContainerNameByV3EndpointID(v3EndpointID).Return(containerName, true),
 					state.EXPECT().TaskByArn(taskARN).Return(nil, false),
 				)
 			},
@@ -2983,6 +2989,7 @@ func TestV4TaskMetadataWithTags(t *testing.T) {
 					state.EXPECT().TaskARNByV3EndpointID(v3EndpointID).Return(taskARN, true),
 					state.EXPECT().TaskByArn(taskARN).Return(bridgeTask, true).Times(2),
 					state.EXPECT().ContainerMapByArn(taskARN).Return(containerNameToBridgeContainer, true),
+					state.EXPECT().ContainerNameByV3EndpointID(v3EndpointID).Return(containerName, true),
 					state.EXPECT().ContainerByID(containerID).Return(nil, false).AnyTimes(),
 					state.EXPECT().PulledContainerMapByArn(taskARN).Return(nil, true),
 					state.EXPECT().ContainerByID(containerID).Return(nil, false).AnyTimes(),
@@ -3004,6 +3011,7 @@ func TestV4TaskMetadataWithTags(t *testing.T) {
 					state.EXPECT().TaskARNByV3EndpointID(v3EndpointID).Return(taskARN, true),
 					state.EXPECT().TaskByArn(taskARN).Return(bridgeTask, true).Times(2),
 					state.EXPECT().ContainerMapByArn(taskARN).Return(containerNameToBridgeContainer, true),
+					state.EXPECT().ContainerNameByV3EndpointID(v3EndpointID).Return(containerName, true),
 					state.EXPECT().ContainerByID(containerID).Return(bridgeContainerNoNetwork, true).AnyTimes(),
 					state.EXPECT().PulledContainerMapByArn(taskARN).Return(nil, true),
 					state.EXPECT().ContainerByID(containerID).Return(bridgeContainerNoNetwork, true).AnyTimes(),

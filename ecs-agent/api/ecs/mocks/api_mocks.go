@@ -333,18 +333,18 @@ func (mr *MockECSClientMockRecorder) GetHostResources() *gomock.Call {
 }
 
 // GetResourceTags mocks base method.
-func (m *MockECSClient) GetResourceTags(arg0 string) ([]types.Tag, error) {
+func (m *MockECSClient) GetResourceTags(arg0 context.Context, arg1 string) ([]types.Tag, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "GetResourceTags", arg0)
+	ret := m.ctrl.Call(m, "GetResourceTags", arg0, arg1)
 	ret0, _ := ret[0].([]types.Tag)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
 // GetResourceTags indicates an expected call of GetResourceTags.
-func (mr *MockECSClientMockRecorder) GetResourceTags(arg0 interface{}) *gomock.Call {
+func (mr *MockECSClientMockRecorder) GetResourceTags(arg0, arg1 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetResourceTags", reflect.TypeOf((*MockECSClient)(nil).GetResourceTags), arg0)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetResourceTags", reflect.TypeOf((*MockECSClient)(nil).GetResourceTags), arg0, arg1)
 }
 
 // RegisterContainerInstance mocks base method.

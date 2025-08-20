@@ -32,6 +32,7 @@ import (
 // NewTaskResponse creates a new v4 response object for the task. It augments v2 task response
 // with additional fields for the v4 response.
 func NewTaskResponse(
+	endpointID string,
 	taskARN string,
 	state dockerstate.TaskEngineState,
 	ecsClient ecs.ECSClient,
@@ -43,7 +44,7 @@ func NewTaskResponse(
 	propagateTags bool,
 ) (*tmdsv4.TaskResponse, error) {
 	// Construct the v2 response first.
-	v2Resp, err := v2.NewTaskResponse(taskARN, state, ecsClient, cluster, az,
+	v2Resp, err := v2.NewTaskResponse(endpointID, taskARN, state, ecsClient, cluster, az,
 		containerInstanceARN, propagateTags, true)
 	if err != nil {
 		return nil, err

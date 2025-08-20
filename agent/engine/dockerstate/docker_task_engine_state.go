@@ -82,6 +82,8 @@ type TaskEngineState interface {
 	DockerIDByV3EndpointID(v3EndpointID string) (string, bool)
 	// TaskARNByV3EndpointID returns a taskARN for a given v3 endpoint ID
 	TaskARNByV3EndpointID(v3EndpointID string) (string, bool)
+	// ContainerNameByV3EndpointID returns the container name for a given TMDS v3 endpoint ID
+	ContainerNameByV3EndpointID(v3EndpointID string) (string, bool)
 	// GetAllEBSAttachments returns all of the ebs attachments
 	GetAllEBSAttachments() []*apiresource.ResourceAttachment
 	// AllPendingEBSAttachments reutrns all of the ebs attachments that haven't sent a state change
@@ -712,4 +714,23 @@ func (state *DockerTaskEngineState) TaskARNByV3EndpointID(v3EndpointID string) (
 
 	taskArn, ok := state.v3EndpointIDToTask[v3EndpointID]
 	return taskArn, ok
+}
+
+// ContainerNameByV3EndpointID returns the container name for a given TMDS v3 endpoint ID
+func (state *DockerTaskEngineState) ContainerNameByV3EndpointID(v3EndpointID string) (string, bool) {
+	state.lock.RLock()
+	defer state.lock.RUnlock()
+
+	dockerContainerID, ok := state.v3EndpointIDToDockerID[v3EndpointID]
+	if !ok {
+		return "", false
+	}
+
+	dockerContainer, ok := state.idToContainer[dockerContainerID]
+	if !ok {
+		return "", false
+	}
+
+	// Extract the name of the container specified in the ECS task definition
+	return dockerContainer.Container.Name, true
 }

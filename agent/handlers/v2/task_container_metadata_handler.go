@@ -91,7 +91,7 @@ func WriteContainerMetadataResponse(w http.ResponseWriter, containerID string, s
 // WriteTaskMetadataResponse writes the task metadata to response writer.
 func WriteTaskMetadataResponse(w http.ResponseWriter, taskARN string, cluster string, state dockerstate.TaskEngineState, ecsClient ecs.ECSClient, az, containerInstanceArn string, propagateTags bool) {
 	// Generate a response for the task
-	taskResponse, err := NewTaskResponse(taskARN, state, ecsClient, cluster, az, containerInstanceArn, propagateTags, false)
+	taskResponse, err := NewTaskResponse("", taskARN, state, ecsClient, cluster, az, containerInstanceArn, propagateTags, false)
 	if err != nil {
 		errResponseJSON, err := json.Marshal("Unable to generate metadata for task: '" + taskARN + "'")
 		if e := utils.WriteResponseIfMarshalError(w, err); e != nil {
