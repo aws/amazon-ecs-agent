@@ -58,6 +58,7 @@ const (
 	availabilityZone         = "us-west-2b"
 	vpcID                    = "test-vpc-id"
 	containerInstanceArn     = "containerInstance-test"
+	testEndpointID           = "test-endpoint-ID"
 )
 
 func TestNewTaskContainerResponses(t *testing.T) {
@@ -137,7 +138,7 @@ func TestNewTaskContainerResponses(t *testing.T) {
 	state.EXPECT().ContainerMapByArn(taskARN).Return(containerNameToDockerContainer, true)
 	state.EXPECT().TaskByArn(taskARN).Return(task, true)
 
-	taskResponse, err := NewTaskResponse(taskARN, state, ecsClient, cluster,
+	taskResponse, err := NewTaskResponse(testEndpointID, taskARN, state, ecsClient, cluster,
 		availabilityZone, vpcID, containerInstanceArn, task.ServiceName, false)
 	require.NoError(t, err)
 	_, err = json.Marshal(taskResponse)

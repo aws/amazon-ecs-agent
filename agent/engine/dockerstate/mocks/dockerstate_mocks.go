@@ -222,6 +222,21 @@ func (mr *MockTaskEngineStateMockRecorder) ContainerMapByArn(arg0 interface{}) *
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ContainerMapByArn", reflect.TypeOf((*MockTaskEngineState)(nil).ContainerMapByArn), arg0)
 }
 
+// ContainerNameByV3EndpointID mocks base method.
+func (m *MockTaskEngineState) ContainerNameByV3EndpointID(arg0 string) (string, bool) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "ContainerNameByV3EndpointID", arg0)
+	ret0, _ := ret[0].(string)
+	ret1, _ := ret[1].(bool)
+	return ret0, ret1
+}
+
+// ContainerNameByV3EndpointID indicates an expected call of ContainerNameByV3EndpointID.
+func (mr *MockTaskEngineStateMockRecorder) ContainerNameByV3EndpointID(arg0 interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ContainerNameByV3EndpointID", reflect.TypeOf((*MockTaskEngineState)(nil).ContainerNameByV3EndpointID), arg0)
+}
+
 // DockerIDByV3EndpointID mocks base method.
 func (m *MockTaskEngineState) DockerIDByV3EndpointID(arg0 string) (string, bool) {
 	m.ctrl.T.Helper()

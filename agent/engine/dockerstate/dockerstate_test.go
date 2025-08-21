@@ -666,3 +666,50 @@ func TestRemoveTaskRemoveV3EndpointID(t *testing.T) {
 	_, ok = state.v3EndpointIDToDockerID["new-uuid-2"]
 	assert.False(t, ok)
 }
+
+// TestContainerNameByV3EndpointID tests that ContainerNameByV3EndpointID returns the correct container name
+func TestContainerNameByV3EndpointID(t *testing.T) {
+	state := newDockerTaskEngineState()
+	container1 := &apicontainer.Container{
+		Name:         "web-server",
+		V3EndpointID: "endpoint-uuid-1",
+	}
+	dockerContainer1 := &apicontainer.DockerContainer{
+		DockerID:  "docker-id-1",
+		Container: container1,
+	}
+
+	container2 := &apicontainer.Container{
+		Name:         "sidecar-proxy",
+		V3EndpointID: "endpoint-uuid-2",
+	}
+	dockerContainer2 := &apicontainer.DockerContainer{
+		DockerID:  "docker-id-2",
+		Container: container2,
+	}
+
+	task := &apitask.Task{
+		Arn: "task-arn",
+		Containers: []*apicontainer.Container{
+			container1,
+			container2,
+		},
+	}
+
+	state.AddTask(task)
+	state.AddContainer(dockerContainer1, task)
+	state.AddContainer(dockerContainer2, task)
+
+	// Test successful lookups
+	containerName1, found1 := state.ContainerNameByV3EndpointID("endpoint-uuid-1")
+	assert.True(t, found1)
+	assert.Equal(t, "web-server", containerName1)
+
+	containerName2, found2 := state.ContainerNameByV3EndpointID("endpoint-uuid-2")
+	assert.True(t, found2)
+	assert.Equal(t, "sidecar-proxy", containerName2)
+
+	// Test lookup with non-existent endpoint ID
+	_, found3 := state.ContainerNameByV3EndpointID("non-existent-uuid")
+	assert.False(t, found3)
+}
