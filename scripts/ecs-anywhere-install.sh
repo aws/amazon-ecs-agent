@@ -251,18 +251,30 @@ is-ipv6() {
     return 1
 }
 
+is-cn-region() {
+    [[ $REGION =~ ^cn- ]]
+}
+
+is-eusc-region() {
+    [[ $REGION =~ ^eusc- ]]
+}
+
 S3_BUCKET="amazon-ecs-agent-$REGION"
 RPM_PKG_NAME="amazon-ecs-init-$ECS_VERSION.$ARCH.rpm"
 DEB_PKG_NAME="amazon-ecs-init-$ECS_VERSION.$ARCH_ALT.deb"
-S3_URL_SUFFIX=""
-if grep -q "^cn-" <<< "$REGION"; then
-    S3_URL_SUFFIX=".cn"
+S3_URL_SUFFIX="amazonaws.com"
+if is-cn-region; then
+    S3_URL_SUFFIX="${S3_URL_SUFFIX}.cn"
+fi
+if is-eusc-region; then
+    S3_URL_SUFFIX="amazonaws.eu"
 fi
 S3_URL_DUALSTACK=""
-if is-ipv6; then
+# Dualstack URLs in EUSC regions are currently not yet fully supported.
+if is-ipv6 && ! is-eusc-region; then
     S3_URL_DUALSTACK="dualstack."
 fi
-S3_URL="https://s3.${S3_URL_DUALSTACK}${REGION}.amazonaws.com${S3_URL_SUFFIX}"
+S3_URL="https://s3.${S3_URL_DUALSTACK}${REGION}.${S3_URL_SUFFIX}"
 SSM_S3_BUCKET="amazon-ssm-$REGION"
 
 if [ -z "$RPM_URL" ]; then
@@ -383,8 +395,11 @@ configure-ssm-agent-ipv6() {
         mkdir -p "$ssm_config_dir"
 
         local endpoint_suffix="api.aws"
-        if grep -q "^cn-" <<< "$REGION"; then
+        if is-cn-region; then
             endpoint_suffix="api.amazonwebservices.com.cn"
+        fi
+        if is-eusc-region; then
+            endpoint_suffix="api.amazonwebservices.eu"
         fi
 
         cat > "$ssm_config_file" << EOF
@@ -406,7 +421,8 @@ EOF
 }
 
 install-ssm-agent() {
-    if is-ipv6; then
+# Dualstack URLs in EUSC regions are currently not yet fully supported.
+    if is-ipv6 && ! is-eusc-region; then
         configure-ssm-agent-ipv6
     fi
     try "install ssm agent"
