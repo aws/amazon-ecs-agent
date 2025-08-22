@@ -25,6 +25,9 @@ The Amazon ECS Container Agent may also be run in a Docker container on an EC2 i
 installed. Docker images are available in
 [Docker Hub Repository](https://hub.docker.com/r/amazon/amazon-ecs-agent) and [ECR Public Gallery](https://gallery.ecr.aws/ecs/amazon-ecs-agent).
 
+
+
+
 ```bash
 $ # Set up directories the agent uses
 $ mkdir -p /var/log/ecs /etc/ecs /var/lib/ecs/data
