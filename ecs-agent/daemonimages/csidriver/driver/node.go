@@ -22,17 +22,17 @@ package driver
 import (
 	"context"
 	"fmt"
+	"os"
 	"strconv"
 	"strings"
-
-	"github.com/container-storage-interface/spec/lib/go/csi"
-	"google.golang.org/grpc/codes"
-	"google.golang.org/grpc/status"
-	"k8s.io/klog/v2"
 
 	"github.com/aws/amazon-ecs-agent/ecs-agent/daemonimages/csidriver/driver/internal"
 	"github.com/aws/amazon-ecs-agent/ecs-agent/daemonimages/csidriver/util"
 	"github.com/aws/amazon-ecs-agent/ecs-agent/daemonimages/csidriver/volume"
+	"github.com/container-storage-interface/spec/lib/go/csi"
+	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/status"
+	"k8s.io/klog/v2"
 )
 
 const (
@@ -40,6 +40,9 @@ const (
 	defaultFsType = FSTypeXfs
 
 	VolumeOperationAlreadyExists = "An operation with the given volume=%q is already in progress"
+
+	// Path prefix for EBS volumes
+	EBSPathPrefix = "/mnt/ecs/ebs/"
 )
 
 var (
@@ -56,6 +59,10 @@ var (
 		csi.NodeServiceCapability_RPC_STAGE_UNSTAGE_VOLUME,
 		csi.NodeServiceCapability_RPC_GET_VOLUME_STATS,
 	}
+
+	// Define function variables that can be mocked in tests
+	chownFunc = os.Chown
+	chmodFunc = os.Chmod
 )
 
 // nodeService represents the node service of CSI driver.
@@ -245,7 +252,38 @@ func (d *nodeService) NodeStageVolume(ctx context.Context, req *csi.NodeStageVol
 		}
 	}
 	klog.V(4).InfoS("NodeStageVolume: successfully staged volume", "source", source, "volumeID", volumeID, "target", target, "fstype", fsType)
+
+	SourceVolumeHostPath := target
+	if strings.HasPrefix(target, EBSPathPrefix) {
+		SourceVolumeHostPath = strings.TrimPrefix(target, EBSPathPrefix)
+	}
+
+	// Gid is generated based on SourceVolumeHostPath the same as in task.go
+	gid := util.GenerateGIDFromPath(SourceVolumeHostPath)
+	// Set permissions on the mount point to allow non-root users to access it
+	if err := setMountPointPermissions(target, gid); err != nil {
+		klog.Warningf("Failed to set permissions on mount point %s: %v", target, err)
+		// Continue even if permission setting fails, as the volume is still usable
+	} else {
+		klog.V(4).InfoS("Successfully set permissions on mount point", "target", target, "volumeID", volumeID, "gid", gid)
+	}
+
 	return &csi.NodeStageVolumeResponse{}, nil
+}
+
+// setMountPointPermissions sets the permissions on the mount point to allow non-root users to access it
+func setMountPointPermissions(mountPath string, gid int) error {
+	// Change group ownership to the provided GID
+	if err := chownFunc(mountPath, -1, gid); err != nil {
+		return fmt.Errorf("failed to change group ownership of %s to GID %d: %v", mountPath, gid, err)
+	}
+
+	// Set permissions to 0775 with setgid bit
+	if err := chmodFunc(mountPath, 0775|os.ModeSetgid); err != nil {
+		return fmt.Errorf("failed to set permissions on %s: %v", mountPath, err)
+	}
+
+	return nil
 }
 
 func newNodeService() nodeService {

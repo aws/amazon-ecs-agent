@@ -1,5 +1,11 @@
+//go:build linux
+// +build linux
+
+// this file has been modified from its original found in:
+// https://github.com/kubernetes-sigs/aws-ebs-csi-driver
+
 /*
-Copyright 2022 The Kubernetes Authors.
+Copyright 2019 The Kubernetes Authors.
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -14,6 +20,17 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-// Package sets has generic set and specified sets. Generic set will
-// replace specified ones over time. And specific ones are deprecated.
-package sets // import "k8s.io/apimachinery/pkg/util/sets"
+package util
+
+import "golang.org/x/sys/unix"
+
+// IsBlockDevice checks if the given path is a block device
+func IsBlockDevice(fullPath string) (bool, error) {
+	var st unix.Stat_t
+	err := unix.Stat(fullPath, &st)
+	if err != nil {
+		return false, err
+	}
+
+	return (st.Mode & unix.S_IFMT) == unix.S_IFBLK, nil
+}

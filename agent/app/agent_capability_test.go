@@ -85,6 +85,7 @@ func TestCapabilities(t *testing.T) {
 		AppArmorCapable:            config.BooleanDefaultFalse{Value: config.ExplicitlyEnabled},
 		TaskENIEnabled:             config.BooleanDefaultFalse{Value: config.ExplicitlyEnabled},
 		AWSVPCBlockInstanceMetdata: config.BooleanDefaultFalse{Value: config.ExplicitlyEnabled},
+		EBSTASupportEnabled:        true,
 		TaskCleanupWaitDuration:    config.DefaultConfig(ipcompatibility.NewIPv4OnlyCompatibility()).TaskCleanupWaitDuration,
 	}
 
@@ -144,6 +145,7 @@ func TestCapabilities(t *testing.T) {
 		attributePrefix + capabilityServiceConnect,
 		attributePrefix + capabilityContainerPortRange,
 		attributePrefix + capabilityContainerRestartPolicy,
+		attributePrefix + capabilityEBSTANonRootUser,
 	}
 
 	var expectedCapabilities []types.Attribute

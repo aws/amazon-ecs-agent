@@ -1945,6 +1945,7 @@ func (task *Task) dockerHostConfig(container *apicontainer.Container, dockerCont
 
 	resources := task.getDockerResources(container, cfg)
 
+	supplementaryGroups := task.getSupplementaryGroups(container)
 	// Populate hostConfig
 	hostConfig := &dockercontainer.HostConfig{
 		Links:        dockerLinkArr,
@@ -1952,6 +1953,7 @@ func (task *Task) dockerHostConfig(container *apicontainer.Container, dockerCont
 		PortBindings: dockerPortMap,
 		VolumesFrom:  volumesFrom,
 		Resources:    resources,
+		GroupAdd:     supplementaryGroups,
 	}
 
 	if err := task.overrideContainerRuntime(container, hostConfig, cfg); err != nil {

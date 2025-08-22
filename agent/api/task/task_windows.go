@@ -19,6 +19,7 @@ package task
 import (
 	"time"
 
+	apicontainer "github.com/aws/amazon-ecs-agent/agent/api/container"
 	"github.com/aws/amazon-ecs-agent/agent/config"
 	"github.com/aws/amazon-ecs-agent/agent/ecscni"
 	"github.com/aws/amazon-ecs-agent/agent/taskresource"
@@ -265,4 +266,9 @@ func (task *Task) BuildCNIConfigAwsvpc(includeIPAMConfig bool, cniConfig *ecscni
 // BuildCNIConfigBridgeMode builds a list of CNI network configurations for a task in docker bridge mode.
 func (task *Task) BuildCNIConfigBridgeMode(cniConfig *ecscni.Config, containerName string) (*ecscni.Config, error) {
 	return nil, errors.New("unsupported platform")
+}
+
+// Not Supported for Windows
+func (task *Task) getSupplementaryGroups(container *apicontainer.Container) []string {
+	return nil
 }

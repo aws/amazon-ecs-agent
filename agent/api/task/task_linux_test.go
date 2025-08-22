@@ -19,6 +19,7 @@ package task
 import (
 	"encoding/json"
 	"fmt"
+	"strconv"
 	"testing"
 	"time"
 
@@ -33,8 +34,10 @@ import (
 	"github.com/aws/amazon-ecs-agent/agent/taskresource/cgroup/control/mock_control"
 	"github.com/aws/amazon-ecs-agent/agent/taskresource/firelens"
 	"github.com/aws/amazon-ecs-agent/agent/taskresource/ssmsecret"
+	"github.com/aws/amazon-ecs-agent/agent/taskresource/volume"
 	mock_ioutilwrapper "github.com/aws/amazon-ecs-agent/agent/utils/ioutilwrapper/mocks"
 	apicontainerstatus "github.com/aws/amazon-ecs-agent/ecs-agent/api/container/status"
+	"github.com/aws/amazon-ecs-agent/ecs-agent/daemonimages/csidriver/util"
 	"github.com/aws/amazon-ecs-agent/ecs-agent/netlib/model/appmesh"
 	nlappmesh "github.com/aws/amazon-ecs-agent/ecs-agent/netlib/model/appmesh"
 	ni "github.com/aws/amazon-ecs-agent/ecs-agent/netlib/model/networkinterface"
@@ -1760,6 +1763,111 @@ func TestDockerCPUShares(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			result := tc.task.dockerCPUShares(tc.task.Containers[0].CPU)
 			assert.Equal(t, tc.expectedContainerShares, result)
+		})
+	}
+}
+
+func TestGetSupplementaryGroups(t *testing.T) {
+	testCases := []struct {
+		name                 string
+		task                 *Task
+		container            *apicontainer.Container
+		expectedGroups       []string
+		ebsTaskAttachEnabled bool
+	}{
+		{
+			name: "EBS Task Attach not enabled",
+			task: &Task{
+				Arn: validTaskArn,
+			},
+			container: &apicontainer.Container{
+				Name: "container",
+				MountPoints: []apicontainer.MountPoint{
+					{
+						SourceVolume:  "ebs-volume",
+						ContainerPath: "/data",
+					},
+				},
+			},
+			ebsTaskAttachEnabled: false,
+			expectedGroups:       nil,
+		},
+		{
+			name: "container has no mount points",
+			task: &Task{
+				Arn: validTaskArn,
+			},
+			container: &apicontainer.Container{
+				Name:        "container",
+				MountPoints: []apicontainer.MountPoint{},
+			},
+			ebsTaskAttachEnabled: true,
+			expectedGroups:       nil,
+		},
+		{
+			name: "container has EBS volume mount point",
+			task: &Task{
+				Arn: validTaskArn,
+				Volumes: []TaskVolume{
+					{
+						Name: "ebs-volume",
+						Type: "docker",
+						Volume: &volume.EBSTaskVolumeConfig{
+							SourceVolumeHostPath: "/var/lib/ecs/data/ebs-volume",
+						},
+					},
+				},
+			},
+			container: &apicontainer.Container{
+				Name: "container",
+				MountPoints: []apicontainer.MountPoint{
+					{
+						SourceVolume:  "ebs-volume",
+						ContainerPath: "/data",
+					},
+				},
+			},
+			ebsTaskAttachEnabled: true,
+			expectedGroups: []string{
+				strconv.Itoa(util.GenerateGIDFromPath("/var/lib/ecs/data/ebs-volume")),
+			},
+		},
+		{
+			name: "container has non-EBS volume mount point",
+			task: &Task{
+				Arn: validTaskArn,
+				Volumes: []TaskVolume{
+					{
+						Name: "non-ebs-volume",
+						Type: "docker",
+						Volume: &volume.FSHostVolume{
+							FSSourcePath: "/var/lib/ecs/data/non-ebs-volume",
+						},
+					},
+				},
+			},
+			container: &apicontainer.Container{
+				Name: "container",
+				MountPoints: []apicontainer.MountPoint{
+					{
+						SourceVolume:  "non-ebs-volume",
+						ContainerPath: "/data",
+					},
+				},
+			},
+			ebsTaskAttachEnabled: true,
+			expectedGroups:       nil,
+		},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+
+			// Call the function under test
+			groups := tc.task.getSupplementaryGroups(tc.container)
+
+			// Verify the results
+			assert.Equal(t, tc.expectedGroups, groups)
 		})
 	}
 }
