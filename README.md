@@ -27,7 +27,6 @@ installed. Docker images are available in
 
 
 
-
 ```bash
 $ # Set up directories the agent uses
 $ mkdir -p /var/log/ecs /etc/ecs /var/lib/ecs/data
