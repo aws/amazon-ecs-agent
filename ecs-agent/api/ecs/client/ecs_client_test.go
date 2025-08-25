@@ -26,6 +26,8 @@ import (
 	"time"
 
 	"github.com/aws/aws-sdk-go-v2/aws"
+	ecsservice "github.com/aws/aws-sdk-go-v2/service/ecs"
+	"github.com/aws/aws-sdk-go-v2/service/ecs/types"
 	"github.com/golang/mock/gomock"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -44,8 +46,6 @@ import (
 	mock_ec2 "github.com/aws/amazon-ecs-agent/ecs-agent/ec2/mocks"
 	ni "github.com/aws/amazon-ecs-agent/ecs-agent/netlib/model/networkinterface"
 	"github.com/aws/amazon-ecs-agent/ecs-agent/utils/retry"
-	ecsservice "github.com/aws/aws-sdk-go-v2/service/ecs"
-	"github.com/aws/aws-sdk-go-v2/service/ecs/types"
 )
 
 const (
@@ -480,6 +480,12 @@ func TestRegisterContainerInstance(t *testing.T) {
 				cfgAccessor.EXPECT().External().Return(true).AnyTimes()
 			},
 		},
+		{
+			name: "empty os detailed attribute",
+			mockCfgAccessorOverride: func(cfgAccessor *mock_config.MockAgentConfigAccessor) {
+				cfgAccessor.EXPECT().OSFamilyDetailed().Return("").AnyTimes()
+			},
+		},
 	}
 
 	for _, tc := range testCases {
@@ -507,6 +513,10 @@ func TestRegisterContainerInstance(t *testing.T) {
 				"ecs.availability-zone":     availabilityZone,
 				"ecs.outpost-arn":           outpostARN,
 				cpuArchAttrName:             getCPUArch(),
+			}
+			// Add ecs.os-type-detailed only if OSFamilyDetailed() returns a non-empty value
+			if tester.mockCfgAccessor.OSFamilyDetailed() != "" {
+				expectedAttributes["ecs.os-type-detailed"] = tester.mockCfgAccessor.OSFamilyDetailed()
 			}
 			capabilities := buildAttributeList(fakeCapabilities, nil)
 			platformDevices := []types.PlatformDevice{
@@ -553,12 +563,18 @@ func TestRegisterContainerInstance(t *testing.T) {
 			var expectedNumOfAttributes int
 			if !tester.mockCfgAccessor.External() {
 				// 2 capability attributes: capability1, capability2
-				// and 5 other attributes:
-				// ecs.os-type, ecs.os-family, ecs.outpost-arn, my_custom_attribute, my_other_custom_attribute.
-				expectedNumOfAttributes = 7
+				// Base attributes: ecs.os-type, ecs.os-family, ecs.outpost-arn, my_custom_attribute, my_other_custom_attribute (5)
+				// Plus ecs.os-type-detailed if OSFamilyDetailed() is not empty
+				expectedNumOfAttributes = 7 // 2 capabilities + 5 base attributes
+				if tester.mockCfgAccessor.OSFamilyDetailed() != "" {
+					expectedNumOfAttributes = 8
+				}
 			} else {
 				// One more attribute for external case: ecs.cpu-architecture.
 				expectedNumOfAttributes = 8
+				if tester.mockCfgAccessor.OSFamilyDetailed() != "" {
+					expectedNumOfAttributes = 9
+				}
 			}
 
 			gomock.InOrder(
@@ -630,6 +646,7 @@ func TestRegisterContainerInstanceWithRetryNonTerminalError(t *testing.T) {
 	expectedAttributes := map[string]string{
 		"ecs.os-type":               tester.mockCfgAccessor.OSType(),
 		"ecs.os-family":             tester.mockCfgAccessor.OSFamily(),
+		"ecs.os-type-detailed":      tester.mockCfgAccessor.OSFamilyDetailed(),
 		"my_custom_attribute":       "Custom_Value1",
 		"my_other_custom_attribute": "Custom_Value2",
 		"ecs.availability-zone":     availabilityZone,
@@ -725,6 +742,7 @@ func TestReRegisterContainerInstance(t *testing.T) {
 	expectedAttributes := map[string]string{
 		"ecs.os-type":           tester.mockCfgAccessor.OSType(),
 		"ecs.os-family":         tester.mockCfgAccessor.OSFamily(),
+		"ecs.os-type-detailed":  tester.mockCfgAccessor.OSFamilyDetailed(),
 		"ecs.availability-zone": availabilityZone,
 		"ecs.outpost-arn":       outpostARN,
 	}
@@ -749,8 +767,8 @@ func TestReRegisterContainerInstance(t *testing.T) {
 				resource, ok := findResource(req.TotalResources, "PORTS_UDP")
 				assert.True(t, ok, `Could not find resource "PORTS_UDP"`)
 				assert.Equal(t, "STRINGSET", *resource.Type, `Wrong type for resource "PORTS_UDP"`)
-				// "ecs.os-type", ecs.os-family, ecs.outpost-arn and the 2 that we specified as additionalAttributes.
-				assert.Equal(t, 5, len(req.Attributes), "Wrong number of Attributes")
+				// "ecs.os-type", ecs.os-family, ecs.os-type-detailed, ecs.outpost-arn and the 2 that we specified as additionalAttributes.
+				assert.Equal(t, 6, len(req.Attributes), "Wrong number of Attributes")
 				reqAttributes := func() map[string]string {
 					rv := make(map[string]string, len(req.Attributes))
 					for i := range req.Attributes {
@@ -821,6 +839,7 @@ func TestRegisterContainerInstanceWithEmptyTags(t *testing.T) {
 	expectedAttributes := map[string]string{
 		"ecs.os-type":               tester.mockCfgAccessor.OSType(),
 		"ecs.os-family":             tester.mockCfgAccessor.OSFamily(),
+		"ecs.os-type-detailed":      tester.mockCfgAccessor.OSFamilyDetailed(),
 		"my_custom_attribute":       "Custom_Value1",
 		"my_other_custom_attribute": "Custom_Value2",
 	}
@@ -886,8 +905,9 @@ func TestRegisterBlankCluster(t *testing.T) {
 	tester := setup(t, ctrl, mockEC2Metadata, cfgAccessorOverrideFunc)
 
 	expectedAttributes := map[string]string{
-		"ecs.os-type":   tester.mockCfgAccessor.OSType(),
-		"ecs.os-family": tester.mockCfgAccessor.OSFamily(),
+		"ecs.os-type":          tester.mockCfgAccessor.OSType(),
+		"ecs.os-family":        tester.mockCfgAccessor.OSFamily(),
+		"ecs.os-type-detailed": tester.mockCfgAccessor.OSFamilyDetailed(),
 	}
 	defaultCluster := tester.mockCfgAccessor.DefaultClusterName()
 	gomock.InOrder(
@@ -935,8 +955,9 @@ func TestRegisterBlankClusterNotCreatingClusterWhenErrorNotClusterNotFound(t *te
 	tester := setup(t, ctrl, mockEC2Metadata, cfgAccessorOverrideFunc)
 
 	expectedAttributes := map[string]string{
-		"ecs.os-type":   tester.mockCfgAccessor.OSType(),
-		"ecs.os-family": tester.mockCfgAccessor.OSFamily(),
+		"ecs.os-type":          tester.mockCfgAccessor.OSType(),
+		"ecs.os-family":        tester.mockCfgAccessor.OSFamily(),
+		"ecs.os-type-detailed": tester.mockCfgAccessor.OSFamilyDetailed(),
 	}
 
 	defaultCluster := tester.mockCfgAccessor.DefaultClusterName()
