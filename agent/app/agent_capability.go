@@ -205,7 +205,7 @@ var (
 //	ecs.capability.external
 //	ecs.capability.service-connect-v1
 //	ecs.capability.storage.ebs-task-volume-attach
-//	ecs.capability.ebsta.non-root-user
+//	ecs.capability.storage.ebsta-non-root-user
 //	ecs.capability.network.container-port-range
 //	ecs.capability.container-restart-policy
 //	ecs.capability.fault-injection
