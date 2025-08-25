@@ -76,11 +76,13 @@ func TestNodeStageVolume(t *testing.T) {
 		}
 	)
 	testCases := []struct {
-		name         string
-		request      *csi.NodeStageVolumeRequest
-		inFlightFunc func(*internal.InFlight) *internal.InFlight
-		expectMock   func(mockMounter MockMounter, mockDeviceIdentifier MockDeviceIdentifier)
-		expectedCode codes.Code
+		name                 string
+		request              *csi.NodeStageVolumeRequest
+		inFlightFunc         func(*internal.InFlight) *internal.InFlight
+		expectMock           func(mockMounter MockMounter, mockDeviceIdentifier MockDeviceIdentifier)
+		expectedCode         codes.Code
+		setupPermissionMocks func() // Function to setup permission-related mocks
+		expectPermissionCall bool   // Whether to expect permission calls
 	}{
 		{
 			name: "success normal",
@@ -94,6 +96,7 @@ func TestNodeStageVolume(t *testing.T) {
 				successExpectMock(mockMounter, mockDeviceIdentifier)
 				mockMounter.EXPECT().FormatAndMountSensitiveWithFormatOptions(gomock.Eq(devicePath), gomock.Eq(targetPath), gomock.Eq(defaultFsType), gomock.Any(), gomock.Nil(), gomock.Len(0))
 			},
+			expectPermissionCall: true,
 		},
 		{
 			name: "success normal [raw block]",
@@ -135,6 +138,7 @@ func TestNodeStageVolume(t *testing.T) {
 				successExpectMock(mockMounter, mockDeviceIdentifier)
 				mockMounter.EXPECT().FormatAndMountSensitiveWithFormatOptions(gomock.Eq(devicePath), gomock.Eq(targetPath), gomock.Eq(FSTypeExt4), gomock.Any(), gomock.Nil(), gomock.Len(0))
 			},
+			expectPermissionCall: true,
 		},
 
 		{
@@ -158,6 +162,7 @@ func TestNodeStageVolume(t *testing.T) {
 				successExpectMock(mockMounter, mockDeviceIdentifier)
 				mockMounter.EXPECT().FormatAndMountSensitiveWithFormatOptions(gomock.Eq(devicePath), gomock.Eq(targetPath), gomock.Eq(FSTypeExt3), gomock.Any(), gomock.Nil(), gomock.Len(0))
 			},
+			expectPermissionCall: true,
 		},
 		{
 			name: "success mount with default fsType xfs",
@@ -180,6 +185,7 @@ func TestNodeStageVolume(t *testing.T) {
 				successExpectMock(mockMounter, mockDeviceIdentifier)
 				mockMounter.EXPECT().FormatAndMountSensitiveWithFormatOptions(gomock.Eq(devicePath), gomock.Eq(targetPath), gomock.Eq(FSTypeXfs), gomock.Any(), gomock.Nil(), gomock.Len(0))
 			},
+			expectPermissionCall: true,
 		},
 		{
 			name: "success device already mounted at target",
@@ -312,10 +318,38 @@ func TestNodeStageVolume(t *testing.T) {
 			},
 			expectedCode: codes.Aborted,
 		},
+		{
+			name: "fail setMountPointPermissions error",
+			request: &csi.NodeStageVolumeRequest{
+				PublishContext:    map[string]string{DevicePathKey: devicePath},
+				StagingTargetPath: targetPath,
+				VolumeCapability:  stdVolCap,
+				VolumeId:          volumeID,
+			},
+			expectMock: func(mockMounter MockMounter, mockDeviceIdentifier MockDeviceIdentifier) {
+				successExpectMock(mockMounter, mockDeviceIdentifier)
+				mockMounter.EXPECT().FormatAndMountSensitiveWithFormatOptions(gomock.Eq(devicePath), gomock.Eq(targetPath), gomock.Eq(defaultFsType), gomock.Any(), gomock.Nil(), gomock.Len(0))
+			},
+			setupPermissionMocks: func() {
+				// Mock chown failure
+				chownFunc = func(name string, uid, gid int) error {
+					return errors.New("failed to change group ownership")
+				}
+			},
+			expectedCode: codes.Internal,
+		},
 	}
 
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
+			// Store original functions to restore later
+			originalChown := chownFunc
+			originalChmod := chmodFunc
+			defer func() {
+				chownFunc = originalChown
+				chmodFunc = originalChmod
+			}()
+
 			mockCtl := gomock.NewController(t)
 			defer mockCtl.Finish()
 
@@ -331,6 +365,52 @@ func TestNodeStageVolume(t *testing.T) {
 				mounter:          mockMounter,
 				deviceIdentifier: mockDeviceIdentifier,
 				inFlight:         inFlight,
+			}
+
+			// Setup permission mocks if provided
+			if tc.setupPermissionMocks != nil {
+				tc.setupPermissionMocks()
+			} else if tc.expectPermissionCall {
+				// Default successful permission mocks for success cases
+				var chownCalled, chmodCalled bool
+				chownFunc = func(name string, uid, gid int) error {
+					chownCalled = true
+					// Verify correct parameters
+					if name != tc.request.GetStagingTargetPath() {
+						t.Errorf("Expected chown path %s, got %s", tc.request.GetStagingTargetPath(), name)
+					}
+					if uid != -1 {
+						t.Errorf("Expected chown uid -1, got %d", uid)
+					}
+					if gid < 900000 || gid > 999999 {
+						t.Errorf("Expected chown gid in range [900000, 999999], got %d", gid)
+					}
+					return nil
+				}
+				chmodFunc = func(name string, mode os.FileMode) error {
+					chmodCalled = true
+					// Verify correct parameters
+					if name != tc.request.GetStagingTargetPath() {
+						t.Errorf("Expected chmod path %s, got %s", tc.request.GetStagingTargetPath(), name)
+					}
+					expectedMode := os.FileMode(0775 | os.ModeSetgid)
+					if mode != expectedMode {
+						t.Errorf("Expected chmod mode %v, got %v", expectedMode, mode)
+					}
+					return nil
+				}
+
+				// For success cases that should call permissions, verify they were called
+				defer func() {
+					if tc.expectedCode == codes.OK && tc.expectPermissionCall {
+						if !chownCalled {
+							t.Error("Expected chown to be called but it wasn't")
+						}
+						if !chmodCalled {
+							t.Error("Expected chmod to be called but it wasn't")
+						}
+					}
+				}()
 			}
 
 			if tc.expectMock != nil {

@@ -145,7 +145,6 @@ func TestCapabilities(t *testing.T) {
 		attributePrefix + capabilityServiceConnect,
 		attributePrefix + capabilityContainerPortRange,
 		attributePrefix + capabilityContainerRestartPolicy,
-		attributePrefix + capabilityEBSTANonRootUser,
 	}
 
 	var expectedCapabilities []types.Attribute

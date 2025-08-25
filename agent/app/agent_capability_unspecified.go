@@ -125,6 +125,10 @@ func (agent *ecsAgent) appendFirelensNonRootUserCapability(capabilities []types.
 	return capabilities
 }
 
+func (agent *ecsAgent) appendEBSTANonRootUserCapabilities(capabilities []types.Attribute) []types.Attribute {
+	return capabilities
+}
+
 func (agent *ecsAgent) appendGMSACapabilities(capabilities []types.Attribute) []types.Attribute {
 	return capabilities
 }

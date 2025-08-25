@@ -558,10 +558,6 @@ func (agent *ecsAgent) appendEBSTaskAttachCapabilities(capabilities []types.Attr
 	return capabilities
 }
 
-func (agent *ecsAgent) appendEBSTANonRootUserCapabilities(capabilities []types.Attribute) []types.Attribute {
-	return appendNameOnlyAttribute(capabilities, attributePrefix+capabilityEBSTANonRootUser)
-}
-
 func (agent *ecsAgent) appendFaultInjectionCapabilities(capabilities []types.Attribute) []types.Attribute {
 	// Check if the agent is running in EXTERNAL launch type
 	if agent.cfg.External.Enabled() {

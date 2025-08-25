@@ -29,6 +29,7 @@ import (
 	"github.com/aws/amazon-ecs-agent/ecs-agent/daemonimages/csidriver/driver/internal"
 	"github.com/aws/amazon-ecs-agent/ecs-agent/daemonimages/csidriver/util"
 	"github.com/aws/amazon-ecs-agent/ecs-agent/daemonimages/csidriver/volume"
+
 	"github.com/container-storage-interface/spec/lib/go/csi"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
@@ -253,20 +254,18 @@ func (d *nodeService) NodeStageVolume(ctx context.Context, req *csi.NodeStageVol
 	}
 	klog.V(4).InfoS("NodeStageVolume: successfully staged volume", "source", source, "volumeID", volumeID, "target", target, "fstype", fsType)
 
-	SourceVolumeHostPath := target
+	sourceVolumeHostPath := target
 	if strings.HasPrefix(target, EBSPathPrefix) {
-		SourceVolumeHostPath = strings.TrimPrefix(target, EBSPathPrefix)
+		sourceVolumeHostPath = strings.TrimPrefix(target, EBSPathPrefix)
 	}
 
 	// Gid is generated based on SourceVolumeHostPath the same as in task.go
-	gid := util.GenerateGIDFromPath(SourceVolumeHostPath)
+	gid := util.GenerateGIDFromPath(sourceVolumeHostPath)
 	// Set permissions on the mount point to allow non-root users to access it
 	if err := setMountPointPermissions(target, gid); err != nil {
-		klog.Warningf("Failed to set permissions on mount point %s: %v", target, err)
-		// Continue even if permission setting fails, as the volume is still usable
-	} else {
-		klog.V(4).InfoS("Successfully set permissions on mount point", "target", target, "volumeID", volumeID, "gid", gid)
+		return nil, status.Errorf(codes.Internal, "Failed to set permissions on mount point %s: %v", target, err)
 	}
+	klog.V(4).InfoS("Successfully set permissions on mount point", "target", target, "volumeID", volumeID, "gid", gid)
 
 	return &csi.NodeStageVolumeResponse{}, nil
 }
