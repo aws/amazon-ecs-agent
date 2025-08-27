@@ -150,6 +150,14 @@ var (
 	capabilityExecRootDir = filepath.Join(capabilityDepsRootDir, capabilityExec)
 	binDir                = filepath.Join(capabilityExecRootDir, capabilityExecBinRelativePath)
 	configDir             = filepath.Join(capabilityExecRootDir, capabilityExecConfigRelativePath)
+
+	// excludedDockerAPIVersions contains Docker API versions that should not be reported as capabilities
+	// This is in addition to versions 1.33 and beyond
+	excludedDockerAPIVersions = map[dockerclient.DockerVersion]bool{
+		dockerclient.Version_1_26: true,
+		dockerclient.Version_1_27: true,
+		dockerclient.Version_1_31: true,
+	}
 )
 
 // capabilities returns the supported capabilities of this agent / docker-client pair.
@@ -224,8 +232,14 @@ func (agent *ecsAgent) capabilities() ([]types.Attribute, error) {
 	// Determine API versions to report as supported via com.amazonaws.ecs.capability.docker-remote-api.X.XX capabilities
 	// and for determining which features we support that depend on specific docker API versions
 	for _, version := range dockerclient.SupportedVersionsExtended(agent.dockerClient.SupportedVersions) {
-		capabilities = appendNameOnlyAttribute(capabilities, capabilityPrefix+"docker-remote-api."+string(version))
 		supportedVersions[version] = true
+		// Every new Docker version update brings in new client API versions that agent can support.
+		// We have a limit on the number of capabilities that agent can send during instance registration.
+		// Hence, we don't report  1.26, 1.27 and 1.31, 1.33 and beyond.
+		// We need to continue reporting all other versions to support legacy ECS backend logic.
+		if version.Compare(dockerclient.Version_1_33) < 0 && !excludedDockerAPIVersions[version] {
+			capabilities = appendNameOnlyAttribute(capabilities, capabilityPrefix+"docker-remote-api."+string(version))
+		}
 	}
 
 	capabilities = agent.appendLoggingDriverCapabilities(capabilities, supportedVersions)
