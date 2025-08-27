@@ -1468,6 +1468,74 @@ func TestDefaultPathExistsd(t *testing.T) {
 	}
 }
 
+func TestCapabilitiesDockerAPIVersionLimit(t *testing.T) {
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+
+	client := mock_dockerapi.NewMockDockerClient(ctrl)
+	mockMobyPlugins := mock_mobypkgwrapper.NewMockPlugins(ctrl)
+	mockPauseLoader := mock_loader.NewMockLoader(ctrl)
+	mockServiceConnectManager := mock_serviceconnect.NewMockManager(ctrl)
+	mockDaemonManager := mock_daemonmanager.NewMockDaemonManager(ctrl)
+
+	client.EXPECT().SupportedVersions().Return([]dockerclient.DockerVersion{
+		dockerclient.Version_1_17,
+		dockerclient.Version_1_24,
+		dockerclient.Version_1_26,
+		dockerclient.Version_1_27,
+		dockerclient.Version_1_31,
+		dockerclient.Version_1_32,
+		dockerclient.Version_1_33,
+		dockerclient.Version_1_34,
+		dockerclient.Version_1_44,
+	})
+	mockMobyPlugins.EXPECT().Scan().AnyTimes().Return([]string{}, nil)
+	client.EXPECT().ListPluginsWithFilters(gomock.Any(), gomock.Any(), gomock.Any(),
+		gomock.Any()).AnyTimes().Return([]string{}, nil)
+	mockPauseLoader.EXPECT().IsLoaded(gomock.Any()).Return(false, nil).AnyTimes()
+	mockServiceConnectManager.EXPECT().IsLoaded(gomock.Any()).Return(true, nil).AnyTimes()
+	mockServiceConnectManager.EXPECT().GetLoadedAppnetVersion().AnyTimes()
+	mockServiceConnectManager.EXPECT().GetCapabilitiesForAppnetInterfaceVersion("").AnyTimes()
+	mockDaemonManager.EXPECT().LoadImage(gomock.Any(), gomock.Any()).Return(nil, nil).AnyTimes()
+
+	mockDaemonManagers := map[string]dm.DaemonManager{md.EbsCsiDriver: mockDaemonManager}
+
+	ctx, cancel := context.WithCancel(context.TODO())
+	defer cancel()
+	agent := &ecsAgent{
+		ctx:                   ctx,
+		cfg:                   &config.Config{},
+		dockerClient:          client,
+		pauseLoader:           mockPauseLoader,
+		mobyPlugins:           mockMobyPlugins,
+		serviceconnectManager: mockServiceConnectManager,
+		daemonManagers:        mockDaemonManagers,
+	}
+
+	capabilities, err := agent.capabilities()
+	require.NoError(t, err)
+
+	capMap := make(map[string]bool)
+	for _, capability := range capabilities {
+		capMap[aws.ToString(capability.Name)] = true
+	}
+
+	// Should have versions before 1.33 (extended versions 1.17-1.23 + actual supported)
+	assert.True(t, capMap[capabilityPrefix+"docker-remote-api.1.17"], "Should have docker-remote-api.1.17")
+	assert.True(t, capMap[capabilityPrefix+"docker-remote-api.1.24"], "Should have docker-remote-api.1.24")
+	assert.True(t, capMap[capabilityPrefix+"docker-remote-api.1.32"], "Should have docker-remote-api.1.32")
+
+	// Should NOT have excluded versions
+	assert.False(t, capMap[capabilityPrefix+"docker-remote-api.1.26"], "Should NOT have docker-remote-api.1.26")
+	assert.False(t, capMap[capabilityPrefix+"docker-remote-api.1.27"], "Should NOT have docker-remote-api.1.27")
+	assert.False(t, capMap[capabilityPrefix+"docker-remote-api.1.31"], "Should NOT have docker-remote-api.1.31")
+
+	// Should NOT have 1.33 or higher
+	assert.False(t, capMap[capabilityPrefix+"docker-remote-api.1.33"], "Should NOT have docker-remote-api.1.33")
+	assert.False(t, capMap[capabilityPrefix+"docker-remote-api.1.34"], "Should NOT have docker-remote-api.1.34")
+	assert.False(t, capMap[capabilityPrefix+"docker-remote-api.1.44"], "Should NOT have docker-remote-api.1.44")
+}
+
 func TestAppendAndRemoveAttributes(t *testing.T) {
 	attrs := appendNameOnlyAttribute([]types.Attribute{}, "cap-1")
 	attrs = appendNameOnlyAttribute(attrs, "cap-2")
