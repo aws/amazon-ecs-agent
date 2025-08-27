@@ -93,7 +93,7 @@ func TestTaskStatsCollection(t *testing.T) {
 
 	assert.NoError(t, err)
 	assert.NotNil(t, networkStatsSet)
-	rxSum := (*networkStatsSet.RxBytes.SampleCount * (int64(50))) / int64(numberOfContainers)
+	rxSum := *networkStatsSet.RxBytes.SampleCount * (int64(50))
 	assert.EqualValues(t, rxSum, *networkStatsSet.RxBytes.Sum)
 }
 
@@ -157,8 +157,8 @@ func TestTaskStatsCollectionError(t *testing.T) {
 
 	networkStatsSet, err := taskStats.StatsQueue.GetNetworkStatsSet()
 	assert.NoError(t, err)
-	assert.EqualValues(t, 50, *networkStatsSet.RxBytes.Sum)
-	assert.EqualValues(t, 2, *networkStatsSet.RxPackets.Sum)
+	assert.EqualValues(t, 100, *networkStatsSet.RxBytes.Sum)
+	assert.EqualValues(t, 4, *networkStatsSet.RxPackets.Sum)
 	assert.EqualValues(t, 2, *networkStatsSet.RxPackets.SampleCount)
 	assert.EqualValues(t, 2, *networkStatsSet.TxPackets.SampleCount)
 }
