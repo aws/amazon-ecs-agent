@@ -64,11 +64,6 @@ func (task *Task) getSupplementaryGroups(container *apicontainer.Container) []st
 		return nil
 	}
 
-	// Check if container has mount points
-	if len(container.MountPoints) == 0 {
-		return nil
-	}
-
 	// Check container's mount points against task volumes
 	for _, mp := range container.MountPoints {
 		if vol, ok := task.HostVolumeByName(mp.SourceVolume); ok {
