@@ -198,6 +198,10 @@ func (agent *ecsAgent) appendFirelensNonRootUserCapability(capabilities []types.
 	return appendNameOnlyAttribute(capabilities, attributePrefix+capabilityFirelensNonRootUser)
 }
 
+func (agent *ecsAgent) appendEBSTANonRootUserCapabilities(capabilities []types.Attribute) []types.Attribute {
+	return appendNameOnlyAttribute(capabilities, attributePrefix+capabilityEBSTANonRootUser)
+}
+
 func (agent *ecsAgent) appendFirelensLoggingDriverCapabilities(capabilities []types.Attribute) []types.Attribute {
 	return appendNameOnlyAttribute(capabilities, capabilityPrefix+capabilityFirelensLoggingDriver)
 }

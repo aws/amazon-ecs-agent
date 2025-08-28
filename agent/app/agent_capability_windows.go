@@ -89,6 +89,10 @@ func (agent *ecsAgent) appendFirelensNonRootUserCapability(capabilities []types.
 	return capabilities
 }
 
+func (agent *ecsAgent) appendEBSTANonRootUserCapabilities(capabilities []types.Attribute) []types.Attribute {
+	return capabilities
+}
+
 func (agent *ecsAgent) appendEFSCapabilities(capabilities []types.Attribute) []types.Attribute {
 	return capabilities
 }

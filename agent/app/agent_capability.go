@@ -83,6 +83,7 @@ const (
 	capabilityServiceConnect                               = "service-connect-v1"
 	capabilityGpuDriverVersion                             = "gpu-driver-version"
 	capabilityEBSTaskAttach                                = "storage.ebs-task-volume-attach"
+	capabilityEBSTANonRootUser                             = "storage.ebsta-non-root-user"
 	capabilityContainerRestartPolicy                       = "container-restart-policy"
 	capabilityFaultInjection                               = "fault-injection"
 	capabilityIPv6Only                                     = "ipv6-only"
@@ -137,6 +138,7 @@ var (
 		attributePrefix + taskEIAWithOptimizedCPU,
 		attributePrefix + capabilityServiceConnect,
 		attributePrefix + capabilityEBSTaskAttach,
+		attributePrefix + capabilityEBSTANonRootUser,
 		attributePrefix + capabilityFaultInjection,
 	}
 	// List of capabilities that are only supported on external capaciity. Currently only one but keep as a list
@@ -202,6 +204,8 @@ var (
 //	ecs.capability.execute-command
 //	ecs.capability.external
 //	ecs.capability.service-connect-v1
+//	ecs.capability.storage.ebs-task-volume-attach
+//	ecs.capability.storage.ebsta-non-root-user
 //	ecs.capability.network.container-port-range
 //	ecs.capability.container-restart-policy
 //	ecs.capability.fault-injection
@@ -312,6 +316,7 @@ func (agent *ecsAgent) capabilities() ([]types.Attribute, error) {
 	if agent.cfg.EBSTASupportEnabled {
 		// add ebs-task-attach attribute if applicable
 		capabilities = agent.appendEBSTaskAttachCapabilities(capabilities)
+		capabilities = agent.appendEBSTANonRootUserCapabilities(capabilities)
 	}
 
 	if agent.cfg.External.Enabled() {

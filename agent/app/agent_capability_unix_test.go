@@ -870,6 +870,7 @@ func TestCapabilitiesUnix(t *testing.T) {
 	conf := &config.Config{
 		PrivilegedDisabled:       config.BooleanDefaultFalse{Value: config.ExplicitlyEnabled},
 		VolumePluginCapabilities: []string{capabilityEFSAuth},
+		EBSTASupportEnabled:      true,
 	}
 
 	mockPauseLoader.EXPECT().IsLoaded(gomock.Any()).Return(true, nil)
@@ -914,6 +915,7 @@ func TestCapabilitiesUnix(t *testing.T) {
 		attributePrefix + capabilityEnvFilesS3,
 		attributePrefix + capabilityContainerPortRange,
 		attributePrefix + capabilityContainerRestartPolicy,
+		attributePrefix + capabilityEBSTANonRootUser,
 	}
 
 	var expectedCapabilities []types.Attribute

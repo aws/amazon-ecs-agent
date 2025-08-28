@@ -6,6 +6,7 @@ toolchain go1.23.7
 
 require (
 	github.com/aws/amazon-ecs-agent/ecs-agent v0.0.0
+	github.com/aws/amazon-ecs-agent/ecs-agent/daemonimages/csidriver v0.0.0-20250814231752-7d5ec06fbcec
 	github.com/aws/aws-sdk-go v1.55.7
 	github.com/aws/aws-sdk-go-v2 v1.36.6
 	github.com/aws/aws-sdk-go-v2/config v1.29.14
@@ -23,7 +24,7 @@ require (
 	github.com/aws/smithy-go v1.22.4
 	github.com/awslabs/go-config-generator-for-fluentd-and-fluentbit v0.0.0-20210308162251-8959c62cb8f9
 	github.com/cihub/seelog v0.0.0-20170130134532-f561c5e57575
-	github.com/container-storage-interface/spec v1.8.0
+	github.com/container-storage-interface/spec v1.9.0
 	github.com/containerd/cgroups/v3 v3.0.4
 	github.com/containernetworking/cni v1.2.3
 	github.com/containernetworking/plugins v1.4.1
@@ -111,14 +112,15 @@ require (
 	gopkg.in/inf.v0 v0.9.1 // indirect
 	gopkg.in/yaml.v2 v2.4.0 // indirect
 	gopkg.in/yaml.v3 v3.0.1 // indirect
-	k8s.io/apimachinery v0.28.1 // indirect
-	k8s.io/klog/v2 v2.100.1 // indirect
-	k8s.io/utils v0.0.0-20230726121419-3b25d923346b // indirect
+	k8s.io/apimachinery v0.30.1 // indirect
+	k8s.io/klog/v2 v2.120.1 // indirect
+	k8s.io/utils v0.0.0-20240502163921-fe8a2dddb1d0 // indirect
 	sigs.k8s.io/json v0.0.0-20221116044647-bc3834ca7abd // indirect
-	sigs.k8s.io/structured-merge-diff/v4 v4.2.3 // indirect
+	sigs.k8s.io/structured-merge-diff/v4 v4.4.1 // indirect
 )
 
 replace (
 	github.com/aws/amazon-ecs-agent/ecs-agent => ../ecs-agent
+	github.com/aws/amazon-ecs-agent/ecs-agent/daemonimages/csidriver => ../ecs-agent/daemonimages/csidriver
 	github.com/aws/aws-sdk-go-v2/service/ecs => ../aws-sdk-go-v2/service/ecs
 )
