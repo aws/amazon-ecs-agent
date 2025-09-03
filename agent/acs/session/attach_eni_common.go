@@ -65,8 +65,9 @@ func (eniHandler *eniHandler) HandleENIAttachment(ea *ni.ENIAttachment) error {
 		return eniAttachment.StartTimer(eniHandler.handleENIAckTimeout)
 	}
 	if err := eniHandler.addENIAttachmentToState(ea); err != nil {
-		return errors.Wrapf(err, fmt.Sprintf("attach %s message handler: unable to add eni attachment to engine state mac=%s taskARN=%s attachmentARN=%s",
-			attachmentType, mac, taskARN, attachmentARN))
+		return errors.Wrapf(err,
+			"attach %s message handler: unable to add eni attachment to engine state mac=%s taskARN=%s attachmentARN=%s",
+			attachmentType, mac, taskARN, attachmentARN)
 	}
 	return nil
 }

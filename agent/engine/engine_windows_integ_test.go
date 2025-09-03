@@ -223,7 +223,7 @@ func getContainerIP(client *sdkClient.Client, id string) (string, error) {
 
 	networks := dockerContainer.NetworkSettings.Networks
 	if len(networks) != 1 {
-		return "", fmt.Errorf("getContainerIP: inspect return multiple networks of container")
+		return "", errors.New("getContainerIP: inspect return multiple networks of container")
 	}
 	for _, v := range networks {
 		return v.IPAddress, nil

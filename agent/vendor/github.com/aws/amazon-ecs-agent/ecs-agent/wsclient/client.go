@@ -279,7 +279,7 @@ func (cs *ClientServerImpl) Connect(disconnectMetricName string,
 			var readErr error
 			resp, readErr = io.ReadAll(httpResponse.Body)
 			if readErr != nil {
-				return nil, fmt.Errorf("Unable to read websocket connection: " + readErr.Error() + ", " + err.Error())
+				return nil, fmt.Errorf("Unable to read websocket connection: %v, %v"+readErr.Error(), err.Error())
 			}
 			// If there's a response, we can try to unmarshal it into one of the
 			// modeled error types

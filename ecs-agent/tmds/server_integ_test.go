@@ -120,7 +120,7 @@ func TestRoutes(t *testing.T) {
 	router.HandleFunc("/", helloWorldHandler())
 	router.HandleFunc("/products/{id}", func(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusOK)
-		fmt.Fprintf(w, "id:"+mux.Vars(r)["id"])
+		fmt.Fprint(w, "id:"+mux.Vars(r)["id"])
 	})
 
 	// setup the server
