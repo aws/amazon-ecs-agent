@@ -1092,7 +1092,7 @@ func TestExecHelperProcess(t *testing.T) {
 	}
 
 	mockRealmList := "contoso.com\n  type: kerberos\n  realm-name: CONTOSO.COM\n  domain-name: contoso.com\n  configured: kerberos-member\n  server-software: active-directory\n  client-software: sssd\n  required-package: oddjob\n  required-package: oddjob-mkhomedir\n  required-package: sssd\n  required-package: adcli\n  required-package: samba-common-tools\n  login-formats: %U@contoso.com\n  login-policy: allow-realm-logins"
-	fmt.Fprintf(os.Stdout, mockRealmList)
+	fmt.Fprint(os.Stdout, mockRealmList)
 	os.Exit(0)
 }
 

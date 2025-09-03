@@ -512,28 +512,28 @@ func SetTaskExecutionCredentialsRegKeys(taskCredentials credentials.IAMRoleCrede
 	taskRegistryKey, _, err := registry.CreateKey(registry.LOCAL_MACHINE, ecsCcgPluginRegistryKeyRoot+"\\"+taskArn, registry.WRITE)
 	if err != nil {
 		errMsg := fmt.Sprintf("Error creating registry key root %s for task %s: %s", ecsCcgPluginRegistryKeyRoot, taskArn, err)
-		seelog.Errorf(errMsg)
-		return errors.Wrapf(err, errMsg)
+		seelog.Error(errMsg)
+		return errors.Wrap(err, errMsg)
 	}
 	defer taskRegistryKey.Close()
 
 	err = taskRegistryKey.SetStringValue("AKID", taskCredentials.AccessKeyID)
 	if err != nil {
 		errMsg := fmt.Sprintf("Error creating AKID child value for task %s:%s", taskArn, err)
-		seelog.Errorf(errMsg)
-		return errors.Wrapf(err, errMsg)
+		seelog.Error(errMsg)
+		return errors.Wrap(err, errMsg)
 	}
 	err = taskRegistryKey.SetStringValue("SKID", taskCredentials.SecretAccessKey)
 	if err != nil {
 		errMsg := fmt.Sprintf("Error creating AKID child value for task %s:%s", taskArn, err)
-		seelog.Errorf(errMsg)
-		return errors.Wrapf(err, errMsg)
+		seelog.Error(errMsg)
+		return errors.Wrap(err, errMsg)
 	}
 	err = taskRegistryKey.SetStringValue("SESSIONTOKEN", taskCredentials.SessionToken)
 	if err != nil {
 		errMsg := fmt.Sprintf("Error creating SESSIONTOKEN child value for task %s:%s", taskArn, err)
 		seelog.Errorf(errMsg)
-		return errors.Wrapf(err, errMsg)
+		return errors.Wrap(err, errMsg)
 	}
 
 	seelog.Infof("Successfully SetTaskExecutionCredentialsRegKeys for task %s", taskArn)

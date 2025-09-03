@@ -1172,7 +1172,7 @@ check_events:
 				if contEvent.TaskArn != testTask.Arn {
 					continue
 				}
-				t.Fatalf("Expected no events; got " + contEvent.Status.String())
+				t.Fatal("Expected no events; got " + contEvent.Status.String())
 			}
 		default:
 			break check_events
