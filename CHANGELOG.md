@@ -1,5 +1,13 @@
 # Changelog
 
+# 1.99.0
+* Feature - Handle ecs.os-type-detailed attribute container instance registration [4724](https://github.com/aws/amazon-ecs-agent/pull/4724)
+* Feature - Support EBS task attach non-root user mode [4757](https://github.com/aws/amazon-ecs-agent/pull/4757)
+* Enhancement - Add container name visibility to the ListTagsForResource CloudTrail events coming from ECS agent [4760](https://github.com/aws/amazon-ecs-agent/pull/4760)
+* Enhancement - Get correct S3 URL suffix for EUSC regions in ecs-anywhere-install.sh [4761](https://github.com/aws/amazon-ecs-agent/pull/4761)
+* Enhancement - Remove unwanted docker-remote-api capabilities [4765](https://github.com/aws/amazon-ecs-agent/pull/4765)
+* Enhancement - Update ECS Anywhere exec agent version to 3.3.2958.0 [4768](https://github.com/aws/amazon-ecs-agent/pull/4768)
+
 # 1.98.0
 * Feature - Support for IPv6-only environments [4695](https://github.com/aws/amazon-ecs-agent/pull/4695)
 * Enhancement - Add groundwork for ECS_INSTANCE_IP_COMPATIBILITY override parameter [#4745](https://github.com/aws/amazon-ecs-agent/pull/4745)
