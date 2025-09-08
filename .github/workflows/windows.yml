@@ -24,7 +24,7 @@ jobs:
             exit 1
           }
           Write-Output "GO_VERSION_WINDOWS=$go_version_win" >> $GITHUB_OUTPUT
-      - uses: actions/setup-go@v5
+      - uses: actions/setup-go@v6
         with:
           go-version: ${{ steps.get-go-version.outputs.GO_VERSION_WINDOWS }}
       - uses: actions/checkout@v5
