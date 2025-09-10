@@ -168,7 +168,7 @@ environment variables.
 
 The table below provides an overview of optional environment variables that can be used to configure the ECS agent. See
 [the Amazon ECS developer guide](https://docs.aws.amazon.com/AmazonECS/latest/developerguide/ecs-agent-config.html) for
-additional details on each available environment variable.
+additional details about how to configure the agent.
 
 | Environment Key | Example Value(s)            | Description | Default value on Linux | Default value on Windows |
 |:----------------|:----------------------------|:------------|:-----------------------|:-------------------------|
