@@ -1,5 +1,5 @@
-//go:build !suse && !ubuntu && !al2 && !debian && !generic_rpm
-// +build !suse,!ubuntu,!al2,!debian,!generic_rpm
+//go:build !suse && !ubuntu && !al2 && !debian && !generic_rpm && !chainguard
+// +build !suse,!ubuntu,!al2,!debian,!generic_rpm,!chainguard
 
 // Copyright 2017-2018 Amazon.com, Inc. or its affiliates. All Rights Reserved.
 //
