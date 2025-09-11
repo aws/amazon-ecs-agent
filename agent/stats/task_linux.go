@@ -102,16 +102,16 @@ func (taskStat *StatsTask) populateNIDeviceList(containerPID string) ([]string, 
 	return deviceList, err
 }
 
-func linkStatsToDockerStats(netLinkStats *netlinklib.LinkStatistics, numberOfContainers uint64) dockerstats.NetworkStats {
+func linkStatsToDockerStats(netLinkStats *netlinklib.LinkStatistics) dockerstats.NetworkStats {
 	networkStats := dockerstats.NetworkStats{
-		RxBytes:   netLinkStats.RxBytes / numberOfContainers,
-		RxPackets: netLinkStats.RxPackets / numberOfContainers,
-		RxErrors:  netLinkStats.RxErrors / numberOfContainers,
-		RxDropped: netLinkStats.RxDropped / numberOfContainers,
-		TxBytes:   netLinkStats.TxBytes / numberOfContainers,
-		TxPackets: netLinkStats.TxPackets / numberOfContainers,
-		TxErrors:  netLinkStats.TxErrors / numberOfContainers,
-		TxDropped: netLinkStats.TxDropped / numberOfContainers,
+		RxBytes:   netLinkStats.RxBytes,
+		RxPackets: netLinkStats.RxPackets,
+		RxErrors:  netLinkStats.RxErrors,
+		RxDropped: netLinkStats.RxDropped,
+		TxBytes:   netLinkStats.TxBytes,
+		TxPackets: netLinkStats.TxPackets,
+		TxErrors:  netLinkStats.TxErrors,
+		TxDropped: netLinkStats.TxDropped,
 	}
 	return networkStats
 }
@@ -142,8 +142,7 @@ func (taskStat *StatsTask) retrieveNetworkStatistics() (map[string]dockerstats.N
 			return nil, err
 		}
 		netLinkStats := link.Attrs().Statistics
-		networkStats[link.Attrs().Name] = linkStatsToDockerStats(netLinkStats,
-			uint64(taskStat.TaskMetadata.NumberContainers))
+		networkStats[link.Attrs().Name] = linkStatsToDockerStats(netLinkStats)
 	}
 
 	return networkStats, nil
