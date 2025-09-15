@@ -188,14 +188,14 @@ func (u *updater) download(info *ecsacs.UpdateInfo) (err error) {
 	if info.Signature == nil {
 		return errors.New("No signature given")
 	}
-	
+
 	downloadURL := *info.Location
 	// Convert S3 URL to dual-stack for IPv6-only environments
 	// This is a temporary workaround until the backend is updated to stream down IPv6-compatible paths properly
 	if u.config.InstanceIPCompatibility.IsIPv6Only() {
 		downloadURL = convertS3URLToDualStack(downloadURL)
 	}
-	
+
 	resp, err := u.httpclient.Get(downloadURL)
 	if resp != nil && resp.Body != nil {
 		defer resp.Body.Close()

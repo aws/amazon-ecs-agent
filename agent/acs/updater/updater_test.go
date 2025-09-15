@@ -531,12 +531,12 @@ func TestDownloadWithIPv6OnlyConfig(t *testing.T) {
 		UpdateDownloadDir:       filepath.Clean("/tmp/test/"),
 		InstanceIPCompatibility: ipcompatibility.NewIPv6OnlyCompatibility(),
 	}
-	
+
 	u, ctrl, mockacs, mockhttp := mocks(t, cfg)
 	defer ctrl.Finish()
 
 	defer mockOS()()
-	
+
 	// Expect dual-stack URL instead of regular S3 URL
 	gomock.InOrder(
 		mockhttp.EXPECT().RoundTrip(mock_http.NewHTTPSimpleMatcher("GET", "https://s3.dualstack.amazonaws.com/amazon-ecs-agent/update.tar")).Return(mock_http.SuccessResponse("update-tar-data"), nil),
