@@ -510,6 +510,11 @@ func TestConvertS3URLToDualStack(t *testing.T) {
 			input:    "https://example.com/file.tar",
 			expected: "https://example.com/file.tar",
 		},
+		{
+			name:     "URL with multiple s3. occurrences",
+			input:    "https://s3.us-west-2.amazonaws.com/bucket/s3.backup/file.tar",
+			expected: "https://s3.dualstack.us-west-2.amazonaws.com/bucket/s3.backup/file.tar",
+		},
 	}
 
 	for _, tc := range testCases {
