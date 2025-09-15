@@ -191,6 +191,7 @@ func (u *updater) download(info *ecsacs.UpdateInfo) (err error) {
 	
 	downloadURL := *info.Location
 	// Convert S3 URL to dual-stack for IPv6-only environments
+	// This is a temporary workaround until the backend is updated to stream down IPv6-compatible paths properly
 	if u.config.InstanceIPCompatibility.IsIPv6Only() {
 		downloadURL = convertS3URLToDualStack(downloadURL)
 	}
@@ -234,6 +235,7 @@ func (u *updater) download(info *ecsacs.UpdateInfo) (err error) {
 }
 
 // convertS3URLToDualStack converts S3 URLs to dual-stack endpoints
+// This is a temporary workaround until the backend provides IPv6-compatible URLs directly
 func convertS3URLToDualStack(originalURL string) string {
 	return strings.Replace(originalURL, "s3.", "s3.dualstack.", 1)
 }
