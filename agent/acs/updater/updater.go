@@ -188,7 +188,14 @@ func (u *updater) download(info *ecsacs.UpdateInfo) (err error) {
 	if info.Signature == nil {
 		return errors.New("No signature given")
 	}
-	resp, err := u.httpclient.Get(*info.Location)
+	
+	downloadURL := *info.Location
+	// Convert S3 URL to dual-stack for IPv6-only environments
+	if u.config.InstanceIPCompatibility.IsIPv6Only() {
+		downloadURL = convertS3URLToDualStack(downloadURL)
+	}
+	
+	resp, err := u.httpclient.Get(downloadURL)
 	if resp != nil && resp.Body != nil {
 		defer resp.Body.Close()
 	}
@@ -224,6 +231,11 @@ func (u *updater) download(info *ecsacs.UpdateInfo) (err error) {
 
 	err = writeFile(filepath.Join(u.config.UpdateDownloadDir, desiredImageFile), []byte(outFileBasename+"\n"), 0644)
 	return err
+}
+
+// convertS3URLToDualStack converts S3 URLs to dual-stack endpoints
+func convertS3URLToDualStack(originalURL string) string {
+	return strings.Replace(originalURL, "s3.", "s3.dualstack.", 1)
 }
 
 var exit = os.Exit

@@ -35,6 +35,7 @@ import (
 	"github.com/aws/amazon-ecs-agent/ecs-agent/acs/model/ecsacs"
 	"github.com/aws/amazon-ecs-agent/ecs-agent/httpclient"
 	mock_http "github.com/aws/amazon-ecs-agent/ecs-agent/httpclient/mock"
+	"github.com/aws/amazon-ecs-agent/ecs-agent/ipcompatibility"
 	mock_client "github.com/aws/amazon-ecs-agent/ecs-agent/wsclient/mock"
 
 	"github.com/golang/mock/gomock"
@@ -481,4 +482,73 @@ func TestValidationError(t *testing.T) {
 	})
 
 	assert.Equal(t, "update-tar-data", writtenFile.String(), "incorrect data written")
+}
+
+func TestConvertS3URLToDualStack(t *testing.T) {
+	testCases := []struct {
+		name     string
+		input    string
+		expected string
+	}{
+		{
+			name:     "Standard S3 URL",
+			input:    "https://s3.ap-northeast-2.amazonaws.com/amazon-ecs-agent-ap-northeast-2/ecs-agent-v1.99.0.tar",
+			expected: "https://s3.dualstack.ap-northeast-2.amazonaws.com/amazon-ecs-agent-ap-northeast-2/ecs-agent-v1.99.0.tar",
+		},
+		{
+			name:     "US East 1 S3 URL",
+			input:    "https://s3.us-east-1.amazonaws.com/bucket/key",
+			expected: "https://s3.dualstack.us-east-1.amazonaws.com/bucket/key",
+		},
+		{
+			name:     "Already dual-stack URL",
+			input:    "https://s3.dualstack.us-west-2.amazonaws.com/bucket/key",
+			expected: "https://s3.dualstack.dualstack.us-west-2.amazonaws.com/bucket/key",
+		},
+		{
+			name:     "Non-S3 URL",
+			input:    "https://example.com/file.tar",
+			expected: "https://example.com/file.tar",
+		},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			result := convertS3URLToDualStack(tc.input)
+			assert.Equal(t, tc.expected, result)
+		})
+	}
+}
+
+func TestDownloadWithIPv6OnlyConfig(t *testing.T) {
+	cfg := &config.Config{
+		UpdatesEnabled:          config.BooleanDefaultFalse{Value: config.ExplicitlyEnabled},
+		UpdateDownloadDir:       filepath.Clean("/tmp/test/"),
+		InstanceIPCompatibility: ipcompatibility.NewIPv6OnlyCompatibility(),
+	}
+	
+	u, ctrl, mockacs, mockhttp := mocks(t, cfg)
+	defer ctrl.Finish()
+
+	defer mockOS()()
+	
+	// Expect dual-stack URL instead of regular S3 URL
+	gomock.InOrder(
+		mockhttp.EXPECT().RoundTrip(mock_http.NewHTTPSimpleMatcher("GET", "https://s3.dualstack.amazonaws.com/amazon-ecs-agent/update.tar")).Return(mock_http.SuccessResponse("update-tar-data"), nil),
+		mockacs.EXPECT().MakeRequest(gomock.Eq(&ecsacs.AckRequest{
+			Cluster:           ptr("cluster").(*string),
+			ContainerInstance: ptr("containerInstance").(*string),
+			MessageId:         ptr("mid").(*string),
+		})),
+	)
+
+	u.stageUpdateHandler()(&ecsacs.StageUpdateMessage{
+		ClusterArn:           ptr("cluster").(*string),
+		ContainerInstanceArn: ptr("containerInstance").(*string),
+		MessageId:            ptr("mid").(*string),
+		UpdateInfo: &ecsacs.UpdateInfo{
+			Location:  ptr("https://s3.amazonaws.com/amazon-ecs-agent/update.tar").(*string),
+			Signature: ptr("6caeef375a080e3241781725b357890758d94b15d7ce63f6b2ff1cb5589f2007").(*string),
+		},
+	})
 }
