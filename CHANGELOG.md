@@ -1,5 +1,9 @@
 # Changelog
 
+# 1.99.1
+* Enhancement - Update README and remove circular directions [4774](https://github.com/aws/amazon-ecs-agent/pull/4774)
+* Bugfix - Fix agent update handling for IPv6-only instances [4781](https://github.com/aws/amazon-ecs-agent/pull/4781)
+
 # 1.99.0
 * Feature - Handle ecs.os-type-detailed attribute container instance registration [4724](https://github.com/aws/amazon-ecs-agent/pull/4724)
 * Feature - Support EBS task attach non-root user mode [4757](https://github.com/aws/amazon-ecs-agent/pull/4757)
