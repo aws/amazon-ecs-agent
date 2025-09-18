@@ -1,5 +1,5 @@
-//go:build suse || ubuntu || debian
-// +build suse ubuntu debian
+//go:build suse || ubuntu || debian || chainguard
+// +build suse ubuntu debian chainguard
 
 // Copyright 2017-2018 Amazon.com, Inc. or its affiliates. All Rights Reserved.
 //
