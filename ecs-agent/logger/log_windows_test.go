@@ -44,8 +44,8 @@ func TestSeelogConfigWindows_Default(t *testing.T) {
 			<custom name="wineventlog" formatid="windows" />
 		</filter>
 		<filter levels="info,warn,error,critical">
-			<rollingfile filename="foo.log" type="date"
-			 datepattern="2006-01-02-15" archivetype="none" maxrolls="24" />
+			<rollingfile filename="foo.log" type="size"
+			 maxsize="5000000" archivetype="none" maxrolls="24" />
 		</filter>
 	</outputs>
 	<formats>
@@ -105,8 +105,8 @@ func TestSeelogConfigWindows_DebugLevel(t *testing.T) {
 			<custom name="wineventlog" formatid="windows" />
 		</filter>
 		<filter levels="info,warn,error,critical">
-			<rollingfile filename="foo.log" type="date"
-			 datepattern="2006-01-02-15" archivetype="none" maxrolls="24" />
+			<rollingfile filename="foo.log" type="size"
+			 maxsize="5000000" archivetype="none" maxrolls="24" />
 		</filter>
 	</outputs>
 	<formats>
@@ -139,7 +139,7 @@ func TestSeelogConfigWindows_SizeRollover(t *testing.T) {
 		</filter>
 		<filter levels="info,warn,error,critical">
 			<rollingfile filename="foo.log" type="size"
-			 maxsize="10000000" archivetype="none" maxrolls="24" />
+			 maxsize="5000000" archivetype="none" maxrolls="24" />
 		</filter>
 	</outputs>
 	<formats>
@@ -237,8 +237,8 @@ func TestSeelogConfigWindows_JSONOutput(t *testing.T) {
 			<custom name="wineventlog" formatid="windows" />
 		</filter>
 		<filter levels="info,warn,error,critical">
-			<rollingfile filename="foo.log" type="date"
-			 datepattern="2006-01-02-15" archivetype="none" maxrolls="10" />
+			<rollingfile filename="foo.log" type="size"
+			 maxsize="5000000" archivetype="none" maxrolls="10" />
 		</filter>
 	</outputs>
 	<formats>
@@ -270,8 +270,8 @@ func TestSeelogConfigWindows_NoOnInstanceLog(t *testing.T) {
 			<custom name="wineventlog" formatid="windows" />
 		</filter>
 		<filter levels="off">
-			<rollingfile filename="foo.log" type="date"
-			 datepattern="2006-01-02-15" archivetype="none" maxrolls="24" />
+			<rollingfile filename="foo.log" type="size"
+			 maxsize="5000000" archivetype="none" maxrolls="24" />
 		</filter>
 	</outputs>
 	<formats>
@@ -303,6 +303,39 @@ func TestSeelogConfigWindows_DifferentLevels(t *testing.T) {
 			<custom name="wineventlog" formatid="windows" />
 		</filter>
 		<filter levels="critical">
+			<rollingfile filename="foo.log" type="size"
+			 maxsize="5000000" archivetype="none" maxrolls="24" />
+		</filter>
+	</outputs>
+	<formats>
+		<format id="logfmt" format="%EcsAgentLogfmt" />
+		<format id="json" format="%EcsAgentJson" />
+		<format id="windows" format="%EcsMsg" />
+	</formats>
+</seelog>`, c)
+}
+
+func TestSeelogConfigWindows_HourlyRollover(t *testing.T) {
+	Config = &logConfig{
+		logfile:       "foo.log",
+		driverLevel:   DEFAULT_LOGLEVEL,
+		instanceLevel: DEFAULT_LOGLEVEL,
+		RolloverType:  "hourly",
+		outputFormat:  DEFAULT_OUTPUT_FORMAT,
+		MaxFileSizeMB: DEFAULT_MAX_FILE_SIZE,
+		MaxRollCount:  DEFAULT_MAX_ROLL_COUNT,
+		logToStdout:   DEFAULT_LOGTO_STDOUT,
+	}
+	c := seelogConfig()
+	require.Equal(t, `
+<seelog type="asyncloop">
+	<outputs formatid="logfmt">
+		<filter levels="info,warn,error,critical">
+			<console />
+
+			<custom name="wineventlog" formatid="windows" />
+		</filter>
+		<filter levels="info,warn,error,critical">
 			<rollingfile filename="foo.log" type="date"
 			 datepattern="2006-01-02-15" archivetype="none" maxrolls="24" />
 		</filter>
@@ -339,8 +372,8 @@ func TestSeelogConfigWindows_FileLevelDefault(t *testing.T) {
 			<custom name="wineventlog" formatid="windows" />
 		</filter>
 		<filter levels="off">
-			<rollingfile filename="foo.log" type="date"
-			 datepattern="2006-01-02-15" archivetype="none" maxrolls="24" />
+			<rollingfile filename="foo.log" type="size"
+			 maxsize="5000000" archivetype="none" maxrolls="24" />
 		</filter>
 	</outputs>
 	<formats>
