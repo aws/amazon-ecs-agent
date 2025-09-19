@@ -121,6 +121,7 @@ type NetworkLatencyRequest struct {
 	// SourcesToFilter is a list including IPv4 addresses or IPv4 CIDR blocks that will be excluded from the
 	// network latency fault.
 	SourcesToFilter []*string `json:"SourcesToFilter,omitempty"`
+	FlowsPercent    *int      `json:"FlowsPercent"`
 }
 
 // ValidateRequest validates required fields are present and its value.
@@ -145,6 +146,13 @@ func (request NetworkLatencyRequest) ValidateRequest() error {
 	if err := requireIPInRequestSources(request.SourcesToFilter, "SourcesToFilter"); err != nil {
 		return err
 	}
+
+	if request.FlowsPercent != nil {
+		flowsPercent := aws.ToInt(request.FlowsPercent)
+		if flowsPercent <= 0 || flowsPercent > 100 {
+			return fmt.Errorf(InvalidValueError, strconv.Itoa(flowsPercent), "flowsPercent")
+		}
+	}
 	return nil
 }
 
@@ -164,6 +172,7 @@ type NetworkPacketLossRequest struct {
 	// SourcesToFilter is a list including IPv4 addresses or IPv4 CIDR blocks that will be excluded from the
 	// network packet loss fault.
 	SourcesToFilter []*string `json:"SourcesToFilter,omitempty"`
+	FlowsPercent    *int      `json:"FlowsPercent"`
 }
 
 // ValidateRequest validates required fields are present and its value.
@@ -183,6 +192,13 @@ func (request NetworkPacketLossRequest) ValidateRequest() error {
 	}
 	if err := requireIPInRequestSources(request.SourcesToFilter, "SourcesToFilter"); err != nil {
 		return err
+	}
+
+	if request.FlowsPercent != nil {
+		flowsPercent := aws.ToInt(request.FlowsPercent)
+		if flowsPercent <= 0 || flowsPercent > 100 {
+			return fmt.Errorf(InvalidValueError, strconv.Itoa(flowsPercent), "flowsPercent")
+		}
 	}
 	return nil
 }
