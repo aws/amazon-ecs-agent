@@ -398,18 +398,20 @@ var (
 				},
 			},
 		},
-		Networks: []v4.Network{{
-			Network: tmdsresponse.Network{
-				NetworkMode:   utils.NetworkModeAWSVPC,
-				IPv4Addresses: []string{eniIPv4Address},
+		Networks: []v4.Network{
+			{
+				Network: tmdsresponse.Network{
+					NetworkMode:   utils.NetworkModeAWSVPC,
+					IPv4Addresses: []string{eniIPv4Address},
+				},
+				NetworkInterfaceProperties: v4.NetworkInterfaceProperties{
+					AttachmentIndex:          &attachmentIndexVar,
+					IPV4SubnetCIDRBlock:      iPv4SubnetCIDRBlock,
+					MACAddress:               macAddress,
+					PrivateDNSName:           privateDNSName,
+					SubnetGatewayIPV4Address: subnetGatewayIpv4Address,
+				},
 			},
-			NetworkInterfaceProperties: v4.NetworkInterfaceProperties{
-				AttachmentIndex:          &attachmentIndexVar,
-				IPV4SubnetCIDRBlock:      iPv4SubnetCIDRBlock,
-				MACAddress:               macAddress,
-				PrivateDNSName:           privateDNSName,
-				SubnetGatewayIPV4Address: subnetGatewayIpv4Address,
-			}},
 		},
 	}
 	expectedV4PulledContainerResponse = v4.ContainerResponse{
@@ -451,18 +453,20 @@ var (
 			},
 		},
 	}
-	expectedV4BridgeContainerResponse = v4ContainerResponseFromV2(expectedBridgeContainerResponse, []v4.Network{{
-		Network: tmdsresponse.Network{
-			NetworkMode:   bridgeMode,
-			IPv4Addresses: []string{bridgeIPAddr},
+	expectedV4BridgeContainerResponse = v4ContainerResponseFromV2(expectedBridgeContainerResponse, []v4.Network{
+		{
+			Network: tmdsresponse.Network{
+				NetworkMode:   bridgeMode,
+				IPv4Addresses: []string{bridgeIPAddr},
+			},
+			NetworkInterfaceProperties: v4.NetworkInterfaceProperties{
+				AttachmentIndex:          nil,
+				IPV4SubnetCIDRBlock:      "",
+				MACAddress:               "",
+				PrivateDNSName:           "",
+				SubnetGatewayIPV4Address: "",
+			},
 		},
-		NetworkInterfaceProperties: v4.NetworkInterfaceProperties{
-			AttachmentIndex:          nil,
-			IPV4SubnetCIDRBlock:      "",
-			MACAddress:               "",
-			PrivateDNSName:           "",
-			SubnetGatewayIPV4Address: "",
-		}},
 	})
 
 	agentStateExpectations = func(state *mock_dockerstate.MockTaskEngineState, enableFaultInjection bool, networkMode string) {
@@ -596,7 +600,8 @@ func standardBridgeDockerContainer() *apicontainer.DockerContainer {
 
 func standardV4BridgeContainerResponse() *v4.ContainerResponse {
 	return &v4.ContainerResponse{
-		ContainerResponse: &v2.ContainerResponse{ID: containerID,
+		ContainerResponse: &v2.ContainerResponse{
+			ID:            containerID,
 			Name:          containerName,
 			DockerName:    containerName,
 			Image:         imageName,
@@ -677,25 +682,28 @@ func standardV4ContainerResponseAWSVPC() *v4.ContainerResponse {
 				},
 			},
 		},
-		Networks: []v4.Network{{
-			Network: tmdsresponse.Network{
-				NetworkMode:   utils.NetworkModeAWSVPC,
-				IPv4Addresses: []string{eniIPv4Address},
+		Networks: []v4.Network{
+			{
+				Network: tmdsresponse.Network{
+					NetworkMode:   utils.NetworkModeAWSVPC,
+					IPv4Addresses: []string{eniIPv4Address},
+				},
+				NetworkInterfaceProperties: v4.NetworkInterfaceProperties{
+					AttachmentIndex:          &attachmentIndexVar,
+					IPV4SubnetCIDRBlock:      iPv4SubnetCIDRBlock,
+					MACAddress:               macAddress,
+					PrivateDNSName:           privateDNSName,
+					SubnetGatewayIPV4Address: subnetGatewayIpv4Address,
+				},
 			},
-			NetworkInterfaceProperties: v4.NetworkInterfaceProperties{
-				AttachmentIndex:          &attachmentIndexVar,
-				IPV4SubnetCIDRBlock:      iPv4SubnetCIDRBlock,
-				MACAddress:               macAddress,
-				PrivateDNSName:           privateDNSName,
-				SubnetGatewayIPV4Address: subnetGatewayIpv4Address,
-			}},
 		},
 	}
 }
 
 // Creates a v4 ContainerResponse given a v2 ContainerResponse and v4 networks
 func v4ContainerResponseFromV2(
-	v2ContainerResponse v2.ContainerResponse, networks []v4.Network) v4.ContainerResponse {
+	v2ContainerResponse v2.ContainerResponse, networks []v4.Network,
+) v4.ContainerResponse {
 	v2ContainerResponse.Networks = nil
 	return v4.ContainerResponse{
 		ContainerResponse: &v2ContainerResponse,
@@ -1083,7 +1091,8 @@ func testErrorResponsesFromServer(t *testing.T, path string, expectedErrorMessag
 // given id. The getCredentials function is used to simulate getting the
 // credentials object from the CredentialsManager
 func getResponseForCredentialsRequest(t *testing.T, expectedStatus int,
-	expectedErrorMessage *utils.ErrorMessage, path string, getCredentials func() (credentials.TaskIAMRoleCredentials, bool)) (*bytes.Buffer, error) {
+	expectedErrorMessage *utils.ErrorMessage, path string, getCredentials func() (credentials.TaskIAMRoleCredentials, bool),
+) (*bytes.Buffer, error) {
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
 	credentialsManager := mock_credentials.NewMockManager(ctrl)
@@ -2886,7 +2895,8 @@ func TestV4TaskMetadataWithTags(t *testing.T) {
 	t.Run("failed to get container instance tags and task tags", func(t *testing.T) {
 		expectedV4TaskResponseWithTags := expectedV4TaskResponse()
 		expectedV4TaskResponseWithTags.Errors = []v2.ErrorResponse{
-			containerInstanceTagsError, taskTagsError}
+			containerInstanceTagsError, taskTagsError,
+		}
 		testTMDSRequest(t, TMDSTestCase[v4.TaskResponse]{
 			path:                 path,
 			setStateExpectations: happyStateExpectations,
@@ -3437,7 +3447,8 @@ func TestV4TaskStats(t *testing.T) {
 			expectedResponseBody: map[string]*v4.StatsResponse{
 				containerID: {
 					StatsJSON: nil, Network_rate_stats: nil,
-				}},
+				},
+			},
 		})
 	})
 	t.Run("happy case", func(t *testing.T) {
@@ -4190,8 +4201,8 @@ func TestRegisterStartLatencyFaultHandler(t *testing.T) {
 			exec.EXPECT().CommandContext(gomock.Any(), gomock.Any(), gomock.Any()).Times(1).Return(mockCMD),
 			mockCMD.EXPECT().CombinedOutput().Times(1).Return([]byte(tcCommandEmptyOutput), nil),
 		)
-		exec.EXPECT().CommandContext(gomock.Any(), gomock.Any(), gomock.Any()).Times(5).Return(mockCMD)
-		mockCMD.EXPECT().CombinedOutput().Times(5).Return([]byte(tcCommandEmptyOutput), nil)
+		exec.EXPECT().CommandContext(gomock.Any(), gomock.Any(), gomock.Any()).AnyTimes().Return(mockCMD)
+		mockCMD.EXPECT().CombinedOutput().AnyTimes().Return([]byte(tcCommandEmptyOutput), nil)
 	}
 	tcs := generateCommonNetworkFaultInjectionTestCases("start latency", "running", setExecExpectations, happyNetworkLatencyReqBody)
 	testRegisterFaultHandler(t, tcs, faulthandler.NetworkFaultPath(faulttype.LatencyFaultType, faulttype.StartNetworkFaultPostfix), faulttype.StartNetworkFaultPostfix, faulttype.LatencyFaultType)
@@ -4234,8 +4245,8 @@ func TestRegisterStartPacketLossFaultHandler(t *testing.T) {
 			exec.EXPECT().CommandContext(gomock.Any(), gomock.Any(), gomock.Any()).Times(1).Return(mockCMD),
 			mockCMD.EXPECT().CombinedOutput().Times(1).Return([]byte(tcCommandEmptyOutput), nil),
 		)
-		exec.EXPECT().CommandContext(gomock.Any(), gomock.Any(), gomock.Any()).Times(5).Return(mockCMD)
-		mockCMD.EXPECT().CombinedOutput().Times(5).Return([]byte(tcCommandEmptyOutput), nil)
+		exec.EXPECT().CommandContext(gomock.Any(), gomock.Any(), gomock.Any()).AnyTimes().Return(mockCMD)
+		mockCMD.EXPECT().CombinedOutput().AnyTimes().Return([]byte(tcCommandEmptyOutput), nil)
 	}
 	tcs := generateCommonNetworkFaultInjectionTestCases("start packet loss", "running", setExecExpectations, happyNetworkPacketLossReqBody)
 	testRegisterFaultHandler(t, tcs, faulthandler.NetworkFaultPath(faulttype.PacketLossFaultType, faulttype.StartNetworkFaultPostfix), faulttype.StartNetworkFaultPostfix, faulttype.PacketLossFaultType)

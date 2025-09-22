@@ -59,30 +59,37 @@ const (
 	// to finish. This will be confirmed/updated after more testing.
 	requestTimeoutSeconds = 5
 	// Commands that will be used to start/stop/check fault.
-	iptablesUtilityToolV4            = "iptables"
-	iptablesUtilityToolV6            = "ip6tables"
-	iptablesNewChainCmd              = "%s -w %d -N %s"
-	iptablesAppendChainRuleCmd       = "%s -w %d -A %s -p %s -d %s --dport %s -j %s"
-	iptablesInsertChainCmd           = "%s -w %d -I %s -j %s"
-	iptablesChainExistCmd            = "%s -w %d -C %s -p %s --dport %s -j DROP"
-	iptablesClearChainCmd            = "%s -w %d -F %s"
-	iptablesDeleteFromTableCmd       = "%s -w %d -D %s -j %s"
-	iptablesDeleteChainCmd           = "%s -w %d -X %s"
-	nsenterCommandString             = "nsenter --net=%s "
-	tcCheckInjectionCommandString    = "tc -j q show dev %s parent 1:1"
+	iptablesUtilityToolV4      = "iptables"
+	iptablesUtilityToolV6      = "ip6tables"
+	iptablesNewChainCmd        = "%s -w %d -N %s"
+	iptablesAppendChainRuleCmd = "%s -w %d -A %s -p %s -d %s --dport %s -j %s"
+	iptablesInsertChainCmd     = "%s -w %d -I %s -j %s"
+	iptablesChainExistCmd      = "%s -w %d -C %s -p %s --dport %s -j DROP"
+	iptablesClearChainCmd      = "%s -w %d -F %s"
+	iptablesDeleteFromTableCmd = "%s -w %d -D %s -j %s"
+	iptablesDeleteChainCmd     = "%s -w %d -X %s"
+	nsenterCommandString       = "nsenter --net=%s "
+	// netem is added to upto 100 bands but always to at least 1 (otherwise no fault is injected) so checking the first band only
+	tcCheckInjectionCommandString    = "tc -j q show dev %s parent 100:1"
 	tcAddQdiscRootCommandString      = "tc qdisc add dev %s root handle 1: prio priomap 2 2 2 2 2 2 2 2 2 2 2 2 2 2 2 2"
-	tcAddQdiscLatencyCommandString   = "tc qdisc add dev %s parent 1:1 handle 10: netem delay %dms %dms"
-	tcAddQdiscLossCommandString      = "tc qdisc add dev %s parent 1:1 handle 10: netem loss %d%%"
+	tcAddQdiscChildCommandString     = "tc qdisc add dev %s parent %s handle %s prio bands 10 priomap 2 2 2 2 2 2 2 2 2 2 2 2 2 2 2 2"
+	tcAddQdiscNetemFaultBaseString   = "tc qdisc add dev %s parent %s handle %s netem %s"
+	tcLayerBands                     = 10
+	netemLatencyArgumentsString      = "delay %dms %dms"
+	netemLossArgumentsString         = "loss %d%%"
 	tcAllowlistIPCommandString       = "tc filter add dev %s protocol all parent 1:0 prio 1 u32 match %s dst %s flowid 1:3"
 	tcAddFilterForIPCommandString    = "tc filter add dev %s protocol all parent 1:0 prio 2 u32 match %s dst %s flowid 1:1"
+	tcAddFlowHashFilterCommandString = "tc filter add dev %s protocol all parent %d: handle %d prio 2 flow hash keys src,dst,proto,proto-src,proto-dst divisor 10 baseclass %s"
 	tcDeleteQdiscParentCommandString = "tc qdisc del dev %s parent 1:1 handle 10:"
 	tcDeleteQdiscRootCommandString   = "tc qdisc del dev %s root handle 1: prio"
-	ip4                              = "ip"  // For matching IPv4 packets in a tc filter
-	ip6                              = "ip6" // For matching IPv6 packets in a tc filter
-	allIPv4CIDR                      = "0.0.0.0/0"
-	allIPv6CIDR                      = "::/0"
-	dropTarget                       = "DROP"
-	acceptTarget                     = "ACCEPT"
+	// flowsPercent is an optional parameter default behavior is to impact all flows
+	defaultFlowsPercent = 100
+	ip4                 = "ip"  // For matching IPv4 packets in a tc filter
+	ip6                 = "ip6" // For matching IPv6 packets in a tc filter
+	allIPv4CIDR         = "0.0.0.0/0"
+	allIPv6CIDR         = "::/0"
+	dropTarget          = "DROP"
+	acceptTarget        = "ACCEPT"
 )
 
 type FaultHandler struct {
@@ -236,7 +243,7 @@ func (h *FaultHandler) startNetworkBlackholePort(ctx context.Context,
 		}
 
 		// Helper function to run commands
-		var execCommand = func(cmdString string, isIP6TableUpdate bool) (string, error) {
+		execCommand := func(cmdString string, isIP6TableUpdate bool) (string, error) {
 			execOutput, err := h.runExecCommand(ctx, strings.Split(cmdString, " "))
 			if err != nil {
 				// To be backwards compatible, enforcing IPv6 table updates for IPv6 only tasks
@@ -446,7 +453,7 @@ func (h *FaultHandler) stopNetworkBlackHolePort(ctx context.Context,
 		}
 
 		// Helper function to run commands
-		var execCommand = func(cmdString string, isIP6TableUpdate bool) (string, error) {
+		execCommand := func(cmdString string, isIP6TableUpdate bool) (string, error) {
 			execOutput, err := h.runExecCommand(ctx, strings.Split(cmdString, " "))
 			if err != nil {
 				// To be backwards compatible, enforcing IPv6 table updates for IPv6 only tasks
@@ -1354,55 +1361,37 @@ func (h *FaultHandler) startNetworkLatencyFaultForInterface(
 	}
 	delayInMs := aws.ToUint64(request.DelayMilliseconds)
 	jitterInMs := aws.ToUint64(request.JitterMilliseconds)
+	flowsPercent := defaultFlowsPercent
+	if request.FlowsPercent != nil {
+		flowsPercent = aws.ToInt(request.FlowsPercent)
+	}
 
-	// Command to be executed:
-	// <nsenterPrefix> tc qdisc add dev <interfaceName> root handle 1: prio priomap 2 2 2 2 2 2 2 2 2 2 2 2 2 2 2 2
-	// <nsenterPrefix> "tc qdisc add dev <interfaceName> parent 1:1 handle 10: netem delay <latency>ms <jitter>ms
-	tcAddQdiscRootCommandComposed := nsenterPrefix + fmt.Sprintf(tcAddQdiscRootCommandString, interfaceName)
-	cmdList := strings.Split(tcAddQdiscRootCommandComposed, " ")
-	cmdOutput, err := h.runExecCommand(ctx, cmdList)
-	if err != nil {
-		logger.Error("Command execution failed", logger.Fields{
-			field.CommandString:    tcAddQdiscRootCommandComposed,
-			field.Error:            err,
-			field.CommandOutput:    string(cmdOutput[:]),
-			field.TaskARN:          taskMetadata.TaskARN,
-			field.NetworkInterface: interfaceName,
-		})
+	// Create three layer qdisc hierarchy allowing traffic distribution among 100 bands.
+	// Need 100 bands to accurately reflect flows percentage.
+	if err := h.createQdiscHierarchyForInterface(ctx, taskMetadata, nsenterPrefix, interfaceName); err != nil {
 		return err
 	}
-	logger.Info("Command execution completed", logger.Fields{
-		field.CommandString:    tcAddQdiscRootCommandComposed,
-		field.CommandOutput:    string(cmdOutput[:]),
-		field.NetworkInterface: interfaceName,
-	})
 
-	tcAddQdiscLossCommandComposed := nsenterPrefix + fmt.Sprintf(
-		tcAddQdiscLatencyCommandString, interfaceName, delayInMs, jitterInMs)
-	cmdList = strings.Split(tcAddQdiscLossCommandComposed, " ")
-	cmdOutput, err = h.runExecCommand(ctx, cmdList)
-	if err != nil {
-		logger.Error("Command execution failed", logger.Fields{
-			field.CommandString:    tcAddQdiscLossCommandComposed,
-			field.Error:            err,
-			field.CommandOutput:    string(cmdOutput[:]),
-			field.TaskARN:          taskMetadata.TaskARN,
-			field.NetworkInterface: interfaceName,
-		})
+	// delay %dms %dms
+	netemLatencyArguments := fmt.Sprintf(netemLatencyArgumentsString, delayInMs, jitterInMs)
+	// Add netem delay to <flowsPercent> bands.
+	if err := h.addNetemFaultToInterfaceFlows(
+		ctx, taskMetadata, nsenterPrefix, interfaceName, flowsPercent, netemLatencyArguments,
+	); err != nil {
 		return err
 	}
-	logger.Info("Command execution completed", logger.Fields{
-		field.CommandString:    tcAddQdiscLossCommandComposed,
-		field.CommandOutput:    string(cmdOutput[:]),
-		field.NetworkInterface: interfaceName,
-	})
-	// After creating the queueing discipline, create filters to associate the IPs in the request with the handle.
+
+	// After creating the queueing disciplines, create filters to associate the IPs in the request with the handle.
 	// First redirect the allowlisted ip addresses to band 1:3 where is no network impairments.
 	if err := h.addIPAddressesToFilter(ctx, request.SourcesToFilter, taskMetadata, nsenterPrefix, tcAllowlistIPCommandString, interfaceName); err != nil {
 		return err
 	}
-	// After processing the allowlisted ips, associate the ip addresses in Sources with the qdisc.
+	// After processing the allowlisted ips, associate the ip addresses in Sources with the qdisc hierarchy.
 	if err := h.addIPAddressesToFilter(ctx, request.Sources, taskMetadata, nsenterPrefix, tcAddFilterForIPCommandString, interfaceName); err != nil {
+		return err
+	}
+	// Finally, add hash filters based on flow to distribute the traffic among the 100 bands.
+	if err := h.addFlowHashFilters(ctx, taskMetadata, nsenterPrefix, interfaceName); err != nil {
 		return err
 	}
 
@@ -1435,10 +1424,50 @@ func (h *FaultHandler) startNetworkPacketLossFaultForInterface(
 		nsenterPrefix = fmt.Sprintf(nsenterCommandString, taskMetadata.TaskNetworkConfig.NetworkNamespaces[0].Path)
 	}
 	lossPercent := aws.ToUint64(request.LossPercent)
+	flowsPercent := defaultFlowsPercent
+	if request.FlowsPercent != nil {
+		flowsPercent = aws.ToInt(request.FlowsPercent)
+	}
 
-	// Command to be executed:
-	// <nsenterPrefix> tc qdisc add dev <interfaceName> root handle 1: prio priomap 2 2 2 2 2 2 2 2 2 2 2 2 2 2 2 2
-	// <nsenterPrefix> "tc qdisc add dev <interfaceName> parent 1:1 handle 10: netem loss <lossPercentage>%"
+	// Create three layer qdisc hierarchy allowing traffic distribution among 100 bands.
+	// Need 100 bands to accurately reflect flows percentage.
+	if err := h.createQdiscHierarchyForInterface(ctx, taskMetadata, nsenterPrefix, interfaceName); err != nil {
+		return err
+	}
+
+	// loss %d%%
+	netemLossArguments := fmt.Sprintf(netemLossArgumentsString, lossPercent)
+	// Add netem packet loss to <flowsPercent> bands.
+	if err := h.addNetemFaultToInterfaceFlows(
+		ctx, taskMetadata, nsenterPrefix, interfaceName, flowsPercent, netemLossArguments,
+	); err != nil {
+		return err
+	}
+
+	// After creating the queueing disciplines, create filters to associate the IPs in the request with the handle.
+	// First redirect the allowlisted ip addresses to band 1:3 where is no network impairments.
+	if err := h.addIPAddressesToFilter(ctx, request.SourcesToFilter, taskMetadata, nsenterPrefix, tcAllowlistIPCommandString, interfaceName); err != nil {
+		return err
+	}
+	// After processing the allowlisted ips, associate the ip addresses in Sources with the qdisc hierarchy.
+	if err := h.addIPAddressesToFilter(ctx, request.Sources, taskMetadata, nsenterPrefix, tcAddFilterForIPCommandString, interfaceName); err != nil {
+		return err
+	}
+	// Finally, add hash filters based on flow to distribute the traffic among the 100 bands.
+	if err := h.addFlowHashFilters(ctx, taskMetadata, nsenterPrefix, interfaceName); err != nil {
+		return err
+	}
+
+	return nil
+}
+
+func (h *FaultHandler) createQdiscHierarchyForInterface(
+	ctx context.Context, taskMetadata *state.TaskResponse, nsenterPrefix string, interfaceName string,
+) error {
+	// Add root qdisc with 3 bands, the first band will consist of a hierarchy of 100 possible bands where traffic is
+	// impaired depending on flow. Protected traffic will be directed to the third band. All other traffic goes
+	// to the second band.
+	// tc qdisc add dev %s root handle 1: prio priomap 2 2 2 2 2 2 2 2 2 2 2 2 2 2 2 2
 	tcAddQdiscRootCommandComposed := nsenterPrefix + fmt.Sprintf(tcAddQdiscRootCommandString, interfaceName)
 	cmdList := strings.Split(tcAddQdiscRootCommandComposed, " ")
 	cmdOutput, err := h.runExecCommand(ctx, cmdList)
@@ -1457,12 +1486,16 @@ func (h *FaultHandler) startNetworkPacketLossFaultForInterface(
 		field.CommandOutput:    string(cmdOutput[:]),
 		field.NetworkInterface: interfaceName,
 	})
-	tcAddQdiscLossCommandComposed := nsenterPrefix + fmt.Sprintf(tcAddQdiscLossCommandString, interfaceName, lossPercent)
-	cmdList = strings.Split(tcAddQdiscLossCommandComposed, " ")
+
+	// Add second qdisc layer with 10 bands from 10:1 to 10:a, each of them will have 10 bands totalling 100.
+	// By then splitting traffic in the resulting 100 bands we can represent a percentage.
+	// <nsenterPrefix> tc qdisc add dev <interfaceName> parent %s handle %s prio bands 10 priomap 2 2 2 2 2 2 2 2 2 2 2 2 2 2 2 2
+	tcAddQdiscSecondLayerCommandComposed := nsenterPrefix + fmt.Sprintf(tcAddQdiscChildCommandString, interfaceName, "1:1", "10:")
+	cmdList = strings.Split(tcAddQdiscSecondLayerCommandComposed, " ")
 	cmdOutput, err = h.runExecCommand(ctx, cmdList)
 	if err != nil {
 		logger.Error("Command execution failed", logger.Fields{
-			field.CommandString:    tcAddQdiscLossCommandComposed,
+			field.CommandString:    tcAddQdiscSecondLayerCommandComposed,
 			field.Error:            err,
 			field.CommandOutput:    string(cmdOutput[:]),
 			field.TaskARN:          taskMetadata.TaskARN,
@@ -1471,20 +1504,81 @@ func (h *FaultHandler) startNetworkPacketLossFaultForInterface(
 		return err
 	}
 	logger.Info("Command execution completed", logger.Fields{
-		field.CommandString:    tcAddQdiscLossCommandComposed,
+		field.CommandString:    tcAddQdiscSecondLayerCommandComposed,
 		field.CommandOutput:    string(cmdOutput[:]),
 		field.NetworkInterface: interfaceName,
 	})
-	// After creating the queueing discipline, create filters to associate the IPs in the request with the handle.
-	// First redirect the allowlisted ip addresses to band 1:3 where is no network impairments.
-	if err := h.addIPAddressesToFilter(ctx, request.SourcesToFilter, taskMetadata, nsenterPrefix, tcAllowlistIPCommandString, interfaceName); err != nil {
-		return err
-	}
-	// After processing the allowlisted ips, associate the ip addresses in Sources with the qdisc.
-	if err := h.addIPAddressesToFilter(ctx, request.Sources, taskMetadata, nsenterPrefix, tcAddFilterForIPCommandString, interfaceName); err != nil {
-		return err
-	}
 
+	// Add the third qdisc layer, one 10 band qdisc per each 2nd layer band.
+	for i := range tcLayerBands {
+		childHandle := fmt.Sprintf("%d:", 100+i) // 100:, 101:, 102:, ... 109:
+		parent := fmt.Sprintf("10:%d", i+1)      // 10:1, 10:2, ... 10:a
+		// tc uses hexadecimal for the ids so we need to change to 'a' when reaching 10.
+		if i == 9 {
+			parent = "10:a"
+		}
+		// <nsenterPrefix> tc qdisc add dev %s parent %s handle %s prio bands 10 priomap 2 2 2 2 2 2 2 2 2 2 2 2 2 2 2 2
+		tcAddQdiscThirdLayerCommandComposed := nsenterPrefix + fmt.Sprintf(tcAddQdiscChildCommandString, interfaceName, parent, childHandle)
+		cmdList = strings.Split(tcAddQdiscThirdLayerCommandComposed, " ")
+		cmdOutput, err = h.runExecCommand(ctx, cmdList)
+		if err != nil {
+			logger.Error("Command execution failed", logger.Fields{
+				field.CommandString:    tcAddQdiscThirdLayerCommandComposed,
+				field.Error:            err,
+				field.CommandOutput:    string(cmdOutput[:]),
+				field.TaskARN:          taskMetadata.TaskARN,
+				field.NetworkInterface: interfaceName,
+			})
+			return err
+		}
+		logger.Info("Command execution completed", logger.Fields{
+			field.CommandString:    tcAddQdiscThirdLayerCommandComposed,
+			field.CommandOutput:    string(cmdOutput[:]),
+			field.NetworkInterface: interfaceName,
+		})
+	}
+	return nil
+}
+
+func (h *FaultHandler) addNetemFaultToInterfaceFlows(
+	ctx context.Context, taskMetadata *state.TaskResponse, nsenterPrefix string, interfaceName string,
+	flowsPercent int, netemArguments string,
+) error {
+	// Add netem fault to <flowsPercent> third layer bands, this allows to then filter traffic by flow into the 100
+	// third layer bands resulting in <flowsPercent> flows being impacted.
+	for i := range flowsPercent {
+		// Netem is added to the third layer qdiscs (parentHandle) each of them have 10 bands (parentClass)
+		parentHandle := 100 + i/10 // 100, 101, 102 ... 109
+		parentClass := i%10 + 1    // 1, 2, 3 ... 10
+		parent := fmt.Sprintf("%d:%d", parentHandle, parentClass)
+		// tc uses hexadecimal for the ids so we need to change to 'a' when reaching 10.
+		if parentClass == 10 {
+			parent = fmt.Sprintf("%d:a", parentHandle)
+		}
+		// Netem handle is not really important but use 200s to differentiate from the qdisc hieararchy.
+		netemHandle := fmt.Sprintf("%d:", 200+i) // 200:, 201:, ... 210:, 211:, ... 299:
+
+		// tc qdisc add dev %s parent %s handle %s netem %s
+		tcAddQdiscNetemFaultCommandComposed := nsenterPrefix + fmt.Sprintf(
+			tcAddQdiscNetemFaultBaseString, interfaceName, parent, netemHandle, netemArguments)
+		cmdList := strings.Split(tcAddQdiscNetemFaultCommandComposed, " ")
+		cmdOutput, err := h.runExecCommand(ctx, cmdList)
+		if err != nil {
+			logger.Error("Command execution failed", logger.Fields{
+				field.CommandString:    tcAddQdiscNetemFaultCommandComposed,
+				field.Error:            err,
+				field.CommandOutput:    string(cmdOutput[:]),
+				field.TaskARN:          taskMetadata.TaskARN,
+				field.NetworkInterface: interfaceName,
+			})
+			return err
+		}
+		logger.Info("Command execution completed", logger.Fields{
+			field.CommandString:    tcAddQdiscNetemFaultCommandComposed,
+			field.CommandOutput:    string(cmdOutput[:]),
+			field.NetworkInterface: interfaceName,
+		})
+	}
 	return nil
 }
 
@@ -1673,7 +1767,8 @@ func checkPacketLossFault(outputUnmarshalled []map[string]interface{}) (bool, er
 
 func (h *FaultHandler) addIPAddressesToFilter(
 	ctx context.Context, ipAddressList []*string, taskMetadata *state.TaskResponse,
-	nsenterPrefix, commandString, interfaceName string) error {
+	nsenterPrefix, commandString, interfaceName string,
+) error {
 	for _, ipPtr := range ipAddressList {
 		ip := aws.ToString(ipPtr)
 		commandComposed := nsenterPrefix + fmt.Sprintf(commandString, interfaceName, ip4, ip)
@@ -1682,6 +1777,46 @@ func (h *FaultHandler) addIPAddressesToFilter(
 		}
 		cmdList := strings.Split(commandComposed, " ")
 		cmdOutput, err := h.runExecCommand(ctx, cmdList)
+		if err != nil {
+			logger.Error("Command execution failed", logger.Fields{
+				field.CommandString: commandComposed,
+				field.Error:         err,
+				field.CommandOutput: string(cmdOutput[:]),
+				field.TaskARN:       taskMetadata.TaskARN,
+			})
+			return err
+		}
+	}
+	return nil
+}
+
+func (h *FaultHandler) addFlowHashFilters(ctx context.Context, taskMetadata *state.TaskResponse, nsenterPrefix, interfaceName string) error {
+	// Split traffic by flow among the 10 second layer qdiscs starting from 10:1 to 10:a. Then, again split the traffic in
+	// each of the qdiscs 10 bands resulting in 100 possible bands (third layer), accurately representing flows percentage.
+	// tc filter add dev %s protocol all parent %d: handle %d prio 2 flow hash keys src,dst,proto,proto-src,proto-dst divisor 10 baseclass %s
+	commandComposed := nsenterPrefix + fmt.Sprintf(tcAddFlowHashFilterCommandString, interfaceName, 10, 1, "10:1")
+	cmdList := strings.Split(commandComposed, " ")
+	cmdOutput, err := h.runExecCommand(ctx, cmdList)
+	if err != nil {
+		logger.Error("Command execution failed", logger.Fields{
+			field.CommandString: commandComposed,
+			field.Error:         err,
+			field.CommandOutput: string(cmdOutput[:]),
+			field.TaskARN:       taskMetadata.TaskARN,
+		})
+		return err
+	}
+
+	// Split traffic by flow among each 10 band third layer group resulting in 100 options.
+	for i := range 10 {
+		parentHandle := 100 + i // 100, 101, ... 109
+		filterHandle := i + 1   // 1, 2, ... 10
+		baseClass := fmt.Sprintf("%d:1", parentHandle)
+		// tc filter add dev %s protocol all parent %d: handle %d prio 2 flow hash keys src,dst,proto,proto-src,proto-dst divisor 10 baseclass %s
+		commandComposed = nsenterPrefix + fmt.Sprintf(tcAddFlowHashFilterCommandString,
+			interfaceName, parentHandle, filterHandle, baseClass)
+		cmdList = strings.Split(commandComposed, " ")
+		cmdOutput, err = h.runExecCommand(ctx, cmdList)
 		if err != nil {
 			logger.Error("Command execution failed", logger.Fields{
 				field.CommandString: commandComposed,
