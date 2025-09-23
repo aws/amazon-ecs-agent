@@ -100,13 +100,18 @@ func New() (*Engine, error) {
 	if err != nil {
 		return nil, err
 	}
-	docker, err := getDockerClient()
+	dockerClient, err := getDockerClient()
 	if err != nil {
 		return nil, err
 	}
-	dockerBridgeNetworkName, err := docker.FindDefaultBridgeNetworkInterfaceName()
+	dockerBridgeNetworkName, err := dockerClient.FindDefaultBridgeNetworkInterfaceName()
 	if err != nil {
-		return nil, err
+		if errors.Is(err, docker.ErrNoBridgeNetwork) {
+			log.Info("No docker bridge network found, skipping bridge-specific iptables rules")
+			dockerBridgeNetworkName = ""
+		} else {
+			return nil, err
+		}
 	}
 	credentialsProxyRoute, err := iptables.NewNetfilterRoute(cmdExec, netlinkwrapper.New(), dockerBridgeNetworkName)
 	if err != nil {

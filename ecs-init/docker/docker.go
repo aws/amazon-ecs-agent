@@ -16,7 +16,7 @@ package docker
 import (
 	"bytes"
 	"encoding/json"
-	"fmt"
+	"errors"
 	"io"
 	"os"
 	"os/exec"
@@ -165,6 +165,9 @@ var (
 	execCommand                   = exec.Command
 	execLookPath                  = exec.LookPath
 	checkNvidiaGPUDevicesPresence = nvidiaGPUDevicesPresent
+	// ErrNoBridgeNetwork indicates no docker bridge network interface was found
+	ErrNoBridgeNetwork = errors.New(
+		"unable to find any virtual docker bridge network interfaces on the host")
 )
 
 // client enables business logic for running the Agent inside Docker
@@ -694,5 +697,5 @@ func (c *client) FindDefaultBridgeNetworkInterfaceName() (string, error) {
 			}
 		}
 	}
-	return "", fmt.Errorf("unable to find any virtual docker bridge network interfaces on the host")
+	return "", ErrNoBridgeNetwork
 }
