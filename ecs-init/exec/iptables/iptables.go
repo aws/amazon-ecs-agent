@@ -118,10 +118,15 @@ func (route *NetfilterRoute) Create() error {
 
 		// Allow docker's virtual bridge interface to access the introspection server. Inserting it after applying
 		// the rule to drop all connections other than loopback interface will push it on top of priority.
-		err = route.modifyNetfilterEntry(iptablesTableFilter, iptablesInsert, allowIntrospectionForDockerIptablesInputChainArgs, true)
-		if err != nil {
-			log.Errorf("Error adding input chain entry to allow %s access to introspection server: %w", err)
-			return err
+		if defaultDockerBridgeNetworkName != "" {
+			err = route.modifyNetfilterEntry(iptablesTableFilter, iptablesInsert,
+				allowIntrospectionForDockerIptablesInputChainArgs, true)
+			if err != nil {
+				log.Errorf(
+					"Error adding input chain entry to allow %s access to introspection server: %w",
+					err)
+				return err
+			}
 		}
 	}
 
@@ -150,9 +155,13 @@ func (route *NetfilterRoute) Remove() error {
 		introspectionInputError = fmt.Errorf("error removing input chain entry: %v", introspectionInputError)
 	}
 
-	dockerIntrospectionInputError = route.modifyNetfilterEntry(iptablesTableFilter, iptablesDelete, allowIntrospectionForDockerIptablesInputChainArgs, true)
-	if dockerIntrospectionInputError != nil {
-		dockerIntrospectionInputError = fmt.Errorf("error removing input chain entry: %v", dockerIntrospectionInputError)
+	if defaultDockerBridgeNetworkName != "" {
+		dockerIntrospectionInputError = route.modifyNetfilterEntry(iptablesTableFilter,
+			iptablesDelete, allowIntrospectionForDockerIptablesInputChainArgs, true)
+		if dockerIntrospectionInputError != nil {
+			dockerIntrospectionInputError = fmt.Errorf(
+				"error removing input chain entry: %v", dockerIntrospectionInputError)
+		}
 	}
 
 	outputErr := route.modifyNetfilterEntry(iptablesTableNat, iptablesDelete, getOutputChainArgs, false)
