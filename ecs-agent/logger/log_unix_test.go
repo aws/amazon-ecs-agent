@@ -48,8 +48,8 @@ func TestSeelogConfig_Default(t *testing.T) {
 			<console />
 		</filter>
 		<filter levels="info,warn,error,critical">
-			<rollingfile filename="foo.log" type="date"
-			 datepattern="2006-01-02-15" archivetype="none" maxrolls="24" />
+			<rollingfile filename="foo.log" type="size"
+			 maxsize="5000000" archivetype="none" maxrolls="24" />
 		</filter>
 	</outputs>
 	<formats>
@@ -125,8 +125,8 @@ func TestSeelogConfig_DebugLevel(t *testing.T) {
 			<console />
 		</filter>
 		<filter levels="info,warn,error,critical">
-			<rollingfile filename="foo.log" type="date"
-			 datepattern="2006-01-02-15" archivetype="none" maxrolls="24" />
+			<rollingfile filename="foo.log" type="size"
+			 maxsize="5000000" archivetype="none" maxrolls="24" />
 		</filter>
 	</outputs>
 	<formats>
@@ -157,7 +157,7 @@ func TestSeelogConfig_SizeRollover(t *testing.T) {
 		</filter>
 		<filter levels="info,warn,error,critical">
 			<rollingfile filename="foo.log" type="size"
-			 maxsize="10000000" archivetype="none" maxrolls="24" />
+			 maxsize="5000000" archivetype="none" maxrolls="24" />
 		</filter>
 	</outputs>
 	<formats>
@@ -249,8 +249,8 @@ func TestSeelogConfig_JSONOutput(t *testing.T) {
 			<console />
 		</filter>
 		<filter levels="info,warn,error,critical">
-			<rollingfile filename="foo.log" type="date"
-			 datepattern="2006-01-02-15" archivetype="none" maxrolls="10" />
+			<rollingfile filename="foo.log" type="size"
+			 maxsize="5000000" archivetype="none" maxrolls="10" />
 		</filter>
 	</outputs>
 	<formats>
@@ -277,8 +277,8 @@ func TestSeelogConfig_JSONNoStdout(t *testing.T) {
 <seelog type="asyncloop">
 	<outputs formatid="json">
 		<filter levels="info,warn,error,critical">
-			<rollingfile filename="foo.log" type="date"
-			 datepattern="2006-01-02-15" archivetype="none" maxrolls="10" />
+			<rollingfile filename="foo.log" type="size"
+			 maxsize="5000000" archivetype="none" maxrolls="10" />
 		</filter>
 	</outputs>
 	<formats>
@@ -338,8 +338,8 @@ func TestSeelogConfig_NoOnInstanceLog(t *testing.T) {
 			<console />
 		</filter>
 		<filter levels="off">
-			<rollingfile filename="foo.log" type="date"
-			 datepattern="2006-01-02-15" archivetype="none" maxrolls="24" />
+			<rollingfile filename="foo.log" type="size"
+			 maxsize="5000000" archivetype="none" maxrolls="24" />
 		</filter>
 	</outputs>
 	<formats>
@@ -366,8 +366,8 @@ func TestSeelogConfig_DifferentLevels(t *testing.T) {
 			<console />
 		</filter>
 		<filter levels="info,warn,error,critical">
-			<rollingfile filename="foo.log" type="date"
-			 datepattern="2006-01-02-15" archivetype="none" maxrolls="24" />
+			<rollingfile filename="foo.log" type="size"
+			 maxsize="5000000" archivetype="none" maxrolls="24" />
 		</filter>
 	</outputs>
 	<formats>
@@ -400,8 +400,8 @@ func TestSeelogConfig_FileLevelDefault(t *testing.T) {
 			<console />
 		</filter>
 		<filter levels="off">
-			<rollingfile filename="foo.log" type="date"
-			 datepattern="2006-01-02-15" archivetype="none" maxrolls="24" />
+			<rollingfile filename="foo.log" type="size"
+			 maxsize="5000000" archivetype="none" maxrolls="24" />
 		</filter>
 	</outputs>
 	<formats>
@@ -450,8 +450,8 @@ func TestSetOutputFormat(t *testing.T) {
 			<console />
 		</filter>
 		<filter levels="info,warn,error,critical">
-			<rollingfile filename="foo.log" type="date"
-			 datepattern="2006-01-02-15" archivetype="none" maxrolls="24" />
+			<rollingfile filename="foo.log" type="size"
+			 maxsize="5000000" archivetype="none" maxrolls="24" />
 		</filter>
 	</outputs>
 	<formats>
@@ -522,6 +522,37 @@ func TestSetLogToStdout(t *testing.T) {
 	require.Equal(t, `
 <seelog type="asyncloop">
 	<outputs formatid="logfmt">
+		<filter levels="info,warn,error,critical">
+			<rollingfile filename="foo.log" type="size"
+			 maxsize="5000000" archivetype="none" maxrolls="24" />
+		</filter>
+	</outputs>
+	<formats>
+		<format id="logfmt" format="%EcsAgentLogfmt" />
+		<format id="json" format="%EcsAgentJson" />
+		<format id="windows" format="%EcsMsg" />
+	</formats>
+</seelog>`, c)
+}
+
+func TestSeelogConfig_HourlyRollover(t *testing.T) {
+	Config = &logConfig{
+		logfile:       "foo.log",
+		driverLevel:   DEFAULT_LOGLEVEL,
+		instanceLevel: DEFAULT_LOGLEVEL,
+		RolloverType:  "hourly",
+		outputFormat:  DEFAULT_OUTPUT_FORMAT,
+		MaxFileSizeMB: DEFAULT_MAX_FILE_SIZE,
+		MaxRollCount:  DEFAULT_MAX_ROLL_COUNT,
+		logToStdout:   DEFAULT_LOGTO_STDOUT,
+	}
+	c := seelogConfig()
+	require.Equal(t, `
+<seelog type="asyncloop">
+	<outputs formatid="logfmt">
+		<filter levels="info,warn,error,critical">
+			<console />
+		</filter>
 		<filter levels="info,warn,error,critical">
 			<rollingfile filename="foo.log" type="date"
 			 datepattern="2006-01-02-15" archivetype="none" maxrolls="24" />

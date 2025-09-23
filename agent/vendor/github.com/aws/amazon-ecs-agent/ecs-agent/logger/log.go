@@ -39,10 +39,10 @@ const (
 
 	DEFAULT_LOGLEVEL                         = "info"
 	DEFAULT_LOGLEVEL_WHEN_DRIVER_SET         = "off"
-	DEFAULT_ROLLOVER_TYPE                    = "date"
+	DEFAULT_ROLLOVER_TYPE                    = "size"
 	DEFAULT_OUTPUT_FORMAT                    = logFmt
 	DEFAULT_TIMESTAMP_FORMAT                 = time.RFC3339
-	DEFAULT_MAX_FILE_SIZE            float64 = 10
+	DEFAULT_MAX_FILE_SIZE            float64 = 5
 	DEFAULT_MAX_ROLL_COUNT           int     = 24
 	DEFAULT_LOGTO_STDOUT                     = true
 )
