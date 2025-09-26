@@ -22,7 +22,6 @@ import (
 	"fmt"
 	"io"
 	"os"
-	"runtime"
 	"strings"
 	"testing"
 
@@ -140,15 +139,46 @@ func TestInstanceCredentialsCache_SharedCredentialsFile_RotatingSharedCredential
 			creds, err := p.Retrieve(context.TODO())
 			require.NoError(t, err)
 
-			// For ECS-A on Windows, rotating shared credentials take precedence over the shared credentials file.
-			if runtime.GOOS == "windows" && isExternal {
-				require.Equal(t, RotatingSharedCredentialsProviderName, creds.Source)
+			// For ECS-A rotating shared credentials take precedence over the shared credentials file.
+			if isExternal {
 				require.Equal(t, "TESTROTATINGCREDSKEYID", creds.AccessKeyID)
 				require.Equal(t, "TESTROTATINGCREDSSECRET", creds.SecretAccessKey)
 			} else {
 				require.Contains(t, creds.Source, "SharedConfigCredentials")
 				require.Equal(t, "TESTFILEKEYID", creds.AccessKeyID)
 				require.Equal(t, "TESTFILESECRET", creds.SecretAccessKey)
+			}
+		})
+	}
+}
+
+// Test that order of precedence is correct when the instance has an EC2Role and
+// rotating shared credentials are set.
+func TestInstanceCredentialsCache_EC2RoleCredentials_RotatingSharedCredentials(t *testing.T) {
+	for _, isExternal := range []bool{true, false} {
+		t.Run(fmt.Sprintf("isExternal=%t", isExternal), func(t *testing.T) {
+			// unset any env var credentials
+			resetEnvVars := setEnvVars(t, "", "")
+			defer resetEnvVars()
+
+			// unset any shared credentials
+			sharedCredsFile := os.Getenv("AWS_SHARED_CREDENTIALS_FILE")
+			os.Unsetenv("AWS_SHARED_CREDENTIALS_FILE")
+			defer os.Setenv("AWS_SHARED_CREDENTIALS_FILE", sharedCredsFile)
+
+			p := NewInstanceCredentialsCache(isExternal, &testRotatingSharedCredsProvider{}, &testIMDSClient{})
+			creds, err := p.Retrieve(context.TODO())
+			require.NoError(t, err)
+
+			// For ECS-A rotating shared credentials take precedence over the EC2 Role Credential.
+			if isExternal {
+				require.Equal(t, RotatingSharedCredentialsProviderName, creds.Source)
+				require.Equal(t, "TESTROTATINGCREDSKEYID", creds.AccessKeyID)
+				require.Equal(t, "TESTROTATINGCREDSSECRET", creds.SecretAccessKey)
+			} else {
+				require.Equal(t, ec2rolecreds.ProviderName, creds.Source)
+				require.Equal(t, "TESTEC2ROLEKEYID", creds.AccessKeyID)
+				require.Equal(t, "TESTEC2ROLESECRET", creds.SecretAccessKey)
 			}
 		})
 	}
