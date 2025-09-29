@@ -19,18 +19,25 @@ package platform
 import (
 	"context"
 	"fmt"
+	"io/fs"
 	"net"
+	"os"
 	"path/filepath"
 	"testing"
 
 	mock_ec2 "github.com/aws/amazon-ecs-agent/ecs-agent/ec2/mocks"
 	"github.com/aws/amazon-ecs-agent/ecs-agent/netlib/model/ecscni"
 	mock_ecscni2 "github.com/aws/amazon-ecs-agent/ecs-agent/netlib/model/ecscni/mocks_ecscni"
+	mock_ecscni "github.com/aws/amazon-ecs-agent/ecs-agent/netlib/model/ecscni/mocks_nsutil"
 	"github.com/aws/amazon-ecs-agent/ecs-agent/netlib/model/networkinterface"
+	"github.com/aws/amazon-ecs-agent/ecs-agent/netlib/model/serviceconnect"
 	"github.com/aws/amazon-ecs-agent/ecs-agent/netlib/model/status"
+	"github.com/aws/amazon-ecs-agent/ecs-agent/netlib/model/tasknetworkconfig"
+	mock_ioutilwrapper "github.com/aws/amazon-ecs-agent/ecs-agent/utils/ioutilwrapper/mocks"
 	mock_netlinkwrapper "github.com/aws/amazon-ecs-agent/ecs-agent/utils/netlinkwrapper/mocks"
 	mock_netwrapper "github.com/aws/amazon-ecs-agent/ecs-agent/utils/netwrapper/mocks"
 	mock_oswrapper "github.com/aws/amazon-ecs-agent/ecs-agent/utils/oswrapper/mocks"
+	mock_volume "github.com/aws/amazon-ecs-agent/ecs-agent/volume/mocks"
 
 	"github.com/golang/mock/gomock"
 	"github.com/stretchr/testify/assert"
@@ -333,4 +340,147 @@ func setupManagedLinuxTestConfigureInterface(
 		client: nil,
 	}
 	return ctx, osWrapper, cniClient, eni, managedLinuxPlatform
+}
+
+// TestManagedLinux_CreateDNSConfig tests DNS configuration creation for managed Linux platform
+// with both Service Connect enabled and disabled scenarios.
+func TestManagedLinux_CreateDNSConfig(t *testing.T) {
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+
+	taskID := "task-id"
+	iface := getTestIPv4OnlyInterface()
+	netNSName := networkinterface.NetNSName(taskID, iface.Name)
+	netNSPath := "/etc/netns/" + netNSName
+
+	// Test data
+	hostsData := fmt.Sprintf("%s\n%s %s\n%s %s\n%s %s\n",
+		HostsLocalhostEntryIPv4,
+		ipv4Addr, dnsName,
+		addr, hostName,
+		addr2, hostName2,
+	)
+	resolvData := fmt.Sprintf("nameserver %s\nnameserver %s\nsearch %s\n",
+		nameServer,
+		nameServer2,
+		searchDomainName+" "+searchDomainName2,
+	)
+	hostnameData := fmt.Sprintf("%s\n", iface.GetHostname())
+
+	t.Run("without_service_connect_uses_host_files", func(t *testing.T) {
+		// Setup mocks
+		ioutil := mock_ioutilwrapper.NewMockIOUtil(ctrl)
+		nsUtil := mock_ecscni.NewMockNetNSUtil(ctrl)
+		osWrapper := mock_oswrapper.NewMockOS(ctrl)
+		mockFile := mock_oswrapper.NewMockFile(ctrl)
+		volumeAccessor := mock_volume.NewMockTaskVolumeAccessor(ctrl)
+
+		commonPlatform := common{
+			ioutil:            ioutil,
+			nsUtil:            nsUtil,
+			os:                osWrapper,
+			dnsVolumeAccessor: volumeAccessor,
+			resolvConfPath:    "/run/netdog",
+		}
+
+		ml := &managedLinux{
+			common: commonPlatform,
+		}
+
+		// Network namespace WITHOUT Service Connect config
+		netns := &tasknetworkconfig.NetworkNamespace{
+			Name:                 netNSName,
+			Path:                 netNSPath,
+			NetworkInterfaces:    []*networkinterface.NetworkInterface{iface},
+			ServiceConnectConfig: nil, // No Service Connect
+		}
+
+		gomock.InOrder(
+			// Read hostname file from host
+			osWrapper.EXPECT().OpenFile("/etc/hostname", os.O_RDONLY|os.O_CREATE, fs.FileMode(0644)).Return(mockFile, nil).Times(1),
+			mockFile.EXPECT().Close().Times(1),
+
+			// Creation of netns path
+			osWrapper.EXPECT().Stat(netNSPath).Return(nil, os.ErrNotExist).Times(1),
+			osWrapper.EXPECT().IsNotExist(os.ErrNotExist).Return(true).Times(1),
+			osWrapper.EXPECT().MkdirAll(netNSPath, fs.FileMode(0644)),
+
+			// Creation of hostname file
+			ioutil.EXPECT().WriteFile(netNSPath+"/hostname", []byte(hostnameData), fs.FileMode(0644)),
+
+			// Copy resolv.conf from host (uses host files when debug=true)
+			nsUtil.EXPECT().BuildResolvConfig(iface.DomainNameServers, iface.DomainNameSearchList),
+			ioutil.EXPECT().WriteFile(netNSPath+"/resolv.conf", gomock.Any(), gomock.Any()),
+
+			// Copy hosts file from host and append interface mappings
+			ioutil.EXPECT().ReadFile("/etc/hosts"),
+			ioutil.EXPECT().WriteFile(netNSPath+"/hosts", gomock.Any(), gomock.Any()),
+
+			// CopyToVolume created files into task volume
+			volumeAccessor.EXPECT().CopyToVolume(taskID, netNSPath+"/hosts", "hosts", fs.FileMode(0644)).Return(nil).Times(1),
+			volumeAccessor.EXPECT().CopyToVolume(taskID, netNSPath+"/resolv.conf", "resolv.conf", fs.FileMode(0644)).Return(nil).Times(1),
+			volumeAccessor.EXPECT().CopyToVolume(taskID, netNSPath+"/hostname", "hostname", fs.FileMode(0644)).Return(nil).Times(1),
+		)
+
+		err := ml.CreateDNSConfig(taskID, netns)
+		require.NoError(t, err)
+	})
+
+	t.Run("with_service_connect_creates_new_files", func(t *testing.T) {
+		// Setup mocks
+		ioutil := mock_ioutilwrapper.NewMockIOUtil(ctrl)
+		nsUtil := mock_ecscni.NewMockNetNSUtil(ctrl)
+		osWrapper := mock_oswrapper.NewMockOS(ctrl)
+		mockFile := mock_oswrapper.NewMockFile(ctrl)
+		volumeAccessor := mock_volume.NewMockTaskVolumeAccessor(ctrl)
+
+		commonPlatform := common{
+			ioutil:            ioutil,
+			nsUtil:            nsUtil,
+			os:                osWrapper,
+			dnsVolumeAccessor: volumeAccessor,
+		}
+
+		ml := &managedLinux{
+			common: commonPlatform,
+		}
+
+		// Network namespace WITH Service Connect config
+		netns := &tasknetworkconfig.NetworkNamespace{
+			Name:              netNSName,
+			Path:              netNSPath,
+			NetworkInterfaces: []*networkinterface.NetworkInterface{iface},
+			ServiceConnectConfig: &serviceconnect.ServiceConnectConfig{
+				IngressConfigList: []serviceconnect.IngressConfig{},
+				EgressConfig:      serviceconnect.EgressConfig{},
+			},
+		}
+
+		gomock.InOrder(
+			// Creation of netns path
+			osWrapper.EXPECT().Stat(netNSPath).Return(nil, os.ErrNotExist).Times(1),
+			osWrapper.EXPECT().IsNotExist(os.ErrNotExist).Return(true).Times(1),
+			osWrapper.EXPECT().MkdirAll(netNSPath, fs.FileMode(0644)),
+
+			// Creation of resolv.conf file (creates new, doesn't copy from host)
+			nsUtil.EXPECT().BuildResolvConfig(iface.DomainNameServers, iface.DomainNameSearchList).Return(resolvData).Times(1),
+			ioutil.EXPECT().WriteFile(netNSPath+"/resolv.conf", []byte(resolvData), fs.FileMode(0644)),
+
+			// Creation of hostname file
+			ioutil.EXPECT().WriteFile(netNSPath+"/hostname", []byte(hostnameData), fs.FileMode(0644)),
+			osWrapper.EXPECT().OpenFile("/etc/hostname", os.O_RDONLY|os.O_CREATE, fs.FileMode(0644)).Return(mockFile, nil).Times(1),
+
+			// Creation of hosts file (creates new, doesn't copy from host)
+			mockFile.EXPECT().Close().Times(1),
+			ioutil.EXPECT().WriteFile(netNSPath+"/hosts", []byte(hostsData), fs.FileMode(0644)),
+
+			// CopyToVolume created files into task volume
+			volumeAccessor.EXPECT().CopyToVolume(taskID, netNSPath+"/hosts", "hosts", fs.FileMode(0644)).Return(nil).Times(1),
+			volumeAccessor.EXPECT().CopyToVolume(taskID, netNSPath+"/resolv.conf", "resolv.conf", fs.FileMode(0644)).Return(nil).Times(1),
+			volumeAccessor.EXPECT().CopyToVolume(taskID, netNSPath+"/hostname", "hostname", fs.FileMode(0644)).Return(nil).Times(1),
+		)
+
+		err := ml.CreateDNSConfig(taskID, netns)
+		require.NoError(t, err)
+	})
 }
