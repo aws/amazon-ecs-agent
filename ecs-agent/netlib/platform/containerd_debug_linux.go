@@ -10,5 +10,9 @@ type containerdDebug struct {
 }
 
 func (c *containerdDebug) CreateDNSConfig(taskID string, netNS *tasknetworkconfig.NetworkNamespace) error {
-	return c.common.createDNSConfig(taskID, true, netNS)
+	// SC tasks will get DNS config from control plane
+	if netNS.ServiceConnectConfig != nil {
+		return c.createDNSConfig(taskID, false, netNS)
+	}
+	return c.createDNSConfig(taskID, true, netNS)
 }
