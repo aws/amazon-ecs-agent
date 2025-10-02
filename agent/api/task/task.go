@@ -1815,16 +1815,17 @@ func (task *Task) dockerConfig(container *apicontainer.Container, apiVersion doc
 		containerConfig.Labels = make(map[string]string)
 	}
 
-	if container.Type == apicontainer.ContainerCNIPause {
+	switch container.Type {
+	case apicontainer.ContainerCNIPause, apicontainer.ContainerNamespacePause:
 		if pauseLabels := os.Getenv(PAUSE_LABELS_ENV_VAR); pauseLabels != "" {
 			// Set labels to pause container if it's provieded as env var.
 			setLabelsFromJsonString(containerConfig, pauseLabels)
 		}
+	}
 
-		if task.IsNetworkModeAWSVPC() {
-			// apply hostname to pause container's docker config
-			return task.applyENIHostname(containerConfig), nil
-		}
+	if container.Type == apicontainer.ContainerCNIPause && task.IsNetworkModeAWSVPC() {
+		// apply hostname to pause container's docker config
+		return task.applyENIHostname(containerConfig), nil
 	}
 
 	return containerConfig, nil
