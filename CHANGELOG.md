@@ -1,5 +1,15 @@
 # Changelog
 
+# 1.100.0
+* Feature - Add flowsPercent parameter to network latency and packet loss fault injection endpoints [4780](https://github.com/aws/amazon-ecs-agent/pull/4780)
+* Enhancement - Default to size-based log file rollover instead of hourly [4776](https://github.com/aws/amazon-ecs-agent/pull/4776)
+* Enhancement - Use same precedence for credential providers in Windows and Linux [4788](https://github.com/aws/amazon-ecs-agent/pull/4788)
+* Enhancement - Update SSM Agent version to 3.3.3050.0 [4793](https://github.com/aws/amazon-ecs-agent/pull/4793)
+* Enhancement - Update Go version to 1.24.7 [4794](https://github.com/aws/amazon-ecs-agent/pull/4794)
+* Bugfix - Skip iptables rules for introspection access from docker bridge when no bridge is found [4785](https://github.com/aws/amazon-ecs-agent/pull/4785)
+* Bugfix - Fixes bug in DNS configuration for SC tasks in BR platforms [4787](https://github.com/aws/amazon-ecs-agent/pull/4787)
+* Bugfix - Fix undercounting of network stats when using the awsvpc networking mode [4766](https://github.com/aws/amazon-ecs-agent/pull/4766)
+
 # 1.99.1
 * Enhancement - Update README and remove circular directions [4774](https://github.com/aws/amazon-ecs-agent/pull/4774)
 * Bugfix - Fix agent update handling for IPv6-only instances [4781](https://github.com/aws/amazon-ecs-agent/pull/4781)
