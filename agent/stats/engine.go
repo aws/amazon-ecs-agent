@@ -957,11 +957,10 @@ func (engine *DockerStatsEngine) doRemoveContainerUnsafe(container *StatsContain
 		// Delete will do nothing if the specified key doesn't exist.
 		delete(engine.tasksToDefinitions, taskArn)
 		seelog.Debugf("Deleted task from tasks, arn: %s", taskArn)
-	}
 
-	if _, ok := engine.taskToServiceConnectStats[taskArn]; ok {
+		// Stop collecting service connect stats for this task
 		delete(engine.taskToServiceConnectStats, taskArn)
-		seelog.Debugf("Deleted task from service connect stats watch list, arn: %s", taskArn)
+		seelog.Debugf("Deleted task from the Service Connect stats watchlist, task ARN: %s", taskArn)
 	}
 
 	// Remove the container from health container watch list

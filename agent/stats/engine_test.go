@@ -218,6 +218,46 @@ func TestStatsEngineAddRemoveContainers(t *testing.T) {
 	validateIdleContainerMetrics(t, engine)
 }
 
+func TestDoRemoveContainerUnsafeServiceConnectStats(t *testing.T) {
+	engine := NewDockerStatsEngine(&cfg, nil, eventStream("TestDoRemoveContainerUnsafeServiceConnectStats"), nil, nil, nil)
+	defer engine.removeAll()
+
+	taskArn := "arn:aws:ecs:us-west-2:123456789012:task/test-task"
+
+	// Setup task with service connect stats
+	engine.taskToServiceConnectStats[taskArn] = &ServiceConnectStats{}
+	engine.tasksToContainers[taskArn] = make(map[string]*StatsContainer)
+
+	// Add two containers to the task with proper initialization
+	_, cancel1 := context.WithCancel(context.Background())
+	container1 := &StatsContainer{
+		containerMetadata: &ContainerMetadata{DockerID: "container1"},
+		cancel:            cancel1,
+	}
+	_, cancel2 := context.WithCancel(context.Background())
+	container2 := &StatsContainer{
+		containerMetadata: &ContainerMetadata{DockerID: "container2"},
+		cancel:            cancel2,
+	}
+
+	engine.tasksToContainers[taskArn]["container1"] = container1
+	engine.tasksToContainers[taskArn]["container2"] = container2
+
+	// Remove first container - service connect stats should remain
+	engine.doRemoveContainerUnsafe(container1, taskArn)
+
+	// Verify service connect stats still exist (task has remaining containers)
+	_, exists := engine.taskToServiceConnectStats[taskArn]
+	assert.True(t, exists, "Service connect stats should remain when task has running containers")
+
+	// Remove second container - service connect stats should be cleaned up
+	engine.doRemoveContainerUnsafe(container2, taskArn)
+
+	// Verify service connect stats are cleaned up (no containers left in task)
+	_, exists = engine.taskToServiceConnectStats[taskArn]
+	assert.False(t, exists, "Service connect stats should be cleaned up when no containers remain in task")
+}
+
 func TestStatsEngineMetadataInStatsSets(t *testing.T) {
 	mockCtrl := gomock.NewController(t)
 	defer mockCtrl.Finish()
