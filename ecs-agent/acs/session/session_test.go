@@ -743,7 +743,7 @@ func TestSessionStopsWhenContextIsErrorDueToTimeout(t *testing.T) {
 
 	mockACSConnectEndpointEntry := mock_metrics.NewMockEntry(ctrl)
 	mockACSConnectEndpointEntry.EXPECT().Done(gomock.Any())
-	mockMetricsFactory.EXPECT().New("ACSSession.ACSConnectFailure").Return(mockACSConnectEndpointEntry)
+	mockMetricsFactory.EXPECT().New("ACSSession.ACSConnectFailure").Return(mockACSConnectEndpointEntry).AnyTimes()
 
 	mockACSConnectDurationEndpointEntry := mock_metrics.NewMockEntry(ctrl)
 	mockMetricsFactory.EXPECT().New("ACSSession.ACSConnectDuration").Return(mockACSConnectDurationEndpointEntry).AnyTimes()
@@ -796,7 +796,7 @@ func TestSessionReconnectsOnDiscoverPollEndpointError(t *testing.T) {
 
 	mockACSConnectEndpointEntry := mock_metrics.NewMockEntry(ctrl)
 	mockACSConnectEndpointEntry.EXPECT().Done(gomock.Any())
-	mockMetricsFactory.EXPECT().New("ACSSession.ACSConnectFailure").Return(mockACSConnectEndpointEntry)
+	mockMetricsFactory.EXPECT().New("ACSSession.ACSConnectFailure").Return(mockACSConnectEndpointEntry).AnyTimes()
 
 	mockACSConnectDurationEndpointEntry := mock_metrics.NewMockEntry(ctrl)
 	mockMetricsFactory.EXPECT().New("ACSSession.ACSConnectDuration").Return(mockACSConnectDurationEndpointEntry).AnyTimes()
@@ -869,7 +869,7 @@ func TestConnectionIsClosedOnIdle(t *testing.T) {
 	mockMetricsFactory := mock_metrics.NewMockEntryFactory(ctrl)
 
 	mockACSConnectEndpointEntry := mock_metrics.NewMockEntry(ctrl)
-	mockMetricsFactory.EXPECT().New("ACSSession.ACSConnectFailure").Return(mockACSConnectEndpointEntry)
+	mockMetricsFactory.EXPECT().New("ACSSession.ACSConnectFailure").Return(mockACSConnectEndpointEntry).AnyTimes()
 	mockACSConnectEndpointEntry.EXPECT().Done(gomock.Any())
 
 	mockACSConnectDurationEndpointEntry := mock_metrics.NewMockEntry(ctrl)
