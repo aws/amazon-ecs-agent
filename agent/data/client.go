@@ -14,6 +14,8 @@
 package data
 
 import (
+	"fmt"
+	"os"
 	"path/filepath"
 	"sync"
 
@@ -39,6 +41,7 @@ const (
 	resAttachmentsBucketName = "resattachments"
 	metadataBucketName       = "metadata"
 	emptyAgentVersionMsg     = "No version info available in boltDB. Either this is a fresh instance, or we were using state file to persist data. Transformer not applicable."
+	notDirectoryErrorMsg     = "path %s is not a valid directory"
 )
 
 var (
@@ -53,6 +56,7 @@ var (
 		resAttachmentsBucketName,
 		metadataBucketName,
 	}
+	dirExists = checkDirectoryExists
 )
 
 // Client specifies the data management interface to persist and manage various kinds of data in the agent.
@@ -133,7 +137,15 @@ func NewWithSetup(dataDir string) (Client, error) {
 // setup initiates the boltdb client and makes sure the buckets we use and transformer are created, and
 // registers transformation functions to transformer.
 func setup(dataDir string) (*client, error) {
+	// Check if the directory is valid
+	err := dirExists(dataDir)
+	if err != nil {
+		return nil, err
+	}
 	db, err := bolt.Open(filepath.Join(dataDir, dbName), dbMode, nil)
+	if err != nil {
+		return nil, err
+	}
 	err = db.Update(func(tx *bolt.Tx) error {
 		for _, b := range buckets {
 			_, err = tx.CreateBucketIfNotExists([]byte(b))
@@ -166,4 +178,16 @@ func setup(dataDir string) (*client, error) {
 // Close closes the boltdb connection.
 func (c *client) Close() error {
 	return c.DB.Close()
+}
+
+// Checks if the data directory exists within the agent container
+func checkDirectoryExists(path string) error {
+	fileInfo, err := os.Stat(path)
+	if err != nil {
+		return err
+	}
+	if !fileInfo.IsDir() {
+		return fmt.Errorf(notDirectoryErrorMsg, path)
+	}
+	return nil
 }
