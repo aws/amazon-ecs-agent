@@ -53,7 +53,8 @@ const (
 	VPCTunnelInterfaceTypeGeneve = "geneve"
 	VPCTunnelInterfaceTypeTap    = "tap"
 
-	BridgeInterfaceName = "fargate-bridge"
+	BridgeInterfaceName       = "fargate-bridge"
+	ManagedInstanceBridgeName = "mi-bridge"
 
 	IPAMDataFileName = "eni-ipam.db"
 
@@ -115,6 +116,40 @@ func createBridgePluginConfig(netNSPath string) ecscni.PluginConfig {
 	bridgeConfig := &ecscni.BridgeConfig{
 		CNIConfig: cniConfig,
 		Name:      BridgeInterfaceName,
+		IPAM:      *ipamConfig,
+	}
+
+	return bridgeConfig
+}
+
+// createBridgePluginConfig constructs the configuration object for bridge plugin
+func createDaemonBridgePluginConfig(netNSPath string) ecscni.PluginConfig {
+	cniConfig := ecscni.CNIConfig{
+		NetNSPath:      netNSPath,
+		CNISpecVersion: cniSpecVersion,
+		CNIPluginName:  BridgePluginName,
+	}
+
+	_, routeIPNet, _ := net.ParseCIDR(AgentEndpoint)
+	route := &types.Route{
+		Dst: *routeIPNet,
+	}
+
+	ipamConfig := &ecscni.IPAMConfig{
+		CNIConfig: ecscni.CNIConfig{
+			NetNSPath:      netNSPath,
+			CNISpecVersion: cniSpecVersion,
+			CNIPluginName:  IPAMPluginName,
+		},
+		IPV4Subnet: ECSSubNet,
+		IPV4Routes: []*types.Route{route},
+		ID:         netNSPath,
+	}
+
+	// Invoke the bridge plugin and ipam plugin
+	bridgeConfig := &ecscni.BridgeConfig{
+		CNIConfig: cniConfig,
+		Name:      ManagedInstanceBridgeName,
 		IPAM:      *ipamConfig,
 	}
 

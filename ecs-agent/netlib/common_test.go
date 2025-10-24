@@ -67,20 +67,10 @@ func getSingleNetNSAWSVPCTestData(testTaskID string) (*ecsacs.Task, tasknetworkc
 
 	netNSName := fmt.Sprintf(netNSNamePattern, testTaskID, eniName)
 	netNSPath := netNSPathDir + netNSName
+	netNS, _ := tasknetworkconfig.NewNetworkNamespace(netNSName, netNSPath, 0, nil, &netIfs[0])
 	taskNetConfig := tasknetworkconfig.TaskNetworkConfig{
 		NetworkMode: types.NetworkModeAwsvpc,
-		NetworkNamespaces: []*tasknetworkconfig.NetworkNamespace{
-			{
-				Name:  netNSName,
-				Path:  netNSPath,
-				Index: 0,
-				NetworkInterfaces: []*networkinterface.NetworkInterface{
-					&netIfs[0],
-				},
-				KnownState:   status.NetworkNone,
-				DesiredState: status.NetworkReadyPull,
-			},
-		},
+		NetworkNamespaces: []*tasknetworkconfig.NetworkNamespace{netNS},
 	}
 
 	return taskPayload, taskNetConfig
@@ -152,30 +142,12 @@ func getMultiNetNSMultiIfaceAWSVPCTestData(testTaskID string) (*ecsacs.Task, tas
 	secondaryNetNSName := fmt.Sprintf(netNSNamePattern, testTaskID, ifName2)
 	secondaryNetNSPath := netNSPathDir + secondaryNetNSName
 
+	primaryNetNS, _ := tasknetworkconfig.NewNetworkNamespace(primaryNetNSName, primaryNetNSPath, 0, nil, &netIfs[0])
+	secondaryNetNS, _ := tasknetworkconfig.NewNetworkNamespace(secondaryNetNSName, secondaryNetNSPath, 1, nil, &netIfs[1])
+
 	taskNetConfig := tasknetworkconfig.TaskNetworkConfig{
 		NetworkMode: types.NetworkModeAwsvpc,
-		NetworkNamespaces: []*tasknetworkconfig.NetworkNamespace{
-			{
-				Name:  primaryNetNSName,
-				Path:  primaryNetNSPath,
-				Index: 0,
-				NetworkInterfaces: []*networkinterface.NetworkInterface{
-					&netIfs[0],
-				},
-				KnownState:   status.NetworkNone,
-				DesiredState: status.NetworkReadyPull,
-			},
-			{
-				Name:  secondaryNetNSName,
-				Path:  secondaryNetNSPath,
-				Index: 1,
-				NetworkInterfaces: []*networkinterface.NetworkInterface{
-					&netIfs[1],
-				},
-				KnownState:   status.NetworkNone,
-				DesiredState: status.NetworkReadyPull,
-			},
-		},
+		NetworkNamespaces: []*tasknetworkconfig.NetworkNamespace{primaryNetNS, secondaryNetNS},
 	}
 
 	return taskPayload, taskNetConfig
@@ -323,6 +295,7 @@ func getV2NTestData(testTaskID string) (*ecsacs.Task, tasknetworkconfig.TaskNetw
 				Name:              netNSName,
 				Path:              netNSPath,
 				Index:             0,
+				NetworkMode:       types.NetworkModeAwsvpc,
 				NetworkInterfaces: netIfs,
 				KnownState:        status.NetworkNone,
 				DesiredState:      status.NetworkReadyPull,

@@ -70,11 +70,13 @@ func TestNetworkBuilder_BuildTaskNetworkConfiguration(t *testing.T) {
 
 func TestNetworkBuilder_Start(t *testing.T) {
 	t.Run("awsvpc", testNetworkBuilder_StartAWSVPC)
+	t.Run("daemon-bridge", testNetworkBuilder_StartDaemonBridge)
 }
 
 // TestNetworkBuilder_Stop verifies stop workflow for AWSVPC mode.
 func TestNetworkBuilder_Stop(t *testing.T) {
 	t.Run("awsvpc", testNetworkBuilder_StopAWSVPC)
+	t.Run("daemon-bridge", testNetworkBuilder_StopDaemonBridge)
 }
 
 // getTestFunc returns a test function that verifies the capability of the networkBuilder
@@ -379,4 +381,67 @@ func getExpectedCalls_StopAWSVPC(
 	return append(calls,
 		platformAPI.EXPECT().DeleteDNSConfig(netNS.Name).Return(nil).Times(1),
 		platformAPI.EXPECT().DeleteNetNS(netNS.Path).Return(nil).Times(1))
+}
+
+// testNetworkBuilder_StartDaemonBridge verifies that the expected platform API calls
+// are made by the network builder while configuring daemon-bridge network namespace.
+func testNetworkBuilder_StartDaemonBridge(t *testing.T) {
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+
+	ctx := context.TODO()
+	platformAPI := mock_platform.NewMockAPI(ctrl)
+	metricsFactory := mock_metrics.NewMockEntryFactory(ctrl)
+	mockEntry := mock_metrics.NewMockEntry(ctrl)
+	netBuilder := &networkBuilder{
+		platformAPI:    platformAPI,
+		metricsFactory: metricsFactory,
+	}
+
+	// Create a daemon-bridge network namespace
+	netNS, _ := tasknetworkconfig.NewNetworkNamespace("daemon-ns", "/var/run/netns/daemon-ns", 0, nil)
+	netNS = netNS.WithNetworkMode("daemon-bridge")
+	netNS.KnownState = status.NetworkNone
+	netNS.DesiredState = status.NetworkReadyPull
+
+	t.Run("daemon-bridge-start", func(*testing.T) {
+		gomock.InOrder(
+			metricsFactory.EXPECT().New(metrics.BuildNetworkNamespaceMetricName).Return(mockEntry).Times(1),
+			mockEntry.EXPECT().WithFields(gomock.Any()).Return(mockEntry).Times(1),
+			platformAPI.EXPECT().ConfigureDaemonNetNS(netNS).Return(nil).Times(1),
+			mockEntry.EXPECT().Done(nil).Times(1),
+		)
+		netBuilder.Start(ctx, "daemon-bridge", taskID, netNS)
+	})
+}
+
+// testNetworkBuilder_StopDaemonBridge verifies that the cleanup of daemon-bridge
+// network namespace works as expected.
+func testNetworkBuilder_StopDaemonBridge(t *testing.T) {
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+
+	ctx := context.TODO()
+	platformAPI := mock_platform.NewMockAPI(ctrl)
+	metricsFactory := mock_metrics.NewMockEntryFactory(ctrl)
+	mockEntry := mock_metrics.NewMockEntry(ctrl)
+	netBuilder := &networkBuilder{
+		platformAPI:    platformAPI,
+		metricsFactory: metricsFactory,
+	}
+
+	// Create a daemon-bridge network namespace
+	netNS, _ := tasknetworkconfig.NewNetworkNamespace("daemon-ns", "/var/run/netns/daemon-ns", 0, nil)
+	netNS = netNS.WithNetworkMode("daemon-bridge")
+	netNS.DesiredState = status.NetworkDeleted
+
+	t.Run("daemon-bridge-stop", func(*testing.T) {
+		gomock.InOrder(
+			metricsFactory.EXPECT().New(metrics.DeleteNetworkNamespaceMetricName).Return(mockEntry).Times(1),
+			mockEntry.EXPECT().WithFields(gomock.Any()).Return(mockEntry).Times(1),
+			platformAPI.EXPECT().StopDaemonNetNS(ctx, netNS).Return(nil).Times(1),
+			mockEntry.EXPECT().Done(nil).Times(1),
+		)
+		netBuilder.Stop(ctx, "daemon-bridge", taskID, netNS)
+	})
 }

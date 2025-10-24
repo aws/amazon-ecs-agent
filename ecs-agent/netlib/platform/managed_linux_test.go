@@ -131,7 +131,7 @@ func testManagedLinuxBranchENIConfiguration(t *testing.T) {
 	require.NoError(t, err)
 }
 
-func TestBuildDefaultNetworkNamespace(t *testing.T) {
+func TestBuildDefaultNetworkNamespaceConfig(t *testing.T) {
 	tests := []struct {
 		name       string
 		taskID     string
@@ -278,7 +278,7 @@ func TestBuildDefaultNetworkNamespace(t *testing.T) {
 				common: *commonPlatform,
 			}
 
-			namespaces, err := ml.buildDefaultNetworkNamespace(tt.taskID)
+			namespaces, err := ml.buildDefaultNetworkNamespaceConfig(tt.taskID)
 
 			if tt.expectedError != nil {
 				assert.Error(t, err)
@@ -317,6 +317,121 @@ func TestBuildDefaultNetworkNamespace(t *testing.T) {
 					subnetGatewayAddr = netInt.SubnetGatewayIPV6Address
 				}
 				assert.Equal(t, tt.expectedSubnetGatewayAddress, subnetGatewayAddr)
+			}
+		})
+	}
+}
+
+func TestBuildHostDaemonNamespaceConfig(t *testing.T) {
+	tests := []struct {
+		name       string
+		taskID     string
+		setupMocks func(
+			*mock_ec2.MockEC2MetadataClient,
+			*mock_netwrapper.MockNet,
+			*mock_netlinkwrapper.MockNetLink,
+		)
+		expectedError                error
+		expectedIPAddress            string
+		expectedSubnetGatewayAddress string
+		expectedNetworkMode          string
+	}{
+		{
+			name:   "successful daemon namespace creation",
+			taskID: "daemon-task-1",
+			setupMocks: func(
+				mockEC2Client *mock_ec2.MockEC2MetadataClient,
+				mockNet *mock_netwrapper.MockNet,
+				mockNetLink *mock_netlinkwrapper.MockNetLink) {
+				mockEC2Client.EXPECT().GetMetadata(PrivateIPv4Address).Return("10.194.20.1", nil).Times(1)
+				mockEC2Client.EXPECT().GetMetadata(MacResource).Return(macAddress, nil).Times(1)
+				mockEC2Client.EXPECT().GetMetadata(InstanceIDResource).Return("i-1234567890abcdef0", nil).Times(1)
+				mockEC2Client.EXPECT().GetMetadata(fmt.Sprintf(IPv4SubNetCidrBlock, macAddress)).
+					Return("10.194.20.0/20", nil).
+					Times(1)
+
+				testMac, err := net.ParseMAC(macAddress)
+				require.NoError(t, err)
+				link1 := &netlink.Dummy{LinkAttrs: netlink.LinkAttrs{HardwareAddr: testMac}}
+				mockNetLink.EXPECT().LinkList().Return([]netlink.Link{link1}, nil)
+				routes := []netlink.Route{
+					netlink.Route{
+						Gw:        nil,
+						Dst:       nil,
+						LinkIndex: 0,
+					},
+					netlink.Route{
+						Gw:        net.ParseIP("10.194.20.1"),
+						Dst:       nil,
+						LinkIndex: 0,
+					},
+				}
+				mockNetLink.EXPECT().RouteList(link1, netlink.FAMILY_V4).Return(routes, nil).Times(1)
+				mockNetLink.EXPECT().RouteList(link1, netlink.FAMILY_V6).Return(nil, nil).Times(1)
+
+				testIface := []net.Interface{
+					{
+						HardwareAddr: testMac,
+						Name:         "eth1",
+					},
+				}
+				mockNet.EXPECT().Interfaces().Return(testIface, nil).Times(1)
+			},
+			expectedIPAddress:            "10.194.20.1",
+			expectedSubnetGatewayAddress: "10.194.20.0/20",
+			expectedNetworkMode:          "daemon-bridge",
+			expectedError:                nil,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			ctrl := gomock.NewController(t)
+			defer ctrl.Finish()
+
+			mockMetadataClient := mock_ec2.NewMockEC2MetadataClient(ctrl)
+			mockNet := mock_netwrapper.NewMockNet(ctrl)
+			netLink := mock_netlinkwrapper.NewMockNetLink(ctrl)
+			mockNsUtil := mock_ecscni.NewMockNetNSUtil(ctrl)
+			mockNsUtil.EXPECT().GetNetNSPath("host-daemon").Return("/var/run/netns/host-daemon").Times(1)
+			tt.setupMocks(mockMetadataClient, mockNet, netLink)
+
+			commonPlatform := &common{
+				net:     mockNet,
+				netlink: netLink,
+				nsUtil:  mockNsUtil,
+			}
+			ml := &managedLinux{
+				client: mockMetadataClient,
+				common: *commonPlatform,
+			}
+
+			namespaces, err := ml.buildHostDaemonNamespaceConfig(tt.taskID)
+
+			if tt.expectedError != nil {
+				assert.Error(t, err)
+				assert.Contains(t, err.Error(), tt.expectedError.Error())
+				assert.Nil(t, namespaces)
+			} else {
+				assert.NoError(t, err)
+				assert.NotNil(t, namespaces)
+				assert.Len(t, namespaces, 1)
+
+				ns := namespaces[0]
+				// Verify namespace properties
+				assert.Equal(t, "host-daemon", ns.Name)
+				assert.Equal(t, tt.expectedNetworkMode, string(ns.NetworkMode))
+				assert.Equal(t, status.NetworkNone, ns.KnownState)
+				assert.Equal(t, status.NetworkReadyPull, ns.DesiredState)
+
+				// Verify network interface properties
+				netInt := ns.NetworkInterfaces[0]
+				assert.True(t, netInt.Default)
+				assert.Equal(t, status.NetworkReadyPull, netInt.DesiredStatus)
+				assert.Equal(t, status.NetworkNone, netInt.KnownStatus)
+				assert.Equal(t, "i-1234567890abcdef0", netInt.ID)
+				assert.Equal(t, tt.expectedIPAddress, netInt.IPV4Addresses[0].Address)
+				assert.Equal(t, tt.expectedSubnetGatewayAddress, netInt.SubnetGatewayIPV4Address)
 			}
 		})
 	}
