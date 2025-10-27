@@ -46,6 +46,13 @@ func TaskMetadataPath() string {
 		utils.ConstructMuxVar(EndpointContainerIDMuxName, utils.AnythingButSlashRegEx))
 }
 
+// Returns the standard URI path for tasks metadata endpoint.
+func TasksMetadataPath() string {
+	return fmt.Sprintf(
+		"/v4/%s/tasks",
+		utils.ConstructMuxVar(EndpointContainerIDMuxName, utils.AnythingButSlashRegEx))
+}
+
 // Returns the standard URI path for task metadata with tags endpoint.
 func TaskMetadataWithTagsPath() string {
 	return fmt.Sprintf(
@@ -62,6 +69,12 @@ func ContainerStatsPath() string {
 // Returns a standard URI path for v4 task stats endpoint.
 func TaskStatsPath() string {
 	return fmt.Sprintf("/v4/%s/task/stats",
+		utils.ConstructMuxVar(EndpointContainerIDMuxName, utils.AnythingButSlashRegEx))
+}
+
+// Returns a standard URI path for v4 tasks stats endpoint.
+func TasksStatsPath() string {
+	return fmt.Sprintf("/v4/%s/tasks/stats",
 		utils.ConstructMuxVar(EndpointContainerIDMuxName, utils.AnythingButSlashRegEx))
 }
 
@@ -123,12 +136,28 @@ func TaskMetadataHandler(
 	return taskMetadataHandler(agentState, metricsFactory, false)
 }
 
+// TasksMetadataHandler returns the HTTP handler function for handling tasks metadata requests.
+func TasksMetadataHandler(
+	agentState state.AgentState,
+	metricsFactory metrics.EntryFactory,
+) func(http.ResponseWriter, *http.Request) {
+	return tasksMetadataHandler(agentState, metricsFactory, false)
+}
+
 // TaskMetadataHandler returns the HTTP handler function for handling task metadata with tags requests.
 func TaskMetadataWithTagsHandler(
 	agentState state.AgentState,
 	metricsFactory metrics.EntryFactory,
 ) func(http.ResponseWriter, *http.Request) {
 	return taskMetadataHandler(agentState, metricsFactory, true)
+}
+
+// TasksMetadataHandler returns the HTTP handler function for handling tasks metadata with tags requests.
+func TasksMetadataWithTagsHandler(
+	agentState state.AgentState,
+	metricsFactory metrics.EntryFactory,
+) func(http.ResponseWriter, *http.Request) {
+	return tasksMetadataHandler(agentState, metricsFactory, true)
 }
 
 func taskMetadataHandler(
@@ -169,6 +198,40 @@ func taskMetadataHandler(
 	}
 }
 
+func tasksMetadataHandler(
+	agentState state.AgentState,
+	metricsFactory metrics.EntryFactory,
+	includeTags bool,
+) func(http.ResponseWriter, *http.Request) {
+	return func(w http.ResponseWriter, r *http.Request) {
+		endpointContainerID := mux.Vars(r)[EndpointContainerIDMuxName]
+		var tasksMetadata []state.TaskResponse
+		var err error
+
+		if includeTags {
+			tasksMetadata, err = agentState.GetTasksMetadataWithTags(endpointContainerID)
+		} else {
+			tasksMetadata, err = agentState.GetTasksMetadata(endpointContainerID)
+		}
+
+		if err != nil {
+			logger.Error("Failed to get v4 tasks metadata", logger.Fields{
+				field.Error: err,
+			})
+
+			utils.WriteJSONResponse(w, http.StatusInternalServerError,
+				"failed to get tasks metadata", utils.RequestTypeTasksMetadata)
+			metricsFactory.New(metrics.InternalServerErrorMetricName).Done(err)
+			return
+		}
+
+		logger.Info("Writing response for v4 tasks metadata", logger.Fields{
+			"task_count": len(tasksMetadata),
+		})
+		utils.WriteJSONResponse(w, http.StatusOK, tasksMetadata, utils.RequestTypeTasksMetadata)
+	}
+}
+
 // Returns an appropriate HTTP response status code and body for the task metadata error.
 func getTaskErrorResponse(endpointContainerID string, err error) (int, string) {
 	var errContainerLookupFailed *state.ErrorLookupFailure
@@ -204,6 +267,38 @@ func TaskStatsHandler(
 ) func(http.ResponseWriter, *http.Request) {
 	return statsHandler(agentState.GetTaskStats, metricsFactory,
 		utils.RequestTypeTaskStats, taskStatsErrorPrefix)
+}
+
+// Returns an HTTP handler for v4 tasks stats endpoint
+func TasksStatsHandler(
+	agentState state.AgentState,
+	metricsFactory metrics.EntryFactory,
+) func(http.ResponseWriter, *http.Request) {
+	return func(w http.ResponseWriter, r *http.Request) {
+		endpointContainerID := mux.Vars(r)[EndpointContainerIDMuxName]
+		// Get stats for all tasks
+		stats, err := agentState.GetTasksStats(endpointContainerID)
+		if err != nil {
+			logger.Error("Failed to get v4 tasks stats", logger.Fields{
+				field.Error: err,
+			})
+
+			responseCode, responseBody := getStatsErrorResponse("", err, "V4 tasks stats handler")
+			utils.WriteJSONResponse(w, responseCode, responseBody, utils.RequestTypeTasksStats)
+
+			if utils.Is5XXStatus(responseCode) {
+				metricsFactory.New(metrics.InternalServerErrorMetricName).Done(err)
+			}
+
+			return
+		}
+
+		// Write stats response
+		logger.Info("Writing response for v4 tasks stats", logger.Fields{
+			"task_count": len(stats),
+		})
+		utils.WriteJSONResponse(w, http.StatusOK, stats, utils.RequestTypeTasksStats)
+	}
 }
 
 // Generic function that returns an HTTP handler for container or task stats endpoint
