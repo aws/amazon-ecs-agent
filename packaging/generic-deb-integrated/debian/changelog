@@ -1,3 +1,9 @@
+amazon-ecs-init (1.100.1-1) stable; urgency=medium
+
+  * Cache Agent version 1.100.1
+
+ -- Anuj Singh <singholt@amazon.com>  Tue, 28 Oct 2025 18:00:00 +0000
+
 amazon-ecs-init (1.100.0-1) stable; urgency=medium
 
   * Cache Agent version 1.100.0
