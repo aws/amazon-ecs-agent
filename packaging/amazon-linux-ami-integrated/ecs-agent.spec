@@ -42,7 +42,7 @@ Source5:        amazon-ecs-volume-plugin.conf
 Source6:        ebs-csi-driver-arm64-v%{version}.tar
 Source7:        ebs-csi-driver-v%{version}.tar
 
-BuildRequires:  golang >= 1.23.0
+BuildRequires:  golang >= 1.24.0
 %if %{with systemd}
 BuildRequires:  systemd
 Requires:       systemd
