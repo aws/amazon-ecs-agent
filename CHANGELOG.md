@@ -1,11 +1,15 @@
 # Changelog
 
+# 1.100.1
+* Enhancement - Update SSM Agent version to 3.3.3050.0 [#4793](https://github.com/aws/amazon-ecs-agent/pull/4793)
+* Enhancement - Update amazon-vpc-cni-plugins to consume updated dependencies in a4e9ac0 [#4801](https://github.com/aws/amazon-ecs-agent/pull/4801)
+* Enhancement - Check if ECS data directory exists within agent container [#4802](https://github.com/aws/amazon-ecs-agent/pull/4802)
+* Bugfix - Stop collecting Service Connect stats only when there are zero running containers in the task [#4796](https://github.com/aws/amazon-ecs-agent/pull/4796)
+
 # 1.100.0
 * Feature - Add flowsPercent parameter to network latency and packet loss fault injection endpoints [4780](https://github.com/aws/amazon-ecs-agent/pull/4780)
 * Enhancement - Default to size-based log file rollover instead of hourly [4776](https://github.com/aws/amazon-ecs-agent/pull/4776)
 * Enhancement - Use same precedence for credential providers in Windows and Linux [4788](https://github.com/aws/amazon-ecs-agent/pull/4788)
-* Enhancement - Update SSM Agent version to 3.3.3050.0 [4793](https://github.com/aws/amazon-ecs-agent/pull/4793)
-* Enhancement - Update Go version to 1.24.7 [4794](https://github.com/aws/amazon-ecs-agent/pull/4794)
 * Bugfix - Skip iptables rules for introspection access from docker bridge when no bridge is found [4785](https://github.com/aws/amazon-ecs-agent/pull/4785)
 * Bugfix - Fixes bug in DNS configuration for SC tasks in BR platforms [4787](https://github.com/aws/amazon-ecs-agent/pull/4787)
 * Bugfix - Fix undercounting of network stats when using the awsvpc networking mode [4766](https://github.com/aws/amazon-ecs-agent/pull/4766)
