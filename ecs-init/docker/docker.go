@@ -15,7 +15,6 @@ package docker
 
 import (
 	"bytes"
-	"encoding/json"
 	"errors"
 	"io"
 	"os"
@@ -25,6 +24,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/aws/amazon-ecs-agent/ecs-agent/utils"
 	"github.com/aws/amazon-ecs-agent/ecs-init/backoff"
 	"github.com/aws/amazon-ecs-agent/ecs-init/config"
 	"github.com/aws/amazon-ecs-agent/ecs-init/gpu"
@@ -384,7 +384,7 @@ func (c *client) getContainerConfig(envVarsFromFiles map[string]string) *godocke
 func setLabels(cfg *godocker.Config, labelsStringRaw string) {
 	// Is there labels to add?
 	if len(labelsStringRaw) > 0 {
-		labels, err := generateLabelMap(labelsStringRaw)
+		labels, err := utils.JsonBlockToStringToStringMap(labelsStringRaw)
 		if err != nil {
 			// Are the labels valid?
 			log.Errorf("Failed to decode the container labels, skipping labels. Error: %s", err)
@@ -453,12 +453,6 @@ func (c *client) getEnvVars(filename string) map[string]string {
 	}
 
 	return envVariables
-}
-
-func generateLabelMap(jsonBlock string) (map[string]string, error) {
-	out := map[string]string{}
-	err := json.Unmarshal([]byte(jsonBlock), &out)
-	return out, err
 }
 
 func (c *client) getHostConfig(envVarsFromFiles map[string]string) *godocker.HostConfig {

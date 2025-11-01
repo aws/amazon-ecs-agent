@@ -56,7 +56,6 @@ import (
 	"github.com/aws/amazon-ecs-agent/ecs-agent/utils/arn"
 	"github.com/aws/amazon-ecs-agent/ecs-agent/utils/ttime"
 	ecstypes "github.com/aws/aws-sdk-go-v2/service/ecs/types"
-	log "github.com/cihub/seelog"
 
 	"github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/docker/docker/api/types"
@@ -166,7 +165,7 @@ const (
 
 	ipv6LoopbackAddress = "::1"
 
-	PAUSE_LABELS_ENV_VAR = "ECS_PAUSE_LABELS"
+	pauseLabelsEnvVar = "ECS_PAUSE_LABELS"
 )
 
 // TaskOverrides are the overrides applied to a task
@@ -1817,7 +1816,7 @@ func (task *Task) dockerConfig(container *apicontainer.Container, apiVersion doc
 
 	switch container.Type {
 	case apicontainer.ContainerCNIPause, apicontainer.ContainerNamespacePause:
-		if pauseLabels := os.Getenv(PAUSE_LABELS_ENV_VAR); pauseLabels != "" {
+		if pauseLabels := os.Getenv(pauseLabelsEnvVar); pauseLabels != "" {
 			// Set labels to pause container if it's provieded as env var.
 			setLabelsFromJsonString(containerConfig, pauseLabels)
 		}
@@ -1834,21 +1833,17 @@ func (task *Task) dockerConfig(container *apicontainer.Container, apiVersion doc
 // Parse label string and set them to the given container configuration.
 func setLabelsFromJsonString(config *dockercontainer.Config, labelsString string) {
 	if len(labelsString) > 0 {
-		labels, err := toLabelMap(labelsString)
+		labels, err := commonutils.JsonBlockToStringToStringMap(labelsString)
 		if err != nil {
-			log.Errorf("Skipped setting labels because of failed to decode. Error: %s", err)
+			logger.Warn("Skipping setting labels because received error decoding labels string", logger.Fields{
+				field.Error: err,
+			})
 			return
 		}
 		if len(labels) > 0 {
 			config.Labels = labels
 		}
 	}
-}
-
-func toLabelMap(jsonBlock string) (map[string]string, error) {
-	out := map[string]string{}
-	err := json.Unmarshal([]byte(jsonBlock), &out)
-	return out, err
 }
 
 // dockerExposedPorts returns the container ports that need to be exposed for a container

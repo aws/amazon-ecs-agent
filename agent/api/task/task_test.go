@@ -5959,7 +5959,7 @@ func TestDockerConfigPauseContainerLabelsWithEnvVar_ECS_PAUSE_LABELS(t *testing.
 		},
 	}
 	labelsString := "{\"test.label.1\":\"test_a\",\"test.label.2\":\"test_b\"}"
-	t.Setenv("ECS_PAUSE_LABELS", labelsString)
+	t.Setenv(pauseLabelsEnvVar, labelsString)
 
 	config, configErr := testTask.DockerConfig(testTask.Containers[0], defaultDockerClientAPIVersion)
 	if configErr != nil {
@@ -5984,7 +5984,7 @@ func TestDockerConfigNamespacePauseContainerLabelsWithEnvVar_ECS_PAUSE_LABELS(t 
 		},
 	}
 	labelsString := "{\"test.label.1\":\"test_a\",\"test.label.2\":\"test_b\"}"
-	t.Setenv("ECS_PAUSE_LABELS", labelsString)
+	t.Setenv(pauseLabelsEnvVar, labelsString)
 
 	config, configErr := testTask.DockerConfig(testTask.Containers[0], defaultDockerClientAPIVersion)
 	if configErr != nil {
@@ -6010,7 +6010,7 @@ func TestDockerConfigPauseContainerLabelsWithInvalidEnvVar_ECS_PAUSE_LABELS(t *t
 	}
 	// Invalid format.
 	labelsString := "{\"test.label\":\"test\""
-	t.Setenv("ECS_PAUSE_LABELS", labelsString)
+	t.Setenv(pauseLabelsEnvVar, labelsString)
 
 	config, configErr := testTask.DockerConfig(testTask.Containers[0], defaultDockerClientAPIVersion)
 	if configErr != nil {
