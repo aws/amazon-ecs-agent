@@ -69,7 +69,7 @@ func getSingleNetNSAWSVPCTestData(testTaskID string) (*ecsacs.Task, tasknetworkc
 	netNSPath := netNSPathDir + netNSName
 	netNS, _ := tasknetworkconfig.NewNetworkNamespace(netNSName, netNSPath, 0, nil, &netIfs[0])
 	taskNetConfig := tasknetworkconfig.TaskNetworkConfig{
-		NetworkMode: types.NetworkModeAwsvpc,
+		NetworkMode:       types.NetworkModeAwsvpc,
 		NetworkNamespaces: []*tasknetworkconfig.NetworkNamespace{netNS},
 	}
 
@@ -146,7 +146,7 @@ func getMultiNetNSMultiIfaceAWSVPCTestData(testTaskID string) (*ecsacs.Task, tas
 	secondaryNetNS, _ := tasknetworkconfig.NewNetworkNamespace(secondaryNetNSName, secondaryNetNSPath, 1, nil, &netIfs[1])
 
 	taskNetConfig := tasknetworkconfig.TaskNetworkConfig{
-		NetworkMode: types.NetworkModeAwsvpc,
+		NetworkMode:       types.NetworkModeAwsvpc,
 		NetworkNamespaces: []*tasknetworkconfig.NetworkNamespace{primaryNetNS, secondaryNetNS},
 	}
 
