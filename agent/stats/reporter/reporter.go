@@ -91,6 +91,7 @@ func NewDockerTelemetrySession(
 		metrics.NewNopEntryFactory(),
 		metricsChannel,
 		healthChannel,
+		nil,
 		doctor,
 		ecsClient,
 	)
