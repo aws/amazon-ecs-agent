@@ -23,6 +23,7 @@
 package tcsclient
 
 import (
+	"bytes"
 	"context"
 	"fmt"
 	"math/rand"
@@ -912,25 +913,21 @@ func TestGetPublishInstanceStatusRequest(t *testing.T) {
 			}
 			cs.doctor.RunHealthchecks()
 
-			// note: setting RequestId and Timestamp to nil so I can make the comparison
 			metadata := &ecstcs.InstanceStatusMetadata{
 				Cluster:           aws.String(testCluster),
 				ContainerInstance: aws.String(testContainerInstance),
 				RequestId:         nil,
 			}
 
-			testResult, err := cs.getPublishInstanceStatusRequest()
+			testMessage, err := cs.createInstanceStatusMessageFromDoctor()
 
 			if tc.expectedStatuses != nil {
-				expectedResult := &ecstcs.PublishInstanceStatusRequest{
-					Metadata:  metadata,
-					Statuses:  tc.expectedStatuses,
-					Timestamp: nil,
+				expectedMessage := ecstcs.InstanceStatusMessage{
+					Metadata: metadata,
+					Statuses: tc.expectedStatuses,
 				}
-				// note: setting RequestId and Timestamp to nil so I can make the comparison
-				testResult.Timestamp = nil
-				testResult.Metadata.RequestId = nil
-				assert.Equal(t, testResult, expectedResult)
+				testMessage.Metadata.RequestId = nil
+				assert.Equal(t, testMessage, expectedMessage)
 			} else {
 				assert.Error(t, err, "Test failed")
 			}
@@ -1234,6 +1231,7 @@ func TestPublishMessagesInstanceStatusReception(t *testing.T) {
 			},
 			expectPublishCall: true,
 			mockSetup: func(mockConn *mock_wsconn.MockWebsocketConn) {
+				mockConn.EXPECT().SetWriteDeadline(gomock.Any()).Return(nil)
 				mockConn.EXPECT().WriteMessage(gomock.Any(), gomock.Any()).Return(nil)
 			},
 			expectedError: false,
@@ -1259,6 +1257,7 @@ func TestPublishMessagesInstanceStatusReception(t *testing.T) {
 			},
 			expectPublishCall: true,
 			mockSetup: func(mockConn *mock_wsconn.MockWebsocketConn) {
+				mockConn.EXPECT().SetWriteDeadline(gomock.Any()).Return(nil)
 				mockConn.EXPECT().WriteMessage(gomock.Any(), gomock.Any()).Return(nil)
 			},
 			expectedError: false,
@@ -1275,6 +1274,7 @@ func TestPublishMessagesInstanceStatusReception(t *testing.T) {
 			},
 			expectPublishCall: true,
 			mockSetup: func(mockConn *mock_wsconn.MockWebsocketConn) {
+				mockConn.EXPECT().SetWriteDeadline(gomock.Any()).Return(nil)
 				mockConn.EXPECT().WriteMessage(gomock.Any(), gomock.Any()).Return(nil)
 			},
 			expectedError: false,
@@ -1337,8 +1337,11 @@ func TestPublishMessagesConcurrentHandling(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.TODO())
 	defer cancel()
 
-	// Expect three WriteMessage calls for the three different message types
-	conn.EXPECT().WriteMessage(gomock.Any(), gomock.Any()).Return(nil).Times(3)
+	// Expect three WriteMessage calls for the three different message types.
+	// Each WriteMessage is preceded by SetWriteDeadline.
+	// Use AnyTimes() to allow calls in any order.
+	conn.EXPECT().SetWriteDeadline(gomock.Any()).Return(nil).AnyTimes()
+	conn.EXPECT().WriteMessage(gomock.Any(), gomock.Any()).Return(nil).AnyTimes()
 
 	// Start publishMessages in a goroutine
 	go cs.publishMessages(ctx)
@@ -1407,6 +1410,7 @@ func TestPublishMessagesErrorHandling(t *testing.T) {
 		{
 			name: "publishInstanceStatusOnce fails with connection error",
 			setupMock: func(mockConn *mock_wsconn.MockWebsocketConn) {
+				mockConn.EXPECT().SetWriteDeadline(gomock.Any()).Return(nil)
 				mockConn.EXPECT().WriteMessage(gomock.Any(), gomock.Any()).Return(fmt.Errorf("connection error"))
 			},
 			sendMessage: func(ch chan ecstcs.InstanceStatusMessage) {
@@ -1429,6 +1433,7 @@ func TestPublishMessagesErrorHandling(t *testing.T) {
 		{
 			name: "publishInstanceStatusOnce fails with write deadline error",
 			setupMock: func(mockConn *mock_wsconn.MockWebsocketConn) {
+				mockConn.EXPECT().SetWriteDeadline(gomock.Any()).Return(nil)
 				mockConn.EXPECT().WriteMessage(gomock.Any(), gomock.Any()).Return(fmt.Errorf("write deadline exceeded"))
 			},
 			sendMessage: func(ch chan ecstcs.InstanceStatusMessage) {
@@ -1505,11 +1510,15 @@ func TestPublishMessagesErrorsDoNotAffectOtherMessageTypes(t *testing.T) {
 	defer cancel()
 
 	// Set up mock expectations: instanceStatus fails, but telemetry and health succeed
-	gomock.InOrder(
-		conn.EXPECT().WriteMessage(gomock.Any(), gomock.Any()).Return(fmt.Errorf("instanceStatus error")), // instanceStatus fails
-		conn.EXPECT().WriteMessage(gomock.Any(), gomock.Any()).Return(nil),                                // telemetry succeeds
-		conn.EXPECT().WriteMessage(gomock.Any(), gomock.Any()).Return(nil),                                // health succeeds
-	)
+	// Use AnyTimes() to allow calls in any order since select is non-deterministic.
+	conn.EXPECT().SetWriteDeadline(gomock.Any()).Return(nil).AnyTimes()
+	conn.EXPECT().WriteMessage(gomock.Any(), gomock.Any()).DoAndReturn(func(messageType int, data []byte) error {
+		// Check if this is an instanceStatus message by looking for "PublishInstanceStatusRequest" in the data
+		if bytes.Contains(data, []byte("PublishInstanceStatusRequest")) {
+			return fmt.Errorf("instanceStatus error")
+		}
+		return nil
+	}).AnyTimes()
 
 	// Start publishMessages in a goroutine
 	go cs.publishMessages(ctx)

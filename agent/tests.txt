@@ -1,0 +1,8 @@
+All tests passing!
+
+Fixed issues:
+1. Added SetWriteDeadline mock expectations before WriteMessage calls in all failing tests
+2. Removed unused function getPublishInstanceStatusRequest from client.go
+3. Updated TestGetPublishInstanceStatusRequest to use createInstanceStatusMessageFromDoctor instead
+4. Changed TestPublishMessagesConcurrentHandling to use AnyTimes() for non-deterministic message ordering
+5. Changed TestPublishMessagesErrorsDoNotAffectOtherMessageTypes to use DoAndReturn for conditional error handling

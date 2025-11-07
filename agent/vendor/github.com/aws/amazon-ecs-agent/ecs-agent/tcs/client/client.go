@@ -513,26 +513,6 @@ func (cs *tcsClientServer) createInstanceStatusMessageFromDoctor() (ecstcs.Insta
 	}, nil
 }
 
-// GetPublishInstanceStatusRequest will get all healthcheck statuses and generate
-// a sendable PublishInstanceStatusRequest
-func (cs *tcsClientServer) getPublishInstanceStatusRequest() (*ecstcs.PublishInstanceStatusRequest, error) {
-	metadata := &ecstcs.InstanceStatusMetadata{
-		Cluster:           aws.String(cs.doctor.GetCluster()),
-		ContainerInstance: aws.String(cs.doctor.GetContainerInstanceArn()),
-		RequestId:         aws.String(uuid.NewRandom().String()),
-	}
-	instanceStatuses := cs.getInstanceStatuses()
-	if instanceStatuses == nil {
-		return nil, doctor.EmptyHealthcheckError
-	}
-
-	return &ecstcs.PublishInstanceStatusRequest{
-		Metadata:  metadata,
-		Statuses:  instanceStatuses,
-		Timestamp: (*utils.Timestamp)(aws.Time(time.Now())),
-	}, nil
-}
-
 // getInstanceStatuses returns a list of instance statuses converted from what
 // the doctor knows about the registered healthchecks
 func (cs *tcsClientServer) getInstanceStatuses() []*ecstcs.InstanceStatus {
