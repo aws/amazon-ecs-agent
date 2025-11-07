@@ -70,9 +70,7 @@ type tcsClientServer struct {
 	health <-chan ecstcs.HealthMessage
 
 	// instanceStatus is a receive-only channel for instance status messages
-	// containing instance health status information from external sources.
-	// This channel allows components to send instance status updates
-	// independently of the doctor module's periodic health checks.
+	// containing instance health status to be published to the backend.
 	instanceStatus <-chan ecstcs.InstanceStatusMessage
 	wsclient.ClientServerImpl
 }

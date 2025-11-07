@@ -57,11 +57,6 @@ type HealthMessage struct {
 // information to be published to the TCS backend. This message type follows
 // the same pattern as TelemetryMessage and HealthMessage, providing a structured
 // way to send instance status updates through a dedicated channel.
-//
-// The message contains metadata about the container instance and a collection
-// of status checks that indicate the health of various components on the instance.
-// This allows external components to send instance status updates independently
-// of the doctor module's periodic health checks.
 type InstanceStatusMessage struct {
 	// Metadata contains identifying information about the container instance
 	// including cluster name, container instance ARN, and request ID.
