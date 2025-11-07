@@ -20,6 +20,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/aws/amazon-ecs-agent/ecs-agent/tcs/model/ecstcs"
 	"github.com/stretchr/testify/assert"
 )
 
@@ -30,14 +31,14 @@ const (
 
 type trueHealthcheck struct{}
 
-func (tc *trueHealthcheck) RunCheck() HealthcheckStatus                   { return HealthcheckStatusOk }
-func (tc *trueHealthcheck) SetHealthcheckStatus(status HealthcheckStatus) {}
-func (tc *trueHealthcheck) GetHealthcheckType() string                    { return HealthcheckTypeAgent }
-func (tc *trueHealthcheck) GetHealthcheckStatus() HealthcheckStatus {
-	return HealthcheckStatusInitializing
+func (tc *trueHealthcheck) RunCheck() ecstcs.HealthcheckStatus                   { return ecstcs.HealthcheckStatusOk }
+func (tc *trueHealthcheck) SetHealthcheckStatus(status ecstcs.HealthcheckStatus) {}
+func (tc *trueHealthcheck) GetHealthcheckType() string                           { return HealthcheckTypeAgent }
+func (tc *trueHealthcheck) GetHealthcheckStatus() ecstcs.HealthcheckStatus {
+	return ecstcs.HealthcheckStatusInitializing
 }
-func (tc *trueHealthcheck) GetLastHealthcheckStatus() HealthcheckStatus {
-	return HealthcheckStatusInitializing
+func (tc *trueHealthcheck) GetLastHealthcheckStatus() ecstcs.HealthcheckStatus {
+	return ecstcs.HealthcheckStatusInitializing
 }
 func (tc *trueHealthcheck) GetHealthcheckTime() time.Time {
 	return time.Date(1974, time.May, 19, 1, 2, 3, 4, time.UTC)
@@ -51,14 +52,16 @@ func (tc *trueHealthcheck) GetLastHealthcheckTime() time.Time {
 
 type falseHealthcheck struct{}
 
-func (fc *falseHealthcheck) RunCheck() HealthcheckStatus                   { return HealthcheckStatusImpaired }
-func (fc *falseHealthcheck) SetHealthcheckStatus(status HealthcheckStatus) {}
-func (fc *falseHealthcheck) GetHealthcheckType() string                    { return HealthcheckTypeAgent }
-func (fc *falseHealthcheck) GetHealthcheckStatus() HealthcheckStatus {
-	return HealthcheckStatusInitializing
+func (fc *falseHealthcheck) RunCheck() ecstcs.HealthcheckStatus {
+	return ecstcs.HealthcheckStatusImpaired
 }
-func (fc *falseHealthcheck) GetLastHealthcheckStatus() HealthcheckStatus {
-	return HealthcheckStatusInitializing
+func (fc *falseHealthcheck) SetHealthcheckStatus(status ecstcs.HealthcheckStatus) {}
+func (fc *falseHealthcheck) GetHealthcheckType() string                           { return HealthcheckTypeAgent }
+func (fc *falseHealthcheck) GetHealthcheckStatus() ecstcs.HealthcheckStatus {
+	return ecstcs.HealthcheckStatusInitializing
+}
+func (fc *falseHealthcheck) GetLastHealthcheckStatus() ecstcs.HealthcheckStatus {
+	return ecstcs.HealthcheckStatusInitializing
 }
 func (fc *falseHealthcheck) GetHealthcheckTime() time.Time {
 	return time.Date(1974, time.May, 19, 1, 2, 3, 4, time.UTC)
@@ -161,27 +164,27 @@ func TestGetHealthchecks(t *testing.T) {
 func TestAllRight(t *testing.T) {
 	testcases := []struct {
 		name             string
-		testChecksResult []HealthcheckStatus
+		testChecksResult []ecstcs.HealthcheckStatus
 		expectedResult   bool
 	}{
 		{
 			name:             "empty checks",
-			testChecksResult: []HealthcheckStatus{},
+			testChecksResult: []ecstcs.HealthcheckStatus{},
 			expectedResult:   true,
 		},
 		{
 			name:             "all true checks",
-			testChecksResult: []HealthcheckStatus{HealthcheckStatusOk, HealthcheckStatusOk},
+			testChecksResult: []ecstcs.HealthcheckStatus{ecstcs.HealthcheckStatusOk, ecstcs.HealthcheckStatusOk},
 			expectedResult:   true,
 		},
 		{
 			name:             "all false checks",
-			testChecksResult: []HealthcheckStatus{HealthcheckStatusImpaired, HealthcheckStatusImpaired},
+			testChecksResult: []ecstcs.HealthcheckStatus{ecstcs.HealthcheckStatusImpaired, ecstcs.HealthcheckStatusImpaired},
 			expectedResult:   false,
 		},
 		{
 			name:             "mixed checks",
-			testChecksResult: []HealthcheckStatus{HealthcheckStatusOk, HealthcheckStatusImpaired},
+			testChecksResult: []ecstcs.HealthcheckStatus{ecstcs.HealthcheckStatusOk, ecstcs.HealthcheckStatusImpaired},
 			expectedResult:   false,
 		},
 	}
