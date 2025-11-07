@@ -159,7 +159,7 @@ func (session *telemetrySession) StartTelemetrySession(ctx context.Context) erro
 	tcsEndpointUrl := formatURL(endpoint, session.cluster, session.containerInstanceArn, session.agentVersion,
 		session.agentHash, containerRuntime, session.containerRuntimeVersion)
 	client := tcsclient.New(tcsEndpointUrl, session.cfg, session.doctor, session.disableMetrics, tcsclient.DefaultContainerMetricsPublishInterval,
-		session.credentialsCache, wsRWTimeout, session.metricsChannel, session.healthChannel, session.metricsFactory)
+		session.credentialsCache, wsRWTimeout, session.metricsChannel, session.healthChannel, nil, session.metricsFactory)
 	defer client.Close()
 
 	if session.deregisterInstanceEventStream != nil {
