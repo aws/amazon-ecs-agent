@@ -68,5 +68,5 @@ func (e *ebsCSIDaemonHealthcheck) RunCheck() ecstcs.InstanceHealthCheckStatus {
 
 // GetHealthcheckType returns the type of this health check.
 func (e *ebsCSIDaemonHealthcheck) GetHealthcheckType() string {
-	return ecsdoctor.HealthcheckTypeEBSDaemon
+	return ecstcs.InstanceHealthCheckTypeEBSDaemon
 }

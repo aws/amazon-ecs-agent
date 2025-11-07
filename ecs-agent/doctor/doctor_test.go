@@ -35,7 +35,9 @@ func (tc *trueHealthcheck) RunCheck() ecstcs.InstanceHealthCheckStatus {
 	return ecstcs.InstanceHealthCheckStatusOk
 }
 func (tc *trueHealthcheck) SetHealthcheckStatus(status ecstcs.InstanceHealthCheckStatus) {}
-func (tc *trueHealthcheck) GetHealthcheckType() string                                   { return HealthcheckTypeAgent }
+func (tc *trueHealthcheck) GetHealthcheckType() string {
+	return ecstcs.InstanceHealthCheckTypeAgent
+}
 func (tc *trueHealthcheck) GetHealthcheckStatus() ecstcs.InstanceHealthCheckStatus {
 	return ecstcs.InstanceHealthCheckStatusInitializing
 }
@@ -58,7 +60,9 @@ func (fc *falseHealthcheck) RunCheck() ecstcs.InstanceHealthCheckStatus {
 	return ecstcs.InstanceHealthCheckStatusImpaired
 }
 func (fc *falseHealthcheck) SetHealthcheckStatus(status ecstcs.InstanceHealthCheckStatus) {}
-func (fc *falseHealthcheck) GetHealthcheckType() string                                   { return HealthcheckTypeAgent }
+func (fc *falseHealthcheck) GetHealthcheckType() string {
+	return ecstcs.InstanceHealthCheckTypeAgent
+}
 func (fc *falseHealthcheck) GetHealthcheckStatus() ecstcs.InstanceHealthCheckStatus {
 	return ecstcs.InstanceHealthCheckStatusInitializing
 }

@@ -73,11 +73,15 @@ type InstanceStatusMessage struct {
 }
 
 const (
-	// InstanceHealthCheckStatusInitializing is the zero state of an instance health check status.
+	InstanceHealthCheckTypeContainerRuntime = "ContainerRuntime"
+	InstanceHealthCheckTypeAgent            = "Agent"
+	InstanceHealthCheckTypeEBSDaemon        = "EBSDaemon"
+	InstanceHealthCheckTypeNividia          = "Nividia"
+)
+
+const (
 	InstanceHealthCheckStatusInitializing InstanceHealthCheckStatus = iota
-	// InstanceHealthCheckStatusOk represents an instance health check with a true/success result.
 	InstanceHealthCheckStatusOk
-	// InstanceHealthCheckStatusImpaired represents an instance health check with a false/fail result.
 	InstanceHealthCheckStatusImpaired
 )
 

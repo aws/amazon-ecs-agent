@@ -19,12 +19,6 @@ import (
 	"github.com/aws/amazon-ecs-agent/ecs-agent/tcs/model/ecstcs"
 )
 
-const (
-	HealthcheckTypeContainerRuntime = "ContainerRuntime"
-	HealthcheckTypeAgent            = "Agent"
-	HealthcheckTypeEBSDaemon        = "EBSDaemon"
-)
-
 // Healthcheck defines the interface for performing health checks on various components.
 type Healthcheck interface {
 	GetHealthcheckType() string

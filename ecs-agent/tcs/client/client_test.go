@@ -58,14 +58,18 @@ const (
 
 type trueHealthcheck struct{}
 
-func (tc *trueHealthcheck) RunCheck() doctor.HealthcheckStatus                   { return doctor.HealthcheckStatusOk }
-func (tc *trueHealthcheck) SetHealthcheckStatus(status doctor.HealthcheckStatus) {}
-func (tc *trueHealthcheck) GetHealthcheckType() string                           { return doctor.HealthcheckTypeAgent }
-func (tc *trueHealthcheck) GetHealthcheckStatus() doctor.HealthcheckStatus {
-	return doctor.HealthcheckStatusInitializing
+func (tc *trueHealthcheck) RunCheck() ecstcs.InstanceHealthCheckStatus {
+	return ecstcs.InstanceHealthCheckStatusOk
 }
-func (tc *trueHealthcheck) GetLastHealthcheckStatus() doctor.HealthcheckStatus {
-	return doctor.HealthcheckStatusInitializing
+func (tc *trueHealthcheck) SetHealthcheckStatus(status ecstcs.InstanceHealthCheckStatus) {}
+func (tc *trueHealthcheck) GetHealthcheckType() string {
+	return ecstcs.InstanceHealthCheckTypeAgent
+}
+func (tc *trueHealthcheck) GetHealthcheckStatus() ecstcs.InstanceHealthCheckStatus {
+	return ecstcs.InstanceHealthCheckStatusInitializing
+}
+func (tc *trueHealthcheck) GetLastHealthcheckStatus() ecstcs.InstanceHealthCheckStatus {
+	return ecstcs.InstanceHealthCheckStatusInitializing
 }
 func (tc *trueHealthcheck) GetHealthcheckTime() time.Time {
 	return time.Date(1974, time.May, 19, 1, 2, 3, 4, time.UTC)
@@ -79,16 +83,18 @@ func (tc *trueHealthcheck) GetLastHealthcheckTime() time.Time {
 
 type falseHealthcheck struct{}
 
-func (fc *falseHealthcheck) RunCheck() doctor.HealthcheckStatus {
-	return doctor.HealthcheckStatusImpaired
+func (fc *falseHealthcheck) RunCheck() ecstcs.InstanceHealthCheckStatus {
+	return ecstcs.InstanceHealthCheckStatusImpaired
 }
-func (fc *falseHealthcheck) SetHealthcheckStatus(status doctor.HealthcheckStatus) {}
-func (fc *falseHealthcheck) GetHealthcheckType() string                           { return doctor.HealthcheckTypeAgent }
-func (fc *falseHealthcheck) GetHealthcheckStatus() doctor.HealthcheckStatus {
-	return doctor.HealthcheckStatusInitializing
+func (fc *falseHealthcheck) SetHealthcheckStatus(status ecstcs.InstanceHealthCheckStatus) {}
+func (fc *falseHealthcheck) GetHealthcheckType() string {
+	return ecstcs.InstanceHealthCheckTypeAgent
 }
-func (fc *falseHealthcheck) GetLastHealthcheckStatus() doctor.HealthcheckStatus {
-	return doctor.HealthcheckStatusInitializing
+func (fc *falseHealthcheck) GetHealthcheckStatus() ecstcs.InstanceHealthCheckStatus {
+	return ecstcs.InstanceHealthCheckStatusInitializing
+}
+func (fc *falseHealthcheck) GetLastHealthcheckStatus() ecstcs.InstanceHealthCheckStatus {
+	return ecstcs.InstanceHealthCheckStatusInitializing
 }
 func (fc *falseHealthcheck) GetHealthcheckTime() time.Time {
 	return time.Date(1974, time.May, 19, 1, 2, 3, 4, time.UTC)

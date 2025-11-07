@@ -19,7 +19,6 @@ import (
 	"time"
 
 	"github.com/aws/amazon-ecs-agent/agent/dockerclient/dockerapi"
-	ecsdoctor "github.com/aws/amazon-ecs-agent/ecs-agent/doctor"
 	"github.com/aws/amazon-ecs-agent/ecs-agent/tcs/model/ecstcs"
 	"github.com/cihub/seelog"
 )
@@ -51,7 +50,7 @@ type dockerRuntimeHealthcheck struct {
 func NewDockerRuntimeHealthcheck(client dockerapi.DockerClient) *dockerRuntimeHealthcheck {
 	nowTime := timeNow()
 	return &dockerRuntimeHealthcheck{
-		HealthcheckType:  ecsdoctor.HealthcheckTypeContainerRuntime,
+		HealthcheckType:  ecstcs.InstanceHealthCheckTypeContainerRuntime,
 		Status:           ecstcs.InstanceHealthCheckStatusInitializing,
 		TimeStamp:        nowTime,
 		StatusChangeTime: nowTime,
