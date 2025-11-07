@@ -21,17 +21,17 @@ import (
 
 // HealthCheckStatusTracker is a helper for keeping track of current and last health check status.
 type HealthCheckStatusTracker struct {
-	status           ecstcs.HealthcheckStatus
+	status           ecstcs.InstanceHealthcheckStatus
 	timeStamp        time.Time
 	statusChangeTime time.Time
-	lastStatus       ecstcs.HealthcheckStatus
+	lastStatus       ecstcs.InstanceHealthcheckStatus
 	lastTimeStamp    time.Time
 	now              func() time.Time // Function that returns current time (injected for testing).
 	lock             sync.RWMutex
 }
 
 // GetHealthcheckStatus returns the current health check status.
-func (e *HealthCheckStatusTracker) GetHealthcheckStatus() ecstcs.HealthcheckStatus {
+func (e *HealthCheckStatusTracker) GetHealthcheckStatus() ecstcs.InstanceHealthcheckStatus {
 	e.lock.RLock()
 	defer e.lock.RUnlock()
 	return e.status
@@ -52,7 +52,7 @@ func (e *HealthCheckStatusTracker) GetStatusChangeTime() time.Time {
 }
 
 // GetLastHealthcheckStatus returns the previous health check status.
-func (e *HealthCheckStatusTracker) GetLastHealthcheckStatus() ecstcs.HealthcheckStatus {
+func (e *HealthCheckStatusTracker) GetLastHealthcheckStatus() ecstcs.InstanceHealthcheckStatus {
 	e.lock.RLock()
 	defer e.lock.RUnlock()
 	return e.lastStatus
@@ -66,7 +66,7 @@ func (e *HealthCheckStatusTracker) GetLastHealthcheckTime() time.Time {
 }
 
 // SetHealthcheckStatus updates the health check status and timestamps.
-func (e *HealthCheckStatusTracker) SetHealthcheckStatus(healthStatus ecstcs.HealthcheckStatus) {
+func (e *HealthCheckStatusTracker) SetHealthcheckStatus(healthStatus ecstcs.InstanceHealthcheckStatus) {
 	e.lock.Lock()
 	defer e.lock.Unlock()
 	nowTime := e.now()
@@ -93,7 +93,7 @@ func NewHealthCheckStatusTracker() *HealthCheckStatusTracker {
 func newHealthCheckStatusTrackerWithTimeFn(timeNow func() time.Time) *HealthCheckStatusTracker {
 	now := timeNow()
 	return &HealthCheckStatusTracker{
-		status:           ecstcs.HealthcheckStatusInitializing,
+		status:           ecstcs.InstanceHealthcheckStatusInitializing,
 		timeStamp:        now,
 		statusChangeTime: now,
 		now:              timeNow,

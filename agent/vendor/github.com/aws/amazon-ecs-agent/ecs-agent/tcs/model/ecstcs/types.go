@@ -73,26 +73,26 @@ type InstanceStatusMessage struct {
 }
 
 const (
-	// HealthcheckStatusInitializing is the zero state of a healthcheck status.
-	HealthcheckStatusInitializing HealthcheckStatus = iota
-	// HealthcheckStatusOk represents a healthcheck with a true/success result.
-	HealthcheckStatusOk
-	// HealthcheckStatusImpaired represents a healthcheck with a false/fail result.
-	HealthcheckStatusImpaired
+	// InstanceHealthcheckStatusInitializing is the zero state of an instance healthcheck status.
+	InstanceHealthcheckStatusInitializing InstanceHealthcheckStatus = iota
+	// InstanceHealthcheckStatusOk represents an instance healthcheck with a true/success result.
+	InstanceHealthcheckStatusOk
+	// InstanceHealthcheckStatusImpaired represents an instance healthcheck with a false/fail result.
+	InstanceHealthcheckStatusImpaired
 )
 
-// HealthcheckStatus is an enumeration of possible instance statuses.
-type HealthcheckStatus int32
+// InstanceHealthcheckStatus is an enumeration of possible instance healthcheck statuses.
+type InstanceHealthcheckStatus int32
 
-var healthcheckStatusMap = map[string]HealthcheckStatus{
-	"INITIALIZING": HealthcheckStatusInitializing,
-	"OK":           HealthcheckStatusOk,
-	"IMPAIRED":     HealthcheckStatusImpaired,
+var instanceHealthcheckStatusMap = map[string]InstanceHealthcheckStatus{
+	"INITIALIZING": InstanceHealthcheckStatusInitializing,
+	"OK":           InstanceHealthcheckStatusOk,
+	"IMPAIRED":     InstanceHealthcheckStatusImpaired,
 }
 
 // String returns a human readable string representation of this object.
-func (hs HealthcheckStatus) String() string {
-	for k, v := range healthcheckStatusMap {
+func (hs InstanceHealthcheckStatus) String() string {
+	for k, v := range instanceHealthcheckStatusMap {
 		if v == hs {
 			return k
 		}
@@ -101,33 +101,33 @@ func (hs HealthcheckStatus) String() string {
 	return "NONE"
 }
 
-// Ok returns true if the Healthcheck status is OK or INITIALIZING.
-func (hs HealthcheckStatus) Ok() bool {
-	return hs == HealthcheckStatusOk || hs == HealthcheckStatusInitializing
+// Ok returns true if the instance healthcheck status is OK or INITIALIZING.
+func (hs InstanceHealthcheckStatus) Ok() bool {
+	return hs == InstanceHealthcheckStatusOk || hs == InstanceHealthcheckStatusInitializing
 }
 
-// UnmarshalJSON overrides the logic for parsing the JSON-encoded HealthcheckStatus data.
-func (hs *HealthcheckStatus) UnmarshalJSON(b []byte) error {
+// UnmarshalJSON overrides the logic for parsing the JSON-encoded InstanceHealthcheckStatus data.
+func (hs *InstanceHealthcheckStatus) UnmarshalJSON(b []byte) error {
 	if strings.ToLower(string(b)) == "null" {
-		*hs = HealthcheckStatusInitializing
+		*hs = InstanceHealthcheckStatusInitializing
 		return nil
 	}
 	if b[0] != '"' || b[len(b)-1] != '"' {
-		*hs = HealthcheckStatusInitializing
-		return errors.New("healthcheck status unmarshal: status must be a string or null; Got " + string(b))
+		*hs = InstanceHealthcheckStatusInitializing
+		return errors.New("instance healthcheck status unmarshal: status must be a string or null; Got " + string(b))
 	}
 
-	stat, ok := healthcheckStatusMap[string(b[1:len(b)-1])]
+	stat, ok := instanceHealthcheckStatusMap[string(b[1:len(b)-1])]
 	if !ok {
-		*hs = HealthcheckStatusInitializing
-		return errors.New("healthcheck status unmarshal: unrecognized status")
+		*hs = InstanceHealthcheckStatusInitializing
+		return errors.New("instance healthcheck status unmarshal: unrecognized status")
 	}
 	*hs = stat
 	return nil
 }
 
-// MarshalJSON overrides the logic for JSON-encoding the HealthcheckStatus type.
-func (hs *HealthcheckStatus) MarshalJSON() ([]byte, error) {
+// MarshalJSON overrides the logic for JSON-encoding the InstanceHealthcheckStatus type.
+func (hs *InstanceHealthcheckStatus) MarshalJSON() ([]byte, error) {
 	if hs == nil {
 		return nil, nil
 	}

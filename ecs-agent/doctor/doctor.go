@@ -93,7 +93,7 @@ func (doc *Doctor) AddHealthcheck(healthcheck Healthcheck) {
 func (doc *Doctor) RunHealthchecks() bool {
 	doc.lock.Lock()
 	defer doc.lock.Unlock()
-	allChecksResult := []ecstcs.HealthcheckStatus{}
+	allChecksResult := []ecstcs.InstanceHealthcheckStatus{}
 
 	for _, healthcheck := range doc.healthchecks {
 		res := healthcheck.RunCheck()
@@ -118,7 +118,7 @@ func (doc *Doctor) GetHealthchecks() *[]Healthcheck {
 	return &healthcheckCopy
 }
 
-func (doc *Doctor) allRight(checksResult []ecstcs.HealthcheckStatus) bool {
+func (doc *Doctor) allRight(checksResult []ecstcs.InstanceHealthcheckStatus) bool {
 	overallResult := true
 	for _, checkResult := range checksResult {
 		overallResult = overallResult && checkResult.Ok()

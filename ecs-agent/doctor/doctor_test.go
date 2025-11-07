@@ -31,14 +31,16 @@ const (
 
 type trueHealthcheck struct{}
 
-func (tc *trueHealthcheck) RunCheck() ecstcs.HealthcheckStatus                   { return ecstcs.HealthcheckStatusOk }
-func (tc *trueHealthcheck) SetHealthcheckStatus(status ecstcs.HealthcheckStatus) {}
-func (tc *trueHealthcheck) GetHealthcheckType() string                           { return HealthcheckTypeAgent }
-func (tc *trueHealthcheck) GetHealthcheckStatus() ecstcs.HealthcheckStatus {
-	return ecstcs.HealthcheckStatusInitializing
+func (tc *trueHealthcheck) RunCheck() ecstcs.InstanceHealthcheckStatus {
+	return ecstcs.InstanceHealthcheckStatusOk
 }
-func (tc *trueHealthcheck) GetLastHealthcheckStatus() ecstcs.HealthcheckStatus {
-	return ecstcs.HealthcheckStatusInitializing
+func (tc *trueHealthcheck) SetHealthcheckStatus(status ecstcs.InstanceHealthcheckStatus) {}
+func (tc *trueHealthcheck) GetHealthcheckType() string                                   { return HealthcheckTypeAgent }
+func (tc *trueHealthcheck) GetHealthcheckStatus() ecstcs.InstanceHealthcheckStatus {
+	return ecstcs.InstanceHealthcheckStatusInitializing
+}
+func (tc *trueHealthcheck) GetLastHealthcheckStatus() ecstcs.InstanceHealthcheckStatus {
+	return ecstcs.InstanceHealthcheckStatusInitializing
 }
 func (tc *trueHealthcheck) GetHealthcheckTime() time.Time {
 	return time.Date(1974, time.May, 19, 1, 2, 3, 4, time.UTC)
@@ -52,16 +54,16 @@ func (tc *trueHealthcheck) GetLastHealthcheckTime() time.Time {
 
 type falseHealthcheck struct{}
 
-func (fc *falseHealthcheck) RunCheck() ecstcs.HealthcheckStatus {
-	return ecstcs.HealthcheckStatusImpaired
+func (fc *falseHealthcheck) RunCheck() ecstcs.InstanceHealthcheckStatus {
+	return ecstcs.InstanceHealthcheckStatusImpaired
 }
-func (fc *falseHealthcheck) SetHealthcheckStatus(status ecstcs.HealthcheckStatus) {}
-func (fc *falseHealthcheck) GetHealthcheckType() string                           { return HealthcheckTypeAgent }
-func (fc *falseHealthcheck) GetHealthcheckStatus() ecstcs.HealthcheckStatus {
-	return ecstcs.HealthcheckStatusInitializing
+func (fc *falseHealthcheck) SetHealthcheckStatus(status ecstcs.InstanceHealthcheckStatus) {}
+func (fc *falseHealthcheck) GetHealthcheckType() string                                   { return HealthcheckTypeAgent }
+func (fc *falseHealthcheck) GetHealthcheckStatus() ecstcs.InstanceHealthcheckStatus {
+	return ecstcs.InstanceHealthcheckStatusInitializing
 }
-func (fc *falseHealthcheck) GetLastHealthcheckStatus() ecstcs.HealthcheckStatus {
-	return ecstcs.HealthcheckStatusInitializing
+func (fc *falseHealthcheck) GetLastHealthcheckStatus() ecstcs.InstanceHealthcheckStatus {
+	return ecstcs.InstanceHealthcheckStatusInitializing
 }
 func (fc *falseHealthcheck) GetHealthcheckTime() time.Time {
 	return time.Date(1974, time.May, 19, 1, 2, 3, 4, time.UTC)
@@ -164,27 +166,27 @@ func TestGetHealthchecks(t *testing.T) {
 func TestAllRight(t *testing.T) {
 	testcases := []struct {
 		name             string
-		testChecksResult []ecstcs.HealthcheckStatus
+		testChecksResult []ecstcs.InstanceHealthcheckStatus
 		expectedResult   bool
 	}{
 		{
 			name:             "empty checks",
-			testChecksResult: []ecstcs.HealthcheckStatus{},
+			testChecksResult: []ecstcs.InstanceHealthcheckStatus{},
 			expectedResult:   true,
 		},
 		{
 			name:             "all true checks",
-			testChecksResult: []ecstcs.HealthcheckStatus{ecstcs.HealthcheckStatusOk, ecstcs.HealthcheckStatusOk},
+			testChecksResult: []ecstcs.InstanceHealthcheckStatus{ecstcs.InstanceHealthcheckStatusOk, ecstcs.InstanceHealthcheckStatusOk},
 			expectedResult:   true,
 		},
 		{
 			name:             "all false checks",
-			testChecksResult: []ecstcs.HealthcheckStatus{ecstcs.HealthcheckStatusImpaired, ecstcs.HealthcheckStatusImpaired},
+			testChecksResult: []ecstcs.InstanceHealthcheckStatus{ecstcs.InstanceHealthcheckStatusImpaired, ecstcs.InstanceHealthcheckStatusImpaired},
 			expectedResult:   false,
 		},
 		{
 			name:             "mixed checks",
-			testChecksResult: []ecstcs.HealthcheckStatus{ecstcs.HealthcheckStatusOk, ecstcs.HealthcheckStatusImpaired},
+			testChecksResult: []ecstcs.InstanceHealthcheckStatus{ecstcs.InstanceHealthcheckStatusOk, ecstcs.InstanceHealthcheckStatusImpaired},
 			expectedResult:   false,
 		},
 	}
