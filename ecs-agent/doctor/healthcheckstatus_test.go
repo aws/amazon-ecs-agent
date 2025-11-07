@@ -26,26 +26,26 @@ import (
 )
 
 func TestOk(t *testing.T) {
-	initializingStatus := ecstcs.InstanceHealthcheckStatusInitializing
-	okStatus := ecstcs.InstanceHealthcheckStatusOk
-	impairedStatus := ecstcs.InstanceHealthcheckStatusImpaired
+	initializingStatus := ecstcs.InstanceHealthCheckStatusInitializing
+	okStatus := ecstcs.InstanceHealthCheckStatusOk
+	impairedStatus := ecstcs.InstanceHealthCheckStatusImpaired
 	assert.True(t, initializingStatus.Ok())
 	assert.True(t, okStatus.Ok())
 	assert.False(t, impairedStatus.Ok())
 }
 
 type testHealthcheckStatus struct {
-	SomeStatus ecstcs.InstanceHealthcheckStatus `json:"status"`
+	SomeStatus ecstcs.InstanceHealthCheckStatus `json:"status"`
 }
 
 func TestUnmarshalHealthcheckStatus(t *testing.T) {
-	status := ecstcs.InstanceHealthcheckStatusInitializing
+	status := ecstcs.InstanceHealthCheckStatusInitializing
 	initializingStr := "INITIALIZING"
 
 	err := json.Unmarshal([]byte(fmt.Sprintf(`"%s"`, initializingStr)), &status)
 	assert.NoError(t, err)
 	// INITIALIZING should unmarshal to INITIALIZING.
-	assert.Equal(t, ecstcs.InstanceHealthcheckStatusInitializing, status)
+	assert.Equal(t, ecstcs.InstanceHealthCheckStatusInitializing, status)
 	assert.Equal(t, initializingStr, status.String())
 
 	var test testHealthcheckStatus
@@ -53,6 +53,6 @@ func TestUnmarshalHealthcheckStatus(t *testing.T) {
 	err = json.Unmarshal([]byte(fmt.Sprintf(`{"status":"%s"}`, impairedStr)), &test)
 	assert.NoError(t, err)
 	// IMPAIRED should unmarshal to IMPAIRED.
-	assert.Equal(t, ecstcs.InstanceHealthcheckStatusImpaired, test.SomeStatus)
+	assert.Equal(t, ecstcs.InstanceHealthCheckStatusImpaired, test.SomeStatus)
 	assert.Equal(t, impairedStr, test.SomeStatus.String())
 }

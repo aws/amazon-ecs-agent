@@ -50,19 +50,19 @@ func NewEBSCSIDaemonHealthCheck(
 
 // RunCheck performs a health check for EBS CSI Daemon by sending a request to it to get node capabilities.
 // If EBS CSI Daemon is not started yet then returns OK trivially.
-func (e *ebsCSIDaemonHealthcheck) RunCheck() ecstcs.InstanceHealthcheckStatus {
+func (e *ebsCSIDaemonHealthcheck) RunCheck() ecstcs.InstanceHealthCheckStatus {
 	ctx, cancel := context.WithTimeout(context.Background(), e.requestTimeout)
 	defer cancel()
 
 	resp, err := e.csiClient.NodeGetCapabilities(ctx)
 	if err != nil {
 		logger.Error("EBS CSI Daemon health check failed", logger.Fields{field.Error: err})
-		e.SetHealthcheckStatus(ecstcs.InstanceHealthcheckStatusImpaired)
+		e.SetHealthcheckStatus(ecstcs.InstanceHealthCheckStatusImpaired)
 		return e.GetHealthcheckStatus()
 	}
 
 	logger.Info("EBS CSI Driver is healthy", logger.Fields{"nodeCapabilities": resp})
-	e.SetHealthcheckStatus(ecstcs.InstanceHealthcheckStatusOk)
+	e.SetHealthcheckStatus(ecstcs.InstanceHealthCheckStatusOk)
 	return e.GetHealthcheckStatus()
 }
 

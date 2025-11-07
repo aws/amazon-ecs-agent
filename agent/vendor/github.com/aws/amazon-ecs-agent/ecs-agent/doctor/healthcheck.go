@@ -28,11 +28,11 @@ const (
 // Healthcheck defines the interface for performing health checks on various components.
 type Healthcheck interface {
 	GetHealthcheckType() string
-	GetHealthcheckStatus() ecstcs.InstanceHealthcheckStatus
+	GetHealthcheckStatus() ecstcs.InstanceHealthCheckStatus
 	GetHealthcheckTime() time.Time
 	GetStatusChangeTime() time.Time
-	GetLastHealthcheckStatus() ecstcs.InstanceHealthcheckStatus
+	GetLastHealthcheckStatus() ecstcs.InstanceHealthCheckStatus
 	GetLastHealthcheckTime() time.Time
-	RunCheck() ecstcs.InstanceHealthcheckStatus
-	SetHealthcheckStatus(status ecstcs.InstanceHealthcheckStatus)
+	RunCheck() ecstcs.InstanceHealthCheckStatus
+	SetHealthcheckStatus(status ecstcs.InstanceHealthCheckStatus)
 }

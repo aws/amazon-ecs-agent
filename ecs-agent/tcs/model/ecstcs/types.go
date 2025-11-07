@@ -73,26 +73,26 @@ type InstanceStatusMessage struct {
 }
 
 const (
-	// InstanceHealthcheckStatusInitializing is the zero state of an instance healthcheck status.
-	InstanceHealthcheckStatusInitializing InstanceHealthcheckStatus = iota
-	// InstanceHealthcheckStatusOk represents an instance healthcheck with a true/success result.
-	InstanceHealthcheckStatusOk
-	// InstanceHealthcheckStatusImpaired represents an instance healthcheck with a false/fail result.
-	InstanceHealthcheckStatusImpaired
+	// InstanceHealthCheckStatusInitializing is the zero state of an instance health check status.
+	InstanceHealthCheckStatusInitializing InstanceHealthCheckStatus = iota
+	// InstanceHealthCheckStatusOk represents an instance health check with a true/success result.
+	InstanceHealthCheckStatusOk
+	// InstanceHealthCheckStatusImpaired represents an instance health check with a false/fail result.
+	InstanceHealthCheckStatusImpaired
 )
 
-// InstanceHealthcheckStatus is an enumeration of possible instance healthcheck statuses.
-type InstanceHealthcheckStatus int32
+// InstanceHealthCheckStatus is an enumeration of possible instance health check statuses.
+type InstanceHealthCheckStatus int32
 
-var instanceHealthcheckStatusMap = map[string]InstanceHealthcheckStatus{
-	"INITIALIZING": InstanceHealthcheckStatusInitializing,
-	"OK":           InstanceHealthcheckStatusOk,
-	"IMPAIRED":     InstanceHealthcheckStatusImpaired,
+var instanceHealthCheckStatusMap = map[string]InstanceHealthCheckStatus{
+	"INITIALIZING": InstanceHealthCheckStatusInitializing,
+	"OK":           InstanceHealthCheckStatusOk,
+	"IMPAIRED":     InstanceHealthCheckStatusImpaired,
 }
 
 // String returns a human readable string representation of this object.
-func (hs InstanceHealthcheckStatus) String() string {
-	for k, v := range instanceHealthcheckStatusMap {
+func (hs InstanceHealthCheckStatus) String() string {
+	for k, v := range instanceHealthCheckStatusMap {
 		if v == hs {
 			return k
 		}
@@ -101,33 +101,33 @@ func (hs InstanceHealthcheckStatus) String() string {
 	return "NONE"
 }
 
-// Ok returns true if the instance healthcheck status is OK or INITIALIZING.
-func (hs InstanceHealthcheckStatus) Ok() bool {
-	return hs == InstanceHealthcheckStatusOk || hs == InstanceHealthcheckStatusInitializing
+// Ok returns true if the instance health check status is OK or INITIALIZING.
+func (hs InstanceHealthCheckStatus) Ok() bool {
+	return hs == InstanceHealthCheckStatusOk || hs == InstanceHealthCheckStatusInitializing
 }
 
-// UnmarshalJSON overrides the logic for parsing the JSON-encoded InstanceHealthcheckStatus data.
-func (hs *InstanceHealthcheckStatus) UnmarshalJSON(b []byte) error {
+// UnmarshalJSON overrides the logic for parsing the JSON-encoded InstanceHealthCheckStatus data.
+func (hs *InstanceHealthCheckStatus) UnmarshalJSON(b []byte) error {
 	if strings.ToLower(string(b)) == "null" {
-		*hs = InstanceHealthcheckStatusInitializing
+		*hs = InstanceHealthCheckStatusInitializing
 		return nil
 	}
 	if b[0] != '"' || b[len(b)-1] != '"' {
-		*hs = InstanceHealthcheckStatusInitializing
-		return errors.New("instance healthcheck status unmarshal: status must be a string or null; Got " + string(b))
+		*hs = InstanceHealthCheckStatusInitializing
+		return errors.New("instance health check status unmarshal: status must be a string or null; Got " + string(b))
 	}
 
-	stat, ok := instanceHealthcheckStatusMap[string(b[1:len(b)-1])]
+	stat, ok := instanceHealthCheckStatusMap[string(b[1:len(b)-1])]
 	if !ok {
-		*hs = InstanceHealthcheckStatusInitializing
-		return errors.New("instance healthcheck status unmarshal: unrecognized status")
+		*hs = InstanceHealthCheckStatusInitializing
+		return errors.New("instance health check status unmarshal: unrecognized status")
 	}
 	*hs = stat
 	return nil
 }
 
-// MarshalJSON overrides the logic for JSON-encoding the InstanceHealthcheckStatus type.
-func (hs *InstanceHealthcheckStatus) MarshalJSON() ([]byte, error) {
+// MarshalJSON overrides the logic for JSON-encoding the InstanceHealthCheckStatus type.
+func (hs *InstanceHealthCheckStatus) MarshalJSON() ([]byte, error) {
 	if hs == nil {
 		return nil, nil
 	}
