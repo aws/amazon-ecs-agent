@@ -68,20 +68,15 @@ type InstanceStatusMessage struct {
 }
 
 const (
-	// InstanceHealthCheckTypeContainerRuntime represents the container runtime health check type.
 	InstanceHealthCheckTypeContainerRuntime = "ContainerRuntime"
-	// InstanceHealthCheckTypeAgent represents the agent health check type.
-	InstanceHealthCheckTypeAgent = "Agent"
-	// InstanceHealthCheckTypeEBSDaemon represents the EBS daemon health check type.
-	InstanceHealthCheckTypeEBSDaemon = "EBSDaemon"
+	InstanceHealthCheckTypeAgent            = "Agent"
+	InstanceHealthCheckTypeEBSDaemon        = "EBSDaemon"
+	InstanceHealthCheckTypeNividia          = "Nividia"
 )
 
 const (
-	// InstanceHealthCheckStatusInitializing is the zero state of an instance health check status.
 	InstanceHealthCheckStatusInitializing InstanceHealthCheckStatus = iota
-	// InstanceHealthCheckStatusOk represents an instance health check with a true/success result.
 	InstanceHealthCheckStatusOk
-	// InstanceHealthCheckStatusImpaired represents an instance health check with a false/fail result.
 	InstanceHealthCheckStatusImpaired
 )
 
