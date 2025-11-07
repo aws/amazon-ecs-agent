@@ -259,6 +259,7 @@ additional details about how to configure the agent.
 | `ECS_EBSTA_SUPPORTED` | `true` | Whether to use the container instance with EBS Task Attach support. This variable is set properly by ecs-init. Its value indicates if correct environment to support EBS volumes by instance has been set up or not. ECS only schedules EBSTA tasks if this feature is supported by the platform type. Check [EBS Volume considerations](https://docs.aws.amazon.com/AmazonECS/latest/developerguide/ebs-volumes.html#ebs-volume-considerations) for other EBS support details | `true` | Not Supported on Windows |
 | `ECS_ENABLE_FIRELENS_ASYNC` | `true` | Whether the log driver connects to the Firelens container in the background. | `true` | `true` |
 | `ECS_DETAILED_OS_FAMILY` | `debian_11` | Sets detailed OS information for Linux-based ECS instances by parsing /etc/os-release. This variable is set properly by ecs-init during system initialization.  | `linux` | Not supported on Windows |
+| `ECS_PAUSE_LABELS` | `{"test.pause.label.1":"value1","test.pause.label.2":"value2"}` | The labels to add to the pause container. | | |
 
 Additionally, the following environment variable(s) can be used to configure the behavior of the ecs-init service. When using ECS-Init, all env variables, including the ECS Agent variables above, are read from path `/etc/ecs/ecs.config`:
 | Environment Variable Name | Example Value(s)            | Description | Default value |
@@ -267,7 +268,6 @@ Additionally, the following environment variable(s) can be used to configure the
 | `ECS_ALLOW_OFFHOST_INTROSPECTION_ACCESS` | &lt;true &#124; false&gt; | By default, the ecs-init service adds an iptable rule to block access to ECS Agent's introspection port from off-host (or containers in awsvpc network mode), and removes the rule upon stop. If `ECS_ALLOW_OFFHOST_INTROSPECTION_ACCESS` is set to true, this rule will not be added/removed. | false |
 | `ECS_OFFHOST_INTROSPECTION_INTERFACE_NAME` | `eth0` | Primary network interface name to be used for blocking offhost agent introspection port access. By default, this value is `eth0` | `eth0` |
 | `ECS_AGENT_LABELS` | `{"test.label.1":"value1","test.label.2":"value2"}` | The labels to add to the ECS Agent container. | |
-| `ECS_PAUSE_LABELS` | `{"test.pause.label.1":"value1","test.pause.label.2":"value2"}` | The labels to add to the pause container. | |
 | `ECS_AGENT_APPARMOR_PROFILE` | `unconfined` | Specifies the name of the AppArmor profile to run the ecs-agent container under. This only applies to AppArmor-enabled systems, such as Ubuntu, Debian, and SUSE. If unset, defaults to the profile written out by ecs-init (ecs-agent-default). | `ecs-agent-default` |
 | `ECS_AGENT_PID_NAMESPACE_HOST` | &lt;true &#124; false&gt; | By default, the ECS agent container runs with its own PID namespace. If ECS_AGENT_PID_NAMESPACE_HOST is set to true, ecs-init will start the ECS agent container with the host's PID namespace. This is particularly useful when running on SELinux-enforcing hosts with Docker's SELinux option enabled. | false |
 

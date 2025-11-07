@@ -17,6 +17,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"maps"
 	"os"
 	"path/filepath"
 	"reflect"
@@ -1817,8 +1818,8 @@ func (task *Task) dockerConfig(container *apicontainer.Container, apiVersion doc
 	switch container.Type {
 	case apicontainer.ContainerCNIPause, apicontainer.ContainerNamespacePause:
 		if pauseLabels := os.Getenv(pauseLabelsEnvVar); pauseLabels != "" {
-			// Set labels to pause container if it's provieded as env var.
-			setLabelsFromJsonString(containerConfig, pauseLabels)
+			// Set labels to pause container if it's provided as env var.
+			setLabelsFromJSONString(containerConfig, pauseLabels)
 		}
 	}
 
@@ -1831,7 +1832,8 @@ func (task *Task) dockerConfig(container *apicontainer.Container, apiVersion doc
 }
 
 // Parse label string and set them to the given container configuration.
-func setLabelsFromJsonString(config *dockercontainer.Config, labelsString string) {
+// This function is intended to only be used with container configuration whose `Labels` field is not nil.
+func setLabelsFromJSONString(config *dockercontainer.Config, labelsString string) {
 	if len(labelsString) > 0 {
 		labels, err := commonutils.JsonBlockToStringToStringMap(labelsString)
 		if err != nil {
@@ -1841,7 +1843,7 @@ func setLabelsFromJsonString(config *dockercontainer.Config, labelsString string
 			return
 		}
 		if len(labels) > 0 {
-			config.Labels = labels
+			maps.Copy(config.Labels, labels)
 		}
 	}
 }
