@@ -14,38 +14,37 @@
 // express or implied. See the License for the specific language governing
 // permissions and limitations under the License.
 
-package doctor
+package ecstcs
 
 import (
 	"encoding/json"
 	"fmt"
 	"testing"
 
-	"github.com/aws/amazon-ecs-agent/ecs-agent/tcs/model/ecstcs"
 	"github.com/stretchr/testify/assert"
 )
 
 func TestOk(t *testing.T) {
-	initializingStatus := ecstcs.InstanceHealthCheckStatusInitializing
-	okStatus := ecstcs.InstanceHealthCheckStatusOk
-	impairedStatus := ecstcs.InstanceHealthCheckStatusImpaired
+	initializingStatus := InstanceHealthCheckStatusInitializing
+	okStatus := InstanceHealthCheckStatusOk
+	impairedStatus := InstanceHealthCheckStatusImpaired
 	assert.True(t, initializingStatus.Ok())
 	assert.True(t, okStatus.Ok())
 	assert.False(t, impairedStatus.Ok())
 }
 
 type testHealthcheckStatus struct {
-	SomeStatus ecstcs.InstanceHealthCheckStatus `json:"status"`
+	SomeStatus InstanceHealthCheckStatus `json:"status"`
 }
 
 func TestUnmarshalHealthcheckStatus(t *testing.T) {
-	status := ecstcs.InstanceHealthCheckStatusInitializing
+	status := InstanceHealthCheckStatusInitializing
 	initializingStr := "INITIALIZING"
 
 	err := json.Unmarshal([]byte(fmt.Sprintf(`"%s"`, initializingStr)), &status)
 	assert.NoError(t, err)
 	// INITIALIZING should unmarshal to INITIALIZING.
-	assert.Equal(t, ecstcs.InstanceHealthCheckStatusInitializing, status)
+	assert.Equal(t, InstanceHealthCheckStatusInitializing, status)
 	assert.Equal(t, initializingStr, status.String())
 
 	var test testHealthcheckStatus
@@ -53,6 +52,6 @@ func TestUnmarshalHealthcheckStatus(t *testing.T) {
 	err = json.Unmarshal([]byte(fmt.Sprintf(`{"status":"%s"}`, impairedStr)), &test)
 	assert.NoError(t, err)
 	// IMPAIRED should unmarshal to IMPAIRED.
-	assert.Equal(t, ecstcs.InstanceHealthCheckStatusImpaired, test.SomeStatus)
+	assert.Equal(t, InstanceHealthCheckStatusImpaired, test.SomeStatus)
 	assert.Equal(t, impairedStr, test.SomeStatus.String())
 }
