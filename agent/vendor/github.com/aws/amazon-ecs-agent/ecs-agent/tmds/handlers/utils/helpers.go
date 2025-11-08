@@ -34,11 +34,17 @@ const (
 	// RequestTypeTaskMetadata specifies the task metadata request type of TaskContainerMetadataHandler.
 	RequestTypeTaskMetadata = "task metadata"
 
+	// RequestTypeTasksMetadata specifies the tasks metadata request type of TaskContainerMetadataHandler.
+	RequestTypeTasksMetadata = "tasks metadata"
+
 	// RequestTypeContainerMetadata specifies the container metadata request type of TaskContainerMetadataHandler.
 	RequestTypeContainerMetadata = "container metadata"
 
 	// RequestTypeTaskStats specifies the task stats request type of StatsHandler.
 	RequestTypeTaskStats = "task stats"
+
+	// RequestTypeTasksStats specifies the tasks stats request type of StatsHandler.
+	RequestTypeTasksStats = "tasks stats"
 
 	// RequestTypeContainerStats specifies the container stats request type of StatsHandler.
 	RequestTypeContainerStats = "container stats"

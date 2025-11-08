@@ -504,9 +504,9 @@ func TestTasksMetadata(t *testing.T) {
 		expectedTaskResponse := taskResponse()
 		expectedTaskResponse.CredentialsID = ""      // credentials ID not expected
 		expectedTaskResponse.TaskNetworkConfig = nil // TaskNetworkConfig is not expected and would be used internally.
-		
+
 		tasksMetadata := []state.TaskResponse{*expectedTaskResponse}
-		
+
 		handler, _, agentState, _ := setup(t)
 		agentState.EXPECT().
 			GetTasksMetadata().
@@ -583,9 +583,9 @@ func TestTasksMetadataWithTags(t *testing.T) {
 		expectedTaskResponse := taskResponse()
 		expectedTaskResponse.CredentialsID = ""      // credentials ID not expected
 		expectedTaskResponse.TaskNetworkConfig = nil // TaskNetworkConfig is not expected and would be used internally.
-		
+
 		tasksMetadata := []state.TaskResponse{*expectedTaskResponse}
-		
+
 		handler, _, agentState, _ := setup(t)
 		agentState.EXPECT().
 			GetTasksMetadataWithTags().
@@ -953,25 +953,25 @@ func TestTasksMetadataHandler_IncludeTags(t *testing.T) {
 
 	t.Run("calls GetTasksMetadata when includeTags is false", func(t *testing.T) {
 		agentState.EXPECT().GetTasksMetadata().Return([]state.TaskResponse{}, nil)
-		
+
 		handler := tasksMetadataHandler(agentState, metricsFactory, false)
 		req := httptest.NewRequest("GET", "/v4/test/tasks", nil)
 		w := httptest.NewRecorder()
-		
+
 		handler(w, req)
-		
+
 		assert.Equal(t, http.StatusOK, w.Code)
 	})
 
 	t.Run("calls GetTasksMetadataWithTags when includeTags is true", func(t *testing.T) {
 		agentState.EXPECT().GetTasksMetadataWithTags().Return([]state.TaskResponse{}, nil)
-		
+
 		handler := tasksMetadataHandler(agentState, metricsFactory, true)
 		req := httptest.NewRequest("GET", "/v4/test/tasks", nil)
 		w := httptest.NewRecorder()
-		
+
 		handler(w, req)
-		
+
 		assert.Equal(t, http.StatusOK, w.Code)
 	})
 }

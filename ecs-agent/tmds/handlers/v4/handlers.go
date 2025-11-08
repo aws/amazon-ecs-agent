@@ -212,7 +212,7 @@ func tasksMetadataHandler(
 		} else {
 			tasksMetadata, err = agentState.GetTasksMetadata()
 		}
-		
+
 		if err != nil {
 			logger.Error("Failed to get v4 tasks metadata", logger.Fields{
 				field.Error: err,
