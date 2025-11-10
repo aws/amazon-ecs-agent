@@ -393,3 +393,20 @@ func TestToPtrSlice(t *testing.T) {
 		}
 	})
 }
+
+func TestJsonBlockToStringToStringMap(t *testing.T) {
+	testData := `{"test.label.1":"value1","test.label.2":"value2"}`
+	out, err := JsonBlockToStringToStringMap(testData)
+	require.NoError(t, err, "Expected no error while decoding JSON block")
+	require.Equal(t, "value1", out["test.label.1"])
+
+	for key, value := range out {
+		t.Logf("Key: %s %T | Value: %s %T", key, key, value, value)
+	}
+}
+
+func TestJsonBlockToStringToStringMapBadData(t *testing.T) {
+	testData := `{"something":[{"test.label.1":"value1"},{"test.label.2":"value2"}]}`
+	_, err := JsonBlockToStringToStringMap(testData)
+	require.Error(t, err, "Expected an error on badly formatted data as input")
+}

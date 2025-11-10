@@ -13,6 +13,7 @@
 package utils
 
 import (
+	"encoding/json"
 	"math"
 	"reflect"
 	"regexp"
@@ -157,4 +158,11 @@ func ToPtrSlice[V any](xs []V) []*V {
 		result = append(result, &x)
 	}
 	return result
+}
+
+// JsonBlockToStringToStringMap converts a JSON block string to a string-to-string map.
+func JsonBlockToStringToStringMap(jsonBlock string) (map[string]string, error) {
+	out := map[string]string{}
+	err := json.Unmarshal([]byte(jsonBlock), &out)
+	return out, err
 }

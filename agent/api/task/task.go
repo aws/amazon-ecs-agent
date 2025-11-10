@@ -17,6 +17,8 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"maps"
+	"os"
 	"path/filepath"
 	"reflect"
 	"strconv"
@@ -163,6 +165,8 @@ const (
 	serviceConnectAttachmentType = "serviceconnectdetail"
 
 	ipv6LoopbackAddress = "::1"
+
+	pauseLabelsEnvVar = "ECS_PAUSE_LABELS"
 )
 
 // TaskOverrides are the overrides applied to a task
@@ -1811,12 +1815,37 @@ func (task *Task) dockerConfig(container *apicontainer.Container, apiVersion doc
 		containerConfig.Labels = make(map[string]string)
 	}
 
+	switch container.Type {
+	case apicontainer.ContainerCNIPause, apicontainer.ContainerNamespacePause:
+		if pauseLabels := os.Getenv(pauseLabelsEnvVar); pauseLabels != "" {
+			// Set labels to pause container if it's provided as env var.
+			setLabelsFromJSONString(containerConfig, pauseLabels)
+		}
+	}
+
 	if container.Type == apicontainer.ContainerCNIPause && task.IsNetworkModeAWSVPC() {
 		// apply hostname to pause container's docker config
 		return task.applyENIHostname(containerConfig), nil
 	}
 
 	return containerConfig, nil
+}
+
+// Parse label string and set them to the given container configuration.
+// This function is intended to only be used with container configuration whose `Labels` field is not nil.
+func setLabelsFromJSONString(config *dockercontainer.Config, labelsString string) {
+	if len(labelsString) > 0 {
+		labels, err := commonutils.JsonBlockToStringToStringMap(labelsString)
+		if err != nil {
+			logger.Warn("Skipping setting labels because received error decoding labels string", logger.Fields{
+				field.Error: err,
+			})
+			return
+		}
+		if len(labels) > 0 {
+			maps.Copy(config.Labels, labels)
+		}
+	}
 }
 
 // dockerExposedPorts returns the container ports that need to be exposed for a container

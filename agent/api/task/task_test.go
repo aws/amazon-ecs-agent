@@ -5924,3 +5924,120 @@ func TestGenerateENIExtraHosts(t *testing.T) {
 		})
 	}
 }
+
+func TestDockerConfigPauseContainerLabelsWithoutEnvVar_ECS_PAUSE_LABELS(t *testing.T) {
+	testTask := &Task{
+		Arn:     "arn:aws:ecs:us-east-1:012345678910:task/c09f0188-7f87-4b0f-bfc3-16296622b6fe",
+		Family:  "myFamily",
+		Version: "1",
+		Containers: []*apicontainer.Container{
+			{
+				Name: "pause",
+				Type: apicontainer.ContainerCNIPause,
+			},
+		},
+	}
+
+	config, configErr := testTask.DockerConfig(testTask.Containers[0], defaultDockerClientAPIVersion)
+	if configErr != nil {
+		t.Fatal(configErr)
+	}
+
+	assert.Equal(t, 0, len(config.Labels))
+}
+
+func TestDockerConfigPauseContainerLabelsWithEnvVar_ECS_PAUSE_LABELS(t *testing.T) {
+	testTask := &Task{
+		Arn:     "arn:aws:ecs:us-east-1:012345678910:task/c09f0188-7f87-4b0f-bfc3-16296622b6fe",
+		Family:  "myFamily",
+		Version: "1",
+		Containers: []*apicontainer.Container{
+			{
+				Name: "pause",
+				Type: apicontainer.ContainerCNIPause,
+			},
+		},
+	}
+	labelsString := "{\"test.label.1\":\"test_a\",\"test.label.2\":\"test_b\"}"
+	t.Setenv(pauseLabelsEnvVar, labelsString)
+
+	config, configErr := testTask.DockerConfig(testTask.Containers[0], defaultDockerClientAPIVersion)
+	if configErr != nil {
+		t.Fatal(configErr)
+	}
+
+	assert.Equal(t, 2, len(config.Labels))
+	assert.Equal(t, "test_a", config.Labels["test.label.1"])
+	assert.Equal(t, "test_b", config.Labels["test.label.2"])
+}
+
+func TestDockerConfigNamespacePauseContainerLabelsWithEnvVar_ECS_PAUSE_LABELS(t *testing.T) {
+	testTask := &Task{
+		Arn:     "arn:aws:ecs:us-east-1:012345678910:task/c09f0188-7f87-4b0f-bfc3-16296622b6fe",
+		Family:  "myFamily",
+		Version: "1",
+		Containers: []*apicontainer.Container{
+			{
+				Name: "pause",
+				Type: apicontainer.ContainerNamespacePause,
+			},
+		},
+	}
+	labelsString := "{\"test.label.1\":\"test_a\",\"test.label.2\":\"test_b\"}"
+	t.Setenv(pauseLabelsEnvVar, labelsString)
+
+	config, configErr := testTask.DockerConfig(testTask.Containers[0], defaultDockerClientAPIVersion)
+	if configErr != nil {
+		t.Fatal(configErr)
+	}
+
+	assert.Equal(t, 2, len(config.Labels))
+	assert.Equal(t, "test_a", config.Labels["test.label.1"])
+	assert.Equal(t, "test_b", config.Labels["test.label.2"])
+}
+
+func TestDockerConfigPauseContainerLabelsWithInvalidEnvVar_ECS_PAUSE_LABELS(t *testing.T) {
+	testTask := &Task{
+		Arn:     "arn:aws:ecs:us-east-1:012345678910:task/c09f0188-7f87-4b0f-bfc3-16296622b6fe",
+		Family:  "myFamily",
+		Version: "1",
+		Containers: []*apicontainer.Container{
+			{
+				Name: "pause",
+				Type: apicontainer.ContainerCNIPause,
+			},
+		},
+	}
+	// Invalid format.
+	labelsString := "{\"test.label\":\"test\""
+	t.Setenv(pauseLabelsEnvVar, labelsString)
+
+	config, configErr := testTask.DockerConfig(testTask.Containers[0], defaultDockerClientAPIVersion)
+	if configErr != nil {
+		t.Fatal(configErr)
+	}
+
+	assert.Equal(t, 0, len(config.Labels))
+}
+
+func TestDockerConfigContainerLabelsWithEnvVar_ECS_PAUSE_LABELS(t *testing.T) {
+	testTask := &Task{
+		Arn:     "arn:aws:ecs:us-east-1:012345678910:task/c09f0188-7f87-4b0f-bfc3-16296622b6fe",
+		Family:  "myFamily",
+		Version: "1",
+		Containers: []*apicontainer.Container{
+			{
+				Name:   "c1",
+				CPU:    uint(10),
+				Memory: uint(256),
+			},
+		},
+	}
+
+	config, configErr := testTask.DockerConfig(testTask.Containers[0], defaultDockerClientAPIVersion)
+	if configErr != nil {
+		t.Fatal(configErr)
+	}
+
+	assert.Equal(t, 0, len(config.Labels))
+}
