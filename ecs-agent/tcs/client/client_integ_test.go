@@ -329,25 +329,27 @@ func TestNoInterferenceBetweenMessageTypes(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
 
-	// Create mock websocket connection
+	// Create mock websocket connection.
 	conn := mock_wsconn.NewMockWebsocketConn(ctrl)
 
-	// Create channels for all message types
+	// Create channels for all message types.
 	telemetryMessages := make(chan ecstcs.TelemetryMessage, 2)
 	healthMessages := make(chan ecstcs.HealthMessage, 2)
 	instanceStatusMessages := make(chan ecstcs.InstanceStatusMessage, 2)
 
-	// Create TCS client with all channels
+	// Create TCS client with all channels.
 	cs := testCSIntegration(conn, telemetryMessages, healthMessages, instanceStatusMessages).(*tcsClientServer)
 
 	ctx, cancel := context.WithTimeout(context.TODO(), 10*time.Second)
 	defer cancel()
 
-	// Track the order of requests to verify no interference
+	// Track the order of requests to verify no interference.
 	var requestOrder []string
 	var requestMutex sync.Mutex
+	var wg sync.WaitGroup
+	wg.Add(6) // Expect 6 total requests.
 
-	// Set up mock expectations - expect 6 total requests (2 of each type)
+	// Set up mock expectations - expect 6 total requests (2 of each type).
 	conn.EXPECT().SetWriteDeadline(gomock.Any()).Return(nil).Times(6)
 	conn.EXPECT().WriteMessage(gomock.Any(), gomock.Any()).DoAndReturn(
 		func(messageType int, data []byte) error {
@@ -355,7 +357,7 @@ func TestNoInterferenceBetweenMessageTypes(t *testing.T) {
 			defer requestMutex.Unlock()
 
 			dataStr := string(data)
-			// Identify request type based on content
+			// Identify request type based on content.
 			if contains(dataStr, "integration-test-telemetry") {
 				requestOrder = append(requestOrder, "telemetry")
 			} else if contains(dataStr, "integration-test-health") {
@@ -364,15 +366,16 @@ func TestNoInterferenceBetweenMessageTypes(t *testing.T) {
 				requestOrder = append(requestOrder, "instanceStatus")
 			}
 
+			wg.Done()
 			return nil
 		},
 	).Times(6)
 
-	// Start publishMessages in a goroutine
+	// Start publishMessages in a goroutine.
 	go cs.publishMessages(ctx)
 
-	// Send messages in a specific order with delays to test interference
-	// First batch
+	// Send messages in a specific order with delays to test interference.
+	// First batch.
 	telemetryMessage1 := ecstcs.TelemetryMessage{
 		Metadata: &ecstcs.MetricsMetadata{
 			Cluster:           aws.String("integration-test-cluster"),
@@ -409,10 +412,10 @@ func TestNoInterferenceBetweenMessageTypes(t *testing.T) {
 	}
 	healthMessages <- healthMessage1
 
-	// Small delay before second batch
+	// Small delay before second batch.
 	time.Sleep(100 * time.Millisecond)
 
-	// Second batch
+	// Second batch.
 	telemetryMessage2 := ecstcs.TelemetryMessage{
 		Metadata: &ecstcs.MetricsMetadata{
 			Cluster:           aws.String("integration-test-cluster"),
@@ -449,10 +452,21 @@ func TestNoInterferenceBetweenMessageTypes(t *testing.T) {
 	}
 	instanceStatusMessages <- instanceStatusMessage2
 
-	// Give time for all messages to be processed
-	time.Sleep(1 * time.Second)
+	// Wait for all messages to be processed with a timeout.
+	done := make(chan struct{})
+	go func() {
+		wg.Wait()
+		close(done)
+	}()
 
-	// Verify all messages were consumed from their respective channels
+	select {
+	case <-done:
+		// All messages processed successfully.
+	case <-time.After(3 * time.Second):
+		t.Fatal("Timeout waiting for all messages to be processed")
+	}
+
+	// Verify all messages were consumed from their respective channels.
 	assert.Len(t, telemetryMessages, 0,
 		"All telemetry messages should be consumed from channel")
 	assert.Len(t, healthMessages, 0,
@@ -460,12 +474,12 @@ func TestNoInterferenceBetweenMessageTypes(t *testing.T) {
 	assert.Len(t, instanceStatusMessages, 0,
 		"All instanceStatus messages should be consumed from channel")
 
-	// Verify that we received all expected requests
+	// Verify that we received all expected requests.
 	requestMutex.Lock()
 	assert.Len(t, requestOrder, 6,
 		"Should have received exactly 6 requests")
 
-	// Verify that each message type was processed (order may vary due to concurrency)
+	// Verify that each message type was processed (order may vary due to concurrency).
 	telemetryCount := 0
 	healthCount := 0
 	instanceStatusCount := 0
@@ -486,7 +500,7 @@ func TestNoInterferenceBetweenMessageTypes(t *testing.T) {
 	assert.Equal(t, 2, instanceStatusCount, "Should have processed 2 instanceStatus messages")
 	requestMutex.Unlock()
 
-	// Cancel context to stop publishMessages
+	// Cancel context to stop publishMessages.
 	cancel()
 }
 
