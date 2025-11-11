@@ -149,8 +149,8 @@ func (cs *tcsClientServer) Serve(ctx context.Context) error {
 //   - Instance status messages containing instance health status information
 //
 // The method continues processing messages until the context is cancelled.
-// Errors during publishing are logged but do not terminate the processing loop,
-// ensuring that failures with one message type do not affect others.
+// Errors during publishing are logged but do not terminate the processing loop.
+// This ensures that failures with one message type do not affect others.
 func (cs *tcsClientServer) publishMessages(ctx context.Context) {
 	for {
 		select {
