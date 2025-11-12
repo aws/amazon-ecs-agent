@@ -13,7 +13,7 @@ require (
 	github.com/aws/aws-sdk-go-v2/feature/s3/manager v1.17.23
 	github.com/aws/aws-sdk-go-v2/service/s3 v1.63.1
 	github.com/cihub/seelog v0.0.0-20170130134532-f561c5e57575
-	github.com/containerd/containerd v1.7.27
+	github.com/containerd/containerd v1.7.29
 	github.com/docker/docker v25.0.6+incompatible
 	github.com/docker/go-plugins-helpers v0.0.0-20181025120712-1e6269c305b8
 	github.com/fsouza/go-dockerclient v1.10.1
@@ -63,8 +63,8 @@ require (
 	github.com/sirupsen/logrus v1.9.3 // indirect
 	github.com/vishvananda/netns v0.0.4 // indirect
 	golang.org/x/exp v0.0.0-20231006140011-7918f672742d // indirect
-	golang.org/x/net v0.38.0 // indirect
-	golang.org/x/sys v0.31.0 // indirect
+	golang.org/x/net v0.42.0 // indirect
+	golang.org/x/sys v0.34.0 // indirect
 	gopkg.in/check.v1 v1.0.0-20200227125254-8fa46927fb4f // indirect
 	gopkg.in/yaml.v3 v3.0.1 // indirect
 )
