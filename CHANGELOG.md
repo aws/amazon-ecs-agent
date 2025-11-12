@@ -1,5 +1,9 @@
 # Changelog
 
+# 1.101.0
+* Feature - Add new environment variable `ECS_PAUSE_LABELS` to apply custom labels to pause containers [#4789](https://github.com/aws/amazon-ecs-agent/pull/4789)
+* Enhancement - Update Go version to 1.24.9 [#4813](https://github.com/aws/amazon-ecs-agent/pull/4813)
+
 # 1.100.1
 * Enhancement - Update SSM Agent version to 3.3.3050.0 [#4793](https://github.com/aws/amazon-ecs-agent/pull/4793)
 * Enhancement - Update amazon-vpc-cni-plugins to consume updated dependencies in a4e9ac0 [#4801](https://github.com/aws/amazon-ecs-agent/pull/4801)
