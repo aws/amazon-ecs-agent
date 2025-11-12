@@ -56,9 +56,14 @@ func (m *managedLinux) BuildTaskNetworkConfiguration(
 			return nil, errors.Wrap(err, "failed to translate network configuration")
 		}
 	case types.NetworkModeHost:
-		netNSs, err = m.buildDefaultNetworkNamespace(taskID)
+		netNSs, err = m.buildHostNetworkNamespaceConfig(taskID)
 		if err != nil {
 			return nil, errors.Wrap(err, "failed to create network namespace with host eni")
+		}
+	case "daemon-bridge":
+		netNSs, err = m.buildHostDaemonNamespaceConfig(taskID)
+		if err != nil {
+			return nil, errors.Wrap(err, "failed to create daemon host namespace")
 		}
 	default:
 		return nil, errors.New("invalid network mode: " + string(mode))
@@ -204,8 +209,8 @@ func (m *managedLinux) ConfigureServiceConnect(
 	return m.common.configureServiceConnect(ctx, netNSPath, primaryIf, scConfig)
 }
 
-// buildDefaultNetworkNamespace return default network namespace of host ENI for host mode.
-func (m *managedLinux) buildDefaultNetworkNamespace(taskID string) ([]*tasknetworkconfig.NetworkNamespace, error) {
+// buildHostNetworkNamespaceConfig return default network namespace of host ENI for host mode.
+func (m *managedLinux) buildHostNetworkNamespaceConfig(taskID string) ([]*tasknetworkconfig.NetworkNamespace, error) {
 	macAddress, err1 := m.client.GetMetadata(MacResource)
 	ec2ID, err2 := m.client.GetMetadata(InstanceIDResource)
 	macToNames, err3 := m.common.interfacesMACToName()
@@ -291,6 +296,7 @@ func (m *managedLinux) buildDefaultNetworkNamespace(taskID string) ([]*tasknetwo
 	netInt.DesiredStatus = status.NetworkReady
 	netInt.KnownStatus = status.NetworkReady
 	defaultNameSpace, err := tasknetworkconfig.NewNetworkNamespace(netNSName, "", 0, nil, netInt)
+	defaultNameSpace = defaultNameSpace.WithNetworkMode(types.NetworkModeHost)
 	if err != nil {
 		logger.Error("Error building default network namespace for host mode", logger.Fields{
 			loggerfield.Error: err,
@@ -305,4 +311,167 @@ func (m *managedLinux) buildDefaultNetworkNamespace(taskID string) ([]*tasknetwo
 // HandleHostMode is a no op because Host Mode does not require network interface configuration. No need to invoke CNI plugins.
 func (m *managedLinux) HandleHostMode() error {
 	return nil
+}
+
+func (m *managedLinux) buildHostDaemonNamespaceConfig(taskID string) ([]*tasknetworkconfig.NetworkNamespace, error) {
+	macAddress, err1 := m.client.GetMetadata(MacResource)
+	ec2ID, err2 := m.client.GetMetadata(InstanceIDResource)
+	macToNames, err3 := m.common.interfacesMACToName()
+	if err := goErr.Join(err1, err2, err3); err != nil {
+		logger.Error("Error fetching fields for default ENI", logger.Fields{
+			loggerfield.Error: err,
+		})
+		return nil, err
+	}
+
+	hostENI := &ecsacs.ElasticNetworkInterface{
+		AttachmentArn:                aws.String("arn"),
+		Ec2Id:                        aws.String(ec2ID),
+		MacAddress:                   aws.String(macAddress),
+		DomainNameServers:            []*string{},
+		DomainName:                   []*string{},
+		PrivateDnsName:               aws.String(DefaultArg),
+		InterfaceAssociationProtocol: aws.String(DefaultArg),
+		Index:                        aws.Int64(64),
+	}
+
+	ipComp, err := net.DetermineIPCompatibility(m.netlink, macAddress)
+	if err != nil {
+		logger.Error("Failed to determine IP compatibility of host ENI", logger.Fields{
+			loggerfield.Error: err,
+		})
+		return nil, err
+	}
+
+	if !ipComp.IsIPv4Compatible() && !ipComp.IsIPv6Compatible() {
+		return nil, errors.New("Failed to build the default network namespace because the host ENI is neither " +
+			"IPv4 enabled nor IPv6 enabled")
+	}
+
+	if ipComp.IsIPv6Compatible() {
+		privateIpv6, err1 := m.client.GetMetadata(PrivateIPv6Address)
+		ipv6SubNet, err2 := m.client.GetMetadata(fmt.Sprintf(IPv6SubNetCidrBlock, macAddress))
+		if err := goErr.Join(err1, err2); err != nil {
+			logger.Error("Error fetching IPv6 fields for default ENI", logger.Fields{
+				loggerfield.Error: err,
+			})
+			return nil, err
+		}
+
+		hostENI.Ipv6Addresses = []*ecsacs.IPv6AddressAssignment{
+			{
+				Primary: aws.Bool(true),
+				Address: aws.String(privateIpv6),
+			},
+		}
+		hostENI.SubnetGatewayIpv6Address = aws.String(ipv6SubNet)
+	}
+
+	if ipComp.IsIPv4Compatible() {
+		privateIpv4, err1 := m.client.GetMetadata(PrivateIPv4Address)
+		ipv4SubNet, err2 := m.client.GetMetadata(fmt.Sprintf(IPv4SubNetCidrBlock, macAddress))
+		if err := goErr.Join(err1, err2); err != nil {
+			logger.Error("Error fetching IPv4 fields for default ENI", logger.Fields{
+				loggerfield.Error: err,
+			})
+			return nil, err
+		}
+
+		hostENI.Ipv4Addresses = []*ecsacs.IPv4AddressAssignment{
+			{
+				Primary:        aws.Bool(true),
+				PrivateAddress: aws.String(privateIpv4),
+			},
+		}
+		hostENI.SubnetGatewayIpv4Address = aws.String(ipv4SubNet)
+	}
+
+	netNSName := "host-daemon"
+	netNSPath := m.common.GetNetNSPath(netNSName)
+	netInt, err := networkinterface.New(hostENI, DefaultArg, nil, macToNames)
+	if err != nil {
+		logger.Error("Failed to create the network interface", logger.Fields{
+			loggerfield.Error: err,
+		})
+		return nil, err
+	}
+
+	netInt.Default = true
+	netInt.DesiredStatus = status.NetworkReadyPull
+	netInt.KnownStatus = status.NetworkNone
+	daemonNamespace, err := tasknetworkconfig.NewNetworkNamespace(netNSName, netNSPath,
+		0, nil, netInt)
+	daemonNamespace = daemonNamespace.WithNetworkMode("daemon-bridge")
+	if err != nil {
+		logger.Error("Error building default network namespace for daemon-bridge mode", logger.Fields{
+			loggerfield.Error: err,
+		})
+		return nil, err
+	}
+	daemonNamespace.KnownState = status.NetworkNone
+	daemonNamespace.DesiredState = status.NetworkReadyPull
+	return []*tasknetworkconfig.NetworkNamespace{daemonNamespace}, nil
+}
+
+func (m *managedLinux) configureDaemonNetNS(ctx context.Context, taskID string, netNS *tasknetworkconfig.NetworkNamespace) error {
+	var err error
+	if netNS.DesiredState == status.NetworkDeleted {
+		return errors.New("invalid transition state encountered: " + netNS.DesiredState.String())
+	}
+	if netNS.KnownState == status.NetworkNone &&
+		netNS.DesiredState == status.NetworkReadyPull {
+
+		logger.Debug("Creating daemon netns: " + netNS.Path)
+		// Create network namespace on the host.
+		err = m.CreateNetNS(netNS.Path)
+		if err != nil {
+			return err
+		}
+
+		logger.Debug("Creating DNS config files for daemon NS")
+
+		// Create necessary DNS config files for the netns.
+		err = m.CreateDNSConfig(taskID, netNS)
+		if err != nil {
+			return err
+		}
+
+		// Create MI-Bridge
+		var cniNetConf []ecscni.PluginConfig
+		cniNetConf = append(cniNetConf, createBridgePluginConfig(netNS.Path))
+		add := true
+
+		_, err = m.common.executeCNIPlugin(ctx, add, cniNetConf...)
+		if err != nil {
+			err = errors.Wrap(err, "failed to setup deamon network namespace bridge")
+		}
+
+	}
+
+	return nil
+
+}
+
+// ConfigureDaemonNetNS will create a network namespace using the host ENI and host dns configuration.
+// It will contain a loopback interface and a bridge to the internal ECS subnet.
+func (m *managedLinux) ConfigureDaemonNetNS(netNS *tasknetworkconfig.NetworkNamespace) error {
+	return m.configureDaemonNetNS(context.Background(), netNS.Path, netNS)
+}
+
+// StopDaemonNetNS stops and cleans up a daemon network namespace.
+func (m *managedLinux) StopDaemonNetNS(ctx context.Context, netNS *tasknetworkconfig.NetworkNamespace) error {
+
+	// Cleanup bridge config(veth pair).
+	var cniNetConf []ecscni.PluginConfig
+	cniNetConf = append(cniNetConf, createBridgePluginConfig(netNS.Path))
+	add := false
+
+	_, err := m.common.executeCNIPlugin(ctx, add, cniNetConf...)
+	if err != nil {
+		err = errors.Wrap(err, "failed to stop deamon network namespace bridge")
+	}
+
+	// TODO : Delete the daemon namespace only when we have no more daemon tasks running.
+
+	return err
 }
