@@ -134,6 +134,7 @@ func (cs *tcsClientServer) publishMessages(ctx context.Context) {
 				logger.Warn("Error publishing metrics", logger.Fields{
 					field.Error: err,
 				})
+				cs.MetricsFactory.New(metrics.TACSPublishMetricFailure).Done(err)
 			}
 		case health := <-cs.health:
 			logger.Debug("received health message in healthChannel")

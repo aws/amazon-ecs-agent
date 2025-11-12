@@ -59,6 +59,11 @@ const (
 	ACSSessionFailureCallName  = acsSessionNamespace + ".ACSConnectFailure"
 	ACSSessionCallDurationName = acsSessionNamespace + ".ACSConnectDuration"
 
+	// TACS Connection Metrics
+	tacsConnectionNamespace  = "TACSConnection"
+	TACSConnectionFailure    = tacsConnectionNamespace + ".Failure"
+	TACSPublishMetricFailure = tacsConnectionNamespace + ".PublishMetricFailure"
+
 	// ECS Client Metrics
 	ecsClientNamespace               = "ECSClient"
 	DiscoverPollEndpointFailure      = ecsClientNamespace + ".DiscoverPollEndpointFailure"

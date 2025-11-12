@@ -136,7 +136,9 @@ func (session *telemetrySession) Start(ctx context.Context) error {
 			logger.Info("TCS Websocket connection closed for a valid reason")
 			backoff.Reset()
 		default:
-			seelog.Errorf("Error: lost websocket connection with ECS Telemetry service (TCS): %v", tcsError)
+			connectionError := fmt.Errorf("Error: lost websocket connection with ECS Telemetry service (TCS): %v", tcsError)
+			seelog.Error(connectionError)
+			session.metricsFactory.New(metrics.TACSConnectionFailure).Done(connectionError)
 			time.Sleep(backoff.Duration())
 		}
 	}
