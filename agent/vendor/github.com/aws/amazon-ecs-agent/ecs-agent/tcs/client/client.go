@@ -494,7 +494,7 @@ func (cs *tcsClientServer) publishInstanceStatusOnce(message ecstcs.InstanceStat
 	return nil
 }
 
-// createInstanceStatusMessageFromDoctor creates an InstanceStatusMessage from doctor data
+// createInstanceStatusMessageFromDoctor creates an InstanceStatusMessage from doctor data.
 func (cs *tcsClientServer) createInstanceStatusMessageFromDoctor() (ecstcs.InstanceStatusMessage, error) {
 	metadata := &ecstcs.InstanceStatusMetadata{
 		Cluster:           aws.String(cs.doctor.GetCluster()),

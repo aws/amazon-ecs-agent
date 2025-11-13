@@ -485,7 +485,6 @@ func (cs *tcsClientServer) publishInstanceStatusOnce(message ecstcs.InstanceStat
 		Timestamp: (*utils.Timestamp)(aws.Time(time.Now())),
 	}
 
-	logger.Debug("making publish instance status request")
 	err := cs.MakeRequest(request)
 	if err != nil {
 		return err

@@ -18,7 +18,7 @@ import (
 
 	"github.com/aws/amazon-ecs-agent/agent/doctor/statustracker"
 	"github.com/aws/amazon-ecs-agent/ecs-agent/csiclient"
-	ecsdoctor "github.com/aws/amazon-ecs-agent/ecs-agent/doctor"
+	"github.com/aws/amazon-ecs-agent/ecs-agent/doctor"
 	"github.com/aws/amazon-ecs-agent/ecs-agent/logger"
 	"github.com/aws/amazon-ecs-agent/ecs-agent/logger/field"
 	"github.com/aws/amazon-ecs-agent/ecs-agent/tcs/model/ecstcs"
@@ -40,7 +40,7 @@ type ebsCSIDaemonHealthcheck struct {
 func NewEBSCSIDaemonHealthCheck(
 	csiClient csiclient.CSIClient,
 	requestTimeout time.Duration, // Timeout for health check requests.
-) ecsdoctor.Healthcheck {
+) doctor.Healthcheck {
 	return &ebsCSIDaemonHealthcheck{
 		csiClient:                csiClient,
 		requestTimeout:           requestTimeout,
