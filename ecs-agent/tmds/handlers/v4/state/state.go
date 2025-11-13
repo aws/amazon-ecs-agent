@@ -158,12 +158,12 @@ type AgentState interface {
 	// Returns metadata for all tasks on the container instance in v4 format.
 	// Returns ErrorTaskLookupFailed if task lookup fails.
 	// Returns ErrorMetadataFetchFailure if something else goes wrong.
-	GetTasksMetadata() ([]TaskResponse, error)
+	GetTasksMetadata(endpointContainerID string) ([]TaskResponse, error)
 
 	// Returns metadata for all tasks on the container instance including task and container instance tags (if applicable) in v4 format.
 	// Returns ErrorTaskLookupFailed if task lookup fails.
 	// Returns ErrorMetadataFetchFailure if something else goes wrong.
-	GetTasksMetadataWithTags() ([]TaskResponse, error)
+	GetTasksMetadataWithTags(endpointContainerID string) ([]TaskResponse, error)
 
 	// Returns task metadata including task and container instance tags (if applicable) in v4 format
 	// for the task identified by the provided endpointContainerID.

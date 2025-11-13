@@ -140,33 +140,33 @@ func (mr *MockAgentStateMockRecorder) GetTaskStats(arg0 interface{}) *gomock.Cal
 }
 
 // GetTasksMetadata mocks base method.
-func (m *MockAgentState) GetTasksMetadata() ([]state.TaskResponse, error) {
+func (m *MockAgentState) GetTasksMetadata(endpointContainerID string) ([]state.TaskResponse, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "GetTasksMetadata")
+	ret := m.ctrl.Call(m, "GetTasksMetadata", endpointContainerID)
 	ret0, _ := ret[0].([]state.TaskResponse)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
 // GetTasksMetadata indicates an expected call of GetTasksMetadata.
-func (mr *MockAgentStateMockRecorder) GetTasksMetadata() *gomock.Call {
+func (mr *MockAgentStateMockRecorder) GetTasksMetadata(endpointContainerID interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetTasksMetadata", reflect.TypeOf((*MockAgentState)(nil).GetTasksMetadata))
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetTasksMetadata", reflect.TypeOf((*MockAgentState)(nil).GetTasksMetadata), endpointContainerID)
 }
 
 // GetTasksMetadataWithTags mocks base method.
-func (m *MockAgentState) GetTasksMetadataWithTags() ([]state.TaskResponse, error) {
+func (m *MockAgentState) GetTasksMetadataWithTags(endpointContainerID string) ([]state.TaskResponse, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "GetTasksMetadataWithTags")
+	ret := m.ctrl.Call(m, "GetTasksMetadataWithTags", endpointContainerID)
 	ret0, _ := ret[0].([]state.TaskResponse)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
 // GetTasksMetadataWithTags indicates an expected call of GetTasksMetadataWithTags.
-func (mr *MockAgentStateMockRecorder) GetTasksMetadataWithTags() *gomock.Call {
+func (mr *MockAgentStateMockRecorder) GetTasksMetadataWithTags(endpointContainerID interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetTasksMetadataWithTags", reflect.TypeOf((*MockAgentState)(nil).GetTasksMetadataWithTags))
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetTasksMetadataWithTags", reflect.TypeOf((*MockAgentState)(nil).GetTasksMetadataWithTags), endpointContainerID)
 }
 
 // GetTasksStats mocks base method.

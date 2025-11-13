@@ -183,7 +183,7 @@ func TestGetTaskMetadataWithTags(t *testing.T) {
 
 func TestGetTasksMetadata_NotSupported(t *testing.T) {
 	state := &TMDSAgentState{}
-	_, err := state.GetTasksMetadata()
+	_, err := state.GetTasksMetadata("test-container-id")
 
 	var metadataErr *tmdsv4.ErrorMetadataFetchFailure
 	assert.True(t, errors.As(err, &metadataErr))
@@ -192,7 +192,7 @@ func TestGetTasksMetadata_NotSupported(t *testing.T) {
 
 func TestGetTasksMetadataWithTags_NotSupported(t *testing.T) {
 	state := &TMDSAgentState{}
-	_, err := state.GetTasksMetadataWithTags()
+	_, err := state.GetTasksMetadataWithTags("test-container-id")
 
 	var metadataErr *tmdsv4.ErrorMetadataFetchFailure
 	assert.True(t, errors.As(err, &metadataErr))

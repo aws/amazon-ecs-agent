@@ -509,7 +509,7 @@ func TestTasksMetadata(t *testing.T) {
 
 		handler, _, agentState, _ := setup(t)
 		agentState.EXPECT().
-			GetTasksMetadata().
+			GetTasksMetadata(gomock.Any()).
 			Return(tasksMetadata, nil)
 		testTMDSRequest(t, handler, TMDSTestCase[[]state.TaskResponse]{
 			path:                 path,
@@ -543,7 +543,7 @@ func TestTasksMetadata(t *testing.T) {
 		handler, ctrl, agentState, metricsFactory := setup(t)
 
 		agentState.EXPECT().
-			GetTasksMetadata().
+			GetTasksMetadata(gomock.Any()).
 			Return(nil, errors.New("fetch error"))
 
 		entry := mock_metrics.NewMockEntry(ctrl)
@@ -588,7 +588,7 @@ func TestTasksMetadataWithTags(t *testing.T) {
 
 		handler, _, agentState, _ := setup(t)
 		agentState.EXPECT().
-			GetTasksMetadataWithTags().
+			GetTasksMetadataWithTags(gomock.Any()).
 			Return(tasksMetadata, nil)
 		testTMDSRequest(t, handler, TMDSTestCase[[]state.TaskResponse]{
 			path:                 path,
@@ -622,7 +622,7 @@ func TestTasksMetadataWithTags(t *testing.T) {
 		handler, ctrl, agentState, metricsFactory := setup(t)
 
 		agentState.EXPECT().
-			GetTasksMetadataWithTags().
+			GetTasksMetadataWithTags(gomock.Any()).
 			Return(nil, errors.New("fetch error"))
 
 		entry := mock_metrics.NewMockEntry(ctrl)
@@ -872,7 +872,7 @@ func TestTasksStats(t *testing.T) {
 
 			// expect GetTasksStats to be called that should return an error
 			agentState.EXPECT().
-				GetTasksStats("").
+				GetTasksStats(gomock.Any()).
 				Return(nil, tc.err)
 
 			// expect InternalServerError metric to be published with the error.
@@ -894,7 +894,7 @@ func TestTasksStats(t *testing.T) {
 		agentState, _, _, handler := setup()
 		tasksStats := []map[string]*state.StatsResponse{taskStats}
 		agentState.EXPECT().
-			GetTasksStats("").
+			GetTasksStats(gomock.Any()).
 			Return(tasksStats, nil)
 		testTMDSRequest(t, handler, TMDSTestCase[[]map[string]*state.StatsResponse]{
 			path:                 path,
@@ -952,7 +952,7 @@ func TestTasksMetadataHandler_IncludeTags(t *testing.T) {
 	metricsFactory := mock_metrics.NewMockEntryFactory(ctrl)
 
 	t.Run("calls GetTasksMetadata when includeTags is false", func(t *testing.T) {
-		agentState.EXPECT().GetTasksMetadata().Return([]state.TaskResponse{}, nil)
+		agentState.EXPECT().GetTasksMetadata(gomock.Any()).Return([]state.TaskResponse{}, nil)
 
 		handler := tasksMetadataHandler(agentState, metricsFactory, false)
 		req := httptest.NewRequest("GET", "/v4/test/tasks", nil)
@@ -964,7 +964,7 @@ func TestTasksMetadataHandler_IncludeTags(t *testing.T) {
 	})
 
 	t.Run("calls GetTasksMetadataWithTags when includeTags is true", func(t *testing.T) {
-		agentState.EXPECT().GetTasksMetadataWithTags().Return([]state.TaskResponse{}, nil)
+		agentState.EXPECT().GetTasksMetadataWithTags(gomock.Any()).Return([]state.TaskResponse{}, nil)
 
 		handler := tasksMetadataHandler(agentState, metricsFactory, true)
 		req := httptest.NewRequest("GET", "/v4/test/tasks", nil)

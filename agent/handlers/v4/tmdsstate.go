@@ -249,15 +249,15 @@ func (s *TMDSAgentState) GetTaskStats(v3EndpointID string) (map[string]*tmdsv4.S
 	return taskStatsResponse, nil
 }
 
-func (s *TMDSAgentState) GetTasksMetadata() ([]tmdsv4.TaskResponse, error) {
+func (s *TMDSAgentState) GetTasksMetadata(endpointContainerID string) ([]tmdsv4.TaskResponse, error) {
 	return nil, tmdsv4.NewErrorMetadataFetchFailure("tasks metadata endpoint not supported")
 }
 
-func (s *TMDSAgentState) GetTasksMetadataWithTags() ([]tmdsv4.TaskResponse, error) {
+func (s *TMDSAgentState) GetTasksMetadataWithTags(endpointContainerID string) ([]tmdsv4.TaskResponse, error) {
 	return nil, tmdsv4.NewErrorMetadataFetchFailure("tasks metadata with tags endpoint not supported")
 }
 
-func (s *TMDSAgentState) GetTasksStats(v3EndpointID string) ([]map[string]*tmdsv4.StatsResponse, error) {
+func (s *TMDSAgentState) GetTasksStats(endpointContainerID string) ([]map[string]*tmdsv4.StatsResponse, error) {
 	return nil, tmdsv4.NewErrorStatsFetchFailure("tasks stats endpoint not supported", nil)
 }
 

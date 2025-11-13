@@ -204,13 +204,14 @@ func tasksMetadataHandler(
 	includeTags bool,
 ) func(http.ResponseWriter, *http.Request) {
 	return func(w http.ResponseWriter, r *http.Request) {
+		endpointContainerID := mux.Vars(r)[EndpointContainerIDMuxName]
 		var tasksMetadata []state.TaskResponse
 		var err error
 
 		if includeTags {
-			tasksMetadata, err = agentState.GetTasksMetadataWithTags()
+			tasksMetadata, err = agentState.GetTasksMetadataWithTags(endpointContainerID)
 		} else {
-			tasksMetadata, err = agentState.GetTasksMetadata()
+			tasksMetadata, err = agentState.GetTasksMetadata(endpointContainerID)
 		}
 
 		if err != nil {
@@ -274,8 +275,9 @@ func TasksStatsHandler(
 	metricsFactory metrics.EntryFactory,
 ) func(http.ResponseWriter, *http.Request) {
 	return func(w http.ResponseWriter, r *http.Request) {
+		endpointContainerID := mux.Vars(r)[EndpointContainerIDMuxName]
 		// Get stats for all tasks
-		stats, err := agentState.GetTasksStats("")
+		stats, err := agentState.GetTasksStats(endpointContainerID)
 		if err != nil {
 			logger.Error("Failed to get v4 tasks stats", logger.Fields{
 				field.Error: err,
