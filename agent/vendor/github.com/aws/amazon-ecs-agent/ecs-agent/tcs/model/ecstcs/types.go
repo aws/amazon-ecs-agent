@@ -69,7 +69,7 @@ const (
 	InstanceHealthCheckTypeContainerRuntime = "ContainerRuntime"
 	InstanceHealthCheckTypeAgent            = "Agent"
 	InstanceHealthCheckTypeEBSDaemon        = "EBSDaemon"
-	InstanceHealthCheckTypeNvidia           = "Nvidia"
+	InstanceHealthCheckTypeNvidia           = "NvidiaAcceleratedHardware"
 )
 
 const (
