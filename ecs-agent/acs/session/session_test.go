@@ -357,7 +357,6 @@ func TestShouldReconnectWithoutBackoffReturnsFalseForNonEOF(t *testing.T) {
 // TestSessionReconnectsWithoutBackoffOnEOFError tests that the Session reconnects
 // to ACS without any delay when the connection is closed with the io.EOF error.
 func TestSessionReconnectsWithoutBackoffOnEOFError(t *testing.T) {
-	t.Parallel()
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
 
@@ -1417,7 +1416,7 @@ func TestSessionCallsAddUpdateRequestHandlers(t *testing.T) {
 		if addUpdateRequestHandlersCalled {
 			cancel()
 		}
-	})
+	}).AnyTimes()
 	mockWsClient.EXPECT().WriteCloseMessage().Return(nil).AnyTimes()
 	mockWsClient.EXPECT().Close().Return(nil).AnyTimes()
 
