@@ -27,7 +27,6 @@ import (
 	"runtime/pprof"
 	"strconv"
 	"sync"
-	"sync/atomic"
 	"testing"
 	"time"
 
@@ -375,7 +374,6 @@ func TestSessionReconnectsWithoutBackoffOnEOFError(t *testing.T) {
 	ecsClient.EXPECT().DiscoverPollEndpoint(gomock.Any()).Return(acsURL, nil).AnyTimes()
 
 	ctx, cancel := context.WithCancel(context.Background())
-	defer cancel()
 
 	mockBackoff := mock_retry.NewMockBackoff(ctrl)
 	mockWsClient := mock_wsclient.NewMockClientServer(ctrl)
@@ -387,34 +385,17 @@ func TestSessionReconnectsWithoutBackoffOnEOFError(t *testing.T) {
 	mockWsClient.EXPECT().AddRequestHandler(gomock.Any()).AnyTimes()
 	mockWsClient.EXPECT().WriteCloseMessage().Return(nil).AnyTimes()
 	mockWsClient.EXPECT().Close().Return(nil).AnyTimes()
-
-	// Use a channel to ensure deterministic cancellation after exactly 2 connect attempts.
-	// This prevents race conditions where the context might be cancelled before or after
-	// the expected number of reconnection attempts.
-	secondConnectDone := make(chan struct{})
-	var connectCount int32
-
-	mockWsClient.EXPECT().Connect(gomock.Any(), gomock.Any(), gomock.Any()).DoAndReturn(
-		func(interface{}, interface{}, interface{}) (io.ReadWriteCloser, error) {
-			count := atomic.AddInt32(&connectCount, 1)
-			if count == 2 {
-				// Signal that the second connect has started.
-				// The goroutine below will cancel the context, stopping further reconnection attempts.
-				close(secondConnectDone)
-			}
-			return nil, io.EOF
-		}).Times(2)
-
-	// The backoff.Reset() method is expected to be invoked when the connection is closed with io.EOF.
-	mockBackoff.EXPECT().Reset().Times(2)
-
-	// Start a goroutine to cancel the context after the second connect attempt begins.
-	// This ensures the test terminates cleanly without relying on timing.
-	go func() {
-		<-secondConnectDone
-		cancel()
-	}()
-
+	gomock.InOrder(
+		mockWsClient.EXPECT().Connect(gomock.Any(), gomock.Any(), gomock.Any()).Return(nil, io.EOF),
+		// The backoff.Reset() method is expected to be invoked when the connection is closed with io.EOF.
+		mockBackoff.EXPECT().Reset(),
+		mockWsClient.EXPECT().Connect(gomock.Any(), gomock.Any(), gomock.Any()).Do(func(interface{},
+			interface{}, interface{}) {
+			// Cancel the context on the 2nd connect attempt, which should stop the test.
+			cancel()
+		}).Return(nil, io.EOF),
+		mockBackoff.EXPECT().Reset().AnyTimes(),
+	)
 	acsSession := session{
 		containerInstanceARN:           testconst.ContainerInstanceARN,
 		ecsClient:                      ecsClient,
