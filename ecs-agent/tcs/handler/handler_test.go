@@ -31,6 +31,7 @@ import (
 	"github.com/aws/amazon-ecs-agent/ecs-agent/doctor"
 	"github.com/aws/amazon-ecs-agent/ecs-agent/eventstream"
 	"github.com/aws/amazon-ecs-agent/ecs-agent/metrics"
+	mock_metrics "github.com/aws/amazon-ecs-agent/ecs-agent/metrics/mocks"
 	tcsclient "github.com/aws/amazon-ecs-agent/ecs-agent/tcs/client"
 	"github.com/aws/amazon-ecs-agent/ecs-agent/tcs/model/ecstcs"
 	"github.com/aws/amazon-ecs-agent/ecs-agent/utils"
@@ -205,7 +206,7 @@ func TestStartTelemetrySession(t *testing.T) {
 		testHeartbeatJitter,
 		testDisconnectionTimeout,
 		testDisconnectionJitter,
-		nil,
+		metrics.NewNopEntryFactory(),
 		telemetryMessages,
 		healthMessages,
 		emptyDoctor,
@@ -299,7 +300,7 @@ func TestSessionConnectionClosedByRemote(t *testing.T) {
 		testHeartbeatJitter,
 		testDisconnectionTimeout,
 		testDisconnectionJitter,
-		nil,
+		metrics.NewNopEntryFactory(),
 		telemetryMessages,
 		healthMessages,
 		emptyDoctor,
@@ -362,7 +363,7 @@ func TestConnectionInactiveTimeout(t *testing.T) {
 		100*time.Millisecond,
 		testDisconnectionTimeout,
 		testDisconnectionJitter,
-		nil,
+		metrics.NewNopEntryFactory(),
 		telemetryMessages,
 		healthMessages,
 		emptyDoctor,
@@ -378,6 +379,70 @@ func TestConnectionInactiveTimeout(t *testing.T) {
 		"Expected normal closure code message to be received on server side after periodic disconnect.")
 
 	closeSocket(closeWS)
+}
+
+// TestTACSConnectionFailureMetric tests that the TACSConnectionFailure metric is recorded when there's a connection error
+func TestTACSConnectionFailureMetric(t *testing.T) {
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+
+	// Create mock metrics factory and entry
+	mockMetricsFactory := mock_metrics.NewMockEntryFactory(ctrl)
+	mockEntry := mock_metrics.NewMockEntry(ctrl)
+
+	// Create a test ECS client that will cause StartTelemetrySession to fail
+	testecsclient := &wsmock.TestECSClient{
+		TCSurl: "invalid-url", // This will cause an error
+	}
+
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+
+	deregisterInstanceEventStream := eventstream.NewEventStream("Deregister_Instance", ctx)
+	deregisterInstanceEventStream.StartListening()
+
+	telemetryMessages := make(chan ecstcs.TelemetryMessage, testTelemetryChannelDefaultBufferSize)
+	healthMessages := make(chan ecstcs.HealthMessage, testTelemetryChannelDefaultBufferSize)
+
+	session := NewTelemetrySession(
+		testInstanceArn,
+		testClusterArn,
+		testAgentVersion,
+		testAgentHash,
+		testContainerRuntimeVersion,
+		false,
+		aws.NewCredentialsCache(testCreds),
+		testCfg,
+		deregisterInstanceEventStream,
+		testHeartbeatTimeout,
+		testHeartbeatJitter,
+		testDisconnectionTimeout,
+		testDisconnectionJitter,
+		mockMetricsFactory, // Use the mock metrics factory
+		telemetryMessages,
+		healthMessages,
+		emptyDoctor,
+		testecsclient,
+	)
+
+	// Set expectations for the metrics calls
+	mockMetricsFactory.EXPECT().New(metrics.TACSConnectionFailure).Return(mockEntry).Times(1)
+	mockEntry.EXPECT().Done(gomock.Any()).Times(1) // Expecting Done to be called with any error
+
+	// Start the session in a goroutine since it will run in a loop
+	go func() {
+		// This will fail and trigger the metrics call
+		session.Start(ctx)
+	}()
+
+	// Give some time for the session to start and fail
+	time.Sleep(100 * time.Millisecond)
+
+	// Cancel the context to stop the session loop
+	cancel()
+
+	// Give some time for the goroutine to exit
+	time.Sleep(100 * time.Millisecond)
 }
 
 // TestClientReconnectsAfterInactiveTimeout tests the tcs client reconnects when it loses network
@@ -427,7 +492,7 @@ func TestClientReconnectsAfterInactiveTimeout(t *testing.T) {
 		10*time.Millisecond,
 		testDisconnectionTimeout,
 		testDisconnectionJitter,
-		nil,
+		metrics.NewNopEntryFactory(),
 		telemetryMessages,
 		healthMessages,
 		emptyDoctor,
@@ -538,7 +603,7 @@ func TestStartTelemetrySessionMetricsChannelPauseWhenClientClosed(t *testing.T) 
 		testHeartbeatJitter,
 		testDisconnectionTimeout,
 		testDisconnectionJitter,
-		nil,
+		metrics.NewNopEntryFactory(),
 		telemetryMessages,
 		healthMessages,
 		emptyDoctor,

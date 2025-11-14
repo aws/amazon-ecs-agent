@@ -32,6 +32,7 @@ import (
 
 	"github.com/aws/amazon-ecs-agent/ecs-agent/doctor"
 	"github.com/aws/amazon-ecs-agent/ecs-agent/metrics"
+	mock_metrics "github.com/aws/amazon-ecs-agent/ecs-agent/metrics/mocks"
 	"github.com/aws/amazon-ecs-agent/ecs-agent/tcs/model/ecstcs"
 	"github.com/aws/amazon-ecs-agent/ecs-agent/utils"
 	"github.com/aws/amazon-ecs-agent/ecs-agent/wsclient"
@@ -1011,4 +1012,66 @@ func TestInvalidFormatMessageOnChannel(t *testing.T) {
 
 	// verify no request was made from the two ill-formed message
 	conn.EXPECT().WriteMessage(gomock.Any(), gomock.Any()).Times(0)
+}
+
+// TestTACSPublishMetricFailureMetric tests that the TACSPublishMetricFailure metric is recorded when there's a metrics publishing error
+func TestTACSPublishMetricFailureMetric(t *testing.T) {
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+
+	mockMetricsFactory := mock_metrics.NewMockEntryFactory(ctrl)
+	mockEntry := mock_metrics.NewMockEntry(ctrl)
+
+	ctx, cancel := context.WithCancel(context.TODO())
+	defer cancel()
+
+	telemetryMessages := make(chan ecstcs.TelemetryMessage, testTelemetryChannelDefaultBufferSize)
+	healthMessages := make(chan ecstcs.HealthMessage, testTelemetryChannelDefaultBufferSize)
+
+	// Create a connection that will fail when writing
+	conn := mock_wsconn.NewMockWebsocketConn(ctrl)
+	conn.EXPECT().SetWriteDeadline(gomock.Any()).Return(nil)
+	conn.EXPECT().WriteMessage(gomock.Any(), gomock.Any()).Return(fmt.Errorf("connection error"))
+
+	cfg := &wsclient.WSClientMinAgentConfig{
+		AWSRegion:          "us-east-1",
+		AcceptInsecureCert: true,
+	}
+	cs := New("https://aws.amazon.com/ecs", cfg, emptyDoctor, false, testPublishMetricsInterval,
+		aws.NewCredentialsCache(testCreds), rwTimeout, telemetryMessages, healthMessages, mockMetricsFactory).(*tcsClientServer)
+	cs.SetConnection(conn)
+
+	// Set expectations for the metrics calls
+	mockMetricsFactory.EXPECT().New(metrics.TACSPublishMetricFailure).Return(mockEntry).Times(1)
+	mockEntry.EXPECT().Done(gomock.Any()).Times(1)
+
+	// Create a valid telemetry message that will trigger publishMetricsOnce
+	telemetryMessage := ecstcs.TelemetryMessage{
+		Metadata: &ecstcs.MetricsMetadata{
+			Cluster:           aws.String(testCluster),
+			ContainerInstance: aws.String(testContainerInstance),
+			Idle:              aws.Bool(false),
+			MessageId:         aws.String(testMessageId),
+		},
+		TaskMetrics: []*ecstcs.TaskMetric{
+			{
+				TaskArn: aws.String("test-task-arn"),
+			},
+		},
+	}
+
+	// Send the message to the channel
+	telemetryMessages <- telemetryMessage
+
+	// Start publishMessages in a goroutine
+	go cs.publishMessages(ctx)
+
+	// Give some time for the message to be processed
+	time.Sleep(100 * time.Millisecond)
+
+	// Cancel the context to stop the goroutine
+	cancel()
+
+	// Give some time for the goroutine to exit
+	time.Sleep(100 * time.Millisecond)
 }
