@@ -19,7 +19,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/aws/amazon-ecs-agent/ecs-agent/doctor"
+	"github.com/aws/amazon-ecs-agent/ecs-agent/tcs/model/ecstcs"
 	"github.com/stretchr/testify/assert"
 )
 
@@ -27,40 +27,40 @@ func TestHealthCheckStatusTracker(t *testing.T) {
 	t.Run("initialization", func(t *testing.T) {
 		now := time.Unix(1000, 0)
 		tracker := newHealthCheckStatusTrackerWithTimeFn(func() time.Time { return now })
-		assert.Equal(t, doctor.HealthcheckStatusInitializing, tracker.GetHealthcheckStatus())
+		assert.Equal(t, ecstcs.InstanceHealthCheckStatusInitializing, tracker.GetHealthcheckStatus())
 		assert.Equal(t, now, tracker.GetHealthcheckTime())
 		assert.Equal(t, now, tracker.GetStatusChangeTime())
 	})
 	t.Run("last status and timestamp is captured", func(t *testing.T) {
 		tracker := newHealthCheckStatusTrackerWithTimeFn(incrementalTime())
-		tracker.SetHealthcheckStatus(doctor.HealthcheckStatusOk)
+		tracker.SetHealthcheckStatus(ecstcs.InstanceHealthCheckStatusOk)
 
-		assert.Equal(t, doctor.HealthcheckStatusOk, tracker.GetHealthcheckStatus())
-		assert.Equal(t, doctor.HealthcheckStatusInitializing, tracker.GetLastHealthcheckStatus())
+		assert.Equal(t, ecstcs.InstanceHealthCheckStatusOk, tracker.GetHealthcheckStatus())
+		assert.Equal(t, ecstcs.InstanceHealthCheckStatusInitializing, tracker.GetLastHealthcheckStatus())
 		assert.Equal(t, int64(1), tracker.GetLastHealthcheckTime().Unix())
 		assert.Equal(t, int64(2), tracker.GetHealthcheckTime().Unix())
-		assert.Equal(t, int64(2), tracker.GetStatusChangeTime().Unix()) // changed to OK at time 2
+		assert.Equal(t, int64(2), tracker.GetStatusChangeTime().Unix()) // Changed to OK at time 2.
 	})
 	t.Run("status change time is not changed if status hasn't changed", func(t *testing.T) {
 		tracker := newHealthCheckStatusTrackerWithTimeFn(incrementalTime())
-		// update (but not change) status a bunch of times
+		// Update (but not change) status a bunch of times.
 		for i := 0; i < 10; i++ {
-			tracker.SetHealthcheckStatus(doctor.HealthcheckStatusOk)
+			tracker.SetHealthcheckStatus(ecstcs.InstanceHealthCheckStatusOk)
 		}
 
-		assert.Equal(t, doctor.HealthcheckStatusOk, tracker.GetHealthcheckStatus())
-		assert.Equal(t, doctor.HealthcheckStatusOk, tracker.GetLastHealthcheckStatus())
+		assert.Equal(t, ecstcs.InstanceHealthCheckStatusOk, tracker.GetHealthcheckStatus())
+		assert.Equal(t, ecstcs.InstanceHealthCheckStatusOk, tracker.GetLastHealthcheckStatus())
 
-		// status change time remains at 2
+		// Status change time remains at 2.
 		assert.Equal(t, int64(2), tracker.GetStatusChangeTime().Unix())
 	})
 	t.Run("multiple updates", func(t *testing.T) {
 		tracker := newHealthCheckStatusTrackerWithTimeFn(incrementalTime())
-		tracker.SetHealthcheckStatus(doctor.HealthcheckStatusOk)
-		tracker.SetHealthcheckStatus(doctor.HealthcheckStatusImpaired)
+		tracker.SetHealthcheckStatus(ecstcs.InstanceHealthCheckStatusOk)
+		tracker.SetHealthcheckStatus(ecstcs.InstanceHealthCheckStatusImpaired)
 
-		assert.Equal(t, doctor.HealthcheckStatusImpaired, tracker.GetHealthcheckStatus())
-		assert.Equal(t, doctor.HealthcheckStatusOk, tracker.GetLastHealthcheckStatus())
+		assert.Equal(t, ecstcs.InstanceHealthCheckStatusImpaired, tracker.GetHealthcheckStatus())
+		assert.Equal(t, ecstcs.InstanceHealthCheckStatusOk, tracker.GetLastHealthcheckStatus())
 		assert.Equal(t, int64(2), tracker.GetLastHealthcheckTime().Unix())
 		assert.Equal(t, int64(3), tracker.GetHealthcheckTime().Unix())
 		assert.Equal(t, int64(3), tracker.GetStatusChangeTime().Unix())

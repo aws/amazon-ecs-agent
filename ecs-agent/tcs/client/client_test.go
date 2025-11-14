@@ -23,6 +23,7 @@
 package tcsclient
 
 import (
+	"bytes"
 	"context"
 	"fmt"
 	"math/rand"
@@ -58,14 +59,18 @@ const (
 
 type trueHealthcheck struct{}
 
-func (tc *trueHealthcheck) RunCheck() doctor.HealthcheckStatus                   { return doctor.HealthcheckStatusOk }
-func (tc *trueHealthcheck) SetHealthcheckStatus(status doctor.HealthcheckStatus) {}
-func (tc *trueHealthcheck) GetHealthcheckType() string                           { return doctor.HealthcheckTypeAgent }
-func (tc *trueHealthcheck) GetHealthcheckStatus() doctor.HealthcheckStatus {
-	return doctor.HealthcheckStatusInitializing
+func (tc *trueHealthcheck) RunCheck() ecstcs.InstanceHealthCheckStatus {
+	return ecstcs.InstanceHealthCheckStatusOk
 }
-func (tc *trueHealthcheck) GetLastHealthcheckStatus() doctor.HealthcheckStatus {
-	return doctor.HealthcheckStatusInitializing
+func (tc *trueHealthcheck) SetHealthcheckStatus(status ecstcs.InstanceHealthCheckStatus) {}
+func (tc *trueHealthcheck) GetHealthcheckType() string {
+	return ecstcs.InstanceHealthCheckTypeAgent
+}
+func (tc *trueHealthcheck) GetHealthcheckStatus() ecstcs.InstanceHealthCheckStatus {
+	return ecstcs.InstanceHealthCheckStatusInitializing
+}
+func (tc *trueHealthcheck) GetLastHealthcheckStatus() ecstcs.InstanceHealthCheckStatus {
+	return ecstcs.InstanceHealthCheckStatusInitializing
 }
 func (tc *trueHealthcheck) GetHealthcheckTime() time.Time {
 	return time.Date(1974, time.May, 19, 1, 2, 3, 4, time.UTC)
@@ -79,16 +84,18 @@ func (tc *trueHealthcheck) GetLastHealthcheckTime() time.Time {
 
 type falseHealthcheck struct{}
 
-func (fc *falseHealthcheck) RunCheck() doctor.HealthcheckStatus {
-	return doctor.HealthcheckStatusImpaired
+func (fc *falseHealthcheck) RunCheck() ecstcs.InstanceHealthCheckStatus {
+	return ecstcs.InstanceHealthCheckStatusImpaired
 }
-func (fc *falseHealthcheck) SetHealthcheckStatus(status doctor.HealthcheckStatus) {}
-func (fc *falseHealthcheck) GetHealthcheckType() string                           { return doctor.HealthcheckTypeAgent }
-func (fc *falseHealthcheck) GetHealthcheckStatus() doctor.HealthcheckStatus {
-	return doctor.HealthcheckStatusInitializing
+func (fc *falseHealthcheck) SetHealthcheckStatus(status ecstcs.InstanceHealthCheckStatus) {}
+func (fc *falseHealthcheck) GetHealthcheckType() string {
+	return ecstcs.InstanceHealthCheckTypeAgent
 }
-func (fc *falseHealthcheck) GetLastHealthcheckStatus() doctor.HealthcheckStatus {
-	return doctor.HealthcheckStatusInitializing
+func (fc *falseHealthcheck) GetHealthcheckStatus() ecstcs.InstanceHealthCheckStatus {
+	return ecstcs.InstanceHealthCheckStatusInitializing
+}
+func (fc *falseHealthcheck) GetLastHealthcheckStatus() ecstcs.InstanceHealthCheckStatus {
+	return ecstcs.InstanceHealthCheckStatusInitializing
 }
 func (fc *falseHealthcheck) GetHealthcheckTime() time.Time {
 	return time.Date(1974, time.May, 19, 1, 2, 3, 4, time.UTC)
@@ -648,7 +655,7 @@ func testCS(conn *mock_wsconn.MockWebsocketConn, metricsMessages <-chan ecstcs.T
 		AcceptInsecureCert: true,
 	}
 	cs := New("https://aws.amazon.com/ecs", cfg, emptyDoctor, false, testPublishMetricsInterval,
-		aws.NewCredentialsCache(testCreds), rwTimeout, metricsMessages, healthMessages, metrics.NewNopEntryFactory()).(*tcsClientServer)
+		aws.NewCredentialsCache(testCreds), rwTimeout, metricsMessages, healthMessages, nil, metrics.NewNopEntryFactory()).(*tcsClientServer)
 	cs.SetConnection(conn)
 	return cs
 }
@@ -719,7 +726,7 @@ func TestHealthToPublishHealthRequests(t *testing.T) {
 		IsDocker:           true,
 	}
 
-	cs := New("", cfg, emptyDoctor, true, testPublishMetricsInterval, aws.NewCredentialsCache(testCreds), rwTimeout, nil, nil, metrics.NewNopEntryFactory())
+	cs := New("", cfg, emptyDoctor, true, testPublishMetricsInterval, aws.NewCredentialsCache(testCreds), rwTimeout, nil, nil, nil, metrics.NewNopEntryFactory())
 	cs.SetConnection(conn)
 
 	testMetadata := &ecstcs.HealthMetadata{
@@ -906,25 +913,21 @@ func TestGetPublishInstanceStatusRequest(t *testing.T) {
 			}
 			cs.doctor.RunHealthchecks()
 
-			// note: setting RequestId and Timestamp to nil so I can make the comparison
 			metadata := &ecstcs.InstanceStatusMetadata{
 				Cluster:           aws.String(testCluster),
 				ContainerInstance: aws.String(testContainerInstance),
 				RequestId:         nil,
 			}
 
-			testResult, err := cs.getPublishInstanceStatusRequest()
+			testMessage, err := cs.createInstanceStatusMessageFromDoctor()
 
 			if tc.expectedStatuses != nil {
-				expectedResult := &ecstcs.PublishInstanceStatusRequest{
-					Metadata:  metadata,
-					Statuses:  tc.expectedStatuses,
-					Timestamp: nil,
+				expectedMessage := ecstcs.InstanceStatusMessage{
+					Metadata: metadata,
+					Statuses: tc.expectedStatuses,
 				}
-				// note: setting RequestId and Timestamp to nil so I can make the comparison
-				testResult.Timestamp = nil
-				testResult.Metadata.RequestId = nil
-				assert.Equal(t, testResult, expectedResult)
+				testMessage.Metadata.RequestId = nil
+				assert.Equal(t, testMessage, expectedMessage)
 			} else {
 				assert.Error(t, err, "Test failed")
 			}
@@ -1011,4 +1014,1423 @@ func TestInvalidFormatMessageOnChannel(t *testing.T) {
 
 	// verify no request was made from the two ill-formed message
 	conn.EXPECT().WriteMessage(gomock.Any(), gomock.Any()).Times(0)
+}
+
+// TestNewConstructorWithInstanceStatusChannel tests the constructor with instanceStatus channel parameter.
+func TestNewConstructorWithInstanceStatusChannel(t *testing.T) {
+	t.Parallel()
+
+	testCases := []struct {
+		name                       string
+		url                        string
+		disableResourceMetrics     bool
+		publishMetricsInterval     time.Duration
+		metricsMessages            <-chan ecstcs.TelemetryMessage
+		healthMessages             <-chan ecstcs.HealthMessage
+		instanceStatusMessages     <-chan ecstcs.InstanceStatusMessage
+		expectedInstanceStatusChan bool
+	}{
+		{
+			name:                       "constructor with valid instanceStatus channel",
+			url:                        "https://aws.amazon.com/ecs",
+			disableResourceMetrics:     false,
+			publishMetricsInterval:     testPublishMetricsInterval,
+			metricsMessages:            make(chan ecstcs.TelemetryMessage, 1),
+			healthMessages:             make(chan ecstcs.HealthMessage, 1),
+			instanceStatusMessages:     make(chan ecstcs.InstanceStatusMessage, 1),
+			expectedInstanceStatusChan: true,
+		},
+		{
+			name:                       "constructor with nil instanceStatus channel",
+			url:                        "https://aws.amazon.com/ecs",
+			disableResourceMetrics:     true,
+			publishMetricsInterval:     testPublishMetricsInterval,
+			metricsMessages:            make(chan ecstcs.TelemetryMessage, 1),
+			healthMessages:             make(chan ecstcs.HealthMessage, 1),
+			instanceStatusMessages:     nil,
+			expectedInstanceStatusChan: false,
+		},
+		{
+			name:                       "constructor with all channels nil",
+			url:                        "https://aws.amazon.com/ecs",
+			disableResourceMetrics:     false,
+			publishMetricsInterval:     testPublishMetricsInterval,
+			metricsMessages:            nil,
+			healthMessages:             nil,
+			instanceStatusMessages:     nil,
+			expectedInstanceStatusChan: false,
+		},
+		{
+			name:                       "constructor with different URL and settings",
+			url:                        "https://test.example.com",
+			disableResourceMetrics:     true,
+			publishMetricsInterval:     2 * time.Second,
+			metricsMessages:            make(chan ecstcs.TelemetryMessage, 5),
+			healthMessages:             make(chan ecstcs.HealthMessage, 5),
+			instanceStatusMessages:     make(chan ecstcs.InstanceStatusMessage, 5),
+			expectedInstanceStatusChan: true,
+		},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+
+			cfg := &wsclient.WSClientMinAgentConfig{
+				AWSRegion:          "us-east-1",
+				AcceptInsecureCert: true,
+			}
+
+			cs := New(
+				tc.url,
+				cfg,
+				emptyDoctor,
+				tc.disableResourceMetrics,
+				tc.publishMetricsInterval,
+				aws.NewCredentialsCache(testCreds),
+				rwTimeout,
+				tc.metricsMessages,
+				tc.healthMessages,
+				tc.instanceStatusMessages,
+				metrics.NewNopEntryFactory(),
+			).(*tcsClientServer)
+
+			// Verify that the channel is properly stored in the struct
+			if tc.expectedInstanceStatusChan {
+				assert.NotNil(t, cs.instanceStatus, "instanceStatus channel should be stored when provided")
+				assert.Equal(t, tc.instanceStatusMessages, cs.instanceStatus, "instanceStatus channel should match the provided channel")
+			} else {
+				assert.Nil(t, cs.instanceStatus, "instanceStatus channel should be nil when not provided")
+			}
+
+			// Verify other fields are properly set
+			assert.Equal(t, tc.disableResourceMetrics, cs.disableResourceMetrics, "disableResourceMetrics should match")
+			assert.Equal(t, tc.publishMetricsInterval, cs.publishMetricsInterval, "publishMetricsInterval should match")
+
+			// Verify channels are set correctly (checking for nil/non-nil rather than exact equality due to type conversion)
+			if tc.metricsMessages != nil {
+				assert.NotNil(t, cs.metrics, "metrics channel should be set when provided")
+			} else {
+				assert.Nil(t, cs.metrics, "metrics channel should be nil when not provided")
+			}
+
+			if tc.healthMessages != nil {
+				assert.NotNil(t, cs.health, "health channel should be set when provided")
+			} else {
+				assert.Nil(t, cs.health, "health channel should be nil when not provided")
+			}
+
+			assert.Equal(t, emptyDoctor, cs.doctor, "doctor should match")
+			assert.Equal(t, tc.url, cs.URL, "URL should match")
+		})
+	}
+}
+
+// TestNewConstructorBackwardCompatibility tests backward compatibility of the constructor.
+func TestNewConstructorBackwardCompatibility(t *testing.T) {
+	t.Parallel()
+
+	testCases := []struct {
+		name                   string
+		instanceStatusMessages <-chan ecstcs.InstanceStatusMessage
+		description            string
+	}{
+		{
+			name:                   "nil instanceStatus channel maintains compatibility",
+			instanceStatusMessages: nil,
+			description:            "Constructor should work with nil instanceStatusMessages parameter",
+		},
+		{
+			name:                   "valid instanceStatus channel works correctly",
+			instanceStatusMessages: make(chan ecstcs.InstanceStatusMessage, 1),
+			description:            "Constructor should work with valid instanceStatusMessages parameter",
+		},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+
+			cfg := &wsclient.WSClientMinAgentConfig{
+				AWSRegion:          "us-east-1",
+				AcceptInsecureCert: true,
+			}
+
+			metricsMessages := make(chan ecstcs.TelemetryMessage, 1)
+			healthMessages := make(chan ecstcs.HealthMessage, 1)
+
+			// Test that constructor works without errors
+			cs := New(
+				"https://aws.amazon.com/ecs",
+				cfg,
+				emptyDoctor,
+				false,
+				testPublishMetricsInterval,
+				aws.NewCredentialsCache(testCreds),
+				rwTimeout,
+				metricsMessages,
+				healthMessages,
+				tc.instanceStatusMessages,
+				metrics.NewNopEntryFactory(),
+			)
+
+			// Verify that the client server is created successfully
+			assert.NotNil(t, cs, "ClientServer should be created successfully")
+
+			// Verify that it implements the expected interface
+			_, ok := cs.(wsclient.ClientServer)
+			assert.True(t, ok, "Returned object should implement wsclient.ClientServer interface")
+
+			// Cast to concrete type to verify internal state
+			tcsCS := cs.(*tcsClientServer)
+
+			// Verify existing functionality is not affected
+			assert.NotNil(t, tcsCS.metrics, "metrics channel should be set")
+			assert.NotNil(t, tcsCS.health, "health channel should be set")
+			assert.Equal(t, emptyDoctor, tcsCS.doctor, "doctor should be properly set")
+			assert.Equal(t, testPublishMetricsInterval, tcsCS.publishMetricsInterval, "publishMetricsInterval should be properly set")
+
+			// Verify instanceStatus field is handled correctly
+			if tc.instanceStatusMessages != nil {
+				assert.NotNil(t, tcsCS.instanceStatus, "instanceStatus channel should be set when provided")
+			} else {
+				assert.Nil(t, tcsCS.instanceStatus, "instanceStatus channel should be nil when not provided")
+			}
+
+			// Verify basic interface compliance without calling Close() which requires a connection
+			assert.NotNil(t, cs, "ClientServer should implement the interface correctly")
+		})
+	}
+}
+
+// TestPublishMessagesInstanceStatusReception tests instanceStatus message reception and processing.
+func TestPublishMessagesInstanceStatusReception(t *testing.T) {
+	t.Parallel()
+
+	testCases := []struct {
+		name                  string
+		instanceStatusMessage ecstcs.InstanceStatusMessage
+		expectPublishCall     bool
+		mockSetup             func(*mock_wsconn.MockWebsocketConn)
+		expectedError         bool
+	}{
+		{
+			name: "successful instanceStatus message processing",
+			instanceStatusMessage: ecstcs.InstanceStatusMessage{
+				Metadata: &ecstcs.InstanceStatusMetadata{
+					Cluster:           aws.String("test-cluster"),
+					ContainerInstance: aws.String("test-instance"),
+					RequestId:         aws.String("test-request"),
+				},
+				Statuses: []*ecstcs.InstanceStatus{
+					{
+						Status: aws.String("OK"),
+						Type:   aws.String("AGENT"),
+					},
+				},
+			},
+			expectPublishCall: true,
+			mockSetup: func(mockConn *mock_wsconn.MockWebsocketConn) {
+				mockConn.EXPECT().SetWriteDeadline(gomock.Any()).Return(nil)
+				mockConn.EXPECT().WriteMessage(gomock.Any(), gomock.Any()).Return(nil)
+			},
+			expectedError: false,
+		},
+		{
+			name: "instanceStatus message with multiple statuses",
+			instanceStatusMessage: ecstcs.InstanceStatusMessage{
+				Metadata: &ecstcs.InstanceStatusMetadata{
+					Cluster:           aws.String("test-cluster"),
+					ContainerInstance: aws.String("test-instance"),
+					RequestId:         aws.String("test-request"),
+				},
+				Statuses: []*ecstcs.InstanceStatus{
+					{
+						Status: aws.String("OK"),
+						Type:   aws.String("AGENT"),
+					},
+					{
+						Status: aws.String("IMPAIRED"),
+						Type:   aws.String("DOCKER"),
+					},
+				},
+			},
+			expectPublishCall: true,
+			mockSetup: func(mockConn *mock_wsconn.MockWebsocketConn) {
+				mockConn.EXPECT().SetWriteDeadline(gomock.Any()).Return(nil)
+				mockConn.EXPECT().WriteMessage(gomock.Any(), gomock.Any()).Return(nil)
+			},
+			expectedError: false,
+		},
+		{
+			name: "instanceStatus message with empty statuses",
+			instanceStatusMessage: ecstcs.InstanceStatusMessage{
+				Metadata: &ecstcs.InstanceStatusMetadata{
+					Cluster:           aws.String("test-cluster"),
+					ContainerInstance: aws.String("test-instance"),
+					RequestId:         aws.String("test-request"),
+				},
+				Statuses: []*ecstcs.InstanceStatus{},
+			},
+			expectPublishCall: true,
+			mockSetup: func(mockConn *mock_wsconn.MockWebsocketConn) {
+				mockConn.EXPECT().SetWriteDeadline(gomock.Any()).Return(nil)
+				mockConn.EXPECT().WriteMessage(gomock.Any(), gomock.Any()).Return(nil)
+			},
+			expectedError: false,
+		},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+
+			ctrl := gomock.NewController(t)
+			defer ctrl.Finish()
+
+			conn := mock_wsconn.NewMockWebsocketConn(ctrl)
+			instanceStatusMessages := make(chan ecstcs.InstanceStatusMessage, 1)
+
+			cs := testCS(conn, nil, nil).(*tcsClientServer)
+			cs.instanceStatus = instanceStatusMessages
+
+			ctx, cancel := context.WithCancel(context.TODO())
+			defer cancel()
+
+			if tc.expectPublishCall {
+				tc.mockSetup(conn)
+			}
+
+			// Start publishMessages in a goroutine
+			go cs.publishMessages(ctx)
+
+			// Send the instanceStatus message
+			instanceStatusMessages <- tc.instanceStatusMessage
+
+			// Give some time for message processing
+			time.Sleep(100 * time.Millisecond)
+
+			// Cancel context to stop publishMessages
+			cancel()
+
+			// Verify message was consumed from channel
+			assert.Len(t, instanceStatusMessages, 0, "instanceStatus message should be consumed from channel")
+		})
+	}
+}
+
+// TestPublishMessagesConcurrentHandling tests concurrent handling of all three message types.
+func TestPublishMessagesConcurrentHandling(t *testing.T) {
+	t.Parallel()
+
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+
+	conn := mock_wsconn.NewMockWebsocketConn(ctrl)
+	telemetryMessages := make(chan ecstcs.TelemetryMessage, 1)
+	healthMessages := make(chan ecstcs.HealthMessage, 1)
+	instanceStatusMessages := make(chan ecstcs.InstanceStatusMessage, 1)
+
+	cs := testCS(conn, telemetryMessages, healthMessages).(*tcsClientServer)
+	cs.instanceStatus = instanceStatusMessages
+
+	ctx, cancel := context.WithCancel(context.TODO())
+	defer cancel()
+
+	// Expect three WriteMessage calls for the three different message types.
+	// Each WriteMessage is preceded by SetWriteDeadline.
+	// Use AnyTimes() to allow calls in any order.
+	conn.EXPECT().SetWriteDeadline(gomock.Any()).Return(nil).AnyTimes()
+	conn.EXPECT().WriteMessage(gomock.Any(), gomock.Any()).Return(nil).AnyTimes()
+
+	// Start publishMessages in a goroutine
+	go cs.publishMessages(ctx)
+
+	// Create test messages
+	telemetryMessage := ecstcs.TelemetryMessage{
+		Metadata: &ecstcs.MetricsMetadata{
+			Cluster:           aws.String("test-cluster"),
+			ContainerInstance: aws.String("test-instance"),
+			Idle:              aws.Bool(true),
+			MessageId:         aws.String("test-message"),
+		},
+		TaskMetrics: []*ecstcs.TaskMetric{},
+	}
+
+	healthMessage := ecstcs.HealthMessage{
+		Metadata: &ecstcs.HealthMetadata{
+			Cluster:           aws.String("test-cluster"),
+			ContainerInstance: aws.String("test-instance"),
+			MessageId:         aws.String("test-message"),
+		},
+		HealthMetrics: []*ecstcs.TaskHealth{},
+	}
+
+	instanceStatusMessage := ecstcs.InstanceStatusMessage{
+		Metadata: &ecstcs.InstanceStatusMetadata{
+			Cluster:           aws.String("test-cluster"),
+			ContainerInstance: aws.String("test-instance"),
+			RequestId:         aws.String("test-request"),
+		},
+		Statuses: []*ecstcs.InstanceStatus{
+			{
+				Status: aws.String("OK"),
+				Type:   aws.String("AGENT"),
+			},
+		},
+	}
+
+	// Send all three message types
+	telemetryMessages <- telemetryMessage
+	healthMessages <- healthMessage
+	instanceStatusMessages <- instanceStatusMessage
+
+	// Give some time for message processing
+	time.Sleep(200 * time.Millisecond)
+
+	// Cancel context to stop publishMessages
+	cancel()
+
+	// Verify all messages were consumed from channels
+	assert.Len(t, telemetryMessages, 0, "telemetry message should be consumed from channel")
+	assert.Len(t, healthMessages, 0, "health message should be consumed from channel")
+	assert.Len(t, instanceStatusMessages, 0, "instanceStatus message should be consumed from channel")
+}
+
+// TestPublishMessagesErrorHandling tests error handling in publishMessages.
+func TestPublishMessagesErrorHandling(t *testing.T) {
+	t.Parallel()
+
+	testCases := []struct {
+		name                string
+		setupMock           func(*mock_wsconn.MockWebsocketConn)
+		sendMessage         func(chan ecstcs.InstanceStatusMessage)
+		expectedErrorLogged bool
+	}{
+		{
+			name: "publishInstanceStatusOnce fails with connection error",
+			setupMock: func(mockConn *mock_wsconn.MockWebsocketConn) {
+				mockConn.EXPECT().SetWriteDeadline(gomock.Any()).Return(nil)
+				mockConn.EXPECT().WriteMessage(gomock.Any(), gomock.Any()).Return(fmt.Errorf("connection error"))
+			},
+			sendMessage: func(ch chan ecstcs.InstanceStatusMessage) {
+				ch <- ecstcs.InstanceStatusMessage{
+					Metadata: &ecstcs.InstanceStatusMetadata{
+						Cluster:           aws.String("test-cluster"),
+						ContainerInstance: aws.String("test-instance"),
+						RequestId:         aws.String("test-request"),
+					},
+					Statuses: []*ecstcs.InstanceStatus{
+						{
+							Status: aws.String("OK"),
+							Type:   aws.String("AGENT"),
+						},
+					},
+				}
+			},
+			expectedErrorLogged: true,
+		},
+		{
+			name: "publishInstanceStatusOnce fails with write deadline error",
+			setupMock: func(mockConn *mock_wsconn.MockWebsocketConn) {
+				mockConn.EXPECT().SetWriteDeadline(gomock.Any()).Return(nil)
+				mockConn.EXPECT().WriteMessage(gomock.Any(), gomock.Any()).Return(fmt.Errorf("write deadline exceeded"))
+			},
+			sendMessage: func(ch chan ecstcs.InstanceStatusMessage) {
+				ch <- ecstcs.InstanceStatusMessage{
+					Metadata: &ecstcs.InstanceStatusMetadata{
+						Cluster:           aws.String("test-cluster"),
+						ContainerInstance: aws.String("test-instance"),
+						RequestId:         aws.String("test-request"),
+					},
+					Statuses: []*ecstcs.InstanceStatus{
+						{
+							Status: aws.String("IMPAIRED"),
+							Type:   aws.String("DOCKER"),
+						},
+					},
+				}
+			},
+			expectedErrorLogged: true,
+		},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+
+			ctrl := gomock.NewController(t)
+			defer ctrl.Finish()
+
+			conn := mock_wsconn.NewMockWebsocketConn(ctrl)
+			instanceStatusMessages := make(chan ecstcs.InstanceStatusMessage, 1)
+
+			cs := testCS(conn, nil, nil).(*tcsClientServer)
+			cs.instanceStatus = instanceStatusMessages
+
+			ctx, cancel := context.WithCancel(context.TODO())
+			defer cancel()
+
+			tc.setupMock(conn)
+
+			// Start publishMessages in a goroutine
+			go cs.publishMessages(ctx)
+
+			// Send the message that should cause an error
+			tc.sendMessage(instanceStatusMessages)
+
+			// Give some time for message processing and error logging
+			time.Sleep(100 * time.Millisecond)
+
+			// Cancel context to stop publishMessages
+			cancel()
+
+			// Verify message was consumed from channel even when error occurred
+			assert.Len(t, instanceStatusMessages, 0, "instanceStatus message should be consumed from channel even on error")
+		})
+	}
+}
+
+// TestPublishMessagesErrorsDoNotAffectOtherMessageTypes tests that errors in instanceStatus processing don't affect other message types.
+func TestPublishMessagesErrorsDoNotAffectOtherMessageTypes(t *testing.T) {
+	t.Parallel()
+
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+
+	conn := mock_wsconn.NewMockWebsocketConn(ctrl)
+	telemetryMessages := make(chan ecstcs.TelemetryMessage, 1)
+	healthMessages := make(chan ecstcs.HealthMessage, 1)
+	instanceStatusMessages := make(chan ecstcs.InstanceStatusMessage, 1)
+
+	cs := testCS(conn, telemetryMessages, healthMessages).(*tcsClientServer)
+	cs.instanceStatus = instanceStatusMessages
+
+	ctx, cancel := context.WithCancel(context.TODO())
+	defer cancel()
+
+	// Set up mock expectations: instanceStatus fails, but telemetry and health succeed
+	// Use AnyTimes() to allow calls in any order since select is non-deterministic.
+	conn.EXPECT().SetWriteDeadline(gomock.Any()).Return(nil).AnyTimes()
+	conn.EXPECT().WriteMessage(gomock.Any(), gomock.Any()).DoAndReturn(func(messageType int, data []byte) error {
+		// Check if this is an instanceStatus message by looking for "PublishInstanceStatusRequest" in the data
+		if bytes.Contains(data, []byte("PublishInstanceStatusRequest")) {
+			return fmt.Errorf("instanceStatus error")
+		}
+		return nil
+	}).AnyTimes()
+
+	// Start publishMessages in a goroutine
+	go cs.publishMessages(ctx)
+
+	// Create test messages
+	instanceStatusMessage := ecstcs.InstanceStatusMessage{
+		Metadata: &ecstcs.InstanceStatusMetadata{
+			Cluster:           aws.String("test-cluster"),
+			ContainerInstance: aws.String("test-instance"),
+			RequestId:         aws.String("test-request"),
+		},
+		Statuses: []*ecstcs.InstanceStatus{
+			{
+				Status: aws.String("OK"),
+				Type:   aws.String("AGENT"),
+			},
+		},
+	}
+
+	telemetryMessage := ecstcs.TelemetryMessage{
+		Metadata: &ecstcs.MetricsMetadata{
+			Cluster:           aws.String("test-cluster"),
+			ContainerInstance: aws.String("test-instance"),
+			Idle:              aws.Bool(true),
+			MessageId:         aws.String("test-message"),
+		},
+		TaskMetrics: []*ecstcs.TaskMetric{},
+	}
+
+	healthMessage := ecstcs.HealthMessage{
+		Metadata: &ecstcs.HealthMetadata{
+			Cluster:           aws.String("test-cluster"),
+			ContainerInstance: aws.String("test-instance"),
+			MessageId:         aws.String("test-message"),
+		},
+		HealthMetrics: []*ecstcs.TaskHealth{},
+	}
+
+	// Send instanceStatus message first (which will fail)
+	instanceStatusMessages <- instanceStatusMessage
+
+	// Give some time for the error to be processed
+	time.Sleep(50 * time.Millisecond)
+
+	// Send telemetry and health messages (which should succeed)
+	telemetryMessages <- telemetryMessage
+	healthMessages <- healthMessage
+
+	// Give some time for message processing
+	time.Sleep(150 * time.Millisecond)
+
+	// Cancel context to stop publishMessages
+	cancel()
+
+	// Verify all messages were consumed from channels
+	assert.Len(t, instanceStatusMessages, 0, "instanceStatus message should be consumed from channel")
+	assert.Len(t, telemetryMessages, 0, "telemetry message should be consumed from channel")
+	assert.Len(t, healthMessages, 0, "health message should be consumed from channel")
+}
+
+// TestPublishMessagesContextCancellation tests context cancellation behavior.
+func TestPublishMessagesContextCancellation(t *testing.T) {
+	t.Parallel()
+
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+
+	conn := mock_wsconn.NewMockWebsocketConn(ctrl)
+	instanceStatusMessages := make(chan ecstcs.InstanceStatusMessage, 1)
+
+	cs := testCS(conn, nil, nil).(*tcsClientServer)
+	cs.instanceStatus = instanceStatusMessages
+
+	ctx, cancel := context.WithCancel(context.TODO())
+
+	// Start publishMessages in a goroutine
+	done := make(chan bool)
+	go func() {
+		cs.publishMessages(ctx)
+		done <- true
+	}()
+
+	// Cancel context immediately
+	cancel()
+
+	// Wait for publishMessages to return
+	select {
+	case <-done:
+		// publishMessages returned as expected
+	case <-time.After(1 * time.Second):
+		t.Fatal("publishMessages did not return after context cancellation")
+	}
+
+	// Verify that any pending messages in channels are not processed after cancellation
+	instanceStatusMessages <- ecstcs.InstanceStatusMessage{
+		Metadata: &ecstcs.InstanceStatusMetadata{
+			Cluster:           aws.String("test-cluster"),
+			ContainerInstance: aws.String("test-instance"),
+			RequestId:         aws.String("test-request"),
+		},
+		Statuses: []*ecstcs.InstanceStatus{
+			{
+				Status: aws.String("OK"),
+				Type:   aws.String("AGENT"),
+			},
+		},
+	}
+
+	// Give some time to ensure no processing occurs
+	time.Sleep(50 * time.Millisecond)
+
+	// Message should still be in channel since publishMessages has stopped
+	assert.Len(t, instanceStatusMessages, 1, "instanceStatus message should remain in channel after context cancellation")
+}
+
+// TestPublishMessagesWithInstanceStatusChannelSimple tests that publishMessages handles instanceStatus messages correctly.
+func TestPublishMessagesWithInstanceStatusChannelSimple(t *testing.T) {
+	t.Parallel()
+
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+
+	conn := mock_wsconn.NewMockWebsocketConn(ctrl)
+
+	// Create all channels to avoid nil channel blocking
+	telemetryMessages := make(chan ecstcs.TelemetryMessage, 1)
+	healthMessages := make(chan ecstcs.HealthMessage, 1)
+	instanceStatusMessages := make(chan ecstcs.InstanceStatusMessage, 1)
+
+	cs := testCS(conn, telemetryMessages, healthMessages).(*tcsClientServer)
+	cs.instanceStatus = instanceStatusMessages
+
+	ctx, cancel := context.WithTimeout(context.TODO(), 2*time.Second)
+	defer cancel()
+
+	// Expect SetWriteDeadline and WriteMessage for instanceStatus
+	conn.EXPECT().SetWriteDeadline(gomock.Any()).Return(nil)
+	conn.EXPECT().WriteMessage(gomock.Any(), gomock.Any()).Return(nil)
+
+	// Start publishMessages in a goroutine
+	go cs.publishMessages(ctx)
+
+	// Send instanceStatus message
+	instanceStatusMessage := ecstcs.InstanceStatusMessage{
+		Metadata: &ecstcs.InstanceStatusMetadata{
+			Cluster:           aws.String("test-cluster"),
+			ContainerInstance: aws.String("test-instance"),
+			RequestId:         aws.String("test-request"),
+		},
+		Statuses: []*ecstcs.InstanceStatus{
+			{
+				Status: aws.String("OK"),
+				Type:   aws.String("AGENT"),
+			},
+		},
+	}
+
+	instanceStatusMessages <- instanceStatusMessage
+
+	// Give time for processing
+	time.Sleep(200 * time.Millisecond)
+
+	// Verify message was consumed
+	assert.Len(t, instanceStatusMessages, 0, "instanceStatus message should be consumed from channel")
+}
+
+// TestPublishMessagesInstanceStatusErrorSimple tests error handling for instanceStatus messages.
+func TestPublishMessagesInstanceStatusErrorSimple(t *testing.T) {
+	t.Parallel()
+
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+
+	conn := mock_wsconn.NewMockWebsocketConn(ctrl)
+
+	// Create all channels to avoid nil channel blocking
+	telemetryMessages := make(chan ecstcs.TelemetryMessage, 1)
+	healthMessages := make(chan ecstcs.HealthMessage, 1)
+	instanceStatusMessages := make(chan ecstcs.InstanceStatusMessage, 1)
+
+	cs := testCS(conn, telemetryMessages, healthMessages).(*tcsClientServer)
+	cs.instanceStatus = instanceStatusMessages
+
+	ctx, cancel := context.WithTimeout(context.TODO(), 2*time.Second)
+	defer cancel()
+
+	// Expect SetWriteDeadline and WriteMessage that fails
+	conn.EXPECT().SetWriteDeadline(gomock.Any()).Return(nil)
+	conn.EXPECT().WriteMessage(gomock.Any(), gomock.Any()).Return(fmt.Errorf("connection error"))
+
+	// Start publishMessages in a goroutine
+	go cs.publishMessages(ctx)
+
+	// Send instanceStatus message
+	instanceStatusMessage := ecstcs.InstanceStatusMessage{
+		Metadata: &ecstcs.InstanceStatusMetadata{
+			Cluster:           aws.String("test-cluster"),
+			ContainerInstance: aws.String("test-instance"),
+			RequestId:         aws.String("test-request"),
+		},
+		Statuses: []*ecstcs.InstanceStatus{
+			{
+				Status: aws.String("IMPAIRED"),
+				Type:   aws.String("DOCKER"),
+			},
+		},
+	}
+
+	instanceStatusMessages <- instanceStatusMessage
+
+	// Give time for processing
+	time.Sleep(200 * time.Millisecond)
+
+	// Verify message was consumed even with error
+	assert.Len(t, instanceStatusMessages, 0, "instanceStatus message should be consumed from channel even on error")
+}
+
+// TestPublishMessagesContextCancellationSimple tests context cancellation behavior.
+func TestPublishMessagesContextCancellationSimple(t *testing.T) {
+	t.Parallel()
+
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+
+	conn := mock_wsconn.NewMockWebsocketConn(ctrl)
+
+	// Create all channels to avoid nil channel blocking
+	telemetryMessages := make(chan ecstcs.TelemetryMessage, 1)
+	healthMessages := make(chan ecstcs.HealthMessage, 1)
+	instanceStatusMessages := make(chan ecstcs.InstanceStatusMessage, 1)
+
+	cs := testCS(conn, telemetryMessages, healthMessages).(*tcsClientServer)
+	cs.instanceStatus = instanceStatusMessages
+
+	ctx, cancel := context.WithCancel(context.TODO())
+
+	// Start publishMessages in a goroutine
+	done := make(chan bool)
+	go func() {
+		cs.publishMessages(ctx)
+		done <- true
+	}()
+
+	// Cancel context immediately
+	cancel()
+
+	// Wait for publishMessages to return
+	select {
+	case <-done:
+		// publishMessages returned as expected
+	case <-time.After(1 * time.Second):
+		t.Fatal("publishMessages did not return after context cancellation")
+	}
+}
+
+// TestPublishInstanceStatusOnce tests successful instanceStatus publishing.
+func TestPublishInstanceStatusOnce(t *testing.T) {
+	t.Parallel()
+
+	testCases := []struct {
+		name          string
+		message       ecstcs.InstanceStatusMessage
+		expectedError bool
+		setupMock     func(*mock_wsconn.MockWebsocketConn)
+	}{
+		{
+			name: "successful publish with single status",
+			message: ecstcs.InstanceStatusMessage{
+				Metadata: &ecstcs.InstanceStatusMetadata{
+					Cluster:           aws.String("test-cluster"),
+					ContainerInstance: aws.String("test-instance"),
+					RequestId:         aws.String("test-request"),
+				},
+				Statuses: []*ecstcs.InstanceStatus{
+					{
+						Status: aws.String("OK"),
+						Type:   aws.String("AGENT"),
+					},
+				},
+			},
+			expectedError: false,
+			setupMock: func(mockConn *mock_wsconn.MockWebsocketConn) {
+				mockConn.EXPECT().SetWriteDeadline(gomock.Any()).Return(nil)
+				mockConn.EXPECT().WriteMessage(gomock.Any(), gomock.Any()).Return(nil)
+			},
+		},
+		{
+			name: "successful publish with multiple statuses",
+			message: ecstcs.InstanceStatusMessage{
+				Metadata: &ecstcs.InstanceStatusMetadata{
+					Cluster:           aws.String("production-cluster"),
+					ContainerInstance: aws.String("i-1234567890abcdef0"),
+					RequestId:         aws.String("req-12345"),
+				},
+				Statuses: []*ecstcs.InstanceStatus{
+					{
+						Status: aws.String("OK"),
+						Type:   aws.String("AGENT"),
+					},
+					{
+						Status: aws.String("IMPAIRED"),
+						Type:   aws.String("DOCKER"),
+					},
+				},
+			},
+			expectedError: false,
+			setupMock: func(mockConn *mock_wsconn.MockWebsocketConn) {
+				mockConn.EXPECT().SetWriteDeadline(gomock.Any()).Return(nil)
+				mockConn.EXPECT().WriteMessage(gomock.Any(), gomock.Any()).Return(nil)
+			},
+		},
+		{
+			name: "successful publish with empty statuses",
+			message: ecstcs.InstanceStatusMessage{
+				Metadata: &ecstcs.InstanceStatusMetadata{
+					Cluster:           aws.String("test-cluster"),
+					ContainerInstance: aws.String("test-instance"),
+					RequestId:         aws.String("test-request"),
+				},
+				Statuses: []*ecstcs.InstanceStatus{},
+			},
+			expectedError: false,
+			setupMock: func(mockConn *mock_wsconn.MockWebsocketConn) {
+				mockConn.EXPECT().SetWriteDeadline(gomock.Any()).Return(nil)
+				mockConn.EXPECT().WriteMessage(gomock.Any(), gomock.Any()).Return(nil)
+			},
+		},
+		{
+			name: "successful publish with nil metadata fields",
+			message: ecstcs.InstanceStatusMessage{
+				Metadata: &ecstcs.InstanceStatusMetadata{
+					Cluster:           nil,
+					ContainerInstance: nil,
+					RequestId:         aws.String("test-request"),
+				},
+				Statuses: []*ecstcs.InstanceStatus{
+					{
+						Status: aws.String("OK"),
+						Type:   aws.String("AGENT"),
+					},
+				},
+			},
+			expectedError: false,
+			setupMock: func(mockConn *mock_wsconn.MockWebsocketConn) {
+				mockConn.EXPECT().SetWriteDeadline(gomock.Any()).Return(nil)
+				mockConn.EXPECT().WriteMessage(gomock.Any(), gomock.Any()).Return(nil)
+			},
+		},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+
+			ctrl := gomock.NewController(t)
+			defer ctrl.Finish()
+
+			conn := mock_wsconn.NewMockWebsocketConn(ctrl)
+			cs := testCS(conn, nil, nil).(*tcsClientServer)
+
+			tc.setupMock(conn)
+
+			err := cs.publishInstanceStatusOnce(tc.message)
+
+			if tc.expectedError {
+				assert.Error(t, err, "Expected error but got none")
+			} else {
+				assert.NoError(t, err, "Expected no error but got: %v", err)
+			}
+		})
+	}
+}
+
+// TestPublishInstanceStatusOnceErrorHandling tests error handling in publishInstanceStatusOnce.
+func TestPublishInstanceStatusOnceErrorHandling(t *testing.T) {
+	t.Parallel()
+
+	testCases := []struct {
+		name          string
+		message       ecstcs.InstanceStatusMessage
+		setupMock     func(*mock_wsconn.MockWebsocketConn)
+		expectedError string
+	}{
+		{
+			name: "MakeRequest fails with connection error",
+			message: ecstcs.InstanceStatusMessage{
+				Metadata: &ecstcs.InstanceStatusMetadata{
+					Cluster:           aws.String("test-cluster"),
+					ContainerInstance: aws.String("test-instance"),
+					RequestId:         aws.String("test-request"),
+				},
+				Statuses: []*ecstcs.InstanceStatus{
+					{
+						Status: aws.String("OK"),
+						Type:   aws.String("AGENT"),
+					},
+				},
+			},
+			setupMock: func(mockConn *mock_wsconn.MockWebsocketConn) {
+				mockConn.EXPECT().SetWriteDeadline(gomock.Any()).Return(nil)
+				mockConn.EXPECT().WriteMessage(gomock.Any(), gomock.Any()).Return(fmt.Errorf("connection error"))
+			},
+			expectedError: "connection error",
+		},
+		{
+			name: "MakeRequest fails with write deadline error",
+			message: ecstcs.InstanceStatusMessage{
+				Metadata: &ecstcs.InstanceStatusMetadata{
+					Cluster:           aws.String("test-cluster"),
+					ContainerInstance: aws.String("test-instance"),
+					RequestId:         aws.String("test-request"),
+				},
+				Statuses: []*ecstcs.InstanceStatus{
+					{
+						Status: aws.String("IMPAIRED"),
+						Type:   aws.String("DOCKER"),
+					},
+				},
+			},
+			setupMock: func(mockConn *mock_wsconn.MockWebsocketConn) {
+				mockConn.EXPECT().SetWriteDeadline(gomock.Any()).Return(nil)
+				mockConn.EXPECT().WriteMessage(gomock.Any(), gomock.Any()).Return(fmt.Errorf("write deadline exceeded"))
+			},
+			expectedError: "write deadline exceeded",
+		},
+		{
+			name: "MakeRequest fails with network timeout",
+			message: ecstcs.InstanceStatusMessage{
+				Metadata: &ecstcs.InstanceStatusMetadata{
+					Cluster:           aws.String("production-cluster"),
+					ContainerInstance: aws.String("i-1234567890abcdef0"),
+					RequestId:         aws.String("req-timeout"),
+				},
+				Statuses: []*ecstcs.InstanceStatus{
+					{
+						Status: aws.String("OK"),
+						Type:   aws.String("AGENT"),
+					},
+					{
+						Status: aws.String("OK"),
+						Type:   aws.String("DOCKER"),
+					},
+				},
+			},
+			setupMock: func(mockConn *mock_wsconn.MockWebsocketConn) {
+				mockConn.EXPECT().SetWriteDeadline(gomock.Any()).Return(nil)
+				mockConn.EXPECT().WriteMessage(gomock.Any(), gomock.Any()).Return(fmt.Errorf("network timeout"))
+			},
+			expectedError: "network timeout",
+		},
+		{
+			name: "MakeRequest fails with SetWriteDeadline error",
+			message: ecstcs.InstanceStatusMessage{
+				Metadata: &ecstcs.InstanceStatusMetadata{
+					Cluster:           aws.String("test-cluster"),
+					ContainerInstance: aws.String("test-instance"),
+					RequestId:         aws.String("test-request"),
+				},
+				Statuses: []*ecstcs.InstanceStatus{
+					{
+						Status: aws.String("OK"),
+						Type:   aws.String("AGENT"),
+					},
+				},
+			},
+			setupMock: func(mockConn *mock_wsconn.MockWebsocketConn) {
+				mockConn.EXPECT().SetWriteDeadline(gomock.Any()).Return(fmt.Errorf("deadline error"))
+				// Even when SetWriteDeadline fails, WriteMessage is still called
+				mockConn.EXPECT().WriteMessage(gomock.Any(), gomock.Any()).Return(fmt.Errorf("deadline error"))
+			},
+			expectedError: "deadline error",
+		},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+
+			ctrl := gomock.NewController(t)
+			defer ctrl.Finish()
+
+			conn := mock_wsconn.NewMockWebsocketConn(ctrl)
+			cs := testCS(conn, nil, nil).(*tcsClientServer)
+
+			tc.setupMock(conn)
+
+			err := cs.publishInstanceStatusOnce(tc.message)
+
+			assert.Error(t, err, "Expected error but got none")
+			assert.Contains(t, err.Error(), tc.expectedError, "Error message should contain expected text")
+		})
+	}
+}
+
+// TestPublishInstanceStatusOnceRequestStructure tests proper PublishInstanceStatusRequest creation.
+func TestPublishInstanceStatusOnceRequestStructure(t *testing.T) {
+	t.Parallel()
+
+	testCases := []struct {
+		name    string
+		message ecstcs.InstanceStatusMessage
+	}{
+		{
+			name: "request structure with complete metadata",
+			message: ecstcs.InstanceStatusMessage{
+				Metadata: &ecstcs.InstanceStatusMetadata{
+					Cluster:           aws.String("test-cluster"),
+					ContainerInstance: aws.String("test-instance"),
+					RequestId:         aws.String("test-request"),
+				},
+				Statuses: []*ecstcs.InstanceStatus{
+					{
+						Status: aws.String("OK"),
+						Type:   aws.String("AGENT"),
+					},
+				},
+			},
+		},
+		{
+			name: "request structure with multiple statuses",
+			message: ecstcs.InstanceStatusMessage{
+				Metadata: &ecstcs.InstanceStatusMetadata{
+					Cluster:           aws.String("production-cluster"),
+					ContainerInstance: aws.String("i-1234567890abcdef0"),
+					RequestId:         aws.String("req-12345"),
+				},
+				Statuses: []*ecstcs.InstanceStatus{
+					{
+						Status: aws.String("OK"),
+						Type:   aws.String("AGENT"),
+					},
+					{
+						Status: aws.String("IMPAIRED"),
+						Type:   aws.String("DOCKER"),
+					},
+					{
+						Status: aws.String("OK"),
+						Type:   aws.String("EBS_CSI"),
+					},
+				},
+			},
+		},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+
+			ctrl := gomock.NewController(t)
+			defer ctrl.Finish()
+
+			conn := mock_wsconn.NewMockWebsocketConn(ctrl)
+			cs := testCS(conn, nil, nil).(*tcsClientServer)
+
+			// Capture the request structure by examining the WriteMessage call
+			conn.EXPECT().SetWriteDeadline(gomock.Any()).Return(nil)
+			conn.EXPECT().WriteMessage(gomock.Any(), gomock.Any()).DoAndReturn(
+				func(messageType int, data []byte) error {
+					// Verify that the request contains the expected structure
+					// The data should contain the serialized PublishInstanceStatusRequest
+					assert.NotEmpty(t, data, "Request data should not be empty")
+
+					// Verify that the data contains expected fields from the message
+					dataStr := string(data)
+					if tc.message.Metadata != nil {
+						if tc.message.Metadata.Cluster != nil {
+							assert.Contains(t, dataStr, *tc.message.Metadata.Cluster, "Request should contain cluster name")
+						}
+						if tc.message.Metadata.ContainerInstance != nil {
+							assert.Contains(t, dataStr, *tc.message.Metadata.ContainerInstance, "Request should contain container instance")
+						}
+						if tc.message.Metadata.RequestId != nil {
+							assert.Contains(t, dataStr, *tc.message.Metadata.RequestId, "Request should contain request ID")
+						}
+					}
+
+					// Verify that status information is included
+					for _, status := range tc.message.Statuses {
+						if status.Status != nil {
+							assert.Contains(t, dataStr, *status.Status, "Request should contain status value")
+						}
+						if status.Type != nil {
+							assert.Contains(t, dataStr, *status.Type, "Request should contain status type")
+						}
+					}
+
+					// Verify that timestamp is included (should be present in all requests)
+					assert.Contains(t, dataStr, "timestamp", "Request should contain timestamp field")
+
+					return nil
+				},
+			)
+
+			err := cs.publishInstanceStatusOnce(tc.message)
+			assert.NoError(t, err, "Expected no error but got: %v", err)
+		})
+	}
+}
+
+// testCSIntegration creates a test TCS client for integration tests.
+func testCSIntegration(conn *mock_wsconn.MockWebsocketConn,
+	metricsMessages <-chan ecstcs.TelemetryMessage,
+	healthMessages <-chan ecstcs.HealthMessage,
+	instanceStatusMessages <-chan ecstcs.InstanceStatusMessage) wsclient.ClientServer {
+	cfg := &wsclient.WSClientMinAgentConfig{
+		AWSRegion:          "us-east-1",
+		AcceptInsecureCert: true,
+	}
+	cs := New("https://aws.amazon.com/ecs", cfg, emptyDoctor, false, testPublishMetricsInterval,
+		aws.NewCredentialsCache(testCreds), rwTimeout, metricsMessages, healthMessages,
+		instanceStatusMessages, metrics.NewNopEntryFactory()).(*tcsClientServer)
+	cs.SetConnection(conn)
+	return cs
+}
+
+// TestEndToEndInstanceStatusFlow tests the complete flow from channel message to backend request.
+func TestEndToEndInstanceStatusFlow(t *testing.T) {
+	t.Parallel()
+
+	testCases := []struct {
+		name                  string
+		instanceStatusMessage ecstcs.InstanceStatusMessage
+		expectedRequestCount  int
+		description           string
+	}{
+		{
+			name: "complete flow with single status",
+			instanceStatusMessage: ecstcs.InstanceStatusMessage{
+				Metadata: &ecstcs.InstanceStatusMetadata{
+					Cluster:           aws.String("integration-test-cluster"),
+					ContainerInstance: aws.String("integration-test-instance"),
+					RequestId:         aws.String("integration-test-request"),
+				},
+				Statuses: []*ecstcs.InstanceStatus{
+					{
+						Status: aws.String("OK"),
+						Type:   aws.String("AGENT"),
+					},
+				},
+			},
+			expectedRequestCount: 1,
+			description:          "Single instanceStatus message should result in one backend request",
+		},
+		{
+			name: "complete flow with multiple statuses",
+			instanceStatusMessage: ecstcs.InstanceStatusMessage{
+				Metadata: &ecstcs.InstanceStatusMetadata{
+					Cluster:           aws.String("integration-test-cluster"),
+					ContainerInstance: aws.String("integration-test-instance"),
+					RequestId:         aws.String("integration-test-request-multi"),
+				},
+				Statuses: []*ecstcs.InstanceStatus{
+					{
+						Status: aws.String("OK"),
+						Type:   aws.String("AGENT"),
+					},
+					{
+						Status: aws.String("IMPAIRED"),
+						Type:   aws.String("DOCKER"),
+					},
+					{
+						Status: aws.String("OK"),
+						Type:   aws.String("EBS_CSI"),
+					},
+				},
+			},
+			expectedRequestCount: 1,
+			description:          "Multiple statuses in one message should result in one backend request",
+		},
+		{
+			name: "complete flow with empty statuses",
+			instanceStatusMessage: ecstcs.InstanceStatusMessage{
+				Metadata: &ecstcs.InstanceStatusMetadata{
+					Cluster:           aws.String("integration-test-cluster"),
+					ContainerInstance: aws.String("integration-test-instance"),
+					RequestId:         aws.String("integration-test-request-empty"),
+				},
+				Statuses: []*ecstcs.InstanceStatus{},
+			},
+			expectedRequestCount: 1,
+			description:          "Empty statuses should still result in one backend request",
+		},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+
+			ctrl := gomock.NewController(t)
+			defer ctrl.Finish()
+
+			// Create mock websocket connection.
+			conn := mock_wsconn.NewMockWebsocketConn(ctrl)
+
+			// Create channels for all message types.
+			instanceStatusMessages := make(chan ecstcs.InstanceStatusMessage, 1)
+
+			// Create TCS client with instanceStatus channel.
+			cs := testCSIntegration(conn, nil, nil, instanceStatusMessages).(*tcsClientServer)
+
+			ctx, cancel := context.WithTimeout(context.TODO(), 5*time.Second)
+			defer cancel()
+
+			// Set up mock expectations for the backend request.
+			conn.EXPECT().SetWriteDeadline(gomock.Any()).Return(nil).Times(tc.expectedRequestCount)
+			conn.EXPECT().WriteMessage(gomock.Any(), gomock.Any()).DoAndReturn(
+				func(messageType int, data []byte) error {
+					// Verify that the request contains expected data from the message.
+					dataStr := string(data)
+
+					// Verify metadata fields are present in the request.
+					if tc.instanceStatusMessage.Metadata != nil {
+						if tc.instanceStatusMessage.Metadata.Cluster != nil {
+							assert.Contains(t, dataStr, *tc.instanceStatusMessage.Metadata.Cluster,
+								"Backend request should contain cluster name")
+						}
+						if tc.instanceStatusMessage.Metadata.ContainerInstance != nil {
+							assert.Contains(t, dataStr, *tc.instanceStatusMessage.Metadata.ContainerInstance,
+								"Backend request should contain container instance")
+						}
+						if tc.instanceStatusMessage.Metadata.RequestId != nil {
+							assert.Contains(t, dataStr, *tc.instanceStatusMessage.Metadata.RequestId,
+								"Backend request should contain request ID")
+						}
+					}
+
+					// Verify status information is present in the request.
+					for _, status := range tc.instanceStatusMessage.Statuses {
+						if status.Status != nil {
+							assert.Contains(t, dataStr, *status.Status,
+								"Backend request should contain status value")
+						}
+						if status.Type != nil {
+							assert.Contains(t, dataStr, *status.Type,
+								"Backend request should contain status type")
+						}
+					}
+
+					// Verify timestamp is present (should be in all requests).
+					assert.Contains(t, dataStr, "timestamp",
+						"Backend request should contain timestamp field")
+
+					return nil
+				},
+			).Times(tc.expectedRequestCount)
+
+			// Start publishMessages in a goroutine.
+			go cs.publishMessages(ctx)
+
+			// Send the instanceStatus message through the channel.
+			instanceStatusMessages <- tc.instanceStatusMessage
+
+			// Give time for the complete flow to process.
+			time.Sleep(300 * time.Millisecond)
+
+			// Verify message was consumed from channel.
+			assert.Len(t, instanceStatusMessages, 0,
+				"InstanceStatus message should be consumed from channel")
+
+			// Cancel context to stop publishMessages.
+			cancel()
+		})
+	}
+}
+
+// TestInteractionBetweenMessageTypes tests that instanceStatus messages work correctly alongside metrics and health messages.
+func TestInteractionBetweenMessageTypes(t *testing.T) {
+	t.Parallel()
+
+	testCases := []struct {
+		name                  string
+		sendTelemetry         bool
+		sendHealth            bool
+		sendInstanceStatus    bool
+		expectedTotalRequests int
+		description           string
+	}{
+		{
+			name:                  "all three message types together",
+			sendTelemetry:         true,
+			sendHealth:            true,
+			sendInstanceStatus:    true,
+			expectedTotalRequests: 3,
+			description:           "All three message types should be processed independently",
+		},
+		{
+			name:                  "instanceStatus with telemetry only",
+			sendTelemetry:         true,
+			sendHealth:            false,
+			sendInstanceStatus:    true,
+			expectedTotalRequests: 2,
+			description:           "InstanceStatus and telemetry should work together",
+		},
+		{
+			name:                  "instanceStatus with health only",
+			sendTelemetry:         false,
+			sendHealth:            true,
+			sendInstanceStatus:    true,
+			expectedTotalRequests: 2,
+			description:           "InstanceStatus and health should work together",
+		},
+		{
+			name:                  "instanceStatus only",
+			sendTelemetry:         false,
+			sendHealth:            false,
+			sendInstanceStatus:    true,
+			expectedTotalRequests: 1,
+			description:           "InstanceStatus should work independently",
+		},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+
+			ctrl := gomock.NewController(t)
+			defer ctrl.Finish()
+
+			// Create mock websocket connection.
+			conn := mock_wsconn.NewMockWebsocketConn(ctrl)
+
+			// Create channels for all message types.
+			telemetryMessages := make(chan ecstcs.TelemetryMessage, 1)
+			healthMessages := make(chan ecstcs.HealthMessage, 1)
+			instanceStatusMessages := make(chan ecstcs.InstanceStatusMessage, 1)
+
+			// Create TCS client with all channels.
+			cs := testCSIntegration(conn, telemetryMessages, healthMessages, instanceStatusMessages).(*tcsClientServer)
+
+			ctx, cancel := context.WithTimeout(context.TODO(), 5*time.Second)
+			defer cancel()
+
+			// Set up mock expectations for backend requests.
+			// Use AnyTimes() to handle variable mock call expectations for different message types.
+			conn.EXPECT().SetWriteDeadline(gomock.Any()).Return(nil).AnyTimes()
+			conn.EXPECT().WriteMessage(gomock.Any(), gomock.Any()).Return(nil).AnyTimes()
+
+			// Start publishMessages in a goroutine.
+			go cs.publishMessages(ctx)
+
+			// Send messages based on test case configuration.
+			if tc.sendTelemetry {
+				telemetryMessage := ecstcs.TelemetryMessage{
+					Metadata: &ecstcs.MetricsMetadata{
+						Cluster:           aws.String("integration-test-cluster"),
+						ContainerInstance: aws.String("integration-test-instance"),
+						Idle:              aws.Bool(true),
+						MessageId:         aws.String("integration-test-telemetry"),
+					},
+					TaskMetrics: []*ecstcs.TaskMetric{},
+				}
+				telemetryMessages <- telemetryMessage
+			}
+
+			if tc.sendHealth {
+				healthMessage := ecstcs.HealthMessage{
+					Metadata: &ecstcs.HealthMetadata{
+						Cluster:           aws.String("integration-test-cluster"),
+						ContainerInstance: aws.String("integration-test-instance"),
+						MessageId:         aws.String("integration-test-health"),
+					},
+					HealthMetrics: []*ecstcs.TaskHealth{},
+				}
+				healthMessages <- healthMessage
+			}
+
+			if tc.sendInstanceStatus {
+				instanceStatusMessage := ecstcs.InstanceStatusMessage{
+					Metadata: &ecstcs.InstanceStatusMetadata{
+						Cluster:           aws.String("integration-test-cluster"),
+						ContainerInstance: aws.String("integration-test-instance"),
+						RequestId:         aws.String("integration-test-instance-status"),
+					},
+					Statuses: []*ecstcs.InstanceStatus{
+						{
+							Status: aws.String("OK"),
+							Type:   aws.String("AGENT"),
+						},
+					},
+				}
+				instanceStatusMessages <- instanceStatusMessage
+			}
+
+			// Give time for all messages to be processed.
+			time.Sleep(500 * time.Millisecond)
+
+			// Verify all messages were consumed from their respective channels.
+			if tc.sendTelemetry {
+				assert.Len(t, telemetryMessages, 0,
+					"Telemetry message should be consumed from channel")
+			}
+			if tc.sendHealth {
+				assert.Len(t, healthMessages, 0,
+					"Health message should be consumed from channel")
+			}
+			if tc.sendInstanceStatus {
+				assert.Len(t, instanceStatusMessages, 0,
+					"InstanceStatus message should be consumed from channel")
+			}
+
+			// Cancel context to stop publishMessages.
+			cancel()
+		})
+	}
+}
+
+// containsSubstring is a helper function to check if a string contains a substring.
+func containsSubstring(s, substr string) bool {
+	for i := 0; i <= len(s)-len(substr); i++ {
+		if s[i:i+len(substr)] == substr {
+			return true
+		}
+	}
+	return false
 }

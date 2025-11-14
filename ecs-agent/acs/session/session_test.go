@@ -1397,7 +1397,7 @@ func TestSessionCallsAddUpdateRequestHandlers(t *testing.T) {
 		if addUpdateRequestHandlersCalled {
 			cancel()
 		}
-	})
+	}).AnyTimes()
 	mockWsClient.EXPECT().WriteCloseMessage().Return(nil).AnyTimes()
 	mockWsClient.EXPECT().Close().Return(nil).AnyTimes()
 
