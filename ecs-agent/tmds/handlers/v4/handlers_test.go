@@ -480,12 +480,182 @@ func TestTaskMetadata(t *testing.T) {
 	})
 }
 
+func TestTasksMetadata(t *testing.T) {
+	path := fmt.Sprintf("/v4/%s/tasks", endpointContainerID)
+
+	var setup = func(t *testing.T) (*mux.Router, *gomock.Controller, *mock_state.MockAgentState,
+		*mock_metrics.MockEntryFactory,
+	) {
+		ctrl := gomock.NewController(t)
+		defer ctrl.Finish()
+
+		agentState := mock_state.NewMockAgentState(ctrl)
+		metricsFactory := mock_metrics.NewMockEntryFactory(ctrl)
+
+		router := mux.NewRouter()
+		router.HandleFunc(
+			TasksMetadataPath(),
+			TasksMetadataHandler(agentState, metricsFactory))
+
+		return router, ctrl, agentState, metricsFactory
+	}
+
+	t.Run("happy case", func(t *testing.T) {
+		expectedTaskResponse := taskResponse()
+		expectedTaskResponse.CredentialsID = ""      // credentials ID not expected
+		expectedTaskResponse.TaskNetworkConfig = nil // TaskNetworkConfig is not expected and would be used internally.
+
+		tasksMetadata := []state.TaskResponse{*expectedTaskResponse}
+
+		handler, _, agentState, _ := setup(t)
+		agentState.EXPECT().
+			GetTasksMetadata(gomock.Any()).
+			Return(tasksMetadata, nil)
+		testTMDSRequest(t, handler, TMDSTestCase[[]state.TaskResponse]{
+			path:                 path,
+			expectedStatusCode:   http.StatusOK,
+			expectedResponseBody: tasksMetadata,
+			expectedResponseJSON: fmt.Sprintf("[%s]", fmt.Sprintf(taskResponseJSON,
+				clusterName,
+				taskARN,
+				family,
+				version,
+				statusRunning,
+				statusRunning,
+				cpu,
+				memory,
+				now.UTC().Format(time.RFC3339Nano),
+				now.UTC().Format(time.RFC3339Nano),
+				now.UTC().Format(time.RFC3339Nano),
+				availabilityzone,
+				launchType,
+				happyContainerResponseJSON,
+				vpcID,
+				clockErrorBound,
+				state.ClockStatusSynchronized,
+				utilizedMiBs,
+				reservedMiBs,
+				false)),
+		})
+	})
+
+	t.Run("fetch failure", func(t *testing.T) {
+		handler, ctrl, agentState, metricsFactory := setup(t)
+
+		agentState.EXPECT().
+			GetTasksMetadata(gomock.Any()).
+			Return(nil, errors.New("fetch error"))
+
+		entry := mock_metrics.NewMockEntry(ctrl)
+		entry.EXPECT().Done(gomock.Any())
+		metricsFactory.EXPECT().New(metrics.InternalServerErrorMetricName).Return(entry)
+
+		testTMDSRequest(t, handler, TMDSTestCase[string]{
+			path:                 path,
+			expectedStatusCode:   http.StatusInternalServerError,
+			expectedResponseBody: "failed to get tasks metadata",
+			expectedResponseJSON: fmt.Sprintf(responseStringMessage, "failed to get tasks metadata"),
+		})
+	})
+}
+
+func TestTasksMetadataWithTags(t *testing.T) {
+	path := fmt.Sprintf("/v4/%s/tasks", endpointContainerID)
+
+	var setup = func(t *testing.T) (*mux.Router, *gomock.Controller, *mock_state.MockAgentState,
+		*mock_metrics.MockEntryFactory,
+	) {
+		ctrl := gomock.NewController(t)
+		defer ctrl.Finish()
+
+		agentState := mock_state.NewMockAgentState(ctrl)
+		metricsFactory := mock_metrics.NewMockEntryFactory(ctrl)
+
+		router := mux.NewRouter()
+		router.HandleFunc(
+			TasksMetadataPath(),
+			TasksMetadataWithTagsHandler(agentState, metricsFactory))
+
+		return router, ctrl, agentState, metricsFactory
+	}
+
+	t.Run("happy case", func(t *testing.T) {
+		expectedTaskResponse := taskResponse()
+		expectedTaskResponse.CredentialsID = ""      // credentials ID not expected
+		expectedTaskResponse.TaskNetworkConfig = nil // TaskNetworkConfig is not expected and would be used internally.
+
+		tasksMetadata := []state.TaskResponse{*expectedTaskResponse}
+
+		handler, _, agentState, _ := setup(t)
+		agentState.EXPECT().
+			GetTasksMetadataWithTags(gomock.Any()).
+			Return(tasksMetadata, nil)
+		testTMDSRequest(t, handler, TMDSTestCase[[]state.TaskResponse]{
+			path:                 path,
+			expectedStatusCode:   http.StatusOK,
+			expectedResponseBody: tasksMetadata,
+			expectedResponseJSON: fmt.Sprintf("[%s]", fmt.Sprintf(taskResponseJSON,
+				clusterName,
+				taskARN,
+				family,
+				version,
+				statusRunning,
+				statusRunning,
+				cpu,
+				memory,
+				now.UTC().Format(time.RFC3339Nano),
+				now.UTC().Format(time.RFC3339Nano),
+				now.UTC().Format(time.RFC3339Nano),
+				availabilityzone,
+				launchType,
+				happyContainerResponseJSON,
+				vpcID,
+				clockErrorBound,
+				state.ClockStatusSynchronized,
+				utilizedMiBs,
+				reservedMiBs,
+				false)),
+		})
+	})
+
+	t.Run("fetch failure", func(t *testing.T) {
+		handler, ctrl, agentState, metricsFactory := setup(t)
+
+		agentState.EXPECT().
+			GetTasksMetadataWithTags(gomock.Any()).
+			Return(nil, errors.New("fetch error"))
+
+		entry := mock_metrics.NewMockEntry(ctrl)
+		entry.EXPECT().Done(gomock.Any())
+		metricsFactory.EXPECT().New(metrics.InternalServerErrorMetricName).Return(entry)
+
+		testTMDSRequest(t, handler, TMDSTestCase[string]{
+			path:                 path,
+			expectedStatusCode:   http.StatusInternalServerError,
+			expectedResponseBody: "failed to get tasks metadata",
+			expectedResponseJSON: fmt.Sprintf(responseStringMessage, "failed to get tasks metadata"),
+		})
+	})
+}
+
 func TestContainerStatsPath(t *testing.T) {
 	assert.Equal(t, "/v4/{endpointContainerIDMuxName:[^/]*}/stats", ContainerStatsPath())
 }
 
 func TestTaskStatsPath(t *testing.T) {
 	assert.Equal(t, "/v4/{endpointContainerIDMuxName:[^/]*}/task/stats", TaskStatsPath())
+}
+
+func TestTasksStatsPath(t *testing.T) {
+	assert.Equal(t, "/v4/{endpointContainerIDMuxName:[^/]*}/tasks/stats", TasksStatsPath())
+}
+
+func TestTaskMetadataPath(t *testing.T) {
+	assert.Equal(t, "/v4/{endpointContainerIDMuxName:[^/]*}/task", TaskMetadataPath())
+}
+
+func TestTasksMetadataPath(t *testing.T) {
+	assert.Equal(t, "/v4/{endpointContainerIDMuxName:[^/]*}/tasks", TasksMetadataPath())
 }
 
 func TestContainerStats(t *testing.T) {
@@ -661,12 +831,88 @@ func TestTaskStats(t *testing.T) {
 	})
 }
 
+func TestTasksStats(t *testing.T) {
+	// path for the tasks stats endpoint
+	path := fmt.Sprintf("/v4/%s/tasks/stats", endpointContainerID)
+
+	// helper function to setup mocks and a handler with tasks stats endpoint
+	setup := func() (
+		*mock_state.MockAgentState, *gomock.Controller, *mock_metrics.MockEntryFactory, http.Handler,
+	) {
+		ctrl := gomock.NewController(t)
+		defer ctrl.Finish()
+		agentState := mock_state.NewMockAgentState(ctrl)
+		metricsFactory := mock_metrics.NewMockEntryFactory(ctrl)
+
+		router := mux.NewRouter()
+		router.HandleFunc(
+			TasksStatsPath(),
+			TasksStatsHandler(agentState, metricsFactory))
+
+		return agentState, ctrl, metricsFactory, router
+	}
+
+	internalServerErrorCases := []struct {
+		err          error
+		responseBody string
+	}{
+		{
+			err:          state.NewErrorStatsFetchFailure(externalReason, errors.New("cause")),
+			responseBody: externalReason,
+		},
+		{
+			err:          errors.New("unknown error"),
+			responseBody: "failed to get stats",
+		},
+	}
+	for _, tc := range internalServerErrorCases {
+		t.Run("stats fetch failure", func(t *testing.T) {
+			// setup
+			agentState, ctrl, metricsFactory, handler := setup()
+
+			// expect GetTasksStats to be called that should return an error
+			agentState.EXPECT().
+				GetTasksStats(gomock.Any()).
+				Return(nil, tc.err)
+
+			// expect InternalServerError metric to be published with the error.
+			entry := mock_metrics.NewMockEntry(ctrl)
+			entry.EXPECT().Done(tc.err)
+			metricsFactory.EXPECT().New(metrics.InternalServerErrorMetricName).Return(entry)
+
+			// Go
+			testTMDSRequest(t, handler, TMDSTestCase[string]{
+				path:                 path,
+				expectedStatusCode:   http.StatusInternalServerError,
+				expectedResponseBody: tc.responseBody,
+				expectedResponseJSON: fmt.Sprintf(responseStringMessage, tc.responseBody),
+			})
+		})
+	}
+
+	t.Run("happy case", func(t *testing.T) {
+		agentState, _, _, handler := setup()
+		tasksStats := []map[string]*state.StatsResponse{taskStats}
+		agentState.EXPECT().
+			GetTasksStats(gomock.Any()).
+			Return(tasksStats, nil)
+		testTMDSRequest(t, handler, TMDSTestCase[[]map[string]*state.StatsResponse]{
+			path:                 path,
+			expectedStatusCode:   http.StatusOK,
+			expectedResponseBody: tasksStats,
+			expectedResponseJSON: fmt.Sprintf("[%s]", fmt.Sprintf(taskStatsResponseJSON, containerID, happyContainerStatsResponseJSON)),
+		})
+	})
+}
+
 type TMDSResponse interface {
 	string |
 		state.ContainerResponse |
 		state.TaskResponse |
+		[]state.TaskResponse |
 		state.StatsResponse |
-		map[string]*state.StatsResponse
+		map[string]*state.StatsResponse |
+		[]map[string]*state.StatsResponse
 }
 
 type TMDSTestCase[R TMDSResponse] struct {
@@ -696,4 +942,36 @@ func testTMDSRequest[R TMDSResponse](t *testing.T, handler http.Handler, tc TMDS
 	// Assert status code and body
 	assert.Equal(t, tc.expectedStatusCode, recorder.Code)
 	assert.Equal(t, tc.expectedResponseBody, actualResponseBody)
+}
+
+func TestTasksMetadataHandler_IncludeTags(t *testing.T) {
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+
+	agentState := mock_state.NewMockAgentState(ctrl)
+	metricsFactory := mock_metrics.NewMockEntryFactory(ctrl)
+
+	t.Run("calls GetTasksMetadata when includeTags is false", func(t *testing.T) {
+		agentState.EXPECT().GetTasksMetadata(gomock.Any()).Return([]state.TaskResponse{}, nil)
+
+		handler := tasksMetadataHandler(agentState, metricsFactory, false)
+		req := httptest.NewRequest("GET", "/v4/test/tasks", nil)
+		w := httptest.NewRecorder()
+
+		handler(w, req)
+
+		assert.Equal(t, http.StatusOK, w.Code)
+	})
+
+	t.Run("calls GetTasksMetadataWithTags when includeTags is true", func(t *testing.T) {
+		agentState.EXPECT().GetTasksMetadataWithTags(gomock.Any()).Return([]state.TaskResponse{}, nil)
+
+		handler := tasksMetadataHandler(agentState, metricsFactory, true)
+		req := httptest.NewRequest("GET", "/v4/test/tasks", nil)
+		w := httptest.NewRecorder()
+
+		handler(w, req)
+
+		assert.Equal(t, http.StatusOK, w.Code)
+	})
 }
