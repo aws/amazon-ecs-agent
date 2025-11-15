@@ -47,6 +47,7 @@ func TestNewNetworkNamespace(t *testing.T) {
 	assert.Equal(t, primaryNetNSName, netns.Name)
 	assert.Equal(t, primaryNetNSPath, netns.Path)
 	assert.Equal(t, 0, netns.Index)
+	assert.Equal(t, "awsvpc", string(netns.NetworkMode))
 	assert.Empty(t, netns.AppMeshConfig)
 	assert.Equal(t, *netIFs[0], *netns.NetworkInterfaces[0])
 	assert.Equal(t, *netIFs[1], *netns.NetworkInterfaces[1])
@@ -77,4 +78,11 @@ func TestNetworkNamespace_IsPrimary(t *testing.T) {
 	for _, tc := range testCases {
 		require.Equal(t, tc.isPrimary, tc.netNS.IsPrimary())
 	}
+}
+
+func TestNetworkNamespace_WithNetworkMode(t *testing.T) {
+	netns := &NetworkNamespace{}
+	result := netns.WithNetworkMode("daemon-bridge")
+	assert.Equal(t, "daemon-bridge", string(result.NetworkMode))
+	assert.Equal(t, netns, result) // Should return same instance
 }
