@@ -419,7 +419,7 @@ func getTestInterfacesData_Firecracker() ([]*ecsacs.ElasticNetworkInterface, []*
 				TrunkInterfaceMacAddress: trunkMAC,
 				VlanID:                   vlanID,
 			},
-			DeviceName: "eth1.133",
+			DeviceName: "eth1",
 		},
 		{
 			Name: secondaryIfaceName,

@@ -164,3 +164,52 @@ func TestGetIPv6SubnetCIDRBlock(t *testing.T) {
 		})
 	}
 }
+
+func TestSetDeviceNameVLANInterface(t *testing.T) {
+	ni := &NetworkInterface{
+		InterfaceAssociationProtocol: VLANInterfaceAssociationProtocol,
+		MacAddress:                   "06:9d:f1:5f:c5:83",
+		InterfaceVlanProperties: &InterfaceVlanProperties{
+			TrunkInterfaceMacAddress: "06:fb:61:8f:0e:63",
+			VlanID:                   "1",
+		},
+	}
+
+	macToName := map[string]string{
+		"06:fb:61:8f:0e:63": "eth0", // trunk interface
+	}
+
+	err := ni.setDeviceName(macToName)
+	assert.NoError(t, err)
+	assert.Equal(t, "eth1", ni.DeviceName, "VLAN interface should be normalized to eth1")
+}
+
+func TestSetDeviceNameDefaultInterface(t *testing.T) {
+	ni := &NetworkInterface{
+		InterfaceAssociationProtocol: DefaultInterfaceAssociationProtocol,
+		MacAddress:                   "06:9d:f1:5f:c5:83",
+	}
+
+	macToName := map[string]string{
+		"06:9d:f1:5f:c5:83": "eth0", // interface maps to eth0
+	}
+
+	err := ni.setDeviceName(macToName)
+	assert.NoError(t, err)
+	assert.Equal(t, "eth0", ni.DeviceName, "Default interface should use actual device name from MAC mapping")
+}
+
+func TestSetDeviceNameDefaultInterfaceNotFound(t *testing.T) {
+	ni := &NetworkInterface{
+		InterfaceAssociationProtocol: DefaultInterfaceAssociationProtocol,
+		MacAddress:                   "06:9d:f1:5f:c5:83",
+	}
+
+	macToName := map[string]string{
+		"06:different:mac:address": "eth0", // MAC not matching
+	}
+
+	err := ni.setDeviceName(macToName)
+	assert.Error(t, err)
+	assert.Contains(t, err.Error(), "unable to find device name")
+}
