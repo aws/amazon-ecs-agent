@@ -27,7 +27,7 @@ phases:
       # Need to install GOLANG explicitly as required versions do not come preinstalled
       # Remove existing go installation (goenv utility) and install downloaded binaries
       - rm -rf /root/.goenv/
-      - wget -O /tmp/${GOLANG_TAR} https://storage.googleapis.com/golang/${GOLANG_TAR} | tee $BUILD_LOG
+      - wget -O /tmp/${GOLANG_TAR} https://go.dev/dl/${GOLANG_TAR} | tee $BUILD_LOG
       - tar -C /usr/local -xzf /tmp/${GOLANG_TAR} | tee -a $BUILD_LOG
 
       # Set appropriate environment variables
