@@ -177,6 +177,7 @@ const (
 	// the GENEVE interface.
 	DefaultGeneveInterfaceIPAddress = "169.254.175.252"
 	DefaultGeneveInterfaceGateway   = "169.254.175.253/31"
+	NetworkInterfaceDeviceName      = "eth1" // default network interface name in the task network namespace.
 )
 
 var (
@@ -622,16 +623,15 @@ func (ni *NetworkInterface) setDeviceName(macToName map[string]string) error {
 		// We don't need to find the name for a branch NetworkInterface as it's just a vlan association.
 		// Get the name of the trunk interface since we need it for constructing the
 		// name of the branch interface.
-		trunkName, ok := macToName[ni.InterfaceVlanProperties.TrunkInterfaceMacAddress]
+		_, ok := macToName[ni.InterfaceVlanProperties.TrunkInterfaceMacAddress]
 		if !ok {
 			// Same as above. Guard against edge-cases where we're unable to find the trunk
 			// NetworkInterface because of internal EC2 errors.
 			return NewUnableToFindENIError(
 				ni.InterfaceVlanProperties.TrunkInterfaceMacAddress, ni.InterfaceAssociationProtocol)
 		}
-		// Name of the branch is based on the vlan id and the name of the trunk.
-		// Example: eth1.24, where trunk is attached as `eth1` and vlan id is `24`.
-		ni.DeviceName = fmt.Sprintf("%s.%s", trunkName, ni.InterfaceVlanProperties.VlanID)
+		// Normalize VLAN interface names to eth1 for consistent experience and metrics collection
+		ni.DeviceName = NetworkInterfaceDeviceName
 	default:
 		// Do nothing.
 	}

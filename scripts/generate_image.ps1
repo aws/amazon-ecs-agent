@@ -53,7 +53,7 @@ git config --global user.email "nobody@example.localhost"
 
 # Install Go
 echo 'Downloading Go...'
-Invoke-WebRequest "https://storage.googleapis.com/golang/go${GoVersion}.windows-amd64.msi" -OutFile "${ENV:TEMP}\go-installer.msi" -UseBasicParsing
+Invoke-WebRequest "https://go.dev/dl/go${GoVersion}.windows-amd64.msi" -OutFile "${ENV:TEMP}\go-installer.msi" -UseBasicParsing
 echo 'Installing Go...'
 Start-Process "msiexec.exe" -ArgumentList "/quiet /i ${ENV:TEMP}\go-installer.msi" -Wait
 New-Item -ItemType directory -Path "${WORK_ROOT}\go\bin"

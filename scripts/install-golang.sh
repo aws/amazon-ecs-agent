@@ -51,7 +51,7 @@ else
     GO_VERSION=$(cat ./GO_VERSION)
     tmpdir=$(mktemp -d)
     GOLANG_TAR="go${GO_VERSION}.linux-${GOARCH}.tar.gz"
-    wget -O ${tmpdir}/${GOLANG_TAR} https://storage.googleapis.com/golang/${GOLANG_TAR}
+    wget -O ${tmpdir}/${GOLANG_TAR} https://go.dev/dl/${GOLANG_TAR}
     # only use sudo if it's available
     if ! sudo true; then
         tar -C /usr/local -xzf ${tmpdir}/${GOLANG_TAR}
