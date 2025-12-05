@@ -281,7 +281,7 @@ func (c *common) buildAWSVPCNetworkNamespaces(
 	return netNSs, nil
 }
 
-// buildNetNS creates a single network namespace object using the input network config data.
+// buildNetNS creates a single awsvpc network namespace object using the input network config data.
 func (c *common) buildNetNS(
 	taskID string,
 	index int,

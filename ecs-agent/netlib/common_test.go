@@ -71,9 +71,10 @@ func getSingleNetNSAWSVPCTestData(testTaskID string) (*ecsacs.Task, tasknetworkc
 		NetworkMode: types.NetworkModeAwsvpc,
 		NetworkNamespaces: []*tasknetworkconfig.NetworkNamespace{
 			{
-				Name:  netNSName,
-				Path:  netNSPath,
-				Index: 0,
+				Name:        netNSName,
+				Path:        netNSPath,
+				Index:       0,
+				NetworkMode: types.NetworkModeAwsvpc,
 				NetworkInterfaces: []*networkinterface.NetworkInterface{
 					&netIfs[0],
 				},
@@ -156,9 +157,10 @@ func getMultiNetNSMultiIfaceAWSVPCTestData(testTaskID string) (*ecsacs.Task, tas
 		NetworkMode: types.NetworkModeAwsvpc,
 		NetworkNamespaces: []*tasknetworkconfig.NetworkNamespace{
 			{
-				Name:  primaryNetNSName,
-				Path:  primaryNetNSPath,
-				Index: 0,
+				Name:        primaryNetNSName,
+				Path:        primaryNetNSPath,
+				Index:       0,
+				NetworkMode: types.NetworkModeAwsvpc,
 				NetworkInterfaces: []*networkinterface.NetworkInterface{
 					&netIfs[0],
 				},
@@ -166,9 +168,10 @@ func getMultiNetNSMultiIfaceAWSVPCTestData(testTaskID string) (*ecsacs.Task, tas
 				DesiredState: status.NetworkReadyPull,
 			},
 			{
-				Name:  secondaryNetNSName,
-				Path:  secondaryNetNSPath,
-				Index: 1,
+				Name:        secondaryNetNSName,
+				Path:        secondaryNetNSPath,
+				Index:       1,
+				NetworkMode: types.NetworkModeAwsvpc,
 				NetworkInterfaces: []*networkinterface.NetworkInterface{
 					&netIfs[1],
 				},
@@ -323,6 +326,7 @@ func getV2NTestData(testTaskID string) (*ecsacs.Task, tasknetworkconfig.TaskNetw
 				Name:              netNSName,
 				Path:              netNSPath,
 				Index:             0,
+				NetworkMode:       types.NetworkModeAwsvpc,
 				NetworkInterfaces: netIfs,
 				KnownState:        status.NetworkNone,
 				DesiredState:      status.NetworkReadyPull,

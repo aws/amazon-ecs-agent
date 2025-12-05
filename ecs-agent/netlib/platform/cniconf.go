@@ -21,6 +21,10 @@ const (
 	ECSSubNet     = "169.254.172.0/22"
 	AgentEndpoint = "169.254.170.2/32"
 
+	// Daemon-bridge networking constants
+	DaemonBridgeGatewayIP   = "169.254.172.1"
+	DefaultRouteDestination = "0.0.0.0/0"
+
 	CNIPluginLogFileEnv    = "ECS_CNI_LOG_FILE"
 	VPCCNIPluginLogFileEnv = "VPC_CNI_LOG_FILE"
 	IPAMDataPathEnv        = "IPAM_DB_PATH"
