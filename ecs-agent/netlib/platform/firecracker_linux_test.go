@@ -32,6 +32,7 @@ import (
 	mock_oswrapper "github.com/aws/amazon-ecs-agent/ecs-agent/utils/oswrapper/mocks"
 	mock_volume "github.com/aws/amazon-ecs-agent/ecs-agent/volume/mocks"
 
+	ecstypes "github.com/aws/aws-sdk-go-v2/service/ecs/types"
 	"github.com/golang/mock/gomock"
 	"github.com/stretchr/testify/require"
 )
@@ -54,6 +55,7 @@ func TestFirecracker_CreateDNSConfig(t *testing.T) {
 	netns := &tasknetworkconfig.NetworkNamespace{
 		Name:              primaryNetNSName,
 		Path:              primaryNetNSPath,
+		NetworkMode:       ecstypes.NetworkModeAwsvpc,
 		NetworkInterfaces: []*networkinterface.NetworkInterface{iface, v2nIface},
 	}
 
