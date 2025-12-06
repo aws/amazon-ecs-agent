@@ -155,6 +155,16 @@ type AgentState interface {
 	// Returns ErrorMetadataFetchFailure if something else goes wrong.
 	GetTaskMetadata(endpointContainerID string) (TaskResponse, error)
 
+	// Returns metadata for all tasks on the container instance in v4 format.
+	// Returns ErrorTaskLookupFailed if task lookup fails.
+	// Returns ErrorMetadataFetchFailure if something else goes wrong.
+	GetTasksMetadata(endpointContainerID string) ([]TaskResponse, error)
+
+	// Returns metadata for all tasks on the container instance including task and container instance tags (if applicable) in v4 format.
+	// Returns ErrorTaskLookupFailed if task lookup fails.
+	// Returns ErrorMetadataFetchFailure if something else goes wrong.
+	GetTasksMetadataWithTags(endpointContainerID string) ([]TaskResponse, error)
+
 	// Returns task metadata including task and container instance tags (if applicable) in v4 format
 	// for the task identified by the provided endpointContainerID.
 	// Returns ErrorTaskLookupFailed if task lookup fails.
@@ -178,4 +188,9 @@ type AgentState interface {
 	// Returns ErrorStatsLookupFailure if container lookup fails.
 	// Returns ErrorStatsFetchFailure if something else goes wrong.
 	GetTaskStats(endpointContainerID string) (map[string]*StatsResponse, error)
+
+	// Returns stats for all tasks on the container instance in v4 format.
+	// Returns ErrorStatsLookupFailure if container lookup fails.
+	// Returns ErrorStatsFetchFailure if something else goes wrong.
+	GetTasksStats(endpointContainerID string) ([]map[string]*StatsResponse, error)
 }

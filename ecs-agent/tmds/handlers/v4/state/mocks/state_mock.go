@@ -138,3 +138,48 @@ func (mr *MockAgentStateMockRecorder) GetTaskStats(arg0 interface{}) *gomock.Cal
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetTaskStats", reflect.TypeOf((*MockAgentState)(nil).GetTaskStats), arg0)
 }
+
+// GetTasksMetadata mocks base method.
+func (m *MockAgentState) GetTasksMetadata(arg0 string) ([]state.TaskResponse, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "GetTasksMetadata", arg0)
+	ret0, _ := ret[0].([]state.TaskResponse)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// GetTasksMetadata indicates an expected call of GetTasksMetadata.
+func (mr *MockAgentStateMockRecorder) GetTasksMetadata(arg0 interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetTasksMetadata", reflect.TypeOf((*MockAgentState)(nil).GetTasksMetadata), arg0)
+}
+
+// GetTasksMetadataWithTags mocks base method.
+func (m *MockAgentState) GetTasksMetadataWithTags(arg0 string) ([]state.TaskResponse, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "GetTasksMetadataWithTags", arg0)
+	ret0, _ := ret[0].([]state.TaskResponse)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// GetTasksMetadataWithTags indicates an expected call of GetTasksMetadataWithTags.
+func (mr *MockAgentStateMockRecorder) GetTasksMetadataWithTags(arg0 interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetTasksMetadataWithTags", reflect.TypeOf((*MockAgentState)(nil).GetTasksMetadataWithTags), arg0)
+}
+
+// GetTasksStats mocks base method.
+func (m *MockAgentState) GetTasksStats(arg0 string) ([]map[string]*state.StatsResponse, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "GetTasksStats", arg0)
+	ret0, _ := ret[0].([]map[string]*state.StatsResponse)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// GetTasksStats indicates an expected call of GetTasksStats.
+func (mr *MockAgentStateMockRecorder) GetTasksStats(arg0 interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetTasksStats", reflect.TypeOf((*MockAgentState)(nil).GetTasksStats), arg0)
+}

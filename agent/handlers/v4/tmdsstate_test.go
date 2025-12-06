@@ -17,6 +17,7 @@
 package v4
 
 import (
+	"errors"
 	"testing"
 
 	apicontainer "github.com/aws/amazon-ecs-agent/agent/api/container"
@@ -178,4 +179,31 @@ func TestGetTaskMetadataWithTags(t *testing.T) {
 			}
 		})
 	}
+}
+
+func TestGetTasksMetadata_NotSupported(t *testing.T) {
+	state := &TMDSAgentState{}
+	_, err := state.GetTasksMetadata("test-container-id")
+
+	var metadataErr *tmdsv4.ErrorMetadataFetchFailure
+	assert.True(t, errors.As(err, &metadataErr))
+	assert.Contains(t, err.Error(), "not supported")
+}
+
+func TestGetTasksMetadataWithTags_NotSupported(t *testing.T) {
+	state := &TMDSAgentState{}
+	_, err := state.GetTasksMetadataWithTags("test-container-id")
+
+	var metadataErr *tmdsv4.ErrorMetadataFetchFailure
+	assert.True(t, errors.As(err, &metadataErr))
+	assert.Contains(t, err.Error(), "not supported")
+}
+
+func TestGetTasksStats_NotSupported(t *testing.T) {
+	state := &TMDSAgentState{}
+	_, err := state.GetTasksStats("test")
+
+	var statsErr *tmdsv4.ErrorStatsFetchFailure
+	assert.True(t, errors.As(err, &statsErr))
+	assert.Contains(t, err.Error(), "not supported")
 }
