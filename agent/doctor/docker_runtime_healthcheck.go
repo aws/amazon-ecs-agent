@@ -19,7 +19,7 @@ import (
 	"time"
 
 	"github.com/aws/amazon-ecs-agent/agent/dockerclient/dockerapi"
-	"github.com/aws/amazon-ecs-agent/ecs-agent/doctor"
+	"github.com/aws/amazon-ecs-agent/ecs-agent/tcs/model/ecstcs"
 	"github.com/cihub/seelog"
 )
 
@@ -28,29 +28,30 @@ const systemPingTimeout = time.Second * 2
 var timeNow = time.Now
 
 type dockerRuntimeHealthcheck struct {
-	// HealthcheckType is the reported healthcheck type
+	// HealthcheckType is the reported healthcheck type.
 	HealthcheckType string `json:"HealthcheckType,omitempty"`
-	// Status is the container health status
-	Status doctor.HealthcheckStatus `json:"HealthcheckStatus,omitempty"`
-	// Timestamp is the timestamp when container health status changed
+	// Status is the container health status.
+	Status ecstcs.InstanceHealthCheckStatus `json:"HealthcheckStatus,omitempty"`
+	// TimeStamp is the timestamp when container health status changed.
 	TimeStamp time.Time `json:"TimeStamp,omitempty"`
-	// StatusChangeTime is the latest time the health status changed
+	// StatusChangeTime is the latest time the health status changed.
 	StatusChangeTime time.Time `json:"StatusChangeTime,omitempty"`
 
-	// LastStatus is the last container health status
-	LastStatus doctor.HealthcheckStatus `json:"LastStatus,omitempty"`
-	// LastTimeStamp is the timestamp of last container health status
+	// LastStatus is the last container health status.
+	LastStatus ecstcs.InstanceHealthCheckStatus `json:"LastStatus,omitempty"`
+	// LastTimeStamp is the timestamp of last container health status.
 	LastTimeStamp time.Time `json:"LastTimeStamp,omitempty"`
 
 	client dockerapi.DockerClient
 	lock   sync.RWMutex
 }
 
+// NewDockerRuntimeHealthcheck creates a new Docker runtime health check.
 func NewDockerRuntimeHealthcheck(client dockerapi.DockerClient) *dockerRuntimeHealthcheck {
 	nowTime := timeNow()
 	return &dockerRuntimeHealthcheck{
-		HealthcheckType:  doctor.HealthcheckTypeContainerRuntime,
-		Status:           doctor.HealthcheckStatusInitializing,
+		HealthcheckType:  ecstcs.InstanceHealthCheckTypeContainerRuntime,
+		Status:           ecstcs.InstanceHealthCheckStatusInitializing,
 		TimeStamp:        nowTime,
 		StatusChangeTime: nowTime,
 		LastTimeStamp:    nowTime,
@@ -58,65 +59,73 @@ func NewDockerRuntimeHealthcheck(client dockerapi.DockerClient) *dockerRuntimeHe
 	}
 }
 
-func (dhc *dockerRuntimeHealthcheck) RunCheck() doctor.HealthcheckStatus {
-	// TODO pass in context as an argument
+// RunCheck performs a health check by pinging the Docker daemon.
+func (dhc *dockerRuntimeHealthcheck) RunCheck() ecstcs.InstanceHealthCheckStatus {
+	// TODO: Pass in context as an argument.
 	res := dhc.client.SystemPing(context.TODO(), systemPingTimeout)
-	resultStatus := doctor.HealthcheckStatusOk
+	resultStatus := ecstcs.InstanceHealthCheckStatusOk
 	if res.Error != nil {
 		seelog.Infof("[DockerRuntimeHealthcheck] Docker Ping failed with error: %v", res.Error)
-		resultStatus = doctor.HealthcheckStatusImpaired
+		resultStatus = ecstcs.InstanceHealthCheckStatusImpaired
 	}
 	dhc.SetHealthcheckStatus(resultStatus)
 	return resultStatus
 }
 
-func (dhc *dockerRuntimeHealthcheck) SetHealthcheckStatus(healthStatus doctor.HealthcheckStatus) {
+// SetHealthcheckStatus updates the health check status and timestamps.
+func (dhc *dockerRuntimeHealthcheck) SetHealthcheckStatus(healthStatus ecstcs.InstanceHealthCheckStatus) {
 	dhc.lock.Lock()
 	defer dhc.lock.Unlock()
 	nowTime := time.Now()
-	// if the status has changed, update status change timestamp
+	// If the status has changed, update status change timestamp.
 	if dhc.Status != healthStatus {
 		dhc.StatusChangeTime = nowTime
 	}
-	// track previous status
+	// Track previous status.
 	dhc.LastStatus = dhc.Status
 	dhc.LastTimeStamp = dhc.TimeStamp
 
-	// update latest status
+	// Update latest status.
 	dhc.Status = healthStatus
 	dhc.TimeStamp = nowTime
 }
 
+// GetHealthcheckType returns the type of this health check.
 func (dhc *dockerRuntimeHealthcheck) GetHealthcheckType() string {
 	dhc.lock.RLock()
 	defer dhc.lock.RUnlock()
 	return dhc.HealthcheckType
 }
 
-func (dhc *dockerRuntimeHealthcheck) GetHealthcheckStatus() doctor.HealthcheckStatus {
+// GetHealthcheckStatus returns the current health check status.
+func (dhc *dockerRuntimeHealthcheck) GetHealthcheckStatus() ecstcs.InstanceHealthCheckStatus {
 	dhc.lock.RLock()
 	defer dhc.lock.RUnlock()
 	return dhc.Status
 }
 
+// GetHealthcheckTime returns the timestamp of the current health check status.
 func (dhc *dockerRuntimeHealthcheck) GetHealthcheckTime() time.Time {
 	dhc.lock.RLock()
 	defer dhc.lock.RUnlock()
 	return dhc.TimeStamp
 }
 
+// GetStatusChangeTime returns the timestamp when the status last changed.
 func (dhc *dockerRuntimeHealthcheck) GetStatusChangeTime() time.Time {
 	dhc.lock.RLock()
 	defer dhc.lock.RUnlock()
 	return dhc.StatusChangeTime
 }
 
-func (dhc *dockerRuntimeHealthcheck) GetLastHealthcheckStatus() doctor.HealthcheckStatus {
+// GetLastHealthcheckStatus returns the previous health check status.
+func (dhc *dockerRuntimeHealthcheck) GetLastHealthcheckStatus() ecstcs.InstanceHealthCheckStatus {
 	dhc.lock.RLock()
 	defer dhc.lock.RUnlock()
 	return dhc.LastStatus
 }
 
+// GetLastHealthcheckTime returns the timestamp of the previous health check status.
 func (dhc *dockerRuntimeHealthcheck) GetLastHealthcheckTime() time.Time {
 	dhc.lock.RLock()
 	defer dhc.lock.RUnlock()

@@ -32,7 +32,6 @@ import (
 
 	"github.com/aws/amazon-ecs-agent/ecs-agent/doctor"
 	"github.com/aws/amazon-ecs-agent/ecs-agent/metrics"
-	mock_metrics "github.com/aws/amazon-ecs-agent/ecs-agent/metrics/mocks"
 	"github.com/aws/amazon-ecs-agent/ecs-agent/tcs/model/ecstcs"
 	"github.com/aws/amazon-ecs-agent/ecs-agent/utils"
 	"github.com/aws/amazon-ecs-agent/ecs-agent/wsclient"
@@ -59,14 +58,18 @@ const (
 
 type trueHealthcheck struct{}
 
-func (tc *trueHealthcheck) RunCheck() doctor.HealthcheckStatus                   { return doctor.HealthcheckStatusOk }
-func (tc *trueHealthcheck) SetHealthcheckStatus(status doctor.HealthcheckStatus) {}
-func (tc *trueHealthcheck) GetHealthcheckType() string                           { return doctor.HealthcheckTypeAgent }
-func (tc *trueHealthcheck) GetHealthcheckStatus() doctor.HealthcheckStatus {
-	return doctor.HealthcheckStatusInitializing
+func (tc *trueHealthcheck) RunCheck() ecstcs.InstanceHealthCheckStatus {
+	return ecstcs.InstanceHealthCheckStatusOk
 }
-func (tc *trueHealthcheck) GetLastHealthcheckStatus() doctor.HealthcheckStatus {
-	return doctor.HealthcheckStatusInitializing
+func (tc *trueHealthcheck) SetHealthcheckStatus(status ecstcs.InstanceHealthCheckStatus) {}
+func (tc *trueHealthcheck) GetHealthcheckType() string {
+	return ecstcs.InstanceHealthCheckTypeAgent
+}
+func (tc *trueHealthcheck) GetHealthcheckStatus() ecstcs.InstanceHealthCheckStatus {
+	return ecstcs.InstanceHealthCheckStatusInitializing
+}
+func (tc *trueHealthcheck) GetLastHealthcheckStatus() ecstcs.InstanceHealthCheckStatus {
+	return ecstcs.InstanceHealthCheckStatusInitializing
 }
 func (tc *trueHealthcheck) GetHealthcheckTime() time.Time {
 	return time.Date(1974, time.May, 19, 1, 2, 3, 4, time.UTC)
@@ -80,16 +83,18 @@ func (tc *trueHealthcheck) GetLastHealthcheckTime() time.Time {
 
 type falseHealthcheck struct{}
 
-func (fc *falseHealthcheck) RunCheck() doctor.HealthcheckStatus {
-	return doctor.HealthcheckStatusImpaired
+func (fc *falseHealthcheck) RunCheck() ecstcs.InstanceHealthCheckStatus {
+	return ecstcs.InstanceHealthCheckStatusImpaired
 }
-func (fc *falseHealthcheck) SetHealthcheckStatus(status doctor.HealthcheckStatus) {}
-func (fc *falseHealthcheck) GetHealthcheckType() string                           { return doctor.HealthcheckTypeAgent }
-func (fc *falseHealthcheck) GetHealthcheckStatus() doctor.HealthcheckStatus {
-	return doctor.HealthcheckStatusInitializing
+func (fc *falseHealthcheck) SetHealthcheckStatus(status ecstcs.InstanceHealthCheckStatus) {}
+func (fc *falseHealthcheck) GetHealthcheckType() string {
+	return ecstcs.InstanceHealthCheckTypeAgent
 }
-func (fc *falseHealthcheck) GetLastHealthcheckStatus() doctor.HealthcheckStatus {
-	return doctor.HealthcheckStatusInitializing
+func (fc *falseHealthcheck) GetHealthcheckStatus() ecstcs.InstanceHealthCheckStatus {
+	return ecstcs.InstanceHealthCheckStatusInitializing
+}
+func (fc *falseHealthcheck) GetLastHealthcheckStatus() ecstcs.InstanceHealthCheckStatus {
+	return ecstcs.InstanceHealthCheckStatusInitializing
 }
 func (fc *falseHealthcheck) GetHealthcheckTime() time.Time {
 	return time.Date(1974, time.May, 19, 1, 2, 3, 4, time.UTC)
@@ -649,7 +654,7 @@ func testCS(conn *mock_wsconn.MockWebsocketConn, metricsMessages <-chan ecstcs.T
 		AcceptInsecureCert: true,
 	}
 	cs := New("https://aws.amazon.com/ecs", cfg, emptyDoctor, false, testPublishMetricsInterval,
-		aws.NewCredentialsCache(testCreds), rwTimeout, metricsMessages, healthMessages, metrics.NewNopEntryFactory()).(*tcsClientServer)
+		aws.NewCredentialsCache(testCreds), rwTimeout, metricsMessages, healthMessages, nil, metrics.NewNopEntryFactory()).(*tcsClientServer)
 	cs.SetConnection(conn)
 	return cs
 }
@@ -720,7 +725,7 @@ func TestHealthToPublishHealthRequests(t *testing.T) {
 		IsDocker:           true,
 	}
 
-	cs := New("", cfg, emptyDoctor, true, testPublishMetricsInterval, aws.NewCredentialsCache(testCreds), rwTimeout, nil, nil, metrics.NewNopEntryFactory())
+	cs := New("", cfg, emptyDoctor, true, testPublishMetricsInterval, aws.NewCredentialsCache(testCreds), rwTimeout, nil, nil, nil, metrics.NewNopEntryFactory())
 	cs.SetConnection(conn)
 
 	testMetadata := &ecstcs.HealthMetadata{
@@ -907,25 +912,21 @@ func TestGetPublishInstanceStatusRequest(t *testing.T) {
 			}
 			cs.doctor.RunHealthchecks()
 
-			// note: setting RequestId and Timestamp to nil so I can make the comparison
 			metadata := &ecstcs.InstanceStatusMetadata{
 				Cluster:           aws.String(testCluster),
 				ContainerInstance: aws.String(testContainerInstance),
 				RequestId:         nil,
 			}
 
-			testResult, err := cs.getPublishInstanceStatusRequest()
+			testMessage, err := cs.createInstanceStatusMessageFromDoctor()
 
 			if tc.expectedStatuses != nil {
-				expectedResult := &ecstcs.PublishInstanceStatusRequest{
-					Metadata:  metadata,
-					Statuses:  tc.expectedStatuses,
-					Timestamp: nil,
+				expectedMessage := ecstcs.InstanceStatusMessage{
+					Metadata: metadata,
+					Statuses: tc.expectedStatuses,
 				}
-				// note: setting RequestId and Timestamp to nil so I can make the comparison
-				testResult.Timestamp = nil
-				testResult.Metadata.RequestId = nil
-				assert.Equal(t, testResult, expectedResult)
+				testMessage.Metadata.RequestId = nil
+				assert.Equal(t, testMessage, expectedMessage)
 			} else {
 				assert.Error(t, err, "Test failed")
 			}
@@ -1012,66 +1013,4 @@ func TestInvalidFormatMessageOnChannel(t *testing.T) {
 
 	// verify no request was made from the two ill-formed message
 	conn.EXPECT().WriteMessage(gomock.Any(), gomock.Any()).Times(0)
-}
-
-// TestTACSPublishMetricFailureMetric tests that the TACSPublishMetricFailure metric is recorded when there's a metrics publishing error
-func TestTACSPublishMetricFailureMetric(t *testing.T) {
-	ctrl := gomock.NewController(t)
-	defer ctrl.Finish()
-
-	mockMetricsFactory := mock_metrics.NewMockEntryFactory(ctrl)
-	mockEntry := mock_metrics.NewMockEntry(ctrl)
-
-	ctx, cancel := context.WithCancel(context.TODO())
-	defer cancel()
-
-	telemetryMessages := make(chan ecstcs.TelemetryMessage, testTelemetryChannelDefaultBufferSize)
-	healthMessages := make(chan ecstcs.HealthMessage, testTelemetryChannelDefaultBufferSize)
-
-	// Create a connection that will fail when writing
-	conn := mock_wsconn.NewMockWebsocketConn(ctrl)
-	conn.EXPECT().SetWriteDeadline(gomock.Any()).Return(nil)
-	conn.EXPECT().WriteMessage(gomock.Any(), gomock.Any()).Return(fmt.Errorf("connection error"))
-
-	cfg := &wsclient.WSClientMinAgentConfig{
-		AWSRegion:          "us-east-1",
-		AcceptInsecureCert: true,
-	}
-	cs := New("https://aws.amazon.com/ecs", cfg, emptyDoctor, false, testPublishMetricsInterval,
-		aws.NewCredentialsCache(testCreds), rwTimeout, telemetryMessages, healthMessages, mockMetricsFactory).(*tcsClientServer)
-	cs.SetConnection(conn)
-
-	// Set expectations for the metrics calls
-	mockMetricsFactory.EXPECT().New(metrics.TACSPublishMetricFailure).Return(mockEntry).Times(1)
-	mockEntry.EXPECT().Done(gomock.Any()).Times(1)
-
-	// Create a valid telemetry message that will trigger publishMetricsOnce
-	telemetryMessage := ecstcs.TelemetryMessage{
-		Metadata: &ecstcs.MetricsMetadata{
-			Cluster:           aws.String(testCluster),
-			ContainerInstance: aws.String(testContainerInstance),
-			Idle:              aws.Bool(false),
-			MessageId:         aws.String(testMessageId),
-		},
-		TaskMetrics: []*ecstcs.TaskMetric{
-			{
-				TaskArn: aws.String("test-task-arn"),
-			},
-		},
-	}
-
-	// Send the message to the channel
-	telemetryMessages <- telemetryMessage
-
-	// Start publishMessages in a goroutine
-	go cs.publishMessages(ctx)
-
-	// Give some time for the message to be processed
-	time.Sleep(100 * time.Millisecond)
-
-	// Cancel the context to stop the goroutine
-	cancel()
-
-	// Give some time for the goroutine to exit
-	time.Sleep(100 * time.Millisecond)
 }

@@ -72,6 +72,7 @@ type telemetrySession struct {
 	metricsFactory                metrics.EntryFactory
 	metricsChannel                <-chan ecstcs.TelemetryMessage
 	healthChannel                 <-chan ecstcs.HealthMessage
+	instanceStatusChannel         <-chan ecstcs.InstanceStatusMessage
 	doctor                        *doctor.Doctor
 	ecsClient                     TcsEcsClient
 }
@@ -93,6 +94,7 @@ func NewTelemetrySession(
 	metricsFactory metrics.EntryFactory,
 	metricsChannel <-chan ecstcs.TelemetryMessage,
 	healthChannel <-chan ecstcs.HealthMessage,
+	instanceStatusChannel <-chan ecstcs.InstanceStatusMessage,
 	doctor *doctor.Doctor,
 	ecsClient TcsEcsClient,
 ) TelemetrySession {
@@ -108,6 +110,7 @@ func NewTelemetrySession(
 		deregisterInstanceEventStream: deregisterInstanceEventStream,
 		metricsChannel:                metricsChannel,
 		healthChannel:                 healthChannel,
+		instanceStatusChannel:         instanceStatusChannel,
 		heartbeatTimeout:              heartbeatTimeout,
 		heartbeatJitterMax:            heartbeatJitterMax,
 		disconnectTimeout:             disconnectTimeout,
@@ -161,7 +164,7 @@ func (session *telemetrySession) StartTelemetrySession(ctx context.Context) erro
 	tcsEndpointUrl := formatURL(endpoint, session.cluster, session.containerInstanceArn, session.agentVersion,
 		session.agentHash, containerRuntime, session.containerRuntimeVersion)
 	client := tcsclient.New(tcsEndpointUrl, session.cfg, session.doctor, session.disableMetrics, tcsclient.DefaultContainerMetricsPublishInterval,
-		session.credentialsCache, wsRWTimeout, session.metricsChannel, session.healthChannel, session.metricsFactory)
+		session.credentialsCache, wsRWTimeout, session.metricsChannel, session.healthChannel, session.instanceStatusChannel, session.metricsFactory)
 	defer client.Close()
 
 	if session.deregisterInstanceEventStream != nil {

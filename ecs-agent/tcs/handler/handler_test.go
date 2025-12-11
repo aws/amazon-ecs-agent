@@ -168,6 +168,7 @@ func TestStartTelemetrySession(t *testing.T) {
 	}
 	telemetryMessages := make(chan ecstcs.TelemetryMessage, testTelemetryChannelDefaultBufferSize)
 	healthMessages := make(chan ecstcs.HealthMessage, testTelemetryChannelDefaultBufferSize)
+	instanceStatusMessages := make(chan ecstcs.InstanceStatusMessage, testTelemetryChannelDefaultBufferSize)
 
 	wait := &sync.WaitGroup{}
 	ctx, cancel := context.WithCancel(context.Background())
@@ -209,6 +210,7 @@ func TestStartTelemetrySession(t *testing.T) {
 		metrics.NewNopEntryFactory(),
 		telemetryMessages,
 		healthMessages,
+		instanceStatusMessages,
 		emptyDoctor,
 		testecsclient,
 	)
@@ -285,6 +287,7 @@ func TestSessionConnectionClosedByRemote(t *testing.T) {
 
 	telemetryMessages := make(chan ecstcs.TelemetryMessage, testTelemetryChannelDefaultBufferSize)
 	healthMessages := make(chan ecstcs.HealthMessage, testTelemetryChannelDefaultBufferSize)
+	instanceStatusMessages := make(chan ecstcs.InstanceStatusMessage, testTelemetryChannelDefaultBufferSize)
 
 	session := NewTelemetrySession(
 		testInstanceArn,
@@ -303,6 +306,7 @@ func TestSessionConnectionClosedByRemote(t *testing.T) {
 		metrics.NewNopEntryFactory(),
 		telemetryMessages,
 		healthMessages,
+		instanceStatusMessages,
 		emptyDoctor,
 		testecsclient,
 	)
@@ -348,6 +352,7 @@ func TestConnectionInactiveTimeout(t *testing.T) {
 
 	telemetryMessages := make(chan ecstcs.TelemetryMessage, testTelemetryChannelDefaultBufferSize)
 	healthMessages := make(chan ecstcs.HealthMessage, testTelemetryChannelDefaultBufferSize)
+	instanceStatusMessages := make(chan ecstcs.InstanceStatusMessage, testTelemetryChannelDefaultBufferSize)
 
 	session := NewTelemetrySession(
 		testInstanceArn,
@@ -366,6 +371,7 @@ func TestConnectionInactiveTimeout(t *testing.T) {
 		metrics.NewNopEntryFactory(),
 		telemetryMessages,
 		healthMessages,
+		instanceStatusMessages,
 		emptyDoctor,
 		testecsclient,
 	)
@@ -403,6 +409,7 @@ func TestTACSConnectionFailureMetric(t *testing.T) {
 
 	telemetryMessages := make(chan ecstcs.TelemetryMessage, testTelemetryChannelDefaultBufferSize)
 	healthMessages := make(chan ecstcs.HealthMessage, testTelemetryChannelDefaultBufferSize)
+	instanceStatusMessages := make(chan ecstcs.InstanceStatusMessage, testTelemetryChannelDefaultBufferSize)
 
 	session := NewTelemetrySession(
 		testInstanceArn,
@@ -421,6 +428,7 @@ func TestTACSConnectionFailureMetric(t *testing.T) {
 		mockMetricsFactory, // Use the mock metrics factory
 		telemetryMessages,
 		healthMessages,
+		instanceStatusMessages,
 		emptyDoctor,
 		testecsclient,
 	)
@@ -477,6 +485,7 @@ func TestClientReconnectsAfterInactiveTimeout(t *testing.T) {
 
 	telemetryMessages := make(chan ecstcs.TelemetryMessage, testTelemetryChannelDefaultBufferSize)
 	healthMessages := make(chan ecstcs.HealthMessage, testTelemetryChannelDefaultBufferSize)
+	instanceStatusMessages := make(chan ecstcs.InstanceStatusMessage, testTelemetryChannelDefaultBufferSize)
 
 	session := NewTelemetrySession(
 		testInstanceArn,
@@ -495,6 +504,7 @@ func TestClientReconnectsAfterInactiveTimeout(t *testing.T) {
 		metrics.NewNopEntryFactory(),
 		telemetryMessages,
 		healthMessages,
+		instanceStatusMessages,
 		emptyDoctor,
 		testecsclient,
 	)
@@ -573,6 +583,7 @@ func createPublishMetricsRequest() *ecstcs.PublishMetricsRequest {
 func TestStartTelemetrySessionMetricsChannelPauseWhenClientClosed(t *testing.T) {
 	telemetryMessages := make(chan ecstcs.TelemetryMessage, testTelemetryChannelDefaultBufferSize)
 	healthMessages := make(chan ecstcs.HealthMessage, testTelemetryChannelDefaultBufferSize)
+	instanceStatusMessages := make(chan ecstcs.InstanceStatusMessage, testTelemetryChannelDefaultBufferSize)
 
 	// Start test server.
 	closeWS := make(chan []byte)
@@ -606,6 +617,7 @@ func TestStartTelemetrySessionMetricsChannelPauseWhenClientClosed(t *testing.T) 
 		metrics.NewNopEntryFactory(),
 		telemetryMessages,
 		healthMessages,
+		instanceStatusMessages,
 		emptyDoctor,
 		testecsclient,
 	)
@@ -666,6 +678,7 @@ func TestPeriodicDisconnectonTCSClient(t *testing.T) {
 
 	telemetryMessages := make(chan ecstcs.TelemetryMessage, testTelemetryChannelDefaultBufferSize)
 	healthMessages := make(chan ecstcs.HealthMessage, testTelemetryChannelDefaultBufferSize)
+	instanceStatusMessages := make(chan ecstcs.InstanceStatusMessage, testTelemetryChannelDefaultBufferSize)
 
 	// Setting disconnect timer(10 secs) to be less than heartbeat timer(1min)
 	// in order to disconnect because of periodic timer instead of heartbeat timer due to inactivity.
@@ -686,6 +699,7 @@ func TestPeriodicDisconnectonTCSClient(t *testing.T) {
 		metrics.NewNopEntryFactory(),
 		telemetryMessages,
 		healthMessages,
+		instanceStatusMessages,
 		emptyDoctor,
 		testecsclient,
 	)

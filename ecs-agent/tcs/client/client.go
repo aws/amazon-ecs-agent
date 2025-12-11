@@ -53,20 +53,37 @@ var (
 )
 
 // tcsClientServer implements wsclient.ClientServer interface for metrics backend.
+// It handles publishing telemetry metrics, health messages, and instance status
+// messages to the TCS backend through dedicated channels.
 type tcsClientServer struct {
 	doctor                   *doctor.Doctor
 	pullInstanceStatusTicker *time.Ticker
 	disableResourceMetrics   bool
 	publishMetricsInterval   time.Duration
 
+	// metrics is a receive-only channel for telemetry messages containing
+	// instance and task metrics to be published to the backend.
 	metrics <-chan ecstcs.TelemetryMessage
-	health  <-chan ecstcs.HealthMessage
+
+	// health is a receive-only channel for health messages containing
+	// task health metrics to be published to the backend.
+	health <-chan ecstcs.HealthMessage
+
+	// instanceStatus is a receive-only channel for instance status messages
+	// containing instance health status to be published to the backend.
+	instanceStatus <-chan ecstcs.InstanceStatusMessage
 	wsclient.ClientServerImpl
 }
 
 // New returns a client/server to bidirectionally communicate with the backend.
 // The returned struct should have both 'Connect' and 'Serve' called upon it
 // before being used.
+//
+// The instanceStatusMessages parameter is optional and can be nil to maintain
+// backward compatibility with existing functionality. When provided, it enables
+// external components to send instance status updates through a dedicated channel,
+// allowing for instance status publishing independent of the doctor module's
+// periodic health checks.
 func New(url string,
 	cfg *wsclient.WSClientMinAgentConfig,
 	doctor *doctor.Doctor,
@@ -76,6 +93,7 @@ func New(url string,
 	rwTimeout time.Duration,
 	metricsMessages <-chan ecstcs.TelemetryMessage,
 	healthMessages <-chan ecstcs.HealthMessage,
+	instanceStatusMessages <-chan ecstcs.InstanceStatusMessage,
 	metricsFactory metrics.EntryFactory,
 ) wsclient.ClientServer {
 	cs := &tcsClientServer{
@@ -84,6 +102,7 @@ func New(url string,
 		publishMetricsInterval:   publishMetricsInterval,
 		metrics:                  metricsMessages,
 		health:                   healthMessages,
+		instanceStatus:           instanceStatusMessages,
 		disableResourceMetrics:   disableResourceMetrics,
 		ClientServerImpl: wsclient.ClientServerImpl{
 			URL:              url,
@@ -122,6 +141,16 @@ func (cs *tcsClientServer) Serve(ctx context.Context) error {
 	return cs.ConsumeMessages(ctx)
 }
 
+// publishMessages listens for messages on the metrics, health, and instanceStatus
+// channels and publishes them to the TCS backend. This method runs in a separate
+// goroutine and handles three types of messages concurrently:
+//   - Telemetry messages containing instance and task metrics
+//   - Health messages containing task health information
+//   - Instance status messages containing instance health status information
+//
+// The method continues processing messages until the context is cancelled.
+// Errors during publishing are logged but do not terminate the processing loop,
+// ensuring that failures with one message type do not affect others.
 func (cs *tcsClientServer) publishMessages(ctx context.Context) {
 	for {
 		select {
@@ -141,6 +170,14 @@ func (cs *tcsClientServer) publishMessages(ctx context.Context) {
 			err := cs.publishHealthOnce(health)
 			if err != nil {
 				logger.Warn("Error publishing health", logger.Fields{
+					field.Error: err,
+				})
+			}
+		case instanceStatus := <-cs.instanceStatus:
+			logger.Debug("received instance status message in instanceStatusChannel")
+			err := cs.publishInstanceStatusOnce(instanceStatus)
+			if err != nil {
+				logger.Warn("Error publishing instance status", logger.Fields{
 					field.Error: err,
 				})
 			}
@@ -408,7 +445,16 @@ func (cs *tcsClientServer) publishInstanceStatus(ctx context.Context) {
 		select {
 		case <-cs.pullInstanceStatusTicker.C:
 			if !cs.doctor.HasStatusBeenReported() {
-				err := cs.publishInstanceStatusOnce()
+				// Create InstanceStatusMessage from doctor data
+				message, err := cs.createInstanceStatusMessageFromDoctor()
+				if err != nil {
+					logger.Warn("Unable to create instance status message from doctor", logger.Fields{
+						field.Error: err,
+					})
+					continue
+				}
+
+				err = cs.publishInstanceStatusOnce(message)
 				if err != nil {
 					logger.Warn("Unable to publish instance status", logger.Fields{
 						field.Error: err,
@@ -425,44 +471,46 @@ func (cs *tcsClientServer) publishInstanceStatus(ctx context.Context) {
 	}
 }
 
-// publishInstanceStatusOnce gets called on a ticker to pull instance status
-// from the doctor instance contained within cs and sned that information to
-// the backend
-func (cs *tcsClientServer) publishInstanceStatusOnce() error {
-	// Get the list of health request to send to backend.
-	request, err := cs.getPublishInstanceStatusRequest()
+// publishInstanceStatusOnce publishes instance status using the provided message
+// parameter instead of querying the doctor module. This method accepts an
+// InstanceStatusMessage and creates a PublishInstanceStatusRequest from it,
+// adding a timestamp and sending it to the TCS backend.
+//
+// This method enables external components to publish instance status updates
+// through the instanceStatus channel, providing an alternative to the doctor
+// module's periodic health check publishing mechanism.
+func (cs *tcsClientServer) publishInstanceStatusOnce(message ecstcs.InstanceStatusMessage) error {
+	request := &ecstcs.PublishInstanceStatusRequest{
+		Metadata:  message.Metadata,
+		Statuses:  message.Statuses,
+		Timestamp: (*utils.Timestamp)(aws.Time(time.Now())),
+	}
+
+	err := cs.MakeRequest(request)
 	if err != nil {
 		return err
 	}
 
-	// Make the publish instance status request to the backend.
-	err = cs.MakeRequest(request)
-	if err != nil {
-		return err
-	}
-
-	cs.doctor.SetStatusReported(true)
-
+	logger.Info("Successfully published instance status message to TCS")
 	return nil
 }
 
-// GetPublishInstanceStatusRequest will get all healthcheck statuses and generate
-// a sendable PublishInstanceStatusRequest
-func (cs *tcsClientServer) getPublishInstanceStatusRequest() (*ecstcs.PublishInstanceStatusRequest, error) {
+// createInstanceStatusMessageFromDoctor creates an InstanceStatusMessage from doctor data
+func (cs *tcsClientServer) createInstanceStatusMessageFromDoctor() (ecstcs.InstanceStatusMessage, error) {
 	metadata := &ecstcs.InstanceStatusMetadata{
 		Cluster:           aws.String(cs.doctor.GetCluster()),
 		ContainerInstance: aws.String(cs.doctor.GetContainerInstanceArn()),
 		RequestId:         aws.String(uuid.NewRandom().String()),
 	}
+
 	instanceStatuses := cs.getInstanceStatuses()
 	if instanceStatuses == nil {
-		return nil, doctor.EmptyHealthcheckError
+		return ecstcs.InstanceStatusMessage{}, doctor.EmptyHealthcheckError
 	}
 
-	return &ecstcs.PublishInstanceStatusRequest{
-		Metadata:  metadata,
-		Statuses:  instanceStatuses,
-		Timestamp: (*utils.Timestamp)(aws.Time(time.Now())),
+	return ecstcs.InstanceStatusMessage{
+		Metadata: metadata,
+		Statuses: instanceStatuses,
 	}, nil
 }
 
