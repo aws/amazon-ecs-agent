@@ -357,3 +357,47 @@ func getTestV2NInterface() *networkinterface.NetworkInterface {
 		DomainNameSearchList: []string{searchDomainName},
 	}
 }
+
+func TestCreateDaemonBridgePluginConfig(t *testing.T) {
+	cniConfig := ecscni.CNIConfig{
+		NetNSPath:      netNSPath,
+		CNISpecVersion: cniSpecVersion,
+		CNIPluginName:  BridgePluginName,
+	}
+
+	_, agentRouteIPNet, _ := net.ParseCIDR(AgentEndpoint)
+	agentRoute := &types.Route{
+		Dst: *agentRouteIPNet,
+	}
+
+	_, defaultNet, _ := net.ParseCIDR(DefaultRouteDestination)
+	bridgeGW := net.ParseIP(DaemonBridgeGatewayIP)
+	defaultRoute := &types.Route{
+		Dst: *defaultNet,
+		GW:  bridgeGW,
+	}
+
+	ipamConfig := &ecscni.IPAMConfig{
+		CNIConfig: ecscni.CNIConfig{
+			NetNSPath:      netNSPath,
+			CNISpecVersion: cniSpecVersion,
+			CNIPluginName:  IPAMPluginName,
+		},
+		IPV4Subnet: ECSSubNet,
+		IPV4Routes: []*types.Route{agentRoute, defaultRoute},
+		ID:         netNSPath,
+	}
+
+	bridgeConfig := &ecscni.BridgeConfig{
+		CNIConfig: cniConfig,
+		Name:      BridgeInterfaceName,
+		IPAM:      *ipamConfig,
+	}
+
+	expected, err := json.Marshal(bridgeConfig)
+	require.NoError(t, err)
+	actual, err := json.Marshal(createDaemonBridgePluginConfig(netNSPath))
+	require.NoError(t, err)
+
+	require.Equal(t, expected, actual)
+}
