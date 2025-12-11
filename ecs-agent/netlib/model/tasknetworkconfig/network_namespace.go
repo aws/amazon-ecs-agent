@@ -22,6 +22,7 @@ import (
 	"github.com/aws/amazon-ecs-agent/ecs-agent/netlib/model/networkinterface"
 	"github.com/aws/amazon-ecs-agent/ecs-agent/netlib/model/serviceconnect"
 	"github.com/aws/amazon-ecs-agent/ecs-agent/netlib/model/status"
+	"github.com/aws/aws-sdk-go-v2/service/ecs/types"
 )
 
 // NetworkNamespace is model representing each network namespace.
@@ -29,6 +30,10 @@ type NetworkNamespace struct {
 	Name  string
 	Path  string
 	Index int
+
+	// NetworkMode represents the network mode for this namespace.
+	// Supported values: awsvpc (default), daemon-bridge (managed-instances only).
+	NetworkMode types.NetworkMode
 
 	// NetworkInterfaces represents ENIs or any kind of network interface associated the particular netns.
 	NetworkInterfaces []*networkinterface.NetworkInterface
@@ -58,6 +63,7 @@ func NewNetworkNamespace(
 		NetworkInterfaces: networkInterfaces,
 		KnownState:        status.NetworkNone,
 		DesiredState:      status.NetworkReadyPull,
+		NetworkMode:       types.NetworkModeAwsvpc,
 	}
 
 	// Sort interfaces as per their index values in ascending order.
@@ -103,4 +109,10 @@ func (ns *NetworkNamespace) GetInterfaceByIndex(idx int64) *networkinterface.Net
 	}
 
 	return nil
+}
+
+// WithNetworkMode sets the NetworkMode field
+func (ns *NetworkNamespace) WithNetworkMode(mode types.NetworkMode) *NetworkNamespace {
+	ns.NetworkMode = mode
+	return ns
 }

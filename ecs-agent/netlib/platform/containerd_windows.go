@@ -141,9 +141,10 @@ func (c *containerd) buildAWSVPCNetworkConfig(
 	}
 
 	netNS := &tasknetworkconfig.NetworkNamespace{
-		Name:  netNSName,
-		Path:  netNSPath,
-		Index: 0,
+		Name:        netNSName,
+		Path:        netNSPath,
+		Index:       0,
+		NetworkMode: ecstypes.NetworkModeAwsvpc,
 		NetworkInterfaces: []*networkinterface.NetworkInterface{
 			iface,
 		},

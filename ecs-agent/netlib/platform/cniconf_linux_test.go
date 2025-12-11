@@ -79,6 +79,44 @@ func TestCreateBridgeConfig(t *testing.T) {
 	require.Equal(t, expected, actual)
 }
 
+func TestCreateDaemonBridgeConfig(t *testing.T) {
+	cniConfig := ecscni.CNIConfig{
+		NetNSPath:      netNSPath,
+		CNISpecVersion: cniSpecVersion,
+		CNIPluginName:  BridgePluginName,
+	}
+
+	_, routeIPNet, _ := net.ParseCIDR(AgentEndpoint)
+	route := &types.Route{
+		Dst: *routeIPNet,
+	}
+
+	ipamConfig := &ecscni.IPAMConfig{
+		CNIConfig: ecscni.CNIConfig{
+			NetNSPath:      netNSPath,
+			CNISpecVersion: cniSpecVersion,
+			CNIPluginName:  IPAMPluginName,
+		},
+		IPV4Subnet: ECSSubNet,
+		IPV4Routes: []*types.Route{route},
+		ID:         netNSPath,
+	}
+
+	// Invoke the bridge plugin and ipam plugin
+	bridgeConfig := &ecscni.BridgeConfig{
+		CNIConfig: cniConfig,
+		Name:      ManagedInstanceBridgeName,
+		IPAM:      *ipamConfig,
+	}
+
+	expected, err := json.Marshal(bridgeConfig)
+	require.NoError(t, err)
+	actual, err := json.Marshal(createDaemonBridgePluginConfig(netNSPath))
+	require.NoError(t, err)
+
+	require.Equal(t, expected, actual)
+}
+
 func TestCreateENIConfig(t *testing.T) {
 	for _, tc := range []struct {
 		name      string
