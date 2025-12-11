@@ -1,5 +1,9 @@
 # Changelog
 
+# 1.101.1
+* Enhancement - Bump github.com/containerd/containerd from 1.7.27 to 1.7.29 in /ecs-init [#4809](https://github.com/aws/amazon-ecs-agent/pull/4809)
+* Enhancement - Update go version to 1.24.11 [#4823](https://github.com/aws/amazon-ecs-agent/pull/4823)
+
 # 1.101.0
 * Feature - Add new environment variable `ECS_PAUSE_LABELS` to apply custom labels to pause containers [#4789](https://github.com/aws/amazon-ecs-agent/pull/4789)
 * Enhancement - Update Go version to 1.24.9 [#4813](https://github.com/aws/amazon-ecs-agent/pull/4813)

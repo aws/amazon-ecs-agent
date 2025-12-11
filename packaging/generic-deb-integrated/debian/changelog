@@ -1,3 +1,9 @@
+amazon-ecs-init (1.101.1-1) stable; urgency=medium
+
+  * Cache Agent version 1.101.1
+
+ -- Michael Ye <yemike@amazon.com>  Wed, 10 Dec 2025 18:00:00 +0000
+
 amazon-ecs-init (1.101.0-1) stable; urgency=medium
 
   * Cache Agent version 1.101.0
