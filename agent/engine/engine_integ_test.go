@@ -39,8 +39,8 @@ import (
 	"github.com/aws/amazon-ecs-agent/ecs-agent/credentials"
 
 	"github.com/aws/aws-sdk-go-v2/aws"
-	"github.com/docker/docker/api/types"
 	"github.com/docker/docker/api/types/container"
+	"github.com/docker/docker/api/types/image"
 	sdkClient "github.com/docker/docker/client"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -115,7 +115,7 @@ func dialWithRetries(proto string, address string, tries int, timeout time.Durat
 func removeImage(t *testing.T, img string) {
 	client, err := sdkClient.NewClientWithOpts(sdkClient.WithHost(endpoint), sdkClient.WithVersion(sdkclientfactory.GetDefaultVersion().String()))
 	require.NoError(t, err, "create docker client failed")
-	client.ImageRemove(context.TODO(), img, types.ImageRemoveOptions{})
+	client.ImageRemove(context.TODO(), img, image.RemoveOptions{})
 }
 
 func cleanVolumes(testTask *apitask.Task, dockerClient dockerapi.DockerClient) {

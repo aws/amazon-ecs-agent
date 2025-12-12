@@ -26,7 +26,7 @@ import (
 	"github.com/aws/amazon-ecs-agent/ecs-agent/logger"
 	"github.com/aws/amazon-ecs-agent/ecs-agent/logger/field"
 
-	"github.com/docker/docker/api/types"
+	dockercontainer "github.com/docker/docker/api/types/container"
 
 	apicontainer "github.com/aws/amazon-ecs-agent/agent/api/container"
 	apitask "github.com/aws/amazon-ecs-agent/agent/api/task"
@@ -81,12 +81,12 @@ func (m *manager) RestartAgentIfStopped(ctx context.Context, client dockerapi.Do
 	return Restarted, nil
 }
 
-func (m *manager) inspectExecAgentProcess(ctx context.Context, client dockerapi.DockerClient, metadata AgentMetadata) (*types.ContainerExecInspect, error) {
+func (m *manager) inspectExecAgentProcess(ctx context.Context, client dockerapi.DockerClient, metadata AgentMetadata) (*dockercontainer.ExecInspect, error) {
 	backoff := retry.NewExponentialBackoff(m.retryMinDelay, m.retryMaxDelay, retryJitterMultiplier, retryDelayMultiplier)
 	ctx, cancel := context.WithTimeout(ctx, m.inspectRetryTimeout)
 	defer cancel()
 	var (
-		inspectRes *types.ContainerExecInspect
+		inspectRes *dockercontainer.ExecInspect
 		inspectErr error
 	)
 	retry.RetryNWithBackoffCtx(ctx, backoff, maxRetries, func() error {
@@ -180,7 +180,7 @@ func (m *manager) StartAgent(ctx context.Context, client dockerapi.DockerClient,
 func (m *manager) doStartAgent(ctx context.Context, client dockerapi.DockerClient, task *apitask.Task, ma apicontainer.ManagedAgent, containerId string) (*AgentMetadata, error) {
 	execAgentCmdBinDir := getExecAgentCmdBinDir(&ma)
 	execAgentCmd := filepath.Join(execAgentCmdBinDir, SSMAgentBinName)
-	execCfg := types.ExecConfig{
+	execCfg := dockercontainer.ExecOptions{
 		User:   execAgentCmdUser,
 		Detach: true,
 		Cmd:    []string{execAgentCmd},
@@ -197,7 +197,7 @@ func (m *manager) doStartAgent(ctx context.Context, client dockerapi.DockerClien
 		"execResId":     execRes.ID,
 	})
 
-	err = client.StartContainerExec(ctx, execRes.ID, types.ExecStartCheck{Detach: true, Tty: false}, dockerclient.ContainerExecStartTimeout)
+	err = client.StartContainerExec(ctx, execRes.ID, dockercontainer.ExecStartOptions{Detach: true, Tty: false}, dockerclient.ContainerExecStartTimeout)
 	if err != nil {
 		return newMD, StartError{error: fmt.Errorf("unable to start ExecuteCommandAgent [pre-start]: %v", err), retryable: true}
 	}
