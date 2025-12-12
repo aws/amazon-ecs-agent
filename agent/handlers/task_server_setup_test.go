@@ -3378,7 +3378,7 @@ func TestV4ContainerStats(t *testing.T) {
 			},
 			expectedStatusCode: http.StatusOK,
 			expectedResponseBody: v4.StatsResponse{
-				StatsResponse:          &dockerStats,
+				StatsResponse:      &dockerStats,
 				Network_rate_stats: &networkStats,
 			},
 		})
@@ -3475,7 +3475,7 @@ func TestV4TaskStats(t *testing.T) {
 			},
 			expectedStatusCode: http.StatusOK,
 			expectedResponseBody: map[string]*v4.StatsResponse{containerID: {
-				StatsResponse:          &dockerStats,
+				StatsResponse:      &dockerStats,
 				Network_rate_stats: &networkStats,
 			}},
 		})
