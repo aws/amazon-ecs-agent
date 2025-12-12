@@ -3378,7 +3378,7 @@ func TestV4ContainerStats(t *testing.T) {
 			},
 			expectedStatusCode: http.StatusOK,
 			expectedResponseBody: v4.StatsResponse{
-				StatsJSON:          &dockerStats,
+				StatsResponse:          &dockerStats,
 				Network_rate_stats: &networkStats,
 			},
 		})
@@ -3447,7 +3447,7 @@ func TestV4TaskStats(t *testing.T) {
 			expectedStatusCode: http.StatusOK,
 			expectedResponseBody: map[string]*v4.StatsResponse{
 				containerID: {
-					StatsJSON: nil, Network_rate_stats: nil,
+					StatsResponse: nil, Network_rate_stats: nil,
 				},
 			},
 		})
@@ -3475,7 +3475,7 @@ func TestV4TaskStats(t *testing.T) {
 			},
 			expectedStatusCode: http.StatusOK,
 			expectedResponseBody: map[string]*v4.StatsResponse{containerID: {
-				StatsJSON:          &dockerStats,
+				StatsResponse:          &dockerStats,
 				Network_rate_stats: &networkStats,
 			}},
 		})
