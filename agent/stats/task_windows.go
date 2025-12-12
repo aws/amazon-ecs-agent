@@ -24,7 +24,7 @@ import (
 	"github.com/aws/amazon-ecs-agent/agent/eni/networkutils"
 	"github.com/aws/amazon-ecs-agent/agent/stats/resolver"
 
-	dockerstats "github.com/docker/docker/api/types"
+	dockercontainer "github.com/docker/docker/api/types/container"
 	"github.com/pkg/errors"
 )
 
@@ -75,12 +75,12 @@ func newStatsTaskContainer(taskARN, taskId, containerPID string, numberOfContain
 
 // retrieveNetworkStatistics retrieves the network statistics for the task devices by querying
 // the Windows networking APIs.
-func (taskStat *StatsTask) retrieveNetworkStatistics() (map[string]dockerstats.NetworkStats, error) {
+func (taskStat *StatsTask) retrieveNetworkStatistics() (map[string]dockercontainer.NetworkStats, error) {
 	if len(taskStat.TaskMetadata.DeviceName) == 0 {
 		return nil, errors.Errorf("unable to find any device name associated with the task %s", taskStat.TaskMetadata.TaskArn)
 	}
 
-	networkStats := make(map[string]dockerstats.NetworkStats, len(taskStat.TaskMetadata.DeviceName))
+	networkStats := make(map[string]dockercontainer.NetworkStats, len(taskStat.TaskMetadata.DeviceName))
 	for index, device := range taskStat.TaskMetadata.DeviceName {
 		numberOfContainers := taskStat.TaskMetadata.NumberContainers
 
@@ -104,9 +104,9 @@ func (taskStat *StatsTask) retrieveNetworkStatistics() (map[string]dockerstats.N
 func (taskStat *StatsTask) parseNetworkStatsPerContainerFromIfRow(
 	iface *networkutils.MibIfRow2,
 	numberOfContainers int,
-) *dockerstats.NetworkStats {
+) *dockercontainer.NetworkStats {
 
-	stats := &dockerstats.NetworkStats{}
+	stats := &dockercontainer.NetworkStats{}
 	stats.RxBytes = iface.InOctets / uint64(numberOfContainers)
 	stats.RxPackets = (iface.InNUcastPkts + iface.InUcastPkts) / uint64(numberOfContainers)
 	stats.RxErrors = iface.InErrors / uint64(numberOfContainers)
