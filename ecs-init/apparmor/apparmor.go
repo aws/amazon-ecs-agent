@@ -24,7 +24,7 @@ import (
 
 	"github.com/aws/amazon-ecs-agent/ecs-init/config"
 
-	aaprofile "github.com/docker/docker/profiles/apparmor"
+	aaprofile "github.com/moby/profiles/apparmor"
 )
 
 const (
