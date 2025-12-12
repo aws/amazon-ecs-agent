@@ -31,7 +31,6 @@ import (
 	apitaskstatus "github.com/aws/amazon-ecs-agent/ecs-agent/api/task/status"
 	dockercontainer "github.com/docker/docker/api/types/container"
 
-	"github.com/docker/docker/api/types"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -76,12 +75,12 @@ func TestStatsEngineWithExistingContainersWithoutHealth(t *testing.T) {
 	// Create a container to get the container id.
 	container, err := createGremlin(client, "default")
 	require.NoError(t, err, "creating container failed")
-	defer client.ContainerRemove(ctx, container.ID, types.ContainerRemoveOptions{Force: true})
+	defer client.ContainerRemove(ctx, container.ID, dockercontainer.RemoveOptions{Force: true})
 
 	engine.cluster = defaultCluster
 	engine.containerInstanceArn = defaultContainerInstance
 
-	err = client.ContainerStart(ctx, container.ID, types.ContainerStartOptions{})
+	err = client.ContainerStart(ctx, container.ID, dockercontainer.StartOptions{})
 	require.NoError(t, err, "starting container failed")
 	defer client.ContainerStop(ctx, container.ID, containerOptions)
 
@@ -142,7 +141,7 @@ func TestStatsEngineWithNewContainersWithoutHealth(t *testing.T) {
 
 	container, err := createGremlin(client, "default")
 	require.NoError(t, err, "creating container failed")
-	defer client.ContainerRemove(ctx, container.ID, types.ContainerRemoveOptions{Force: true})
+	defer client.ContainerRemove(ctx, container.ID, dockercontainer.RemoveOptions{Force: true})
 
 	engine.cluster = defaultCluster
 	engine.containerInstanceArn = defaultContainerInstance
@@ -168,7 +167,7 @@ func TestStatsEngineWithNewContainersWithoutHealth(t *testing.T) {
 	require.NoError(t, err, "initializing stats engine failed")
 	defer engine.containerChangeEventStream.Unsubscribe(containerChangeHandler)
 
-	err = client.ContainerStart(ctx, container.ID, types.ContainerStartOptions{})
+	err = client.ContainerStart(ctx, container.ID, dockercontainer.StartOptions{})
 	require.NoError(t, err, "starting container failed")
 	defer client.ContainerStop(ctx, container.ID, containerOptions)
 
@@ -213,7 +212,7 @@ func TestStatsEngineWithExistingContainers(t *testing.T) {
 	// Create a container to get the container id.
 	container, err := createHealthContainer(client)
 	require.NoError(t, err, "creating container failed")
-	defer client.ContainerRemove(ctx, container.ID, types.ContainerRemoveOptions{Force: true})
+	defer client.ContainerRemove(ctx, container.ID, dockercontainer.RemoveOptions{Force: true})
 
 	// Assign ContainerStop timeout to addressable variable
 	timeout := int(defaultDockerTimeoutSeconds)
@@ -224,7 +223,7 @@ func TestStatsEngineWithExistingContainers(t *testing.T) {
 	engine.cluster = defaultCluster
 	engine.containerInstanceArn = defaultContainerInstance
 
-	err = client.ContainerStart(ctx, container.ID, types.ContainerStartOptions{})
+	err = client.ContainerStart(ctx, container.ID, dockercontainer.StartOptions{})
 	require.NoError(t, err, "starting container failed")
 	defer client.ContainerStop(ctx, container.ID, containerOptions)
 
@@ -293,7 +292,7 @@ func TestStatsEngineWithNewContainers(t *testing.T) {
 
 	container, err := createHealthContainer(client)
 	require.NoError(t, err, "creating container failed")
-	defer client.ContainerRemove(ctx, container.ID, types.ContainerRemoveOptions{Force: true})
+	defer client.ContainerRemove(ctx, container.ID, dockercontainer.RemoveOptions{Force: true})
 
 	engine.cluster = defaultCluster
 	engine.containerInstanceArn = defaultContainerInstance
@@ -320,7 +319,7 @@ func TestStatsEngineWithNewContainers(t *testing.T) {
 	require.NoError(t, err, "initializing stats engine failed")
 	defer engine.containerChangeEventStream.Unsubscribe(containerChangeHandler)
 
-	err = client.ContainerStart(ctx, container.ID, types.ContainerStartOptions{})
+	err = client.ContainerStart(ctx, container.ID, dockercontainer.StartOptions{})
 	require.NoError(t, err, "starting container failed")
 	defer client.ContainerStop(ctx, container.ID, containerOptions)
 
@@ -378,7 +377,7 @@ func TestStatsEngineWithNewContainersWithPolling(t *testing.T) {
 
 	container, err := createHealthContainer(client)
 	require.NoError(t, err, "creating container failed")
-	defer client.ContainerRemove(ctx, container.ID, types.ContainerRemoveOptions{Force: true})
+	defer client.ContainerRemove(ctx, container.ID, dockercontainer.RemoveOptions{Force: true})
 
 	engine.cluster = defaultCluster
 	engine.containerInstanceArn = defaultContainerInstance
@@ -405,7 +404,7 @@ func TestStatsEngineWithNewContainersWithPolling(t *testing.T) {
 	require.NoError(t, err, "initializing stats engine failed")
 	defer engine.containerChangeEventStream.Unsubscribe(containerChangeHandler)
 
-	err = client.ContainerStart(ctx, container.ID, types.ContainerStartOptions{})
+	err = client.ContainerStart(ctx, container.ID, dockercontainer.StartOptions{})
 	require.NoError(t, err, "starting container failed")
 	defer client.ContainerStop(ctx, container.ID, containerOptions)
 
@@ -456,10 +455,10 @@ func TestStatsEngineWithDockerTaskEngine(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.TODO())
 	defer cancel()
 
-	defer client.ContainerRemove(ctx, container.ID, types.ContainerRemoveOptions{Force: true})
+	defer client.ContainerRemove(ctx, container.ID, dockercontainer.RemoveOptions{Force: true})
 	unmappedContainer, err := createHealthContainer(client)
 	require.NoError(t, err, "creating container failed")
-	defer client.ContainerRemove(ctx, unmappedContainer.ID, types.ContainerRemoveOptions{Force: true})
+	defer client.ContainerRemove(ctx, unmappedContainer.ID, dockercontainer.RemoveOptions{Force: true})
 	testTask := createRunningTask("bridge")
 	// enable the health check of the container
 	testTask.Containers[0].HealthCheckType = "docker"
@@ -487,11 +486,11 @@ func TestStatsEngineWithDockerTaskEngine(t *testing.T) {
 		Timeout: &timeout,
 	}
 
-	err = client.ContainerStart(ctx, container.ID, types.ContainerStartOptions{})
+	err = client.ContainerStart(ctx, container.ID, dockercontainer.StartOptions{})
 	require.NoError(t, err, "starting container failed")
 	defer client.ContainerStop(ctx, container.ID, containerOptions)
 
-	err = client.ContainerStart(ctx, container.ID, types.ContainerStartOptions{})
+	err = client.ContainerStart(ctx, container.ID, dockercontainer.StartOptions{})
 	require.NoError(t, err, "starting container failed")
 	defer client.ContainerStop(ctx, unmappedContainer.ID, containerOptions)
 
@@ -543,7 +542,7 @@ func TestStatsEngineWithDockerTaskEngineMissingRemoveEvent(t *testing.T) {
 
 	container, err := createHealthContainer(client)
 	require.NoError(t, err, "creating container failed")
-	defer client.ContainerRemove(ctx, container.ID, types.ContainerRemoveOptions{Force: true})
+	defer client.ContainerRemove(ctx, container.ID, dockercontainer.RemoveOptions{Force: true})
 	testTask := createRunningTask("")
 	// enable container health check of this container
 	testTask.Containers[0].HealthCheckType = "docker"
@@ -567,7 +566,7 @@ func TestStatsEngineWithDockerTaskEngineMissingRemoveEvent(t *testing.T) {
 	defer statsEngine.removeAll()
 	defer statsEngine.containerChangeEventStream.Unsubscribe(containerChangeHandler)
 
-	err = client.ContainerStart(ctx, container.ID, types.ContainerStartOptions{})
+	err = client.ContainerStart(ctx, container.ID, dockercontainer.StartOptions{})
 	require.NoError(t, err, "starting container failed")
 
 	err = containerChangeEventStream.WriteToEventStream(dockerapi.DockerContainerChangeEvent{
@@ -588,7 +587,7 @@ func TestStatsEngineWithDockerTaskEngineMissingRemoveEvent(t *testing.T) {
 	time.Sleep(checkPointSleep)
 	err = client.ContainerStop(ctx, container.ID, containerOptions)
 	require.NoError(t, err, "stopping container failed")
-	err = client.ContainerRemove(ctx, container.ID, types.ContainerRemoveOptions{Force: true})
+	err = client.ContainerRemove(ctx, container.ID, dockercontainer.RemoveOptions{Force: true})
 	require.NoError(t, err, "removing container failed")
 
 	time.Sleep(checkPointSleep)
@@ -620,12 +619,12 @@ func testNetworkModeStatsInteg(t *testing.T, networkMode string, statsEmpty bool
 	// Create a container to get the container id.
 	container, err := createGremlin(client, networkMode)
 	require.NoError(t, err, "creating container failed")
-	defer client.ContainerRemove(ctx, container.ID, types.ContainerRemoveOptions{Force: true})
+	defer client.ContainerRemove(ctx, container.ID, dockercontainer.RemoveOptions{Force: true})
 
 	engine.cluster = defaultCluster
 	engine.containerInstanceArn = defaultContainerInstance
 
-	err = client.ContainerStart(ctx, container.ID, types.ContainerStartOptions{})
+	err = client.ContainerStart(ctx, container.ID, dockercontainer.StartOptions{})
 	require.NoError(t, err, "starting container failed")
 	defer client.ContainerStop(ctx, container.ID, containerOptions)
 
@@ -704,12 +703,12 @@ func TestStorageStats(t *testing.T) {
 	// Create a container to get the container id.
 	container, err := createGremlin(client, "default")
 	require.NoError(t, err, "creating container failed")
-	defer client.ContainerRemove(ctx, container.ID, types.ContainerRemoveOptions{Force: true})
+	defer client.ContainerRemove(ctx, container.ID, dockercontainer.RemoveOptions{Force: true})
 
 	engine.cluster = defaultCluster
 	engine.containerInstanceArn = defaultContainerInstance
 
-	err = client.ContainerStart(ctx, container.ID, types.ContainerStartOptions{})
+	err = client.ContainerStart(ctx, container.ID, dockercontainer.StartOptions{})
 	require.NoError(t, err, "starting container failed")
 	defer client.ContainerStop(ctx, container.ID, containerOptions)
 

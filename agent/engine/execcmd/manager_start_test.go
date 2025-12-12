@@ -34,6 +34,7 @@ import (
 	errors2 "github.com/aws/amazon-ecs-agent/ecs-agent/api/errors"
 
 	"github.com/docker/docker/api/types"
+	dockercontainer "github.com/docker/docker/api/types/container"
 	"github.com/golang/mock/gomock"
 	"github.com/stretchr/testify/assert"
 )
@@ -71,7 +72,7 @@ func TestStartAgent(t *testing.T) {
 		expectStartContainerExec   bool
 		startContainerExecErr      error
 		expectInspectContainerExec bool
-		inspectContainerExecRes    *types.ContainerExecInspect
+		inspectContainerExecRes    *dockercontainer.ExecInspect
 		inspectContainerExecErr    error
 		expectedError              error
 		expectedStatus             apicontainerstatus.ManagedAgentStatus
@@ -135,7 +136,7 @@ func TestStartAgent(t *testing.T) {
 			expectInspectContainerExec: true,
 			expectedStatus:             apicontainerstatus.ManagedAgentRunning,
 			expectedStartTime:          nowTime,
-			inspectContainerExecRes: &types.ContainerExecInspect{
+			inspectContainerExecRes: &dockercontainer.ExecInspect{
 				ExecID:  testDockerExecId,
 				Pid:     testPid1,
 				Running: true,
@@ -175,7 +176,7 @@ func TestStartAgent(t *testing.T) {
 				times = 1
 			}
 			if test.expectCreateContainerExec {
-				execCfg := types.ExecConfig{
+				execCfg := dockercontainer.ExecOptions{
 					User:   specUser,
 					Detach: true,
 					Cmd:    []string{specTestCmd},
@@ -259,7 +260,7 @@ func TestIdempotentStartAgent(t *testing.T) {
 		}},
 	}
 
-	execCfg := types.ExecConfig{
+	execCfg := dockercontainer.ExecOptions{
 		User:   specUser,
 		Detach: true,
 		Cmd:    []string{specTestCmd},
@@ -273,7 +274,7 @@ func TestIdempotentStartAgent(t *testing.T) {
 		Times(1)
 
 	client.EXPECT().InspectContainerExec(gomock.Any(), testDockerExecId, dockerclient.ContainerExecInspectTimeout).
-		Return(&types.ContainerExecInspect{
+		Return(&dockercontainer.ExecInspect{
 			ExecID:  testDockerExecId,
 			Pid:     testPid,
 			Running: true,
@@ -346,7 +347,7 @@ func TestRestartAgentIfStopped(t *testing.T) {
 		execEnabled             bool
 		expectedRestartStatus   RestartStatus
 		execAgentState          apicontainer.ManagedAgentState
-		containerExecInspectRes *types.ContainerExecInspect
+		containerExecInspectRes *dockercontainer.ExecInspect
 		expectedInspectErr      error
 		expectedRestartErr      error
 		expectedExecAgentStatus apicontainerstatus.ManagedAgentStatus
@@ -378,7 +379,7 @@ func TestRestartAgentIfStopped(t *testing.T) {
 			name:           "test with exec command still running",
 			execEnabled:    true,
 			execAgentState: testExecAgentState,
-			containerExecInspectRes: &types.ContainerExecInspect{
+			containerExecInspectRes: &dockercontainer.ExecInspect{
 				Running: true,
 			},
 			expectedRestartStatus:   NotRestarted,
@@ -388,7 +389,7 @@ func TestRestartAgentIfStopped(t *testing.T) {
 			name:           "test with exec command stopped",
 			execEnabled:    true,
 			execAgentState: testExecAgentState,
-			containerExecInspectRes: &types.ContainerExecInspect{
+			containerExecInspectRes: &dockercontainer.ExecInspect{
 				Running: false,
 			},
 			expectedRestartStatus:   Restarted,
@@ -432,7 +433,7 @@ func TestRestartAgentIfStopped(t *testing.T) {
 					Times(1)
 
 				client.EXPECT().InspectContainerExec(gomock.Any(), gomock.Any(), gomock.Any()).
-					Return(&types.ContainerExecInspect{
+					Return(&dockercontainer.ExecInspect{
 						ExecID:  testNewDockerExecID,
 						Pid:     testNewPID,
 						Running: true,

@@ -17,7 +17,7 @@ import (
 	"math"
 
 	eautils "github.com/aws/amazon-ecs-agent/ecs-agent/utils"
-	"github.com/docker/docker/api/types"
+	dockercontainer "github.com/docker/docker/api/types/container"
 )
 
 const (
@@ -31,7 +31,7 @@ func nan32() float32 {
 	return (float32)(math.NaN())
 }
 
-func getNetworkStats(dockerStats *types.StatsJSON) *NetworkStats {
+func getNetworkStats(dockerStats *dockercontainer.StatsResponse) *NetworkStats {
 	if dockerStats.Networks == nil {
 		return nil
 	}

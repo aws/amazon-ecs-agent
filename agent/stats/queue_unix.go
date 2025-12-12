@@ -18,7 +18,7 @@ package stats
 
 import (
 	"github.com/aws/amazon-ecs-agent/ecs-agent/utils"
-	"github.com/docker/docker/api/types"
+	dockercontainer "github.com/docker/docker/api/types/container"
 )
 
 type BlockStatKey struct {
@@ -34,7 +34,7 @@ type BlockStatValue struct {
 
 // aggregateOSDependentStats aggregates stats that are measured cumulatively against container start time and
 // populated only for Linux OS.
-func aggregateOSDependentStats(dockerStat, lastStatBeforeLastRestart *types.StatsJSON) *types.StatsJSON {
+func aggregateOSDependentStats(dockerStat, lastStatBeforeLastRestart *dockercontainer.StatsResponse) *dockercontainer.StatsResponse {
 	// CPU stats.
 	aggregateUsagePerCore(&dockerStat.CPUStats.CPUUsage.PercpuUsage,
 		lastStatBeforeLastRestart.CPUStats.CPUUsage.PercpuUsage)
@@ -96,13 +96,13 @@ func aggregateUsagePerCore(dockerStatUsageSlice *[]uint64, lastStatBeforeLastRes
 }
 
 // aggregateBlockStat aggregates block I/O stats for the specified I/O service stat.
-func aggregateBlockStat(dockerStatBlockStatSlice *[]types.BlkioStatEntry,
-	lastStatBeforeLastRestartStatBlockStatSlice []types.BlkioStatEntry) {
+func aggregateBlockStat(dockerStatBlockStatSlice *[]dockercontainer.BlkioStatEntry,
+	lastStatBeforeLastRestartStatBlockStatSlice []dockercontainer.BlkioStatEntry) {
 	if len(*dockerStatBlockStatSlice) == 0 && len(lastStatBeforeLastRestartStatBlockStatSlice) == 0 {
 		return
 	}
 
-	var aggregatedBlockStatSlice []types.BlkioStatEntry
+	var aggregatedBlockStatSlice []dockercontainer.BlkioStatEntry
 	blockStatsMap := make(map[BlockStatKey]BlockStatValue)
 
 	// Add block stat entries from stats to map (merging duplicates).
@@ -118,7 +118,7 @@ func aggregateBlockStat(dockerStatBlockStatSlice *[]types.BlkioStatEntry,
 	*dockerStatBlockStatSlice = aggregatedBlockStatSlice
 }
 
-func addBlockStatEntriesFromSliceToMap(statSlice []types.BlkioStatEntry, statMap map[BlockStatKey]BlockStatValue) {
+func addBlockStatEntriesFromSliceToMap(statSlice []dockercontainer.BlkioStatEntry, statMap map[BlockStatKey]BlockStatValue) {
 	for _, blockStat := range statSlice {
 		blkStatKey := BlockStatKey{blockStat.Major, blockStat.Minor, blockStat.Op}
 		blkStatVal, ok := statMap[blkStatKey]
@@ -132,12 +132,12 @@ func addBlockStatEntriesFromSliceToMap(statSlice []types.BlkioStatEntry, statMap
 }
 
 func addCorrespondingMapEntriesOfSliceToAggregatedSlice(statMap map[BlockStatKey]BlockStatValue,
-	statSlice []types.BlkioStatEntry, aggregatedSlice *[]types.BlkioStatEntry) {
+	statSlice []dockercontainer.BlkioStatEntry, aggregatedSlice *[]dockercontainer.BlkioStatEntry) {
 	for _, blockStat := range statSlice {
 		blkStatKey := BlockStatKey{blockStat.Major, blockStat.Minor, blockStat.Op}
 		blkStatVal, ok := statMap[blkStatKey]
 		if ok && !blkStatVal.HasBeenRetrieved {
-			*aggregatedSlice = append(*aggregatedSlice, types.BlkioStatEntry{
+			*aggregatedSlice = append(*aggregatedSlice, dockercontainer.BlkioStatEntry{
 				Major: blockStat.Major, Minor: blockStat.Minor, Op: blockStat.Op, Value: blkStatVal.Value})
 			blkStatVal.HasBeenRetrieved = true
 			statMap[blkStatKey] = blkStatVal

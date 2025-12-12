@@ -44,5 +44,4 @@ ecs-agent-*.tar
 *.log
 *.DS_Store
 .run/
-pkg/
 .vscode/

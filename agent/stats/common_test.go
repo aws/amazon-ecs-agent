@@ -34,9 +34,9 @@ import (
 
 	"github.com/aws/aws-sdk-go-v2/aws"
 	ecstypes "github.com/aws/aws-sdk-go-v2/service/ecs/types"
-	"github.com/docker/docker/api/types"
 	dockercontainer "github.com/docker/docker/api/types/container"
 	"github.com/docker/docker/api/types/network"
+	dockersystem "github.com/docker/docker/api/types/system"
 	sdkClient "github.com/docker/docker/client"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -400,8 +400,8 @@ func (engine *MockTaskEngine) Capabilities() []ecstypes.Attribute {
 func (engine *MockTaskEngine) Disable() {
 }
 
-func (engine *MockTaskEngine) Info() (types.Info, error) {
-	return types.Info{}, nil
+func (engine *MockTaskEngine) Info() (dockersystem.Info, error) {
+	return dockersystem.Info{}, nil
 }
 
 func (engine *MockTaskEngine) GetDaemonManagers() map[string]dm.DaemonManager {

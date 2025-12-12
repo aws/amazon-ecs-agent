@@ -49,7 +49,7 @@ import (
 	"github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/cihub/seelog"
 	"github.com/containerd/cgroups/v3"
-	"github.com/docker/docker/api/types"
+	dockercontainer "github.com/docker/docker/api/types/container"
 	sdkClient "github.com/docker/docker/client"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -1500,7 +1500,7 @@ func TestDockerExecAPI(t *testing.T) {
 	testTask.Containers = []*apicontainer.Container{
 		A,
 	}
-	execConfig := types.ExecConfig{
+	execConfig := dockercontainer.ExecOptions{
 		User:   "0",
 		Detach: true,
 		Cmd:    []string{"ls"},
@@ -1527,7 +1527,7 @@ func TestDockerExecAPI(t *testing.T) {
 		require.NotNil(t, execContainerOut)
 
 		//Start the above Exec process on the host
-		err1 := taskEngine.(*DockerTaskEngine).client.StartContainerExec(ctx, execContainerOut.ID, types.ExecStartCheck{Detach: true, Tty: false},
+		err1 := taskEngine.(*DockerTaskEngine).client.StartContainerExec(ctx, execContainerOut.ID, dockercontainer.ExecStartOptions{Detach: true, Tty: false},
 			dockerclient.ContainerExecStartTimeout)
 		require.NoError(t, err1)
 

@@ -28,7 +28,7 @@ import (
 	"github.com/aws/amazon-ecs-agent/ecs-agent/utils/netlinkwrapper"
 
 	"github.com/containernetworking/plugins/pkg/ns"
-	dockerstats "github.com/docker/docker/api/types"
+	dockerstats "github.com/docker/docker/api/types/container"
 	netlinklib "github.com/vishvananda/netlink"
 )
 

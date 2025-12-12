@@ -26,8 +26,7 @@ import (
 	apitaskstatus "github.com/aws/amazon-ecs-agent/ecs-agent/api/task/status"
 	"github.com/aws/amazon-ecs-agent/ecs-agent/utils/retry"
 
-	"github.com/docker/docker/api/types"
-	dockerstats "github.com/docker/docker/api/types"
+	dockercontainer "github.com/docker/docker/api/types/container"
 )
 
 // statsTaskCommon contains the common fields in StatsTask for both Linux and Windows.
@@ -140,10 +139,10 @@ func (taskStat *StatsTask) terminal() (bool, error) {
 	return resolvedTask.GetKnownStatus() == apitaskstatus.TaskStopped, nil
 }
 
-func (taskStat *StatsTask) getAWSVPCNetworkStats() (<-chan *types.StatsJSON, <-chan error) {
+func (taskStat *StatsTask) getAWSVPCNetworkStats() (<-chan *dockercontainer.StatsResponse, <-chan error) {
 
 	errC := make(chan error, 1)
-	statsC := make(chan *dockerstats.StatsJSON)
+	statsC := make(chan *dockercontainer.StatsResponse)
 	if taskStat.TaskMetadata.NumberContainers > 0 {
 		go func() {
 			defer close(statsC)
@@ -157,11 +156,9 @@ func (taskStat *StatsTask) getAWSVPCNetworkStats() (<-chan *types.StatsJSON, <-c
 					return
 				}
 
-				dockerStats := &types.StatsJSON{
+				dockerStats := &dockercontainer.StatsResponse{
 					Networks: networkStats,
-					Stats: types.Stats{
-						Read: time.Now(),
-					},
+					Read:     time.Now(),
 				}
 				select {
 				case <-taskStat.Ctx.Done():

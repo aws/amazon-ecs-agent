@@ -21,11 +21,11 @@ import (
 
 	"github.com/aws/amazon-ecs-agent/agent/config"
 	"github.com/cihub/seelog"
-	"github.com/docker/docker/api/types"
+	dockercontainer "github.com/docker/docker/api/types/container"
 )
 
 // dockerStatsToContainerStats returns a new object of the ContainerStats object from docker stats.
-func dockerStatsToContainerStats(dockerStats *types.StatsJSON) (*ContainerStats, error) {
+func dockerStatsToContainerStats(dockerStats *dockercontainer.StatsResponse) (*ContainerStats, error) {
 	cpuUsage := dockerStats.CPUStats.CPUUsage.TotalUsage / numCores
 	memoryUsage := getMemUsage(dockerStats.MemoryStats)
 	storageReadBytes, storageWriteBytes := getStorageStats(dockerStats)
@@ -40,7 +40,7 @@ func dockerStatsToContainerStats(dockerStats *types.StatsJSON) (*ContainerStats,
 	}, nil
 }
 
-func getMemUsage(mem types.MemoryStats) uint64 {
+func getMemUsage(mem dockercontainer.MemoryStats) uint64 {
 	if config.CgroupV2 {
 		// for cgroupv2 systems, mem usage calculation uses the same method that the docker cli uses
 		// https://github.com/docker/cli/blob/e198123693b1aaa724041fff602c7d75c8fe4b57/cli/command/container/stats_helpers.go#L227-L249
@@ -55,7 +55,7 @@ func getMemUsage(mem types.MemoryStats) uint64 {
 	return mem.Usage
 }
 
-func validateDockerStats(dockerStats *types.StatsJSON, containerEnabledRestartPolicy bool) error {
+func validateDockerStats(dockerStats *dockercontainer.StatsResponse, containerEnabledRestartPolicy bool) error {
 	if containerEnabledRestartPolicy && dockerStats.Read.IsZero() {
 		return fmt.Errorf("invalid container statistics reported for container with restart policy enabled, %s",
 			invalidStatZeroValueReadTimeMsg)
@@ -75,7 +75,7 @@ func validateDockerStats(dockerStats *types.StatsJSON, containerEnabledRestartPo
 	return nil
 }
 
-func getStorageStats(dockerStats *types.StatsJSON) (uint64, uint64) {
+func getStorageStats(dockerStats *dockercontainer.StatsResponse) (uint64, uint64) {
 	// initialize block io and loop over stats to aggregate
 	if dockerStats.BlkioStats.IoServiceBytesRecursive == nil {
 		seelog.Debug("Storage stats not reported for container")

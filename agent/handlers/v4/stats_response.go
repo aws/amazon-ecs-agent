@@ -46,7 +46,7 @@ func NewV4TaskStatsResponse(taskARN string,
 		}
 
 		statsResponse := response.StatsResponse{
-			StatsJSON:          dockerStats,
+			StatsResponse:      dockerStats,
 			Network_rate_stats: network_rate_stats,
 		}
 

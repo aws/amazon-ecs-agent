@@ -399,7 +399,7 @@ func TestTaskWithSteadyStateResourcesProvisioned(t *testing.T) {
 		client.EXPECT().CreateContainerExec(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).
 			Return(&types.IDResponse{ID: containerID}, nil),
 		client.EXPECT().StartContainerExec(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).Return(nil),
-		client.EXPECT().InspectContainerExec(gomock.Any(), gomock.Any(), gomock.Any()).Return(&types.ContainerExecInspect{
+		client.EXPECT().InspectContainerExec(gomock.Any(), gomock.Any(), gomock.Any()).Return(&dockercontainer.ExecInspect{
 			ExitCode: 0,
 			Running:  false,
 		}, nil),
@@ -547,7 +547,7 @@ func TestPauseContainerHappyPath(t *testing.T) {
 		dockerClient.EXPECT().CreateContainerExec(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).
 			Return(&types.IDResponse{ID: containerID}, nil),
 		dockerClient.EXPECT().StartContainerExec(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).Return(nil),
-		dockerClient.EXPECT().InspectContainerExec(gomock.Any(), gomock.Any(), gomock.Any()).Return(&types.ContainerExecInspect{
+		dockerClient.EXPECT().InspectContainerExec(gomock.Any(), gomock.Any(), gomock.Any()).Return(&dockercontainer.ExecInspect{
 			ExitCode: 0,
 			Running:  false,
 		}, nil),

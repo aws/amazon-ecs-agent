@@ -55,6 +55,7 @@ import (
 	ecstypes "github.com/aws/aws-sdk-go-v2/service/ecs/types"
 	"github.com/cihub/seelog"
 	"github.com/docker/docker/api/types"
+	dockercontainer "github.com/docker/docker/api/types/container"
 	sdkClient "github.com/docker/docker/client"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -963,14 +964,14 @@ func killMockExecCommandAgent(t *testing.T, client *sdkClient.Client, containerI
 	defer cancel()
 	// this is the same user used to start the execcmd agent (ssm agent)
 	containerNTUser := "NT AUTHORITY\\SYSTEM"
-	create, err := client.ContainerExecCreate(ctx, containerId, types.ExecConfig{
+	create, err := client.ContainerExecCreate(ctx, containerId, dockercontainer.ExecOptions{
 		User:   containerNTUser,
 		Detach: true,
 		Cmd:    []string{"cmd", "/C", "taskkill /F /IM amazon-ssm-agent.exe"},
 	})
 	require.NoError(t, err)
 
-	err = client.ContainerExecStart(ctx, create.ID, types.ExecStartCheck{
+	err = client.ContainerExecStart(ctx, create.ID, dockercontainer.ExecStartOptions{
 		Detach: true,
 	})
 	require.NoError(t, err)

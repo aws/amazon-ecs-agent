@@ -226,7 +226,7 @@ func (s *TMDSAgentState) GetContainerStats(v3EndpointID string) (tmdsv4.StatsRes
 	}
 
 	return tmdsv4.StatsResponse{
-		StatsJSON:          dockerStats,
+		StatsResponse:      dockerStats,
 		Network_rate_stats: network_rate_stats,
 	}, nil
 }

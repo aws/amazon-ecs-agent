@@ -28,6 +28,7 @@ import (
 	"github.com/docker/docker/api/types"
 	dockercontainer "github.com/docker/docker/api/types/container"
 	"github.com/docker/docker/api/types/network"
+	dockersystem "github.com/docker/docker/api/types/system"
 	"github.com/golang/mock/gomock"
 	"github.com/stretchr/testify/assert"
 )
@@ -46,7 +47,7 @@ func TestCreate(t *testing.T) {
 	mockContainerName := containerName
 	mockConfig := &dockercontainer.Config{Env: make([]string, 0)}
 	mockHostConfig := &dockercontainer.HostConfig{Binds: make([]string, 0)}
-	mockDockerSecurityOptions := types.Info{SecurityOptions: make([]string, 0)}.SecurityOptions
+	mockDockerSecurityOptions := dockersystem.Info{SecurityOptions: make([]string, 0)}.SecurityOptions
 
 	tempOpenFile := openFile
 	openFile = func(name string, flag int, perm os.FileMode) (oswrapper.File, error) {

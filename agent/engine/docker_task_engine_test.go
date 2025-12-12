@@ -78,6 +78,7 @@ import (
 	dockercontainer "github.com/docker/docker/api/types/container"
 	"github.com/docker/docker/api/types/network"
 	"github.com/docker/docker/api/types/registry"
+	"github.com/docker/docker/api/types/system"
 	"github.com/golang/mock/gomock"
 	"github.com/opencontainers/go-digest"
 	ocispec "github.com/opencontainers/image-spec/specs-go/v1"
@@ -298,7 +299,7 @@ func TestBatchContainerHappyPath(t *testing.T) {
 			}
 
 			client.EXPECT().Info(gomock.Any(), gomock.Any()).Return(
-				types.Info{}, nil)
+				system.Info{}, nil)
 			addTaskToEngine(t, ctx, taskEngine, sleepTask, mockTime, &containerEventsWG)
 			cleanup := make(chan time.Time, 1)
 			defer close(cleanup)
@@ -666,17 +667,17 @@ func TestCreateContainerSaveDockerIDAndName(t *testing.T) {
 func TestCreateContainerMetadata(t *testing.T) {
 	testcases := []struct {
 		name  string
-		info  types.Info
+		info  system.Info
 		error error
 	}{
 		{
 			name:  "Selinux Security Option",
-			info:  types.Info{SecurityOptions: []string{"selinux"}},
+			info:  system.Info{SecurityOptions: []string{"selinux"}},
 			error: nil,
 		},
 		{
 			name:  "Docker Info Error",
-			info:  types.Info{},
+			info:  system.Info{},
 			error: errors.New("Error getting docker info"),
 		},
 	}
