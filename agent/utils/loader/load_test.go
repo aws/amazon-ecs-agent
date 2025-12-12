@@ -200,7 +200,7 @@ func TestLoadFromFileHappyPath(t *testing.T) {
 
 	client, err := dockerapi.NewDockerGoClient(sdkFactory, &defaultConfig, ctx)
 	assert.NoError(t, err)
-	mockDockerSDK.EXPECT().ImageLoad(gomock.Any(), gomock.Any(), false).Return(dockerimage.LoadResponse{}, nil)
+	mockDockerSDK.EXPECT().ImageLoad(gomock.Any(), gomock.Any(), gomock.Any()).Return(dockerimage.LoadResponse{}, nil)
 	mockedOpenReset := mockOpen(nil, nil)
 	defer mockedOpenReset()
 
@@ -225,7 +225,7 @@ func TestLoadFromFileDockerLoadImageError(t *testing.T) {
 
 	client, err := dockerapi.NewDockerGoClient(sdkFactory, &defaultConfig, ctx)
 	assert.NoError(t, err)
-	mockDockerSDK.EXPECT().ImageLoad(gomock.Any(), gomock.Any(), false).Return(dockerimage.LoadResponse{},
+	mockDockerSDK.EXPECT().ImageLoad(gomock.Any(), gomock.Any(), gomock.Any()).Return(dockerimage.LoadResponse{},
 		errors.New("Dummy Load Image Error"))
 
 	mockedOpenReset := mockOpen(nil, nil)

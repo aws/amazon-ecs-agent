@@ -25,7 +25,7 @@ import (
 	task "github.com/aws/amazon-ecs-agent/agent/api/task"
 	dockerapi "github.com/aws/amazon-ecs-agent/agent/dockerclient/dockerapi"
 	manageddaemon "github.com/aws/amazon-ecs-agent/ecs-agent/manageddaemon"
-	types "github.com/docker/docker/api/types"
+	image "github.com/docker/docker/api/types/image"
 	gomock "github.com/golang/mock/gomock"
 )
 
@@ -112,10 +112,10 @@ func (mr *MockDaemonManagerMockRecorder) IsLoaded(arg0 interface{}) *gomock.Call
 }
 
 // LoadImage mocks base method.
-func (m *MockDaemonManager) LoadImage(arg0 context.Context, arg1 dockerapi.DockerClient) (*types.ImageInspect, error) {
+func (m *MockDaemonManager) LoadImage(arg0 context.Context, arg1 dockerapi.DockerClient) (*image.InspectResponse, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "LoadImage", arg0, arg1)
-	ret0, _ := ret[0].(*types.ImageInspect)
+	ret0, _ := ret[0].(*image.InspectResponse)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }

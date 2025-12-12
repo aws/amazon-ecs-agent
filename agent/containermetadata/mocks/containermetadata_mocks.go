@@ -24,7 +24,6 @@ import (
 	time "time"
 
 	task "github.com/aws/amazon-ecs-agent/agent/api/task"
-	types "github.com/docker/docker/api/types"
 	container "github.com/docker/docker/api/types/container"
 	gomock "github.com/golang/mock/gomock"
 )
@@ -178,10 +177,10 @@ func (m *MockDockerMetadataClient) EXPECT() *MockDockerMetadataClientMockRecorde
 }
 
 // InspectContainer mocks base method.
-func (m *MockDockerMetadataClient) InspectContainer(arg0 context.Context, arg1 string, arg2 time.Duration) (*types.ContainerJSON, error) {
+func (m *MockDockerMetadataClient) InspectContainer(arg0 context.Context, arg1 string, arg2 time.Duration) (*container.InspectResponse, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "InspectContainer", arg0, arg1, arg2)
-	ret0, _ := ret[0].(*types.ContainerJSON)
+	ret0, _ := ret[0].(*container.InspectResponse)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
