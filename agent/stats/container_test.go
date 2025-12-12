@@ -34,7 +34,7 @@ import (
 	apicontainerstatus "github.com/aws/amazon-ecs-agent/ecs-agent/api/container/status"
 	apitaskstatus "github.com/aws/amazon-ecs-agent/ecs-agent/api/task/status"
 	ni "github.com/aws/amazon-ecs-agent/ecs-agent/netlib/model/networkinterface"
-	"github.com/docker/docker/api/types"
+	dockercontainer "github.com/docker/docker/api/types/container"
 	"github.com/golang/mock/gomock"
 	"github.com/stretchr/testify/require"
 )
@@ -84,7 +84,7 @@ func TestContainerStatsCollection(t *testing.T) {
 
 	dockerID := "container1"
 	ctx, cancel := context.WithCancel(context.TODO())
-	statChan := make(chan *types.StatsJSON)
+	statChan := make(chan *dockercontainer.StatsResponse)
 	errC := make(chan error)
 	numStats := 8
 	mockDockerClient.EXPECT().Stats(ctx, dockerID, dockerclient.StatsInactivityTimeout).Return(statChan, errC)
@@ -190,7 +190,7 @@ func TestContainerStatsCollection_WithRestartPolicy(t *testing.T) {
 
 	dockerID := "container1"
 	ctx, cancel := context.WithCancel(context.TODO())
-	statChan := make(chan *types.StatsJSON)
+	statChan := make(chan *dockercontainer.StatsResponse)
 	errC := make(chan error)
 	numStatsPreRestart := 8
 	numStatsPostRestart := 5
@@ -245,7 +245,7 @@ func TestContainerStatsCollection_WithRestartPolicy(t *testing.T) {
 	container.StopStatsCollection()
 }
 
-func metricSenderFunc(statChan chan *types.StatsJSON, n int, restartTracker *restart.RestartTracker) func() {
+func metricSenderFunc(statChan chan *dockercontainer.StatsResponse, n int, restartTracker *restart.RestartTracker) func() {
 	return func() {
 		for i := 0; i < n; i++ {
 			stat := statsData[i]
@@ -266,7 +266,7 @@ func metricSenderFunc(statChan chan *types.StatsJSON, n int, restartTracker *res
 						}
 					}
 				}`, stat.memBytes, stat.memBytes, stat.cpuTime, stat.cpuTime)
-			dockerStat := &types.StatsJSON{}
+			dockerStat := &dockercontainer.StatsResponse{}
 			json.Unmarshal([]byte(jsonStat), dockerStat)
 			dockerStat.Read = stat.timestamp
 			statChan <- dockerStat
@@ -284,10 +284,10 @@ func TestContainerStatsCollectionReconnection(t *testing.T) {
 	dockerID := "container1"
 	ctx, cancel := context.WithCancel(context.TODO())
 
-	statChan := make(chan *types.StatsJSON)
+	statChan := make(chan *dockercontainer.StatsResponse)
 	errChan := make(chan error)
 	go func() { errChan <- fmt.Errorf("test error") }()
-	closedChan := make(chan *types.StatsJSON)
+	closedChan := make(chan *dockercontainer.StatsResponse)
 	close(closedChan)
 
 	mockContainer := &apicontainer.DockerContainer{
@@ -329,7 +329,7 @@ func TestContainerStatsCollectionStopsIfContainerIsTerminal(t *testing.T) {
 	dockerID := "container1"
 	ctx, cancel := context.WithCancel(context.TODO())
 
-	closedChan := make(chan *types.StatsJSON)
+	closedChan := make(chan *dockercontainer.StatsResponse)
 	close(closedChan)
 	errC := make(chan error)
 
@@ -375,7 +375,7 @@ func TestSyncContainerRestartAggregationData(t *testing.T) {
 						}
 					}
 				}`, statsData[0].memBytes, statsData[0].memBytes, statsData[0].cpuTime, statsData[0].cpuTime)
-	dockerStat := &types.StatsJSON{}
+	dockerStat := &dockercontainer.StatsResponse{}
 	dockerStat.Read = statsData[0].timestamp
 	json.Unmarshal([]byte(jsonStat), dockerStat)
 
@@ -425,7 +425,7 @@ func TestSyncContainerRestartAggregationData(t *testing.T) {
 				ctx: ctx,
 				restartAggregationData: apicontainer.ContainerRestartAggregationDataForStats{
 					LastRestartDetectedAt:     tc.lastRestartDetectedAt,
-					LastStatBeforeLastRestart: types.StatsJSON{},
+					LastStatBeforeLastRestart: dockercontainer.StatsResponse{},
 				},
 				statsQueue: &Queue{
 					lastStat: dockerStat,

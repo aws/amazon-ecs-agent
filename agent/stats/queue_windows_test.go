@@ -21,13 +21,14 @@ import (
 
 	"github.com/aws/amazon-ecs-agent/ecs-agent/utils"
 	"github.com/docker/docker/api/types"
+	dockercontainer "github.com/docker/docker/api/types/container"
 	"github.com/stretchr/testify/require"
 )
 
 func TestAggregateOSDependentStats(t *testing.T) {
 	dockerStat := getTestStatsJSONForOSDependentStats(1, 2, 3, 4, 5)
 	lastStatBeforeLastRestart := getTestStatsJSONForOSDependentStats(5, 4, 3, 2, 1)
-	expectedAggregatedStat := types.StatsJSON{
+	expectedAggregatedStat := dockercontainer.StatsResponse{
 		Stats: types.Stats{
 			MemoryStats: types.MemoryStats{
 				CommitPeak: utils.MaxNum(dockerStat.MemoryStats.CommitPeak,
@@ -51,8 +52,8 @@ func TestAggregateOSDependentStats(t *testing.T) {
 }
 
 func getTestStatsJSONForOSDependentStats(commitPeak, readCountNormalized, readSizeBytes, writeCountNormalized,
-	writeSizeBytes uint64) *types.StatsJSON {
-	return &types.StatsJSON{
+	writeSizeBytes uint64) *dockercontainer.StatsResponse {
+	return &dockercontainer.StatsResponse{
 		Stats: types.Stats{
 			MemoryStats: types.MemoryStats{
 				CommitPeak: commitPeak,

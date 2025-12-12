@@ -34,7 +34,6 @@ import (
 	ecsengine "github.com/aws/amazon-ecs-agent/agent/engine"
 	"github.com/aws/amazon-ecs-agent/agent/engine/dockerstate"
 	apicontainerstatus "github.com/aws/amazon-ecs-agent/ecs-agent/api/container/status"
-	"github.com/docker/docker/api/types"
 	dockercontainer "github.com/docker/docker/api/types/container"
 	"github.com/gorilla/mux"
 	"github.com/stretchr/testify/assert"
@@ -103,12 +102,12 @@ func TestStatsEngineWithServiceConnectMetrics(t *testing.T) {
 			// Create a container to get the container id.
 			container, err := createGremlin(client, "default")
 			require.NoError(t, err, "creating container failed")
-			defer client.ContainerRemove(ctx, container.ID, types.ContainerRemoveOptions{Force: true})
+			defer client.ContainerRemove(ctx, container.ID, dockercontainer.RemoveOptions{Force: true})
 
 			engine.cluster = defaultCluster
 			engine.containerInstanceArn = defaultContainerInstance
 
-			err = client.ContainerStart(ctx, container.ID, types.ContainerStartOptions{})
+			err = client.ContainerStart(ctx, container.ID, dockercontainer.StartOptions{})
 			require.NoError(t, err, "starting container failed")
 			defer client.ContainerStop(ctx, container.ID, containerOptions)
 

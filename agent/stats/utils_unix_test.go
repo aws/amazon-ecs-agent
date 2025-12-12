@@ -23,7 +23,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/docker/docker/api/types"
+	dockercontainer "github.com/docker/docker/api/types/container"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -35,7 +35,7 @@ func TestDockerStatsToContainerStats(t *testing.T) {
 	numCores = 4
 	inputJsonFile, _ := filepath.Abs("./unix_test_stats.json")
 	jsonBytes, _ := ioutil.ReadFile(inputJsonFile)
-	dockerStat := &types.StatsJSON{}
+	dockerStat := &dockercontainer.StatsResponse{}
 	json.Unmarshal([]byte(jsonBytes), dockerStat)
 	containerStats, err := dockerStatsToContainerStats(dockerStat)
 	assert.NoError(t, err, "converting container stats failed")
@@ -53,7 +53,7 @@ func TestDockerStatsToContainerStats(t *testing.T) {
 func TestDockerStatsToContainerStatsEmptyCpuUsageGeneratesError(t *testing.T) {
 	inputJsonFile, _ := filepath.Abs("./unix_test_stats.json")
 	jsonBytes, _ := ioutil.ReadFile(inputJsonFile)
-	dockerStat := &types.StatsJSON{}
+	dockerStat := &dockercontainer.StatsResponse{}
 	json.Unmarshal([]byte(jsonBytes), dockerStat)
 	prevNumCores := numCores
 	numCores = uint64(0)
@@ -79,7 +79,7 @@ func TestValidateDockerStatsZeroValueReadTime(t *testing.T) {
 	inputJsonFile, _ := filepath.Abs("./unix_test_stats.json")
 	jsonBytes, err := os.ReadFile(inputJsonFile)
 	assert.NoError(t, err)
-	dockerStat := &types.StatsJSON{}
+	dockerStat := &dockercontainer.StatsResponse{}
 	json.Unmarshal(jsonBytes, dockerStat)
 
 	for _, tc := range testCases {

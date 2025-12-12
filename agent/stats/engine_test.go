@@ -41,6 +41,7 @@ import (
 
 	"github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/docker/docker/api/types"
+	dockercontainer "github.com/docker/docker/api/types/container"
 	"github.com/golang/mock/gomock"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -79,7 +80,7 @@ func TestStatsEngineAddRemoveContainers(t *testing.T) {
 			NetworkModeUnsafe: networkMode,
 		},
 	}, nil)
-	mockStatsChannel := make(chan *types.StatsJSON)
+	mockStatsChannel := make(chan *dockercontainer.StatsResponse)
 	defer close(mockStatsChannel)
 	mockDockerClient.EXPECT().Stats(gomock.Any(), gomock.Any(), gomock.Any()).Return(mockStatsChannel, nil).AnyTimes()
 	engine := NewDockerStatsEngine(&cfg, nil, eventStream("TestStatsEngineAddRemoveContainers"), nil, nil, nil)
@@ -285,7 +286,7 @@ func TestStatsEngineMetadataInStatsSets(t *testing.T) {
 	ts1 := parseNanoTime("2015-02-12T21:22:05.131117533Z")
 	ts2 := parseNanoTime("2015-02-12T21:22:05.232291187Z")
 	containerStats := createFakeContainerStats()
-	dockerStats := []*types.StatsJSON{{}, {}}
+	dockerStats := []*dockercontainer.StatsResponse{{}, {}}
 	dockerStats[0].Read = ts1
 	dockerStats[1].Read = ts2
 	containers, _ := engine.tasksToContainers["t1"]
@@ -477,7 +478,7 @@ func TestStartMetricsPublish(t *testing.T) {
 			ts1 := parseNanoTime("2015-02-12T21:22:05.131117533Z")
 
 			containerStats := createFakeContainerStats()
-			dockerStats := []*types.StatsJSON{{}, {}}
+			dockerStats := []*dockercontainer.StatsResponse{{}, {}}
 			dockerStats[0].Read = ts1
 			containers, _ := engine.tasksToContainers["t1"]
 
@@ -719,7 +720,7 @@ func TestSynchronizeOnRestart(t *testing.T) {
 	defer ctrl.Finish()
 
 	containerID := "containerID"
-	statsChan := make(chan *types.StatsJSON)
+	statsChan := make(chan *dockercontainer.StatsResponse)
 	statsStarted := make(chan struct{})
 	client := mock_dockerapi.NewMockDockerClient(ctrl)
 	resolver := mock_resolver.NewMockContainerMetadataResolver(ctrl)
@@ -834,7 +835,7 @@ func testNetworkModeStats(t *testing.T, netMode string, enis []*ni.NetworkInterf
 	engine.addAndStartStatsContainer("c1")
 	ts1 := parseNanoTime("2015-02-12T21:22:05.131117533Z")
 	containerStats := createFakeContainerStats()
-	dockerStats := []*types.StatsJSON{{}, {}}
+	dockerStats := []*dockercontainer.StatsResponse{{}, {}}
 	dockerStats[0].Read = ts1
 	containers, _ := engine.tasksToContainers["t1"]
 	for _, statsContainer := range containers {
