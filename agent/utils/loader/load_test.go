@@ -29,6 +29,7 @@ import (
 	"github.com/aws/amazon-ecs-agent/ecs-agent/ipcompatibility"
 
 	"github.com/docker/docker/api/types"
+	dockerimage "github.com/docker/docker/api/types/image"
 	"github.com/golang/mock/gomock"
 	"github.com/stretchr/testify/assert"
 )
@@ -199,7 +200,7 @@ func TestLoadFromFileHappyPath(t *testing.T) {
 
 	client, err := dockerapi.NewDockerGoClient(sdkFactory, &defaultConfig, ctx)
 	assert.NoError(t, err)
-	mockDockerSDK.EXPECT().ImageLoad(gomock.Any(), gomock.Any(), false).Return(types.ImageLoadResponse{}, nil)
+	mockDockerSDK.EXPECT().ImageLoad(gomock.Any(), gomock.Any(), false).Return(dockerimage.LoadResponse{}, nil)
 	mockedOpenReset := mockOpen(nil, nil)
 	defer mockedOpenReset()
 
@@ -224,7 +225,7 @@ func TestLoadFromFileDockerLoadImageError(t *testing.T) {
 
 	client, err := dockerapi.NewDockerGoClient(sdkFactory, &defaultConfig, ctx)
 	assert.NoError(t, err)
-	mockDockerSDK.EXPECT().ImageLoad(gomock.Any(), gomock.Any(), false).Return(types.ImageLoadResponse{},
+	mockDockerSDK.EXPECT().ImageLoad(gomock.Any(), gomock.Any(), false).Return(dockerimage.LoadResponse{},
 		errors.New("Dummy Load Image Error"))
 
 	mockedOpenReset := mockOpen(nil, nil)

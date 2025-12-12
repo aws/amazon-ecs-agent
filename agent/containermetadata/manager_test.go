@@ -29,6 +29,7 @@ import (
 	mock_containermetadata "github.com/aws/amazon-ecs-agent/agent/containermetadata/mocks"
 	"github.com/aws/amazon-ecs-agent/agent/dockerclient"
 	"github.com/docker/docker/api/types"
+	"github.com/docker/docker/api/types/system"
 	"github.com/golang/mock/gomock"
 	"github.com/stretchr/testify/assert"
 )
@@ -113,7 +114,7 @@ func TestCreateMalformedFilepath(t *testing.T) {
 	mockTaskARN := invalidTaskARN
 	mockTask := &apitask.Task{Arn: mockTaskARN}
 	mockContainerName := containerName
-	mockDockerSecurityOptions := types.Info{SecurityOptions: make([]string, 0)}.SecurityOptions
+	mockDockerSecurityOptions := system.Info{SecurityOptions: make([]string, 0)}.SecurityOptions
 
 	newManager := &metadataManager{}
 	err := newManager.Create(nil, nil, mockTask, mockContainerName, mockDockerSecurityOptions)
@@ -128,7 +129,7 @@ func TestCreateMkdirAllFail(t *testing.T) {
 	mockTaskARN := validTaskARN
 	mockTask := &apitask.Task{Arn: mockTaskARN}
 	mockContainerName := containerName
-	mockDockerSecurityOptions := types.Info{SecurityOptions: make([]string, 0)}.SecurityOptions
+	mockDockerSecurityOptions := system.Info{SecurityOptions: make([]string, 0)}.SecurityOptions
 
 	mkdirAll = func(path string, perm os.FileMode) error {
 		return errors.New("err")

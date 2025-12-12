@@ -33,6 +33,7 @@ import (
 	"github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/cihub/seelog"
 	"github.com/docker/docker/api/types"
+	"github.com/docker/docker/api/types/container"
 	dockercontainer "github.com/docker/docker/api/types/container"
 	"github.com/docker/docker/api/types/registry"
 )
@@ -364,8 +365,8 @@ type DependsOn struct {
 }
 
 type ContainerRestartAggregationDataForStats struct {
-	LastRestartDetectedAt     time.Time       `json:"LastRestartDetectedAt,omitempty"`
-	LastStatBeforeLastRestart types.StatsJSON `json:"LastStatBeforeLastRestart,omitempty"`
+	LastRestartDetectedAt     time.Time               `json:"LastRestartDetectedAt,omitempty"`
+	LastStatBeforeLastRestart container.StatsResponse `json:"LastStatBeforeLastRestart,omitempty"`
 }
 
 // DockerContainer is a mapping between containers-as-docker-knows-them and
