@@ -19,7 +19,7 @@ import (
 	"github.com/aws/amazon-ecs-agent/ecs-agent/tmds/handlers/response"
 	v2 "github.com/aws/amazon-ecs-agent/ecs-agent/tmds/handlers/v2"
 
-	"github.com/docker/docker/api/types"
+	dockercontainer "github.com/docker/docker/api/types/container"
 )
 
 const (
@@ -137,6 +137,6 @@ type NetworkInterfaceProperties struct {
 
 // StatsResponse is the v4 Stats response for a container.
 type StatsResponse struct {
-	*types.StatsJSON
+	*dockercontainer.StatsResponse
 	Network_rate_stats *stats.NetworkStatsPerSec `json:"network_rate_stats,omitempty"`
 }
