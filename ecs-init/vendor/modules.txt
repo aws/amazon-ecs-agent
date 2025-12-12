@@ -181,7 +181,6 @@ github.com/cihub/seelog/archive/zip
 # github.com/containerd/containerd v1.7.29
 ## explicit; go 1.23.0
 github.com/containerd/containerd/pkg/apparmor
-github.com/containerd/containerd/pkg/userns
 # github.com/containerd/log v0.1.0
 ## explicit; go 1.20
 github.com/containerd/log
@@ -191,29 +190,25 @@ github.com/coreos/go-systemd/activation
 # github.com/davecgh/go-spew v1.1.1
 ## explicit
 github.com/davecgh/go-spew/spew
-# github.com/docker/docker v25.0.6+incompatible
+# github.com/docker/docker v28.5.2+incompatible
 ## explicit
 github.com/docker/docker/api/types/blkiodev
+github.com/docker/docker/api/types/common
 github.com/docker/docker/api/types/container
 github.com/docker/docker/api/types/filters
 github.com/docker/docker/api/types/mount
 github.com/docker/docker/api/types/network
 github.com/docker/docker/api/types/registry
+github.com/docker/docker/api/types/storage
 github.com/docker/docker/api/types/strslice
 github.com/docker/docker/api/types/swarm
 github.com/docker/docker/api/types/swarm/runtime
 github.com/docker/docker/api/types/versions
-github.com/docker/docker/image/spec/specs-go/v1
-github.com/docker/docker/internal/multierror
 github.com/docker/docker/pkg/archive
 github.com/docker/docker/pkg/homedir
 github.com/docker/docker/pkg/idtools
-github.com/docker/docker/pkg/ioutils
 github.com/docker/docker/pkg/jsonmessage
-github.com/docker/docker/pkg/longpath
-github.com/docker/docker/pkg/pools
 github.com/docker/docker/pkg/stdcopy
-github.com/docker/docker/pkg/system
 github.com/docker/docker/profiles/apparmor
 # github.com/docker/go-connections v0.4.0
 ## explicit
@@ -229,9 +224,6 @@ github.com/docker/go-units
 # github.com/fsouza/go-dockerclient v1.10.1
 ## explicit; go 1.20
 github.com/fsouza/go-dockerclient
-# github.com/gogo/protobuf v1.3.2
-## explicit; go 1.15
-github.com/gogo/protobuf/proto
 # github.com/golang/mock v1.6.0
 ## explicit; go 1.11
 github.com/golang/mock/gomock
@@ -239,24 +231,36 @@ github.com/golang/mock/mockgen/model
 # github.com/jmespath/go-jmespath v0.4.0 => github.com/jmespath/go-jmespath v0.0.0-20180206201540-c2b33e8439af
 ## explicit
 github.com/jmespath/go-jmespath
-# github.com/klauspost/compress v1.16.7
-## explicit; go 1.18
+# github.com/klauspost/compress v1.18.0
+## explicit; go 1.22
 github.com/klauspost/compress
 github.com/klauspost/compress/fse
 github.com/klauspost/compress/huff0
 github.com/klauspost/compress/internal/cpuinfo
+github.com/klauspost/compress/internal/le
 github.com/klauspost/compress/internal/snapref
 github.com/klauspost/compress/zstd
 github.com/klauspost/compress/zstd/internal/xxhash
 # github.com/kr/text v0.2.0
 ## explicit
+# github.com/moby/docker-image-spec v1.3.1
+## explicit; go 1.18
+github.com/moby/docker-image-spec/specs-go/v1
+# github.com/moby/go-archive v0.1.0
+## explicit; go 1.23.0
+github.com/moby/go-archive
+github.com/moby/go-archive/compression
+github.com/moby/go-archive/tarheader
 # github.com/moby/patternmatcher v0.6.0
 ## explicit; go 1.19
 github.com/moby/patternmatcher
-# github.com/moby/sys/sequential v0.5.0
+# github.com/moby/profiles/apparmor v0.1.0
+## explicit; go 1.23.0
+github.com/moby/profiles/apparmor
+# github.com/moby/sys/sequential v0.6.0
 ## explicit; go 1.17
 github.com/moby/sys/sequential
-# github.com/moby/sys/user v0.3.0
+# github.com/moby/sys/user v0.4.0
 ## explicit; go 1.17
 github.com/moby/sys/user
 # github.com/moby/sys/userns v0.1.0
