@@ -174,7 +174,7 @@ func (cs *tcsClientServer) publishMessages(ctx context.Context) {
 				})
 			}
 		case instanceStatus := <-cs.instanceStatus:
-			logger.Debug("received instance status message in instanceStatusChannel")
+			logger.Debug(fmt.Sprintf("received instance status message in instanceStatusChannel %+v", instanceStatus))
 			err := cs.publishInstanceStatusOnce(instanceStatus)
 			if err != nil {
 				logger.Warn("Error publishing instance status", logger.Fields{
@@ -448,7 +448,7 @@ func (cs *tcsClientServer) publishInstanceStatus(ctx context.Context) {
 				// Create InstanceStatusMessage from doctor data
 				message, err := cs.createInstanceStatusMessageFromDoctor()
 				if err != nil {
-					logger.Warn("Unable to create instance status message from doctor", logger.Fields{
+					logger.Error("Unable to create instance status message from doctor", logger.Fields{
 						field.Error: err,
 					})
 					continue
@@ -491,7 +491,12 @@ func (cs *tcsClientServer) publishInstanceStatusOnce(message ecstcs.InstanceStat
 		return err
 	}
 
-	logger.Info("Successfully published instance status message to TCS")
+	// requestID should always be set. This is to be defensive.
+	var requestID string
+	if request.Metadata != nil {
+		requestID = aws.ToString(request.Metadata.RequestId)
+	}
+	logger.Info(fmt.Sprintf("Successfully published instance status message to TCS with request ID: %s", requestID))
 	return nil
 }
 
