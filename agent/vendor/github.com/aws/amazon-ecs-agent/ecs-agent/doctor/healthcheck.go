@@ -15,21 +15,18 @@ package doctor
 
 import (
 	"time"
+
+	"github.com/aws/amazon-ecs-agent/ecs-agent/tcs/model/ecstcs"
 )
 
-const (
-	HealthcheckTypeContainerRuntime = "ContainerRuntime"
-	HealthcheckTypeAgent            = "Agent"
-	HealthcheckTypeEBSDaemon        = "EBSDaemon"
-)
-
+// Healthcheck defines the interface for performing health checks on various components.
 type Healthcheck interface {
 	GetHealthcheckType() string
-	GetHealthcheckStatus() HealthcheckStatus
+	GetHealthcheckStatus() ecstcs.InstanceHealthCheckStatus
 	GetHealthcheckTime() time.Time
 	GetStatusChangeTime() time.Time
-	GetLastHealthcheckStatus() HealthcheckStatus
+	GetLastHealthcheckStatus() ecstcs.InstanceHealthCheckStatus
 	GetLastHealthcheckTime() time.Time
-	RunCheck() HealthcheckStatus
-	SetHealthcheckStatus(status HealthcheckStatus)
+	RunCheck() ecstcs.InstanceHealthCheckStatus
+	SetHealthcheckStatus(status ecstcs.InstanceHealthCheckStatus)
 }

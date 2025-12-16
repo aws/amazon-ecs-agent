@@ -20,13 +20,13 @@ import (
 	"testing"
 
 	mock_csiclient "github.com/aws/amazon-ecs-agent/ecs-agent/csiclient/mocks"
-	"github.com/aws/amazon-ecs-agent/ecs-agent/doctor"
+	"github.com/aws/amazon-ecs-agent/ecs-agent/tcs/model/ecstcs"
 	"github.com/container-storage-interface/spec/lib/go/csi"
 	"github.com/golang/mock/gomock"
 	"github.com/stretchr/testify/assert"
 )
 
-// Tests that EBS Daemon Health Check is of the right health check type
+// Tests that EBS Daemon Health Check is of the right health check type.
 func TestEBSGetHealthcheckType(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
@@ -34,10 +34,10 @@ func TestEBSGetHealthcheckType(t *testing.T) {
 	csiClient := mock_csiclient.NewMockCSIClient(ctrl)
 	hc := NewEBSCSIDaemonHealthCheck(csiClient, 0)
 
-	assert.Equal(t, doctor.HealthcheckTypeEBSDaemon, hc.GetHealthcheckType())
+	assert.Equal(t, ecstcs.InstanceHealthCheckTypeEBSDaemon, hc.GetHealthcheckType())
 }
 
-// Tests initial health status of EBS Daemon
+// Tests initial health status of EBS Daemon.
 func TestEBSInitialHealth(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
@@ -45,15 +45,15 @@ func TestEBSInitialHealth(t *testing.T) {
 	csiClient := mock_csiclient.NewMockCSIClient(ctrl)
 	hc := NewEBSCSIDaemonHealthCheck(csiClient, 0)
 
-	assert.Equal(t, doctor.HealthcheckStatusInitializing, hc.GetHealthcheckStatus())
+	assert.Equal(t, ecstcs.InstanceHealthCheckStatusInitializing, hc.GetHealthcheckStatus())
 }
 
-// Tests RunCheck method of EBS Daemon Health Check
+// Tests RunCheck method of EBS Daemon Health Check.
 func TestEBSRunHealthCheck(t *testing.T) {
 	tcs := []struct {
 		name                     string
 		setCSIClientExpectations func(csiClient *mock_csiclient.MockCSIClient)
-		expectedStatus           doctor.HealthcheckStatus
+		expectedStatus           ecstcs.InstanceHealthCheckStatus
 	}{
 		{
 			name: "OK when healthcheck succeeds",
@@ -61,14 +61,14 @@ func TestEBSRunHealthCheck(t *testing.T) {
 				csiClient.EXPECT().NodeGetCapabilities(gomock.Any()).
 					Return(&csi.NodeGetCapabilitiesResponse{}, nil)
 			},
-			expectedStatus: doctor.HealthcheckStatusOk,
+			expectedStatus: ecstcs.InstanceHealthCheckStatusOk,
 		},
 		{
 			name: "IMPAIRED when healthcheck fails",
 			setCSIClientExpectations: func(csiClient *mock_csiclient.MockCSIClient) {
 				csiClient.EXPECT().NodeGetCapabilities(gomock.Any()).Return(nil, errors.New("err"))
 			},
-			expectedStatus: doctor.HealthcheckStatusImpaired,
+			expectedStatus: ecstcs.InstanceHealthCheckStatusImpaired,
 		},
 	}
 
