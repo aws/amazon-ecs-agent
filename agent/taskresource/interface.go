@@ -68,6 +68,8 @@ type TaskResource interface {
 	GetTerminalReason() string
 	// DependOnTaskNetwork shows whether the resource creation needs task network setup beforehand
 	DependOnTaskNetwork() bool
+	// RequiresExecutionRoleCredentials returns true if the resource requires execution role credentials
+	RequiresExecutionRoleCredentials() bool
 	// GetContainerDependencies returns dependent containers for a status
 	GetContainerDependencies(resourcestatus.ResourceStatus) []apicontainer.ContainerDependency
 	// BuildContainerDependency adds a new dependency container and its satisfied status

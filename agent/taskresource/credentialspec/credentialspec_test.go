@@ -80,6 +80,60 @@ func TestCreatedAt(t *testing.T) {
 	assert.Equal(t, time, cs.GetCreatedAt())
 }
 
+func TestRequiresExecutionRoleCredentials(t *testing.T) {
+	tests := []struct {
+		name                       string
+		credentialSpecContainerMap map[string]string
+		expected                   bool
+	}{
+		{
+			name:                       "empty map",
+			credentialSpecContainerMap: map[string]string{},
+			expected:                   false,
+		},
+		{
+			name: "file spec only",
+			credentialSpecContainerMap: map[string]string{
+				"credentialspec:file://credspec.json": "container1",
+			},
+			expected: false,
+		},
+		{
+			name: "S3 ARN",
+			credentialSpecContainerMap: map[string]string{
+				"credentialspec:arn:aws:s3:::bucket/credspec.json": "container1",
+			},
+			expected: true,
+		},
+		{
+			name: "SSM ARN",
+			credentialSpecContainerMap: map[string]string{
+				"credentialspec:arn:aws:ssm:us-west-2:123456789012:parameter/test": "container1",
+			},
+			expected: true,
+		},
+		{
+			name: "mixed file and ARN",
+			credentialSpecContainerMap: map[string]string{
+				"credentialspec:file://credspec.json":                              "container1",
+				"credentialspec:arn:aws:ssm:us-west-2:123456789012:parameter/test": "container2",
+			},
+			expected: true,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			cs := &CredentialSpecResource{
+				CredentialSpecResourceCommon: &CredentialSpecResourceCommon{
+					credentialSpecContainerMap: tt.credentialSpecContainerMap,
+				},
+			}
+			assert.Equal(t, tt.expected, cs.RequiresExecutionRoleCredentials())
+		})
+	}
+}
+
 func TestMarshallandUnMarshallCredSpec(t *testing.T) {
 	containerName := "webapp"
 

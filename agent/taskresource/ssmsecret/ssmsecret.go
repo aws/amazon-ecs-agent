@@ -512,3 +512,9 @@ func (secret *SSMSecretResource) BuildContainerDependency(containerName string, 
 func (secret *SSMSecretResource) GetContainerDependencies(dependent resourcestatus.ResourceStatus) []apicontainer.ContainerDependency {
 	return nil
 }
+
+// RequiresExecutionRoleCredentials returns true if the resource requires execution role credentials.
+// SSM secret resource always requires task execution role credentials to pull secrets from SSM.
+func (secret *SSMSecretResource) RequiresExecutionRoleCredentials() bool {
+	return true
+}

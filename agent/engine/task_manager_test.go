@@ -2334,7 +2334,7 @@ func TestStartVolumeResourceTransitionsHappyPath(t *testing.T) {
 			task.AddResource(volumeName, res)
 			wg := sync.WaitGroup{}
 			wg.Add(1)
-			canTransition, transitions := task.startResourceTransitions(
+			canTransition, transitions, reasons := task.startResourceTransitions(
 				func(resource taskresource.TaskResource, nextStatus resourcestatus.ResourceStatus) {
 					assert.Equal(t, nextStatus, tc.TransitionStatus)
 					wg.Done()
@@ -2345,6 +2345,7 @@ func TestStartVolumeResourceTransitionsHappyPath(t *testing.T) {
 			resTransition, ok := transitions[volumeName]
 			assert.True(t, ok)
 			assert.Equal(t, resTransition, tc.StatusString)
+			assert.Empty(t, reasons)
 		})
 	}
 }
@@ -2393,12 +2394,13 @@ func TestStartVolumeResourceTransitionsEmpty(t *testing.T) {
 				resourceStateChangeEvent: make(chan resourceStateChange),
 			}
 			mtask.Task.AddResource(volumeName, res)
-			canTransition, transitions := mtask.startResourceTransitions(
+			canTransition, transitions, reasons := mtask.startResourceTransitions(
 				func(resource taskresource.TaskResource, nextStatus resourcestatus.ResourceStatus) {
 					t.Error("Transition function should not be called when no transitions are possible")
 				})
 			assert.Equal(t, tc.CanTransition, canTransition)
 			assert.Empty(t, transitions)
+			assert.Empty(t, reasons)
 		})
 	}
 }
@@ -2574,6 +2576,79 @@ func TestUnstageVolumes(t *testing.T) {
 
 			errors := mtask.UnstageVolumes(mockCsiClient)
 			assert.Len(t, errors, tc.numErrors)
+		})
+	}
+}
+
+func TestTaskExecutionRoleCredentialsResolved(t *testing.T) {
+	testCases := []struct {
+		name                 string
+		requiresCredentials  bool
+		resourceStatus       resourcestatus.ResourceStatus
+		credentialsAvailable bool
+		expectedResult       bool
+	}{
+		{
+			name:                 "resource does not require execution role credentials",
+			requiresCredentials:  false,
+			resourceStatus:       resourcestatus.ResourceStatusNone,
+			credentialsAvailable: false,
+			expectedResult:       true,
+		},
+		{
+			name:                 "resource already created",
+			requiresCredentials:  true,
+			resourceStatus:       resourcestatus.ResourceCreated,
+			credentialsAvailable: false,
+			expectedResult:       true,
+		},
+		{
+			name:                 "credentials available",
+			requiresCredentials:  true,
+			resourceStatus:       resourcestatus.ResourceStatusNone,
+			credentialsAvailable: true,
+			expectedResult:       true,
+		},
+		{
+			name:                 "credentials not available",
+			requiresCredentials:  true,
+			resourceStatus:       resourcestatus.ResourceStatusNone,
+			credentialsAvailable: false,
+			expectedResult:       false,
+		},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			ctrl := gomock.NewController(t)
+			defer ctrl.Finish()
+
+			mockCredentialsManager := mock_credentials.NewMockManager(ctrl)
+			mockResource := mock_taskresource.NewMockTaskResource(ctrl)
+
+			task := &apitask.Task{
+				Arn:                    "test-task-arn",
+				ExecutionCredentialsID: "test-creds-id",
+			}
+			mtask := &managedTask{
+				Task:               task,
+				credentialsManager: mockCredentialsManager,
+			}
+
+			mockResource.EXPECT().RequiresExecutionRoleCredentials().Return(tc.requiresCredentials)
+			if tc.requiresCredentials {
+				mockResource.EXPECT().GetKnownStatus().Return(tc.resourceStatus)
+				if tc.resourceStatus < resourcestatus.ResourceCreated {
+					if tc.credentialsAvailable {
+						mockCredentialsManager.EXPECT().GetTaskCredentials("test-creds-id").Return(credentials.TaskIAMRoleCredentials{}, true)
+					} else {
+						mockCredentialsManager.EXPECT().GetTaskCredentials("test-creds-id").Return(credentials.TaskIAMRoleCredentials{}, false)
+					}
+				}
+			}
+
+			result := mtask.taskExecutionRoleCredentialsResolved(mockResource)
+			assert.Equal(t, tc.expectedResult, result)
 		})
 	}
 }

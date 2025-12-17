@@ -657,3 +657,36 @@ func TestCreateDirectories(t *testing.T) {
 		})
 	}
 }
+
+func TestRequiresExecutionRoleCredentials(t *testing.T) {
+	tests := []struct {
+		name               string
+		externalConfigType string
+		expected           bool
+	}{
+		{
+			name:               "no external config",
+			externalConfigType: "",
+			expected:           false,
+		},
+		{
+			name:               "file external config",
+			externalConfigType: ExternalConfigTypeFile,
+			expected:           false,
+		},
+		{
+			name:               "S3 external config",
+			externalConfigType: ExternalConfigTypeS3,
+			expected:           true,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			firelens := &FirelensResource{
+				externalConfigType: tt.externalConfigType,
+			}
+			assert.Equal(t, tt.expected, firelens.RequiresExecutionRoleCredentials())
+		})
+	}
+}

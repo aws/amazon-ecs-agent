@@ -444,3 +444,9 @@ func (auth *ASMAuthResource) BuildContainerDependency(containerName string, sati
 func (auth *ASMAuthResource) GetContainerDependencies(dependent resourcestatus.ResourceStatus) []apicontainer.ContainerDependency {
 	return nil
 }
+
+// RequiresExecutionRoleCredentials returns true if the resource requires execution role credentials.
+// ASM auth resource always requires the task execution role credentials.
+func (auth *ASMAuthResource) RequiresExecutionRoleCredentials() bool {
+	return true
+}

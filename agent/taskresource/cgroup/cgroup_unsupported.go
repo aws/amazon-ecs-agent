@@ -150,3 +150,8 @@ func (cgroup *CgroupResource) BuildContainerDependency(containerName string, sat
 func (cgroup *CgroupResource) GetContainerDependencies(dependent resourcestatus.ResourceStatus) []apicontainer.ContainerDependency {
 	return nil
 }
+
+// RequiresExecutionRoleCredentials returns true if the resource requires execution role credentials
+func (cgroup *CgroupResource) RequiresExecutionRoleCredentials() bool {
+	return false
+}

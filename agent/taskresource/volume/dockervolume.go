@@ -535,3 +535,11 @@ func (vol *VolumeResource) GetPauseContainerPID() string {
 
 	return vol.pauseContainerPIDUnsafe
 }
+
+// RequiresExecutionRoleCredentials returns true if the resource requires execution role credentials.
+// Volume resource does not require task execution role credentials.
+// Note that the volume plugins (like the ECS volume plugin) may require credentials depending on the volume configuration,
+// but that's not handled by the VolumeResource object.
+func (vol *VolumeResource) RequiresExecutionRoleCredentials() bool {
+	return false
+}

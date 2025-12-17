@@ -198,3 +198,8 @@ func (fv *FSxWindowsFileServerResource) BuildContainerDependency(containerName s
 func (fv *FSxWindowsFileServerResource) GetContainerDependencies(dependent resourcestatus.ResourceStatus) []apicontainer.ContainerDependency {
 	return nil
 }
+
+// RequiresExecutionRoleCredentials returns true if the resource requires execution role credentials
+func (fv *FSxWindowsFileServerResource) RequiresExecutionRoleCredentials() bool {
+	return true
+}
