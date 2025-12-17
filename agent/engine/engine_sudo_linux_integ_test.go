@@ -868,8 +868,18 @@ func TestGMSATaskFileS3Err(t *testing.T) {
 	cfg.GMSACapable = config.BooleanDefaultFalse{Value: config.ExplicitlyEnabled}
 	cfg.AWSRegion = "us-west-2"
 
-	taskEngine, done, _ := setupGMSALinux(cfg, nil, t)
+	taskEngine, done, credentialsManager := setupGMSALinux(cfg, nil, t)
 	defer done()
+
+	// mock execution role credentials
+	mockCreds := &credentials.TaskIAMRoleCredentials{
+		ARN: "testGMSAFileTaskARN",
+		IAMRoleCredentials: credentials.IAMRoleCredentials{
+			RoleArn:       "arn:aws:iam::123456789012:role/execution-role",
+			CredentialsID: "exec-creds-id",
+		},
+	}
+	credentialsManager.SetTaskCredentials(mockCreds)
 
 	stateChangeEvents := taskEngine.StateChangeEvents()
 
@@ -880,11 +890,12 @@ func TestGMSATaskFileS3Err(t *testing.T) {
 	testContainer.DockerConfig.HostConfig = &hostConfig
 
 	testTask := &apitask.Task{
-		Arn:                 "testGMSAFileTaskARN",
-		Family:              "family",
-		Version:             "1",
-		DesiredStatusUnsafe: apitaskstatus.TaskRunning,
-		Containers:          []*apicontainer.Container{testContainer},
+		Arn:                    "testGMSAFileTaskARN",
+		Family:                 "family",
+		Version:                "1",
+		DesiredStatusUnsafe:    apitaskstatus.TaskRunning,
+		Containers:             []*apicontainer.Container{testContainer},
+		ExecutionCredentialsID: "exec-creds-id",
 	}
 	testTask.Containers[0].TransitionDependenciesMap = make(map[apicontainerstatus.ContainerStatus]apicontainer.TransitionDependencySet)
 	testTask.ResourcesMapUnsafe = make(map[string][]taskresource.TaskResource)
@@ -908,8 +919,18 @@ func TestGMSATaskFileSSMErr(t *testing.T) {
 	cfg.GMSACapable = config.BooleanDefaultFalse{Value: config.ExplicitlyEnabled}
 	cfg.AWSRegion = "us-west-2"
 
-	taskEngine, done, _ := setupGMSALinux(cfg, nil, t)
+	taskEngine, done, credentialsManager := setupGMSALinux(cfg, nil, t)
 	defer done()
+
+	// mock execution role credentials
+	mockCreds := &credentials.TaskIAMRoleCredentials{
+		ARN: "testGMSAFileTaskARN",
+		IAMRoleCredentials: credentials.IAMRoleCredentials{
+			RoleArn:       "arn:aws:iam::123456789012:role/execution-role",
+			CredentialsID: "exec-creds-id",
+		},
+	}
+	credentialsManager.SetTaskCredentials(mockCreds)
 
 	stateChangeEvents := taskEngine.StateChangeEvents()
 
@@ -920,11 +941,12 @@ func TestGMSATaskFileSSMErr(t *testing.T) {
 	testContainer.DockerConfig.HostConfig = &hostConfig
 
 	testTask := &apitask.Task{
-		Arn:                 "testGMSAFileTaskARN",
-		Family:              "family",
-		Version:             "1",
-		DesiredStatusUnsafe: apitaskstatus.TaskRunning,
-		Containers:          []*apicontainer.Container{testContainer},
+		Arn:                    "testGMSAFileTaskARN",
+		Family:                 "family",
+		Version:                "1",
+		DesiredStatusUnsafe:    apitaskstatus.TaskRunning,
+		Containers:             []*apicontainer.Container{testContainer},
+		ExecutionCredentialsID: "exec-creds-id",
 	}
 	testTask.Containers[0].TransitionDependenciesMap = make(map[apicontainerstatus.ContainerStatus]apicontainer.TransitionDependencySet)
 	testTask.ResourcesMapUnsafe = make(map[string][]taskresource.TaskResource)

@@ -15,6 +15,7 @@ package credentialspec
 
 import (
 	"encoding/json"
+	"strings"
 	"sync"
 	"time"
 
@@ -371,4 +372,23 @@ func (cs *CredentialSpecResource) BuildContainerDependency(containerName string,
 
 func (cs *CredentialSpecResource) GetContainerDependencies(dependent resourcestatus.ResourceStatus) []apicontainer.ContainerDependency {
 	return nil
+}
+
+// RequiresExecutionRoleCredentials returns true if the resource requires execution role credentials.
+// Credential spec resource requires the task execution role credentials if the resource has ARNs that require AWS API access.
+func (cs *CredentialSpecResource) RequiresExecutionRoleCredentials() bool {
+	cs.lock.RLock()
+	defer cs.lock.RUnlock()
+
+	for credSpecStr := range cs.credentialSpecContainerMap {
+		credSpecSplit := strings.SplitAfterN(credSpecStr, ":", 2)
+		if len(credSpecSplit) == 2 {
+			credSpecValue := credSpecSplit[1]
+			// Only need credentials for ARNs (S3/SSM), not for file:// specs
+			if !strings.HasPrefix(credSpecValue, "file://") {
+				return true
+			}
+		}
+	}
+	return false
 }

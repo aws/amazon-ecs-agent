@@ -38,15 +38,22 @@ import (
 	"github.com/aws/amazon-ecs-agent/agent/dockerclient"
 	"github.com/aws/amazon-ecs-agent/agent/dockerclient/dockerapi"
 	"github.com/aws/amazon-ecs-agent/agent/dockerclient/sdkclientfactory"
+	mockssmfactory "github.com/aws/amazon-ecs-agent/agent/ssm/factory/mocks"
+	mockssm "github.com/aws/amazon-ecs-agent/agent/ssm/mocks"
 	"github.com/aws/amazon-ecs-agent/agent/statechange"
 	"github.com/aws/amazon-ecs-agent/agent/taskresource"
 	taskresourcevolume "github.com/aws/amazon-ecs-agent/agent/taskresource/volume"
 	"github.com/aws/amazon-ecs-agent/agent/utils"
 	apicontainerstatus "github.com/aws/amazon-ecs-agent/ecs-agent/api/container/status"
 	apitaskstatus "github.com/aws/amazon-ecs-agent/ecs-agent/api/task/status"
+	"github.com/aws/amazon-ecs-agent/ecs-agent/credentials"
+	"github.com/aws/amazon-ecs-agent/ecs-agent/ipcompatibility"
 	"github.com/aws/amazon-ecs-agent/ecs-agent/utils/ttime"
+	"github.com/golang/mock/gomock"
 
 	"github.com/aws/aws-sdk-go-v2/aws"
+	"github.com/aws/aws-sdk-go-v2/service/ssm"
+	ssmtypes "github.com/aws/aws-sdk-go-v2/service/ssm/types"
 	"github.com/cihub/seelog"
 	"github.com/containerd/cgroups/v3"
 	"github.com/docker/docker/api/types"
@@ -1907,4 +1914,108 @@ func TestHostResourceManagerLaunchTypeBehavior(t *testing.T) {
 			waitFinished(t, finished, testTimeout)
 		})
 	}
+}
+
+// TestTaskResourceDependencyOnRestart verifies that a task with resources properly waits for execution role credentials after agent restart, blocking
+// until credentials arrive from ACS, then progressing to RUNNING.
+// Note: although this test asserts functionality that is platform-agnostic, the test setup is such on Windows that we'd run into a timing issue.
+// This is because the VerifyManifestPulledStateChange helper methods wait for events on the task engine's state channels,
+// but on Windows, these are skipped due to no local registry setup, so the test progresses to its assertions faster than intended.
+func TestTaskResourceDependencyOnRestart(t *testing.T) {
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+
+	taskArn := "arn:aws:ecs:us-east-1:123456789012:task/testTaskResourceDependencyOnRestart"
+	testCredentialsID := "test-execution-credentials-id"
+	secretValueFrom := "arn:aws:ssm:us-east-1:123456789012:parameter/test-secret"
+	secretValue := "mock-secret-value"
+
+	// Create a task with a SSM secret resource dependency
+	testTask := CreateTestTask(taskArn)
+	testTask.Containers[0].Image = "busybox:latest" // Override container image
+	testTask.Containers[0].Secrets = []apicontainer.Secret{
+		{
+			Name:      "test-secret",
+			ValueFrom: secretValueFrom,
+			Provider:  "ssm",
+			Region:    "us-east-1",
+		},
+	}
+	testTask.Containers[0].TransitionDependenciesMap = make(map[apicontainerstatus.ContainerStatus]apicontainer.TransitionDependencySet)
+	testTask.ResourcesMapUnsafe = make(map[string][]taskresource.TaskResource)
+	testTask.SetExecutionRoleCredentialsID(testCredentialsID)
+
+	// Start engine with default config
+	taskEngine, done, _, credentialsManager := setupWithDefaultConfig(t)
+	defer done()
+
+	// Set up SSM mocks
+	ssmClientCreator := mockssmfactory.NewMockSSMClientCreator(ctrl)
+	mockSSMClient := mockssm.NewMockSSMClient(ctrl)
+	mockCreds := &credentials.TaskIAMRoleCredentials{
+		ARN: taskArn,
+		IAMRoleCredentials: credentials.IAMRoleCredentials{
+			RoleArn:       "arn:aws:iam::123456789012:role/execution-role",
+			CredentialsID: testCredentialsID,
+		},
+	}
+	ssmOutput := &ssm.GetParametersOutput{
+		Parameters: []ssmtypes.Parameter{
+			{
+				Name:  aws.String(secretValueFrom),
+				Value: aws.String(secretValue),
+			},
+		},
+	}
+	ssmClientCreator.EXPECT().NewSSMClient("us-east-1", mockCreds.IAMRoleCredentials, ipcompatibility.NewIPv4OnlyCompatibility()).Return(mockSSMClient, nil).AnyTimes()
+	mockSSMClient.EXPECT().GetParameters(gomock.Any(), gomock.Any()).Do(func(ctx context.Context, in *ssm.GetParametersInput, optFns ...func(*ssm.Options)) {
+		require.Equal(t, []string{secretValueFrom}, in.Names)
+	}).Return(ssmOutput, nil).AnyTimes()
+
+	// Configure engine with SSM client creator
+	taskEngine.(*DockerTaskEngine).resourceFields = &taskresource.ResourceFields{
+		ResourceFieldsCommon: &taskresource.ResourceFieldsCommon{
+			SSMClientCreator:   ssmClientCreator,
+			CredentialsManager: credentialsManager,
+		},
+	}
+
+	// Add task to engine without credentials
+	go taskEngine.AddTask(testTask)
+
+	// Verify task progresses but gets blocked waiting for execution credentials
+	VerifyContainerManifestPulledStateChange(t, taskEngine)
+	VerifyTaskManifestPulledStateChange(t, taskEngine)
+
+	// Verify the task has SSM resource that requires execution credentials
+	resources := testTask.GetResources()
+	var ssmResource taskresource.TaskResource
+	for _, resource := range resources {
+		if resource.GetName() == "ssmsecret" {
+			ssmResource = resource
+			break
+		}
+	}
+	require.NotNil(t, ssmResource, "SSM resource should exist")
+	require.True(t, ssmResource.RequiresExecutionRoleCredentials(), "SSM resource should require execution credentials")
+
+	// Mock credentials arrival from ACS
+	credentialsManager.SetTaskCredentials(mockCreds)
+
+	// Mimic ACS payload responder: after setting credentials, call AddTask to trigger task re-evaluation
+	// This is how blocked tasks get unblocked when credentials arrive from ACS
+	go taskEngine.AddTask(testTask)
+
+	// Verify task progresses through expected states after credentials are available
+	VerifyContainerRunningStateChange(t, taskEngine)
+	VerifyTaskRunningStateChange(t, taskEngine)
+
+	// Stop the task
+	taskUpdate := CreateTestTask("testTaskResourceDependencyOnRestart")
+	taskUpdate.Arn = taskArn
+	taskUpdate.SetDesiredStatus(apitaskstatus.TaskStopped)
+	go taskEngine.AddTask(taskUpdate)
+
+	VerifyContainerStoppedStateChange(t, taskEngine)
+	VerifyTaskStoppedStateChange(t, taskEngine)
 }

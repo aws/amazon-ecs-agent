@@ -219,7 +219,7 @@ func TestStartResourceTransitionsHappyPath(t *testing.T) {
 			task.AddResource("cgroup", res)
 			wg := sync.WaitGroup{}
 			wg.Add(1)
-			canTransition, transitions := task.startResourceTransitions(
+			canTransition, transitions, reasons := task.startResourceTransitions(
 				func(resource taskresource.TaskResource, nextStatus resourcestatus.ResourceStatus) {
 					assert.Equal(t, nextStatus, tc.TransitionStatus)
 					wg.Done()
@@ -230,6 +230,7 @@ func TestStartResourceTransitionsHappyPath(t *testing.T) {
 			resTransition, ok := transitions["cgroup"]
 			assert.True(t, ok)
 			assert.Equal(t, resTransition, tc.StatusString)
+			assert.Empty(t, reasons)
 		})
 	}
 }
@@ -277,12 +278,13 @@ func TestStartResourceTransitionsEmpty(t *testing.T) {
 				resourceStateChangeEvent: make(chan resourceStateChange),
 			}
 			mtask.Task.AddResource("cgroup", res)
-			canTransition, transitions := mtask.startResourceTransitions(
+			canTransition, transitions, reasons := mtask.startResourceTransitions(
 				func(resource taskresource.TaskResource, nextStatus resourcestatus.ResourceStatus) {
 					t.Error("Transition function should not be called when no transitions are possible")
 				})
 			assert.Equal(t, tc.CanTransition, canTransition)
 			assert.Empty(t, transitions)
+			assert.Empty(t, reasons)
 		})
 	}
 }

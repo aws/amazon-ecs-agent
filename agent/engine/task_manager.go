@@ -48,10 +48,8 @@ import (
 )
 
 const (
-	// waitForPullCredentialsTimeout is the timeout agent trying to wait for pull
-	// credentials from acs, after the timeout it will check the credentials manager
-	// and start processing the task or start another round of waiting
-	waitForPullCredentialsTimeout            = 1 * time.Minute
+	// waitForExecutionRoleCredentialsTimeout is the timeout when waiting for execution role credentials to arrive from ACS
+	waitForExecutionRoleCredentialsTimeout   = 1 * time.Minute
 	systemPingTimeout                        = 5 * time.Second
 	defaultTaskSteadyStatePollInterval       = 5 * time.Minute
 	defaultTaskSteadyStatePollIntervalJitter = 30 * time.Second
@@ -1070,7 +1068,7 @@ func (mtask *managedTask) progressTask() {
 	// task may be moved to stopped.
 	// anyResourceTransition is set to true when transition function needs to be called or
 	// known status can be changed
-	anyResourceTransition, resTransitions := mtask.startResourceTransitions(
+	anyResourceTransition, resTransitions, resourceReasons := mtask.startResourceTransitions(
 		func(resource taskresource.TaskResource, nextStatus resourcestatus.ResourceStatus) {
 			mtask.transitionResource(resource, nextStatus)
 			transitionChange <- struct{}{}
@@ -1092,7 +1090,9 @@ func (mtask *managedTask) progressTask() {
 	// its impossible for containers to move forward. We will do an additional check to see if we are waiting for ACS
 	// execution credentials. If not, then we will abort the task progression.
 	if !atLeastOneTransitionStarted && !blockedByOrderingDependencies {
-		if !mtask.isWaitingForACSExecutionCredentials(reasons) {
+		// Combine reasons from both container and resource transitions
+		allReasons := append(reasons, resourceReasons...)
+		if !mtask.isWaitingForACSExecutionCredentials(allReasons) {
 			mtask.handleContainersUnableToTransitionState()
 		}
 		return
@@ -1143,16 +1143,16 @@ func (mtask *managedTask) progressTask() {
 func (mtask *managedTask) isWaitingForACSExecutionCredentials(reasons []error) bool {
 	for _, reason := range reasons {
 		if reason == dependencygraph.CredentialsNotResolvedErr {
-			logger.Info("Waiting for credentials to pull from ECR", logger.Fields{
+			logger.Info("Waiting for execution role credentials to arrive from ACS", logger.Fields{
 				field.TaskID: mtask.GetID(),
 			})
 
-			timeoutCtx, timeoutCancel := context.WithTimeout(mtask.ctx, waitForPullCredentialsTimeout)
+			timeoutCtx, timeoutCancel := context.WithTimeout(mtask.ctx, waitForExecutionRoleCredentialsTimeout)
 			defer timeoutCancel()
 
 			timedOut := mtask.waitEvent(timeoutCtx.Done())
 			if timedOut {
-				logger.Info("Timed out waiting for acs credentials message", logger.Fields{
+				logger.Info("Timed out waiting for execution role credentials to arrive from ACS", logger.Fields{
 					field.TaskID: mtask.GetID(),
 				})
 			}
@@ -1244,8 +1244,9 @@ func (mtask *managedTask) handleTerminalDependencyError(container *apicontainer.
 
 // startResourceTransitions steps through each resource in the task and calls
 // the passed transition function when a transition should occur
-func (mtask *managedTask) startResourceTransitions(transitionFunc resourceTransitionFunc) (bool, map[string]string) {
+func (mtask *managedTask) startResourceTransitions(transitionFunc resourceTransitionFunc) (bool, map[string]string, []error) {
 	anyCanTransition := false
+	var reasons []error
 	transitions := make(map[string]string)
 	for _, res := range mtask.GetResources() {
 		knownStatus := res.GetKnownStatus()
@@ -1260,6 +1261,19 @@ func (mtask *managedTask) startResourceTransitions(transitionFunc resourceTransi
 				})
 			continue
 		}
+
+		// Check if resource requires execution role credentials and whether they're available
+		if !mtask.taskExecutionRoleCredentialsResolved(res) {
+			logger.Info("Can't transition resource due to missing execution role credentials", logger.Fields{
+				field.TaskID:        mtask.GetID(),
+				field.Resource:      res.GetName(),
+				field.KnownStatus:   res.StatusString(knownStatus),
+				field.DesiredStatus: res.StatusString(desiredStatus),
+			})
+			reasons = append(reasons, dependencygraph.CredentialsNotResolvedErr)
+			continue
+		}
+
 		anyCanTransition = true
 		transition := mtask.resourceNextState(res)
 		// If the resource is already in a transition, skip
@@ -1281,7 +1295,24 @@ func (mtask *managedTask) startResourceTransitions(transitionFunc resourceTransi
 		transitions[res.GetName()] = transition.status
 		go transitionFunc(res, transition.nextState)
 	}
-	return anyCanTransition, transitions
+	return anyCanTransition, transitions, reasons
+}
+
+// taskExecutionRoleCredentialsResolved checks if execution credentials are available for a task resource
+func (mtask *managedTask) taskExecutionRoleCredentialsResolved(resource taskresource.TaskResource) bool {
+	// If resource doesn't need execution role credentials, it's always resolved
+	if !resource.RequiresExecutionRoleCredentials() {
+		return true
+	}
+
+	// If resource is already created, credentials were available when it was created
+	if resource.GetKnownStatus() >= resourcestatus.ResourceCreated {
+		return true
+	}
+
+	// Check if credentials are available
+	_, ok := mtask.credentialsManager.GetTaskCredentials(mtask.Task.GetExecutionCredentialsID())
+	return ok
 }
 
 // transitionResource calls applyResourceState, and then notifies the managed

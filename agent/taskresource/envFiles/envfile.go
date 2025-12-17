@@ -616,3 +616,9 @@ func (envfile *EnvironmentFileResource) BuildContainerDependency(containerName s
 func (envfile *EnvironmentFileResource) GetContainerDependencies(dependent resourcestatus.ResourceStatus) []apicontainer.ContainerDependency {
 	return nil
 }
+
+// RequiresExecutionRoleCredentials returns true if the resource requires execution role credentials.
+// Envfile resource always requires the task execution role credentials, since the only resource type we support is S3.
+func (envfile *EnvironmentFileResource) RequiresExecutionRoleCredentials() bool {
+	return true
+}

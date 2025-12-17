@@ -289,6 +289,20 @@ func (mr *MockTaskResourceMockRecorder) NextKnownState() *gomock.Call {
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "NextKnownState", reflect.TypeOf((*MockTaskResource)(nil).NextKnownState))
 }
 
+// RequiresExecutionRoleCredentials mocks base method.
+func (m *MockTaskResource) RequiresExecutionRoleCredentials() bool {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "RequiresExecutionRoleCredentials")
+	ret0, _ := ret[0].(bool)
+	return ret0
+}
+
+// RequiresExecutionRoleCredentials indicates an expected call of RequiresExecutionRoleCredentials.
+func (mr *MockTaskResourceMockRecorder) RequiresExecutionRoleCredentials() *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "RequiresExecutionRoleCredentials", reflect.TypeOf((*MockTaskResource)(nil).RequiresExecutionRoleCredentials))
+}
+
 // SetAppliedStatus mocks base method.
 func (m *MockTaskResource) SetAppliedStatus(arg0 status.ResourceStatus) bool {
 	m.ctrl.T.Helper()

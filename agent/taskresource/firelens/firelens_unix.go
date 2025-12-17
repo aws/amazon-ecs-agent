@@ -602,3 +602,9 @@ func (firelens *FirelensResource) BuildContainerDependency(containerName string,
 func (firelens *FirelensResource) GetContainerDependencies(dependent resourcestatus.ResourceStatus) []apicontainer.ContainerDependency {
 	return nil
 }
+
+// RequiresExecutionRoleCredentials returns true if the resource requires execution role credentials.
+// We only need execution role credentials when there's an external config to pull from S3
+func (firelens *FirelensResource) RequiresExecutionRoleCredentials() bool {
+	return firelens.externalConfigType == ExternalConfigTypeS3
+}
