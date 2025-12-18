@@ -25,6 +25,7 @@ import (
 	"path/filepath"
 	"testing"
 
+	"github.com/aws/amazon-ecs-agent/ecs-agent/acs/model/ecsacs"
 	mock_ec2 "github.com/aws/amazon-ecs-agent/ecs-agent/ec2/mocks"
 	"github.com/aws/amazon-ecs-agent/ecs-agent/netlib/model/ecscni"
 	mock_ecscni2 "github.com/aws/amazon-ecs-agent/ecs-agent/netlib/model/ecscni/mocks_ecscni"
@@ -39,6 +40,8 @@ import (
 	mock_oswrapper "github.com/aws/amazon-ecs-agent/ecs-agent/utils/oswrapper/mocks"
 	mock_volume "github.com/aws/amazon-ecs-agent/ecs-agent/volume/mocks"
 
+	"github.com/aws/aws-sdk-go-v2/aws"
+	ecstypes "github.com/aws/aws-sdk-go-v2/service/ecs/types"
 	"github.com/golang/mock/gomock"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -131,7 +134,7 @@ func testManagedLinuxBranchENIConfiguration(t *testing.T) {
 	require.NoError(t, err)
 }
 
-func TestBuildDefaultNetworkNamespace(t *testing.T) {
+func TestBuildDefaultNetworkNamespaceConfig(t *testing.T) {
 	tests := []struct {
 		name       string
 		taskID     string
@@ -278,7 +281,7 @@ func TestBuildDefaultNetworkNamespace(t *testing.T) {
 				common: *commonPlatform,
 			}
 
-			namespaces, err := ml.buildDefaultNetworkNamespace(tt.taskID)
+			namespaces, err := ml.buildHostNetworkNamespaceConfig(tt.taskID)
 
 			if tt.expectedError != nil {
 				assert.Error(t, err)
@@ -391,6 +394,7 @@ func TestManagedLinux_CreateDNSConfig(t *testing.T) {
 		netns := &tasknetworkconfig.NetworkNamespace{
 			Name:                 netNSName,
 			Path:                 netNSPath,
+			NetworkMode:          ecstypes.NetworkModeAwsvpc,
 			NetworkInterfaces:    []*networkinterface.NetworkInterface{iface},
 			ServiceConnectConfig: nil, // No Service Connect
 		}
@@ -449,6 +453,7 @@ func TestManagedLinux_CreateDNSConfig(t *testing.T) {
 		netns := &tasknetworkconfig.NetworkNamespace{
 			Name:              netNSName,
 			Path:              netNSPath,
+			NetworkMode:       ecstypes.NetworkModeAwsvpc,
 			NetworkInterfaces: []*networkinterface.NetworkInterface{iface},
 			ServiceConnectConfig: &serviceconnect.ServiceConnectConfig{
 				IngressConfigList: []serviceconnect.IngressConfig{},
@@ -483,4 +488,300 @@ func TestManagedLinux_CreateDNSConfig(t *testing.T) {
 		err := ml.CreateDNSConfig(taskID, netns)
 		require.NoError(t, err)
 	})
+}
+
+func TestBuildHostDaemonNamespaceConfig(t *testing.T) {
+	tests := []struct {
+		name       string
+		taskID     string
+		setupMocks func(*mock_ec2.MockEC2MetadataClient, *mock_netwrapper.MockNet, *mock_netlinkwrapper.MockNetLink, *mock_ecscni.MockNetNSUtil)
+		expectErr  bool
+		validate   func(*testing.T, []*tasknetworkconfig.NetworkNamespace)
+	}{
+		{
+			name:   "successful daemon namespace creation",
+			taskID: "test-daemon-task",
+			setupMocks: func(mockEC2Client *mock_ec2.MockEC2MetadataClient, mockNet *mock_netwrapper.MockNet, mockNetLink *mock_netlinkwrapper.MockNetLink, mockNSUtil *mock_ecscni.MockNetNSUtil) {
+				// First calls for buildHostDaemonNamespaceConfig
+				mockEC2Client.EXPECT().GetMetadata(MacResource).Return(macAddress, nil).Times(1)
+				mockEC2Client.EXPECT().GetMetadata(InstanceIDResource).Return("i-1234567890abcdef0", nil).Times(1)
+
+				testMac, _ := net.ParseMAC(macAddress)
+				testIface := []net.Interface{{HardwareAddr: testMac, Name: "eth0"}}
+				mockNet.EXPECT().Interfaces().Return(testIface, nil).Times(1)
+
+				// Calls for DetermineIPCompatibility -> FindLinkByMac -> HasDefaultRoute
+				link1 := &netlink.Dummy{LinkAttrs: netlink.LinkAttrs{HardwareAddr: testMac}}
+				mockNetLink.EXPECT().LinkList().Return([]netlink.Link{link1}, nil).Times(1)
+
+				// IPv4 and IPv6 route checks
+				routes := []netlink.Route{
+					{Gw: net.ParseIP("10.194.20.1"), Dst: nil}, // default route
+				}
+				mockNetLink.EXPECT().RouteList(link1, netlink.FAMILY_V4).Return(routes, nil).Times(1)
+				mockNetLink.EXPECT().RouteList(link1, netlink.FAMILY_V6).Return(nil, nil).Times(1)
+
+				// IPv4 metadata calls (since IPv4 is compatible)
+				mockEC2Client.EXPECT().GetMetadata(PrivateIPv4Address).Return("10.194.20.1", nil).Times(1)
+				mockEC2Client.EXPECT().GetMetadata(fmt.Sprintf(IPv4SubNetCidrBlock, macAddress)).Return("10.194.20.0/20", nil).Times(1)
+
+				// GetNetNSPath call
+				mockNSUtil.EXPECT().GetNetNSPath("host-daemon").Return("/var/run/netns/host-daemon").Times(1)
+			},
+			expectErr: false,
+			validate: func(t *testing.T, namespaces []*tasknetworkconfig.NetworkNamespace) {
+				require.Len(t, namespaces, 1)
+				ns := namespaces[0]
+				assert.Equal(t, "daemon-bridge", string(ns.NetworkMode))
+				assert.Equal(t, "/var/run/netns/host-daemon", ns.Path)
+				assert.Equal(t, status.NetworkNone, ns.KnownState)
+				assert.Equal(t, status.NetworkReadyPull, ns.DesiredState)
+
+				// Verify network interface
+				require.Len(t, ns.NetworkInterfaces, 1)
+				netInt := ns.NetworkInterfaces[0]
+				assert.Equal(t, "i-1234567890abcdef0", netInt.ID)
+				assert.True(t, netInt.Default)
+				assert.Equal(t, status.NetworkReadyPull, netInt.DesiredStatus)
+				assert.Equal(t, status.NetworkNone, netInt.KnownStatus)
+			},
+		},
+		{
+			name:   "metadata client error",
+			taskID: "test-daemon-task",
+			setupMocks: func(mockEC2Client *mock_ec2.MockEC2MetadataClient, mockNet *mock_netwrapper.MockNet, mockNetLink *mock_netlinkwrapper.MockNetLink, mockNSUtil *mock_ecscni.MockNetNSUtil) {
+				mockEC2Client.EXPECT().GetMetadata(MacResource).Return("", fmt.Errorf("metadata unavailable")).Times(1)
+				mockEC2Client.EXPECT().GetMetadata(InstanceIDResource).Return("", fmt.Errorf("metadata unavailable")).Times(1)
+
+				testMac, _ := net.ParseMAC(macAddress)
+				testIface := []net.Interface{{HardwareAddr: testMac, Name: "eth0"}}
+				mockNet.EXPECT().Interfaces().Return(testIface, nil).Times(1)
+			},
+			expectErr: true,
+			validate:  nil,
+		},
+		{
+			name:   "interface list error",
+			taskID: "test-daemon-task",
+			setupMocks: func(mockEC2Client *mock_ec2.MockEC2MetadataClient, mockNet *mock_netwrapper.MockNet, mockNetLink *mock_netlinkwrapper.MockNetLink, mockNSUtil *mock_ecscni.MockNetNSUtil) {
+				mockEC2Client.EXPECT().GetMetadata(MacResource).Return(macAddress, nil).Times(1)
+				mockEC2Client.EXPECT().GetMetadata(InstanceIDResource).Return("i-1234567890abcdef0", nil).Times(1)
+				mockNet.EXPECT().Interfaces().Return(nil, fmt.Errorf("interface list failed")).Times(1)
+			},
+			expectErr: true,
+			validate:  nil,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			ctrl := gomock.NewController(t)
+			defer ctrl.Finish()
+
+			mockMetadataClient := mock_ec2.NewMockEC2MetadataClient(ctrl)
+			mockNet := mock_netwrapper.NewMockNet(ctrl)
+			netLink := mock_netlinkwrapper.NewMockNetLink(ctrl)
+			mockNSUtil := mock_ecscni.NewMockNetNSUtil(ctrl)
+			tt.setupMocks(mockMetadataClient, mockNet, netLink, mockNSUtil)
+
+			commonPlatform := &common{
+				net:     mockNet,
+				netlink: netLink,
+				nsUtil:  mockNSUtil,
+			}
+			ml := &managedLinux{
+				client: mockMetadataClient,
+				common: *commonPlatform,
+			}
+
+			namespaces, err := ml.buildHostDaemonNamespaceConfig()
+
+			if tt.expectErr {
+				assert.Error(t, err)
+				assert.Nil(t, namespaces)
+			} else {
+				assert.NoError(t, err)
+				assert.NotNil(t, namespaces)
+				if tt.validate != nil {
+					tt.validate(t, namespaces)
+				}
+			}
+		})
+	}
+}
+
+func TestConfigureDaemonNetNS(t *testing.T) {
+	tests := []struct {
+		name      string
+		netNS     *tasknetworkconfig.NetworkNamespace
+		expectErr bool
+	}{
+		{
+			name: "invalid transition state",
+			netNS: &tasknetworkconfig.NetworkNamespace{
+				Path:         "/var/run/netns/test-daemon",
+				NetworkMode:  "daemon-bridge",
+				KnownState:   status.NetworkNone,
+				DesiredState: status.NetworkDeleted,
+			},
+			expectErr: true,
+		},
+		{
+			name: "wrong state transition",
+			netNS: &tasknetworkconfig.NetworkNamespace{
+				Path:         "/var/run/netns/test-daemon",
+				NetworkMode:  "daemon-bridge",
+				KnownState:   status.NetworkReady,
+				DesiredState: status.NetworkReadyPull,
+			},
+			expectErr: false, // Should return nil without doing anything
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			ml := &managedLinux{
+				common: common{},
+			}
+
+			err := ml.ConfigureDaemonNetNS(tt.netNS)
+			if tt.expectErr {
+				assert.Error(t, err)
+				assert.Contains(t, err.Error(), "invalid transition state")
+			} else {
+				assert.NoError(t, err)
+			}
+		})
+	}
+}
+
+func TestStopDaemonNetNS(t *testing.T) {
+	tests := []struct {
+		name      string
+		netNS     *tasknetworkconfig.NetworkNamespace
+		setupMock func(*mock_ecscni2.MockCNI)
+		expectErr bool
+	}{
+		{
+			name: "successful cleanup",
+			netNS: &tasknetworkconfig.NetworkNamespace{
+				Path:        "/var/run/netns/test-daemon",
+				NetworkMode: "daemon-bridge",
+			},
+			setupMock: func(mockCNI *mock_ecscni2.MockCNI) {
+				mockCNI.EXPECT().Del(gomock.Any(), gomock.Any()).Return(nil).Times(1)
+			},
+			expectErr: false,
+		},
+		{
+			name: "CNI delete failure",
+			netNS: &tasknetworkconfig.NetworkNamespace{
+				Path:        "/var/run/netns/test-daemon",
+				NetworkMode: "daemon-bridge",
+			},
+			setupMock: func(mockCNI *mock_ecscni2.MockCNI) {
+				mockCNI.EXPECT().Del(gomock.Any(), gomock.Any()).Return(fmt.Errorf("CNI delete failed")).Times(1)
+			},
+			expectErr: true,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			ctrl := gomock.NewController(t)
+			defer ctrl.Finish()
+
+			mockCNI := mock_ecscni2.NewMockCNI(ctrl)
+			tt.setupMock(mockCNI)
+
+			ml := &managedLinux{
+				common: common{
+					cniClient: mockCNI,
+				},
+			}
+
+			err := ml.StopDaemonNetNS(context.Background(), tt.netNS)
+			if tt.expectErr {
+				assert.Error(t, err)
+			} else {
+				assert.NoError(t, err)
+			}
+		})
+	}
+}
+
+func TestBuildTaskNetworkConfiguration_DaemonBridge(t *testing.T) {
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+
+	mockMetadataClient := mock_ec2.NewMockEC2MetadataClient(ctrl)
+	mockNet := mock_netwrapper.NewMockNet(ctrl)
+	netLink := mock_netlinkwrapper.NewMockNetLink(ctrl)
+	mockNSUtil := mock_ecscni.NewMockNetNSUtil(ctrl)
+
+	// Setup mocks for daemon-bridge mode
+	mockMetadataClient.EXPECT().GetMetadata(MacResource).Return(macAddress, nil).Times(1)
+	mockMetadataClient.EXPECT().GetMetadata(InstanceIDResource).Return("i-1234567890abcdef0", nil).Times(1)
+
+	testMac, _ := net.ParseMAC(macAddress)
+	testIface := []net.Interface{{HardwareAddr: testMac, Name: "eth0"}}
+	mockNet.EXPECT().Interfaces().Return(testIface, nil).Times(1)
+
+	// Calls for DetermineIPCompatibility
+	link1 := &netlink.Dummy{LinkAttrs: netlink.LinkAttrs{HardwareAddr: testMac}}
+	netLink.EXPECT().LinkList().Return([]netlink.Link{link1}, nil).Times(1)
+
+	// IPv4 route checks
+	routes := []netlink.Route{
+		{Gw: net.ParseIP("10.194.20.1"), Dst: nil}, // default route
+	}
+	netLink.EXPECT().RouteList(link1, netlink.FAMILY_V4).Return(routes, nil).Times(1)
+	netLink.EXPECT().RouteList(link1, netlink.FAMILY_V6).Return(nil, nil).Times(1)
+
+	// IPv4 metadata calls
+	mockMetadataClient.EXPECT().GetMetadata(PrivateIPv4Address).Return("10.194.20.1", nil).Times(1)
+	mockMetadataClient.EXPECT().GetMetadata(fmt.Sprintf(IPv4SubNetCidrBlock, macAddress)).Return("10.194.20.0/20", nil).Times(1)
+
+	// GetNetNSPath call
+	mockNSUtil.EXPECT().GetNetNSPath("host-daemon").Return("/var/run/netns/host-daemon").Times(1)
+
+	commonPlatform := &common{
+		net:     mockNet,
+		netlink: netLink,
+		nsUtil:  mockNSUtil,
+	}
+	ml := &managedLinux{
+		client: mockMetadataClient,
+		common: *commonPlatform,
+	}
+
+	taskID := "test-daemon-task"
+	taskPayload := &ecsacs.Task{
+		NetworkMode: aws.String("daemon-bridge"),
+	}
+	taskNetConfig, err := ml.BuildTaskNetworkConfiguration(taskID, taskPayload)
+
+	require.NoError(t, err)
+	require.NotNil(t, taskNetConfig)
+	require.Len(t, taskNetConfig.NetworkNamespaces, 1)
+
+	ns := taskNetConfig.NetworkNamespaces[0]
+	assert.Equal(t, "daemon-bridge", string(ns.NetworkMode))
+	assert.Equal(t, "/var/run/netns/host-daemon", ns.Path)
+	assert.Equal(t, status.NetworkNone, ns.KnownState)
+	assert.Equal(t, status.NetworkReadyPull, ns.DesiredState)
+}
+
+func TestAddDaemonBridgeNATRule(t *testing.T) {
+	ml := &managedLinux{}
+
+	// This test verifies the function doesn't panic and handles iptables operations
+	// The actual iptables operations are tested in integration tests
+	err := ml.addDaemonBridgeNATRule()
+
+	// We expect either success or a predictable error (like iptables not available in test env)
+	// The important thing is that it doesn't panic
+	if err != nil {
+		t.Logf("Expected error in test environment: %v", err)
+	}
 }

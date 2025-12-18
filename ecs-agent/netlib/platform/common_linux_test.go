@@ -39,6 +39,7 @@ import (
 	mock_oswrapper "github.com/aws/amazon-ecs-agent/ecs-agent/utils/oswrapper/mocks"
 	mock_volume "github.com/aws/amazon-ecs-agent/ecs-agent/volume/mocks"
 
+	ecstypes "github.com/aws/aws-sdk-go-v2/service/ecs/types"
 	currentCNITypes "github.com/containernetworking/cni/pkg/types/100"
 	"github.com/golang/mock/gomock"
 	"github.com/stretchr/testify/assert"
@@ -128,6 +129,7 @@ func TestCommon_CreateDNSFiles(t *testing.T) {
 		netns := &tasknetworkconfig.NetworkNamespace{
 			Name:              netNSName,
 			Path:              netNSPath,
+			NetworkMode:       ecstypes.NetworkModeAwsvpc,
 			NetworkInterfaces: []*networkinterface.NetworkInterface{cs.iface},
 		}
 
@@ -255,6 +257,7 @@ func TestCommon_CreateDNSFilesForDebug(t *testing.T) {
 			netns := &tasknetworkconfig.NetworkNamespace{
 				Name:              netNSName,
 				Path:              netNSPath,
+				NetworkMode:       ecstypes.NetworkModeAwsvpc,
 				NetworkInterfaces: []*networkinterface.NetworkInterface{testCase.iface},
 			}
 

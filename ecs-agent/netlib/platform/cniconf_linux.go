@@ -121,6 +121,54 @@ func createBridgePluginConfig(netNSPath string) ecscni.PluginConfig {
 	return bridgeConfig
 }
 
+// createDaemonBridgePluginConfig constructs the configuration object for bridge plugin in daemon-bridge mode
+// It includes routes for ECS agent endpoint and default route for external traffic (including DNS resolution)
+func createDaemonBridgePluginConfig(netNSPath string) ecscni.PluginConfig {
+	cniConfig := ecscni.CNIConfig{
+		NetNSPath:      netNSPath,
+		CNISpecVersion: cniSpecVersion,
+		CNIPluginName:  BridgePluginName,
+	}
+
+	_, routeIPNet, _ := net.ParseCIDR(AgentEndpoint)
+	route := &types.Route{
+		Dst: *routeIPNet,
+	}
+
+	// Add routes for daemon-bridge mode
+	var routes []*types.Route
+	routes = append(routes, route) // ECS agent endpoint route
+
+	// Add default route for external traffic, which goes through the bridge gateway to reach host's trunk ENI
+	_, defaultNet, _ := net.ParseCIDR(DefaultRouteDestination)
+	bridgeGW := net.ParseIP(DaemonBridgeGatewayIP)
+	defaultRoute := &types.Route{
+		Dst: *defaultNet,
+		GW:  bridgeGW,
+	}
+	routes = append(routes, defaultRoute)
+
+	ipamConfig := &ecscni.IPAMConfig{
+		CNIConfig: ecscni.CNIConfig{
+			NetNSPath:      netNSPath,
+			CNISpecVersion: cniSpecVersion,
+			CNIPluginName:  IPAMPluginName,
+		},
+		IPV4Subnet: ECSSubNet,
+		IPV4Routes: routes,
+		ID:         netNSPath,
+	}
+
+	// Invoke the bridge plugin and ipam plugin
+	bridgeConfig := &ecscni.BridgeConfig{
+		CNIConfig: cniConfig,
+		Name:      BridgeInterfaceName,
+		IPAM:      *ipamConfig,
+	}
+
+	return bridgeConfig
+}
+
 func createAppMeshPluginConfig(
 	netNSPath string,
 	cfg *appmesh.AppMesh,
