@@ -29,9 +29,10 @@ import (
 	dockerapi "github.com/aws/amazon-ecs-agent/agent/dockerclient/dockerapi"
 	status "github.com/aws/amazon-ecs-agent/ecs-agent/api/container/status"
 	errors "github.com/aws/amazon-ecs-agent/ecs-agent/api/errors"
-	types "github.com/docker/docker/api/types"
+	common "github.com/docker/docker/api/types/common"
 	container0 "github.com/docker/docker/api/types/container"
 	filters "github.com/docker/docker/api/types/filters"
+	image "github.com/docker/docker/api/types/image"
 	registry "github.com/docker/docker/api/types/registry"
 	system "github.com/docker/docker/api/types/system"
 	gomock "github.com/golang/mock/gomock"
@@ -105,10 +106,10 @@ func (mr *MockDockerClientMockRecorder) CreateContainer(arg0, arg1, arg2, arg3, 
 }
 
 // CreateContainerExec mocks base method.
-func (m *MockDockerClient) CreateContainerExec(arg0 context.Context, arg1 string, arg2 types.ExecConfig, arg3 time.Duration) (*types.IDResponse, error) {
+func (m *MockDockerClient) CreateContainerExec(arg0 context.Context, arg1 string, arg2 container0.ExecOptions, arg3 time.Duration) (*common.IDResponse, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "CreateContainerExec", arg0, arg1, arg2, arg3)
-	ret0, _ := ret[0].(*types.IDResponse)
+	ret0, _ := ret[0].(*common.IDResponse)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
@@ -164,10 +165,10 @@ func (mr *MockDockerClientMockRecorder) Info(arg0, arg1 interface{}) *gomock.Cal
 }
 
 // InspectContainer mocks base method.
-func (m *MockDockerClient) InspectContainer(arg0 context.Context, arg1 string, arg2 time.Duration) (*types.ContainerJSON, error) {
+func (m *MockDockerClient) InspectContainer(arg0 context.Context, arg1 string, arg2 time.Duration) (*container0.InspectResponse, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "InspectContainer", arg0, arg1, arg2)
-	ret0, _ := ret[0].(*types.ContainerJSON)
+	ret0, _ := ret[0].(*container0.InspectResponse)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
@@ -179,10 +180,10 @@ func (mr *MockDockerClientMockRecorder) InspectContainer(arg0, arg1, arg2 interf
 }
 
 // InspectContainerExec mocks base method.
-func (m *MockDockerClient) InspectContainerExec(arg0 context.Context, arg1 string, arg2 time.Duration) (*types.ContainerExecInspect, error) {
+func (m *MockDockerClient) InspectContainerExec(arg0 context.Context, arg1 string, arg2 time.Duration) (*container0.ExecInspect, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "InspectContainerExec", arg0, arg1, arg2)
-	ret0, _ := ret[0].(*types.ContainerExecInspect)
+	ret0, _ := ret[0].(*container0.ExecInspect)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
@@ -194,10 +195,10 @@ func (mr *MockDockerClientMockRecorder) InspectContainerExec(arg0, arg1, arg2 in
 }
 
 // InspectImage mocks base method.
-func (m *MockDockerClient) InspectImage(arg0 string) (*types.ImageInspect, error) {
+func (m *MockDockerClient) InspectImage(arg0 string) (*image.InspectResponse, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "InspectImage", arg0)
-	ret0, _ := ret[0].(*types.ImageInspect)
+	ret0, _ := ret[0].(*image.InspectResponse)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
@@ -393,7 +394,7 @@ func (mr *MockDockerClientMockRecorder) StartContainer(arg0, arg1, arg2 interfac
 }
 
 // StartContainerExec mocks base method.
-func (m *MockDockerClient) StartContainerExec(arg0 context.Context, arg1 string, arg2 types.ExecStartCheck, arg3 time.Duration) error {
+func (m *MockDockerClient) StartContainerExec(arg0 context.Context, arg1 string, arg2 container0.ExecStartOptions, arg3 time.Duration) error {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "StartContainerExec", arg0, arg1, arg2, arg3)
 	ret0, _ := ret[0].(error)
@@ -407,10 +408,10 @@ func (mr *MockDockerClientMockRecorder) StartContainerExec(arg0, arg1, arg2, arg
 }
 
 // Stats mocks base method.
-func (m *MockDockerClient) Stats(arg0 context.Context, arg1 string, arg2 time.Duration) (<-chan *types.StatsJSON, <-chan error) {
+func (m *MockDockerClient) Stats(arg0 context.Context, arg1 string, arg2 time.Duration) (<-chan *container0.StatsResponse, <-chan error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "Stats", arg0, arg1, arg2)
-	ret0, _ := ret[0].(<-chan *types.StatsJSON)
+	ret0, _ := ret[0].(<-chan *container0.StatsResponse)
 	ret1, _ := ret[1].(<-chan error)
 	return ret0, ret1
 }

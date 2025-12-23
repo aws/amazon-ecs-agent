@@ -18,12 +18,12 @@ package stats
 
 import (
 	"github.com/aws/amazon-ecs-agent/ecs-agent/utils"
-	"github.com/docker/docker/api/types"
+	dockercontainer "github.com/docker/docker/api/types/container"
 )
 
 // aggregateOSDependentStats aggregates stats that are measured cumulatively against container start time and
 // populated only for Windows OS.
-func aggregateOSDependentStats(dockerStat, lastStatBeforeLastRestart *types.StatsJSON) *types.StatsJSON {
+func aggregateOSDependentStats(dockerStat, lastStatBeforeLastRestart *dockercontainer.StatsResponse) *dockercontainer.StatsResponse {
 	// Memory stats.
 	dockerStat.MemoryStats.CommitPeak = utils.MaxNum(dockerStat.MemoryStats.CommitPeak,
 		lastStatBeforeLastRestart.MemoryStats.CommitPeak)

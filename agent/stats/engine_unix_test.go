@@ -34,6 +34,7 @@ import (
 
 	"github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/docker/docker/api/types"
+	dockercontainer "github.com/docker/docker/api/types/container"
 	"github.com/golang/mock/gomock"
 	"github.com/stretchr/testify/assert"
 )
@@ -105,7 +106,7 @@ func TestNetworkModeStatsAWSVPCMode(t *testing.T) {
 	engine.addAndStartStatsContainer("c2")
 	ts1 := parseNanoTime("2015-02-12T21:22:05.131117533Z")
 	containerStats := createFakeContainerStats()
-	dockerStats := []*types.StatsJSON{{}, {}}
+	dockerStats := []*dockercontainer.StatsResponse{{}, {}}
 	dockerStats[0].Read = ts1
 	containers, _ := engine.tasksToContainers["t1"]
 	taskContainers, _ := engine.taskToTaskStats["t1"]
@@ -255,7 +256,7 @@ func TestStartMetricsPublishForChannelFull(t *testing.T) {
 			ts1 := parseNanoTime("2015-02-12T21:22:05.131117533Z")
 
 			containerStats := createFakeContainerStats()
-			dockerStats := []*types.StatsJSON{{}, {}}
+			dockerStats := []*dockercontainer.StatsResponse{{}, {}}
 			dockerStats[0].Read = ts1
 			containers, _ := engine.tasksToContainers["t1"]
 

@@ -66,6 +66,7 @@ import (
 	dockercontainer "github.com/docker/docker/api/types/container"
 	"github.com/docker/docker/api/types/network"
 	"github.com/docker/docker/api/types/registry"
+	"github.com/docker/docker/api/types/system"
 	"github.com/golang/mock/gomock"
 	ocispec "github.com/opencontainers/image-spec/specs-go/v1"
 	"github.com/opencontainers/runtime-spec/specs-go"
@@ -449,7 +450,7 @@ func TestTaskCPULimitHappyPath(t *testing.T) {
 			}
 
 			client.EXPECT().Info(gomock.Any(), gomock.Any()).Return(
-				types.Info{}, nil)
+				system.Info{}, nil)
 			addTaskToEngine(t, ctx, taskEngine, sleepTask, mockTime, &containerEventsWG)
 			cleanup := make(chan time.Time, 1)
 			defer close(cleanup)

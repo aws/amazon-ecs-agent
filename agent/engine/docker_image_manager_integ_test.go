@@ -35,7 +35,7 @@ import (
 	apicontainerstatus "github.com/aws/amazon-ecs-agent/ecs-agent/api/container/status"
 	apitaskstatus "github.com/aws/amazon-ecs-agent/ecs-agent/api/task/status"
 
-	"github.com/docker/docker/api/types"
+	dockerimage "github.com/docker/docker/api/types/image"
 	"github.com/docker/docker/client"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -544,7 +544,7 @@ func renameImage(source string, target string, client *client.Client) error {
 	}
 
 	// delete the source tag
-	_, err = client.ImageRemove(ctx, source, types.ImageRemoveOptions{})
+	_, err = client.ImageRemove(ctx, source, dockerimage.RemoveOptions{})
 	if err != nil {
 		return fmt.Errorf("Failed to remove the source tag of the image: %s", source)
 	}

@@ -50,6 +50,7 @@ import (
 	ecstypes "github.com/aws/aws-sdk-go-v2/service/ecs/types"
 	"github.com/cihub/seelog"
 	"github.com/docker/docker/api/types"
+	dockercontainer "github.com/docker/docker/api/types/container"
 	sdkClient "github.com/docker/docker/client"
 	"github.com/pkg/errors"
 	"github.com/stretchr/testify/assert"
@@ -665,13 +666,13 @@ func findContainerProcess(client *sdkClient.Client, containerId, matching string
 func killMockExecCommandAgent(t *testing.T, client *sdkClient.Client, containerId, pid string) {
 	ctx, cancel := context.WithTimeout(context.Background(), time.Second*10)
 	defer cancel()
-	create, err := client.ContainerExecCreate(ctx, containerId, types.ExecConfig{
+	create, err := client.ContainerExecCreate(ctx, containerId, dockercontainer.ExecOptions{
 		Detach: true,
 		Cmd:    []string{testExecCommandAgentKillBin, "-pid=" + pid},
 	})
 	require.NoError(t, err)
 
-	err = client.ContainerExecStart(ctx, create.ID, types.ExecStartCheck{
+	err = client.ContainerExecStart(ctx, create.ID, dockercontainer.ExecStartOptions{
 		Detach: true,
 	})
 	require.NoError(t, err)

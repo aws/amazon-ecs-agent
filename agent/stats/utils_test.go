@@ -22,7 +22,7 @@ import (
 	"math"
 	"testing"
 
-	"github.com/docker/docker/api/types"
+	dockercontainer "github.com/docker/docker/api/types/container"
 	"github.com/stretchr/testify/assert"
 )
 
@@ -57,7 +57,7 @@ func TestDockerStatsToContainerStatsMemUsage(t *testing.T) {
 				"privateworkingset": %d
 			}
 		}`, 1, 2, 3, 4, 100, 30, 100, 20, 10, 10)
-	dockerStat := &types.StatsJSON{}
+	dockerStat := &dockercontainer.StatsResponse{}
 	json.Unmarshal([]byte(jsonStat), dockerStat)
 	containerStats, err := dockerStatsToContainerStats(dockerStat)
 	if err != nil {

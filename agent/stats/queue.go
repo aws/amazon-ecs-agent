@@ -24,7 +24,7 @@ import (
 	"github.com/aws/amazon-ecs-agent/ecs-agent/stats"
 	"github.com/aws/amazon-ecs-agent/ecs-agent/tcs/model/ecstcs"
 	"github.com/cihub/seelog"
-	"github.com/docker/docker/api/types"
+	dockercontainer "github.com/docker/docker/api/types/container"
 	"github.com/pkg/errors"
 )
 
@@ -39,7 +39,7 @@ const (
 type Queue struct {
 	buffer                []UsageStats
 	maxSize               int
-	lastStat              *types.StatsJSON
+	lastStat              *dockercontainer.StatsResponse
 	lastNetworkStatPerSec *stats.NetworkStatsPerSec
 	lock                  sync.RWMutex
 }
@@ -65,8 +65,8 @@ func (queue *Queue) Reset() {
 
 // AddContainerStat adds a new set of stats for a container to the queue. This method is only intended for use while
 // processing docker stats for a stats container.
-func (queue *Queue) AddContainerStat(dockerStat *types.StatsJSON, nonDockerStats NonDockerContainerStats,
-	lastStatBeforeLastRestart *types.StatsJSON, containerHasRestartedBefore bool) error {
+func (queue *Queue) AddContainerStat(dockerStat *dockercontainer.StatsResponse, nonDockerStats NonDockerContainerStats,
+	lastStatBeforeLastRestart *dockercontainer.StatsResponse, containerHasRestartedBefore bool) error {
 	if containerHasRestartedBefore {
 		dockerStat = getAggregatedDockerStatAcrossRestarts(dockerStat, lastStatBeforeLastRestart, queue.GetLastStat())
 	}
@@ -75,7 +75,7 @@ func (queue *Queue) AddContainerStat(dockerStat *types.StatsJSON, nonDockerStats
 }
 
 // Add adds a new set of stats to the queue.
-func (queue *Queue) Add(dockerStat *types.StatsJSON, nonDockerStats NonDockerContainerStats) error {
+func (queue *Queue) Add(dockerStat *dockercontainer.StatsResponse, nonDockerStats NonDockerContainerStats) error {
 	queue.setLastStat(dockerStat)
 	stat, err := dockerStatsToContainerStats(dockerStat)
 	if err != nil {
@@ -88,7 +88,7 @@ func (queue *Queue) Add(dockerStat *types.StatsJSON, nonDockerStats NonDockerCon
 	return nil
 }
 
-func (queue *Queue) setLastStat(stat *types.StatsJSON) {
+func (queue *Queue) setLastStat(stat *dockercontainer.StatsResponse) {
 	queue.lock.Lock()
 	defer queue.lock.Unlock()
 
@@ -160,7 +160,7 @@ func (queue *Queue) add(rawStat *ContainerStats) {
 }
 
 // GetLastStat returns the last recorded raw statistics object from docker
-func (queue *Queue) GetLastStat() *types.StatsJSON {
+func (queue *Queue) GetLastStat() *dockercontainer.StatsResponse {
 	queue.lock.RLock()
 	defer queue.lock.RUnlock()
 
@@ -581,12 +581,12 @@ func (queue *Queue) getUDoubleCWStatsSet(getUsageFloat getUsageFloatFunc) (*ecst
 
 // getAggregatedDockerStatAcrossRestarts gets the aggregated docker stat for a container across container restarts.
 func getAggregatedDockerStatAcrossRestarts(dockerStat, lastStatBeforeLastRestart,
-	lastStatInStatsQueue *types.StatsJSON) *types.StatsJSON {
+	lastStatInStatsQueue *dockercontainer.StatsResponse) *dockercontainer.StatsResponse {
 	dockerStat = aggregateOSIndependentStats(dockerStat, lastStatBeforeLastRestart)
 	dockerStat = aggregateOSDependentStats(dockerStat, lastStatBeforeLastRestart)
 
 	// Stats relevant to PreCPU.
-	preCPUStats := types.CPUStats{}
+	preCPUStats := dockercontainer.CPUStats{}
 	preRead := time.Time{}
 	if lastStatInStatsQueue != nil {
 		preCPUStats = lastStatInStatsQueue.CPUStats
@@ -604,7 +604,7 @@ func getAggregatedDockerStatAcrossRestarts(dockerStat, lastStatBeforeLastRestart
 
 // aggregateOSIndependentStats aggregates stats that are measured cumulatively against container start time and
 // populated regardless of what OS is being used.
-func aggregateOSIndependentStats(dockerStat, lastStatBeforeLastRestart *types.StatsJSON) *types.StatsJSON {
+func aggregateOSIndependentStats(dockerStat, lastStatBeforeLastRestart *dockercontainer.StatsResponse) *dockercontainer.StatsResponse {
 	// CPU stats.
 	dockerStat.CPUStats.CPUUsage.TotalUsage += lastStatBeforeLastRestart.CPUStats.CPUUsage.TotalUsage
 	dockerStat.CPUStats.CPUUsage.UsageInKernelmode += lastStatBeforeLastRestart.CPUStats.CPUUsage.UsageInKernelmode

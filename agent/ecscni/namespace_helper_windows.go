@@ -24,7 +24,7 @@ import (
 
 	"github.com/cihub/seelog"
 	cniTypesCurrent "github.com/containernetworking/cni/pkg/types/100"
-	"github.com/docker/docker/api/types"
+	dockercontainer "github.com/docker/docker/api/types/container"
 	"github.com/pkg/errors"
 
 	"github.com/aws/amazon-ecs-agent/agent/config"
@@ -115,7 +115,7 @@ func (nsHelper *helper) invokeCommandsInsideContainer(ctx context.Context, conta
 	// Prepare the config command.
 	cfgCommand := []string{"cmd", "/C", execCommands}
 
-	execCfg := types.ExecConfig{
+	execCfg := dockercontainer.ExecOptions{
 		Detach: false,
 		Cmd:    cfgCommand,
 		User:   config.ContainerAdminUser,
@@ -127,7 +127,7 @@ func (nsHelper *helper) invokeCommandsInsideContainer(ctx context.Context, conta
 		return err
 	}
 
-	err = nsHelper.dockerClient.StartContainerExec(ctx, execRes.ID, types.ExecStartCheck{Detach: false, Tty: false},
+	err = nsHelper.dockerClient.StartContainerExec(ctx, execRes.ID, dockercontainer.ExecStartOptions{Detach: false, Tty: false},
 		dockerclient.ContainerExecStartTimeout)
 	if err != nil {
 		seelog.Errorf("[ECSCNI] Failed to execute command in container %s namespace [pre-start]: %v", containerID, err)

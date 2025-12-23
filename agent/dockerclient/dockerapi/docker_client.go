@@ -49,10 +49,14 @@ import (
 	"github.com/docker/docker/api/types"
 	dockercontainer "github.com/docker/docker/api/types/container"
 	"github.com/docker/docker/api/types/events"
+	dockerevents "github.com/docker/docker/api/types/events"
 	"github.com/docker/docker/api/types/filters"
+	dockerimage "github.com/docker/docker/api/types/image"
 	"github.com/docker/docker/api/types/network"
 	"github.com/docker/docker/api/types/registry"
+	dockersystem "github.com/docker/docker/api/types/system"
 	"github.com/docker/docker/api/types/volume"
+	dockercli "github.com/docker/docker/client"
 )
 
 const (
@@ -121,6 +125,8 @@ const (
 // for these backup kill methods to finish.
 var stopContainerTimeoutBuffer = 2 * time.Minute
 
+var ImageLoadWithQuiet = dockercli.ImageLoadWithQuiet
+
 type inactivityTimeoutHandlerFunc func(reader io.ReadCloser, timeout time.Duration, cancelRequest func(), canceled *uint32) (io.ReadCloser, chan<- struct{})
 
 // DockerClient interface to make testing it easier
@@ -175,15 +181,15 @@ type DockerClient interface {
 
 	// CreateContainerExec creates a new exec configuration to run an exec process with the provided Config. A timeout value
 	// and a context should be provided for the request.
-	CreateContainerExec(ctx context.Context, containerID string, execConfig types.ExecConfig, timeout time.Duration) (*types.IDResponse, error)
+	CreateContainerExec(ctx context.Context, containerID string, execConfig dockercontainer.ExecOptions, timeout time.Duration) (*types.IDResponse, error)
 
 	// StartContainerExec starts an exec process already created in the docker host. A timeout value
 	// and a context should be provided for the request.
-	StartContainerExec(ctx context.Context, execID string, execStartCheck types.ExecStartCheck, timeout time.Duration) error
+	StartContainerExec(ctx context.Context, execID string, execStartCheck dockercontainer.ExecStartOptions, timeout time.Duration) error
 
 	// InspectContainerExec returns information about a specific exec process on the docker host. A timeout value
 	// and a context should be provided for the request.
-	InspectContainerExec(ctx context.Context, execID string, timeout time.Duration) (*types.ContainerExecInspect, error)
+	InspectContainerExec(ctx context.Context, execID string, timeout time.Duration) (*dockercontainer.ExecInspect, error)
 
 	// ListContainers returns the set of containers known to the Docker daemon. A timeout value and a context
 	// should be provided for the request.
@@ -215,7 +221,7 @@ type DockerClient interface {
 
 	// Stats returns a channel of stat data for the specified container. A context should be provided so the request can
 	// be canceled.
-	Stats(context.Context, string, time.Duration) (<-chan *types.StatsJSON, <-chan error)
+	Stats(context.Context, string, time.Duration) (<-chan *dockercontainer.StatsResponse, <-chan error)
 
 	// Version returns the version of the Docker daemon.
 	Version(context.Context, time.Duration) (string, error)
@@ -224,7 +230,7 @@ type DockerClient interface {
 	APIVersion() (dockerclient.DockerVersion, error)
 
 	// InspectImage returns information about the specified image.
-	InspectImage(string) (*types.ImageInspect, error)
+	InspectImage(string) (*dockerimage.InspectResponse, error)
 
 	// RemoveImage removes the metadata associated with an image and may remove the underlying layer data. A timeout
 	// value and a context should be provided for the request.
@@ -234,7 +240,7 @@ type DockerClient interface {
 	LoadImage(context.Context, io.Reader, time.Duration) error
 
 	// Info returns the information of the Docker server.
-	Info(context.Context, time.Duration) (types.Info, error)
+	Info(context.Context, time.Duration) (dockersystem.Info, error)
 }
 
 // DockerGoClient wraps the underlying go-dockerclient and docker/docker library.
@@ -502,7 +508,7 @@ func (dg *dockerGoClient) pullImage(ctx context.Context, image string,
 		return CannotPullECRContainerError{err}
 	}
 
-	imagePullOpts := types.ImagePullOptions{
+	imagePullOpts := dockerimage.PullOptions{
 		All:          false,
 		RegistryAuth: base64.URLEncoding.EncodeToString(buf.Bytes()),
 	}
@@ -750,7 +756,7 @@ func (dg *dockerGoClient) startContainer(ctx context.Context, id string) DockerC
 	if err != nil {
 		return DockerContainerMetadata{Error: CannotGetDockerClientError{version: dg.version, err: err}}
 	}
-	err = client.ContainerStart(ctx, id, types.ContainerStartOptions{})
+	err = client.ContainerStart(ctx, id, dockercontainer.StartOptions{})
 
 	metadata := dg.containerMetadata(ctx, id)
 	if err != nil {
@@ -816,7 +822,7 @@ func (dg *dockerGoClient) InspectContainer(ctx context.Context, dockerID string,
 	}
 }
 
-func (dg *dockerGoClient) inspectContainer(ctx context.Context, dockerID string) (*types.ContainerJSON, error) {
+func (dg *dockerGoClient) inspectContainer(ctx context.Context, dockerID string) (*dockercontainer.InspectResponse, error) {
 	client, err := dg.sdkDockerClient()
 	if err != nil {
 		return nil, err
@@ -903,7 +909,7 @@ func (dg *dockerGoClient) removeContainer(ctx context.Context, dockerID string) 
 		return err
 	}
 	return client.ContainerRemove(ctx, dockerID,
-		types.ContainerRemoveOptions{
+		dockercontainer.RemoveOptions{
 			RemoveVolumes: true,
 			RemoveLinks:   false,
 			Force:         false,
@@ -1028,7 +1034,7 @@ func (dg *dockerGoClient) ContainerEvents(ctx context.Context) (<-chan DockerCon
 	buffer := NewInfiniteBuffer()
 
 	derivedCtx, cancel := context.WithCancel(ctx)
-	dockerEvents, eventErr := client.Events(derivedCtx, types.EventsOptions{})
+	dockerEvents, eventErr := client.Events(derivedCtx, dockerevents.ListOptions{})
 
 	// Cache the event from docker client. Channel closes when an error is passed to eventErr.
 	go buffer.StartListening(derivedCtx, dockerEvents)
@@ -1051,7 +1057,7 @@ func (dg *dockerGoClient) ContainerEvents(ctx context.Context) (<-chan DockerCon
 
 				// Reopen a new event stream to continue listening.
 				nextCtx, nextCancel := context.WithCancel(ctx)
-				dockerEvents, eventErr = client.Events(nextCtx, types.EventsOptions{})
+				dockerEvents, eventErr = client.Events(nextCtx, dockerevents.ListOptions{})
 				// Cache the event from docker client.
 				go buffer.StartListening(nextCtx, dockerEvents)
 				// Close previous stream after starting to listen on new one
@@ -1184,7 +1190,7 @@ func (dg *dockerGoClient) listContainers(ctx context.Context, all bool) ListCont
 		return ListContainersResponse{Error: err}
 	}
 
-	containers, err := client.ContainerList(ctx, types.ContainerListOptions{
+	containers, err := client.ContainerList(ctx, dockercontainer.ListOptions{
 		All: all,
 	})
 	if err != nil {
@@ -1224,7 +1230,7 @@ func (dg *dockerGoClient) listImages(ctx context.Context) ListImagesResponse {
 	if err != nil {
 		return ListImagesResponse{Error: err}
 	}
-	images, err := client.ImageList(ctx, types.ImageListOptions{})
+	images, err := client.ImageList(ctx, dockerimage.ListOptions{})
 	if err != nil {
 		return ListImagesResponse{Error: err}
 	}
@@ -1305,17 +1311,17 @@ func (dg *dockerGoClient) Version(ctx context.Context, timeout time.Duration) (s
 	return version, nil
 }
 
-func (dg *dockerGoClient) Info(ctx context.Context, timeout time.Duration) (types.Info, error) {
+func (dg *dockerGoClient) Info(ctx context.Context, timeout time.Duration) (dockersystem.Info, error) {
 	derivedCtx, cancel := context.WithTimeout(ctx, timeout)
 	defer cancel()
 
 	client, err := dg.sdkDockerClient()
 	if err != nil {
-		return types.Info{}, err
+		return dockersystem.Info{}, err
 	}
 	info, infoErr := client.Info(derivedCtx)
 	if infoErr != nil {
-		return types.Info{}, infoErr
+		return dockersystem.Info{}, infoErr
 	}
 
 	return info, nil
@@ -1538,12 +1544,12 @@ func (dg *dockerGoClient) APIVersion() (dockerclient.DockerVersion, error) {
 	return dg.sdkClientFactory.FindClientAPIVersion(client), nil
 }
 
-// Stats returns a channel of *types.StatsJSON entries for the container.
-func (dg *dockerGoClient) Stats(ctx context.Context, id string, inactivityTimeout time.Duration) (<-chan *types.StatsJSON, <-chan error) {
+// Stats returns a channel of *dockercontainer.StatsResponse entries for the container.
+func (dg *dockerGoClient) Stats(ctx context.Context, id string, inactivityTimeout time.Duration) (<-chan *dockercontainer.StatsResponse, <-chan error) {
 	subCtx, cancelRequest := context.WithCancel(ctx)
 
 	errC := make(chan error, 1)
-	statsC := make(chan *types.StatsJSON)
+	statsC := make(chan *dockercontainer.StatsResponse)
 	client, err := dg.sdkDockerClient()
 	if err != nil {
 		cancelRequest()
@@ -1555,7 +1561,7 @@ func (dg *dockerGoClient) Stats(ctx context.Context, id string, inactivityTimeou
 		return statsC, errC
 	}
 
-	var resp types.ContainerStats
+	var resp dockercontainer.StatsResponseReader
 	if !dg.config.PollMetrics.Enabled() {
 		// Streaming metrics is the default behavior
 		logger.Info("Start streaming metrics for container", logger.Fields{
@@ -1579,7 +1585,7 @@ func (dg *dockerGoClient) Stats(ctx context.Context, id string, inactivityTimeou
 			defer close(ch)
 
 			decoder := json.NewDecoder(resp.Body)
-			data := new(types.StatsJSON)
+			data := new(dockercontainer.StatsResponse)
 			for err := decoder.Decode(data); err != io.EOF; err = decoder.Decode(data) {
 				if err != nil {
 					errC <- fmt.Errorf("DockerGoClient: Unable to decode stats for container %s: %v", id, err)
@@ -1596,7 +1602,7 @@ func (dg *dockerGoClient) Stats(ctx context.Context, id string, inactivityTimeou
 				case statsC <- data:
 				}
 
-				data = new(types.StatsJSON)
+				data = new(dockercontainer.StatsResponse)
 			}
 		}()
 	} else {
@@ -1642,11 +1648,11 @@ func (dg *dockerGoClient) Stats(ctx context.Context, id string, inactivityTimeou
 	return statsC, errC
 }
 
-func getContainerStatsNotStreamed(client sdkclient.Client, ctx context.Context, id string, timeout time.Duration) (*types.StatsJSON, error) {
+func getContainerStatsNotStreamed(client sdkclient.Client, ctx context.Context, id string, timeout time.Duration) (*dockercontainer.StatsResponse, error) {
 	ctxWithTimeout, cancel := context.WithTimeout(ctx, timeout)
 	defer cancel()
 	type statsResponse struct {
-		stats types.ContainerStats
+		stats dockercontainer.StatsResponseReader
 		err   error
 	}
 	response := make(chan statsResponse, 1)
@@ -1660,7 +1666,7 @@ func getContainerStatsNotStreamed(client sdkclient.Client, ctx context.Context, 
 			return nil, fmt.Errorf("DockerGoClient: Unable to retrieve stats for container %s: %v", id, resp.err)
 		}
 		decoder := json.NewDecoder(resp.stats.Body)
-		stats := &types.StatsJSON{}
+		stats := &dockercontainer.StatsResponse{}
 		err := decoder.Decode(stats)
 		if err != nil {
 			return nil, fmt.Errorf("DockerGoClient: Unable to decode stats for container %s: %v", id, err)
@@ -1695,7 +1701,7 @@ func (dg *dockerGoClient) removeImage(ctx context.Context, imageName string) err
 	if err != nil {
 		return err
 	}
-	_, err = client.ImageRemove(ctx, imageName, types.ImageRemoveOptions{})
+	_, err = client.ImageRemove(ctx, imageName, dockerimage.RemoveOptions{})
 	return err
 }
 
@@ -1720,7 +1726,7 @@ func (dg *dockerGoClient) loadImage(ctx context.Context, reader io.Reader) error
 	if err != nil {
 		return err
 	}
-	resp, err := client.ImageLoad(ctx, reader, false)
+	resp, err := client.ImageLoad(ctx, reader, ImageLoadWithQuiet(false))
 	if err != nil {
 		return err
 	}
@@ -1733,7 +1739,7 @@ func (dg *dockerGoClient) loadImage(ctx context.Context, reader io.Reader) error
 	return err
 }
 
-func (dg *dockerGoClient) CreateContainerExec(ctx context.Context, containerID string, execConfig types.ExecConfig, timeout time.Duration) (*types.IDResponse, error) {
+func (dg *dockerGoClient) CreateContainerExec(ctx context.Context, containerID string, execConfig dockercontainer.ExecOptions, timeout time.Duration) (*types.IDResponse, error) {
 	type createContainerExecResponse struct {
 		execID *types.IDResponse
 		err    error
@@ -1759,7 +1765,7 @@ func (dg *dockerGoClient) CreateContainerExec(ctx context.Context, containerID s
 	}
 }
 
-func (dg *dockerGoClient) createContainerExec(ctx context.Context, containerID string, config types.ExecConfig) (*types.IDResponse, error) {
+func (dg *dockerGoClient) createContainerExec(ctx context.Context, containerID string, config dockercontainer.ExecOptions) (*dockercontainer.ExecCreateResponse, error) {
 	client, err := dg.sdkDockerClient()
 	if err != nil {
 		return nil, err
@@ -1772,7 +1778,7 @@ func (dg *dockerGoClient) createContainerExec(ctx context.Context, containerID s
 	return &execIDResponse, nil
 }
 
-func (dg *dockerGoClient) StartContainerExec(ctx context.Context, execID string, execStartCheck types.ExecStartCheck, timeout time.Duration) error {
+func (dg *dockerGoClient) StartContainerExec(ctx context.Context, execID string, execStartCheck dockercontainer.ExecStartOptions, timeout time.Duration) error {
 
 	ctx, cancel := context.WithTimeout(ctx, timeout)
 	defer cancel()
@@ -1794,7 +1800,7 @@ func (dg *dockerGoClient) StartContainerExec(ctx context.Context, execID string,
 	}
 }
 
-func (dg *dockerGoClient) startContainerExec(ctx context.Context, execID string, execStartCheck types.ExecStartCheck) error {
+func (dg *dockerGoClient) startContainerExec(ctx context.Context, execID string, execStartCheck dockercontainer.ExecStartOptions) error {
 	client, err := dg.sdkDockerClient()
 	if err != nil {
 		return err
@@ -1807,9 +1813,9 @@ func (dg *dockerGoClient) startContainerExec(ctx context.Context, execID string,
 	return nil
 }
 
-func (dg *dockerGoClient) InspectContainerExec(ctx context.Context, execID string, timeout time.Duration) (*types.ContainerExecInspect, error) {
+func (dg *dockerGoClient) InspectContainerExec(ctx context.Context, execID string, timeout time.Duration) (*dockercontainer.ExecInspect, error) {
 	type inspectContainerExecResponse struct {
-		execInspect *types.ContainerExecInspect
+		execInspect *dockercontainer.ExecInspect
 		err         error
 	}
 
@@ -1834,7 +1840,7 @@ func (dg *dockerGoClient) InspectContainerExec(ctx context.Context, execID strin
 	}
 }
 
-func (dg *dockerGoClient) inspectContainerExec(ctx context.Context, containerID string) (*types.ContainerExecInspect, error) {
+func (dg *dockerGoClient) inspectContainerExec(ctx context.Context, containerID string) (*dockercontainer.ExecInspect, error) {
 	client, err := dg.sdkDockerClient()
 	if err != nil {
 		return nil, err
