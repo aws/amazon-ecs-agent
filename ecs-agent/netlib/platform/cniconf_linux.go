@@ -54,6 +54,7 @@ const (
 	VPCTunnelInterfaceTypeTap    = "tap"
 
 	BridgeInterfaceName = "fargate-bridge"
+	VethInterfaceType   = "veth"
 
 	IPAMDataFileName = "eni-ipam.db"
 
