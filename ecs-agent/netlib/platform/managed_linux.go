@@ -22,6 +22,7 @@ import (
 
 	"github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/aws/aws-sdk-go-v2/service/ecs/types"
+	cnins "github.com/containernetworking/plugins/pkg/ns"
 	"github.com/pkg/errors"
 )
 
@@ -34,6 +35,7 @@ const (
 	InstanceIDResource         = "instance-id"
 	DefaultArg                 = "default"
 	NetworkInterfaceDeviceName = "eth1" // default network interface name in the task network namespace.
+	DaemonInterfaceName        = "eth0" // daemon network interface name in the daemon network namespace.
 )
 
 type managedLinux struct {
@@ -463,23 +465,27 @@ func (m *managedLinux) configureDaemonNetNS(ctx context.Context, taskID string, 
 			return err
 		}
 
-		// Create MI-Bridge for daemon-bridge mode
-		var cniNetConf []ecscni.PluginConfig
-		cniNetConf = append(cniNetConf, createDaemonBridgePluginConfig(netNS.Path))
-		add := true
+		// Create MI-Bridge for daemon-bridge mode only if not already configured
+		if !m.isDaemonNamespaceConfigured(netNS.Path) {
+			var cniNetConf []ecscni.PluginConfig
+			cniNetConf = append(cniNetConf, createDaemonBridgePluginConfig(netNS.Path))
+			add := true
 
-		_, err = m.common.executeCNIPlugin(ctx, add, cniNetConf...)
-		if err != nil {
-			err = errors.Wrap(err, "failed to setup daemon network namespace bridge")
-			return err
-		}
+			_, err = m.common.executeCNIPlugin(ctx, add, cniNetConf...)
+			if err != nil {
+				err = errors.Wrap(err, "failed to setup daemon network namespace bridge")
+				return err
+			}
 
-		// Add NAT masquerade rule for external connectivity
-		err = m.addDaemonBridgeNATRule()
-		if err != nil {
-			logger.Warn("Failed to add NAT rule for daemon-bridge", logger.Fields{
-				loggerfield.Error: err,
-			})
+			// Add NAT masquerade rule for external connectivity
+			err = m.addDaemonBridgeNATRule()
+			if err != nil {
+				logger.Warn("Failed to add NAT rule for daemon-bridge", logger.Fields{
+					loggerfield.Error: err,
+				})
+			}
+		} else {
+			logger.Info("Daemon namespace already configured, skipping CNI plugin setup")
 		}
 	}
 	return nil
@@ -509,15 +515,27 @@ func (m *managedLinux) addDaemonBridgeNATRule() error {
 
 // StopDaemonNetNS stops and cleans up a daemon network namespace.
 func (m *managedLinux) StopDaemonNetNS(ctx context.Context, netNS *tasknetworkconfig.NetworkNamespace) error {
+	logger.Info("Starting StopDaemonNetNS", logger.Fields{
+		"netNSPath":  netNS.Path,
+		"knownState": netNS.KnownState,
+	})
 
 	// Cleanup bridge config(veth pair).
 	var cniNetConf []ecscni.PluginConfig
-	cniNetConf = append(cniNetConf, createBridgePluginConfig(netNS.Path))
+	cniNetConf = append(cniNetConf, createDaemonBridgePluginConfig(netNS.Path))
 	add := false
 
 	_, err := m.common.executeCNIPlugin(ctx, add, cniNetConf...)
 	if err != nil {
 		err = errors.Wrap(err, "failed to stop daemon network namespace bridge")
+		logger.Error("StopDaemonNetNS failed", logger.Fields{
+			"netNSPath":       netNS.Path,
+			loggerfield.Error: err,
+		})
+	} else {
+		logger.Info("StopDaemonNetNS completed successfully", logger.Fields{
+			"netNSPath": netNS.Path,
+		})
 	}
 
 	// NOTE: The daemon network namespace is intentionally not deleted here.
@@ -526,4 +544,33 @@ func (m *managedLinux) StopDaemonNetNS(ctx context.Context, netNS *tasknetworkco
 	// lifetime and is cleaned up on instance termination.
 
 	return err
+}
+
+// isDaemonNamespaceConfigured checks if the daemon namespace is already properly configured
+// by verifying that the veth interface exists in the daemon network namespace.
+func (m *managedLinux) isDaemonNamespaceConfigured(netNSPath string) bool {
+	var configured bool
+
+	// Execute within the network namespace to check interfaces
+	err := m.nsUtil.ExecInNSPath(netNSPath, func(_ cnins.NetNS) error {
+		// Check if eth0 veth interface exists in daemon namespace
+		link, err := m.netlink.LinkByName(DaemonInterfaceName)
+		if err != nil {
+			return errors.New("eth0 interface not found in daemon namespace")
+		}
+
+		// Verify it's a veth interface
+		if link.Type() != VethInterfaceType {
+			return errors.New("eth0 is not a veth interface")
+		}
+
+		configured = true
+		return nil
+	})
+
+	if err != nil || !configured {
+		return false
+	}
+
+	return true
 }
