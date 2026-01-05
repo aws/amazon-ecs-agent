@@ -78,6 +78,7 @@ func TestMarshalTaskVolumeFSxWindowsFileServer(t *testing.T) {
 		"ExecutionStoppedAt": "0001-01-01T00:00:00Z",
 		"SentStatus": "NONE",
 		"executionCredentialsID": "",
+		"credentialsID": "",
 		"ENI": null,
 		"AppMesh": null,
 		"PlatformFields": %s
@@ -117,6 +118,7 @@ func TestUnmarshalTaskVolumeFSxWindowsFileServer(t *testing.T) {
 		"ExecutionStoppedAt": "0001-01-01T00:00:00Z",
 		"SentStatus": "NONE",
 		"executionCredentialsID": "",
+		"credentialsID": "",
 		"ENI": null,
 		"AppMesh": null,
 		"PlatformFields": {}

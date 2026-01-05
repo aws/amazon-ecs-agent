@@ -48,6 +48,18 @@ func (m *MockManager) EXPECT() *MockManagerMockRecorder {
 	return m.recorder
 }
 
+// AddKnownCredentialsID mocks base method.
+func (m *MockManager) AddKnownCredentialsID(arg0 string) {
+	m.ctrl.T.Helper()
+	m.ctrl.Call(m, "AddKnownCredentialsID", arg0)
+}
+
+// AddKnownCredentialsID indicates an expected call of AddKnownCredentialsID.
+func (mr *MockManagerMockRecorder) AddKnownCredentialsID(arg0 interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "AddKnownCredentialsID", reflect.TypeOf((*MockManager)(nil).AddKnownCredentialsID), arg0)
+}
+
 // GetTaskCredentials mocks base method.
 func (m *MockManager) GetTaskCredentials(arg0 string) (credentials.TaskIAMRoleCredentials, bool) {
 	m.ctrl.T.Helper()
@@ -61,6 +73,20 @@ func (m *MockManager) GetTaskCredentials(arg0 string) (credentials.TaskIAMRoleCr
 func (mr *MockManagerMockRecorder) GetTaskCredentials(arg0 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetTaskCredentials", reflect.TypeOf((*MockManager)(nil).GetTaskCredentials), arg0)
+}
+
+// IsCredentialsPending mocks base method.
+func (m *MockManager) IsCredentialsPending(arg0 string) bool {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "IsCredentialsPending", arg0)
+	ret0, _ := ret[0].(bool)
+	return ret0
+}
+
+// IsCredentialsPending indicates an expected call of IsCredentialsPending.
+func (mr *MockManagerMockRecorder) IsCredentialsPending(arg0 interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "IsCredentialsPending", reflect.TypeOf((*MockManager)(nil).IsCredentialsPending), arg0)
 }
 
 // RemoveCredentials mocks base method.

@@ -27,8 +27,10 @@ import (
 	"github.com/aws/amazon-ecs-agent/ecs-agent/api/attachment"
 	apicontainerstatus "github.com/aws/amazon-ecs-agent/ecs-agent/api/container/status"
 	apitaskstatus "github.com/aws/amazon-ecs-agent/ecs-agent/api/task/status"
+	mock_credentials "github.com/aws/amazon-ecs-agent/ecs-agent/credentials/mocks"
 	ni "github.com/aws/amazon-ecs-agent/ecs-agent/netlib/model/networkinterface"
 
+	"github.com/golang/mock/gomock"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -375,4 +377,45 @@ func TestRemoveENIAttachmentData(t *testing.T) {
 	res, err = dataClient.GetENIAttachments()
 	require.NoError(t, err)
 	assert.Len(t, res, 0)
+}
+
+func TestLoadTasksRegistersCredentialsID(t *testing.T) {
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+
+	dataClient := newTestDataClient(t)
+	mockCredentialsManager := mock_credentials.NewMockManager(ctrl)
+
+	// Create a task with credentials ID
+	testCredentialsID := "test-credentials-id"
+	testExecutionCredentialsID := "test-execution-credentials-id"
+	taskWithCredentials := &apitask.Task{
+		Arn:        testTaskARN,
+		Containers: []*apicontainer.Container{testContainer},
+	}
+	// Set the credentials ID after task creation
+	taskWithCredentials.SetCredentialsID(testCredentialsID)
+	taskWithCredentials.SetExecutionRoleCredentialsID(testExecutionCredentialsID)
+
+	// Save task to data client
+	require.NoError(t, dataClient.SaveTask(taskWithCredentials))
+
+	engine := &DockerTaskEngine{
+		state:              dockerstate.NewTaskEngineState(),
+		dataClient:         dataClient,
+		credentialsManager: mockCredentialsManager,
+	}
+
+	// Expect both credentials IDs to be added to known credentials during loadTasks
+	mockCredentialsManager.EXPECT().AddKnownCredentialsID(testCredentialsID)
+	mockCredentialsManager.EXPECT().AddKnownCredentialsID(testExecutionCredentialsID)
+
+	// Call loadTasks and verify credentials IDs are registered
+	require.NoError(t, engine.loadTasks())
+
+	// Verify task was loaded into state
+	task, ok := engine.state.TaskByArn(testTaskARN)
+	assert.True(t, ok)
+	assert.Equal(t, testCredentialsID, task.GetCredentialsID())
+	assert.Equal(t, testExecutionCredentialsID, task.GetExecutionCredentialsID())
 }

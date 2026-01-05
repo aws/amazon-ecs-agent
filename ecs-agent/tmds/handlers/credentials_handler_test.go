@@ -155,6 +155,8 @@ func credentialsNotFoundCase(
 				gomock.Any(),
 				http.StatusBadRequest,
 				audit.GetCredentialsInvalidRoleTypeEventType)
+			credManager.EXPECT().IsCredentialsPending("credsid").
+				Return(false)
 			credManager.EXPECT().GetTaskCredentials("credsid").
 				Return(credentials.TaskIAMRoleCredentials{}, false)
 
@@ -191,9 +193,9 @@ func credentialsUninitializedCase(
 				gomock.Any(),
 				http.StatusServiceUnavailable,
 				audit.GetCredentialsInvalidRoleTypeEventType)
-			credManager.EXPECT().GetTaskCredentials("credsid").
-				Return(credentials.TaskIAMRoleCredentials{}, true)
-
+			credManager.EXPECT().IsCredentialsPending("credsid").
+				Return(true)
+			// GetTaskCredentials should not be called since IsCredentialsPending returns true
 			return makeHandler(credManager, auditLogger)
 		},
 		ExpectedStatusCode: http.StatusServiceUnavailable,
@@ -325,6 +327,7 @@ func testCredentialsHandlerSuccess(t *testing.T, makePath MakePath, makeHandler 
 		gomock.Any(),
 		http.StatusOK,
 		audit.GetCredentialsEventType)
+	credManager.EXPECT().IsCredentialsPending(credsId).Return(false)
 	credManager.EXPECT().GetTaskCredentials(credsId).Return(
 		credentials.TaskIAMRoleCredentials{ARN: taskArn, IAMRoleCredentials: creds}, true)
 

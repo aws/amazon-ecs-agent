@@ -121,6 +121,7 @@ func TestMarshalTaskVolumesEFS(t *testing.T) {
 		"ExecutionStoppedAt": "0001-01-01T00:00:00Z",
 		"SentStatus": "NONE",
 		"executionCredentialsID": "",
+		"credentialsID": "",
 		"ENI": null,
 		"AppMesh": null,
 		"PlatformFields": %s
@@ -168,6 +169,7 @@ func TestUnmarshalTaskVolumesEFS(t *testing.T) {
 		"ExecutionStoppedAt": "0001-01-01T00:00:00Z",
 		"SentStatus": "NONE",
 		"executionCredentialsID": "",
+		"credentialsID": "",
 		"ENI": null,
 		"AppMesh": null,
 		"PlatformFields": {}
@@ -241,6 +243,7 @@ func TestMarshalEBSVolumes(t *testing.T) {
 		"ExecutionStoppedAt": "0001-01-01T00:00:00Z",
 		"SentStatus": "NONE",
 		"executionCredentialsID": "",
+		"credentialsID": "",
 		"ENI": null,
 		"AppMesh": null,
 		"PlatformFields": %s
@@ -286,6 +289,7 @@ func TestUnmarshalEBSVolumes(t *testing.T) {
 		"ExecutionStoppedAt": "0001-01-01T00:00:00Z",
 		"SentStatus": "NONE",
 		"executionCredentialsID": "",
+		"credentialsID": "",
 		"ENI": null,
 		"AppMesh": null,
 		"PlatformFields": {}

@@ -1004,7 +1004,7 @@ func TestGetCredentialsEndpointWhenCredentialsAreSet(t *testing.T) {
 				Name:        "c2",
 				Environment: make(map[string]string),
 			}},
-		credentialsID: credentialsIDInTask,
+		CredentialsID: credentialsIDInTask,
 	}
 
 	taskCredentials := credentials.TaskIAMRoleCredentials{

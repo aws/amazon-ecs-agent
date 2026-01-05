@@ -172,3 +172,54 @@ func TestRemoveExistingCredentials(t *testing.T) {
 		t.Error("Expected GetTaskCredentials to return false for removed credentials")
 	}
 }
+
+// TestAddKnownCredentialsID tests that AddKnownCredentialsID properly tracks credentials IDs
+func TestAddKnownCredentialsID(t *testing.T) {
+	manager := NewManager()
+	credentialsID := "test-creds-id"
+
+	// Initially, credentials should not be pending
+	assert.False(t, manager.IsCredentialsPending(credentialsID))
+
+	// Add known credentials ID
+	manager.AddKnownCredentialsID(credentialsID)
+
+	// Now it should be pending (known but no actual credentials)
+	assert.True(t, manager.IsCredentialsPending(credentialsID))
+
+	// Verify no actual credentials exist
+	_, ok := manager.GetTaskCredentials(credentialsID)
+	assert.False(t, ok)
+}
+
+// TestIsCredentialsPending tests the IsCredentialsPending method behavior
+func TestIsCredentialsPending(t *testing.T) {
+	manager := NewManager()
+	credentialsID := "test-creds-id"
+
+	// Case 1: Unknown credentials ID - should return false
+	assert.False(t, manager.IsCredentialsPending(credentialsID))
+
+	// Case 2: Known but no actual credentials - should return true
+	manager.AddKnownCredentialsID(credentialsID)
+	assert.True(t, manager.IsCredentialsPending(credentialsID))
+
+	// Case 3: Known and has actual credentials - should return false
+	credentials := TaskIAMRoleCredentials{
+		ARN: "arn:aws:ecs:us-east-1:123456789012:task/test-task",
+		IAMRoleCredentials: IAMRoleCredentials{
+			AccessKeyID:     "akid1",
+			SecretAccessKey: "skid1",
+			SessionToken:    "stkn",
+			Expiration:      "ts",
+			CredentialsID:   credentialsID,
+		},
+	}
+	err := manager.SetTaskCredentials(&credentials)
+	assert.NoError(t, err)
+	assert.False(t, manager.IsCredentialsPending(credentialsID))
+
+	// Case 4: After removal - should return false
+	manager.RemoveCredentials(credentialsID)
+	assert.False(t, manager.IsCredentialsPending(credentialsID))
+}
