@@ -56,6 +56,18 @@ func (engine *DockerTaskEngine) loadTasks() error {
 	for _, task := range tasks {
 		engine.state.AddTask(task)
 
+		// Register the task role's ID in credentials manager as soon as possible.
+		// This ensures TMDS can distinguish between invalid credentials requests (400) and
+		// known credentials that aren't available yet (503) after agent restart.
+		if credentialsID := task.GetCredentialsID(); credentialsID != "" {
+			engine.credentialsManager.AddKnownCredentialsID(credentialsID)
+		}
+
+		// Also register execution role credentials ID for the same reason as above
+		if executionCredentialsID := task.GetExecutionCredentialsID(); executionCredentialsID != "" {
+			engine.credentialsManager.AddKnownCredentialsID(executionCredentialsID)
+		}
+
 		// TODO: Will need to clean up all of the STOPPED managed daemon tasks
 		md, ok := task.IsManagedDaemonTask()
 		if ok {

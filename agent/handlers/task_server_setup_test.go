@@ -1106,7 +1106,17 @@ func getResponseForCredentialsRequest(t *testing.T, expectedStatus int,
 	recorder := httptest.NewRecorder()
 
 	creds, ok := getCredentials()
-	credentialsManager.EXPECT().GetTaskCredentials(gomock.Any()).Return(creds, ok)
+
+	// For credentials uninitialized tests, IsCredentialsPending should return true
+	if expectedStatus == http.StatusServiceUnavailable && ok {
+		credentialsManager.EXPECT().IsCredentialsPending(gomock.Any()).Return(true)
+		// GetTaskCredentials should not be called since IsCredentialsPending returns true
+	} else {
+		// For all other cases, IsCredentialsPending should return false
+		credentialsManager.EXPECT().IsCredentialsPending(gomock.Any()).Return(false)
+		credentialsManager.EXPECT().GetTaskCredentials(gomock.Any()).Return(creds, ok)
+	}
+
 	auditLog.EXPECT().Log(gomock.Any(), gomock.Any(), gomock.Any())
 
 	params := make(url.Values)

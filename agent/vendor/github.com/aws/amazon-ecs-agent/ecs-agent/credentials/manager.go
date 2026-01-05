@@ -86,7 +86,10 @@ func (roleCredentials *IAMRoleCredentials) GenerateCredentialsEndpointRelativeUR
 // the credentials endpoint
 type credentialsManager struct {
 	// idToTaskCredentials maps credentials id to its corresponding TaskIAMRoleCredentials object
+	// this map contains credentials id for which agent received the actual credentials from ACS already
 	idToTaskCredentials map[string]TaskIAMRoleCredentials
+	// knownCredentialsIDs tracks all credentials IDs we know about
+	knownCredentialsIDs map[string]bool
 	taskCredentialsLock sync.RWMutex
 }
 
@@ -108,6 +111,7 @@ func IAMRoleCredentialsFromACS(roleCredentials *ecsacs.IAMRoleCredentials, roleT
 func NewManager() Manager {
 	return &credentialsManager{
 		idToTaskCredentials: make(map[string]TaskIAMRoleCredentials),
+		knownCredentialsIDs: make(map[string]bool),
 	}
 }
 
@@ -131,6 +135,8 @@ func (manager *credentialsManager) SetTaskCredentials(taskCredentials *TaskIAMRo
 		ARN:                taskCredentials.ARN,
 		IAMRoleCredentials: taskCredentials.GetIAMRoleCredentials(),
 	}
+
+	manager.knownCredentialsIDs[credentials.CredentialsID] = true
 
 	return nil
 }
@@ -157,4 +163,26 @@ func (manager *credentialsManager) RemoveCredentials(id string) {
 	defer manager.taskCredentialsLock.Unlock()
 
 	delete(manager.idToTaskCredentials, id)
+	delete(manager.knownCredentialsIDs, id)
+}
+
+// IsCredentialsPending returns true if credentials ID is known but has not yet arrived from ACS.
+func (manager *credentialsManager) IsCredentialsPending(id string) bool {
+	manager.taskCredentialsLock.RLock()
+	defer manager.taskCredentialsLock.RUnlock()
+
+	_, isKnown := manager.knownCredentialsIDs[id]
+	_, hasCredentials := manager.idToTaskCredentials[id]
+
+	return isKnown && !hasCredentials
+}
+
+// AddKnownCredentialsID adds a credentials ID to the known set.
+// This is useful when agent needs to track known credentials IDs
+// for which the credentials themselves have not arrived from ACS.
+func (manager *credentialsManager) AddKnownCredentialsID(id string) {
+	manager.taskCredentialsLock.Lock()
+	defer manager.taskCredentialsLock.Unlock()
+
+	manager.knownCredentialsIDs[id] = true
 }

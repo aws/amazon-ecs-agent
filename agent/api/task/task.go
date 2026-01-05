@@ -245,10 +245,10 @@ type Task struct {
 	// perform some action at the task level, such as pulling image from ECR
 	ExecutionCredentialsID string `json:"executionCredentialsID"`
 
-	// credentialsID is used to set the CredentialsId field for the
+	// CredentialsID is used to set the CredentialsId field for the
 	// IAMRoleCredentials object associated with the task. This id can be
 	// used to look up the credentials for task in the credentials manager
-	credentialsID                string
+	CredentialsID                string `json:"credentialsID"`
 	credentialsRelativeURIUnsafe string
 
 	// ENIs is the list of Elastic Network Interfaces assigned to this task. The
@@ -2805,7 +2805,7 @@ func (task *Task) SetCredentialsID(id string) {
 	task.lock.Lock()
 	defer task.lock.Unlock()
 
-	task.credentialsID = id
+	task.CredentialsID = id
 }
 
 // GetCredentialsID gets the credentials ID for the task
@@ -2813,7 +2813,7 @@ func (task *Task) GetCredentialsID() string {
 	task.lock.RLock()
 	defer task.lock.RUnlock()
 
-	return task.credentialsID
+	return task.CredentialsID
 }
 
 // SetCredentialsRelativeURI sets the credentials relative uri for the task

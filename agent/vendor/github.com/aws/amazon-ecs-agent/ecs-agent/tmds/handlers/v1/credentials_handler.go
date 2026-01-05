@@ -23,7 +23,6 @@ import (
 	auditinterface "github.com/aws/amazon-ecs-agent/ecs-agent/logger/audit"
 	"github.com/aws/amazon-ecs-agent/ecs-agent/logger/audit/request"
 	handlersutils "github.com/aws/amazon-ecs-agent/ecs-agent/tmds/handlers/utils"
-	"github.com/aws/amazon-ecs-agent/ecs-agent/utils"
 	"github.com/cihub/seelog"
 )
 
@@ -113,6 +112,18 @@ func processCredentialsRequest(
 		return nil, "", "", msg, errors.New(errText)
 	}
 
+	// Check if this is a known credentials ID that we're waiting for
+	if credentialsManager.IsCredentialsPending(credentialsID) {
+		errText := errPrefix + "Credentials uninitialized for ID"
+		seelog.Errorf("Error processing credential request: %s", errText)
+		msg := &handlersutils.ErrorMessage{
+			Code:          ErrCredentialsUninitialized,
+			Message:       errText,
+			HTTPErrorCode: http.StatusServiceUnavailable,
+		}
+		return nil, "", "", msg, errors.New(errText)
+	}
+
 	credentials, ok := credentialsManager.GetTaskCredentials(credentialsID)
 	if !ok {
 		errText := errPrefix + "Credentials not found"
@@ -127,19 +138,6 @@ func processCredentialsRequest(
 
 	seelog.Infof("Processing credential request, credentialType=%s taskARN=%s",
 		credentials.IAMRoleCredentials.RoleType, credentials.ARN)
-
-	if utils.ZeroOrNil(credentials.ARN) && utils.ZeroOrNil(credentials.IAMRoleCredentials) {
-		// This can happen when the agent is restarted and is reconciling its state.
-		errText := errPrefix + "Credentials uninitialized for ID"
-		seelog.Errorf("Error processing credential request credentialType=%s taskARN=%s: %s",
-			credentials.IAMRoleCredentials.RoleType, credentials.ARN, errText)
-		msg := &handlersutils.ErrorMessage{
-			Code:          ErrCredentialsUninitialized,
-			Message:       errText,
-			HTTPErrorCode: http.StatusServiceUnavailable,
-		}
-		return nil, "", "", msg, errors.New(errText)
-	}
 
 	credentialsJSON, err := json.Marshal(credentials.IAMRoleCredentials)
 	if err != nil {
