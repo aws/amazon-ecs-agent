@@ -14,6 +14,7 @@ The best source of information on running this software is the
 
 ### On the Amazon Linux AMI
 
+
 On the [Amazon Linux AMI](https://aws.amazon.com/amazon-linux-ami/), we provide an installable RPM which can be used via
 `sudo yum install ecs-init && sudo start ecs`. This is the recommended way to run it in this environment.
 
