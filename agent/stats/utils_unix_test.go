@@ -62,6 +62,68 @@ func TestDockerStatsToContainerStatsEmptyCpuUsageGeneratesError(t *testing.T) {
 	numCores = prevNumCores
 }
 
+func TestGetStorageStats(t *testing.T) {
+	testCases := []struct {
+		name               string
+		blkioStats         []types.BlkioStatEntry
+		expectedReadBytes  uint64
+		expectedWriteBytes uint64
+	}{
+		{
+			name: "lowercase op values",
+			blkioStats: []types.BlkioStatEntry{
+				{Op: "read", Value: 100},
+				{Op: "write", Value: 200},
+			},
+			expectedReadBytes:  100,
+			expectedWriteBytes: 200,
+		},
+		{
+			name: "capitalized op values",
+			blkioStats: []types.BlkioStatEntry{
+				{Op: "Read", Value: 300},
+				{Op: "Write", Value: 400},
+			},
+			expectedReadBytes:  300,
+			expectedWriteBytes: 400,
+		},
+		{
+			name: "all caps op values",
+			blkioStats: []types.BlkioStatEntry{
+				{Op: "READ", Value: 500},
+				{Op: "WRITE", Value: 600},
+			},
+			expectedReadBytes:  500,
+			expectedWriteBytes: 600,
+		},
+		{
+			name: "unrecognized op values are ignored",
+			blkioStats: []types.BlkioStatEntry{
+				{Op: "invalid", Value: 700},
+				{Op: "garbage", Value: 800},
+			},
+			expectedReadBytes:  0,
+			expectedWriteBytes: 0,
+		},
+		{
+			name:               "nil blkio stats",
+			blkioStats:         nil,
+			expectedReadBytes:  0,
+			expectedWriteBytes: 0,
+		},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			dockerStats := &types.StatsJSON{}
+			dockerStats.BlkioStats.IoServiceBytesRecursive = tc.blkioStats
+			readBytes, writeBytes := getStorageStats(dockerStats)
+			assert.Equal(t, tc.expectedReadBytes, readBytes)
+			assert.Equal(t, tc.expectedWriteBytes, writeBytes)
+		})
+	}
+}
+
 func TestValidateDockerStatsZeroValueReadTime(t *testing.T) {
 	testCases := []struct {
 		name                          string

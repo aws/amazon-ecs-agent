@@ -18,6 +18,7 @@ package stats
 
 import (
 	"context"
+	"runtime"
 	"testing"
 	"time"
 
@@ -701,15 +702,29 @@ func TestStorageStats(t *testing.T) {
 		Timeout: &timeout,
 	}
 
-	// Create a container to get the container id.
-	container, err := createGremlin(client, "default")
-	require.NoError(t, err, "creating container failed")
+	var container *dockercontainer.CreateResponse
+	if runtime.GOOS == "windows" {
+		// Create a container to get the container id.
+		gremlinContainer, err := createGremlin(client, "default")
+		require.NoError(t, err, "creating container failed")
+		container = gremlinContainer
+	} else {
+		// Create a container that does explicit read and write I/O, runs long enough for stats to be collected.
+		// Uses busybox-based image (testContainerHealthImageName) since gremlin is scratch-based without shell.
+		rwIOContainer, err := client.ContainerCreate(ctx, &dockercontainer.Config{
+			Image: testContainerHealthImageName,
+			Cmd:   []string{"sh", "-c", "dd if=/dev/zero of=/tmp/test bs=4k count=100 oflag=direct && dd if=/tmp/test of=/dev/null bs=4k iflag=direct && sleep 30"},
+		}, nil, nil, nil, "")
+		require.NoError(t, err, "creating container failed")
+		container = &rwIOContainer
+	}
+
 	defer client.ContainerRemove(ctx, container.ID, types.ContainerRemoveOptions{Force: true})
 
 	engine.cluster = defaultCluster
 	engine.containerInstanceArn = defaultContainerInstance
 
-	err = client.ContainerStart(ctx, container.ID, types.ContainerStartOptions{})
+	err := client.ContainerStart(ctx, container.ID, types.ContainerStartOptions{})
 	require.NoError(t, err, "starting container failed")
 	defer client.ContainerStop(ctx, container.ID, containerOptions)
 
@@ -724,7 +739,7 @@ func TestStorageStats(t *testing.T) {
 	dockerTaskEngine.State().AddContainer(
 		&apicontainer.DockerContainer{
 			DockerID:   container.ID,
-			DockerName: "gremlin",
+			DockerName: "storage",
 			Container:  testTask.Containers[0],
 		},
 		testTask)
@@ -749,6 +764,14 @@ func TestStorageStats(t *testing.T) {
 	taskMetric := taskMetrics[0]
 	for _, containerMetric := range taskMetric.ContainerMetrics {
 		assert.NotNil(t, containerMetric.StorageStatsSet, "storage stats should be non-empty")
+		// For Windows, ECS Agent does not do any further parsing on block I/O stat Op and takes
+		// storage read and write bytes at face value from a Windows-specific struct `StorageStats`.
+		if runtime.GOOS != "windows" {
+			assert.Greater(t, *containerMetric.StorageStatsSet.ReadSizeBytes.Sum,
+				int64(0), "expected non-zero storage read stats")
+			assert.Greater(t, *containerMetric.StorageStatsSet.WriteSizeBytes.Sum,
+				int64(0), "expected non-zero storage write stats")
+		}
 	}
 
 	err = client.ContainerStop(ctx, container.ID, containerOptions)

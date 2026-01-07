@@ -18,6 +18,7 @@ package stats
 
 import (
 	"fmt"
+	"strings"
 
 	"github.com/aws/amazon-ecs-agent/agent/config"
 	"github.com/cihub/seelog"
@@ -84,10 +85,10 @@ func getStorageStats(dockerStats *types.StatsJSON) (uint64, uint64) {
 	storageReadBytes := uint64(0)
 	storageWriteBytes := uint64(0)
 	for _, blockStat := range dockerStats.BlkioStats.IoServiceBytesRecursive {
-		switch op := blockStat.Op; op {
-		case "Read":
+		switch strings.ToLower(blockStat.Op) {
+		case "read":
 			storageReadBytes += blockStat.Value
-		case "Write":
+		case "write":
 			storageWriteBytes += blockStat.Value
 		default:
 			//ignoring "Async", "Total", "Sum", etc
