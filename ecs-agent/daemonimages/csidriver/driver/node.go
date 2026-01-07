@@ -23,6 +23,7 @@ import (
 	"context"
 	"fmt"
 	"os"
+	"runtime"
 	"strconv"
 	"strings"
 
@@ -259,13 +260,16 @@ func (d *nodeService) NodeStageVolume(ctx context.Context, req *csi.NodeStageVol
 		sourceVolumeHostPath = strings.TrimPrefix(target, EBSPathPrefix)
 	}
 
-	// Gid is generated based on SourceVolumeHostPath
-	gid := util.GenerateGIDFromPath(sourceVolumeHostPath)
-	// Set permissions on the mount point to allow non-root users to access it
-	if err := setMountPointPermissions(target, gid); err != nil {
-		return nil, status.Errorf(codes.Internal, "Failed to set permissions on mount point %s: %v", target, err)
+	// chown/chmod don't work on Windows
+	if runtime.GOOS != "windows" {
+		// Gid is generated based on SourceVolumeHostPath
+		gid := util.GenerateGIDFromPath(sourceVolumeHostPath)
+		// Set permissions on the mount point to allow non-root users to access it
+		if err := setMountPointPermissions(target, gid); err != nil {
+			return nil, status.Errorf(codes.Internal, "Failed to set permissions on mount point %s: %v", target, err)
+		}
+		klog.V(4).InfoS("Successfully set permissions on mount point", "target", target, "volumeID", volumeID, "gid", gid)
 	}
-	klog.V(4).InfoS("Successfully set permissions on mount point", "target", target, "volumeID", volumeID, "gid", gid)
 
 	return &csi.NodeStageVolumeResponse{}, nil
 }
