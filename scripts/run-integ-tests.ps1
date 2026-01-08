@@ -13,7 +13,7 @@
 
 Param (
   [string]
-  [ValidateSet("windows2016","windows2019","windows20H2", "windows2022")]
+  [ValidateSet("windows2016","windows2019","windows20H2", "windows2022", "windows2025")]
   $Platform="windows2016"
 )
 
