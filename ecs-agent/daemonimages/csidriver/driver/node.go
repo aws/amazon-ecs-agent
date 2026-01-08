@@ -23,7 +23,6 @@ import (
 	"context"
 	"fmt"
 	"os"
-	"runtime"
 	"strconv"
 	"strings"
 
@@ -260,33 +259,15 @@ func (d *nodeService) NodeStageVolume(ctx context.Context, req *csi.NodeStageVol
 		sourceVolumeHostPath = strings.TrimPrefix(target, EBSPathPrefix)
 	}
 
-	// chown/chmod don't work on Windows
-	if runtime.GOOS != "windows" {
-		// Gid is generated based on SourceVolumeHostPath
-		gid := util.GenerateGIDFromPath(sourceVolumeHostPath)
-		// Set permissions on the mount point to allow non-root users to access it
-		if err := setMountPointPermissions(target, gid); err != nil {
-			return nil, status.Errorf(codes.Internal, "Failed to set permissions on mount point %s: %v", target, err)
-		}
-		klog.V(4).InfoS("Successfully set permissions on mount point", "target", target, "volumeID", volumeID, "gid", gid)
+	// Gid is generated based on SourceVolumeHostPath
+	gid := util.GenerateGIDFromPath(sourceVolumeHostPath)
+
+	// Set permissions on the mount point to allow non-root users to access it
+	if err := setMountPointPermissions(target, gid, volumeID); err != nil {
+		return nil, status.Errorf(codes.Internal, "Failed to set permissions on mount point %s: %v", target, err)
 	}
 
 	return &csi.NodeStageVolumeResponse{}, nil
-}
-
-// setMountPointPermissions sets the permissions on the mount point to allow non-root users to access it
-func setMountPointPermissions(mountPath string, gid int) error {
-	// Change group ownership to the provided GID
-	if err := chownFunc(mountPath, -1, gid); err != nil {
-		return fmt.Errorf("failed to change group ownership of %s to GID %d: %v", mountPath, gid, err)
-	}
-
-	// Set permissions to 0775 with setgid bit
-	if err := chmodFunc(mountPath, 0775|os.ModeSetgid); err != nil {
-		return fmt.Errorf("failed to set permissions on %s: %v", mountPath, err)
-	}
-
-	return nil
 }
 
 func newNodeService() nodeService {

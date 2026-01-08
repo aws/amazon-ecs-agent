@@ -28,6 +28,7 @@ import (
 	"strings"
 
 	"github.com/aws/amazon-ecs-agent/ecs-agent/daemonimages/csidriver/mounter"
+	"k8s.io/klog/v2"
 )
 
 // getBlockSizeBytes gets the size of the disk in bytes
@@ -74,4 +75,10 @@ func (d *nodeService) findDevicePath(devicePath, volumeID, _ string) (string, er
 	}
 
 	return foundDiskNumber, nil
+}
+
+// setMountPointPermissions is a no-op on Windows because chown/chmod don't work on Windows
+func setMountPointPermissions(_ string, _ int, _ string) error {
+	klog.V(4).InfoS("Skipping setting mount point permissions on Windows")
+	return nil
 }
