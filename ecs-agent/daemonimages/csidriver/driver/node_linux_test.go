@@ -991,7 +991,7 @@ func TestSetMountPointPermissions(t *testing.T) {
 			}
 
 			// Call the function
-			err := setMountPointPermissions(tc.mountPath, tc.gid)
+			err := setMountPointPermissions(tc.mountPath, tc.gid, "volumeID")
 
 			// Verify results
 			if tc.expectedError {

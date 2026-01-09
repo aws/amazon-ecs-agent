@@ -182,3 +182,19 @@ func (d *nodeService) getBlockSizeBytes(devicePath string, _ string) (int64, err
 	}
 	return gotSizeBytes, nil
 }
+
+// setMountPointPermissions sets the permissions on the mount point to allow non-root users to access it
+func setMountPointPermissions(mountPath string, gid int, volumeID string) error {
+	// Change group ownership to the provided GID
+	if err := chownFunc(mountPath, -1, gid); err != nil {
+		return fmt.Errorf("failed to change group ownership of %s to GID %d: %v", mountPath, gid, err)
+	}
+
+	// Set permissions to 0775 with setgid bit
+	if err := chmodFunc(mountPath, 0775|os.ModeSetgid); err != nil {
+		return fmt.Errorf("failed to set permissions on %s: %v", mountPath, err)
+	}
+
+	klog.V(4).InfoS("Successfully set permissions on mount point", "target", mountPath, "volumeID", volumeID, "gid", gid)
+	return nil
+}
