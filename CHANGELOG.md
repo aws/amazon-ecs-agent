@@ -1,5 +1,12 @@
 # Changelog
 
+# 1.101.2
+* Enhancement - Update SSM Agent version to 3.3.3572.0 [#4837](https://github.com/aws/amazon-ecs-agent/pull/4837)
+* Bugfix - Wait for execution role credentials to create task resource upon agent restart [#4827](https://github.com/aws/amazon-ecs-agent/pull/4827)
+* Bugfix - Fix tmds response for unavailable credentials upon agent restart [4833](https://github.com/aws/amazon-ecs-agent/pull/4833)
+* Bugfix - Make block I/O stat Op parsing case insensitive [#4836](https://github.com/aws/amazon-ecs-agent/pull/4836)
+* Bugfix - Fixes EBS volumes failing to mount on Windows due to chown/chmod [#4838](https://github.com/aws/amazon-ecs-agent/pull/4838)
+
 # 1.101.1
 * Enhancement - Bump github.com/containerd/containerd from 1.7.27 to 1.7.29 in /ecs-init [#4809](https://github.com/aws/amazon-ecs-agent/pull/4809)
 * Enhancement - Update go version to 1.24.11 [#4823](https://github.com/aws/amazon-ecs-agent/pull/4823)
