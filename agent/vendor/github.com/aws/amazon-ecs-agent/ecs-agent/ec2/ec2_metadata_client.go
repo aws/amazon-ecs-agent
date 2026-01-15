@@ -20,6 +20,7 @@ import (
 	"fmt"
 	"io"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/aws/aws-sdk-go-v2/config"
@@ -29,22 +30,32 @@ import (
 )
 
 const (
-	SecurityCredentialsResource               = "iam/security-credentials/"
+	// There are three categories of instance metadata.
+	// 1. Instance metadata properties. Accessed through GetMetadata(path).
+	// 2. Dynamic data. Accessed through GetDynamicData(path).
+	// 3. User data. Access through GetUserData().
+	// https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/ec2-instance-metadata.html
+
+	// Paths for the instance metadata properties.
+	SecurityCredentialsResource      = "iam/security-credentials/"
+	MacResource                      = "mac"
+	AllMacResource                   = "network/interfaces/macs"
+	VPCIDResourceFormat              = "network/interfaces/macs/%s/vpc-id"
+	SubnetIDResourceFormat           = "network/interfaces/macs/%s/subnet-id"
+	SpotInstanceActionResource       = "spot/instance-action"
+	InstanceIDResource               = "instance-id"
+	RegionResource                   = "placement/region"
+	AvailabilityZoneID               = "placement/availability-zone-id"
+	PrivateIPv4Resource              = "local-ipv4"
+	PublicIPv4Resource               = "public-ipv4"
+	IPv6Resource                     = "ipv6"
+	OutpostARN                       = "outpost-arn"
+	PrimaryIPV4VPCCIDRResourceFormat = "network/interfaces/macs/%s/vpc-ipv4-cidr-block"
+	TargetLifecycleState             = "autoscaling/target-lifecycle-state"
+
+	// Paths for dynamic data categories.
 	InstanceIdentityDocumentResource          = "instance-identity/document"
 	InstanceIdentityDocumentSignatureResource = "instance-identity/signature"
-	MacResource                               = "mac"
-	AllMacResource                            = "network/interfaces/macs"
-	VPCIDResourceFormat                       = "network/interfaces/macs/%s/vpc-id"
-	SubnetIDResourceFormat                    = "network/interfaces/macs/%s/subnet-id"
-	SpotInstanceActionResource                = "spot/instance-action"
-	InstanceIDResource                        = "instance-id"
-	AvailabilityZoneID                        = "placement/availability-zone-id"
-	PrivateIPv4Resource                       = "local-ipv4"
-	PublicIPv4Resource                        = "public-ipv4"
-	IPv6Resource                              = "ipv6"
-	OutpostARN                                = "outpost-arn"
-	PrimaryIPV4VPCCIDRResourceFormat          = "network/interfaces/macs/%s/vpc-ipv4-cidr-block"
-	TargetLifecycleState                      = "autoscaling/target-lifecycle-state"
 )
 
 const (
@@ -92,8 +103,21 @@ type EC2MetadataClient interface {
 	TargetLifecycleState() (string, error)
 }
 
+// ec2MetadataClientImpl implements EC2MetadataClient and cache data for following IMDS requests.
+// PrimaryENIMAC()
+// VPCID(mac)
+// SubnetID(mac)
+// InstanceID()
+// GetUserData()
+// Region()
+// AvailabilityZoneID()
+// InstanceIdentityDocument()
 type ec2MetadataClientImpl struct {
-	client HttpClient
+	client                     HttpClient
+	cache                      map[string]string
+	cacheMu                    sync.RWMutex
+	instanceIdentityDocCache   *imds.InstanceIdentityDocument
+	instanceIdentityDocCacheMu sync.RWMutex
 }
 
 // NewEC2MetadataClient creates an ec2metadata client to retrieve metadata.
@@ -116,9 +140,13 @@ func NewEC2MetadataClient(client HttpClient) (EC2MetadataClient, error) {
 
 		return &ec2MetadataClientImpl{
 			client: imds.NewFromConfig(cfg),
+			cache:  make(map[string]string),
 		}, nil
 	} else {
-		return &ec2MetadataClientImpl{client: client}, nil
+		return &ec2MetadataClientImpl{
+			client: client,
+			cache:  make(map[string]string),
+		}, nil
 	}
 }
 
@@ -168,10 +196,22 @@ func (c *ec2MetadataClientImpl) GetDynamicData(path string) (string, error) {
 // InstanceIdentityDocument returns instance identity documents
 // http://docs.aws.amazon.com/AWSEC2/latest/UserGuide/instance-identity-documents.html
 func (c *ec2MetadataClientImpl) InstanceIdentityDocument() (imds.InstanceIdentityDocument, error) {
+	c.instanceIdentityDocCacheMu.RLock()
+	if c.instanceIdentityDocCache != nil {
+		doc := *c.instanceIdentityDocCache
+		c.instanceIdentityDocCacheMu.RUnlock()
+		return doc, nil
+	}
+	c.instanceIdentityDocCacheMu.RUnlock()
+
 	output, err := c.client.GetInstanceIdentityDocument(context.TODO(), &imds.GetInstanceIdentityDocumentInput{})
 	if err != nil {
 		return imds.InstanceIdentityDocument{}, err
 	}
+
+	c.instanceIdentityDocCacheMu.Lock()
+	c.instanceIdentityDocCache = &output.InstanceIdentityDocument
+	c.instanceIdentityDocCacheMu.Unlock()
 
 	return output.InstanceIdentityDocument, nil
 }
@@ -196,7 +236,9 @@ func (c *ec2MetadataClientImpl) GetMetadata(path string) (string, error) {
 // PrimaryENIMAC returns the MAC address for the primary
 // network interface of the instance
 func (c *ec2MetadataClientImpl) PrimaryENIMAC() (string, error) {
-	return c.GetMetadata(MacResource)
+	return c.getCachedMetadata(MacResource, func() (string, error) {
+		return c.GetMetadata(MacResource)
+	})
 }
 
 // AllENIMacs returns the mac addresses for all the network interfaces attached to the instance
@@ -207,48 +249,57 @@ func (c *ec2MetadataClientImpl) AllENIMacs() (string, error) {
 // VPCID returns the VPC id for the network interface, given
 // its mac address
 func (c *ec2MetadataClientImpl) VPCID(mac string) (string, error) {
-	return c.GetMetadata(fmt.Sprintf(VPCIDResourceFormat, mac))
+	path := fmt.Sprintf(VPCIDResourceFormat, mac)
+	return c.getCachedMetadata(path, func() (string, error) {
+		return c.GetMetadata(path)
+	})
 }
 
 // SubnetID returns the subnet id for the network interface,
 // given its mac address
 func (c *ec2MetadataClientImpl) SubnetID(mac string) (string, error) {
-	return c.GetMetadata(fmt.Sprintf(SubnetIDResourceFormat, mac))
+	path := fmt.Sprintf(SubnetIDResourceFormat, mac)
+	return c.getCachedMetadata(path, func() (string, error) {
+		return c.GetMetadata(path)
+	})
 }
 
 // InstanceID returns the id of this instance.
 func (c *ec2MetadataClientImpl) InstanceID() (string, error) {
-	return c.GetMetadata(InstanceIDResource)
+	return c.getCachedMetadata(InstanceIDResource, func() (string, error) {
+		return c.GetMetadata(InstanceIDResource)
+	})
 }
 
-// GetUserData returns the userdata that was configured for the
+// GetUserData returns the userdata specified when launch your instance.
 func (c *ec2MetadataClientImpl) GetUserData() (string, error) {
-	output, err := c.client.GetUserData(context.TODO(), &imds.GetUserDataInput{})
-	if err != nil {
-		return "", err
-	}
+	return c.getCachedMetadata("user-data", func() (string, error) {
+		output, err := c.client.GetUserData(context.TODO(), &imds.GetUserDataInput{})
+		if err != nil {
+			return "", err
+		}
 
-	content, err := io.ReadAll(output.Content)
-	if err != nil {
-		return "", err
-	}
+		content, err := io.ReadAll(output.Content)
+		if err != nil {
+			return "", err
+		}
 
-	return string(content), nil
+		return string(content), nil
+	})
 }
 
 // Region returns the region the instance is running in.
 func (c *ec2MetadataClientImpl) Region() (string, error) {
-	output, err := c.client.GetRegion(context.TODO(), &imds.GetRegionInput{})
-	if err != nil {
-		return "", err
-	}
-
-	return output.Region, nil
+	return c.getCachedMetadata(RegionResource, func() (string, error) {
+		return c.GetMetadata(RegionResource)
+	})
 }
 
 // AvailabilityZoneID returns the availability zone ID that the instance is running in.
 func (c *ec2MetadataClientImpl) AvailabilityZoneID() (string, error) {
-	return c.GetMetadata(AvailabilityZoneID)
+	return c.getCachedMetadata(AvailabilityZoneID, func() (string, error) {
+		return c.GetMetadata(AvailabilityZoneID)
+	})
 }
 
 // PublicIPv4Address returns the public IPv4 of this instance
@@ -281,4 +332,27 @@ func (c *ec2MetadataClientImpl) OutpostARN() (string, error) {
 
 func (c *ec2MetadataClientImpl) TargetLifecycleState() (string, error) {
 	return c.GetMetadata(TargetLifecycleState)
+}
+
+// getCachedMetadata is a helper that implements the cache-aside pattern for metadata values.
+// It checks the cache first, and if not found, calls the fetch function and stores the result.
+func (c *ec2MetadataClientImpl) getCachedMetadata(key string, fetch func() (string, error)) (string, error) {
+	c.cacheMu.RLock()
+	v, ok := c.cache[key]
+	c.cacheMu.RUnlock()
+
+	if ok {
+		return v, nil
+	}
+
+	v, err := fetch()
+	if err != nil {
+		return "", err
+	}
+
+	c.cacheMu.Lock()
+	c.cache[key] = v
+	c.cacheMu.Unlock()
+
+	return v, nil
 }
