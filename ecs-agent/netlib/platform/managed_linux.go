@@ -500,20 +500,44 @@ func (m *managedLinux) ConfigureDaemonNetNS(netNS *tasknetworkconfig.NetworkName
 	return m.configureDaemonNetNS(context.Background(), netNS.Path, netNS)
 }
 
-// addDaemonBridgeNATRule adds iptables MASQUERADE rule for daemon-bridge external connectivity
+// addDaemonBridgeNATRule adds iptables/ip6tables MASQUERADE rules for daemon-bridge external connectivity
 func (m *managedLinux) addDaemonBridgeNATRule(ipComp ipcompatibility.IPCompatibility) error {
 	if err := enableSystemSettings(ipComp); err != nil {
 		return err
 	}
 
-	// Check if rule already exists
-	err := modifyNetfilterEntry(iptablesTableNat, iptablesCheck, getDaemonBridgeNATArgs)
-	if err != nil {
-		// Rule doesn't exist, add it
-		return modifyNetfilterEntry(iptablesTableNat, iptablesAppend, getDaemonBridgeNATArgs)
+	// Setup IPv4 NAT rule if IPv4 compatible
+	if ipComp.IsIPv4Compatible() {
+		// Check if IPv4 rule already exists
+		err := modifyNetfilterEntry(iptablesTableNat, iptablesCheck, getDaemonBridgeNATArgs, false)
+		if err != nil {
+			// Rule doesn't exist, add it
+			if err := modifyNetfilterEntry(iptablesTableNat, iptablesAppend, getDaemonBridgeNATArgs, false); err != nil {
+				return fmt.Errorf("failed to add IPv4 NAT rule: %w", err)
+			}
+			logger.Info("IPv4 NAT rule added for daemon-bridge")
+		} else {
+			logger.Info("IPv4 NAT rule already exists for daemon-bridge")
+		}
 	}
 
-	return nil // Rule already exists
+	// Setup IPv6 NAT rule if IPv6 compatible
+	if ipComp.IsIPv6Compatible() {
+		// For IPv6, we use a simple MASQUERADE rule for all traffic on the output interface
+		// Check if IPv6 rule already exists
+		err := modifyNetfilterEntry(iptablesTableNat, iptablesCheck, getSimpleIPv6NATArgs, true)
+		if err != nil {
+			// Rule doesn't exist, add it
+			if err := modifyNetfilterEntry(iptablesTableNat, iptablesAppend, getSimpleIPv6NATArgs, true); err != nil {
+				return fmt.Errorf("failed to add IPv6 NAT rule: %w", err)
+			}
+			logger.Info("IPv6 NAT rule added for daemon-bridge")
+		} else {
+			logger.Info("IPv6 NAT rule already exists for daemon-bridge")
+		}
+	}
+
+	return nil
 }
 
 // getIPCompatibilityFromNetNS determines IP compatibility from the network namespace's primary interface.

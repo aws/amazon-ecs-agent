@@ -60,14 +60,16 @@ func TestModifyNetfilterEntry(t *testing.T) {
 		table                   string
 		action                  iptablesAction
 		getNetfilterChainArgs   getNetfilterChainArgsFunc
+		useIPv6                 bool
 		expectError             bool
 		expectedCommandContains []string
 	}{
 		{
-			name:                  "append daemon bridge NAT rule",
+			name:                  "append daemon bridge NAT rule IPv4",
 			table:                 iptablesTableNat,
 			action:                iptablesAppend,
 			getNetfilterChainArgs: getDaemonBridgeNATArgs,
+			useIPv6:               false,
 			expectedCommandContains: []string{
 				"-t", "nat",
 				"-A",
@@ -78,10 +80,37 @@ func TestModifyNetfilterEntry(t *testing.T) {
 			},
 		},
 		{
-			name:                  "check daemon bridge NAT rule",
+			name:                  "check daemon bridge NAT rule IPv4",
 			table:                 iptablesTableNat,
 			action:                iptablesCheck,
 			getNetfilterChainArgs: getDaemonBridgeNATArgs,
+			useIPv6:               false,
+			expectedCommandContains: []string{
+				"-t", "nat",
+				"-C",
+				"POSTROUTING",
+			},
+		},
+		{
+			name:                  "append simple IPv6 NAT rule",
+			table:                 iptablesTableNat,
+			action:                iptablesAppend,
+			getNetfilterChainArgs: getSimpleIPv6NATArgs,
+			useIPv6:               true,
+			expectedCommandContains: []string{
+				"-t", "nat",
+				"-A",
+				"POSTROUTING",
+				"-o", "eth0",
+				"-j", "MASQUERADE",
+			},
+		},
+		{
+			name:                  "check simple IPv6 NAT rule",
+			table:                 iptablesTableNat,
+			action:                iptablesCheck,
+			getNetfilterChainArgs: getSimpleIPv6NATArgs,
+			useIPv6:               true,
 			expectedCommandContains: []string{
 				"-t", "nat",
 				"-C",
@@ -95,7 +124,7 @@ func TestModifyNetfilterEntry(t *testing.T) {
 			// We can't actually run iptables in unit tests, but we can verify
 			// the function constructs the command correctly by checking it doesn't panic
 			// and that the error is predictable (command not found or permission denied)
-			err := modifyNetfilterEntry(tt.table, tt.action, tt.getNetfilterChainArgs)
+			err := modifyNetfilterEntry(tt.table, tt.action, tt.getNetfilterChainArgs, tt.useIPv6)
 
 			// In test environment, we expect either:
 			// - Command not found error (iptables not installed)
@@ -197,6 +226,7 @@ func TestEnableSystemSettings(t *testing.T) {
 func TestIptablesConstants(t *testing.T) {
 	// Verify constants have expected values
 	assert.Equal(t, "iptables", iptablesExecutable)
+	assert.Equal(t, "ip6tables", ip6tablesExecutable)
 	assert.Equal(t, "nat", iptablesTableNat)
 	assert.Equal(t, "sysctl", sysctlExecutable)
 	assert.Equal(t, iptablesAction("-A"), iptablesAppend)
@@ -204,4 +234,109 @@ func TestIptablesConstants(t *testing.T) {
 	assert.Equal(t, "net.ipv4.ip_forward", ipv4ForwardingKey)
 	assert.Equal(t, "net.ipv6.conf.all.forwarding", ipv6ForwardingKey)
 	assert.Equal(t, "net.bridge.bridge-nf-call-iptables", bridgeNetfilterCallKey)
+	assert.Equal(t, "net.bridge.bridge-nf-call-ip6tables", bridgeNetfilterCallIPv6Key)
+}
+
+func TestGetDaemonBridgeIPv6NATArgs(t *testing.T) {
+	ipv6Subnet := "2600:1f13:f3e:4301::/64"
+	expected := []string{
+		"POSTROUTING",
+		"-s", ipv6Subnet,
+		"!", "-d", ipv6Subnet,
+		"-j", "MASQUERADE",
+	}
+
+	result := getDaemonBridgeIPv6NATArgs(ipv6Subnet)
+	assert.Equal(t, expected, result)
+}
+
+func TestGetSimpleIPv6NATArgs(t *testing.T) {
+	expected := []string{
+		"POSTROUTING",
+		"-o", "eth0",
+		"-j", "MASQUERADE",
+	}
+
+	result := getSimpleIPv6NATArgs()
+	assert.Equal(t, expected, result)
+}
+
+func TestSetupIPv6NAT(t *testing.T) {
+	tests := []struct {
+		name       string
+		ipv6Subnet string
+	}{
+		{
+			name:       "with subnet",
+			ipv6Subnet: "2600:1f13:f3e:4301::/64",
+		},
+		{
+			name:       "without subnet (simple masquerade)",
+			ipv6Subnet: "",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			// This test verifies the function doesn't panic and handles ip6tables operations
+			// The actual ip6tables operations are tested in integration tests
+			err := SetupIPv6NAT(tt.ipv6Subnet)
+
+			// We expect either success or a predictable error (like ip6tables not available in test env)
+			if err != nil {
+				t.Logf("Expected error in test environment: %v", err)
+			}
+		})
+	}
+}
+
+func TestSetupIPv4NAT(t *testing.T) {
+	// This test verifies the function doesn't panic and handles iptables operations
+	err := SetupIPv4NAT()
+
+	// We expect either success or a predictable error (like iptables not available in test env)
+	if err != nil {
+		t.Logf("Expected error in test environment: %v", err)
+	}
+}
+
+func TestSetupNAT(t *testing.T) {
+	tests := []struct {
+		name       string
+		ipComp     ipcompatibility.IPCompatibility
+		ipv6Subnet string
+	}{
+		{
+			name:       "IPv4 only",
+			ipComp:     ipcompatibility.NewIPv4OnlyCompatibility(),
+			ipv6Subnet: "",
+		},
+		{
+			name:       "IPv6 only",
+			ipComp:     ipcompatibility.NewIPv6OnlyCompatibility(),
+			ipv6Subnet: "2600:1f13:f3e:4301::/64",
+		},
+		{
+			name:       "dual stack",
+			ipComp:     ipcompatibility.NewDualStackCompatibility(),
+			ipv6Subnet: "2600:1f13:f3e:4301::/64",
+		},
+		{
+			name:       "dual stack without IPv6 subnet",
+			ipComp:     ipcompatibility.NewDualStackCompatibility(),
+			ipv6Subnet: "",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			// This test verifies the function doesn't panic and handles iptables/ip6tables operations
+			err := SetupNAT(tt.ipComp, tt.ipv6Subnet)
+
+			// We expect either success or a predictable error (like iptables not available in test env)
+			if err != nil {
+				t.Logf("Expected error in test environment: %v", err)
+			}
+		})
+	}
 }
