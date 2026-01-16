@@ -139,6 +139,7 @@ func TestGetTaskMetadataWithTags(t *testing.T) {
 				ecsClient:            mockECSClient,
 				cluster:              "test-cluster",
 				availabilityZone:     "us-west-2a",
+				availabilityZoneId:   "use1-az2",
 				vpcID:                "vpc-12345",
 				containerInstanceARN: "arn:aws:ecs:us-west-2:123456789:container-instance/test",
 			}

@@ -55,7 +55,7 @@ func startServer(t *testing.T) (*http.Server, int) {
 	statsEngine := mock_stats.NewMockEngine(ctrl)
 	ecsClient := mock_ecs.NewMockECSClient(ctrl)
 
-	agentState := agentV4.NewTMDSAgentState(state, statsEngine, ecsClient, clusterName, availabilityzone, vpcID, containerInstanceArn)
+	agentState := agentV4.NewTMDSAgentState(state, statsEngine, ecsClient, clusterName, availabilityzone, "", vpcID, containerInstanceArn)
 	metricsFactory := metrics.NewNopEntryFactory()
 	execWrapper := mock_execwrapper.NewMockExec(ctrl)
 
