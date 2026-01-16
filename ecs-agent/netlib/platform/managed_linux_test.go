@@ -993,14 +993,125 @@ func TestCreateDaemonNetworkNamespace(t *testing.T) {
 func TestAddDaemonBridgeNATRule(t *testing.T) {
 	ml := &managedLinux{}
 
-	// This test verifies the function doesn't panic and handles iptables operations
-	// The actual iptables operations are tested in integration tests
-	err := ml.addDaemonBridgeNATRule()
+	tests := []struct {
+		name   string
+		ipComp ipcompatibility.IPCompatibility
+	}{
+		{
+			name:   "IPv4 only",
+			ipComp: ipcompatibility.NewIPv4OnlyCompatibility(),
+		},
+		{
+			name:   "IPv6 only",
+			ipComp: ipcompatibility.NewIPv6OnlyCompatibility(),
+		},
+		{
+			name:   "dual stack",
+			ipComp: ipcompatibility.NewDualStackCompatibility(),
+		},
+	}
 
-	// We expect either success or a predictable error (like iptables not available in test env)
-	// The important thing is that it doesn't panic
-	if err != nil {
-		t.Logf("Expected error in test environment: %v", err)
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			// This test verifies the function doesn't panic and handles iptables operations
+			// The actual iptables operations are tested in integration tests
+			err := ml.addDaemonBridgeNATRule(tt.ipComp)
+
+			// We expect either success or a predictable error (like iptables not available in test env)
+			// The important thing is that it doesn't panic
+			if err != nil {
+				t.Logf("Expected error in test environment: %v", err)
+			}
+		})
+	}
+}
+
+func TestGetIPCompatibilityFromNetNS(t *testing.T) {
+	tests := []struct {
+		name         string
+		netNS        *tasknetworkconfig.NetworkNamespace
+		expectedIPv4 bool
+		expectedIPv6 bool
+	}{
+		{
+			name: "IPv4 only interface",
+			netNS: &tasknetworkconfig.NetworkNamespace{
+				NetworkInterfaces: []*networkinterface.NetworkInterface{
+					{
+						Default: true,
+						IPV4Addresses: []*networkinterface.IPV4Address{
+							{Address: "10.0.0.1", Primary: true},
+						},
+					},
+				},
+			},
+			expectedIPv4: true,
+			expectedIPv6: false,
+		},
+		{
+			name: "IPv6 only interface",
+			netNS: &tasknetworkconfig.NetworkNamespace{
+				NetworkInterfaces: []*networkinterface.NetworkInterface{
+					{
+						Default: true,
+						IPV6Addresses: []*networkinterface.IPV6Address{
+							{Address: "2001:db8::1", Primary: true},
+						},
+					},
+				},
+			},
+			expectedIPv4: false,
+			expectedIPv6: true,
+		},
+		{
+			name: "dual stack interface",
+			netNS: &tasknetworkconfig.NetworkNamespace{
+				NetworkInterfaces: []*networkinterface.NetworkInterface{
+					{
+						Default: true,
+						IPV4Addresses: []*networkinterface.IPV4Address{
+							{Address: "10.0.0.1", Primary: true},
+						},
+						IPV6Addresses: []*networkinterface.IPV6Address{
+							{Address: "2001:db8::1", Primary: true},
+						},
+					},
+				},
+			},
+			expectedIPv4: true,
+			expectedIPv6: true,
+		},
+		{
+			name: "no primary interface - defaults to IPv4 only",
+			netNS: &tasknetworkconfig.NetworkNamespace{
+				NetworkInterfaces: []*networkinterface.NetworkInterface{
+					{
+						Default: false,
+						IPV4Addresses: []*networkinterface.IPV4Address{
+							{Address: "10.0.0.1", Primary: true},
+						},
+					},
+				},
+			},
+			expectedIPv4: true,
+			expectedIPv6: false,
+		},
+		{
+			name:         "empty network namespace - defaults to IPv4 only",
+			netNS:        &tasknetworkconfig.NetworkNamespace{},
+			expectedIPv4: true,
+			expectedIPv6: false,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			ml := &managedLinux{}
+			ipComp := ml.getIPCompatibilityFromNetNS(tt.netNS)
+
+			assert.Equal(t, tt.expectedIPv4, ipComp.IsIPv4Compatible(), "IPv4 compatibility mismatch")
+			assert.Equal(t, tt.expectedIPv6, ipComp.IsIPv6Compatible(), "IPv6 compatibility mismatch")
+		})
 	}
 }
 

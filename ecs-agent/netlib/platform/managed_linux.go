@@ -477,8 +477,11 @@ func (m *managedLinux) configureDaemonNetNS(ctx context.Context, taskID string, 
 				return err
 			}
 
+			// Determine IP compatibility from the primary network interface
+			ipComp := m.getIPCompatibilityFromNetNS(netNS)
+
 			// Add NAT masquerade rule for external connectivity
-			err = m.addDaemonBridgeNATRule()
+			err = m.addDaemonBridgeNATRule(ipComp)
 			if err != nil {
 				logger.Warn("Failed to add NAT rule for daemon-bridge", logger.Fields{
 					loggerfield.Error: err,
@@ -498,8 +501,8 @@ func (m *managedLinux) ConfigureDaemonNetNS(netNS *tasknetworkconfig.NetworkName
 }
 
 // addDaemonBridgeNATRule adds iptables MASQUERADE rule for daemon-bridge external connectivity
-func (m *managedLinux) addDaemonBridgeNATRule() error {
-	if err := enableSystemSettings(); err != nil {
+func (m *managedLinux) addDaemonBridgeNATRule(ipComp ipcompatibility.IPCompatibility) error {
+	if err := enableSystemSettings(ipComp); err != nil {
 		return err
 	}
 
@@ -511,6 +514,21 @@ func (m *managedLinux) addDaemonBridgeNATRule() error {
 	}
 
 	return nil // Rule already exists
+}
+
+// getIPCompatibilityFromNetNS determines IP compatibility from the network namespace's primary interface.
+// It checks if the primary interface has IPv4 and/or IPv6 addresses configured.
+func (m *managedLinux) getIPCompatibilityFromNetNS(netNS *tasknetworkconfig.NetworkNamespace) ipcompatibility.IPCompatibility {
+	primaryIface := netNS.GetPrimaryInterface()
+	if primaryIface == nil {
+		// Default to IPv4 only if no primary interface found
+		return ipcompatibility.NewIPv4OnlyCompatibility()
+	}
+
+	hasIPv4 := len(primaryIface.IPV4Addresses) > 0
+	hasIPv6 := len(primaryIface.IPV6Addresses) > 0
+
+	return ipcompatibility.NewIPCompatibility(hasIPv4, hasIPv6)
 }
 
 // StopDaemonNetNS stops and cleans up a daemon network namespace.

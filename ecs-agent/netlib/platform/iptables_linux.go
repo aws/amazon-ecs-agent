@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"os/exec"
 
+	"github.com/aws/amazon-ecs-agent/ecs-agent/ipcompatibility"
 	"github.com/aws/amazon-ecs-agent/ecs-agent/logger"
 	loggerfield "github.com/aws/amazon-ecs-agent/ecs-agent/logger/field"
 )
@@ -21,7 +22,8 @@ const (
 	iptablesCheck iptablesAction = "-C"
 
 	// sysctl configuration keys
-	ipForwardingKey        = "net.ipv4.ip_forward"
+	ipv4ForwardingKey      = "net.ipv4.ip_forward"
+	ipv6ForwardingKey      = "net.ipv6.conf.all.forwarding"
 	bridgeNetfilterCallKey = "net.bridge.bridge-nf-call-iptables"
 )
 
@@ -83,11 +85,20 @@ func enableSysctlSetting(key string, value string) error {
 	return cmd.Run()
 }
 
-// enableSystemSettings enables required system settings for NAT
-func enableSystemSettings() error {
-	// Enable IP forwarding
-	if err := enableSysctlSetting(ipForwardingKey, "1"); err != nil {
-		return fmt.Errorf("failed to enable IP forwarding: %w", err)
+// enableSystemSettings enables required system settings for NAT based on IP compatibility
+func enableSystemSettings(ipComp ipcompatibility.IPCompatibility) error {
+	// Enable IPv4 forwarding if IPv4 compatible
+	if ipComp.IsIPv4Compatible() {
+		if err := enableSysctlSetting(ipv4ForwardingKey, "1"); err != nil {
+			return fmt.Errorf("failed to enable IPv4 forwarding: %w", err)
+		}
+	}
+
+	// Enable IPv6 forwarding if IPv6 compatible
+	if ipComp.IsIPv6Compatible() {
+		if err := enableSysctlSetting(ipv6ForwardingKey, "1"); err != nil {
+			return fmt.Errorf("failed to enable IPv6 forwarding: %w", err)
+		}
 	}
 
 	// Enable bridge forwarding (ignore errors if bridge module not loaded)

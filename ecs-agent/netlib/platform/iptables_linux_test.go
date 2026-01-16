@@ -7,6 +7,7 @@ import (
 	"os/exec"
 	"testing"
 
+	"github.com/aws/amazon-ecs-agent/ecs-agent/ipcompatibility"
 	"github.com/stretchr/testify/assert"
 )
 
@@ -119,8 +120,13 @@ func TestEnableSysctlSetting(t *testing.T) {
 		value string
 	}{
 		{
-			name:  "enable IP forwarding",
-			key:   ipForwardingKey,
+			name:  "enable IPv4 forwarding",
+			key:   ipv4ForwardingKey,
+			value: "1",
+		},
+		{
+			name:  "enable IPv6 forwarding",
+			key:   ipv6ForwardingKey,
 			value: "1",
 		},
 		{
@@ -153,16 +159,38 @@ func TestEnableSysctlSetting(t *testing.T) {
 }
 
 func TestEnableSystemSettings(t *testing.T) {
-	// This test verifies that enableSystemSettings calls the required sysctl settings
-	// and handles errors appropriately
-	err := enableSystemSettings()
+	tests := []struct {
+		name   string
+		ipComp ipcompatibility.IPCompatibility
+	}{
+		{
+			name:   "IPv4 only",
+			ipComp: ipcompatibility.NewIPv4OnlyCompatibility(),
+		},
+		{
+			name:   "IPv6 only",
+			ipComp: ipcompatibility.NewIPv6OnlyCompatibility(),
+		},
+		{
+			name:   "dual stack",
+			ipComp: ipcompatibility.NewDualStackCompatibility(),
+		},
+	}
 
-	// In test environment, we expect errors due to lack of permissions or missing commands
-	// The important thing is that it doesn't panic and attempts both settings
-	if err != nil {
-		t.Logf("Expected error in test environment: %v", err)
-		// Verify the error is related to IP forwarding (the first setting that would fail)
-		assert.Contains(t, err.Error(), "failed to enable IP forwarding")
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			// This test verifies that enableSystemSettings calls the required sysctl settings
+			// and handles errors appropriately
+			err := enableSystemSettings(tt.ipComp)
+
+			// In test environment, we expect errors due to lack of permissions or missing commands
+			// The important thing is that it doesn't panic and attempts the appropriate settings
+			if err != nil {
+				t.Logf("Expected error in test environment: %v", err)
+				// Verify the error is related to IP forwarding (the first setting that would fail)
+				assert.Contains(t, err.Error(), "failed to enable")
+			}
+		})
 	}
 }
 
@@ -173,6 +201,7 @@ func TestIptablesConstants(t *testing.T) {
 	assert.Equal(t, "sysctl", sysctlExecutable)
 	assert.Equal(t, iptablesAction("-A"), iptablesAppend)
 	assert.Equal(t, iptablesAction("-C"), iptablesCheck)
-	assert.Equal(t, "net.ipv4.ip_forward", ipForwardingKey)
+	assert.Equal(t, "net.ipv4.ip_forward", ipv4ForwardingKey)
+	assert.Equal(t, "net.ipv6.conf.all.forwarding", ipv6ForwardingKey)
 	assert.Equal(t, "net.bridge.bridge-nf-call-iptables", bridgeNetfilterCallKey)
 }
