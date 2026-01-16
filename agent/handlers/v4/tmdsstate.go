@@ -37,6 +37,7 @@ type TMDSAgentState struct {
 	ecsClient            ecs.ECSClient
 	cluster              string
 	availabilityZone     string
+	availabilityZoneId   string
 	vpcID                string
 	containerInstanceARN string
 }
@@ -47,6 +48,7 @@ func NewTMDSAgentState(
 	ecsClient ecs.ECSClient,
 	cluster string,
 	availabilityZone string,
+	availabilityZoneId string,
 	vpcID string,
 	containerInstanceARN string,
 ) *TMDSAgentState {
@@ -56,6 +58,7 @@ func NewTMDSAgentState(
 		ecsClient:            ecsClient,
 		cluster:              cluster,
 		availabilityZone:     availabilityZone,
+		availabilityZoneId:   availabilityZoneId,
 		vpcID:                vpcID,
 		containerInstanceARN: containerInstanceARN,
 	}
@@ -120,7 +123,7 @@ func (s *TMDSAgentState) getTaskMetadata(v3EndpointID string, includeTags bool, 
 	}
 
 	taskResponse, err := NewTaskResponse(v3EndpointID, taskARN, s.state, s.ecsClient, s.cluster,
-		s.availabilityZone, s.vpcID, s.containerInstanceARN, task.ServiceName, includeTags)
+		s.availabilityZone, s.availabilityZoneId, s.vpcID, s.containerInstanceARN, task.ServiceName, includeTags)
 	if err != nil {
 		logger.Error("Failed to get task metadata", logger.Fields{
 			field.TaskARN: taskARN,
