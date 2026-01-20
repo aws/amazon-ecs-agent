@@ -272,7 +272,7 @@ func TestV4GetTaskMetadataWithTaskNetworkConfig(t *testing.T) {
 			if tc.setStateExpectations != nil {
 				tc.setStateExpectations(state)
 			}
-			tmdsAgentState := agentV4.NewTMDSAgentState(state, statsEngine, ecsClient, clusterName, availabilityzone, vpcID, containerInstanceArn)
+			tmdsAgentState := agentV4.NewTMDSAgentState(state, statsEngine, ecsClient, clusterName, availabilityzone, availabilityZoneId, vpcID, containerInstanceArn)
 
 			netConfigClient := netconfig.NewNetworkConfigClient()
 

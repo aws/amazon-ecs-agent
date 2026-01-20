@@ -94,6 +94,12 @@ const (
 	instanceIdBackoffMultiple = 1.3
 	instanceIdMaxRetryCount   = 5
 
+	availabilityZoneIdBackoffMin      = time.Second
+	availabilityZoneIdBackoffMax      = time.Second * 5
+	availabilityZoneIdBackoffJitter   = 0.2
+	availabilityZoneIdBackoffMultiple = 1.3
+	availabilityZoneIdMaxRetryCount   = 3
+
 	targetLifecycleBackoffMin      = time.Second
 	targetLifecycleBackoffMax      = time.Second * 5
 	targetLifecycleBackoffJitter   = 0.2
@@ -161,6 +167,7 @@ type ecsAgent struct {
 	mobyPlugins                 mobypkgwrapper.Plugins
 	resourceFields              *taskresource.ResourceFields
 	availabilityZone            string
+	availabilityZoneId          string
 	latestSeqNumberTaskManifest *int64
 }
 
@@ -492,6 +499,14 @@ func (agent *ecsAgent) doStart(containerChangeEventStream *eventstream.EventStre
 		return exitcodes.ExitError
 	}
 
+	// populate availability zone id from IMDS
+	availabilityZoneId := agent.getAvailabilityZoneId()
+	if availabilityZoneId == "" {
+		seelog.Warnf("Unable to get Availability Zone ID for the Instance")
+	} else {
+		agent.availabilityZoneId = availabilityZoneId
+	}
+
 	// Load Managed Daemon images asynchronously
 	agent.loadManagedDaemonImagesAsync(imageManager)
 
@@ -612,6 +627,27 @@ func (agent *ecsAgent) getTargetLifecycle(maxRetries int) (string, error) {
 	}
 	seelog.Debugf("Target lifecycle state of instance: %v", targetState)
 	return targetState, err
+}
+
+func (agent *ecsAgent) getAvailabilityZoneId() string {
+	var availabilityZoneId string
+	var err error
+	backoff := retry.NewExponentialBackoff(availabilityZoneIdBackoffMin, availabilityZoneIdBackoffMax, availabilityZoneIdBackoffJitter, availabilityZoneIdBackoffMultiple)
+	for i := 0; i < availabilityZoneIdMaxRetryCount; i++ {
+		availabilityZoneId, err = agent.ec2MetadataClient.AvailabilityZoneID()
+		if err == nil || err.Error() == blackholed {
+			return availabilityZoneId
+		}
+		if i < availabilityZoneIdMaxRetryCount-1 {
+			time.Sleep(backoff.Duration())
+		}
+	}
+	if err != nil {
+		logger.Warn("Unable to access EC2 Metadata service to determine availability zone id", logger.Fields{
+			field.Error: err,
+		})
+	}
+	return availabilityZoneId
 }
 
 // newTaskEngine creates a new docker task engine object. It tries to load the
@@ -993,9 +1029,9 @@ func (agent *ecsAgent) startAsyncRoutines(
 	// Start serving the endpoint to fetch IAM Role credentials and other task metadata
 	if agent.cfg.TaskMetadataAZDisabled {
 		// send empty availability zone
-		go handlers.ServeTaskHTTPEndpoint(agent.ctx, credentialsManager, state, client, agent.containerInstanceARN, agent.cfg, statsEngine, "", agent.vpc)
+		go handlers.ServeTaskHTTPEndpoint(agent.ctx, credentialsManager, state, client, agent.containerInstanceARN, agent.cfg, statsEngine, "", "", agent.vpc)
 	} else {
-		go handlers.ServeTaskHTTPEndpoint(agent.ctx, credentialsManager, state, client, agent.containerInstanceARN, agent.cfg, statsEngine, agent.availabilityZone, agent.vpc)
+		go handlers.ServeTaskHTTPEndpoint(agent.ctx, credentialsManager, state, client, agent.containerInstanceARN, agent.cfg, statsEngine, agent.availabilityZone, agent.availabilityZoneId, agent.vpc)
 	}
 
 	// Start sending events to the backend

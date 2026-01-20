@@ -39,6 +39,7 @@ type TaskResponse struct {
 	CredentialsID           string                   `json:"-"`
 	TaskNetworkConfig       *TaskNetworkConfig       `json:"-"`
 	FaultInjectionEnabled   bool                     `json:"FaultInjectionEnabled"`
+	AvailabilityZoneId      string                   `json:"AvailabilityZoneId,omitempty"`
 }
 
 // TaskNetworkConfig contains required network configurations for network faults injection.
