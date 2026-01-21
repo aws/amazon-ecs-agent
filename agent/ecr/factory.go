@@ -18,6 +18,7 @@ import (
 	"context"
 	"fmt"
 	"net/http"
+	"strings"
 	"time"
 
 	apicontainer "github.com/aws/amazon-ecs-agent/agent/api/container"
@@ -75,7 +76,14 @@ func getClientConfig(httpClient *http.Client, authData *apicontainer.ECRAuthData
 	}
 
 	if authData.EndpointOverride != "" {
-		opts = append(opts, awsconfig.WithBaseEndpoint(utils.AddScheme(authData.EndpointOverride)))
+		endpoint := utils.AddScheme(authData.EndpointOverride)
+		opts = append(opts, awsconfig.WithBaseEndpoint(endpoint))
+		// Disable SDK FIPS resolution if endpoint is already FIPS-compliant to avoid
+		// "FIPS and custom endpoint are not supported" error from SDK v2.
+		if strings.Contains(endpoint, "//ecr-fips.") {
+			logger.Debug("ECR endpoint override is FIPS; disabling SDK FIPS resolution", logger.Fields{"endpoint": endpoint})
+			opts = append(opts, awsconfig.WithUseFIPSEndpoint(aws.FIPSEndpointStateDisabled))
+		}
 	} else if useDualStackEndpoint {
 		logger.Debug("Configuring ECR Client DualStack endpoint")
 		opts = append(opts, awsconfig.WithUseDualStackEndpoint(aws.DualStackEndpointStateEnabled))

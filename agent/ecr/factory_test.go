@@ -100,3 +100,88 @@ func TestGetClientConfigEndpointOverride(t *testing.T) {
 		})
 	}
 }
+
+func TestGetClientConfigFIPSEndpointOverride(t *testing.T) {
+	cases := []struct {
+		Name                 string
+		Region               string
+		EndpointOverride     string
+		UseDualStackEndpoint bool
+		EnvFIPSEnabled       bool
+		ExpectFIPSState      aws.FIPSEndpointState
+	}{
+		{
+			Name:             "no endpoint override without env FIPS",
+			Region:           "us-west-2",
+			EndpointOverride: "",
+			EnvFIPSEnabled:   false,
+			ExpectFIPSState:  aws.FIPSEndpointStateUnset,
+		},
+		{
+			Name:             "no endpoint override with env FIPS",
+			Region:           "us-west-2",
+			EndpointOverride: "",
+			EnvFIPSEnabled:   true,
+			ExpectFIPSState:  aws.FIPSEndpointStateUnset,
+		},
+		{
+			Name:             "FIPS us-west-2 with env FIPS",
+			Region:           "us-west-2",
+			EndpointOverride: "ecr-fips.us-west-2.amazonaws.com",
+			EnvFIPSEnabled:   true,
+			ExpectFIPSState:  aws.FIPSEndpointStateDisabled,
+		},
+		{
+			Name:             "FIPS us-east-1 with env FIPS",
+			Region:           "us-east-1",
+			EndpointOverride: "ecr-fips.us-east-1.amazonaws.com",
+			EnvFIPSEnabled:   true,
+			ExpectFIPSState:  aws.FIPSEndpointStateDisabled,
+		},
+		{
+			Name:             "FIPS us-gov-west-1 with env FIPS",
+			Region:           "us-gov-west-1",
+			EndpointOverride: "ecr-fips.us-gov-west-1.amazonaws.com",
+			EnvFIPSEnabled:   true,
+			ExpectFIPSState:  aws.FIPSEndpointStateDisabled,
+		},
+		{
+			Name:                 "FIPS dualstack us-east-1 with env FIPS",
+			Region:               "us-east-1",
+			EndpointOverride:     "ecr-fips.us-east-1.api.aws",
+			UseDualStackEndpoint: true,
+			EnvFIPSEnabled:       true,
+			ExpectFIPSState:      aws.FIPSEndpointStateDisabled,
+		},
+		{
+			Name:                 "FIPS dualstack us-gov-west-1 with env FIPS",
+			Region:               "us-gov-west-1",
+			EndpointOverride:     "ecr-fips.us-gov-west-1.api.aws",
+			UseDualStackEndpoint: true,
+			EnvFIPSEnabled:       true,
+			ExpectFIPSState:      aws.FIPSEndpointStateDisabled,
+		},
+	}
+
+	for _, tc := range cases {
+		t.Run(tc.Name, func(t *testing.T) {
+			if tc.EnvFIPSEnabled {
+				t.Setenv("AWS_USE_FIPS_ENDPOINT", "true")
+			}
+
+			authData := &apicontainer.ECRAuthData{
+				Region:           tc.Region,
+				EndpointOverride: tc.EndpointOverride,
+				UseExecutionRole: false,
+			}
+			cfg, err := getClientConfig(nil, authData, tc.UseDualStackEndpoint)
+			assert.NoError(t, err)
+
+			for _, src := range cfg.ConfigSources {
+				if loadOpts, ok := src.(config.LoadOptions); ok {
+					assert.Equal(t, tc.ExpectFIPSState, loadOpts.UseFIPSEndpoint)
+				}
+			}
+		})
+	}
+}
