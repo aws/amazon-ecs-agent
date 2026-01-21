@@ -17,11 +17,13 @@
 package platform
 
 import (
+	"errors"
 	"fmt"
 	"net"
 	"strconv"
 	"time"
 
+	"github.com/aws/amazon-ecs-agent/ecs-agent/ipcompatibility"
 	"github.com/aws/amazon-ecs-agent/ecs-agent/netlib/model/appmesh"
 	"github.com/aws/amazon-ecs-agent/ecs-agent/netlib/model/ecscni"
 	"github.com/aws/amazon-ecs-agent/ecs-agent/netlib/model/networkinterface"
@@ -122,32 +124,54 @@ func createBridgePluginConfig(netNSPath string) ecscni.PluginConfig {
 	return bridgeConfig
 }
 
-// createDaemonBridgePluginConfig constructs the configuration object for bridge plugin in daemon-bridge mode
-// It includes routes for ECS agent endpoint and default route for external traffic (including DNS resolution)
-func createDaemonBridgePluginConfig(netNSPath string) ecscni.PluginConfig {
+// createDaemonBridgePluginConfig constructs the configuration object for bridge plugin in daemon-bridge mode.
+// It includes routes for ECS agent endpoint and default route for external traffic.
+// The ipComp parameter determines whether to configure IPv4, IPv6, or both routes.
+func createDaemonBridgePluginConfig(netNSPath string, ipComp ipcompatibility.IPCompatibility) (ecscni.PluginConfig, error) {
+	// Validate that at least one IP version is compatible
+	if !ipComp.IsIPv4Compatible() && !ipComp.IsIPv6Compatible() {
+		return nil, errors.New("host is neither IPv4 nor IPv6 compatible")
+	}
+
 	cniConfig := ecscni.CNIConfig{
 		NetNSPath:      netNSPath,
 		CNISpecVersion: cniSpecVersion,
 		CNIPluginName:  BridgePluginName,
 	}
 
-	_, routeIPNet, _ := net.ParseCIDR(AgentEndpoint)
-	route := &types.Route{
-		Dst: *routeIPNet,
+	// Always include ECS agent endpoint route (IPv4 link-local)
+	_, agentRouteIPNet, _ := net.ParseCIDR(AgentEndpoint)
+	agentRoute := &types.Route{
+		Dst: *agentRouteIPNet,
 	}
 
-	// Add routes for daemon-bridge mode
-	var routes []*types.Route
-	routes = append(routes, route) // ECS agent endpoint route
+	var ipv4Routes []*types.Route
+	var ipv6Routes []*types.Route
 
-	// Add default route for external traffic, which goes through the bridge gateway to reach host's trunk ENI
-	_, defaultNet, _ := net.ParseCIDR(DefaultRouteDestination)
-	bridgeGW := net.ParseIP(DaemonBridgeGatewayIP)
-	defaultRoute := &types.Route{
-		Dst: *defaultNet,
-		GW:  bridgeGW,
+	// Always add agent endpoint to IPv4 routes
+	ipv4Routes = append(ipv4Routes, agentRoute)
+
+	// Add IPv4 default route if IPv4 compatible
+	if ipComp.IsIPv4Compatible() {
+		_, defaultNet, _ := net.ParseCIDR(DefaultRouteDestination)
+		bridgeGW := net.ParseIP(DaemonBridgeGatewayIP)
+		defaultRoute := &types.Route{
+			Dst: *defaultNet,
+			GW:  bridgeGW,
+		}
+		ipv4Routes = append(ipv4Routes, defaultRoute)
 	}
-	routes = append(routes, defaultRoute)
+
+	// Add IPv6 default route if IPv6 compatible
+	if ipComp.IsIPv6Compatible() {
+		_, defaultNetV6, _ := net.ParseCIDR(DefaultRouteDestinationIPv6)
+		bridgeGWv6 := net.ParseIP(DaemonBridgeGatewayIPv6)
+		defaultRouteV6 := &types.Route{
+			Dst: *defaultNetV6,
+			GW:  bridgeGWv6,
+		}
+		ipv6Routes = append(ipv6Routes, defaultRouteV6)
+	}
 
 	ipamConfig := &ecscni.IPAMConfig{
 		CNIConfig: ecscni.CNIConfig{
@@ -156,7 +180,8 @@ func createDaemonBridgePluginConfig(netNSPath string) ecscni.PluginConfig {
 			CNIPluginName:  IPAMPluginName,
 		},
 		IPV4Subnet: ECSSubNet,
-		IPV4Routes: routes,
+		IPV4Routes: ipv4Routes,
+		IPV6Routes: ipv6Routes,
 		ID:         netNSPath,
 	}
 
@@ -167,7 +192,7 @@ func createDaemonBridgePluginConfig(netNSPath string) ecscni.PluginConfig {
 		IPAM:      *ipamConfig,
 	}
 
-	return bridgeConfig
+	return bridgeConfig, nil
 }
 
 func createAppMeshPluginConfig(

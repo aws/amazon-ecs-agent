@@ -467,18 +467,22 @@ func (m *managedLinux) configureDaemonNetNS(ctx context.Context, taskID string, 
 
 		// Create MI-Bridge for daemon-bridge mode only if not already configured
 		if !m.isDaemonNamespaceConfigured(netNS.Path) {
-			var cniNetConf []ecscni.PluginConfig
-			cniNetConf = append(cniNetConf, createDaemonBridgePluginConfig(netNS.Path))
-			add := true
-
-			_, err = m.common.executeCNIPlugin(ctx, add, cniNetConf...)
-			if err != nil {
-				err = errors.Wrap(err, "failed to setup daemon network namespace bridge")
-				return err
-			}
-
 			// Determine IP compatibility from the primary network interface
 			ipComp := m.getIPCompatibilityFromNetNS(netNS)
+
+			// Create daemon bridge config with IP compatibility
+			bridgeConfig, err := createDaemonBridgePluginConfig(netNS.Path, ipComp)
+			if err != nil {
+				return errors.Wrap(err, "failed to create daemon bridge plugin config")
+			}
+
+			var cniNetConf []ecscni.PluginConfig
+			cniNetConf = append(cniNetConf, bridgeConfig)
+
+			_, err = m.common.executeCNIPlugin(ctx, true, cniNetConf...)
+			if err != nil {
+				return errors.Wrap(err, "failed to setup daemon network namespace bridge")
+			}
 
 			// Add NAT masquerade rule for external connectivity
 			err = m.addDaemonBridgeNATRule(ipComp)
@@ -563,11 +567,24 @@ func (m *managedLinux) StopDaemonNetNS(ctx context.Context, netNS *tasknetworkco
 	})
 
 	// Cleanup bridge config(veth pair).
+	// Use IPv4-only compatibility for cleanup since we're just cleaning up the namespace
+	// and the route configuration doesn't matter for deletion.
+	ipComp := ipcompatibility.NewIPv4OnlyCompatibility()
+	bridgeConfig, err := createDaemonBridgePluginConfig(netNS.Path, ipComp)
+	if err != nil {
+		err = errors.Wrap(err, "failed to create daemon bridge plugin config for cleanup")
+		logger.Error("StopDaemonNetNS failed", logger.Fields{
+			"netNSPath":       netNS.Path,
+			loggerfield.Error: err,
+		})
+		return err
+	}
+
 	var cniNetConf []ecscni.PluginConfig
-	cniNetConf = append(cniNetConf, createDaemonBridgePluginConfig(netNS.Path))
+	cniNetConf = append(cniNetConf, bridgeConfig)
 	add := false
 
-	_, err := m.common.executeCNIPlugin(ctx, add, cniNetConf...)
+	_, err = m.common.executeCNIPlugin(ctx, add, cniNetConf...)
 	if err != nil {
 		err = errors.Wrap(err, "failed to stop daemon network namespace bridge")
 		logger.Error("StopDaemonNetNS failed", logger.Fields{

@@ -25,6 +25,10 @@ const (
 	DaemonBridgeGatewayIP   = "169.254.172.1"
 	DefaultRouteDestination = "0.0.0.0/0"
 
+	// IPv6 daemon-bridge networking constants
+	DefaultRouteDestinationIPv6 = "::/0"
+	DaemonBridgeGatewayIPv6     = "fe80::1" // Link-local gateway for IPv6
+
 	CNIPluginLogFileEnv    = "ECS_CNI_LOG_FILE"
 	VPCCNIPluginLogFileEnv = "VPC_CNI_LOG_FILE"
 	IPAMDataPathEnv        = "IPAM_DB_PATH"
