@@ -534,29 +534,8 @@ func (c *common) generateNetworkConfigFiles(
 		return errors.Wrap(err, "unable to create hostname file for netns")
 	}
 
-	if len(iface.DomainNameServers) > 0 {
-		// Use DNS resolver information from the payload.
-		logger.Info("Creating resolv.conf file", map[string]interface{}{
-			"ResolveConfFile": filepath.Join(netNSDir, ResolveConfFileName),
-		})
-
-		data := c.nsUtil.BuildResolvConfig(iface.DomainNameServers, iface.DomainNameSearchList)
-		err := c.ioutil.WriteFile(
-			filepath.Join(netNSDir, ResolveConfFileName),
-			[]byte(data),
-			taskDNSConfigFileMode,
-		)
-		if err != nil {
-			return err
-		}
-	} else {
-		// Copy Host's resolv.conf file.
-		err = c.copyFile(filepath.Join(netNSDir, ResolveConfFileName),
-			filepath.Join(c.resolvConfPath, ResolveConfFileName),
-			taskDNSConfigFileMode)
-		if err != nil {
-			return err
-		}
+	if err := c.createResolvConf(netNSDir, iface); err != nil {
+		return err
 	}
 
 	err = c.copyFile(filepath.Join(netNSDir, HostsFileName), "/etc/hosts", taskDNSConfigFileMode)
@@ -566,7 +545,34 @@ func (c *common) generateNetworkConfigFiles(
 	return nil
 }
 
+func (c *common) createResolvConf(netNSDir string,
+	iface *networkinterface.NetworkInterface) error {
+	if len(iface.DomainNameServers) > 0 {
+		// Use DNS resolver information from the payload.
+		logger.Info("Creating resolv.conf file using information from the interface", map[string]interface{}{
+			"ResolveConfFile": filepath.Join(netNSDir, ResolveConfFileName),
+		})
+
+		data := c.nsUtil.BuildResolvConfig(iface.DomainNameServers, iface.DomainNameSearchList)
+		err := c.ioutil.WriteFile(
+			filepath.Join(netNSDir, ResolveConfFileName),
+			[]byte(data),
+			taskDNSConfigFileMode,
+		)
+		return err
+	}
+
+	// Copy Host's resolv.conf file.
+	return c.copyFile(filepath.Join(netNSDir, ResolveConfFileName),
+		filepath.Join(c.resolvConfPath, ResolveConfFileName),
+		taskDNSConfigFileMode)
+}
+
 func (c *common) copyFile(dst, src string, fileMode os.FileMode) error {
+	logger.Info("Copying the src file to the dst", map[string]interface{}{
+		"SrcFile": src,
+		"DstFile": dst,
+	})
 	contents, err := c.ioutil.ReadFile(src)
 	if err != nil {
 		return errors.Wrapf(err, "unable to read %s", src)

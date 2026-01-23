@@ -79,11 +79,64 @@ func (m *managedLinux) BuildTaskNetworkConfiguration(
 
 func (m *managedLinux) CreateDNSConfig(taskID string,
 	netNS *tasknetworkconfig.NetworkNamespace) error {
-	// SC tasks will get DNS config from control plane.
 	if netNS.ServiceConnectConfig != nil {
-		return m.common.createDNSConfig(taskID, false, netNS)
+		return m.createServiceConnectTasksDNSConfig(taskID, netNS)
 	}
 	return m.common.createDNSConfig(taskID, true, netNS)
+}
+
+func (m *managedLinux) createServiceConnectTasksDNSConfig(taskID string,
+	netNS *tasknetworkconfig.NetworkNamespace) error {
+	logger.Info("Creating DNS config for Service Connect tasks", map[string]interface{}{
+		"NetNSPath": netNS.Path,
+		"NetNSName": netNS.Name,
+		"TaskID":    taskID,
+	})
+
+	primaryIF := netNS.GetPrimaryInterface()
+	if primaryIF == nil {
+		return errors.New("unable to find primary interface")
+	}
+
+	// Create the dns configuration file directory.
+	netNSName := netNS.Name
+	netNSDir := filepath.Join(networkConfigFileDirectory, netNSName)
+	_, err := m.os.Stat(netNSDir)
+	if err != nil && m.os.IsNotExist(err) {
+		err = m.os.MkdirAll(
+			filepath.Join(networkConfigFileDirectory, netNSName),
+			networkConfigFileMode)
+	}
+	if err != nil {
+		return errors.Wrap(err, "unable to create the dns config directory")
+	}
+
+	// Create the hostname file.
+	err = m.createHostnameFileForNetNS(netNSName, primaryIF)
+	if err != nil {
+		return errors.Wrap(err, "unable to create hostname file for netns")
+	}
+	err = m.createHostnameFileForDefaultNetNS()
+	if err != nil {
+		return errors.Wrap(err, "unable to verify the existence of /etc/hostname on the host")
+	}
+
+	// Create the hosts file based on the primary interface information.
+	err = m.createHostsFile(netNSName, primaryIF)
+	if err != nil {
+		return errors.Wrap(err, "unable to create hosts file for netns")
+	}
+
+	// Create the resolv.conf file.
+	// For service connect tasks on ECS managed instances, we should use resolv.conf from the host
+	// and Control Plane won't send down the dns server information.
+	if err := m.createResolvConf(netNSDir, primaryIF); err != nil {
+		return err
+	}
+
+	// Copy these files into a task volume, which can be used by containers as well, to
+	// configure their network.
+	return m.copyNetworkConfigFilesToTask(taskID, netNSName)
 }
 
 func (m *managedLinux) ConfigureInterface(

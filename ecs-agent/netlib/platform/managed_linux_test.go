@@ -356,6 +356,7 @@ func TestManagedLinux_CreateDNSConfig(t *testing.T) {
 
 	taskID := "task-id"
 	iface := getTestIPv4OnlyInterface()
+	ifaceWithoutDNS := getTestIPv4OnlyInterfaceWithoutDNS()
 	netNSName := networkinterface.NetNSName(taskID, iface.Name)
 	netNSPath := "/etc/netns/" + netNSName
 
@@ -433,7 +434,7 @@ func TestManagedLinux_CreateDNSConfig(t *testing.T) {
 		require.NoError(t, err)
 	})
 
-	t.Run("with_service_connect_creates_new_files", func(t *testing.T) {
+	t.Run("with_service_connect_dns_from_CP", func(t *testing.T) {
 		// Setup mocks
 		ioutil := mock_ioutilwrapper.NewMockIOUtil(ctrl)
 		nsUtil := mock_ecscni.NewMockNetNSUtil(ctrl)
@@ -446,6 +447,7 @@ func TestManagedLinux_CreateDNSConfig(t *testing.T) {
 			nsUtil:            nsUtil,
 			os:                osWrapper,
 			dnsVolumeAccessor: volumeAccessor,
+			resolvConfPath:    "/run/netdog",
 		}
 
 		ml := &managedLinux{
@@ -465,22 +467,86 @@ func TestManagedLinux_CreateDNSConfig(t *testing.T) {
 		}
 
 		gomock.InOrder(
-			// Creation of netns path
+			// Creation of netns path.
 			osWrapper.EXPECT().Stat(netNSPath).Return(nil, os.ErrNotExist).Times(1),
 			osWrapper.EXPECT().IsNotExist(os.ErrNotExist).Return(true).Times(1),
 			osWrapper.EXPECT().MkdirAll(netNSPath, fs.FileMode(0644)),
 
-			// Creation of resolv.conf file (creates new, doesn't copy from host)
-			nsUtil.EXPECT().BuildResolvConfig(iface.DomainNameServers, iface.DomainNameSearchList).Return(resolvData).Times(1),
-			ioutil.EXPECT().WriteFile(netNSPath+"/resolv.conf", []byte(resolvData), fs.FileMode(0644)),
-
-			// Creation of hostname file
+			// Creation of hostname file for netns.
 			ioutil.EXPECT().WriteFile(netNSPath+"/hostname", []byte(hostnameData), fs.FileMode(0644)),
-			osWrapper.EXPECT().OpenFile("/etc/hostname", os.O_RDONLY|os.O_CREATE, fs.FileMode(0644)).Return(mockFile, nil).Times(1),
 
-			// Creation of hosts file (creates new, doesn't copy from host)
+			// Creation of hostname file for default netns.
+			osWrapper.EXPECT().OpenFile("/etc/hostname", os.O_RDONLY|os.O_CREATE, fs.FileMode(0644)).Return(mockFile, nil).Times(1),
 			mockFile.EXPECT().Close().Times(1),
+
+			// Creation of hosts file.
 			ioutil.EXPECT().WriteFile(netNSPath+"/hosts", []byte(hostsData), fs.FileMode(0644)),
+
+			// Service Connect specific: Build resolv.conf from interface DNS servers (DNS from CP).
+			nsUtil.EXPECT().BuildResolvConfig(iface.DomainNameServers, iface.DomainNameSearchList).Return(resolvData).Times(1),
+			ioutil.EXPECT().WriteFile(netNSPath+"/resolv.conf", []byte(resolvData), fs.FileMode(0666)),
+
+			// CopyToVolume created files into task volume
+			volumeAccessor.EXPECT().CopyToVolume(taskID, netNSPath+"/hosts", "hosts", fs.FileMode(0644)).Return(nil).Times(1),
+			volumeAccessor.EXPECT().CopyToVolume(taskID, netNSPath+"/resolv.conf", "resolv.conf", fs.FileMode(0644)).Return(nil).Times(1),
+			volumeAccessor.EXPECT().CopyToVolume(taskID, netNSPath+"/hostname", "hostname", fs.FileMode(0644)).Return(nil).Times(1),
+		)
+
+		err := ml.CreateDNSConfig(taskID, netns)
+		require.NoError(t, err)
+	})
+
+	t.Run("with_service_connect_no_dns_from_CP", func(t *testing.T) {
+		// Setup mocks
+		ioutil := mock_ioutilwrapper.NewMockIOUtil(ctrl)
+		nsUtil := mock_ecscni.NewMockNetNSUtil(ctrl)
+		osWrapper := mock_oswrapper.NewMockOS(ctrl)
+		mockFile := mock_oswrapper.NewMockFile(ctrl)
+		volumeAccessor := mock_volume.NewMockTaskVolumeAccessor(ctrl)
+
+		commonPlatform := common{
+			ioutil:            ioutil,
+			nsUtil:            nsUtil,
+			os:                osWrapper,
+			dnsVolumeAccessor: volumeAccessor,
+			resolvConfPath:    "/run/netdog",
+		}
+
+		ml := &managedLinux{
+			common: commonPlatform,
+		}
+
+		// Network namespace WITH Service Connect config
+		netns := &tasknetworkconfig.NetworkNamespace{
+			Name:              netNSName,
+			Path:              netNSPath,
+			NetworkMode:       ecstypes.NetworkModeAwsvpc,
+			NetworkInterfaces: []*networkinterface.NetworkInterface{ifaceWithoutDNS},
+			ServiceConnectConfig: &serviceconnect.ServiceConnectConfig{
+				IngressConfigList: []serviceconnect.IngressConfig{},
+				EgressConfig:      serviceconnect.EgressConfig{},
+			},
+		}
+
+		gomock.InOrder(
+			// Creation of netns path.
+			osWrapper.EXPECT().Stat(netNSPath).Return(nil, os.ErrNotExist).Times(1),
+			osWrapper.EXPECT().IsNotExist(os.ErrNotExist).Return(true).Times(1),
+			osWrapper.EXPECT().MkdirAll(netNSPath, fs.FileMode(0644)),
+
+			// Creation of hostname file for netns.
+			ioutil.EXPECT().WriteFile(netNSPath+"/hostname", []byte(hostnameData), fs.FileMode(0644)),
+
+			// Creation of hostname file for default netns.
+			osWrapper.EXPECT().OpenFile("/etc/hostname", os.O_RDONLY|os.O_CREATE, fs.FileMode(0644)).Return(mockFile, nil).Times(1),
+			mockFile.EXPECT().Close().Times(1),
+
+			// Creation of hosts file.
+			ioutil.EXPECT().WriteFile(netNSPath+"/hosts", []byte(hostsData), fs.FileMode(0644)),
+
+			// Service Connect specific: Copy resolv.conf from host.
+			ioutil.EXPECT().ReadFile("/run/netdog/resolv.conf").Return([]byte(resolvData), nil).Times(1),
+			ioutil.EXPECT().WriteFile(netNSPath+"/resolv.conf", []byte(resolvData), fs.FileMode(0666)),
 
 			// CopyToVolume created files into task volume
 			volumeAccessor.EXPECT().CopyToVolume(taskID, netNSPath+"/hosts", "hosts", fs.FileMode(0644)).Return(nil).Times(1),
