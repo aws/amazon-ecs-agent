@@ -185,6 +185,12 @@ func createDaemonBridgePluginConfig(netNSPath string, ipComp ipcompatibility.IPC
 		ID:         netNSPath,
 	}
 
+	// Add IPv6 subnet and gateway if IPv6 compatible
+	if ipComp.IsIPv6Compatible() {
+		ipamConfig.IPV6Subnet = ECSSubNetIPv6
+		ipamConfig.IPV6Gateway = DaemonBridgeGatewayIPv6
+	}
+
 	// Invoke the bridge plugin and ipam plugin
 	bridgeConfig := &ecscni.BridgeConfig{
 		CNIConfig: cniConfig,
