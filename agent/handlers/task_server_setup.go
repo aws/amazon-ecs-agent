@@ -69,6 +69,7 @@ func taskServerSetup(
 	steadyStateRate int,
 	burstRate int,
 	availabilityZone string,
+	availabilityZoneID string,
 	vpcID string,
 	containerInstanceArn string,
 	taskProtectionClientFactory tp.TaskProtectionClientFactoryInterface,
@@ -82,7 +83,7 @@ func taskServerSetup(
 	muxRouter.HandleFunc(tmdsv1.CredentialsPath,
 		tmdsv1.CredentialsHandler(credentialsManager, auditLogger))
 
-	tmdsAgentState := v4.NewTMDSAgentState(state, statsEngine, ecsClient, cluster, availabilityZone, vpcID, containerInstanceArn)
+	tmdsAgentState := v4.NewTMDSAgentState(state, statsEngine, ecsClient, cluster, availabilityZone, availabilityZoneID, vpcID, containerInstanceArn)
 	metricsFactory := metrics.NewNopEntryFactory()
 
 	v2HandlersSetup(muxRouter, state, ecsClient, statsEngine, cluster, credentialsManager, auditLogger, availabilityZone, containerInstanceArn)
@@ -343,6 +344,7 @@ func ServeTaskHTTPEndpoint(
 	cfg *config.Config,
 	statsEngine stats.Engine,
 	availabilityZone string,
+	availabilityZoneID string,
 	vpcID string,
 ) {
 	// Create and initialize the audit log
@@ -360,7 +362,7 @@ func ServeTaskHTTPEndpoint(
 	}
 	server, err := taskServerSetup(credentialsManager, auditLogger, state, ecsClient, cfg.Cluster,
 		statsEngine, cfg.TaskMetadataSteadyStateRate, cfg.TaskMetadataBurstRate,
-		availabilityZone, vpcID, containerInstanceArn, taskProtectionClientFactory)
+		availabilityZone, availabilityZoneID, vpcID, containerInstanceArn, taskProtectionClientFactory)
 	if err != nil {
 		seelog.Criticalf("Failed to set up Task Metadata Server: %v", err)
 		return

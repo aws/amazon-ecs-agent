@@ -88,20 +88,15 @@ const (
 
 	blackholed = "blackholed"
 
-	instanceIdBackoffMin      = time.Second
-	instanceIdBackoffMax      = time.Second * 5
-	instanceIdBackoffJitter   = 0.2
-	instanceIdBackoffMultiple = 1.3
-	instanceIdMaxRetryCount   = 5
+	imdsBackoffMin      = time.Second
+	imdsBackoffMax      = time.Second * 5
+	imdsBackoffJitter   = 0.2
+	imdsBackoffMultiple = 1.3
+	imdsMaxRetryCount   = 5
 
-	targetLifecycleBackoffMin      = time.Second
-	targetLifecycleBackoffMax      = time.Second * 5
-	targetLifecycleBackoffJitter   = 0.2
-	targetLifecycleBackoffMultiple = 1.3
-	targetLifecycleMaxRetryCount   = 3
-	inServiceState                 = "InService"
-	asgLifecyclePollWait           = time.Minute
-	asgLifecyclePollMax            = 120 // given each poll cycle waits for about a minute, this gives 2-3 hours before timing out
+	inServiceState       = "InService"
+	asgLifecyclePollWait = time.Minute
+	asgLifecyclePollMax  = 120 // given each poll cycle waits for about a minute, this gives 2-3 hours before timing out
 
 	// By default, TCS (or TACS) will reject metrics that are older than 5 minutes. Since our metrics collection interval
 	// is currently set to 20 seconds, setting a buffer size of 15 allows us to store exactly 5 minutes of metrics in
@@ -161,6 +156,7 @@ type ecsAgent struct {
 	mobyPlugins                 mobypkgwrapper.Plugins
 	resourceFields              *taskresource.ResourceFields
 	availabilityZone            string
+	availabilityZoneID          string
 	latestSeqNumberTaskManifest *int64
 }
 
@@ -412,7 +408,7 @@ func (agent *ecsAgent) doStart(containerChangeEventStream *eventstream.EventStre
 
 	// If part of ASG, wait until instance is being set up to go in service before registering with cluster
 	if agent.cfg.WarmPoolsSupport.Enabled() {
-		err := agent.waitUntilInstanceInService(asgLifecyclePollWait, asgLifecyclePollMax, targetLifecycleMaxRetryCount)
+		err := agent.waitUntilInstanceInService(asgLifecyclePollWait, asgLifecyclePollMax)
 		if err != nil && err.Error() != blackholed {
 			seelog.Criticalf("Could not determine target lifecycle of instance: %v", err)
 			return exitcodes.ExitTerminal
@@ -476,6 +472,14 @@ func (agent *ecsAgent) doStart(containerChangeEventStream *eventstream.EventStre
 			}
 			return exitcodes.ExitError
 		}
+	}
+
+	// populate availability zone id from IMDS
+	availabilityZoneID, err := agent.getEc2MetadataWithRetry(agent.ec2MetadataClient.AvailabilityZoneID, "availability zone ID")
+	if availabilityZoneID == "" {
+		seelog.Warnf("Unable to get Availability Zone ID for the Instance")
+	} else {
+		agent.availabilityZoneID = availabilityZoneID
 	}
 
 	// Register the container instance
@@ -552,19 +556,19 @@ func (agent *ecsAgent) doStart(containerChangeEventStream *eventstream.EventStre
 
 // waitUntilInstanceInService Polls IMDS until the target lifecycle state indicates that the instance is going in
 // service. This is to avoid instances going to a warm pool being registered as container instances with the cluster
-func (agent *ecsAgent) waitUntilInstanceInService(pollWaitDuration time.Duration, pollMaxTimes int, maxRetries int) error {
+func (agent *ecsAgent) waitUntilInstanceInService(pollWaitDuration time.Duration, pollMaxTimes int) error {
 	seelog.Info("Waiting for instance to go InService")
 	var err error
 	var targetState string
 	// Poll until a target lifecycle state is obtained from IMDS, or an unexpected error occurs
-	targetState, err = agent.pollUntilTargetLifecyclePresent(pollWaitDuration, pollMaxTimes, maxRetries)
+	targetState, err = agent.pollUntilTargetLifecyclePresent(pollWaitDuration, pollMaxTimes)
 	if err != nil {
 		return err
 	}
 	// Poll while the instance is in a warmed state until it is going to go into service
 	for targetState != inServiceState {
 		time.Sleep(pollWaitDuration)
-		targetState, err = agent.getTargetLifecycle(maxRetries)
+		targetState, err = agent.getEc2MetadataWithRetry(agent.ec2MetadataClient.TargetLifecycleState, "target life cycle state")
 		if err != nil {
 			// Do not exit if error is due to throttling or temporary server errors
 			// These are likely transient, as at this point IMDS has been successfully queried for state
@@ -580,11 +584,11 @@ func (agent *ecsAgent) waitUntilInstanceInService(pollWaitDuration time.Duration
 }
 
 // pollUntilTargetLifecyclePresent polls until obtains a target state or receives an unexpected error
-func (agent *ecsAgent) pollUntilTargetLifecyclePresent(pollWaitDuration time.Duration, pollMaxTimes int, maxRetries int) (string, error) {
+func (agent *ecsAgent) pollUntilTargetLifecyclePresent(pollWaitDuration time.Duration, pollMaxTimes int) (string, error) {
 	var err error
 	var targetState string
 	for i := 0; i < pollMaxTimes; i++ {
-		targetState, err = agent.getTargetLifecycle(maxRetries)
+		targetState, err = agent.getEc2MetadataWithRetry(agent.ec2MetadataClient.TargetLifecycleState, "target life cycle state")
 		if targetState != "" ||
 			(err != nil && utils.GetResponseErrorStatusCode(err) != 404) {
 			break
@@ -594,24 +598,29 @@ func (agent *ecsAgent) pollUntilTargetLifecyclePresent(pollWaitDuration time.Dur
 	return targetState, err
 }
 
-// getTargetLifecycle obtains the target lifecycle state for the instance from IMDS. This is populated for instances
-// associated with an ASG
-func (agent *ecsAgent) getTargetLifecycle(maxRetries int) (string, error) {
-	var targetState string
+func (agent *ecsAgent) getEc2MetadataWithRetry(imdsMetadataFunc func() (string, error), logContext string) (string, error) {
+	var result string
 	var err error
-	backoff := retry.NewExponentialBackoff(targetLifecycleBackoffMin, targetLifecycleBackoffMax, targetLifecycleBackoffJitter, targetLifecycleBackoffMultiple)
-	for i := 0; i < maxRetries; i++ {
-		targetState, err = agent.ec2MetadataClient.TargetLifecycleState()
-		if err == nil {
-			break
+	backoff := retry.NewExponentialBackoff(imdsBackoffMin, imdsBackoffMax, imdsBackoffJitter, imdsBackoffMultiple)
+
+	for i := 0; i < imdsMaxRetryCount; i++ {
+		result, err = imdsMetadataFunc()
+		if err == nil || err.Error() == blackholed {
+			return result, err
 		}
-		seelog.Debugf("Error when getting intended lifecycle state: %v", err)
-		if i < maxRetries {
+		if i < imdsMaxRetryCount-1 {
 			time.Sleep(backoff.Duration())
 		}
 	}
-	seelog.Debugf("Target lifecycle state of instance: %v", targetState)
-	return targetState, err
+
+	if err != nil {
+		logger.Warn(fmt.Sprintf("Unable to access EC2 Metadata service to determine %s", logContext), logger.Fields{
+			field.Error: err,
+		})
+		return "", err
+	}
+	seelog.Debugf("%v of instance: %v", logContext, result)
+	return result, nil
 }
 
 // newTaskEngine creates a new docker task engine object. It tries to load the
@@ -647,7 +656,7 @@ func (agent *ecsAgent) newTaskEngine(containerChangeEventStream *eventstream.Eve
 		return nil, "", err
 	}
 
-	currentEC2InstanceID := agent.getEC2InstanceID()
+	currentEC2InstanceID, err := agent.getEc2MetadataWithRetry(agent.ec2MetadataClient.InstanceID, "EC2 Instance ID")
 	if currentEC2InstanceID == "" {
 		currentEC2InstanceID = savedData.ec2InstanceID
 		seelog.Warnf("Not able to get EC2 Instance ID from IMDS, using EC2 Instance ID from saved state: '%s'", currentEC2InstanceID)
@@ -721,28 +730,6 @@ func (agent *ecsAgent) setClusterInConfig(previousCluster string) error {
 	})
 
 	return nil
-}
-
-// getEC2InstanceID gets the EC2 instance ID from the metadata service
-func (agent *ecsAgent) getEC2InstanceID() string {
-	var instanceID string
-	var err error
-	backoff := retry.NewExponentialBackoff(instanceIdBackoffMin, instanceIdBackoffMax, instanceIdBackoffJitter, instanceIdBackoffMultiple)
-	for i := 0; i < instanceIdMaxRetryCount; i++ {
-		instanceID, err = agent.ec2MetadataClient.InstanceID()
-		if err == nil || err.Error() == blackholed {
-			return instanceID
-		}
-		if i < instanceIdMaxRetryCount-1 {
-			time.Sleep(backoff.Duration())
-		}
-	}
-	if err != nil {
-		logger.Warn("Unable to access EC2 Metadata service to determine EC2 ID", logger.Fields{
-			field.Error: err,
-		})
-	}
-	return instanceID
 }
 
 // getoutpostARN gets the Outpost ARN from the metadata service
@@ -993,9 +980,9 @@ func (agent *ecsAgent) startAsyncRoutines(
 	// Start serving the endpoint to fetch IAM Role credentials and other task metadata
 	if agent.cfg.TaskMetadataAZDisabled {
 		// send empty availability zone
-		go handlers.ServeTaskHTTPEndpoint(agent.ctx, credentialsManager, state, client, agent.containerInstanceARN, agent.cfg, statsEngine, "", agent.vpc)
+		go handlers.ServeTaskHTTPEndpoint(agent.ctx, credentialsManager, state, client, agent.containerInstanceARN, agent.cfg, statsEngine, "", "", agent.vpc)
 	} else {
-		go handlers.ServeTaskHTTPEndpoint(agent.ctx, credentialsManager, state, client, agent.containerInstanceARN, agent.cfg, statsEngine, agent.availabilityZone, agent.vpc)
+		go handlers.ServeTaskHTTPEndpoint(agent.ctx, credentialsManager, state, client, agent.containerInstanceARN, agent.cfg, statsEngine, agent.availabilityZone, agent.availabilityZoneID, agent.vpc)
 	}
 
 	// Start sending events to the backend
