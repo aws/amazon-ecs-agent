@@ -1,5 +1,4 @@
 //go:build unit
-// +build unit
 
 // Copyright Amazon.com Inc. or its affiliates. All Rights Reserved.
 //
@@ -17,13 +16,10 @@
 package ec2_test
 
 import (
-	"bytes"
 	"encoding/json"
 	"errors"
 	"fmt"
 	"io"
-	"io/ioutil"
-	"net/http"
 	"strings"
 	"testing"
 	"time"
@@ -76,23 +72,6 @@ var testInstanceIdentityDoc = imds.InstanceIdentityDocument{
 	InstanceType:     "t2.micro",
 	PendingTime:      time.Now(),
 	Architecture:     "x86_64",
-}
-
-func testSuccessResponse(s string) (*http.Response, error) {
-	return &http.Response{
-		Status:     "200 OK",
-		StatusCode: 200,
-		Proto:      "HTTP/1.0",
-		Body:       ioutil.NopCloser(bytes.NewReader([]byte(s))),
-	}, nil
-}
-
-func testErrorResponse() (*http.Response, error) {
-	return &http.Response{
-		Status:     "500 Broken",
-		StatusCode: 500,
-		Proto:      "HTTP/1.0",
-	}, nil
 }
 
 func TestDefaultCredentials(t *testing.T) {
@@ -352,4 +331,244 @@ func TestSpotInstanceActionError(t *testing.T) {
 
 func nopReadCloser(s string) io.ReadCloser {
 	return io.NopCloser(strings.NewReader(s))
+}
+
+// TestMetadataCaching tests the caching behavior of retrieving Metadata from IMDS.
+func TestMetadataCaching(t *testing.T) {
+	testCases := []struct {
+		name        string
+		metadataKey string
+		methodName  string
+		methodParam string // Optional parameter for methods like VPCID(mac)
+		expectedVal string
+	}{
+		{"PrimaryENIMAC", ec2.MacResource, "PrimaryENIMAC", "", mac},
+		{"InstanceID", ec2.InstanceIDResource, "InstanceID", "", "i-1234567890abcdef0"},
+		{"AvailabilityZoneID", ec2.AvailabilityZoneID, "AvailabilityZoneID", "", zoneID},
+		{"Region", ec2.RegionResource, "Region", "", "us-west-2"},
+		{"VPCID", fmt.Sprintf(ec2.VPCIDResourceFormat, mac), "VPCID", mac, vpcID},
+		{"SubnetID", fmt.Sprintf(ec2.SubnetIDResourceFormat, mac), "SubnetID", mac, subnetID},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			ctrl := gomock.NewController(t)
+			defer ctrl.Finish()
+
+			mockGetter := mock_ec2.NewMockHttpClient(ctrl)
+			testClient, err := ec2.NewEC2MetadataClient(mockGetter)
+			assert.NoError(t, err)
+
+			// Setup mock to expect exactly one call
+			mockGetter.EXPECT().GetMetadata(gomock.Any(), &imds.GetMetadataInput{
+				Path: tc.metadataKey,
+			}).Return(&imds.GetMetadataOutput{
+				Content: nopReadCloser(tc.expectedVal),
+			}, nil).Times(1)
+
+			// Helper to call the appropriate method
+			callMethod := func() (string, error) {
+				switch tc.methodName {
+				case "PrimaryENIMAC":
+					return testClient.PrimaryENIMAC()
+				case "InstanceID":
+					return testClient.InstanceID()
+				case "AvailabilityZoneID":
+					return testClient.AvailabilityZoneID()
+				case "Region":
+					return testClient.Region()
+				case "VPCID":
+					return testClient.VPCID(tc.methodParam)
+				case "SubnetID":
+					return testClient.SubnetID(tc.methodParam)
+				default:
+					return "", fmt.Errorf("unknown method: %s", tc.methodName)
+				}
+			}
+
+			// First call should hit the mock
+			result1, err := callMethod()
+			assert.NoError(t, err)
+			assert.Equal(t, tc.expectedVal, result1)
+
+			// Second call should use cache (no additional mock expectation)
+			result2, err := callMethod()
+			assert.NoError(t, err)
+			assert.Equal(t, tc.expectedVal, result2)
+		})
+	}
+}
+
+// TestInstanceIdentityDocumentCaching verifies that InstanceIdentityDocument caches the result
+// This uses a separate cache mechanism, so we keep this test separate
+func TestInstanceIdentityDocumentCaching(t *testing.T) {
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+
+	mockGetter := mock_ec2.NewMockHttpClient(ctrl)
+	testClient, err := ec2.NewEC2MetadataClient(mockGetter)
+	assert.NoError(t, err)
+
+	// First call should hit the mock
+	mockGetter.EXPECT().GetInstanceIdentityDocument(
+		gomock.Any(), &imds.GetInstanceIdentityDocumentInput{}, gomock.Any(),
+	).Return(&imds.GetInstanceIdentityDocumentOutput{
+		InstanceIdentityDocument: testInstanceIdentityDoc,
+	}, nil).Times(1)
+
+	// First call
+	doc1, err := testClient.InstanceIdentityDocument()
+	assert.NoError(t, err)
+	assert.Equal(t, iidRegion, doc1.Region)
+	assert.Equal(t, testInstanceIdentityDoc.InstanceID, doc1.InstanceID)
+
+	// Second call should use cache (no mock expectation needed)
+	doc2, err := testClient.InstanceIdentityDocument()
+	assert.NoError(t, err)
+	assert.Equal(t, iidRegion, doc2.Region)
+	assert.Equal(t, testInstanceIdentityDoc.InstanceID, doc2.InstanceID)
+}
+
+// TestGetUserDataCaching tests GetUserData caching (uses custom GetUserData API)
+func TestGetUserDataCaching(t *testing.T) {
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+
+	mockGetter := mock_ec2.NewMockHttpClient(ctrl)
+	testClient, err := ec2.NewEC2MetadataClient(mockGetter)
+	assert.NoError(t, err)
+
+	userData := "#!/bin/bash\necho 'Hello World'"
+
+	mockGetter.EXPECT().GetUserData(gomock.Any(), &imds.GetUserDataInput{}, gomock.Any()).Return(
+		&imds.GetUserDataOutput{Content: nopReadCloser(userData)}, nil,
+	).Times(1)
+
+	userDataResponse1, err := testClient.GetUserData()
+	assert.NoError(t, err)
+	assert.Equal(t, userData, userDataResponse1)
+
+	userDataResponse2, err := testClient.GetUserData()
+	assert.NoError(t, err)
+	assert.Equal(t, userData, userDataResponse2)
+}
+
+// TestMetadataNoCaching tests that certain metadata functions do NOT cache results
+// and make fresh calls to IMDS on each invocation.
+func TestMetadataNoCaching(t *testing.T) {
+	testCases := []struct {
+		name        string
+		metadataKey string
+		methodName  string
+		firstVal    string
+		secondVal   string
+	}{
+		{
+			name:        "AllENIMacs",
+			metadataKey: ec2.AllMacResource,
+			methodName:  "AllENIMacs",
+			firstVal:    macs,
+			secondVal:   "01:23:45:67:89:ab",
+		},
+		{
+			name:        "PublicIPv4Address",
+			metadataKey: ec2.PublicIPv4Resource,
+			methodName:  "PublicIPv4Address",
+			firstVal:    "1.2.3.4",
+			secondVal:   "5.6.7.8",
+		},
+		{
+			name:        "PrivateIPv4Address",
+			metadataKey: ec2.PrivateIPv4Resource,
+			methodName:  "PrivateIPv4Address",
+			firstVal:    "10.0.0.1",
+			secondVal:   "10.0.0.2",
+		},
+		{
+			name:        "IPv6Address",
+			metadataKey: ec2.IPv6Resource,
+			methodName:  "IPv6Address",
+			firstVal:    "2001:aaa::1",
+			secondVal:   "2001:aaa::2",
+		},
+		{
+			name:        "SpotInstanceAction",
+			metadataKey: ec2.SpotInstanceActionResource,
+			methodName:  "SpotInstanceAction",
+			firstVal:    "{\"action\": \"terminate\", \"time\": \"2017-09-18T08:22:00Z\"}",
+			secondVal:   "{\"action\": \"stop\", \"time\": \"2017-09-18T09:00:00Z\"}",
+		},
+		{
+			name:        "OutpostARN",
+			metadataKey: ec2.OutpostARN,
+			methodName:  "OutpostARN",
+			firstVal:    "arn:aws:outposts:us-west-2:123456789012:outpost/op-1234567890abcdef0",
+			secondVal:   "arn:aws:outposts:us-west-2:123456789012:outpost/op-abcdef1234567890",
+		},
+		{
+			name:        "TargetLifecycleState",
+			metadataKey: ec2.TargetLifecycleState,
+			methodName:  "TargetLifecycleState",
+			firstVal:    "InService",
+			secondVal:   "Terminating",
+		},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			ctrl := gomock.NewController(t)
+			defer ctrl.Finish()
+
+			mockGetter := mock_ec2.NewMockHttpClient(ctrl)
+			client, err := ec2.NewEC2MetadataClient(mockGetter)
+			assert.NoError(t, err)
+
+			// Setup mock to expect TWO calls with different return values
+			gomock.InOrder(
+				mockGetter.EXPECT().GetMetadata(gomock.Any(), &imds.GetMetadataInput{
+					Path: tc.metadataKey,
+				}).Return(&imds.GetMetadataOutput{
+					Content: nopReadCloser(tc.firstVal),
+				}, nil),
+				mockGetter.EXPECT().GetMetadata(gomock.Any(), &imds.GetMetadataInput{
+					Path: tc.metadataKey,
+				}).Return(&imds.GetMetadataOutput{
+					Content: nopReadCloser(tc.secondVal),
+				}, nil),
+			)
+
+			// Helper to call the appropriate method
+			callMethod := func() (string, error) {
+				switch tc.methodName {
+				case "AllENIMacs":
+					return client.AllENIMacs()
+				case "PublicIPv4Address":
+					return client.PublicIPv4Address()
+				case "PrivateIPv4Address":
+					return client.PrivateIPv4Address()
+				case "IPv6Address":
+					return client.IPv6Address()
+				case "SpotInstanceAction":
+					return client.SpotInstanceAction()
+				case "OutpostARN":
+					return client.OutpostARN()
+				case "TargetLifecycleState":
+					return client.TargetLifecycleState()
+				default:
+					return "", fmt.Errorf("unknown method: %s", tc.methodName)
+				}
+			}
+
+			// First call should return first value
+			result1, err := callMethod()
+			assert.NoError(t, err)
+			assert.Equal(t, tc.firstVal, result1)
+
+			// Second call should make a fresh request and return second value (not cached)
+			result2, err := callMethod()
+			assert.NoError(t, err)
+			assert.Equal(t, tc.secondVal, result2)
+			assert.NotEqual(t, result1, result2, "Expected different values on successive calls (no caching)")
+		})
+	}
 }
