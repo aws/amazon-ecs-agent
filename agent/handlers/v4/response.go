@@ -38,6 +38,7 @@ func NewTaskResponse(
 	ecsClient ecs.ECSClient,
 	cluster string,
 	az string,
+	azID string,
 	vpcID string,
 	containerInstanceARN string,
 	serviceName string,
@@ -67,10 +68,11 @@ func NewTaskResponse(
 	}
 
 	return &tmdsv4.TaskResponse{
-		TaskResponse: v2Resp,
-		Containers:   containers,
-		VPCID:        vpcID,
-		ServiceName:  serviceName,
+		TaskResponse:       v2Resp,
+		Containers:         containers,
+		VPCID:              vpcID,
+		ServiceName:        serviceName,
+		AvailabilityZoneID: azID,
 	}, nil
 }
 

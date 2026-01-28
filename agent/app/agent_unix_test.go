@@ -124,6 +124,7 @@ func TestDoStartTaskENIHappyPath(t *testing.T) {
 	imageManager.EXPECT().AddImageToCleanUpExclusionList(gomock.Eq("service_connect_agent:v1")).Times(1)
 	mockUdevMonitor.EXPECT().Monitor(gomock.Any()).Return(monitoShutdownEvents).AnyTimes()
 	client.EXPECT().GetHostResources().Return(testHostResource, nil).Times(1)
+	mockMetadata.EXPECT().AvailabilityZoneID().Return("usw2-az2", nil).AnyTimes()
 
 	gomock.InOrder(
 		mockMetadata.EXPECT().PrimaryENIMAC().Return(mac, nil),
@@ -459,6 +460,7 @@ func TestDoStartCgroupInitHappyPath(t *testing.T) {
 	ec2MetadataClient.EXPECT().VPCID(gomock.Eq("mac")).Return("vpc-id", nil)
 	ec2MetadataClient.EXPECT().SubnetID(gomock.Eq("mac")).Return("subnet-id", nil)
 	ec2MetadataClient.EXPECT().OutpostARN().Return("", nil)
+	ec2MetadataClient.EXPECT().AvailabilityZoneID().Return("usw2-az2", nil).AnyTimes()
 	mockPauseLoader.EXPECT().LoadImage(gomock.Any(), gomock.Any(), gomock.Any()).Return(nil, nil).AnyTimes()
 	mockPauseLoader.EXPECT().IsLoaded(gomock.Any()).Return(true, nil).AnyTimes()
 	mockServiceConnectManager := mock_serviceconnect.NewMockManager(ctrl)
@@ -634,6 +636,7 @@ func TestDoStartGPUManagerHappyPath(t *testing.T) {
 	ec2MetadataClient.EXPECT().VPCID(gomock.Eq("mac")).Return("vpc-id", nil)
 	ec2MetadataClient.EXPECT().SubnetID(gomock.Eq("mac")).Return("subnet-id", nil)
 	ec2MetadataClient.EXPECT().OutpostARN().Return("", nil)
+	ec2MetadataClient.EXPECT().AvailabilityZoneID().Return("usw2-az2", nil).AnyTimes()
 	mockPauseLoader.EXPECT().LoadImage(gomock.Any(), gomock.Any(), gomock.Any()).Return(nil, nil).AnyTimes()
 	mockPauseLoader.EXPECT().IsLoaded(gomock.Any()).Return(true, nil).AnyTimes()
 	mockServiceConnectManager := mock_serviceconnect.NewMockManager(ctrl)
