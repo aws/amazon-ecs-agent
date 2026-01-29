@@ -1,5 +1,14 @@
 # Changelog
 
+# 1.101.3
+* Enhancement - Added ecs-init config for Chainguard OS [#4775](https://github.com/aws/amazon-ecs-agent/pull/4775)
+* Enhancement - fix resolv.conf for SC tasks on ECS Managed Instances [#4849](https://github.com/aws/amazon-ecs-agent/pull/4849)
+* Enhancement - Cached IMDS responses to mitigate linklocal throttle [#4847](https://github.com/aws/amazon-ecs-agent/pull/4847)
+* Enhancement - Update Go version for builds to 1.24.12 [#4852](https://github.com/aws/amazon-ecs-agent/pull/4852)
+* Enhancement - Bump github.com/containernetworking/cni from 1.2.3 to 1.3.0 in /agent [#4846](https://github.com/aws/amazon-ecs-agent/pull/4846)
+* Enhancemnet - Bump google.golang.org/grpc from 1.62.0 to 1.78.0 in /ecs-agent [#4845](https://github.com/aws/amazon-ecs-agent/pull/4845)
+* BugFix - Fixed ECR authentication failure when AWS_USE_FIPS_ENDPOINT=true and ECS control plane sends a FIPS endpoint override [#4850](https://github.com/aws/amazon-ecs-agent/pull/4850)
+
 # 1.101.2
 * Enhancement - Update SSM Agent version to 3.3.3572.0 [#4837](https://github.com/aws/amazon-ecs-agent/pull/4837)
 * Bugfix - Wait for execution role credentials to create task resource upon agent restart [#4827](https://github.com/aws/amazon-ecs-agent/pull/4827)
