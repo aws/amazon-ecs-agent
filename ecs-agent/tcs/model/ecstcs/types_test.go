@@ -28,9 +28,11 @@ func TestOk(t *testing.T) {
 	initializingStatus := InstanceHealthCheckStatusInitializing
 	okStatus := InstanceHealthCheckStatusOk
 	impairedStatus := InstanceHealthCheckStatusImpaired
+	insufficientDataStatus := InstanceHealthCheckStatusInsufficientData
 	assert.True(t, initializingStatus.Ok())
 	assert.True(t, okStatus.Ok())
 	assert.False(t, impairedStatus.Ok())
+	assert.False(t, insufficientDataStatus.Ok())
 }
 
 type testHealthcheckStatus struct {
@@ -54,4 +56,12 @@ func TestUnmarshalHealthcheckStatus(t *testing.T) {
 	// IMPAIRED should unmarshal to IMPAIRED.
 	assert.Equal(t, InstanceHealthCheckStatusImpaired, test.SomeStatus)
 	assert.Equal(t, impairedStr, test.SomeStatus.String())
+
+	var test2 testHealthcheckStatus
+	insufficientDataStr := "INSUFFICIENT_DATA"
+	err = json.Unmarshal([]byte(fmt.Sprintf(`{"status":"%s"}`, insufficientDataStr)), &test2)
+	assert.NoError(t, err)
+	// INSUFFICIENT_DATA should unmarshal to INSUFFICIENT_DATA.
+	assert.Equal(t, InstanceHealthCheckStatusInsufficientData, test2.SomeStatus)
+	assert.Equal(t, insufficientDataStr, test2.SomeStatus.String())
 }
