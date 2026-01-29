@@ -52,7 +52,7 @@ func (m *MockCNI) EXPECT() *MockCNIMockRecorder {
 }
 
 // AddNetwork mocks base method.
-func (m *MockCNI) AddNetwork(arg0 context.Context, arg1 *libcni.NetworkConfig, arg2 *libcni.RuntimeConf) (types.Result, error) {
+func (m *MockCNI) AddNetwork(arg0 context.Context, arg1 *libcni.PluginConfig, arg2 *libcni.RuntimeConf) (types.Result, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "AddNetwork", arg0, arg1, arg2)
 	ret0, _ := ret[0].(types.Result)
@@ -82,7 +82,7 @@ func (mr *MockCNIMockRecorder) AddNetworkList(arg0, arg1, arg2 interface{}) *gom
 }
 
 // CheckNetwork mocks base method.
-func (m *MockCNI) CheckNetwork(arg0 context.Context, arg1 *libcni.NetworkConfig, arg2 *libcni.RuntimeConf) error {
+func (m *MockCNI) CheckNetwork(arg0 context.Context, arg1 *libcni.PluginConfig, arg2 *libcni.RuntimeConf) error {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "CheckNetwork", arg0, arg1, arg2)
 	ret0, _ := ret[0].(error)
@@ -110,7 +110,7 @@ func (mr *MockCNIMockRecorder) CheckNetworkList(arg0, arg1, arg2 interface{}) *g
 }
 
 // DelNetwork mocks base method.
-func (m *MockCNI) DelNetwork(arg0 context.Context, arg1 *libcni.NetworkConfig, arg2 *libcni.RuntimeConf) error {
+func (m *MockCNI) DelNetwork(arg0 context.Context, arg1 *libcni.PluginConfig, arg2 *libcni.RuntimeConf) error {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "DelNetwork", arg0, arg1, arg2)
 	ret0, _ := ret[0].(error)
@@ -167,7 +167,7 @@ func (mr *MockCNIMockRecorder) GetCachedAttachments(arg0 interface{}) *gomock.Ca
 }
 
 // GetNetworkCachedConfig mocks base method.
-func (m *MockCNI) GetNetworkCachedConfig(arg0 *libcni.NetworkConfig, arg1 *libcni.RuntimeConf) ([]byte, *libcni.RuntimeConf, error) {
+func (m *MockCNI) GetNetworkCachedConfig(arg0 *libcni.PluginConfig, arg1 *libcni.RuntimeConf) ([]byte, *libcni.RuntimeConf, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "GetNetworkCachedConfig", arg0, arg1)
 	ret0, _ := ret[0].([]byte)
@@ -183,7 +183,7 @@ func (mr *MockCNIMockRecorder) GetNetworkCachedConfig(arg0, arg1 interface{}) *g
 }
 
 // GetNetworkCachedResult mocks base method.
-func (m *MockCNI) GetNetworkCachedResult(arg0 *libcni.NetworkConfig, arg1 *libcni.RuntimeConf) (types.Result, error) {
+func (m *MockCNI) GetNetworkCachedResult(arg0 *libcni.PluginConfig, arg1 *libcni.RuntimeConf) (types.Result, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "GetNetworkCachedResult", arg0, arg1)
 	ret0, _ := ret[0].(types.Result)
@@ -258,7 +258,7 @@ func (mr *MockCNIMockRecorder) GetVersionInfo(arg0, arg1 interface{}) *gomock.Ca
 }
 
 // ValidateNetwork mocks base method.
-func (m *MockCNI) ValidateNetwork(arg0 context.Context, arg1 *libcni.NetworkConfig) ([]string, error) {
+func (m *MockCNI) ValidateNetwork(arg0 context.Context, arg1 *libcni.PluginConfig) ([]string, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "ValidateNetwork", arg0, arg1)
 	ret0, _ := ret[0].([]string)
