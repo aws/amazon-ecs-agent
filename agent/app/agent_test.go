@@ -68,16 +68,15 @@ import (
 )
 
 const (
-	clusterName                      = "some-cluster"
-	containerInstanceARN             = "container-instance1"
-	availabilityZone                 = "us-west-2b"
-	hostPrivateIPv4Address           = "127.0.0.1"
-	hostPublicIPv4Address            = "127.0.0.1"
-	instanceID                       = "i-123"
-	warmedState                      = "Warmed:Running"
-	testTargetLifecycleMaxRetryCount = 1
-	serviceId                        = "ec2imds"
-	getMetadataOperationId           = "GetMetadata"
+	clusterName            = "some-cluster"
+	containerInstanceARN   = "container-instance1"
+	availabilityZone       = "us-west-2b"
+	hostPrivateIPv4Address = "127.0.0.1"
+	hostPublicIPv4Address  = "127.0.0.1"
+	instanceID             = "i-123"
+	warmedState            = "Warmed:Running"
+	serviceId              = "ec2imds"
+	getMetadataOperationId = "GetMetadata"
 )
 
 var notFoundErr = getResponseError(404)
@@ -257,6 +256,7 @@ func TestDoStartRegisterContainerInstanceErrorTerminal(t *testing.T) {
 	mockEC2Metadata.EXPECT().PrimaryENIMAC().Return("mac", nil)
 	mockEC2Metadata.EXPECT().VPCID(gomock.Eq("mac")).Return("vpc-id", nil)
 	mockEC2Metadata.EXPECT().SubnetID(gomock.Eq("mac")).Return("subnet-id", nil)
+	mockEC2Metadata.EXPECT().AvailabilityZoneID().Return("usw2-az2", nil).AnyTimes()
 	mockServiceConnectManager := mock_serviceconnect.NewMockManager(ctrl)
 	mockServiceConnectManager.EXPECT().IsLoaded(gomock.Any()).Return(true, nil).AnyTimes()
 	mockServiceConnectManager.EXPECT().GetLoadedAppnetVersion().AnyTimes()
@@ -319,6 +319,7 @@ func TestDoStartRegisterContainerInstanceErrorNonTerminal(t *testing.T) {
 	mockEC2Metadata.EXPECT().PrimaryENIMAC().Return("mac", nil)
 	mockEC2Metadata.EXPECT().VPCID(gomock.Eq("mac")).Return("vpc-id", nil)
 	mockEC2Metadata.EXPECT().SubnetID(gomock.Eq("mac")).Return("subnet-id", nil)
+	mockEC2Metadata.EXPECT().AvailabilityZoneID().Return("usw2-az2", nil).AnyTimes()
 	mockServiceConnectManager := mock_serviceconnect.NewMockManager(ctrl)
 	mockServiceConnectManager.EXPECT().IsLoaded(gomock.Any()).Return(true, nil).AnyTimes()
 	mockServiceConnectManager.EXPECT().GetLoadedAppnetVersion().AnyTimes()
@@ -394,7 +395,7 @@ func TestDoStartWarmPoolsError(t *testing.T) {
 	}
 
 	err := errors.New("error")
-	mockEC2Metadata.EXPECT().TargetLifecycleState().Return("", err).Times(targetLifecycleMaxRetryCount)
+	mockEC2Metadata.EXPECT().TargetLifecycleState().Return("", err).Times(imdsMaxRetryCount)
 
 	exitCode := agent.doStart(eventstream.NewEventStream("events", ctx),
 		credentialsManager, state, imageManager, client, execCmdMgr)
@@ -437,6 +438,7 @@ func testDoStartHappyPathWithConditions(t *testing.T, blackholed bool, warmPools
 	ec2MetadataClient.EXPECT().PrivateIPv4Address().Return(hostPrivateIPv4Address, nil)
 	ec2MetadataClient.EXPECT().PublicIPv4Address().Return(hostPublicIPv4Address, nil)
 	ec2MetadataClient.EXPECT().OutpostARN().Return("", nil)
+	ec2MetadataClient.EXPECT().AvailabilityZoneID().Return("usw2-az2", nil).AnyTimes()
 
 	if !isExternalLaunchType {
 		// VPC and Subnet should not be initizalied for external launch type
@@ -447,7 +449,7 @@ func testDoStartHappyPathWithConditions(t *testing.T, blackholed bool, warmPools
 
 	if blackholed {
 		if warmPoolsEnv {
-			ec2MetadataClient.EXPECT().TargetLifecycleState().Return("", errors.New("blackholed")).Times(targetLifecycleMaxRetryCount)
+			ec2MetadataClient.EXPECT().TargetLifecycleState().Return("", errors.New("blackholed"))
 		}
 		ec2MetadataClient.EXPECT().InstanceID().Return("", errors.New("blackholed"))
 	} else {
@@ -578,6 +580,9 @@ func testDoStartHappyPathWithConditions(t *testing.T, blackholed bool, warmPools
 	if !blackholed {
 		assertMetadata(t, data.EC2InstanceIDKey, instanceID, dataClient)
 	}
+
+	// Verify that the availability zone ID is set correctly
+	assert.Equal(t, "usw2-az2", agent.availabilityZoneID)
 }
 
 func assertMetadata(t *testing.T, key, expectedVal string, dataClient data.Client) {
@@ -949,7 +954,8 @@ func TestGetEC2InstanceID(t *testing.T) {
 
 	ec2MetadataClient.EXPECT().InstanceID().Return("", errors.New("error"))
 	ec2MetadataClient.EXPECT().InstanceID().Return(instanceID, nil)
-	assert.Equal(t, "i-123", agent.getEC2InstanceID())
+	instanceID, _ := agent.getEc2MetadataWithRetry(ec2MetadataClient.InstanceID, "EC2 Instance ID")
+	assert.Equal(t, "i-123", instanceID)
 }
 
 func TestGetEC2InstanceIDBlackholedError(t *testing.T) {
@@ -960,7 +966,8 @@ func TestGetEC2InstanceIDBlackholedError(t *testing.T) {
 	agent := &ecsAgent{ec2MetadataClient: ec2MetadataClient}
 
 	ec2MetadataClient.EXPECT().InstanceID().Return("", errors.New("blackholed"))
-	assert.Equal(t, "", agent.getEC2InstanceID())
+	instanceID, _ := agent.getEc2MetadataWithRetry(ec2MetadataClient.InstanceID, "EC2 Instance ID")
+	assert.Equal(t, "", instanceID)
 }
 
 func TestGetEC2InstanceIDIIDError(t *testing.T) {
@@ -975,7 +982,8 @@ func TestGetEC2InstanceIDIIDError(t *testing.T) {
 	ec2MetadataClient.EXPECT().InstanceID().Return("", errors.New("error"))
 	ec2MetadataClient.EXPECT().InstanceID().Return("", errors.New("error"))
 	ec2MetadataClient.EXPECT().InstanceID().Return("", errors.New("error"))
-	assert.Equal(t, "", agent.getEC2InstanceID())
+	instanceID, _ := agent.getEc2MetadataWithRetry(ec2MetadataClient.InstanceID, "EC2 Instance ID")
+	assert.Equal(t, "", instanceID)
 }
 
 func TestGetOupostIDError(t *testing.T) {
@@ -1536,6 +1544,7 @@ func TestRegisterContainerInstanceInvalidParameterTerminalError(t *testing.T) {
 	mockEC2Metadata.EXPECT().PrimaryENIMAC().Return("mac", nil)
 	mockEC2Metadata.EXPECT().VPCID(gomock.Eq("mac")).Return("vpc-id", nil)
 	mockEC2Metadata.EXPECT().SubnetID(gomock.Eq("mac")).Return("subnet-id", nil)
+	mockEC2Metadata.EXPECT().AvailabilityZoneID().Return("usw2-az2", nil).AnyTimes()
 	mockServiceConnectManager := mock_serviceconnect.NewMockManager(ctrl)
 	mockServiceConnectManager.EXPECT().IsLoaded(gomock.Any()).Return(true, nil).AnyTimes()
 	mockServiceConnectManager.EXPECT().GetLoadedAppnetVersion().AnyTimes()
@@ -1639,6 +1648,7 @@ func TestRegisterContainerInstanceExceptionErrors(t *testing.T) {
 			mockEC2Metadata.EXPECT().VPCID("mac").Return("vpc-id", nil)
 			mockEC2Metadata.EXPECT().SubnetID("mac").Return("subnet-id", nil)
 			mockEC2Metadata.EXPECT().OutpostARN().Return("", nil)
+			mockEC2Metadata.EXPECT().AvailabilityZoneID().Return("usw2-az2", nil).AnyTimes()
 
 			mockServiceConnectManager.EXPECT().IsLoaded(gomock.Any()).Return(true, nil).AnyTimes()
 			mockServiceConnectManager.EXPECT().GetLoadedAppnetVersion().AnyTimes()
@@ -2018,17 +2028,16 @@ func newTestDataClient(t *testing.T) data.Client {
 }
 
 type targetLifecycleFuncDetail struct {
-	val         string
-	err         error
-	returnTimes int
+	val string
+	err error
 }
 
 func TestWaitUntilInstanceInServicePolling(t *testing.T) {
-	warmedResult := targetLifecycleFuncDetail{warmedState, nil, 1}
-	inServiceResult := targetLifecycleFuncDetail{inServiceState, nil, 1}
-	notFoundErrResult := targetLifecycleFuncDetail{"", notFoundErr, testTargetLifecycleMaxRetryCount}
-	unexpectedErrResult := targetLifecycleFuncDetail{"", badReqErr, testTargetLifecycleMaxRetryCount}
-	serverErrResult := targetLifecycleFuncDetail{"", serverErr, testTargetLifecycleMaxRetryCount}
+	warmedResult := targetLifecycleFuncDetail{warmedState, nil}
+	inServiceResult := targetLifecycleFuncDetail{inServiceState, nil}
+	notFoundErrResult := targetLifecycleFuncDetail{"", notFoundErr}
+	unexpectedErrResult := targetLifecycleFuncDetail{"", badReqErr}
+	serverErrResult := targetLifecycleFuncDetail{"", serverErr}
 	testCases := []struct {
 		name            string
 		funcTestDetails []targetLifecycleFuncDetail
@@ -2052,9 +2061,14 @@ func TestWaitUntilInstanceInServicePolling(t *testing.T) {
 			ec2MetadataClient := mock_ec2.NewMockEC2MetadataClient(ctrl)
 			agent := &ecsAgent{ec2MetadataClient: ec2MetadataClient, cfg: &cfg}
 			for _, detail := range tc.funcTestDetails {
-				ec2MetadataClient.EXPECT().TargetLifecycleState().Return(detail.val, detail.err).Times(detail.returnTimes)
+				// Errors (except blackholed) are retried imdsMaxRetryCount times
+				if detail.err != nil && detail.err.Error() != blackholed {
+					ec2MetadataClient.EXPECT().TargetLifecycleState().Return(detail.val, detail.err).Times(imdsMaxRetryCount)
+				} else {
+					ec2MetadataClient.EXPECT().TargetLifecycleState().Return(detail.val, detail.err)
+				}
 			}
-			assert.Equal(t, tc.result, agent.waitUntilInstanceInService(1*time.Millisecond, tc.maxPolls, testTargetLifecycleMaxRetryCount))
+			assert.Equal(t, tc.result, agent.waitUntilInstanceInService(1*time.Millisecond, tc.maxPolls))
 		})
 	}
 }

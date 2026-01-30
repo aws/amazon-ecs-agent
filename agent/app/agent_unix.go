@@ -167,6 +167,7 @@ func (agent *ecsAgent) startEBSWatcher(
 // initializeResourceFields exists mainly for testing doStart() to use mock Control
 // object
 func (agent *ecsAgent) initializeResourceFields(credentialsManager credentials.Manager) {
+	ec2InstanceID, _ := agent.getEc2MetadataWithRetry(agent.ec2MetadataClient.InstanceID, "EC2 instance ID")
 	agent.resourceFields = &taskresource.ResourceFields{
 		Control: cgroup.New(),
 		ResourceFieldsCommon: &taskresource.ResourceFieldsCommon{
@@ -175,7 +176,7 @@ func (agent *ecsAgent) initializeResourceFields(credentialsManager credentials.M
 			SSMClientCreator:   ssmfactory.NewSSMClientCreator(),
 			S3ClientCreator:    s3factory.NewS3ClientCreator(),
 			CredentialsManager: credentialsManager,
-			EC2InstanceID:      agent.getEC2InstanceID(),
+			EC2InstanceID:      ec2InstanceID,
 		},
 		Ctx:              agent.ctx,
 		DockerClient:     agent.dockerClient,

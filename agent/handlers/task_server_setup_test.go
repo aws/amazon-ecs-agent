@@ -106,6 +106,7 @@ const (
 	v4BasePath                 = "/v4/"
 	v3EndpointID               = "v3eid"
 	availabilityzone           = "us-west-2b"
+	availabilityZoneID         = "usw2-az2"
 	vpcID                      = "test-vpc-id"
 	containerInstanceArn       = "containerInstanceArn-test"
 	associationType            = "elastic-inference"
@@ -871,6 +872,7 @@ func v4TaskResponseFromV2(
 		Containers:            containers,
 		VPCID:                 vpcID,
 		FaultInjectionEnabled: false,
+		AvailabilityZoneID:    availabilityZoneID,
 	}
 }
 
@@ -1061,7 +1063,7 @@ func testErrorResponsesFromServer(t *testing.T, path string, expectedErrorMessag
 	auditLog := mock_audit.NewMockAuditLogger(ctrl)
 	ecsClient := mock_ecs.NewMockECSClient(ctrl)
 	server, err := taskServerSetup(credentialsManager, auditLog, nil, ecsClient, "", nil,
-		config.DefaultTaskMetadataSteadyStateRate, config.DefaultTaskMetadataBurstRate, "", vpcID,
+		config.DefaultTaskMetadataSteadyStateRate, config.DefaultTaskMetadataBurstRate, "", "", vpcID,
 		containerInstanceArn, tp.NewMockTaskProtectionClientFactoryInterface(ctrl))
 	require.NoError(t, err)
 
@@ -1099,7 +1101,7 @@ func getResponseForCredentialsRequest(t *testing.T, expectedStatus int,
 	auditLog := mock_audit.NewMockAuditLogger(ctrl)
 	ecsClient := mock_ecs.NewMockECSClient(ctrl)
 	server, err := taskServerSetup(credentialsManager, auditLog, nil, ecsClient, "", nil,
-		config.DefaultTaskMetadataSteadyStateRate, config.DefaultTaskMetadataBurstRate, "", vpcID,
+		config.DefaultTaskMetadataSteadyStateRate, config.DefaultTaskMetadataBurstRate, "", "", vpcID,
 		containerInstanceArn, tp.NewMockTaskProtectionClientFactoryInterface(ctrl))
 	require.NoError(t, err)
 
@@ -1168,7 +1170,7 @@ func TestV3ContainerAssociations(t *testing.T) {
 		state.EXPECT().TaskByArn(taskARN).Return(standardTask(), true),
 	)
 	server, err := taskServerSetup(credentials.NewManager(), auditLog, state, ecsClient, clusterName, statsEngine,
-		config.DefaultTaskMetadataSteadyStateRate, config.DefaultTaskMetadataBurstRate, "", vpcID,
+		config.DefaultTaskMetadataSteadyStateRate, config.DefaultTaskMetadataBurstRate, "", "", vpcID,
 		containerInstanceArn, tp.NewMockTaskProtectionClientFactoryInterface(ctrl))
 	require.NoError(t, err)
 	recorder := httptest.NewRecorder()
@@ -1200,7 +1202,7 @@ func TestV3ContainerAssociation(t *testing.T) {
 		state.EXPECT().TaskByArn(taskARN).Return(task, true),
 	)
 	server, err := taskServerSetup(credentials.NewManager(), auditLog, state, ecsClient, clusterName, statsEngine,
-		config.DefaultTaskMetadataSteadyStateRate, config.DefaultTaskMetadataBurstRate, "", vpcID,
+		config.DefaultTaskMetadataSteadyStateRate, config.DefaultTaskMetadataBurstRate, "", "", vpcID,
 		containerInstanceArn, tp.NewMockTaskProtectionClientFactoryInterface(ctrl))
 	require.NoError(t, err)
 	recorder := httptest.NewRecorder()
@@ -1231,7 +1233,7 @@ func TestV4ContainerAssociations(t *testing.T) {
 		state.EXPECT().TaskByArn(taskARN).Return(task, true),
 	)
 	server, err := taskServerSetup(credentials.NewManager(), auditLog, state, ecsClient, clusterName, statsEngine,
-		config.DefaultTaskMetadataSteadyStateRate, config.DefaultTaskMetadataBurstRate, "", vpcID,
+		config.DefaultTaskMetadataSteadyStateRate, config.DefaultTaskMetadataBurstRate, "", "", vpcID,
 		containerInstanceArn, tp.NewMockTaskProtectionClientFactoryInterface(ctrl))
 	require.NoError(t, err)
 	recorder := httptest.NewRecorder()
@@ -1263,7 +1265,7 @@ func TestV4ContainerAssociation(t *testing.T) {
 		state.EXPECT().TaskByArn(taskARN).Return(task, true),
 	)
 	server, err := taskServerSetup(credentials.NewManager(), auditLog, state, ecsClient, clusterName, statsEngine,
-		config.DefaultTaskMetadataSteadyStateRate, config.DefaultTaskMetadataBurstRate, "", vpcID,
+		config.DefaultTaskMetadataSteadyStateRate, config.DefaultTaskMetadataBurstRate, "", "", vpcID,
 		containerInstanceArn, tp.NewMockTaskProtectionClientFactoryInterface(ctrl))
 	require.NoError(t, err)
 	recorder := httptest.NewRecorder()
@@ -1290,7 +1292,7 @@ func TestTaskHTTPEndpoint301Redirect(t *testing.T) {
 	ecsClient := mock_ecs.NewMockECSClient(ctrl)
 
 	server, err := taskServerSetup(credentials.NewManager(), auditLog, state, ecsClient, clusterName, statsEngine,
-		config.DefaultTaskMetadataSteadyStateRate, config.DefaultTaskMetadataBurstRate, "", vpcID,
+		config.DefaultTaskMetadataSteadyStateRate, config.DefaultTaskMetadataBurstRate, "", "", vpcID,
 		containerInstanceArn, tp.NewMockTaskProtectionClientFactoryInterface(ctrl))
 	require.NoError(t, err)
 
@@ -1333,7 +1335,7 @@ func TestTaskHTTPEndpointErrorCode404(t *testing.T) {
 	ecsClient := mock_ecs.NewMockECSClient(ctrl)
 
 	server, err := taskServerSetup(credentials.NewManager(), auditLog, state, ecsClient, clusterName, statsEngine,
-		config.DefaultTaskMetadataSteadyStateRate, config.DefaultTaskMetadataBurstRate, "", vpcID,
+		config.DefaultTaskMetadataSteadyStateRate, config.DefaultTaskMetadataBurstRate, "", "", vpcID,
 		containerInstanceArn, tp.NewMockTaskProtectionClientFactoryInterface(ctrl))
 	require.NoError(t, err)
 
@@ -1373,7 +1375,7 @@ func TestTaskHTTPEndpointErrorCode400(t *testing.T) {
 	ecsClient := mock_ecs.NewMockECSClient(ctrl)
 
 	server, err := taskServerSetup(credentials.NewManager(), auditLog, state, ecsClient, clusterName, statsEngine,
-		config.DefaultTaskMetadataSteadyStateRate, config.DefaultTaskMetadataBurstRate, "", vpcID,
+		config.DefaultTaskMetadataSteadyStateRate, config.DefaultTaskMetadataBurstRate, "", "", vpcID,
 		containerInstanceArn, tp.NewMockTaskProtectionClientFactoryInterface(ctrl))
 	require.NoError(t, err)
 
@@ -1412,7 +1414,7 @@ func TestTaskHTTPEndpointErrorCode500(t *testing.T) {
 	ecsClient := mock_ecs.NewMockECSClient(ctrl)
 
 	server, err := taskServerSetup(credentials.NewManager(), auditLog, state, ecsClient, clusterName, statsEngine,
-		config.DefaultTaskMetadataSteadyStateRate, config.DefaultTaskMetadataBurstRate, "", vpcID,
+		config.DefaultTaskMetadataSteadyStateRate, config.DefaultTaskMetadataBurstRate, "", "", vpcID,
 		containerInstanceArn, tp.NewMockTaskProtectionClientFactoryInterface(ctrl))
 	require.NoError(t, err)
 
@@ -1482,7 +1484,7 @@ func TestV4TaskNotFoundError404(t *testing.T) {
 			ecsClient := mock_ecs.NewMockECSClient(ctrl)
 
 			server, err := taskServerSetup(credentials.NewManager(), auditLog, state, ecsClient, clusterName, statsEngine,
-				config.DefaultTaskMetadataSteadyStateRate, config.DefaultTaskMetadataBurstRate, "", vpcID,
+				config.DefaultTaskMetadataSteadyStateRate, config.DefaultTaskMetadataBurstRate, "", "", vpcID,
 				containerInstanceArn, tp.NewMockTaskProtectionClientFactoryInterface(ctrl))
 			require.NoError(t, err)
 
@@ -1538,7 +1540,7 @@ func TestV4Unexpected500Error(t *testing.T) {
 			ecsClient := mock_ecs.NewMockECSClient(ctrl)
 
 			server, err := taskServerSetup(credentials.NewManager(), auditLog, state, ecsClient, clusterName, statsEngine,
-				config.DefaultTaskMetadataSteadyStateRate, config.DefaultTaskMetadataBurstRate, "", vpcID,
+				config.DefaultTaskMetadataSteadyStateRate, config.DefaultTaskMetadataBurstRate, "", "", vpcID,
 				containerInstanceArn, tp.NewMockTaskProtectionClientFactoryInterface(ctrl))
 			require.NoError(t, err)
 
@@ -1646,7 +1648,7 @@ func testTMDSRequest[R TMDSResponse](t *testing.T, tc TMDSTestCase[R]) {
 	// Initialize server
 	server, err := taskServerSetup(credsManager, auditLog, state, ecsClient,
 		clusterName, statsEngine,
-		config.DefaultTaskMetadataSteadyStateRate, config.DefaultTaskMetadataBurstRate, availabilityzone, vpcID,
+		config.DefaultTaskMetadataSteadyStateRate, config.DefaultTaskMetadataBurstRate, availabilityzone, availabilityZoneID, vpcID,
 		containerInstanceArn, taskProtectionClientFactory)
 	require.NoError(t, err)
 
@@ -4301,7 +4303,7 @@ func testRegisterFaultHandler(t *testing.T, tcs []networkFaultTestCase, tmdsEndp
 			statsEngine := mock_stats.NewMockEngine(ctrl)
 			ecsClient := mock_ecs.NewMockECSClient(ctrl)
 
-			agentState := agentV4.NewTMDSAgentState(state, statsEngine, ecsClient, clusterName, availabilityzone, vpcID, containerInstanceArn)
+			agentState := agentV4.NewTMDSAgentState(state, statsEngine, ecsClient, clusterName, availabilityzone, availabilityZoneID, vpcID, containerInstanceArn)
 			metricsFactory := mock_metrics.NewMockEntryFactory(ctrl)
 			durationMetricEntry := mock_metrics.NewMockEntry(ctrl)
 			gomock.InOrder(
