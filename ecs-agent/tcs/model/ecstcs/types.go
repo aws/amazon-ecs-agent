@@ -66,10 +66,10 @@ type InstanceStatusMessage struct {
 }
 
 const (
-	InstanceHealthCheckTypeContainerRuntime = "ContainerRuntime"
-	InstanceHealthCheckTypeAgent            = "Agent"
-	InstanceHealthCheckTypeEBSDaemon        = "EBSDaemon"
-	InstanceHealthCheckTypeNvidia           = "NvidiaAcceleratedHardware"
+	InstanceHealthCheckTypeContainerRuntime   = "ContainerRuntime"
+	InstanceHealthCheckTypeAgent              = "Agent"
+	InstanceHealthCheckTypeEBSDaemon          = "EBSDaemon"
+	InstanceHealthCheckTypeAcceleratedCompute = "ACCELERATED_COMPUTE"
 )
 
 const (
@@ -79,15 +79,18 @@ const (
 	InstanceHealthCheckStatusOk
 	// HealthcheckStatusImpaired represents a healthcheck with a false/fail result.
 	InstanceHealthCheckStatusImpaired
+	// HealthcheckStatusInsufficientData represents a healthcheck where status cannot be determined.
+	InstanceHealthCheckStatusInsufficientData
 )
 
 // InstanceHealthCheckStatus is an enumeration of possible instance health check statuses.
 type InstanceHealthCheckStatus int32
 
 var instanceHealthCheckStatusMap = map[string]InstanceHealthCheckStatus{
-	"INITIALIZING": InstanceHealthCheckStatusInitializing,
-	"OK":           InstanceHealthCheckStatusOk,
-	"IMPAIRED":     InstanceHealthCheckStatusImpaired,
+	"INITIALIZING":      InstanceHealthCheckStatusInitializing,
+	"OK":                InstanceHealthCheckStatusOk,
+	"IMPAIRED":          InstanceHealthCheckStatusImpaired,
+	"INSUFFICIENT_DATA": InstanceHealthCheckStatusInsufficientData,
 }
 
 // String returns a human readable string representation of this object.
