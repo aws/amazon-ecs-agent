@@ -24,6 +24,7 @@ import (
 	"os"
 
 	"github.com/aws/amazon-ecs-agent/ecs-agent/ipcompatibility"
+	"github.com/aws/amazon-ecs-agent/ecs-agent/logger"
 	"github.com/aws/amazon-ecs-agent/ecs-agent/utils/netlinkwrapper"
 
 	"github.com/vishvananda/netlink"
@@ -43,8 +44,15 @@ func FindLinkByMac(netlinkClient netlinkwrapper.NetLink, mac string) (netlink.Li
 
 	for _, link := range links {
 		attrs := link.Attrs()
-		if attrs != nil && bytes.Equal(parsedMac, attrs.HardwareAddr) {
-			return link, nil
+		if attrs != nil {
+			logger.Info("Found net link", logger.Fields{
+				"TargetMac":       mac,
+				"ParsedTargetMac": parsedMac.String(),
+				"CurrentMac":      attrs.HardwareAddr.String(),
+			})
+			if bytes.Equal(parsedMac, attrs.HardwareAddr) {
+				return link, nil
+			}
 		}
 	}
 
@@ -63,11 +71,19 @@ func HasDefaultRoute(
 	}
 
 	for _, route := range routes {
+		logger.Info("Found route from the given net link", logger.Fields{
+			"Route":    route.String(),
+			"IPFamily": ipFamily,
+		})
 		if isDefaultRoute(route, ipFamily) {
 			return true, nil
 		}
 	}
 
+	logger.Info("No default route found",
+		logger.Fields{
+			"IPFamily": ipFamily,
+		})
 	return false, nil
 }
 
@@ -145,6 +161,8 @@ func DetermineIPCompatibility(
 			return ipcompatibility.NewIPCompatibility(false, false),
 				fmt.Errorf("failed to find link for mac '%s': %w", mac, err)
 		}
+	} else {
+		logger.Warn("No mac is provided to determine IP compatibility")
 	}
 
 	// Determine IPv4 compatibility
