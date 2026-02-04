@@ -6,16 +6,11 @@ package ecs
 import (
 	awsmiddleware "github.com/aws/aws-sdk-go-v2/aws/middleware"
 	"context"
-	"fmt"
 	"github.com/aws/smithy-go/middleware"
 	smithyhttp "github.com/aws/smithy-go/transport/http"
 	"github.com/aws/aws-sdk-go-v2/service/ecs/types"
 )
 
-// Associates the specified tags to a resource with the specified resourceArn . If
-// existing tags on a resource aren't specified in the request parameters, they
-// aren't changed. When a resource is deleted, the tags that are associated with
-// that resource are deleted as well.
 func (c *Client) TagResource(ctx context.Context, params *TagResourceInput, optFns ...func(*Options)) (*TagResourceOutput, error) {
 	if params == nil { params = &TagResourceInput{} }
 	
@@ -29,38 +24,9 @@ func (c *Client) TagResource(ctx context.Context, params *TagResourceInput, optF
 
 type TagResourceInput struct {
 	
-	// The Amazon Resource Name (ARN) of the resource to add tags to. Currently, the
-	// supported resources are Amazon ECS capacity providers, tasks, services, task
-	// definitions, clusters, and container instances.
-	//
 	// This member is required.
 	ResourceArn *string
 	
-	// The tags to add to the resource. A tag is an array of key-value pairs.
-	//
-	// The following basic restrictions apply to tags:
-	//
-	//   - Maximum number of tags per resource - 50
-	//
-	//   - For each resource, each tag key must be unique, and each tag key can have
-	//   only one value.
-	//
-	//   - Maximum key length - 128 Unicode characters in UTF-8
-	//
-	//   - Maximum value length - 256 Unicode characters in UTF-8
-	//
-	//   - If your tagging schema is used across multiple services and resources,
-	//   remember that other services may have restrictions on allowed characters.
-	//   Generally allowed characters are: letters, numbers, and spaces representable in
-	//   UTF-8, and the following characters: + - = . _ : / @.
-	//
-	//   - Tag keys and values are case-sensitive.
-	//
-	//   - Do not use aws: , AWS: , or any upper or lowercase combination of such as a
-	//   prefix for either keys or values as it is reserved for Amazon Web Services use.
-	//   You cannot edit or delete tag keys or values with this prefix. Tags with this
-	//   prefix do not count against your tags per resource limit.
-	//
 	// This member is required.
 	Tags []types.Tag
 	
@@ -75,17 +41,6 @@ type TagResourceOutput struct {
 }
 
 func (c *Client) addOperationTagResourceMiddlewares(stack *middleware.Stack, options Options) (err error) {
-	if err := stack.Serialize.Add(&setOperationInputMiddleware{}, middleware.After); err != nil {
-	    return err
-	}
-	err = stack.Serialize.Add(&awsAwsjson11_serializeOpTagResource{}, middleware.After)
-	if err != nil { return err }
-	err = stack.Deserialize.Add(&awsAwsjson11_deserializeOpTagResource{}, middleware.After)
-	if err != nil { return err }
-	if err := addProtocolFinalizerMiddlewares(stack, options, "TagResource"); err != nil {
-	    return fmt.Errorf("add protocol finalizers: %v", err)
-	}
-	
 	if err = addlegacyEndpointContextSetter(stack, options); err != nil {
 	return err
 	}
@@ -134,6 +89,9 @@ func (c *Client) addOperationTagResourceMiddlewares(stack *middleware.Stack, opt
 	if err = addUserAgentRetryMode(stack, options); err != nil {
 	return err
 	}
+	if err = addCredentialSource(stack, options); err != nil {
+	return err
+	}
 	if err = addOpTagResourceValidationMiddleware(stack); err != nil {
 	return err
 	}
@@ -155,16 +113,13 @@ func (c *Client) addOperationTagResourceMiddlewares(stack *middleware.Stack, opt
 	if err = addDisableHTTPSMiddleware(stack, options); err != nil {
 	return err
 	}
-	if err = addSpanInitializeStart(stack); err != nil {
+	if err = addInterceptBeforeRetryLoop(stack, options); err != nil {
 	return err
 	}
-	if err = addSpanInitializeEnd(stack); err != nil {
+	if err = addInterceptAttempt(stack, options); err != nil {
 	return err
 	}
-	if err = addSpanBuildRequestStart(stack); err != nil {
-	return err
-	}
-	if err = addSpanBuildRequestEnd(stack); err != nil {
+	if err = addInterceptors(stack, options); err != nil {
 	return err
 	}
 	return nil

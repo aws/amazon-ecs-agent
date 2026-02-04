@@ -6,34 +6,11 @@ package ecs
 import (
 	awsmiddleware "github.com/aws/aws-sdk-go-v2/aws/middleware"
 	"context"
-	"fmt"
 	"github.com/aws/smithy-go/middleware"
 	smithyhttp "github.com/aws/smithy-go/transport/http"
 	"github.com/aws/aws-sdk-go-v2/service/ecs/types"
 )
 
-// Deregisters the specified task definition by family and revision. Upon
-// deregistration, the task definition is marked as INACTIVE . Existing tasks and
-// services that reference an INACTIVE task definition continue to run without
-// disruption. Existing services that reference an INACTIVE task definition can
-// still scale up or down by modifying the service's desired count. If you want to
-// delete a task definition revision, you must first deregister the task definition
-// revision.
-//
-// You can't use an INACTIVE task definition to run new tasks or create new
-// services, and you can't update an existing service to reference an INACTIVE
-// task definition. However, there may be up to a 10-minute window following
-// deregistration where these restrictions have not yet taken effect.
-//
-// At this time, INACTIVE task definitions remain discoverable in your account
-// indefinitely. However, this behavior is subject to change in the future. We
-// don't recommend that you rely on INACTIVE task definitions persisting beyond
-// the lifecycle of any associated tasks and services.
-//
-// You must deregister a task definition revision before you delete it. For more
-// information, see [DeleteTaskDefinitions].
-//
-// [DeleteTaskDefinitions]: https://docs.aws.amazon.com/AmazonECS/latest/APIReference/API_DeleteTaskDefinitions.html
 func (c *Client) DeregisterTaskDefinition(ctx context.Context, params *DeregisterTaskDefinitionInput, optFns ...func(*Options)) (*DeregisterTaskDefinitionOutput, error) {
 	if params == nil { params = &DeregisterTaskDefinitionInput{} }
 	
@@ -47,18 +24,16 @@ func (c *Client) DeregisterTaskDefinition(ctx context.Context, params *Deregiste
 
 type DeregisterTaskDefinitionInput struct {
 	
-	// The family and revision ( family:revision ) or full Amazon Resource Name (ARN)
-	// of the task definition to deregister. You must specify a revision .
-	//
 	// This member is required.
 	TaskDefinition *string
+	
+	Dryrun bool
 	
 	noSmithyDocumentSerde
 }
 
 type DeregisterTaskDefinitionOutput struct {
 	
-	// The full description of the deregistered task.
 	TaskDefinition *types.TaskDefinition
 	
 	// Metadata pertaining to the operation's result.
@@ -68,17 +43,6 @@ type DeregisterTaskDefinitionOutput struct {
 }
 
 func (c *Client) addOperationDeregisterTaskDefinitionMiddlewares(stack *middleware.Stack, options Options) (err error) {
-	if err := stack.Serialize.Add(&setOperationInputMiddleware{}, middleware.After); err != nil {
-	    return err
-	}
-	err = stack.Serialize.Add(&awsAwsjson11_serializeOpDeregisterTaskDefinition{}, middleware.After)
-	if err != nil { return err }
-	err = stack.Deserialize.Add(&awsAwsjson11_deserializeOpDeregisterTaskDefinition{}, middleware.After)
-	if err != nil { return err }
-	if err := addProtocolFinalizerMiddlewares(stack, options, "DeregisterTaskDefinition"); err != nil {
-	    return fmt.Errorf("add protocol finalizers: %v", err)
-	}
-	
 	if err = addlegacyEndpointContextSetter(stack, options); err != nil {
 	return err
 	}
@@ -127,6 +91,9 @@ func (c *Client) addOperationDeregisterTaskDefinitionMiddlewares(stack *middlewa
 	if err = addUserAgentRetryMode(stack, options); err != nil {
 	return err
 	}
+	if err = addCredentialSource(stack, options); err != nil {
+	return err
+	}
 	if err = addOpDeregisterTaskDefinitionValidationMiddleware(stack); err != nil {
 	return err
 	}
@@ -148,16 +115,13 @@ func (c *Client) addOperationDeregisterTaskDefinitionMiddlewares(stack *middlewa
 	if err = addDisableHTTPSMiddleware(stack, options); err != nil {
 	return err
 	}
-	if err = addSpanInitializeStart(stack); err != nil {
+	if err = addInterceptBeforeRetryLoop(stack, options); err != nil {
 	return err
 	}
-	if err = addSpanInitializeEnd(stack); err != nil {
+	if err = addInterceptAttempt(stack, options); err != nil {
 	return err
 	}
-	if err = addSpanBuildRequestStart(stack); err != nil {
-	return err
-	}
-	if err = addSpanBuildRequestEnd(stack); err != nil {
+	if err = addInterceptors(stack, options); err != nil {
 	return err
 	}
 	return nil

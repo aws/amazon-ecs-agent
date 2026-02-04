@@ -6,13 +6,11 @@ package ecs
 import (
 	awsmiddleware "github.com/aws/aws-sdk-go-v2/aws/middleware"
 	"context"
-	"fmt"
 	"github.com/aws/smithy-go/middleware"
 	smithyhttp "github.com/aws/smithy-go/transport/http"
 	"github.com/aws/aws-sdk-go-v2/service/ecs/types"
 )
 
-// Modifies the settings to use for a cluster.
 func (c *Client) UpdateClusterSettings(ctx context.Context, params *UpdateClusterSettingsInput, optFns ...func(*Options)) (*UpdateClusterSettingsOutput, error) {
 	if params == nil { params = &UpdateClusterSettingsInput{} }
 	
@@ -26,24 +24,9 @@ func (c *Client) UpdateClusterSettings(ctx context.Context, params *UpdateCluste
 
 type UpdateClusterSettingsInput struct {
 	
-	// The name of the cluster to modify the settings for.
-	//
 	// This member is required.
 	Cluster *string
 	
-	// The setting to use by default for a cluster. This parameter is used to turn on
-	// CloudWatch Container Insights for a cluster. If this value is specified, it
-	// overrides the containerInsights value set with [PutAccountSetting] or [PutAccountSettingDefault].
-	//
-	// Currently, if you delete an existing cluster that does not have Container
-	// Insights turned on, and then create a new cluster with the same name with
-	// Container Insights tuned on, Container Insights will not actually be turned on.
-	// If you want to preserve the same name for your existing cluster and turn on
-	// Container Insights, you must wait 7 days before you can re-create it.
-	//
-	// [PutAccountSettingDefault]: https://docs.aws.amazon.com/AmazonECS/latest/APIReference/API_PutAccountSettingDefault.html
-	// [PutAccountSetting]: https://docs.aws.amazon.com/AmazonECS/latest/APIReference/API_PutAccountSetting.html
-	//
 	// This member is required.
 	Settings []types.ClusterSetting
 	
@@ -52,7 +35,6 @@ type UpdateClusterSettingsInput struct {
 
 type UpdateClusterSettingsOutput struct {
 	
-	// Details about the cluster
 	Cluster *types.Cluster
 	
 	// Metadata pertaining to the operation's result.
@@ -62,17 +44,6 @@ type UpdateClusterSettingsOutput struct {
 }
 
 func (c *Client) addOperationUpdateClusterSettingsMiddlewares(stack *middleware.Stack, options Options) (err error) {
-	if err := stack.Serialize.Add(&setOperationInputMiddleware{}, middleware.After); err != nil {
-	    return err
-	}
-	err = stack.Serialize.Add(&awsAwsjson11_serializeOpUpdateClusterSettings{}, middleware.After)
-	if err != nil { return err }
-	err = stack.Deserialize.Add(&awsAwsjson11_deserializeOpUpdateClusterSettings{}, middleware.After)
-	if err != nil { return err }
-	if err := addProtocolFinalizerMiddlewares(stack, options, "UpdateClusterSettings"); err != nil {
-	    return fmt.Errorf("add protocol finalizers: %v", err)
-	}
-	
 	if err = addlegacyEndpointContextSetter(stack, options); err != nil {
 	return err
 	}
@@ -121,6 +92,9 @@ func (c *Client) addOperationUpdateClusterSettingsMiddlewares(stack *middleware.
 	if err = addUserAgentRetryMode(stack, options); err != nil {
 	return err
 	}
+	if err = addCredentialSource(stack, options); err != nil {
+	return err
+	}
 	if err = addOpUpdateClusterSettingsValidationMiddleware(stack); err != nil {
 	return err
 	}
@@ -142,16 +116,13 @@ func (c *Client) addOperationUpdateClusterSettingsMiddlewares(stack *middleware.
 	if err = addDisableHTTPSMiddleware(stack, options); err != nil {
 	return err
 	}
-	if err = addSpanInitializeStart(stack); err != nil {
+	if err = addInterceptBeforeRetryLoop(stack, options); err != nil {
 	return err
 	}
-	if err = addSpanInitializeEnd(stack); err != nil {
+	if err = addInterceptAttempt(stack, options); err != nil {
 	return err
 	}
-	if err = addSpanBuildRequestStart(stack); err != nil {
-	return err
-	}
-	if err = addSpanBuildRequestEnd(stack); err != nil {
+	if err = addInterceptors(stack, options); err != nil {
 	return err
 	}
 	return nil

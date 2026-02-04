@@ -6,34 +6,11 @@ package ecs
 import (
 	awsmiddleware "github.com/aws/aws-sdk-go-v2/aws/middleware"
 	"context"
-	"fmt"
 	"github.com/aws/smithy-go/middleware"
 	smithyhttp "github.com/aws/smithy-go/transport/http"
 	"github.com/aws/aws-sdk-go-v2/service/ecs/types"
 )
 
-// Updates the Amazon ECS container agent on a specified container instance.
-// Updating the Amazon ECS container agent doesn't interrupt running tasks or
-// services on the container instance. The process for updating the agent differs
-// depending on whether your container instance was launched with the Amazon
-// ECS-optimized AMI or another operating system.
-//
-// The UpdateContainerAgent API isn't supported for container instances using the
-// Amazon ECS-optimized Amazon Linux 2 (arm64) AMI. To update the container agent,
-// you can update the ecs-init package. This updates the agent. For more
-// information, see [Updating the Amazon ECS container agent]in the Amazon Elastic Container Service Developer Guide.
-//
-// Agent updates with the UpdateContainerAgent API operation do not apply to
-// Windows container instances. We recommend that you launch new container
-// instances to update the agent version in your Windows clusters.
-//
-// The UpdateContainerAgent API requires an Amazon ECS-optimized AMI or Amazon
-// Linux AMI with the ecs-init service installed and running. For help updating
-// the Amazon ECS container agent on other operating systems, see [Manually updating the Amazon ECS container agent]in the Amazon
-// Elastic Container Service Developer Guide.
-//
-// [Updating the Amazon ECS container agent]: https://docs.aws.amazon.com/AmazonECS/latest/developerguide/agent-update-ecs-ami.html
-// [Manually updating the Amazon ECS container agent]: https://docs.aws.amazon.com/AmazonECS/latest/developerguide/ecs-agent-update.html#manually_update_agent
 func (c *Client) UpdateContainerAgent(ctx context.Context, params *UpdateContainerAgentInput, optFns ...func(*Options)) (*UpdateContainerAgentOutput, error) {
 	if params == nil { params = &UpdateContainerAgentInput{} }
 	
@@ -47,23 +24,18 @@ func (c *Client) UpdateContainerAgent(ctx context.Context, params *UpdateContain
 
 type UpdateContainerAgentInput struct {
 	
-	// The container instance ID or full ARN entries for the container instance where
-	// you would like to update the Amazon ECS container agent.
-	//
 	// This member is required.
 	ContainerInstance *string
 	
-	// The short name or full Amazon Resource Name (ARN) of the cluster that your
-	// container instance is running on. If you do not specify a cluster, the default
-	// cluster is assumed.
 	Cluster *string
+	
+	Dryrun bool
 	
 	noSmithyDocumentSerde
 }
 
 type UpdateContainerAgentOutput struct {
 	
-	// The container instance that the container agent was updated for.
 	ContainerInstance *types.ContainerInstance
 	
 	// Metadata pertaining to the operation's result.
@@ -73,17 +45,6 @@ type UpdateContainerAgentOutput struct {
 }
 
 func (c *Client) addOperationUpdateContainerAgentMiddlewares(stack *middleware.Stack, options Options) (err error) {
-	if err := stack.Serialize.Add(&setOperationInputMiddleware{}, middleware.After); err != nil {
-	    return err
-	}
-	err = stack.Serialize.Add(&awsAwsjson11_serializeOpUpdateContainerAgent{}, middleware.After)
-	if err != nil { return err }
-	err = stack.Deserialize.Add(&awsAwsjson11_deserializeOpUpdateContainerAgent{}, middleware.After)
-	if err != nil { return err }
-	if err := addProtocolFinalizerMiddlewares(stack, options, "UpdateContainerAgent"); err != nil {
-	    return fmt.Errorf("add protocol finalizers: %v", err)
-	}
-	
 	if err = addlegacyEndpointContextSetter(stack, options); err != nil {
 	return err
 	}
@@ -132,6 +93,9 @@ func (c *Client) addOperationUpdateContainerAgentMiddlewares(stack *middleware.S
 	if err = addUserAgentRetryMode(stack, options); err != nil {
 	return err
 	}
+	if err = addCredentialSource(stack, options); err != nil {
+	return err
+	}
 	if err = addOpUpdateContainerAgentValidationMiddleware(stack); err != nil {
 	return err
 	}
@@ -153,16 +117,13 @@ func (c *Client) addOperationUpdateContainerAgentMiddlewares(stack *middleware.S
 	if err = addDisableHTTPSMiddleware(stack, options); err != nil {
 	return err
 	}
-	if err = addSpanInitializeStart(stack); err != nil {
+	if err = addInterceptBeforeRetryLoop(stack, options); err != nil {
 	return err
 	}
-	if err = addSpanInitializeEnd(stack); err != nil {
+	if err = addInterceptAttempt(stack, options); err != nil {
 	return err
 	}
-	if err = addSpanBuildRequestStart(stack); err != nil {
-	return err
-	}
-	if err = addSpanBuildRequestEnd(stack); err != nil {
+	if err = addInterceptors(stack, options); err != nil {
 	return err
 	}
 	return nil

@@ -6,14 +6,11 @@ package ecs
 import (
 	awsmiddleware "github.com/aws/aws-sdk-go-v2/aws/middleware"
 	"context"
-	"fmt"
 	"github.com/aws/smithy-go/middleware"
 	smithyhttp "github.com/aws/smithy-go/transport/http"
 	"github.com/aws/aws-sdk-go-v2/service/ecs/types"
 )
 
-// Disables an account setting for a specified user, role, or the root user for an
-// account.
 func (c *Client) DeleteAccountSetting(ctx context.Context, params *DeleteAccountSettingInput, optFns ...func(*Options)) (*DeleteAccountSettingOutput, error) {
 	if params == nil { params = &DeleteAccountSettingInput{} }
 	
@@ -27,22 +24,11 @@ func (c *Client) DeleteAccountSetting(ctx context.Context, params *DeleteAccount
 
 type DeleteAccountSettingInput struct {
 	
-	// The resource name to disable the account setting for. If serviceLongArnFormat
-	// is specified, the ARN for your Amazon ECS services is affected. If
-	// taskLongArnFormat is specified, the ARN and resource ID for your Amazon ECS
-	// tasks is affected. If containerInstanceLongArnFormat is specified, the ARN and
-	// resource ID for your Amazon ECS container instances is affected. If
-	// awsvpcTrunking is specified, the ENI limit for your Amazon ECS container
-	// instances is affected.
-	//
 	// This member is required.
 	Name types.SettingName
 	
-	// The Amazon Resource Name (ARN) of the principal. It can be an user, role, or
-	// the root user. If you specify the root user, it disables the account setting for
-	// all users, roles, and the root user of the account unless a user or role
-	// explicitly overrides these settings. If this field is omitted, the setting is
-	// changed only for the authenticated user.
+	Dryrun bool
+	
 	PrincipalArn *string
 	
 	noSmithyDocumentSerde
@@ -50,7 +36,6 @@ type DeleteAccountSettingInput struct {
 
 type DeleteAccountSettingOutput struct {
 	
-	// The account setting for the specified principal ARN.
 	Setting *types.Setting
 	
 	// Metadata pertaining to the operation's result.
@@ -60,17 +45,6 @@ type DeleteAccountSettingOutput struct {
 }
 
 func (c *Client) addOperationDeleteAccountSettingMiddlewares(stack *middleware.Stack, options Options) (err error) {
-	if err := stack.Serialize.Add(&setOperationInputMiddleware{}, middleware.After); err != nil {
-	    return err
-	}
-	err = stack.Serialize.Add(&awsAwsjson11_serializeOpDeleteAccountSetting{}, middleware.After)
-	if err != nil { return err }
-	err = stack.Deserialize.Add(&awsAwsjson11_deserializeOpDeleteAccountSetting{}, middleware.After)
-	if err != nil { return err }
-	if err := addProtocolFinalizerMiddlewares(stack, options, "DeleteAccountSetting"); err != nil {
-	    return fmt.Errorf("add protocol finalizers: %v", err)
-	}
-	
 	if err = addlegacyEndpointContextSetter(stack, options); err != nil {
 	return err
 	}
@@ -119,6 +93,9 @@ func (c *Client) addOperationDeleteAccountSettingMiddlewares(stack *middleware.S
 	if err = addUserAgentRetryMode(stack, options); err != nil {
 	return err
 	}
+	if err = addCredentialSource(stack, options); err != nil {
+	return err
+	}
 	if err = addOpDeleteAccountSettingValidationMiddleware(stack); err != nil {
 	return err
 	}
@@ -140,16 +117,13 @@ func (c *Client) addOperationDeleteAccountSettingMiddlewares(stack *middleware.S
 	if err = addDisableHTTPSMiddleware(stack, options); err != nil {
 	return err
 	}
-	if err = addSpanInitializeStart(stack); err != nil {
+	if err = addInterceptBeforeRetryLoop(stack, options); err != nil {
 	return err
 	}
-	if err = addSpanInitializeEnd(stack); err != nil {
+	if err = addInterceptAttempt(stack, options); err != nil {
 	return err
 	}
-	if err = addSpanBuildRequestStart(stack); err != nil {
-	return err
-	}
-	if err = addSpanBuildRequestEnd(stack); err != nil {
+	if err = addInterceptors(stack, options); err != nil {
 	return err
 	}
 	return nil

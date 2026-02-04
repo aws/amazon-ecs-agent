@@ -6,25 +6,11 @@ package ecs
 import (
 	awsmiddleware "github.com/aws/aws-sdk-go-v2/aws/middleware"
 	"context"
-	"fmt"
 	"github.com/aws/smithy-go/middleware"
 	smithyhttp "github.com/aws/smithy-go/transport/http"
 	"github.com/aws/aws-sdk-go-v2/service/ecs/types"
 )
 
-// Create a task set in the specified cluster and service. This is used when a
-// service uses the EXTERNAL deployment controller type. For more information, see [Amazon ECS deployment types]
-// in the Amazon Elastic Container Service Developer Guide.
-//
-// On March 21, 2024, a change was made to resolve the task definition revision
-// before authorization. When a task definition revision is not specified,
-// authorization will occur using the latest revision of a task definition.
-//
-// For information about the maximum number of task sets and other quotas, see [Amazon ECS service quotas] in
-// the Amazon Elastic Container Service Developer Guide.
-//
-// [Amazon ECS deployment types]: https://docs.aws.amazon.com/AmazonECS/latest/developerguide/deployment-types.html
-// [Amazon ECS service quotas]: https://docs.aws.amazon.com/AmazonECS/latest/developerguide/service-quotas.html
 func (c *Client) CreateTaskSet(ctx context.Context, params *CreateTaskSetInput, optFns ...func(*Options)) (*CreateTaskSetOutput, error) {
 	if params == nil { params = &CreateTaskSetInput{} }
 	
@@ -38,120 +24,45 @@ func (c *Client) CreateTaskSet(ctx context.Context, params *CreateTaskSetInput, 
 
 type CreateTaskSetInput struct {
 	
-	// The short name or full Amazon Resource Name (ARN) of the cluster that hosts the
-	// service to create the task set in.
-	//
 	// This member is required.
 	Cluster *string
 	
-	// The short name or full Amazon Resource Name (ARN) of the service to create the
-	// task set in.
-	//
 	// This member is required.
 	Service *string
 	
-	// The task definition for the tasks in the task set to use. If a revision isn't
-	// specified, the latest ACTIVE revision is used.
-	//
 	// This member is required.
 	TaskDefinition *string
 	
-	// The capacity provider strategy to use for the task set.
-	//
-	// A capacity provider strategy consists of one or more capacity providers along
-	// with the base and weight to assign to them. A capacity provider must be
-	// associated with the cluster to be used in a capacity provider strategy. The [PutClusterCapacityProviders]API
-	// is used to associate a capacity provider with a cluster. Only capacity providers
-	// with an ACTIVE or UPDATING status can be used.
-	//
-	// If a capacityProviderStrategy is specified, the launchType parameter must be
-	// omitted. If no capacityProviderStrategy or launchType is specified, the
-	// defaultCapacityProviderStrategy for the cluster is used.
-	//
-	// If specifying a capacity provider that uses an Auto Scaling group, the capacity
-	// provider must already be created. New capacity providers can be created with the
-	// [CreateCapacityProviderProvider]API operation.
-	//
-	// To use a Fargate capacity provider, specify either the FARGATE or FARGATE_SPOT
-	// capacity providers. The Fargate capacity providers are available to all accounts
-	// and only need to be associated with a cluster to be used.
-	//
-	// The [PutClusterCapacityProviders] API operation is used to update the list of available capacity providers
-	// for a cluster after the cluster is created.
-	//
-	// [PutClusterCapacityProviders]: https://docs.aws.amazon.com/AmazonECS/latest/APIReference/API_PutClusterCapacityProviders.html
-	// [CreateCapacityProviderProvider]: https://docs.aws.amazon.com/AmazonECS/latest/APIReference/API_CreateCapacityProviderProvider.html
 	CapacityProviderStrategy []types.CapacityProviderStrategyItem
 	
-	// An identifier that you provide to ensure the idempotency of the request. It
-	// must be unique and is case sensitive. Up to 36 ASCII characters in the range of
-	// 33-126 (inclusive) are allowed.
 	ClientToken *string
 	
-	// An optional non-unique tag that identifies this task set in external systems.
-	// If the task set is associated with a service discovery registry, the tasks in
-	// this task set will have the ECS_TASK_SET_EXTERNAL_ID Cloud Map attribute set to
-	// the provided value.
+	Dryrun bool
+	
 	ExternalId *string
 	
-	// The launch type that new tasks in the task set uses. For more information, see [Amazon ECS launch types]
-	// in the Amazon Elastic Container Service Developer Guide.
-	//
-	// If a launchType is specified, the capacityProviderStrategy parameter must be
-	// omitted.
-	//
-	// [Amazon ECS launch types]: https://docs.aws.amazon.com/AmazonECS/latest/developerguide/launch_types.html
+	Id *string
+	
+	InterfaceOwners []types.AccountDetail
+	
 	LaunchType types.LaunchType
 	
-	// A load balancer object representing the load balancer to use with the task set.
-	// The supported load balancer types are either an Application Load Balancer or a
-	// Network Load Balancer.
 	LoadBalancers []types.LoadBalancer
 	
-	// An object representing the network configuration for a task set.
 	NetworkConfiguration *types.NetworkConfiguration
 	
-	// The platform version that the tasks in the task set uses. A platform version is
-	// specified only for tasks using the Fargate launch type. If one isn't specified,
-	// the LATEST platform version is used.
+	Originator *types.AccountDetail
+	
 	PlatformVersion *string
 	
-	// A floating-point percentage of the desired number of tasks to place and keep
-	// running in the task set.
 	Scale *types.Scale
 	
-	// The details of the service discovery registries to assign to this task set. For
-	// more information, see [Service discovery].
-	//
-	// [Service discovery]: https://docs.aws.amazon.com/AmazonECS/latest/developerguide/service-discovery.html
+	ServiceConnectConfiguration *types.ServiceConnectConfiguration
+	
 	ServiceRegistries []types.ServiceRegistry
 	
-	// The metadata that you apply to the task set to help you categorize and organize
-	// them. Each tag consists of a key and an optional value. You define both. When a
-	// service is deleted, the tags are deleted.
-	//
-	// The following basic restrictions apply to tags:
-	//
-	//   - Maximum number of tags per resource - 50
-	//
-	//   - For each resource, each tag key must be unique, and each tag key can have
-	//   only one value.
-	//
-	//   - Maximum key length - 128 Unicode characters in UTF-8
-	//
-	//   - Maximum value length - 256 Unicode characters in UTF-8
-	//
-	//   - If your tagging schema is used across multiple services and resources,
-	//   remember that other services may have restrictions on allowed characters.
-	//   Generally allowed characters are: letters, numbers, and spaces representable in
-	//   UTF-8, and the following characters: + - = . _ : / @.
-	//
-	//   - Tag keys and values are case-sensitive.
-	//
-	//   - Do not use aws: , AWS: , or any upper or lowercase combination of such as a
-	//   prefix for either keys or values as it is reserved for Amazon Web Services use.
-	//   You cannot edit or delete tag keys or values with this prefix. Tags with this
-	//   prefix do not count against your tags per resource limit.
+	StartedBy *string
+	
 	Tags []types.Tag
 	
 	noSmithyDocumentSerde
@@ -159,10 +70,6 @@ type CreateTaskSetInput struct {
 
 type CreateTaskSetOutput struct {
 	
-	// Information about a set of Amazon ECS tasks in either an CodeDeploy or an
-	// EXTERNAL deployment. A task set includes details such as the desired number of
-	// tasks, how many tasks are running, and whether the task set serves production
-	// traffic.
 	TaskSet *types.TaskSet
 	
 	// Metadata pertaining to the operation's result.
@@ -172,17 +79,6 @@ type CreateTaskSetOutput struct {
 }
 
 func (c *Client) addOperationCreateTaskSetMiddlewares(stack *middleware.Stack, options Options) (err error) {
-	if err := stack.Serialize.Add(&setOperationInputMiddleware{}, middleware.After); err != nil {
-	    return err
-	}
-	err = stack.Serialize.Add(&awsAwsjson11_serializeOpCreateTaskSet{}, middleware.After)
-	if err != nil { return err }
-	err = stack.Deserialize.Add(&awsAwsjson11_deserializeOpCreateTaskSet{}, middleware.After)
-	if err != nil { return err }
-	if err := addProtocolFinalizerMiddlewares(stack, options, "CreateTaskSet"); err != nil {
-	    return fmt.Errorf("add protocol finalizers: %v", err)
-	}
-	
 	if err = addlegacyEndpointContextSetter(stack, options); err != nil {
 	return err
 	}
@@ -231,6 +127,9 @@ func (c *Client) addOperationCreateTaskSetMiddlewares(stack *middleware.Stack, o
 	if err = addUserAgentRetryMode(stack, options); err != nil {
 	return err
 	}
+	if err = addCredentialSource(stack, options); err != nil {
+	return err
+	}
 	if err = addOpCreateTaskSetValidationMiddleware(stack); err != nil {
 	return err
 	}
@@ -252,16 +151,13 @@ func (c *Client) addOperationCreateTaskSetMiddlewares(stack *middleware.Stack, o
 	if err = addDisableHTTPSMiddleware(stack, options); err != nil {
 	return err
 	}
-	if err = addSpanInitializeStart(stack); err != nil {
+	if err = addInterceptBeforeRetryLoop(stack, options); err != nil {
 	return err
 	}
-	if err = addSpanInitializeEnd(stack); err != nil {
+	if err = addInterceptAttempt(stack, options); err != nil {
 	return err
 	}
-	if err = addSpanBuildRequestStart(stack); err != nil {
-	return err
-	}
-	if err = addSpanBuildRequestEnd(stack); err != nil {
+	if err = addInterceptors(stack, options); err != nil {
 	return err
 	}
 	return nil

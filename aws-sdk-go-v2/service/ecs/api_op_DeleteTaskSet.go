@@ -6,17 +6,11 @@ package ecs
 import (
 	awsmiddleware "github.com/aws/aws-sdk-go-v2/aws/middleware"
 	"context"
-	"fmt"
 	"github.com/aws/smithy-go/middleware"
 	smithyhttp "github.com/aws/smithy-go/transport/http"
 	"github.com/aws/aws-sdk-go-v2/service/ecs/types"
 )
 
-// Deletes a specified task set within a service. This is used when a service uses
-// the EXTERNAL deployment controller type. For more information, see [Amazon ECS deployment types] in the
-// Amazon Elastic Container Service Developer Guide.
-//
-// [Amazon ECS deployment types]: https://docs.aws.amazon.com/AmazonECS/latest/developerguide/deployment-types.html
 func (c *Client) DeleteTaskSet(ctx context.Context, params *DeleteTaskSetInput, optFns ...func(*Options)) (*DeleteTaskSetOutput, error) {
 	if params == nil { params = &DeleteTaskSetInput{} }
 	
@@ -30,24 +24,17 @@ func (c *Client) DeleteTaskSet(ctx context.Context, params *DeleteTaskSetInput, 
 
 type DeleteTaskSetInput struct {
 	
-	// The short name or full Amazon Resource Name (ARN) of the cluster that hosts the
-	// service that the task set found in to delete.
-	//
 	// This member is required.
 	Cluster *string
 	
-	// The short name or full Amazon Resource Name (ARN) of the service that hosts the
-	// task set to delete.
-	//
 	// This member is required.
 	Service *string
 	
-	// The task set ID or full Amazon Resource Name (ARN) of the task set to delete.
-	//
 	// This member is required.
 	TaskSet *string
 	
-	// If true , you can delete a task set even if it hasn't been scaled down to zero.
+	Dryrun bool
+	
 	Force *bool
 	
 	noSmithyDocumentSerde
@@ -55,7 +42,6 @@ type DeleteTaskSetInput struct {
 
 type DeleteTaskSetOutput struct {
 	
-	// Details about the task set.
 	TaskSet *types.TaskSet
 	
 	// Metadata pertaining to the operation's result.
@@ -65,17 +51,6 @@ type DeleteTaskSetOutput struct {
 }
 
 func (c *Client) addOperationDeleteTaskSetMiddlewares(stack *middleware.Stack, options Options) (err error) {
-	if err := stack.Serialize.Add(&setOperationInputMiddleware{}, middleware.After); err != nil {
-	    return err
-	}
-	err = stack.Serialize.Add(&awsAwsjson11_serializeOpDeleteTaskSet{}, middleware.After)
-	if err != nil { return err }
-	err = stack.Deserialize.Add(&awsAwsjson11_deserializeOpDeleteTaskSet{}, middleware.After)
-	if err != nil { return err }
-	if err := addProtocolFinalizerMiddlewares(stack, options, "DeleteTaskSet"); err != nil {
-	    return fmt.Errorf("add protocol finalizers: %v", err)
-	}
-	
 	if err = addlegacyEndpointContextSetter(stack, options); err != nil {
 	return err
 	}
@@ -124,6 +99,9 @@ func (c *Client) addOperationDeleteTaskSetMiddlewares(stack *middleware.Stack, o
 	if err = addUserAgentRetryMode(stack, options); err != nil {
 	return err
 	}
+	if err = addCredentialSource(stack, options); err != nil {
+	return err
+	}
 	if err = addOpDeleteTaskSetValidationMiddleware(stack); err != nil {
 	return err
 	}
@@ -145,16 +123,13 @@ func (c *Client) addOperationDeleteTaskSetMiddlewares(stack *middleware.Stack, o
 	if err = addDisableHTTPSMiddleware(stack, options); err != nil {
 	return err
 	}
-	if err = addSpanInitializeStart(stack); err != nil {
+	if err = addInterceptBeforeRetryLoop(stack, options); err != nil {
 	return err
 	}
-	if err = addSpanInitializeEnd(stack); err != nil {
+	if err = addInterceptAttempt(stack, options); err != nil {
 	return err
 	}
-	if err = addSpanBuildRequestStart(stack); err != nil {
-	return err
-	}
-	if err = addSpanBuildRequestEnd(stack); err != nil {
+	if err = addInterceptors(stack, options); err != nil {
 	return err
 	}
 	return nil

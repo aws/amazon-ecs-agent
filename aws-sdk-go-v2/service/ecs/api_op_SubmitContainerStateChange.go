@@ -6,16 +6,11 @@ package ecs
 import (
 	awsmiddleware "github.com/aws/aws-sdk-go-v2/aws/middleware"
 	"context"
-	"fmt"
 	"github.com/aws/smithy-go/middleware"
 	smithyhttp "github.com/aws/smithy-go/transport/http"
 	"github.com/aws/aws-sdk-go-v2/service/ecs/types"
 )
 
-// This action is only used by the Amazon ECS agent, and it is not intended for
-// use outside of the agent.
-//
-// Sent to acknowledge that a container changed states.
 func (c *Client) SubmitContainerStateChange(ctx context.Context, params *SubmitContainerStateChangeInput, optFns ...func(*Options)) (*SubmitContainerStateChangeOutput, error) {
 	if params == nil { params = &SubmitContainerStateChangeInput{} }
 	
@@ -29,29 +24,20 @@ func (c *Client) SubmitContainerStateChange(ctx context.Context, params *SubmitC
 
 type SubmitContainerStateChangeInput struct {
 	
-	// The short name or full ARN of the cluster that hosts the container.
 	Cluster *string
 	
-	// The name of the container.
 	ContainerName *string
 	
-	// The exit code that's returned for the state change request.
 	ExitCode *int32
 	
-	// The network bindings of the container.
 	NetworkBindings []types.NetworkBinding
 	
-	// The reason for the state change request.
 	Reason *string
 	
-	// The ID of the Docker container.
 	RuntimeId *string
 	
-	// The status of the state change request.
 	Status *string
 	
-	// The task ID or full Amazon Resource Name (ARN) of the task that hosts the
-	// container.
 	Task *string
 	
 	noSmithyDocumentSerde
@@ -59,7 +45,6 @@ type SubmitContainerStateChangeInput struct {
 
 type SubmitContainerStateChangeOutput struct {
 	
-	// Acknowledgement of the state change.
 	Acknowledgment *string
 	
 	// Metadata pertaining to the operation's result.
@@ -69,17 +54,6 @@ type SubmitContainerStateChangeOutput struct {
 }
 
 func (c *Client) addOperationSubmitContainerStateChangeMiddlewares(stack *middleware.Stack, options Options) (err error) {
-	if err := stack.Serialize.Add(&setOperationInputMiddleware{}, middleware.After); err != nil {
-	    return err
-	}
-	err = stack.Serialize.Add(&awsAwsjson11_serializeOpSubmitContainerStateChange{}, middleware.After)
-	if err != nil { return err }
-	err = stack.Deserialize.Add(&awsAwsjson11_deserializeOpSubmitContainerStateChange{}, middleware.After)
-	if err != nil { return err }
-	if err := addProtocolFinalizerMiddlewares(stack, options, "SubmitContainerStateChange"); err != nil {
-	    return fmt.Errorf("add protocol finalizers: %v", err)
-	}
-	
 	if err = addlegacyEndpointContextSetter(stack, options); err != nil {
 	return err
 	}
@@ -128,6 +102,9 @@ func (c *Client) addOperationSubmitContainerStateChangeMiddlewares(stack *middle
 	if err = addUserAgentRetryMode(stack, options); err != nil {
 	return err
 	}
+	if err = addCredentialSource(stack, options); err != nil {
+	return err
+	}
 	if err = stack.Initialize.Add(newServiceMetadataMiddleware_opSubmitContainerStateChange(options.Region, ), middleware.Before); err != nil {
 	return err
 	}
@@ -146,16 +123,13 @@ func (c *Client) addOperationSubmitContainerStateChangeMiddlewares(stack *middle
 	if err = addDisableHTTPSMiddleware(stack, options); err != nil {
 	return err
 	}
-	if err = addSpanInitializeStart(stack); err != nil {
+	if err = addInterceptBeforeRetryLoop(stack, options); err != nil {
 	return err
 	}
-	if err = addSpanInitializeEnd(stack); err != nil {
+	if err = addInterceptAttempt(stack, options); err != nil {
 	return err
 	}
-	if err = addSpanBuildRequestStart(stack); err != nil {
-	return err
-	}
-	if err = addSpanBuildRequestEnd(stack); err != nil {
+	if err = addInterceptors(stack, options); err != nil {
 	return err
 	}
 	return nil

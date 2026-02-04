@@ -6,31 +6,11 @@ package ecs
 import (
 	awsmiddleware "github.com/aws/aws-sdk-go-v2/aws/middleware"
 	"context"
-	"fmt"
 	"github.com/aws/smithy-go/middleware"
 	smithyhttp "github.com/aws/smithy-go/transport/http"
 	"github.com/aws/aws-sdk-go-v2/service/ecs/types"
 )
 
-// Stops a running task. Any tags associated with the task will be deleted.
-//
-// When you call StopTask on a task, the equivalent of docker stop is issued to
-// the containers running in the task. This results in a SIGTERM value and a
-// default 30-second timeout, after which the SIGKILL value is sent and the
-// containers are forcibly stopped. If the container handles the SIGTERM value
-// gracefully and exits within 30 seconds from receiving it, no SIGKILL value is
-// sent.
-//
-// For Windows containers, POSIX signals do not work and runtime stops the
-// container by sending a CTRL_SHUTDOWN_EVENT . For more information, see [Unable to react to graceful shutdown of (Windows) container #25982] on
-// GitHub.
-//
-// The default 30-second timeout can be configured on the Amazon ECS container
-// agent with the ECS_CONTAINER_STOP_TIMEOUT variable. For more information, see [Amazon ECS Container Agent Configuration]
-// in the Amazon Elastic Container Service Developer Guide.
-//
-// [Unable to react to graceful shutdown of (Windows) container #25982]: https://github.com/moby/moby/issues/25982
-// [Amazon ECS Container Agent Configuration]: https://docs.aws.amazon.com/AmazonECS/latest/developerguide/ecs-agent-config.html
 func (c *Client) StopTask(ctx context.Context, params *StopTaskInput, optFns ...func(*Options)) (*StopTaskOutput, error) {
 	if params == nil { params = &StopTaskInput{} }
 	
@@ -44,21 +24,11 @@ func (c *Client) StopTask(ctx context.Context, params *StopTaskInput, optFns ...
 
 type StopTaskInput struct {
 	
-	// The task ID of the task to stop.
-	//
 	// This member is required.
 	Task *string
 	
-	// The short name or full Amazon Resource Name (ARN) of the cluster that hosts the
-	// task to stop. If you do not specify a cluster, the default cluster is assumed.
 	Cluster *string
 	
-	// An optional message specified when a task is stopped. For example, if you're
-	// using a custom scheduler, you can use this parameter to specify the reason for
-	// stopping the task here, and the message appears in subsequent [DescribeTasks]> API operations
-	// on this task.
-	//
-	// [DescribeTasks]: https://docs.aws.amazon.com/AmazonECS/latest/APIReference/API_DescribeTasks.html
 	Reason *string
 	
 	noSmithyDocumentSerde
@@ -66,7 +36,6 @@ type StopTaskInput struct {
 
 type StopTaskOutput struct {
 	
-	// The task that was stopped.
 	Task *types.Task
 	
 	// Metadata pertaining to the operation's result.
@@ -76,17 +45,6 @@ type StopTaskOutput struct {
 }
 
 func (c *Client) addOperationStopTaskMiddlewares(stack *middleware.Stack, options Options) (err error) {
-	if err := stack.Serialize.Add(&setOperationInputMiddleware{}, middleware.After); err != nil {
-	    return err
-	}
-	err = stack.Serialize.Add(&awsAwsjson11_serializeOpStopTask{}, middleware.After)
-	if err != nil { return err }
-	err = stack.Deserialize.Add(&awsAwsjson11_deserializeOpStopTask{}, middleware.After)
-	if err != nil { return err }
-	if err := addProtocolFinalizerMiddlewares(stack, options, "StopTask"); err != nil {
-	    return fmt.Errorf("add protocol finalizers: %v", err)
-	}
-	
 	if err = addlegacyEndpointContextSetter(stack, options); err != nil {
 	return err
 	}
@@ -135,6 +93,9 @@ func (c *Client) addOperationStopTaskMiddlewares(stack *middleware.Stack, option
 	if err = addUserAgentRetryMode(stack, options); err != nil {
 	return err
 	}
+	if err = addCredentialSource(stack, options); err != nil {
+	return err
+	}
 	if err = addOpStopTaskValidationMiddleware(stack); err != nil {
 	return err
 	}
@@ -156,16 +117,13 @@ func (c *Client) addOperationStopTaskMiddlewares(stack *middleware.Stack, option
 	if err = addDisableHTTPSMiddleware(stack, options); err != nil {
 	return err
 	}
-	if err = addSpanInitializeStart(stack); err != nil {
+	if err = addInterceptBeforeRetryLoop(stack, options); err != nil {
 	return err
 	}
-	if err = addSpanInitializeEnd(stack); err != nil {
+	if err = addInterceptAttempt(stack, options); err != nil {
 	return err
 	}
-	if err = addSpanBuildRequestStart(stack); err != nil {
-	return err
-	}
-	if err = addSpanBuildRequestEnd(stack); err != nil {
+	if err = addInterceptors(stack, options); err != nil {
 	return err
 	}
 	return nil

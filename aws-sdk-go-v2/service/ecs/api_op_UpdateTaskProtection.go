@@ -6,41 +6,11 @@ package ecs
 import (
 	awsmiddleware "github.com/aws/aws-sdk-go-v2/aws/middleware"
 	"context"
-	"fmt"
 	"github.com/aws/smithy-go/middleware"
 	smithyhttp "github.com/aws/smithy-go/transport/http"
 	"github.com/aws/aws-sdk-go-v2/service/ecs/types"
 )
 
-// Updates the protection status of a task. You can set protectionEnabled to true
-// to protect your task from termination during scale-in events from [Service Autoscaling]or [deployments].
-//
-// Task-protection, by default, expires after 2 hours at which point Amazon ECS
-// clears the protectionEnabled property making the task eligible for termination
-// by a subsequent scale-in event.
-//
-// You can specify a custom expiration period for task protection from 1 minute to
-// up to 2,880 minutes (48 hours). To specify the custom expiration period, set the
-// expiresInMinutes property. The expiresInMinutes property is always reset when
-// you invoke this operation for a task that already has protectionEnabled set to
-// true . You can keep extending the protection expiration period of a task by
-// invoking this operation repeatedly.
-//
-// To learn more about Amazon ECS task protection, see [Task scale-in protection] in the Amazon Elastic
-// Container Service Developer Guide .
-//
-// This operation is only supported for tasks belonging to an Amazon ECS service.
-// Invoking this operation for a standalone task will result in an TASK_NOT_VALID
-// failure. For more information, see [API failure reasons].
-//
-// If you prefer to set task protection from within the container, we recommend
-// using the [Task scale-in protection endpoint].
-//
-// [deployments]: https://docs.aws.amazon.com/AmazonECS/latest/developerguide/deployment-types.html
-// [API failure reasons]: https://docs.aws.amazon.com/AmazonECS/latest/developerguide/api_failures_messages.html
-// [Task scale-in protection endpoint]: https://docs.aws.amazon.com/AmazonECS/latest/developerguide/task-scale-in-protection-endpoint.html
-// [Task scale-in protection]: https://docs.aws.amazon.com/AmazonECS/latest/developerguide/task-scale-in-protection.html
-// [Service Autoscaling]: https://docs.aws.amazon.com/AmazonECS/latest/developerguide/service-auto-scaling.html
 func (c *Client) UpdateTaskProtection(ctx context.Context, params *UpdateTaskProtectionInput, optFns ...func(*Options)) (*UpdateTaskProtectionOutput, error) {
 	if params == nil { params = &UpdateTaskProtectionInput{} }
 	
@@ -54,31 +24,15 @@ func (c *Client) UpdateTaskProtection(ctx context.Context, params *UpdateTaskPro
 
 type UpdateTaskProtectionInput struct {
 	
-	// The short name or full Amazon Resource Name (ARN) of the cluster that hosts the
-	// service that the task sets exist in.
-	//
 	// This member is required.
 	Cluster *string
 	
-	// Specify true to mark a task for protection and false to unset protection,
-	// making it eligible for termination.
-	//
 	// This member is required.
 	ProtectionEnabled bool
 	
-	// A list of up to 10 task IDs or full ARN entries.
-	//
 	// This member is required.
 	Tasks []string
 	
-	// If you set protectionEnabled to true , you can specify the duration for task
-	// protection in minutes. You can specify a value from 1 minute to up to 2,880
-	// minutes (48 hours). During this time, your task will not be terminated by
-	// scale-in events from Service Auto Scaling or deployments. After this time period
-	// lapses, protectionEnabled will be reset to false .
-	//
-	// If you don’t specify the time, then the task is automatically protected for 120
-	// minutes (2 hours).
 	ExpiresInMinutes *int32
 	
 	noSmithyDocumentSerde
@@ -86,18 +40,8 @@ type UpdateTaskProtectionInput struct {
 
 type UpdateTaskProtectionOutput struct {
 	
-	// Any failures associated with the call.
 	Failures []types.Failure
 	
-	// A list of tasks with the following information.
-	//
-	//   - taskArn : The task ARN.
-	//
-	//   - protectionEnabled : The protection status of the task. If scale-in
-	//   protection is turned on for a task, the value is true . Otherwise, it is false
-	//   .
-	//
-	//   - expirationDate : The epoch time when protection for the task will expire.
 	ProtectedTasks []types.ProtectedTask
 	
 	// Metadata pertaining to the operation's result.
@@ -107,17 +51,6 @@ type UpdateTaskProtectionOutput struct {
 }
 
 func (c *Client) addOperationUpdateTaskProtectionMiddlewares(stack *middleware.Stack, options Options) (err error) {
-	if err := stack.Serialize.Add(&setOperationInputMiddleware{}, middleware.After); err != nil {
-	    return err
-	}
-	err = stack.Serialize.Add(&awsAwsjson11_serializeOpUpdateTaskProtection{}, middleware.After)
-	if err != nil { return err }
-	err = stack.Deserialize.Add(&awsAwsjson11_deserializeOpUpdateTaskProtection{}, middleware.After)
-	if err != nil { return err }
-	if err := addProtocolFinalizerMiddlewares(stack, options, "UpdateTaskProtection"); err != nil {
-	    return fmt.Errorf("add protocol finalizers: %v", err)
-	}
-	
 	if err = addlegacyEndpointContextSetter(stack, options); err != nil {
 	return err
 	}
@@ -166,6 +99,9 @@ func (c *Client) addOperationUpdateTaskProtectionMiddlewares(stack *middleware.S
 	if err = addUserAgentRetryMode(stack, options); err != nil {
 	return err
 	}
+	if err = addCredentialSource(stack, options); err != nil {
+	return err
+	}
 	if err = addOpUpdateTaskProtectionValidationMiddleware(stack); err != nil {
 	return err
 	}
@@ -187,16 +123,13 @@ func (c *Client) addOperationUpdateTaskProtectionMiddlewares(stack *middleware.S
 	if err = addDisableHTTPSMiddleware(stack, options); err != nil {
 	return err
 	}
-	if err = addSpanInitializeStart(stack); err != nil {
+	if err = addInterceptBeforeRetryLoop(stack, options); err != nil {
 	return err
 	}
-	if err = addSpanInitializeEnd(stack); err != nil {
+	if err = addInterceptAttempt(stack, options); err != nil {
 	return err
 	}
-	if err = addSpanBuildRequestStart(stack); err != nil {
-	return err
-	}
-	if err = addSpanBuildRequestEnd(stack); err != nil {
+	if err = addInterceptors(stack, options); err != nil {
 	return err
 	}
 	return nil

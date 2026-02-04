@@ -8,7 +8,6 @@ import (
 	smithy "github.com/aws/smithy-go"
 )
 
-// You don't have authorization to perform the requested action.
 type AccessDeniedException struct {
 	Message *string
 	
@@ -34,12 +33,6 @@ func (e *AccessDeniedException) ErrorCode() string {
 }
 func (e *AccessDeniedException) ErrorFault() smithy.ErrorFault { return smithy.FaultClient }
 
-// You can apply up to 10 custom attributes for each resource. You can view the
-// attributes of a resource with [ListAttributes]. You can remove existing attributes on a
-// resource with [DeleteAttributes].
-//
-// [ListAttributes]: https://docs.aws.amazon.com/AmazonECS/latest/APIReference/API_ListAttributes.html
-// [DeleteAttributes]: https://docs.aws.amazon.com/AmazonECS/latest/APIReference/API_DeleteAttributes.html
 type AttributeLimitExceededException struct {
 	Message *string
 	
@@ -65,9 +58,6 @@ func (e *AttributeLimitExceededException) ErrorCode() string {
 }
 func (e *AttributeLimitExceededException) ErrorFault() smithy.ErrorFault { return smithy.FaultClient }
 
-// Your Amazon Web Services account was blocked. For more information, contact [Amazon Web Services Support].
-//
-// [Amazon Web Services Support]: http://aws.amazon.com/contact-us/
 type BlockedException struct {
 	Message *string
 	
@@ -93,18 +83,6 @@ func (e *BlockedException) ErrorCode() string {
 }
 func (e *BlockedException) ErrorFault() smithy.ErrorFault { return smithy.FaultClient }
 
-// These errors are usually caused by a client action. This client action might be
-// using an action or resource on behalf of a user that doesn't have permissions to
-// use the action or resource. Or, it might be specifying an identifier that isn't
-// valid.
-//
-// The following list includes additional causes for the error:
-//
-//   - The RunTask could not be processed because you use managed scaling and there
-//   is a capacity error because the quota of tasks in the PROVISIONING per cluster
-//   has been reached. For information about the service quotas, see [Amazon ECS service quotas].
-//
-// [Amazon ECS service quotas]: https://docs.aws.amazon.com/AmazonECS/latest/developerguide/service-quotas.html
 type ClientException struct {
 	Message *string
 	
@@ -130,11 +108,31 @@ func (e *ClientException) ErrorCode() string {
 }
 func (e *ClientException) ErrorFault() smithy.ErrorFault { return smithy.FaultClient }
 
-// You can't delete a cluster that has registered container instances. First,
-// deregister the container instances before you can delete the cluster. For more
-// information, see [DeregisterContainerInstance].
-//
-// [DeregisterContainerInstance]: https://docs.aws.amazon.com/AmazonECS/latest/APIReference/API_DeregisterContainerInstance.html
+type ClusterContainsCapacityProviderException struct {
+	Message *string
+	
+	ErrorCodeOverride *string
+	
+	noSmithyDocumentSerde
+}
+
+func (e *ClusterContainsCapacityProviderException) Error() string {
+	return fmt.Sprintf("%s: %s", e.ErrorCode(), e.ErrorMessage())
+}
+func (e *ClusterContainsCapacityProviderException) ErrorMessage() string {
+	if e.Message == nil {
+		return ""
+	}
+	return *e.Message
+}
+func (e *ClusterContainsCapacityProviderException) ErrorCode() string {
+	if e == nil || e.ErrorCodeOverride == nil {
+		return "ClusterContainsCapacityProviderException"
+	}
+	return *e.ErrorCodeOverride
+}
+func (e *ClusterContainsCapacityProviderException) ErrorFault() smithy.ErrorFault { return smithy.FaultClient }
+
 type ClusterContainsContainerInstancesException struct {
 	Message *string
 	
@@ -160,12 +158,6 @@ func (e *ClusterContainsContainerInstancesException) ErrorCode() string {
 }
 func (e *ClusterContainsContainerInstancesException) ErrorFault() smithy.ErrorFault { return smithy.FaultClient }
 
-// You can't delete a cluster that contains services. First, update the service to
-// reduce its desired task count to 0, and then delete the service. For more
-// information, see [UpdateService]and [DeleteService].
-//
-// [UpdateService]: https://docs.aws.amazon.com/AmazonECS/latest/APIReference/API_UpdateService.html
-// [DeleteService]: https://docs.aws.amazon.com/AmazonECS/latest/APIReference/API_DeleteService.html
 type ClusterContainsServicesException struct {
 	Message *string
 	
@@ -191,7 +183,6 @@ func (e *ClusterContainsServicesException) ErrorCode() string {
 }
 func (e *ClusterContainsServicesException) ErrorFault() smithy.ErrorFault { return smithy.FaultClient }
 
-// You can't delete a cluster that has active tasks.
 type ClusterContainsTasksException struct {
 	Message *string
 	
@@ -217,10 +208,6 @@ func (e *ClusterContainsTasksException) ErrorCode() string {
 }
 func (e *ClusterContainsTasksException) ErrorFault() smithy.ErrorFault { return smithy.FaultClient }
 
-// The specified cluster wasn't found. You can view your available clusters with [ListClusters].
-// Amazon ECS clusters are Region specific.
-//
-// [ListClusters]: https://docs.aws.amazon.com/AmazonECS/latest/APIReference/API_ListClusters.html
 type ClusterNotFoundException struct {
 	Message *string
 	
@@ -246,15 +233,6 @@ func (e *ClusterNotFoundException) ErrorCode() string {
 }
 func (e *ClusterNotFoundException) ErrorFault() smithy.ErrorFault { return smithy.FaultClient }
 
-// The RunTask request could not be processed due to conflicts. The provided
-// clientToken is already in use with a different RunTask request. The resourceIds
-// are the existing task ARNs which are already associated with the clientToken .
-//
-// To fix this issue:
-//
-//   - Run RunTask with a unique clientToken .
-//
-//   - Run RunTask with the clientToken and the original set of parameters
 type ConflictException struct {
 	Message *string
 	
@@ -282,8 +260,83 @@ func (e *ConflictException) ErrorCode() string {
 }
 func (e *ConflictException) ErrorFault() smithy.ErrorFault { return smithy.FaultClient }
 
-// The specified parameter isn't valid. Review the available parameters for the
-// API request.
+type CredentialProviderInvocationException struct {
+	Message *string
+	
+	ErrorCodeOverride *string
+	
+	ErrorCode_ *string
+	
+	noSmithyDocumentSerde
+}
+
+func (e *CredentialProviderInvocationException) Error() string {
+	return fmt.Sprintf("%s: %s", e.ErrorCode(), e.ErrorMessage())
+}
+func (e *CredentialProviderInvocationException) ErrorMessage() string {
+	if e.Message == nil {
+		return ""
+	}
+	return *e.Message
+}
+func (e *CredentialProviderInvocationException) ErrorCode() string {
+	if e == nil || e.ErrorCodeOverride == nil {
+		return "CredentialProviderInvocationException"
+	}
+	return *e.ErrorCodeOverride
+}
+func (e *CredentialProviderInvocationException) ErrorFault() smithy.ErrorFault { return smithy.FaultClient }
+
+type DaemonNotActiveException struct {
+	Message *string
+	
+	ErrorCodeOverride *string
+	
+	noSmithyDocumentSerde
+}
+
+func (e *DaemonNotActiveException) Error() string {
+	return fmt.Sprintf("%s: %s", e.ErrorCode(), e.ErrorMessage())
+}
+func (e *DaemonNotActiveException) ErrorMessage() string {
+	if e.Message == nil {
+		return ""
+	}
+	return *e.Message
+}
+func (e *DaemonNotActiveException) ErrorCode() string {
+	if e == nil || e.ErrorCodeOverride == nil {
+		return "DaemonNotActiveException"
+	}
+	return *e.ErrorCodeOverride
+}
+func (e *DaemonNotActiveException) ErrorFault() smithy.ErrorFault { return smithy.FaultClient }
+
+type DaemonNotFoundException struct {
+	Message *string
+	
+	ErrorCodeOverride *string
+	
+	noSmithyDocumentSerde
+}
+
+func (e *DaemonNotFoundException) Error() string {
+	return fmt.Sprintf("%s: %s", e.ErrorCode(), e.ErrorMessage())
+}
+func (e *DaemonNotFoundException) ErrorMessage() string {
+	if e.Message == nil {
+		return ""
+	}
+	return *e.Message
+}
+func (e *DaemonNotFoundException) ErrorCode() string {
+	if e == nil || e.ErrorCodeOverride == nil {
+		return "DaemonNotFoundException"
+	}
+	return *e.ErrorCodeOverride
+}
+func (e *DaemonNotFoundException) ErrorFault() smithy.ErrorFault { return smithy.FaultClient }
+
 type InvalidParameterException struct {
 	Message *string
 	
@@ -309,7 +362,6 @@ func (e *InvalidParameterException) ErrorCode() string {
 }
 func (e *InvalidParameterException) ErrorFault() smithy.ErrorFault { return smithy.FaultClient }
 
-// The limit for the resource was exceeded.
 type LimitExceededException struct {
 	Message *string
 	
@@ -335,11 +387,6 @@ func (e *LimitExceededException) ErrorCode() string {
 }
 func (e *LimitExceededException) ErrorFault() smithy.ErrorFault { return smithy.FaultClient }
 
-// Amazon ECS can't determine the current version of the Amazon ECS container
-// agent on the container instance and doesn't have enough information to proceed
-// with an update. This could be because the agent running on the container
-// instance is a previous or custom version that doesn't use our version
-// information.
 type MissingVersionException struct {
 	Message *string
 	
@@ -365,7 +412,6 @@ func (e *MissingVersionException) ErrorCode() string {
 }
 func (e *MissingVersionException) ErrorFault() smithy.ErrorFault { return smithy.FaultClient }
 
-// The specified namespace wasn't found.
 type NamespaceNotFoundException struct {
 	Message *string
 	
@@ -391,9 +437,6 @@ func (e *NamespaceNotFoundException) ErrorCode() string {
 }
 func (e *NamespaceNotFoundException) ErrorFault() smithy.ErrorFault { return smithy.FaultClient }
 
-// There's no update available for this Amazon ECS container agent. This might be
-// because the agent is already running the latest version or because it's so old
-// that there's no update path to the current version.
 type NoUpdateAvailableException struct {
 	Message *string
 	
@@ -419,8 +462,6 @@ func (e *NoUpdateAvailableException) ErrorCode() string {
 }
 func (e *NoUpdateAvailableException) ErrorFault() smithy.ErrorFault { return smithy.FaultClient }
 
-// The specified platform version doesn't satisfy the required capabilities of the
-// task definition.
 type PlatformTaskDefinitionIncompatibilityException struct {
 	Message *string
 	
@@ -446,7 +487,6 @@ func (e *PlatformTaskDefinitionIncompatibilityException) ErrorCode() string {
 }
 func (e *PlatformTaskDefinitionIncompatibilityException) ErrorFault() smithy.ErrorFault { return smithy.FaultClient }
 
-// The specified platform version doesn't exist.
 type PlatformUnknownException struct {
 	Message *string
 	
@@ -472,7 +512,6 @@ func (e *PlatformUnknownException) ErrorCode() string {
 }
 func (e *PlatformUnknownException) ErrorFault() smithy.ErrorFault { return smithy.FaultClient }
 
-// The specified resource is in-use and can't be removed.
 type ResourceInUseException struct {
 	Message *string
 	
@@ -498,7 +537,6 @@ func (e *ResourceInUseException) ErrorCode() string {
 }
 func (e *ResourceInUseException) ErrorFault() smithy.ErrorFault { return smithy.FaultClient }
 
-// The specified resource wasn't found.
 type ResourceNotFoundException struct {
 	Message *string
 	
@@ -524,7 +562,6 @@ func (e *ResourceNotFoundException) ErrorCode() string {
 }
 func (e *ResourceNotFoundException) ErrorFault() smithy.ErrorFault { return smithy.FaultClient }
 
-// These errors are usually caused by a server issue.
 type ServerException struct {
 	Message *string
 	
@@ -550,10 +587,31 @@ func (e *ServerException) ErrorCode() string {
 }
 func (e *ServerException) ErrorFault() smithy.ErrorFault { return smithy.FaultServer }
 
-// The specified service isn't active. You can't update a service that's inactive.
-// If you have previously deleted a service, you can re-create it with [CreateService].
-//
-// [CreateService]: https://docs.aws.amazon.com/AmazonECS/latest/APIReference/API_CreateService.html
+type ServiceDeploymentNotFoundException struct {
+	Message *string
+	
+	ErrorCodeOverride *string
+	
+	noSmithyDocumentSerde
+}
+
+func (e *ServiceDeploymentNotFoundException) Error() string {
+	return fmt.Sprintf("%s: %s", e.ErrorCode(), e.ErrorMessage())
+}
+func (e *ServiceDeploymentNotFoundException) ErrorMessage() string {
+	if e.Message == nil {
+		return ""
+	}
+	return *e.Message
+}
+func (e *ServiceDeploymentNotFoundException) ErrorCode() string {
+	if e == nil || e.ErrorCodeOverride == nil {
+		return "ServiceDeploymentNotFoundException"
+	}
+	return *e.ErrorCodeOverride
+}
+func (e *ServiceDeploymentNotFoundException) ErrorFault() smithy.ErrorFault { return smithy.FaultClient }
+
 type ServiceNotActiveException struct {
 	Message *string
 	
@@ -579,10 +637,6 @@ func (e *ServiceNotActiveException) ErrorCode() string {
 }
 func (e *ServiceNotActiveException) ErrorFault() smithy.ErrorFault { return smithy.FaultClient }
 
-// The specified service wasn't found. You can view your available services with [ListServices].
-// Amazon ECS services are cluster specific and Region specific.
-//
-// [ListServices]: https://docs.aws.amazon.com/AmazonECS/latest/APIReference/API_ListServices.html
 type ServiceNotFoundException struct {
 	Message *string
 	
@@ -608,20 +662,6 @@ func (e *ServiceNotFoundException) ErrorCode() string {
 }
 func (e *ServiceNotFoundException) ErrorFault() smithy.ErrorFault { return smithy.FaultClient }
 
-// The execute command cannot run. This error can be caused by any of the
-// following configuration issues:
-//
-//   - Incorrect IAM permissions
-//
-//   - The SSM agent is not installed or is not running
-//
-//   - There is an interface Amazon VPC endpoint for Amazon ECS, but there is not
-//   one for Systems Manager Session Manager
-//
-// For information about how to troubleshoot the issues, see [Troubleshooting issues with ECS Exec] in the Amazon
-// Elastic Container Service Developer Guide.
-//
-// [Troubleshooting issues with ECS Exec]: https://docs.aws.amazon.com/AmazonECS/latest/developerguide/ecs-exec.html
 type TargetNotConnectedException struct {
 	Message *string
 	
@@ -647,11 +687,6 @@ func (e *TargetNotConnectedException) ErrorCode() string {
 }
 func (e *TargetNotConnectedException) ErrorFault() smithy.ErrorFault { return smithy.FaultClient }
 
-// The specified target wasn't found. You can view your available container
-// instances with [ListContainerInstances]. Amazon ECS container instances are cluster-specific and
-// Region-specific.
-//
-// [ListContainerInstances]: https://docs.aws.amazon.com/AmazonECS/latest/APIReference/API_ListContainerInstances.html
 type TargetNotFoundException struct {
 	Message *string
 	
@@ -677,10 +712,6 @@ func (e *TargetNotFoundException) ErrorCode() string {
 }
 func (e *TargetNotFoundException) ErrorFault() smithy.ErrorFault { return smithy.FaultClient }
 
-// The specified task set wasn't found. You can view your available task sets with [DescribeTaskSets]
-// . Task sets are specific to each cluster, service and Region.
-//
-// [DescribeTaskSets]: https://docs.aws.amazon.com/AmazonECS/latest/APIReference/API_DescribeTaskSets.html
 type TaskSetNotFoundException struct {
 	Message *string
 	
@@ -706,7 +737,31 @@ func (e *TaskSetNotFoundException) ErrorCode() string {
 }
 func (e *TaskSetNotFoundException) ErrorFault() smithy.ErrorFault { return smithy.FaultClient }
 
-// The specified task isn't supported in this Region.
+type ThrottlingException struct {
+	Message *string
+	
+	ErrorCodeOverride *string
+	
+	noSmithyDocumentSerde
+}
+
+func (e *ThrottlingException) Error() string {
+	return fmt.Sprintf("%s: %s", e.ErrorCode(), e.ErrorMessage())
+}
+func (e *ThrottlingException) ErrorMessage() string {
+	if e.Message == nil {
+		return ""
+	}
+	return *e.Message
+}
+func (e *ThrottlingException) ErrorCode() string {
+	if e == nil || e.ErrorCodeOverride == nil {
+		return "ThrottlingException"
+	}
+	return *e.ErrorCodeOverride
+}
+func (e *ThrottlingException) ErrorFault() smithy.ErrorFault { return smithy.FaultClient }
+
 type UnsupportedFeatureException struct {
 	Message *string
 	
@@ -732,11 +787,6 @@ func (e *UnsupportedFeatureException) ErrorCode() string {
 }
 func (e *UnsupportedFeatureException) ErrorFault() smithy.ErrorFault { return smithy.FaultClient }
 
-// There's already a current Amazon ECS container agent update in progress on the
-// container instance that's specified. If the container agent becomes disconnected
-// while it's in a transitional stage, such as PENDING or STAGING , the update
-// process can get stuck in that state. However, when the agent reconnects, it
-// resumes where it stopped previously.
 type UpdateInProgressException struct {
 	Message *string
 	

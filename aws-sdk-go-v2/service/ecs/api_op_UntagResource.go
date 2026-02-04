@@ -6,12 +6,10 @@ package ecs
 import (
 	awsmiddleware "github.com/aws/aws-sdk-go-v2/aws/middleware"
 	"context"
-	"fmt"
 	"github.com/aws/smithy-go/middleware"
 	smithyhttp "github.com/aws/smithy-go/transport/http"
 )
 
-// Deletes specified tags from a resource.
 func (c *Client) UntagResource(ctx context.Context, params *UntagResourceInput, optFns ...func(*Options)) (*UntagResourceOutput, error) {
 	if params == nil { params = &UntagResourceInput{} }
 	
@@ -25,15 +23,9 @@ func (c *Client) UntagResource(ctx context.Context, params *UntagResourceInput, 
 
 type UntagResourceInput struct {
 	
-	// The Amazon Resource Name (ARN) of the resource to delete tags from. Currently,
-	// the supported resources are Amazon ECS capacity providers, tasks, services, task
-	// definitions, clusters, and container instances.
-	//
 	// This member is required.
 	ResourceArn *string
 	
-	// The keys of the tags to be removed.
-	//
 	// This member is required.
 	TagKeys []string
 	
@@ -48,17 +40,6 @@ type UntagResourceOutput struct {
 }
 
 func (c *Client) addOperationUntagResourceMiddlewares(stack *middleware.Stack, options Options) (err error) {
-	if err := stack.Serialize.Add(&setOperationInputMiddleware{}, middleware.After); err != nil {
-	    return err
-	}
-	err = stack.Serialize.Add(&awsAwsjson11_serializeOpUntagResource{}, middleware.After)
-	if err != nil { return err }
-	err = stack.Deserialize.Add(&awsAwsjson11_deserializeOpUntagResource{}, middleware.After)
-	if err != nil { return err }
-	if err := addProtocolFinalizerMiddlewares(stack, options, "UntagResource"); err != nil {
-	    return fmt.Errorf("add protocol finalizers: %v", err)
-	}
-	
 	if err = addlegacyEndpointContextSetter(stack, options); err != nil {
 	return err
 	}
@@ -107,6 +88,9 @@ func (c *Client) addOperationUntagResourceMiddlewares(stack *middleware.Stack, o
 	if err = addUserAgentRetryMode(stack, options); err != nil {
 	return err
 	}
+	if err = addCredentialSource(stack, options); err != nil {
+	return err
+	}
 	if err = addOpUntagResourceValidationMiddleware(stack); err != nil {
 	return err
 	}
@@ -128,16 +112,13 @@ func (c *Client) addOperationUntagResourceMiddlewares(stack *middleware.Stack, o
 	if err = addDisableHTTPSMiddleware(stack, options); err != nil {
 	return err
 	}
-	if err = addSpanInitializeStart(stack); err != nil {
+	if err = addInterceptBeforeRetryLoop(stack, options); err != nil {
 	return err
 	}
-	if err = addSpanInitializeEnd(stack); err != nil {
+	if err = addInterceptAttempt(stack, options); err != nil {
 	return err
 	}
-	if err = addSpanBuildRequestStart(stack); err != nil {
-	return err
-	}
-	if err = addSpanBuildRequestEnd(stack); err != nil {
+	if err = addInterceptors(stack, options); err != nil {
 	return err
 	}
 	return nil

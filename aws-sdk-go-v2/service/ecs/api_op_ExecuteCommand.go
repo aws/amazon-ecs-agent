@@ -6,23 +6,11 @@ package ecs
 import (
 	awsmiddleware "github.com/aws/aws-sdk-go-v2/aws/middleware"
 	"context"
-	"fmt"
 	"github.com/aws/smithy-go/middleware"
 	smithyhttp "github.com/aws/smithy-go/transport/http"
 	"github.com/aws/aws-sdk-go-v2/service/ecs/types"
 )
 
-// Runs a command remotely on a container within a task.
-//
-// If you use a condition key in your IAM policy to refine the conditions for the
-// policy statement, for example limit the actions to a specific cluster, you
-// receive an AccessDeniedException when there is a mismatch between the condition
-// key value and the corresponding parameter value.
-//
-// For information about required permissions and considerations, see [Using Amazon ECS Exec for debugging] in the
-// Amazon ECS Developer Guide.
-//
-// [Using Amazon ECS Exec for debugging]: https://docs.aws.amazon.com/AmazonECS/latest/developerguide/ecs-exec.html
 func (c *Client) ExecuteCommand(ctx context.Context, params *ExecuteCommandInput, optFns ...func(*Options)) (*ExecuteCommandOutput, error) {
 	if params == nil { params = &ExecuteCommandInput{} }
 	
@@ -36,53 +24,36 @@ func (c *Client) ExecuteCommand(ctx context.Context, params *ExecuteCommandInput
 
 type ExecuteCommandInput struct {
 	
-	// The command to run on the container.
-	//
 	// This member is required.
 	Command *string
 	
-	// Use this flag to run your command in interactive mode.
-	//
 	// This member is required.
 	Interactive bool
 	
-	// The Amazon Resource Name (ARN) or ID of the task the container is part of.
-	//
 	// This member is required.
 	Task *string
 	
-	// The Amazon Resource Name (ARN) or short name of the cluster the task is running
-	// in. If you do not specify a cluster, the default cluster is assumed.
 	Cluster *string
 	
-	// The name of the container to execute the command on. A container name only
-	// needs to be specified for tasks containing multiple containers.
 	Container *string
+	
+	Dryrun bool
 	
 	noSmithyDocumentSerde
 }
 
 type ExecuteCommandOutput struct {
 	
-	// The Amazon Resource Name (ARN) of the cluster.
 	ClusterArn *string
 	
-	// The Amazon Resource Name (ARN) of the container.
 	ContainerArn *string
 	
-	// The name of the container.
 	ContainerName *string
 	
-	// Determines whether the execute command session is running in interactive mode.
-	// Amazon ECS only supports initiating interactive sessions, so you must specify
-	// true for this value.
 	Interactive bool
 	
-	// The details of the SSM session that was created for this instance of
-	// execute-command.
 	Session *types.Session
 	
-	// The Amazon Resource Name (ARN) of the task.
 	TaskArn *string
 	
 	// Metadata pertaining to the operation's result.
@@ -92,17 +63,6 @@ type ExecuteCommandOutput struct {
 }
 
 func (c *Client) addOperationExecuteCommandMiddlewares(stack *middleware.Stack, options Options) (err error) {
-	if err := stack.Serialize.Add(&setOperationInputMiddleware{}, middleware.After); err != nil {
-	    return err
-	}
-	err = stack.Serialize.Add(&awsAwsjson11_serializeOpExecuteCommand{}, middleware.After)
-	if err != nil { return err }
-	err = stack.Deserialize.Add(&awsAwsjson11_deserializeOpExecuteCommand{}, middleware.After)
-	if err != nil { return err }
-	if err := addProtocolFinalizerMiddlewares(stack, options, "ExecuteCommand"); err != nil {
-	    return fmt.Errorf("add protocol finalizers: %v", err)
-	}
-	
 	if err = addlegacyEndpointContextSetter(stack, options); err != nil {
 	return err
 	}
@@ -151,6 +111,9 @@ func (c *Client) addOperationExecuteCommandMiddlewares(stack *middleware.Stack, 
 	if err = addUserAgentRetryMode(stack, options); err != nil {
 	return err
 	}
+	if err = addCredentialSource(stack, options); err != nil {
+	return err
+	}
 	if err = addOpExecuteCommandValidationMiddleware(stack); err != nil {
 	return err
 	}
@@ -172,16 +135,13 @@ func (c *Client) addOperationExecuteCommandMiddlewares(stack *middleware.Stack, 
 	if err = addDisableHTTPSMiddleware(stack, options); err != nil {
 	return err
 	}
-	if err = addSpanInitializeStart(stack); err != nil {
+	if err = addInterceptBeforeRetryLoop(stack, options); err != nil {
 	return err
 	}
-	if err = addSpanInitializeEnd(stack); err != nil {
+	if err = addInterceptAttempt(stack, options); err != nil {
 	return err
 	}
-	if err = addSpanBuildRequestStart(stack); err != nil {
-	return err
-	}
-	if err = addSpanBuildRequestEnd(stack); err != nil {
+	if err = addInterceptors(stack, options); err != nil {
 	return err
 	}
 	return nil

@@ -6,13 +6,11 @@ package ecs
 import (
 	awsmiddleware "github.com/aws/aws-sdk-go-v2/aws/middleware"
 	"context"
-	"fmt"
 	"github.com/aws/smithy-go/middleware"
 	smithyhttp "github.com/aws/smithy-go/transport/http"
 	"github.com/aws/aws-sdk-go-v2/service/ecs/types"
 )
 
-// Updates the cluster.
 func (c *Client) UpdateCluster(ctx context.Context, params *UpdateClusterInput, optFns ...func(*Options)) (*UpdateClusterOutput, error) {
 	if params == nil { params = &UpdateClusterInput{} }
 	
@@ -26,33 +24,15 @@ func (c *Client) UpdateCluster(ctx context.Context, params *UpdateClusterInput, 
 
 type UpdateClusterInput struct {
 	
-	// The name of the cluster to modify the settings for.
-	//
 	// This member is required.
 	Cluster *string
 	
-	// The execute command configuration for the cluster.
 	Configuration *types.ClusterConfiguration
 	
-	// Use this parameter to set a default Service Connect namespace. After you set a
-	// default Service Connect namespace, any new services with Service Connect turned
-	// on that are created in the cluster are added as client services in the
-	// namespace. This setting only applies to new services that set the enabled
-	// parameter to true in the ServiceConnectConfiguration . You can set the namespace
-	// of each service individually in the ServiceConnectConfiguration to override
-	// this default parameter.
-	//
-	// Tasks that run in a namespace can use short names to connect to services in the
-	// namespace. Tasks can connect to services across all of the clusters in the
-	// namespace. Tasks connect through a managed proxy container that collects logs
-	// and metrics for increased visibility. Only the tasks that Amazon ECS services
-	// create are supported with Service Connect. For more information, see [Service Connect]in the
-	// Amazon Elastic Container Service Developer Guide.
-	//
-	// [Service Connect]: https://docs.aws.amazon.com/AmazonECS/latest/developerguide/service-connect.html
+	DefaultNetworkConfiguration *types.NetworkConfiguration
+	
 	ServiceConnectDefaults *types.ClusterServiceConnectDefaultsRequest
 	
-	// The cluster settings for your cluster.
 	Settings []types.ClusterSetting
 	
 	noSmithyDocumentSerde
@@ -60,7 +40,6 @@ type UpdateClusterInput struct {
 
 type UpdateClusterOutput struct {
 	
-	// Details about the cluster.
 	Cluster *types.Cluster
 	
 	// Metadata pertaining to the operation's result.
@@ -70,17 +49,6 @@ type UpdateClusterOutput struct {
 }
 
 func (c *Client) addOperationUpdateClusterMiddlewares(stack *middleware.Stack, options Options) (err error) {
-	if err := stack.Serialize.Add(&setOperationInputMiddleware{}, middleware.After); err != nil {
-	    return err
-	}
-	err = stack.Serialize.Add(&awsAwsjson11_serializeOpUpdateCluster{}, middleware.After)
-	if err != nil { return err }
-	err = stack.Deserialize.Add(&awsAwsjson11_deserializeOpUpdateCluster{}, middleware.After)
-	if err != nil { return err }
-	if err := addProtocolFinalizerMiddlewares(stack, options, "UpdateCluster"); err != nil {
-	    return fmt.Errorf("add protocol finalizers: %v", err)
-	}
-	
 	if err = addlegacyEndpointContextSetter(stack, options); err != nil {
 	return err
 	}
@@ -129,6 +97,9 @@ func (c *Client) addOperationUpdateClusterMiddlewares(stack *middleware.Stack, o
 	if err = addUserAgentRetryMode(stack, options); err != nil {
 	return err
 	}
+	if err = addCredentialSource(stack, options); err != nil {
+	return err
+	}
 	if err = addOpUpdateClusterValidationMiddleware(stack); err != nil {
 	return err
 	}
@@ -150,16 +121,13 @@ func (c *Client) addOperationUpdateClusterMiddlewares(stack *middleware.Stack, o
 	if err = addDisableHTTPSMiddleware(stack, options); err != nil {
 	return err
 	}
-	if err = addSpanInitializeStart(stack); err != nil {
+	if err = addInterceptBeforeRetryLoop(stack, options); err != nil {
 	return err
 	}
-	if err = addSpanInitializeEnd(stack); err != nil {
+	if err = addInterceptAttempt(stack, options); err != nil {
 	return err
 	}
-	if err = addSpanBuildRequestStart(stack); err != nil {
-	return err
-	}
-	if err = addSpanBuildRequestEnd(stack); err != nil {
+	if err = addInterceptors(stack, options); err != nil {
 	return err
 	}
 	return nil

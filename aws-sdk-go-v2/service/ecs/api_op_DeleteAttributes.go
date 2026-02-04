@@ -6,13 +6,11 @@ package ecs
 import (
 	awsmiddleware "github.com/aws/aws-sdk-go-v2/aws/middleware"
 	"context"
-	"fmt"
 	"github.com/aws/smithy-go/middleware"
 	smithyhttp "github.com/aws/smithy-go/transport/http"
 	"github.com/aws/aws-sdk-go-v2/service/ecs/types"
 )
 
-// Deletes one or more custom attributes from an Amazon ECS resource.
 func (c *Client) DeleteAttributes(ctx context.Context, params *DeleteAttributesInput, optFns ...func(*Options)) (*DeleteAttributesOutput, error) {
 	if params == nil { params = &DeleteAttributesInput{} }
 	
@@ -26,17 +24,9 @@ func (c *Client) DeleteAttributes(ctx context.Context, params *DeleteAttributesI
 
 type DeleteAttributesInput struct {
 	
-	// The attributes to delete from your resource. You can specify up to 10
-	// attributes for each request. For custom attributes, specify the attribute name
-	// and target ID, but don't specify the value. If you specify the target ID using
-	// the short form, you must also specify the target type.
-	//
 	// This member is required.
 	Attributes []types.Attribute
 	
-	// The short name or full Amazon Resource Name (ARN) of the cluster that contains
-	// the resource to delete attributes. If you do not specify a cluster, the default
-	// cluster is assumed.
 	Cluster *string
 	
 	noSmithyDocumentSerde
@@ -44,7 +34,6 @@ type DeleteAttributesInput struct {
 
 type DeleteAttributesOutput struct {
 	
-	// A list of attribute objects that were successfully deleted from your resource.
 	Attributes []types.Attribute
 	
 	// Metadata pertaining to the operation's result.
@@ -54,17 +43,6 @@ type DeleteAttributesOutput struct {
 }
 
 func (c *Client) addOperationDeleteAttributesMiddlewares(stack *middleware.Stack, options Options) (err error) {
-	if err := stack.Serialize.Add(&setOperationInputMiddleware{}, middleware.After); err != nil {
-	    return err
-	}
-	err = stack.Serialize.Add(&awsAwsjson11_serializeOpDeleteAttributes{}, middleware.After)
-	if err != nil { return err }
-	err = stack.Deserialize.Add(&awsAwsjson11_deserializeOpDeleteAttributes{}, middleware.After)
-	if err != nil { return err }
-	if err := addProtocolFinalizerMiddlewares(stack, options, "DeleteAttributes"); err != nil {
-	    return fmt.Errorf("add protocol finalizers: %v", err)
-	}
-	
 	if err = addlegacyEndpointContextSetter(stack, options); err != nil {
 	return err
 	}
@@ -113,6 +91,9 @@ func (c *Client) addOperationDeleteAttributesMiddlewares(stack *middleware.Stack
 	if err = addUserAgentRetryMode(stack, options); err != nil {
 	return err
 	}
+	if err = addCredentialSource(stack, options); err != nil {
+	return err
+	}
 	if err = addOpDeleteAttributesValidationMiddleware(stack); err != nil {
 	return err
 	}
@@ -134,16 +115,13 @@ func (c *Client) addOperationDeleteAttributesMiddlewares(stack *middleware.Stack
 	if err = addDisableHTTPSMiddleware(stack, options); err != nil {
 	return err
 	}
-	if err = addSpanInitializeStart(stack); err != nil {
+	if err = addInterceptBeforeRetryLoop(stack, options); err != nil {
 	return err
 	}
-	if err = addSpanInitializeEnd(stack); err != nil {
+	if err = addInterceptAttempt(stack, options); err != nil {
 	return err
 	}
-	if err = addSpanBuildRequestStart(stack); err != nil {
-	return err
-	}
-	if err = addSpanBuildRequestEnd(stack); err != nil {
+	if err = addInterceptors(stack, options); err != nil {
 	return err
 	}
 	return nil

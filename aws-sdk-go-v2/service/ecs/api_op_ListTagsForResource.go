@@ -6,13 +6,11 @@ package ecs
 import (
 	awsmiddleware "github.com/aws/aws-sdk-go-v2/aws/middleware"
 	"context"
-	"fmt"
 	"github.com/aws/smithy-go/middleware"
 	smithyhttp "github.com/aws/smithy-go/transport/http"
 	"github.com/aws/aws-sdk-go-v2/service/ecs/types"
 )
 
-// List the tags for an Amazon ECS resource.
 func (c *Client) ListTagsForResource(ctx context.Context, params *ListTagsForResourceInput, optFns ...func(*Options)) (*ListTagsForResourceOutput, error) {
 	if params == nil { params = &ListTagsForResourceInput{} }
 	
@@ -26,10 +24,6 @@ func (c *Client) ListTagsForResource(ctx context.Context, params *ListTagsForRes
 
 type ListTagsForResourceInput struct {
 	
-	// The Amazon Resource Name (ARN) that identifies the resource to list the tags
-	// for. Currently, the supported resources are Amazon ECS tasks, services, task
-	// definitions, clusters, and container instances.
-	//
 	// This member is required.
 	ResourceArn *string
 	
@@ -38,7 +32,6 @@ type ListTagsForResourceInput struct {
 
 type ListTagsForResourceOutput struct {
 	
-	// The tags for the resource.
 	Tags []types.Tag
 	
 	// Metadata pertaining to the operation's result.
@@ -48,17 +41,6 @@ type ListTagsForResourceOutput struct {
 }
 
 func (c *Client) addOperationListTagsForResourceMiddlewares(stack *middleware.Stack, options Options) (err error) {
-	if err := stack.Serialize.Add(&setOperationInputMiddleware{}, middleware.After); err != nil {
-	    return err
-	}
-	err = stack.Serialize.Add(&awsAwsjson11_serializeOpListTagsForResource{}, middleware.After)
-	if err != nil { return err }
-	err = stack.Deserialize.Add(&awsAwsjson11_deserializeOpListTagsForResource{}, middleware.After)
-	if err != nil { return err }
-	if err := addProtocolFinalizerMiddlewares(stack, options, "ListTagsForResource"); err != nil {
-	    return fmt.Errorf("add protocol finalizers: %v", err)
-	}
-	
 	if err = addlegacyEndpointContextSetter(stack, options); err != nil {
 	return err
 	}
@@ -107,6 +89,9 @@ func (c *Client) addOperationListTagsForResourceMiddlewares(stack *middleware.St
 	if err = addUserAgentRetryMode(stack, options); err != nil {
 	return err
 	}
+	if err = addCredentialSource(stack, options); err != nil {
+	return err
+	}
 	if err = addOpListTagsForResourceValidationMiddleware(stack); err != nil {
 	return err
 	}
@@ -128,16 +113,13 @@ func (c *Client) addOperationListTagsForResourceMiddlewares(stack *middleware.St
 	if err = addDisableHTTPSMiddleware(stack, options); err != nil {
 	return err
 	}
-	if err = addSpanInitializeStart(stack); err != nil {
+	if err = addInterceptBeforeRetryLoop(stack, options); err != nil {
 	return err
 	}
-	if err = addSpanInitializeEnd(stack); err != nil {
+	if err = addInterceptAttempt(stack, options); err != nil {
 	return err
 	}
-	if err = addSpanBuildRequestStart(stack); err != nil {
-	return err
-	}
-	if err = addSpanBuildRequestEnd(stack); err != nil {
+	if err = addInterceptors(stack, options); err != nil {
 	return err
 	}
 	return nil

@@ -6,13 +6,11 @@ package ecs
 import (
 	awsmiddleware "github.com/aws/aws-sdk-go-v2/aws/middleware"
 	"context"
-	"fmt"
 	"github.com/aws/smithy-go/middleware"
 	smithyhttp "github.com/aws/smithy-go/transport/http"
 	"github.com/aws/aws-sdk-go-v2/service/ecs/types"
 )
 
-// Modifies the parameters for a capacity provider.
 func (c *Client) UpdateCapacityProvider(ctx context.Context, params *UpdateCapacityProviderInput, optFns ...func(*Options)) (*UpdateCapacityProviderOutput, error) {
 	if params == nil { params = &UpdateCapacityProviderInput{} }
 	
@@ -26,23 +24,22 @@ func (c *Client) UpdateCapacityProvider(ctx context.Context, params *UpdateCapac
 
 type UpdateCapacityProviderInput struct {
 	
-	// An object that represent the parameters to update for the Auto Scaling group
-	// capacity provider.
-	//
-	// This member is required.
-	AutoScalingGroupProvider *types.AutoScalingGroupProviderUpdate
-	
-	// The name of the capacity provider to update.
-	//
 	// This member is required.
 	Name *string
+	
+	AutoScalingGroupProvider *types.AutoScalingGroupProviderUpdate
+	
+	Cluster *string
+	
+	Dryrun bool
+	
+	ManagedInstancesProvider *types.UpdateManagedInstancesProviderConfiguration
 	
 	noSmithyDocumentSerde
 }
 
 type UpdateCapacityProviderOutput struct {
 	
-	// Details about the capacity provider.
 	CapacityProvider *types.CapacityProvider
 	
 	// Metadata pertaining to the operation's result.
@@ -52,17 +49,6 @@ type UpdateCapacityProviderOutput struct {
 }
 
 func (c *Client) addOperationUpdateCapacityProviderMiddlewares(stack *middleware.Stack, options Options) (err error) {
-	if err := stack.Serialize.Add(&setOperationInputMiddleware{}, middleware.After); err != nil {
-	    return err
-	}
-	err = stack.Serialize.Add(&awsAwsjson11_serializeOpUpdateCapacityProvider{}, middleware.After)
-	if err != nil { return err }
-	err = stack.Deserialize.Add(&awsAwsjson11_deserializeOpUpdateCapacityProvider{}, middleware.After)
-	if err != nil { return err }
-	if err := addProtocolFinalizerMiddlewares(stack, options, "UpdateCapacityProvider"); err != nil {
-	    return fmt.Errorf("add protocol finalizers: %v", err)
-	}
-	
 	if err = addlegacyEndpointContextSetter(stack, options); err != nil {
 	return err
 	}
@@ -111,6 +97,9 @@ func (c *Client) addOperationUpdateCapacityProviderMiddlewares(stack *middleware
 	if err = addUserAgentRetryMode(stack, options); err != nil {
 	return err
 	}
+	if err = addCredentialSource(stack, options); err != nil {
+	return err
+	}
 	if err = addOpUpdateCapacityProviderValidationMiddleware(stack); err != nil {
 	return err
 	}
@@ -132,16 +121,13 @@ func (c *Client) addOperationUpdateCapacityProviderMiddlewares(stack *middleware
 	if err = addDisableHTTPSMiddleware(stack, options); err != nil {
 	return err
 	}
-	if err = addSpanInitializeStart(stack); err != nil {
+	if err = addInterceptBeforeRetryLoop(stack, options); err != nil {
 	return err
 	}
-	if err = addSpanInitializeEnd(stack); err != nil {
+	if err = addInterceptAttempt(stack, options); err != nil {
 	return err
 	}
-	if err = addSpanBuildRequestStart(stack); err != nil {
-	return err
-	}
-	if err = addSpanBuildRequestEnd(stack); err != nil {
+	if err = addInterceptors(stack, options); err != nil {
 	return err
 	}
 	return nil

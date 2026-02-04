@@ -6,13 +6,11 @@ package ecs
 import (
 	awsmiddleware "github.com/aws/aws-sdk-go-v2/aws/middleware"
 	"context"
-	"fmt"
 	"github.com/aws/smithy-go/middleware"
 	smithyhttp "github.com/aws/smithy-go/transport/http"
 	"github.com/aws/aws-sdk-go-v2/service/ecs/types"
 )
 
-// Retrieves the protection status of tasks in an Amazon ECS service.
 func (c *Client) GetTaskProtection(ctx context.Context, params *GetTaskProtectionInput, optFns ...func(*Options)) (*GetTaskProtectionOutput, error) {
 	if params == nil { params = &GetTaskProtectionInput{} }
 	
@@ -26,13 +24,9 @@ func (c *Client) GetTaskProtection(ctx context.Context, params *GetTaskProtectio
 
 type GetTaskProtectionInput struct {
 	
-	// The short name or full Amazon Resource Name (ARN) of the cluster that hosts the
-	// service that the task sets exist in.
-	//
 	// This member is required.
 	Cluster *string
 	
-	// A list of up to 100 task IDs or full ARN entries.
 	Tasks []string
 	
 	noSmithyDocumentSerde
@@ -40,18 +34,8 @@ type GetTaskProtectionInput struct {
 
 type GetTaskProtectionOutput struct {
 	
-	// Any failures associated with the call.
 	Failures []types.Failure
 	
-	// A list of tasks with the following information.
-	//
-	//   - taskArn : The task ARN.
-	//
-	//   - protectionEnabled : The protection status of the task. If scale-in
-	//   protection is turned on for a task, the value is true . Otherwise, it is false
-	//   .
-	//
-	//   - expirationDate : The epoch time when protection for the task will expire.
 	ProtectedTasks []types.ProtectedTask
 	
 	// Metadata pertaining to the operation's result.
@@ -61,17 +45,6 @@ type GetTaskProtectionOutput struct {
 }
 
 func (c *Client) addOperationGetTaskProtectionMiddlewares(stack *middleware.Stack, options Options) (err error) {
-	if err := stack.Serialize.Add(&setOperationInputMiddleware{}, middleware.After); err != nil {
-	    return err
-	}
-	err = stack.Serialize.Add(&awsAwsjson11_serializeOpGetTaskProtection{}, middleware.After)
-	if err != nil { return err }
-	err = stack.Deserialize.Add(&awsAwsjson11_deserializeOpGetTaskProtection{}, middleware.After)
-	if err != nil { return err }
-	if err := addProtocolFinalizerMiddlewares(stack, options, "GetTaskProtection"); err != nil {
-	    return fmt.Errorf("add protocol finalizers: %v", err)
-	}
-	
 	if err = addlegacyEndpointContextSetter(stack, options); err != nil {
 	return err
 	}
@@ -120,6 +93,9 @@ func (c *Client) addOperationGetTaskProtectionMiddlewares(stack *middleware.Stac
 	if err = addUserAgentRetryMode(stack, options); err != nil {
 	return err
 	}
+	if err = addCredentialSource(stack, options); err != nil {
+	return err
+	}
 	if err = addOpGetTaskProtectionValidationMiddleware(stack); err != nil {
 	return err
 	}
@@ -141,16 +117,13 @@ func (c *Client) addOperationGetTaskProtectionMiddlewares(stack *middleware.Stac
 	if err = addDisableHTTPSMiddleware(stack, options); err != nil {
 	return err
 	}
-	if err = addSpanInitializeStart(stack); err != nil {
+	if err = addInterceptBeforeRetryLoop(stack, options); err != nil {
 	return err
 	}
-	if err = addSpanInitializeEnd(stack); err != nil {
+	if err = addInterceptAttempt(stack, options); err != nil {
 	return err
 	}
-	if err = addSpanBuildRequestStart(stack); err != nil {
-	return err
-	}
-	if err = addSpanBuildRequestEnd(stack); err != nil {
+	if err = addInterceptors(stack, options); err != nil {
 	return err
 	}
 	return nil

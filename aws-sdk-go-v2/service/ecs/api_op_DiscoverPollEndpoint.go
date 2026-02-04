@@ -6,15 +6,10 @@ package ecs
 import (
 	awsmiddleware "github.com/aws/aws-sdk-go-v2/aws/middleware"
 	"context"
-	"fmt"
 	"github.com/aws/smithy-go/middleware"
 	smithyhttp "github.com/aws/smithy-go/transport/http"
 )
 
-// This action is only used by the Amazon ECS agent, and it is not intended for
-// use outside of the agent.
-//
-// Returns an endpoint for the Amazon ECS agent to poll for updates.
 func (c *Client) DiscoverPollEndpoint(ctx context.Context, params *DiscoverPollEndpointInput, optFns ...func(*Options)) (*DiscoverPollEndpointOutput, error) {
 	if params == nil { params = &DiscoverPollEndpointInput{} }
 	
@@ -28,17 +23,10 @@ func (c *Client) DiscoverPollEndpoint(ctx context.Context, params *DiscoverPollE
 
 type DiscoverPollEndpointInput struct {
 	
-	// The short name or full Amazon Resource Name (ARN) of the cluster that the
-	// container instance belongs to.
 	Cluster *string
 	
-	// The container instance ID or full ARN of the container instance. For more
-	// information about the ARN format, see [Amazon Resource Name (ARN)]in the Amazon ECS Developer Guide.
-	//
-	// [Amazon Resource Name (ARN)]: https://docs.aws.amazon.com/AmazonECS/latest/developerguide/ecs-account-settings.html#ecs-resource-ids
 	ContainerInstance *string
 	
-	// The availability zone of the container instance. This field is optional.
 	ZoneId *string
 	
 	noSmithyDocumentSerde
@@ -46,20 +34,12 @@ type DiscoverPollEndpointInput struct {
 
 type DiscoverPollEndpointOutput struct {
 	
-	// The endpoint for the Amazon ECS agent to poll.
 	Endpoint *string
 	
-	// The endpoint for the Amazon ECS agent to poll for Service Connect
-	// configuration. For more information, see [Service Connect]in the Amazon Elastic Container
-	// Service Developer Guide.
-	//
-	// [Service Connect]: https://docs.aws.amazon.com/AmazonECS/latest/developerguide/service-connect.html
 	ServiceConnectEndpoint *string
 	
-	// The system logs endpoint for the Amazon ECS agent.
 	SystemLogsEndpoint *string
 	
-	// The telemetry endpoint for the Amazon ECS agent.
 	TelemetryEndpoint *string
 	
 	// Metadata pertaining to the operation's result.
@@ -69,17 +49,6 @@ type DiscoverPollEndpointOutput struct {
 }
 
 func (c *Client) addOperationDiscoverPollEndpointMiddlewares(stack *middleware.Stack, options Options) (err error) {
-	if err := stack.Serialize.Add(&setOperationInputMiddleware{}, middleware.After); err != nil {
-	    return err
-	}
-	err = stack.Serialize.Add(&awsAwsjson11_serializeOpDiscoverPollEndpoint{}, middleware.After)
-	if err != nil { return err }
-	err = stack.Deserialize.Add(&awsAwsjson11_deserializeOpDiscoverPollEndpoint{}, middleware.After)
-	if err != nil { return err }
-	if err := addProtocolFinalizerMiddlewares(stack, options, "DiscoverPollEndpoint"); err != nil {
-	    return fmt.Errorf("add protocol finalizers: %v", err)
-	}
-	
 	if err = addlegacyEndpointContextSetter(stack, options); err != nil {
 	return err
 	}
@@ -128,6 +97,9 @@ func (c *Client) addOperationDiscoverPollEndpointMiddlewares(stack *middleware.S
 	if err = addUserAgentRetryMode(stack, options); err != nil {
 	return err
 	}
+	if err = addCredentialSource(stack, options); err != nil {
+	return err
+	}
 	if err = stack.Initialize.Add(newServiceMetadataMiddleware_opDiscoverPollEndpoint(options.Region, ), middleware.Before); err != nil {
 	return err
 	}
@@ -146,16 +118,13 @@ func (c *Client) addOperationDiscoverPollEndpointMiddlewares(stack *middleware.S
 	if err = addDisableHTTPSMiddleware(stack, options); err != nil {
 	return err
 	}
-	if err = addSpanInitializeStart(stack); err != nil {
+	if err = addInterceptBeforeRetryLoop(stack, options); err != nil {
 	return err
 	}
-	if err = addSpanInitializeEnd(stack); err != nil {
+	if err = addInterceptAttempt(stack, options); err != nil {
 	return err
 	}
-	if err = addSpanBuildRequestStart(stack); err != nil {
-	return err
-	}
-	if err = addSpanBuildRequestEnd(stack); err != nil {
+	if err = addInterceptors(stack, options); err != nil {
 	return err
 	}
 	return nil

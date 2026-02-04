@@ -6,19 +6,11 @@ package ecs
 import (
 	awsmiddleware "github.com/aws/aws-sdk-go-v2/aws/middleware"
 	"context"
-	"fmt"
 	"github.com/aws/smithy-go/middleware"
 	smithyhttp "github.com/aws/smithy-go/transport/http"
 	"github.com/aws/aws-sdk-go-v2/service/ecs/types"
 )
 
-// Create or update an attribute on an Amazon ECS resource. If the attribute
-// doesn't exist, it's created. If the attribute exists, its value is replaced with
-// the specified value. To delete an attribute, use [DeleteAttributes]. For more information, see [Attributes]
-// in the Amazon Elastic Container Service Developer Guide.
-//
-// [Attributes]: https://docs.aws.amazon.com/AmazonECS/latest/developerguide/task-placement-constraints.html#attributes
-// [DeleteAttributes]: https://docs.aws.amazon.com/AmazonECS/latest/APIReference/API_DeleteAttributes.html
 func (c *Client) PutAttributes(ctx context.Context, params *PutAttributesInput, optFns ...func(*Options)) (*PutAttributesOutput, error) {
 	if params == nil { params = &PutAttributesInput{} }
 	
@@ -32,16 +24,9 @@ func (c *Client) PutAttributes(ctx context.Context, params *PutAttributesInput, 
 
 type PutAttributesInput struct {
 	
-	// The attributes to apply to your resource. You can specify up to 10 custom
-	// attributes for each resource. You can specify up to 10 attributes in a single
-	// call.
-	//
 	// This member is required.
 	Attributes []types.Attribute
 	
-	// The short name or full Amazon Resource Name (ARN) of the cluster that contains
-	// the resource to apply attributes. If you do not specify a cluster, the default
-	// cluster is assumed.
 	Cluster *string
 	
 	noSmithyDocumentSerde
@@ -49,7 +34,6 @@ type PutAttributesInput struct {
 
 type PutAttributesOutput struct {
 	
-	// The attributes applied to your resource.
 	Attributes []types.Attribute
 	
 	// Metadata pertaining to the operation's result.
@@ -59,17 +43,6 @@ type PutAttributesOutput struct {
 }
 
 func (c *Client) addOperationPutAttributesMiddlewares(stack *middleware.Stack, options Options) (err error) {
-	if err := stack.Serialize.Add(&setOperationInputMiddleware{}, middleware.After); err != nil {
-	    return err
-	}
-	err = stack.Serialize.Add(&awsAwsjson11_serializeOpPutAttributes{}, middleware.After)
-	if err != nil { return err }
-	err = stack.Deserialize.Add(&awsAwsjson11_deserializeOpPutAttributes{}, middleware.After)
-	if err != nil { return err }
-	if err := addProtocolFinalizerMiddlewares(stack, options, "PutAttributes"); err != nil {
-	    return fmt.Errorf("add protocol finalizers: %v", err)
-	}
-	
 	if err = addlegacyEndpointContextSetter(stack, options); err != nil {
 	return err
 	}
@@ -118,6 +91,9 @@ func (c *Client) addOperationPutAttributesMiddlewares(stack *middleware.Stack, o
 	if err = addUserAgentRetryMode(stack, options); err != nil {
 	return err
 	}
+	if err = addCredentialSource(stack, options); err != nil {
+	return err
+	}
 	if err = addOpPutAttributesValidationMiddleware(stack); err != nil {
 	return err
 	}
@@ -139,16 +115,13 @@ func (c *Client) addOperationPutAttributesMiddlewares(stack *middleware.Stack, o
 	if err = addDisableHTTPSMiddleware(stack, options); err != nil {
 	return err
 	}
-	if err = addSpanInitializeStart(stack); err != nil {
+	if err = addInterceptBeforeRetryLoop(stack, options); err != nil {
 	return err
 	}
-	if err = addSpanInitializeEnd(stack); err != nil {
+	if err = addInterceptAttempt(stack, options); err != nil {
 	return err
 	}
-	if err = addSpanBuildRequestStart(stack); err != nil {
-	return err
-	}
-	if err = addSpanBuildRequestEnd(stack); err != nil {
+	if err = addInterceptors(stack, options); err != nil {
 	return err
 	}
 	return nil

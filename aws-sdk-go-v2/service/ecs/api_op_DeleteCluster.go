@@ -6,23 +6,11 @@ package ecs
 import (
 	awsmiddleware "github.com/aws/aws-sdk-go-v2/aws/middleware"
 	"context"
-	"fmt"
 	"github.com/aws/smithy-go/middleware"
 	smithyhttp "github.com/aws/smithy-go/transport/http"
 	"github.com/aws/aws-sdk-go-v2/service/ecs/types"
 )
 
-// Deletes the specified cluster. The cluster transitions to the INACTIVE state.
-// Clusters with an INACTIVE status might remain discoverable in your account for
-// a period of time. However, this behavior is subject to change in the future. We
-// don't recommend that you rely on INACTIVE clusters persisting.
-//
-// You must deregister all container instances from this cluster before you may
-// delete it. You can list the container instances in a cluster with [ListContainerInstances]and
-// deregister them with [DeregisterContainerInstance].
-//
-// [ListContainerInstances]: https://docs.aws.amazon.com/AmazonECS/latest/APIReference/API_ListContainerInstances.html
-// [DeregisterContainerInstance]: https://docs.aws.amazon.com/AmazonECS/latest/APIReference/API_DeregisterContainerInstance.html
 func (c *Client) DeleteCluster(ctx context.Context, params *DeleteClusterInput, optFns ...func(*Options)) (*DeleteClusterOutput, error) {
 	if params == nil { params = &DeleteClusterInput{} }
 	
@@ -36,8 +24,6 @@ func (c *Client) DeleteCluster(ctx context.Context, params *DeleteClusterInput, 
 
 type DeleteClusterInput struct {
 	
-	// The short name or full Amazon Resource Name (ARN) of the cluster to delete.
-	//
 	// This member is required.
 	Cluster *string
 	
@@ -46,8 +32,9 @@ type DeleteClusterInput struct {
 
 type DeleteClusterOutput struct {
 	
-	// The full description of the deleted cluster.
 	Cluster *types.Cluster
+	
+	ClusterCount int32
 	
 	// Metadata pertaining to the operation's result.
 	ResultMetadata middleware.Metadata
@@ -56,17 +43,6 @@ type DeleteClusterOutput struct {
 }
 
 func (c *Client) addOperationDeleteClusterMiddlewares(stack *middleware.Stack, options Options) (err error) {
-	if err := stack.Serialize.Add(&setOperationInputMiddleware{}, middleware.After); err != nil {
-	    return err
-	}
-	err = stack.Serialize.Add(&awsAwsjson11_serializeOpDeleteCluster{}, middleware.After)
-	if err != nil { return err }
-	err = stack.Deserialize.Add(&awsAwsjson11_deserializeOpDeleteCluster{}, middleware.After)
-	if err != nil { return err }
-	if err := addProtocolFinalizerMiddlewares(stack, options, "DeleteCluster"); err != nil {
-	    return fmt.Errorf("add protocol finalizers: %v", err)
-	}
-	
 	if err = addlegacyEndpointContextSetter(stack, options); err != nil {
 	return err
 	}
@@ -115,6 +91,9 @@ func (c *Client) addOperationDeleteClusterMiddlewares(stack *middleware.Stack, o
 	if err = addUserAgentRetryMode(stack, options); err != nil {
 	return err
 	}
+	if err = addCredentialSource(stack, options); err != nil {
+	return err
+	}
 	if err = addOpDeleteClusterValidationMiddleware(stack); err != nil {
 	return err
 	}
@@ -136,16 +115,13 @@ func (c *Client) addOperationDeleteClusterMiddlewares(stack *middleware.Stack, o
 	if err = addDisableHTTPSMiddleware(stack, options); err != nil {
 	return err
 	}
-	if err = addSpanInitializeStart(stack); err != nil {
+	if err = addInterceptBeforeRetryLoop(stack, options); err != nil {
 	return err
 	}
-	if err = addSpanInitializeEnd(stack); err != nil {
+	if err = addInterceptAttempt(stack, options); err != nil {
 	return err
 	}
-	if err = addSpanBuildRequestStart(stack); err != nil {
-	return err
-	}
-	if err = addSpanBuildRequestEnd(stack); err != nil {
+	if err = addInterceptors(stack, options); err != nil {
 	return err
 	}
 	return nil

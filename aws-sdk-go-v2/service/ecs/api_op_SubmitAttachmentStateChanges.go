@@ -6,16 +6,11 @@ package ecs
 import (
 	awsmiddleware "github.com/aws/aws-sdk-go-v2/aws/middleware"
 	"context"
-	"fmt"
 	"github.com/aws/smithy-go/middleware"
 	smithyhttp "github.com/aws/smithy-go/transport/http"
 	"github.com/aws/aws-sdk-go-v2/service/ecs/types"
 )
 
-// This action is only used by the Amazon ECS agent, and it is not intended for
-// use outside of the agent.
-//
-// Sent to acknowledge that an attachment changed states.
 func (c *Client) SubmitAttachmentStateChanges(ctx context.Context, params *SubmitAttachmentStateChangesInput, optFns ...func(*Options)) (*SubmitAttachmentStateChangesOutput, error) {
 	if params == nil { params = &SubmitAttachmentStateChangesInput{} }
 	
@@ -29,21 +24,18 @@ func (c *Client) SubmitAttachmentStateChanges(ctx context.Context, params *Submi
 
 type SubmitAttachmentStateChangesInput struct {
 	
-	// Any attachments associated with the state change request.
-	//
 	// This member is required.
 	Attachments []types.AttachmentStateChange
 	
-	// The short name or full ARN of the cluster that hosts the container instance the
-	// attachment belongs to.
 	Cluster *string
+	
+	Dryrun bool
 	
 	noSmithyDocumentSerde
 }
 
 type SubmitAttachmentStateChangesOutput struct {
 	
-	// Acknowledgement of the state change.
 	Acknowledgment *string
 	
 	// Metadata pertaining to the operation's result.
@@ -53,17 +45,6 @@ type SubmitAttachmentStateChangesOutput struct {
 }
 
 func (c *Client) addOperationSubmitAttachmentStateChangesMiddlewares(stack *middleware.Stack, options Options) (err error) {
-	if err := stack.Serialize.Add(&setOperationInputMiddleware{}, middleware.After); err != nil {
-	    return err
-	}
-	err = stack.Serialize.Add(&awsAwsjson11_serializeOpSubmitAttachmentStateChanges{}, middleware.After)
-	if err != nil { return err }
-	err = stack.Deserialize.Add(&awsAwsjson11_deserializeOpSubmitAttachmentStateChanges{}, middleware.After)
-	if err != nil { return err }
-	if err := addProtocolFinalizerMiddlewares(stack, options, "SubmitAttachmentStateChanges"); err != nil {
-	    return fmt.Errorf("add protocol finalizers: %v", err)
-	}
-	
 	if err = addlegacyEndpointContextSetter(stack, options); err != nil {
 	return err
 	}
@@ -112,6 +93,9 @@ func (c *Client) addOperationSubmitAttachmentStateChangesMiddlewares(stack *midd
 	if err = addUserAgentRetryMode(stack, options); err != nil {
 	return err
 	}
+	if err = addCredentialSource(stack, options); err != nil {
+	return err
+	}
 	if err = addOpSubmitAttachmentStateChangesValidationMiddleware(stack); err != nil {
 	return err
 	}
@@ -133,16 +117,13 @@ func (c *Client) addOperationSubmitAttachmentStateChangesMiddlewares(stack *midd
 	if err = addDisableHTTPSMiddleware(stack, options); err != nil {
 	return err
 	}
-	if err = addSpanInitializeStart(stack); err != nil {
+	if err = addInterceptBeforeRetryLoop(stack, options); err != nil {
 	return err
 	}
-	if err = addSpanInitializeEnd(stack); err != nil {
+	if err = addInterceptAttempt(stack, options); err != nil {
 	return err
 	}
-	if err = addSpanBuildRequestStart(stack); err != nil {
-	return err
-	}
-	if err = addSpanBuildRequestEnd(stack); err != nil {
+	if err = addInterceptors(stack, options); err != nil {
 	return err
 	}
 	return nil

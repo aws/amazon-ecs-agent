@@ -6,17 +6,12 @@ package ecs
 import (
 	awsmiddleware "github.com/aws/aws-sdk-go-v2/aws/middleware"
 	"context"
-	"fmt"
 	"github.com/aws/smithy-go/middleware"
 	smithyhttp "github.com/aws/smithy-go/transport/http"
 	"time"
 	"github.com/aws/aws-sdk-go-v2/service/ecs/types"
 )
 
-// This action is only used by the Amazon ECS agent, and it is not intended for
-// use outside of the agent.
-//
-// Sent to acknowledge that a task changed states.
 func (c *Client) SubmitTaskStateChange(ctx context.Context, params *SubmitTaskStateChangeInput, optFns ...func(*Options)) (*SubmitTaskStateChangeOutput, error) {
 	if params == nil { params = &SubmitTaskStateChangeInput{} }
 	
@@ -30,35 +25,24 @@ func (c *Client) SubmitTaskStateChange(ctx context.Context, params *SubmitTaskSt
 
 type SubmitTaskStateChangeInput struct {
 	
-	// Any attachments associated with the state change request.
 	Attachments []types.AttachmentStateChange
 	
-	// The short name or full Amazon Resource Name (ARN) of the cluster that hosts the
-	// task.
 	Cluster *string
 	
-	// Any containers that's associated with the state change request.
 	Containers []types.ContainerStateChange
 	
-	// The Unix timestamp for the time when the task execution stopped.
 	ExecutionStoppedAt *time.Time
 	
-	// The details for the managed agent that's associated with the task.
 	ManagedAgents []types.ManagedAgentStateChange
 	
-	// The Unix timestamp for the time when the container image pull started.
 	PullStartedAt *time.Time
 	
-	// The Unix timestamp for the time when the container image pull completed.
 	PullStoppedAt *time.Time
 	
-	// The reason for the state change request.
 	Reason *string
 	
-	// The status of the state change request.
 	Status *string
 	
-	// The task ID or full ARN of the task in the state change request.
 	Task *string
 	
 	noSmithyDocumentSerde
@@ -66,7 +50,6 @@ type SubmitTaskStateChangeInput struct {
 
 type SubmitTaskStateChangeOutput struct {
 	
-	// Acknowledgement of the state change.
 	Acknowledgment *string
 	
 	// Metadata pertaining to the operation's result.
@@ -76,17 +59,6 @@ type SubmitTaskStateChangeOutput struct {
 }
 
 func (c *Client) addOperationSubmitTaskStateChangeMiddlewares(stack *middleware.Stack, options Options) (err error) {
-	if err := stack.Serialize.Add(&setOperationInputMiddleware{}, middleware.After); err != nil {
-	    return err
-	}
-	err = stack.Serialize.Add(&awsAwsjson11_serializeOpSubmitTaskStateChange{}, middleware.After)
-	if err != nil { return err }
-	err = stack.Deserialize.Add(&awsAwsjson11_deserializeOpSubmitTaskStateChange{}, middleware.After)
-	if err != nil { return err }
-	if err := addProtocolFinalizerMiddlewares(stack, options, "SubmitTaskStateChange"); err != nil {
-	    return fmt.Errorf("add protocol finalizers: %v", err)
-	}
-	
 	if err = addlegacyEndpointContextSetter(stack, options); err != nil {
 	return err
 	}
@@ -135,6 +107,9 @@ func (c *Client) addOperationSubmitTaskStateChangeMiddlewares(stack *middleware.
 	if err = addUserAgentRetryMode(stack, options); err != nil {
 	return err
 	}
+	if err = addCredentialSource(stack, options); err != nil {
+	return err
+	}
 	if err = addOpSubmitTaskStateChangeValidationMiddleware(stack); err != nil {
 	return err
 	}
@@ -156,16 +131,13 @@ func (c *Client) addOperationSubmitTaskStateChangeMiddlewares(stack *middleware.
 	if err = addDisableHTTPSMiddleware(stack, options); err != nil {
 	return err
 	}
-	if err = addSpanInitializeStart(stack); err != nil {
+	if err = addInterceptBeforeRetryLoop(stack, options); err != nil {
 	return err
 	}
-	if err = addSpanInitializeEnd(stack); err != nil {
+	if err = addInterceptAttempt(stack, options); err != nil {
 	return err
 	}
-	if err = addSpanBuildRequestStart(stack); err != nil {
-	return err
-	}
-	if err = addSpanBuildRequestEnd(stack); err != nil {
+	if err = addInterceptors(stack, options); err != nil {
 	return err
 	}
 	return nil

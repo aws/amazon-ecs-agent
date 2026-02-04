@@ -6,13 +6,11 @@ package ecs
 import (
 	awsmiddleware "github.com/aws/aws-sdk-go-v2/aws/middleware"
 	"context"
-	"fmt"
 	"github.com/aws/smithy-go/middleware"
 	smithyhttp "github.com/aws/smithy-go/transport/http"
 	"github.com/aws/aws-sdk-go-v2/service/ecs/types"
 )
 
-// Describes one or more of your clusters.
 func (c *Client) DescribeClusters(ctx context.Context, params *DescribeClustersInput, optFns ...func(*Options)) (*DescribeClustersOutput, error) {
 	if params == nil { params = &DescribeClustersInput{} }
 	
@@ -26,25 +24,8 @@ func (c *Client) DescribeClusters(ctx context.Context, params *DescribeClustersI
 
 type DescribeClustersInput struct {
 	
-	// A list of up to 100 cluster names or full cluster Amazon Resource Name (ARN)
-	// entries. If you do not specify a cluster, the default cluster is assumed.
 	Clusters []string
 	
-	// Determines whether to include additional information about the clusters in the
-	// response. If this field is omitted, this information isn't included.
-	//
-	// If ATTACHMENTS is specified, the attachments for the container instances or
-	// tasks within the cluster are included, for example the capacity providers.
-	//
-	// If SETTINGS is specified, the settings for the cluster are included.
-	//
-	// If CONFIGURATIONS is specified, the configuration for the cluster is included.
-	//
-	// If STATISTICS is specified, the task and service count is included, separated
-	// by launch type.
-	//
-	// If TAGS is specified, the metadata tags associated with the cluster are
-	// included.
 	Include []types.ClusterField
 	
 	noSmithyDocumentSerde
@@ -52,10 +33,8 @@ type DescribeClustersInput struct {
 
 type DescribeClustersOutput struct {
 	
-	// The list of clusters.
 	Clusters []types.Cluster
 	
-	// Any failures associated with the call.
 	Failures []types.Failure
 	
 	// Metadata pertaining to the operation's result.
@@ -65,17 +44,6 @@ type DescribeClustersOutput struct {
 }
 
 func (c *Client) addOperationDescribeClustersMiddlewares(stack *middleware.Stack, options Options) (err error) {
-	if err := stack.Serialize.Add(&setOperationInputMiddleware{}, middleware.After); err != nil {
-	    return err
-	}
-	err = stack.Serialize.Add(&awsAwsjson11_serializeOpDescribeClusters{}, middleware.After)
-	if err != nil { return err }
-	err = stack.Deserialize.Add(&awsAwsjson11_deserializeOpDescribeClusters{}, middleware.After)
-	if err != nil { return err }
-	if err := addProtocolFinalizerMiddlewares(stack, options, "DescribeClusters"); err != nil {
-	    return fmt.Errorf("add protocol finalizers: %v", err)
-	}
-	
 	if err = addlegacyEndpointContextSetter(stack, options); err != nil {
 	return err
 	}
@@ -124,6 +92,9 @@ func (c *Client) addOperationDescribeClustersMiddlewares(stack *middleware.Stack
 	if err = addUserAgentRetryMode(stack, options); err != nil {
 	return err
 	}
+	if err = addCredentialSource(stack, options); err != nil {
+	return err
+	}
 	if err = stack.Initialize.Add(newServiceMetadataMiddleware_opDescribeClusters(options.Region, ), middleware.Before); err != nil {
 	return err
 	}
@@ -142,16 +113,13 @@ func (c *Client) addOperationDescribeClustersMiddlewares(stack *middleware.Stack
 	if err = addDisableHTTPSMiddleware(stack, options); err != nil {
 	return err
 	}
-	if err = addSpanInitializeStart(stack); err != nil {
+	if err = addInterceptBeforeRetryLoop(stack, options); err != nil {
 	return err
 	}
-	if err = addSpanInitializeEnd(stack); err != nil {
+	if err = addInterceptAttempt(stack, options); err != nil {
 	return err
 	}
-	if err = addSpanBuildRequestStart(stack); err != nil {
-	return err
-	}
-	if err = addSpanBuildRequestEnd(stack); err != nil {
+	if err = addInterceptors(stack, options); err != nil {
 	return err
 	}
 	return nil

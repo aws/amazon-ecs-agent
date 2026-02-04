@@ -6,17 +6,11 @@ package ecs
 import (
 	awsmiddleware "github.com/aws/aws-sdk-go-v2/aws/middleware"
 	"context"
-	"fmt"
 	"github.com/aws/smithy-go/middleware"
 	smithyhttp "github.com/aws/smithy-go/transport/http"
 	"github.com/aws/aws-sdk-go-v2/service/ecs/types"
 )
 
-// Describes the task sets in the specified cluster and service. This is used when
-// a service uses the EXTERNAL deployment controller type. For more information,
-// see [Amazon ECS Deployment Types]in the Amazon Elastic Container Service Developer Guide.
-//
-// [Amazon ECS Deployment Types]: https://docs.aws.amazon.com/AmazonECS/latest/developerguide/deployment-types.html
 func (c *Client) DescribeTaskSets(ctx context.Context, params *DescribeTaskSetsInput, optFns ...func(*Options)) (*DescribeTaskSetsOutput, error) {
 	if params == nil { params = &DescribeTaskSetsInput{} }
 	
@@ -30,35 +24,26 @@ func (c *Client) DescribeTaskSets(ctx context.Context, params *DescribeTaskSetsI
 
 type DescribeTaskSetsInput struct {
 	
-	// The short name or full Amazon Resource Name (ARN) of the cluster that hosts the
-	// service that the task sets exist in.
-	//
 	// This member is required.
 	Cluster *string
 	
-	// The short name or full Amazon Resource Name (ARN) of the service that the task
-	// sets exist in.
-	//
 	// This member is required.
 	Service *string
 	
-	// Specifies whether to see the resource tags for the task set. If TAGS is
-	// specified, the tags are included in the response. If this field is omitted, tags
-	// aren't included in the response.
-	Include []types.TaskSetField
-	
-	// The ID or full Amazon Resource Name (ARN) of task sets to describe.
+	// This member is required.
 	TaskSets []string
+	
+	Dryrun bool
+	
+	Include []types.TaskSetField
 	
 	noSmithyDocumentSerde
 }
 
 type DescribeTaskSetsOutput struct {
 	
-	// Any failures associated with the call.
 	Failures []types.Failure
 	
-	// The list of task sets described.
 	TaskSets []types.TaskSet
 	
 	// Metadata pertaining to the operation's result.
@@ -68,17 +53,6 @@ type DescribeTaskSetsOutput struct {
 }
 
 func (c *Client) addOperationDescribeTaskSetsMiddlewares(stack *middleware.Stack, options Options) (err error) {
-	if err := stack.Serialize.Add(&setOperationInputMiddleware{}, middleware.After); err != nil {
-	    return err
-	}
-	err = stack.Serialize.Add(&awsAwsjson11_serializeOpDescribeTaskSets{}, middleware.After)
-	if err != nil { return err }
-	err = stack.Deserialize.Add(&awsAwsjson11_deserializeOpDescribeTaskSets{}, middleware.After)
-	if err != nil { return err }
-	if err := addProtocolFinalizerMiddlewares(stack, options, "DescribeTaskSets"); err != nil {
-	    return fmt.Errorf("add protocol finalizers: %v", err)
-	}
-	
 	if err = addlegacyEndpointContextSetter(stack, options); err != nil {
 	return err
 	}
@@ -127,6 +101,9 @@ func (c *Client) addOperationDescribeTaskSetsMiddlewares(stack *middleware.Stack
 	if err = addUserAgentRetryMode(stack, options); err != nil {
 	return err
 	}
+	if err = addCredentialSource(stack, options); err != nil {
+	return err
+	}
 	if err = addOpDescribeTaskSetsValidationMiddleware(stack); err != nil {
 	return err
 	}
@@ -148,16 +125,13 @@ func (c *Client) addOperationDescribeTaskSetsMiddlewares(stack *middleware.Stack
 	if err = addDisableHTTPSMiddleware(stack, options); err != nil {
 	return err
 	}
-	if err = addSpanInitializeStart(stack); err != nil {
+	if err = addInterceptBeforeRetryLoop(stack, options); err != nil {
 	return err
 	}
-	if err = addSpanInitializeEnd(stack); err != nil {
+	if err = addInterceptAttempt(stack, options); err != nil {
 	return err
 	}
-	if err = addSpanBuildRequestStart(stack); err != nil {
-	return err
-	}
-	if err = addSpanBuildRequestEnd(stack); err != nil {
+	if err = addInterceptors(stack, options); err != nil {
 	return err
 	}
 	return nil

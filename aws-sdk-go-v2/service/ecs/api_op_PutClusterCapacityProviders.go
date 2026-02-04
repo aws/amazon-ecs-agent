@@ -6,30 +6,11 @@ package ecs
 import (
 	awsmiddleware "github.com/aws/aws-sdk-go-v2/aws/middleware"
 	"context"
-	"fmt"
 	"github.com/aws/smithy-go/middleware"
 	smithyhttp "github.com/aws/smithy-go/transport/http"
 	"github.com/aws/aws-sdk-go-v2/service/ecs/types"
 )
 
-// Modifies the available capacity providers and the default capacity provider
-// strategy for a cluster.
-//
-// You must specify both the available capacity providers and a default capacity
-// provider strategy for the cluster. If the specified cluster has existing
-// capacity providers associated with it, you must specify all existing capacity
-// providers in addition to any new ones you want to add. Any existing capacity
-// providers that are associated with a cluster that are omitted from a [PutClusterCapacityProviders]API call
-// will be disassociated with the cluster. You can only disassociate an existing
-// capacity provider from a cluster if it's not being used by any existing tasks.
-//
-// When creating a service or running a task on a cluster, if no capacity provider
-// or launch type is specified, then the cluster's default capacity provider
-// strategy is used. We recommend that you define a default capacity provider
-// strategy for your cluster. However, you must specify an empty array ( [] ) to
-// bypass defining a default strategy.
-//
-// [PutClusterCapacityProviders]: https://docs.aws.amazon.com/AmazonECS/latest/APIReference/API_PutClusterCapacityProviders.html
 func (c *Client) PutClusterCapacityProviders(ctx context.Context, params *PutClusterCapacityProvidersInput, optFns ...func(*Options)) (*PutClusterCapacityProvidersOutput, error) {
 	if params == nil { params = &PutClusterCapacityProvidersInput{} }
 	
@@ -43,60 +24,21 @@ func (c *Client) PutClusterCapacityProviders(ctx context.Context, params *PutClu
 
 type PutClusterCapacityProvidersInput struct {
 	
-	// The name of one or more capacity providers to associate with the cluster.
-	//
-	// If specifying a capacity provider that uses an Auto Scaling group, the capacity
-	// provider must already be created. New capacity providers can be created with the
-	// [CreateCapacityProvider]API operation.
-	//
-	// To use a Fargate capacity provider, specify either the FARGATE or FARGATE_SPOT
-	// capacity providers. The Fargate capacity providers are available to all accounts
-	// and only need to be associated with a cluster to be used.
-	//
-	// [CreateCapacityProvider]: https://docs.aws.amazon.com/AmazonECS/latest/APIReference/API_CreateCapacityProvider.html
-	//
-	// This member is required.
-	CapacityProviders []string
-	
-	// The short name or full Amazon Resource Name (ARN) of the cluster to modify the
-	// capacity provider settings for. If you don't specify a cluster, the default
-	// cluster is assumed.
-	//
 	// This member is required.
 	Cluster *string
 	
-	// The capacity provider strategy to use by default for the cluster.
-	//
-	// When creating a service or running a task on a cluster, if no capacity provider
-	// or launch type is specified then the default capacity provider strategy for the
-	// cluster is used.
-	//
-	// A capacity provider strategy consists of one or more capacity providers along
-	// with the base and weight to assign to them. A capacity provider must be
-	// associated with the cluster to be used in a capacity provider strategy. The [PutClusterCapacityProviders]API
-	// is used to associate a capacity provider with a cluster. Only capacity providers
-	// with an ACTIVE or UPDATING status can be used.
-	//
-	// If specifying a capacity provider that uses an Auto Scaling group, the capacity
-	// provider must already be created. New capacity providers can be created with the
-	// [CreateCapacityProvider]API operation.
-	//
-	// To use a Fargate capacity provider, specify either the FARGATE or FARGATE_SPOT
-	// capacity providers. The Fargate capacity providers are available to all accounts
-	// and only need to be associated with a cluster to be used.
-	//
-	// [PutClusterCapacityProviders]: https://docs.aws.amazon.com/AmazonECS/latest/APIReference/API_PutClusterCapacityProviders.html
-	// [CreateCapacityProvider]: https://docs.aws.amazon.com/AmazonECS/latest/APIReference/API_CreateCapacityProvider.html
-	//
 	// This member is required.
 	DefaultCapacityProviderStrategy []types.CapacityProviderStrategyItem
+	
+	CapacityProviders []string
+	
+	Dryrun bool
 	
 	noSmithyDocumentSerde
 }
 
 type PutClusterCapacityProvidersOutput struct {
 	
-	// Details about the cluster.
 	Cluster *types.Cluster
 	
 	// Metadata pertaining to the operation's result.
@@ -106,17 +48,6 @@ type PutClusterCapacityProvidersOutput struct {
 }
 
 func (c *Client) addOperationPutClusterCapacityProvidersMiddlewares(stack *middleware.Stack, options Options) (err error) {
-	if err := stack.Serialize.Add(&setOperationInputMiddleware{}, middleware.After); err != nil {
-	    return err
-	}
-	err = stack.Serialize.Add(&awsAwsjson11_serializeOpPutClusterCapacityProviders{}, middleware.After)
-	if err != nil { return err }
-	err = stack.Deserialize.Add(&awsAwsjson11_deserializeOpPutClusterCapacityProviders{}, middleware.After)
-	if err != nil { return err }
-	if err := addProtocolFinalizerMiddlewares(stack, options, "PutClusterCapacityProviders"); err != nil {
-	    return fmt.Errorf("add protocol finalizers: %v", err)
-	}
-	
 	if err = addlegacyEndpointContextSetter(stack, options); err != nil {
 	return err
 	}
@@ -165,6 +96,9 @@ func (c *Client) addOperationPutClusterCapacityProvidersMiddlewares(stack *middl
 	if err = addUserAgentRetryMode(stack, options); err != nil {
 	return err
 	}
+	if err = addCredentialSource(stack, options); err != nil {
+	return err
+	}
 	if err = addOpPutClusterCapacityProvidersValidationMiddleware(stack); err != nil {
 	return err
 	}
@@ -186,16 +120,13 @@ func (c *Client) addOperationPutClusterCapacityProvidersMiddlewares(stack *middl
 	if err = addDisableHTTPSMiddleware(stack, options); err != nil {
 	return err
 	}
-	if err = addSpanInitializeStart(stack); err != nil {
+	if err = addInterceptBeforeRetryLoop(stack, options); err != nil {
 	return err
 	}
-	if err = addSpanInitializeEnd(stack); err != nil {
+	if err = addInterceptAttempt(stack, options); err != nil {
 	return err
 	}
-	if err = addSpanBuildRequestStart(stack); err != nil {
-	return err
-	}
-	if err = addSpanBuildRequestEnd(stack); err != nil {
+	if err = addInterceptors(stack, options); err != nil {
 	return err
 	}
 	return nil

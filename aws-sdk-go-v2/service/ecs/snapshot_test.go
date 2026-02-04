@@ -62,6 +62,18 @@ func testSnapshot(stack *middleware.Stack, operation string) error {
     }
     return snapshotOK{}
 }
+func TestCheckSnapshot_AssociateCapacityProvidersWithCluster(t *testing.T) {
+    svc := New(Options{})
+    _, err := svc.AssociateCapacityProvidersWithCluster(context.Background(), nil, func(o *Options) {
+        o.APIOptions = append(o.APIOptions, func(stack *middleware.Stack) error {
+            return testSnapshot(stack, "AssociateCapacityProvidersWithCluster")
+        })
+    })
+    if _, ok := err.(snapshotOK); !ok && err != nil {
+        t.Fatal(err)
+    }
+}
+
 func TestCheckSnapshot_CreateCapacityProvider(t *testing.T) {
     svc := New(Options{})
     _, err := svc.CreateCapacityProvider(context.Background(), nil, func(o *Options) {
@@ -79,6 +91,30 @@ func TestCheckSnapshot_CreateCluster(t *testing.T) {
     _, err := svc.CreateCluster(context.Background(), nil, func(o *Options) {
         o.APIOptions = append(o.APIOptions, func(stack *middleware.Stack) error {
             return testSnapshot(stack, "CreateCluster")
+        })
+    })
+    if _, ok := err.(snapshotOK); !ok && err != nil {
+        t.Fatal(err)
+    }
+}
+
+func TestCheckSnapshot_CreateDaemon(t *testing.T) {
+    svc := New(Options{})
+    _, err := svc.CreateDaemon(context.Background(), nil, func(o *Options) {
+        o.APIOptions = append(o.APIOptions, func(stack *middleware.Stack) error {
+            return testSnapshot(stack, "CreateDaemon")
+        })
+    })
+    if _, ok := err.(snapshotOK); !ok && err != nil {
+        t.Fatal(err)
+    }
+}
+
+func TestCheckSnapshot_CreateExpressGatewayService(t *testing.T) {
+    svc := New(Options{})
+    _, err := svc.CreateExpressGatewayService(context.Background(), nil, func(o *Options) {
+        o.APIOptions = append(o.APIOptions, func(stack *middleware.Stack) error {
+            return testSnapshot(stack, "CreateExpressGatewayService")
         })
     })
     if _, ok := err.(snapshotOK); !ok && err != nil {
@@ -158,6 +194,42 @@ func TestCheckSnapshot_DeleteCluster(t *testing.T) {
     }
 }
 
+func TestCheckSnapshot_DeleteDaemon(t *testing.T) {
+    svc := New(Options{})
+    _, err := svc.DeleteDaemon(context.Background(), nil, func(o *Options) {
+        o.APIOptions = append(o.APIOptions, func(stack *middleware.Stack) error {
+            return testSnapshot(stack, "DeleteDaemon")
+        })
+    })
+    if _, ok := err.(snapshotOK); !ok && err != nil {
+        t.Fatal(err)
+    }
+}
+
+func TestCheckSnapshot_DeleteDaemonTaskDefinition(t *testing.T) {
+    svc := New(Options{})
+    _, err := svc.DeleteDaemonTaskDefinition(context.Background(), nil, func(o *Options) {
+        o.APIOptions = append(o.APIOptions, func(stack *middleware.Stack) error {
+            return testSnapshot(stack, "DeleteDaemonTaskDefinition")
+        })
+    })
+    if _, ok := err.(snapshotOK); !ok && err != nil {
+        t.Fatal(err)
+    }
+}
+
+func TestCheckSnapshot_DeleteExpressGatewayService(t *testing.T) {
+    svc := New(Options{})
+    _, err := svc.DeleteExpressGatewayService(context.Background(), nil, func(o *Options) {
+        o.APIOptions = append(o.APIOptions, func(stack *middleware.Stack) error {
+            return testSnapshot(stack, "DeleteExpressGatewayService")
+        })
+    })
+    if _, ok := err.(snapshotOK); !ok && err != nil {
+        t.Fatal(err)
+    }
+}
+
 func TestCheckSnapshot_DeleteService(t *testing.T) {
     svc := New(Options{})
     _, err := svc.DeleteService(context.Background(), nil, func(o *Options) {
@@ -230,6 +302,18 @@ func TestCheckSnapshot_DescribeCapacityProviders(t *testing.T) {
     }
 }
 
+func TestCheckSnapshot_DescribeClusterCapacityProviderAssociations(t *testing.T) {
+    svc := New(Options{})
+    _, err := svc.DescribeClusterCapacityProviderAssociations(context.Background(), nil, func(o *Options) {
+        o.APIOptions = append(o.APIOptions, func(stack *middleware.Stack) error {
+            return testSnapshot(stack, "DescribeClusterCapacityProviderAssociations")
+        })
+    })
+    if _, ok := err.(snapshotOK); !ok && err != nil {
+        t.Fatal(err)
+    }
+}
+
 func TestCheckSnapshot_DescribeClusters(t *testing.T) {
     svc := New(Options{})
     _, err := svc.DescribeClusters(context.Background(), nil, func(o *Options) {
@@ -247,6 +331,90 @@ func TestCheckSnapshot_DescribeContainerInstances(t *testing.T) {
     _, err := svc.DescribeContainerInstances(context.Background(), nil, func(o *Options) {
         o.APIOptions = append(o.APIOptions, func(stack *middleware.Stack) error {
             return testSnapshot(stack, "DescribeContainerInstances")
+        })
+    })
+    if _, ok := err.(snapshotOK); !ok && err != nil {
+        t.Fatal(err)
+    }
+}
+
+func TestCheckSnapshot_DescribeDaemon(t *testing.T) {
+    svc := New(Options{})
+    _, err := svc.DescribeDaemon(context.Background(), nil, func(o *Options) {
+        o.APIOptions = append(o.APIOptions, func(stack *middleware.Stack) error {
+            return testSnapshot(stack, "DescribeDaemon")
+        })
+    })
+    if _, ok := err.(snapshotOK); !ok && err != nil {
+        t.Fatal(err)
+    }
+}
+
+func TestCheckSnapshot_DescribeDaemonDeployments(t *testing.T) {
+    svc := New(Options{})
+    _, err := svc.DescribeDaemonDeployments(context.Background(), nil, func(o *Options) {
+        o.APIOptions = append(o.APIOptions, func(stack *middleware.Stack) error {
+            return testSnapshot(stack, "DescribeDaemonDeployments")
+        })
+    })
+    if _, ok := err.(snapshotOK); !ok && err != nil {
+        t.Fatal(err)
+    }
+}
+
+func TestCheckSnapshot_DescribeDaemonRevisions(t *testing.T) {
+    svc := New(Options{})
+    _, err := svc.DescribeDaemonRevisions(context.Background(), nil, func(o *Options) {
+        o.APIOptions = append(o.APIOptions, func(stack *middleware.Stack) error {
+            return testSnapshot(stack, "DescribeDaemonRevisions")
+        })
+    })
+    if _, ok := err.(snapshotOK); !ok && err != nil {
+        t.Fatal(err)
+    }
+}
+
+func TestCheckSnapshot_DescribeDaemonTaskDefinition(t *testing.T) {
+    svc := New(Options{})
+    _, err := svc.DescribeDaemonTaskDefinition(context.Background(), nil, func(o *Options) {
+        o.APIOptions = append(o.APIOptions, func(stack *middleware.Stack) error {
+            return testSnapshot(stack, "DescribeDaemonTaskDefinition")
+        })
+    })
+    if _, ok := err.(snapshotOK); !ok && err != nil {
+        t.Fatal(err)
+    }
+}
+
+func TestCheckSnapshot_DescribeExpressGatewayService(t *testing.T) {
+    svc := New(Options{})
+    _, err := svc.DescribeExpressGatewayService(context.Background(), nil, func(o *Options) {
+        o.APIOptions = append(o.APIOptions, func(stack *middleware.Stack) error {
+            return testSnapshot(stack, "DescribeExpressGatewayService")
+        })
+    })
+    if _, ok := err.(snapshotOK); !ok && err != nil {
+        t.Fatal(err)
+    }
+}
+
+func TestCheckSnapshot_DescribeServiceDeployments(t *testing.T) {
+    svc := New(Options{})
+    _, err := svc.DescribeServiceDeployments(context.Background(), nil, func(o *Options) {
+        o.APIOptions = append(o.APIOptions, func(stack *middleware.Stack) error {
+            return testSnapshot(stack, "DescribeServiceDeployments")
+        })
+    })
+    if _, ok := err.(snapshotOK); !ok && err != nil {
+        t.Fatal(err)
+    }
+}
+
+func TestCheckSnapshot_DescribeServiceRevisions(t *testing.T) {
+    svc := New(Options{})
+    _, err := svc.DescribeServiceRevisions(context.Background(), nil, func(o *Options) {
+        o.APIOptions = append(o.APIOptions, func(stack *middleware.Stack) error {
+            return testSnapshot(stack, "DescribeServiceRevisions")
         })
     })
     if _, ok := err.(snapshotOK); !ok && err != nil {
@@ -295,6 +463,18 @@ func TestCheckSnapshot_DescribeTaskSets(t *testing.T) {
     _, err := svc.DescribeTaskSets(context.Background(), nil, func(o *Options) {
         o.APIOptions = append(o.APIOptions, func(stack *middleware.Stack) error {
             return testSnapshot(stack, "DescribeTaskSets")
+        })
+    })
+    if _, ok := err.(snapshotOK); !ok && err != nil {
+        t.Fatal(err)
+    }
+}
+
+func TestCheckSnapshot_DisassociateCapacityProvidersFromCluster(t *testing.T) {
+    svc := New(Options{})
+    _, err := svc.DisassociateCapacityProvidersFromCluster(context.Background(), nil, func(o *Options) {
+        o.APIOptions = append(o.APIOptions, func(stack *middleware.Stack) error {
+            return testSnapshot(stack, "DisassociateCapacityProvidersFromCluster")
         })
     })
     if _, ok := err.(snapshotOK); !ok && err != nil {
@@ -386,6 +566,54 @@ func TestCheckSnapshot_ListContainerInstances(t *testing.T) {
     }
 }
 
+func TestCheckSnapshot_ListDaemonDeployments(t *testing.T) {
+    svc := New(Options{})
+    _, err := svc.ListDaemonDeployments(context.Background(), nil, func(o *Options) {
+        o.APIOptions = append(o.APIOptions, func(stack *middleware.Stack) error {
+            return testSnapshot(stack, "ListDaemonDeployments")
+        })
+    })
+    if _, ok := err.(snapshotOK); !ok && err != nil {
+        t.Fatal(err)
+    }
+}
+
+func TestCheckSnapshot_ListDaemons(t *testing.T) {
+    svc := New(Options{})
+    _, err := svc.ListDaemons(context.Background(), nil, func(o *Options) {
+        o.APIOptions = append(o.APIOptions, func(stack *middleware.Stack) error {
+            return testSnapshot(stack, "ListDaemons")
+        })
+    })
+    if _, ok := err.(snapshotOK); !ok && err != nil {
+        t.Fatal(err)
+    }
+}
+
+func TestCheckSnapshot_ListDaemonTaskDefinitions(t *testing.T) {
+    svc := New(Options{})
+    _, err := svc.ListDaemonTaskDefinitions(context.Background(), nil, func(o *Options) {
+        o.APIOptions = append(o.APIOptions, func(stack *middleware.Stack) error {
+            return testSnapshot(stack, "ListDaemonTaskDefinitions")
+        })
+    })
+    if _, ok := err.(snapshotOK); !ok && err != nil {
+        t.Fatal(err)
+    }
+}
+
+func TestCheckSnapshot_ListServiceDeployments(t *testing.T) {
+    svc := New(Options{})
+    _, err := svc.ListServiceDeployments(context.Background(), nil, func(o *Options) {
+        o.APIOptions = append(o.APIOptions, func(stack *middleware.Stack) error {
+            return testSnapshot(stack, "ListServiceDeployments")
+        })
+    })
+    if _, ok := err.(snapshotOK); !ok && err != nil {
+        t.Fatal(err)
+    }
+}
+
 func TestCheckSnapshot_ListServices(t *testing.T) {
     svc := New(Options{})
     _, err := svc.ListServices(context.Background(), nil, func(o *Options) {
@@ -458,6 +686,18 @@ func TestCheckSnapshot_ListTasks(t *testing.T) {
     }
 }
 
+func TestCheckSnapshot_NotifyLifecycleHookComplete(t *testing.T) {
+    svc := New(Options{})
+    _, err := svc.NotifyLifecycleHookComplete(context.Background(), nil, func(o *Options) {
+        o.APIOptions = append(o.APIOptions, func(stack *middleware.Stack) error {
+            return testSnapshot(stack, "NotifyLifecycleHookComplete")
+        })
+    })
+    if _, ok := err.(snapshotOK); !ok && err != nil {
+        t.Fatal(err)
+    }
+}
+
 func TestCheckSnapshot_PutAccountSetting(t *testing.T) {
     svc := New(Options{})
     _, err := svc.PutAccountSetting(context.Background(), nil, func(o *Options) {
@@ -518,6 +758,18 @@ func TestCheckSnapshot_RegisterContainerInstance(t *testing.T) {
     }
 }
 
+func TestCheckSnapshot_RegisterDaemonTaskDefinition(t *testing.T) {
+    svc := New(Options{})
+    _, err := svc.RegisterDaemonTaskDefinition(context.Background(), nil, func(o *Options) {
+        o.APIOptions = append(o.APIOptions, func(stack *middleware.Stack) error {
+            return testSnapshot(stack, "RegisterDaemonTaskDefinition")
+        })
+    })
+    if _, ok := err.(snapshotOK); !ok && err != nil {
+        t.Fatal(err)
+    }
+}
+
 func TestCheckSnapshot_RegisterTaskDefinition(t *testing.T) {
     svc := New(Options{})
     _, err := svc.RegisterTaskDefinition(context.Background(), nil, func(o *Options) {
@@ -547,6 +799,18 @@ func TestCheckSnapshot_StartTask(t *testing.T) {
     _, err := svc.StartTask(context.Background(), nil, func(o *Options) {
         o.APIOptions = append(o.APIOptions, func(stack *middleware.Stack) error {
             return testSnapshot(stack, "StartTask")
+        })
+    })
+    if _, ok := err.(snapshotOK); !ok && err != nil {
+        t.Fatal(err)
+    }
+}
+
+func TestCheckSnapshot_StopServiceDeployment(t *testing.T) {
+    svc := New(Options{})
+    _, err := svc.StopServiceDeployment(context.Background(), nil, func(o *Options) {
+        o.APIOptions = append(o.APIOptions, func(stack *middleware.Stack) error {
+            return testSnapshot(stack, "StopServiceDeployment")
         })
     })
     if _, ok := err.(snapshotOK); !ok && err != nil {
@@ -686,6 +950,42 @@ func TestCheckSnapshot_UpdateContainerInstancesState(t *testing.T) {
     }
 }
 
+func TestCheckSnapshot_UpdateDaemon(t *testing.T) {
+    svc := New(Options{})
+    _, err := svc.UpdateDaemon(context.Background(), nil, func(o *Options) {
+        o.APIOptions = append(o.APIOptions, func(stack *middleware.Stack) error {
+            return testSnapshot(stack, "UpdateDaemon")
+        })
+    })
+    if _, ok := err.(snapshotOK); !ok && err != nil {
+        t.Fatal(err)
+    }
+}
+
+func TestCheckSnapshot_UpdateExpressGatewayService(t *testing.T) {
+    svc := New(Options{})
+    _, err := svc.UpdateExpressGatewayService(context.Background(), nil, func(o *Options) {
+        o.APIOptions = append(o.APIOptions, func(stack *middleware.Stack) error {
+            return testSnapshot(stack, "UpdateExpressGatewayService")
+        })
+    })
+    if _, ok := err.(snapshotOK); !ok && err != nil {
+        t.Fatal(err)
+    }
+}
+
+func TestCheckSnapshot_UpdateLifecycleHookExpiration(t *testing.T) {
+    svc := New(Options{})
+    _, err := svc.UpdateLifecycleHookExpiration(context.Background(), nil, func(o *Options) {
+        o.APIOptions = append(o.APIOptions, func(stack *middleware.Stack) error {
+            return testSnapshot(stack, "UpdateLifecycleHookExpiration")
+        })
+    })
+    if _, ok := err.(snapshotOK); !ok && err != nil {
+        t.Fatal(err)
+    }
+}
+
 func TestCheckSnapshot_UpdateService(t *testing.T) {
     svc := New(Options{})
     _, err := svc.UpdateService(context.Background(), nil, func(o *Options) {
@@ -733,6 +1033,18 @@ func TestCheckSnapshot_UpdateTaskSet(t *testing.T) {
         t.Fatal(err)
     }
 }
+func TestUpdateSnapshot_AssociateCapacityProvidersWithCluster(t *testing.T) {
+    svc := New(Options{})
+    _, err := svc.AssociateCapacityProvidersWithCluster(context.Background(), nil, func(o *Options) {
+        o.APIOptions = append(o.APIOptions, func(stack *middleware.Stack) error {
+            return updateSnapshot(stack, "AssociateCapacityProvidersWithCluster")
+        })
+    })
+    if _, ok := err.(snapshotOK); !ok && err != nil {
+        t.Fatal(err)
+    }
+}
+
 func TestUpdateSnapshot_CreateCapacityProvider(t *testing.T) {
     svc := New(Options{})
     _, err := svc.CreateCapacityProvider(context.Background(), nil, func(o *Options) {
@@ -750,6 +1062,30 @@ func TestUpdateSnapshot_CreateCluster(t *testing.T) {
     _, err := svc.CreateCluster(context.Background(), nil, func(o *Options) {
         o.APIOptions = append(o.APIOptions, func(stack *middleware.Stack) error {
             return updateSnapshot(stack, "CreateCluster")
+        })
+    })
+    if _, ok := err.(snapshotOK); !ok && err != nil {
+        t.Fatal(err)
+    }
+}
+
+func TestUpdateSnapshot_CreateDaemon(t *testing.T) {
+    svc := New(Options{})
+    _, err := svc.CreateDaemon(context.Background(), nil, func(o *Options) {
+        o.APIOptions = append(o.APIOptions, func(stack *middleware.Stack) error {
+            return updateSnapshot(stack, "CreateDaemon")
+        })
+    })
+    if _, ok := err.(snapshotOK); !ok && err != nil {
+        t.Fatal(err)
+    }
+}
+
+func TestUpdateSnapshot_CreateExpressGatewayService(t *testing.T) {
+    svc := New(Options{})
+    _, err := svc.CreateExpressGatewayService(context.Background(), nil, func(o *Options) {
+        o.APIOptions = append(o.APIOptions, func(stack *middleware.Stack) error {
+            return updateSnapshot(stack, "CreateExpressGatewayService")
         })
     })
     if _, ok := err.(snapshotOK); !ok && err != nil {
@@ -829,6 +1165,42 @@ func TestUpdateSnapshot_DeleteCluster(t *testing.T) {
     }
 }
 
+func TestUpdateSnapshot_DeleteDaemon(t *testing.T) {
+    svc := New(Options{})
+    _, err := svc.DeleteDaemon(context.Background(), nil, func(o *Options) {
+        o.APIOptions = append(o.APIOptions, func(stack *middleware.Stack) error {
+            return updateSnapshot(stack, "DeleteDaemon")
+        })
+    })
+    if _, ok := err.(snapshotOK); !ok && err != nil {
+        t.Fatal(err)
+    }
+}
+
+func TestUpdateSnapshot_DeleteDaemonTaskDefinition(t *testing.T) {
+    svc := New(Options{})
+    _, err := svc.DeleteDaemonTaskDefinition(context.Background(), nil, func(o *Options) {
+        o.APIOptions = append(o.APIOptions, func(stack *middleware.Stack) error {
+            return updateSnapshot(stack, "DeleteDaemonTaskDefinition")
+        })
+    })
+    if _, ok := err.(snapshotOK); !ok && err != nil {
+        t.Fatal(err)
+    }
+}
+
+func TestUpdateSnapshot_DeleteExpressGatewayService(t *testing.T) {
+    svc := New(Options{})
+    _, err := svc.DeleteExpressGatewayService(context.Background(), nil, func(o *Options) {
+        o.APIOptions = append(o.APIOptions, func(stack *middleware.Stack) error {
+            return updateSnapshot(stack, "DeleteExpressGatewayService")
+        })
+    })
+    if _, ok := err.(snapshotOK); !ok && err != nil {
+        t.Fatal(err)
+    }
+}
+
 func TestUpdateSnapshot_DeleteService(t *testing.T) {
     svc := New(Options{})
     _, err := svc.DeleteService(context.Background(), nil, func(o *Options) {
@@ -901,6 +1273,18 @@ func TestUpdateSnapshot_DescribeCapacityProviders(t *testing.T) {
     }
 }
 
+func TestUpdateSnapshot_DescribeClusterCapacityProviderAssociations(t *testing.T) {
+    svc := New(Options{})
+    _, err := svc.DescribeClusterCapacityProviderAssociations(context.Background(), nil, func(o *Options) {
+        o.APIOptions = append(o.APIOptions, func(stack *middleware.Stack) error {
+            return updateSnapshot(stack, "DescribeClusterCapacityProviderAssociations")
+        })
+    })
+    if _, ok := err.(snapshotOK); !ok && err != nil {
+        t.Fatal(err)
+    }
+}
+
 func TestUpdateSnapshot_DescribeClusters(t *testing.T) {
     svc := New(Options{})
     _, err := svc.DescribeClusters(context.Background(), nil, func(o *Options) {
@@ -918,6 +1302,90 @@ func TestUpdateSnapshot_DescribeContainerInstances(t *testing.T) {
     _, err := svc.DescribeContainerInstances(context.Background(), nil, func(o *Options) {
         o.APIOptions = append(o.APIOptions, func(stack *middleware.Stack) error {
             return updateSnapshot(stack, "DescribeContainerInstances")
+        })
+    })
+    if _, ok := err.(snapshotOK); !ok && err != nil {
+        t.Fatal(err)
+    }
+}
+
+func TestUpdateSnapshot_DescribeDaemon(t *testing.T) {
+    svc := New(Options{})
+    _, err := svc.DescribeDaemon(context.Background(), nil, func(o *Options) {
+        o.APIOptions = append(o.APIOptions, func(stack *middleware.Stack) error {
+            return updateSnapshot(stack, "DescribeDaemon")
+        })
+    })
+    if _, ok := err.(snapshotOK); !ok && err != nil {
+        t.Fatal(err)
+    }
+}
+
+func TestUpdateSnapshot_DescribeDaemonDeployments(t *testing.T) {
+    svc := New(Options{})
+    _, err := svc.DescribeDaemonDeployments(context.Background(), nil, func(o *Options) {
+        o.APIOptions = append(o.APIOptions, func(stack *middleware.Stack) error {
+            return updateSnapshot(stack, "DescribeDaemonDeployments")
+        })
+    })
+    if _, ok := err.(snapshotOK); !ok && err != nil {
+        t.Fatal(err)
+    }
+}
+
+func TestUpdateSnapshot_DescribeDaemonRevisions(t *testing.T) {
+    svc := New(Options{})
+    _, err := svc.DescribeDaemonRevisions(context.Background(), nil, func(o *Options) {
+        o.APIOptions = append(o.APIOptions, func(stack *middleware.Stack) error {
+            return updateSnapshot(stack, "DescribeDaemonRevisions")
+        })
+    })
+    if _, ok := err.(snapshotOK); !ok && err != nil {
+        t.Fatal(err)
+    }
+}
+
+func TestUpdateSnapshot_DescribeDaemonTaskDefinition(t *testing.T) {
+    svc := New(Options{})
+    _, err := svc.DescribeDaemonTaskDefinition(context.Background(), nil, func(o *Options) {
+        o.APIOptions = append(o.APIOptions, func(stack *middleware.Stack) error {
+            return updateSnapshot(stack, "DescribeDaemonTaskDefinition")
+        })
+    })
+    if _, ok := err.(snapshotOK); !ok && err != nil {
+        t.Fatal(err)
+    }
+}
+
+func TestUpdateSnapshot_DescribeExpressGatewayService(t *testing.T) {
+    svc := New(Options{})
+    _, err := svc.DescribeExpressGatewayService(context.Background(), nil, func(o *Options) {
+        o.APIOptions = append(o.APIOptions, func(stack *middleware.Stack) error {
+            return updateSnapshot(stack, "DescribeExpressGatewayService")
+        })
+    })
+    if _, ok := err.(snapshotOK); !ok && err != nil {
+        t.Fatal(err)
+    }
+}
+
+func TestUpdateSnapshot_DescribeServiceDeployments(t *testing.T) {
+    svc := New(Options{})
+    _, err := svc.DescribeServiceDeployments(context.Background(), nil, func(o *Options) {
+        o.APIOptions = append(o.APIOptions, func(stack *middleware.Stack) error {
+            return updateSnapshot(stack, "DescribeServiceDeployments")
+        })
+    })
+    if _, ok := err.(snapshotOK); !ok && err != nil {
+        t.Fatal(err)
+    }
+}
+
+func TestUpdateSnapshot_DescribeServiceRevisions(t *testing.T) {
+    svc := New(Options{})
+    _, err := svc.DescribeServiceRevisions(context.Background(), nil, func(o *Options) {
+        o.APIOptions = append(o.APIOptions, func(stack *middleware.Stack) error {
+            return updateSnapshot(stack, "DescribeServiceRevisions")
         })
     })
     if _, ok := err.(snapshotOK); !ok && err != nil {
@@ -966,6 +1434,18 @@ func TestUpdateSnapshot_DescribeTaskSets(t *testing.T) {
     _, err := svc.DescribeTaskSets(context.Background(), nil, func(o *Options) {
         o.APIOptions = append(o.APIOptions, func(stack *middleware.Stack) error {
             return updateSnapshot(stack, "DescribeTaskSets")
+        })
+    })
+    if _, ok := err.(snapshotOK); !ok && err != nil {
+        t.Fatal(err)
+    }
+}
+
+func TestUpdateSnapshot_DisassociateCapacityProvidersFromCluster(t *testing.T) {
+    svc := New(Options{})
+    _, err := svc.DisassociateCapacityProvidersFromCluster(context.Background(), nil, func(o *Options) {
+        o.APIOptions = append(o.APIOptions, func(stack *middleware.Stack) error {
+            return updateSnapshot(stack, "DisassociateCapacityProvidersFromCluster")
         })
     })
     if _, ok := err.(snapshotOK); !ok && err != nil {
@@ -1057,6 +1537,54 @@ func TestUpdateSnapshot_ListContainerInstances(t *testing.T) {
     }
 }
 
+func TestUpdateSnapshot_ListDaemonDeployments(t *testing.T) {
+    svc := New(Options{})
+    _, err := svc.ListDaemonDeployments(context.Background(), nil, func(o *Options) {
+        o.APIOptions = append(o.APIOptions, func(stack *middleware.Stack) error {
+            return updateSnapshot(stack, "ListDaemonDeployments")
+        })
+    })
+    if _, ok := err.(snapshotOK); !ok && err != nil {
+        t.Fatal(err)
+    }
+}
+
+func TestUpdateSnapshot_ListDaemons(t *testing.T) {
+    svc := New(Options{})
+    _, err := svc.ListDaemons(context.Background(), nil, func(o *Options) {
+        o.APIOptions = append(o.APIOptions, func(stack *middleware.Stack) error {
+            return updateSnapshot(stack, "ListDaemons")
+        })
+    })
+    if _, ok := err.(snapshotOK); !ok && err != nil {
+        t.Fatal(err)
+    }
+}
+
+func TestUpdateSnapshot_ListDaemonTaskDefinitions(t *testing.T) {
+    svc := New(Options{})
+    _, err := svc.ListDaemonTaskDefinitions(context.Background(), nil, func(o *Options) {
+        o.APIOptions = append(o.APIOptions, func(stack *middleware.Stack) error {
+            return updateSnapshot(stack, "ListDaemonTaskDefinitions")
+        })
+    })
+    if _, ok := err.(snapshotOK); !ok && err != nil {
+        t.Fatal(err)
+    }
+}
+
+func TestUpdateSnapshot_ListServiceDeployments(t *testing.T) {
+    svc := New(Options{})
+    _, err := svc.ListServiceDeployments(context.Background(), nil, func(o *Options) {
+        o.APIOptions = append(o.APIOptions, func(stack *middleware.Stack) error {
+            return updateSnapshot(stack, "ListServiceDeployments")
+        })
+    })
+    if _, ok := err.(snapshotOK); !ok && err != nil {
+        t.Fatal(err)
+    }
+}
+
 func TestUpdateSnapshot_ListServices(t *testing.T) {
     svc := New(Options{})
     _, err := svc.ListServices(context.Background(), nil, func(o *Options) {
@@ -1129,6 +1657,18 @@ func TestUpdateSnapshot_ListTasks(t *testing.T) {
     }
 }
 
+func TestUpdateSnapshot_NotifyLifecycleHookComplete(t *testing.T) {
+    svc := New(Options{})
+    _, err := svc.NotifyLifecycleHookComplete(context.Background(), nil, func(o *Options) {
+        o.APIOptions = append(o.APIOptions, func(stack *middleware.Stack) error {
+            return updateSnapshot(stack, "NotifyLifecycleHookComplete")
+        })
+    })
+    if _, ok := err.(snapshotOK); !ok && err != nil {
+        t.Fatal(err)
+    }
+}
+
 func TestUpdateSnapshot_PutAccountSetting(t *testing.T) {
     svc := New(Options{})
     _, err := svc.PutAccountSetting(context.Background(), nil, func(o *Options) {
@@ -1189,6 +1729,18 @@ func TestUpdateSnapshot_RegisterContainerInstance(t *testing.T) {
     }
 }
 
+func TestUpdateSnapshot_RegisterDaemonTaskDefinition(t *testing.T) {
+    svc := New(Options{})
+    _, err := svc.RegisterDaemonTaskDefinition(context.Background(), nil, func(o *Options) {
+        o.APIOptions = append(o.APIOptions, func(stack *middleware.Stack) error {
+            return updateSnapshot(stack, "RegisterDaemonTaskDefinition")
+        })
+    })
+    if _, ok := err.(snapshotOK); !ok && err != nil {
+        t.Fatal(err)
+    }
+}
+
 func TestUpdateSnapshot_RegisterTaskDefinition(t *testing.T) {
     svc := New(Options{})
     _, err := svc.RegisterTaskDefinition(context.Background(), nil, func(o *Options) {
@@ -1218,6 +1770,18 @@ func TestUpdateSnapshot_StartTask(t *testing.T) {
     _, err := svc.StartTask(context.Background(), nil, func(o *Options) {
         o.APIOptions = append(o.APIOptions, func(stack *middleware.Stack) error {
             return updateSnapshot(stack, "StartTask")
+        })
+    })
+    if _, ok := err.(snapshotOK); !ok && err != nil {
+        t.Fatal(err)
+    }
+}
+
+func TestUpdateSnapshot_StopServiceDeployment(t *testing.T) {
+    svc := New(Options{})
+    _, err := svc.StopServiceDeployment(context.Background(), nil, func(o *Options) {
+        o.APIOptions = append(o.APIOptions, func(stack *middleware.Stack) error {
+            return updateSnapshot(stack, "StopServiceDeployment")
         })
     })
     if _, ok := err.(snapshotOK); !ok && err != nil {
@@ -1350,6 +1914,42 @@ func TestUpdateSnapshot_UpdateContainerInstancesState(t *testing.T) {
     _, err := svc.UpdateContainerInstancesState(context.Background(), nil, func(o *Options) {
         o.APIOptions = append(o.APIOptions, func(stack *middleware.Stack) error {
             return updateSnapshot(stack, "UpdateContainerInstancesState")
+        })
+    })
+    if _, ok := err.(snapshotOK); !ok && err != nil {
+        t.Fatal(err)
+    }
+}
+
+func TestUpdateSnapshot_UpdateDaemon(t *testing.T) {
+    svc := New(Options{})
+    _, err := svc.UpdateDaemon(context.Background(), nil, func(o *Options) {
+        o.APIOptions = append(o.APIOptions, func(stack *middleware.Stack) error {
+            return updateSnapshot(stack, "UpdateDaemon")
+        })
+    })
+    if _, ok := err.(snapshotOK); !ok && err != nil {
+        t.Fatal(err)
+    }
+}
+
+func TestUpdateSnapshot_UpdateExpressGatewayService(t *testing.T) {
+    svc := New(Options{})
+    _, err := svc.UpdateExpressGatewayService(context.Background(), nil, func(o *Options) {
+        o.APIOptions = append(o.APIOptions, func(stack *middleware.Stack) error {
+            return updateSnapshot(stack, "UpdateExpressGatewayService")
+        })
+    })
+    if _, ok := err.(snapshotOK); !ok && err != nil {
+        t.Fatal(err)
+    }
+}
+
+func TestUpdateSnapshot_UpdateLifecycleHookExpiration(t *testing.T) {
+    svc := New(Options{})
+    _, err := svc.UpdateLifecycleHookExpiration(context.Background(), nil, func(o *Options) {
+        o.APIOptions = append(o.APIOptions, func(stack *middleware.Stack) error {
+            return updateSnapshot(stack, "UpdateLifecycleHookExpiration")
         })
     })
     if _, ok := err.(snapshotOK); !ok && err != nil {

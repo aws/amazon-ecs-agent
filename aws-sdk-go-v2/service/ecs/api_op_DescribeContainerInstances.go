@@ -6,14 +6,11 @@ package ecs
 import (
 	awsmiddleware "github.com/aws/aws-sdk-go-v2/aws/middleware"
 	"context"
-	"fmt"
 	"github.com/aws/smithy-go/middleware"
 	smithyhttp "github.com/aws/smithy-go/transport/http"
 	"github.com/aws/aws-sdk-go-v2/service/ecs/types"
 )
 
-// Describes one or more container instances. Returns metadata about each
-// container instance requested.
 func (c *Client) DescribeContainerInstances(ctx context.Context, params *DescribeContainerInstancesInput, optFns ...func(*Options)) (*DescribeContainerInstancesOutput, error) {
 	if params == nil { params = &DescribeContainerInstancesInput{} }
 	
@@ -27,24 +24,11 @@ func (c *Client) DescribeContainerInstances(ctx context.Context, params *Describ
 
 type DescribeContainerInstancesInput struct {
 	
-	// A list of up to 100 container instance IDs or full Amazon Resource Name (ARN)
-	// entries.
-	//
 	// This member is required.
 	ContainerInstances []string
 	
-	// The short name or full Amazon Resource Name (ARN) of the cluster that hosts the
-	// container instances to describe. If you do not specify a cluster, the default
-	// cluster is assumed. This parameter is required if the container instance or
-	// container instances you are describing were launched in any cluster other than
-	// the default cluster.
 	Cluster *string
 	
-	// Specifies whether you want to see the resource tags for the container instance.
-	// If TAGS is specified, the tags are included in the response. If
-	// CONTAINER_INSTANCE_HEALTH is specified, the container instance health is
-	// included in the response. If this field is omitted, tags and container instance
-	// health status aren't included in the response.
 	Include []types.ContainerInstanceField
 	
 	noSmithyDocumentSerde
@@ -52,10 +36,8 @@ type DescribeContainerInstancesInput struct {
 
 type DescribeContainerInstancesOutput struct {
 	
-	// The list of container instances.
 	ContainerInstances []types.ContainerInstance
 	
-	// Any failures associated with the call.
 	Failures []types.Failure
 	
 	// Metadata pertaining to the operation's result.
@@ -65,17 +47,6 @@ type DescribeContainerInstancesOutput struct {
 }
 
 func (c *Client) addOperationDescribeContainerInstancesMiddlewares(stack *middleware.Stack, options Options) (err error) {
-	if err := stack.Serialize.Add(&setOperationInputMiddleware{}, middleware.After); err != nil {
-	    return err
-	}
-	err = stack.Serialize.Add(&awsAwsjson11_serializeOpDescribeContainerInstances{}, middleware.After)
-	if err != nil { return err }
-	err = stack.Deserialize.Add(&awsAwsjson11_deserializeOpDescribeContainerInstances{}, middleware.After)
-	if err != nil { return err }
-	if err := addProtocolFinalizerMiddlewares(stack, options, "DescribeContainerInstances"); err != nil {
-	    return fmt.Errorf("add protocol finalizers: %v", err)
-	}
-	
 	if err = addlegacyEndpointContextSetter(stack, options); err != nil {
 	return err
 	}
@@ -124,6 +95,9 @@ func (c *Client) addOperationDescribeContainerInstancesMiddlewares(stack *middle
 	if err = addUserAgentRetryMode(stack, options); err != nil {
 	return err
 	}
+	if err = addCredentialSource(stack, options); err != nil {
+	return err
+	}
 	if err = addOpDescribeContainerInstancesValidationMiddleware(stack); err != nil {
 	return err
 	}
@@ -145,16 +119,13 @@ func (c *Client) addOperationDescribeContainerInstancesMiddlewares(stack *middle
 	if err = addDisableHTTPSMiddleware(stack, options); err != nil {
 	return err
 	}
-	if err = addSpanInitializeStart(stack); err != nil {
+	if err = addInterceptBeforeRetryLoop(stack, options); err != nil {
 	return err
 	}
-	if err = addSpanInitializeEnd(stack); err != nil {
+	if err = addInterceptAttempt(stack, options); err != nil {
 	return err
 	}
-	if err = addSpanBuildRequestStart(stack); err != nil {
-	return err
-	}
-	if err = addSpanBuildRequestEnd(stack); err != nil {
+	if err = addInterceptors(stack, options); err != nil {
 	return err
 	}
 	return nil
