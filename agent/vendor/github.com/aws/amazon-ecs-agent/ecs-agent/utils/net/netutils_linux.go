@@ -46,9 +46,8 @@ func FindLinkByMac(netlinkClient netlinkwrapper.NetLink, mac string) (netlink.Li
 		attrs := link.Attrs()
 		if attrs != nil {
 			logger.Info("Found net link", logger.Fields{
-				"TargetMac":       mac,
-				"ParsedTargetMac": parsedMac.String(),
-				"CurrentMac":      attrs.HardwareAddr.String(),
+				"TargetMac":  mac,
+				"CurrentMac": attrs.HardwareAddr.String(),
 			})
 			if bytes.Equal(parsedMac, attrs.HardwareAddr) {
 				return link, nil
@@ -65,6 +64,7 @@ func FindLinkByMac(netlinkClient netlinkwrapper.NetLink, mac string) (netlink.Li
 func HasDefaultRoute(
 	netlinkClient netlinkwrapper.NetLink, link netlink.Link, ipFamily int,
 ) (bool, error) {
+	ipFamilyName := ipFamilyToString(ipFamily)
 	routes, err := netlinkClient.RouteList(link, ipFamily)
 	if err != nil {
 		return false, fmt.Errorf("failed to list routes: %w", err)
@@ -72,8 +72,9 @@ func HasDefaultRoute(
 
 	for _, route := range routes {
 		logger.Info("Found route from the given net link", logger.Fields{
-			"Route":    route.String(),
-			"IPFamily": ipFamily,
+			"Route":        route.String(),
+			"IPFamilyCode": ipFamily,
+			"IPFamilyName": ipFamilyName,
 		})
 		if isDefaultRoute(route, ipFamily) {
 			return true, nil
@@ -82,7 +83,8 @@ func HasDefaultRoute(
 
 	logger.Info("No default route found",
 		logger.Fields{
-			"IPFamily": ipFamily,
+			"IPFamilyCode": ipFamily,
+			"IPFamilyName": ipFamilyName,
 		})
 	return false, nil
 }
@@ -312,4 +314,17 @@ func FilterIPv6GlobalUnicast(ipAddrs []net.IP) []net.IP {
 		}
 	}
 	return ipv6Addrs
+}
+
+// ipFamilyToString converts the ip to the a human-readable name.
+func ipFamilyToString(ip int) string {
+	switch ip {
+	case netlink.FAMILY_ALL:
+		return "IPAll"
+	case netlink.FAMILY_V4:
+		return "IPv4"
+	case netlink.FAMILY_V6:
+		return "IPv6"
+	}
+	return "UnknownIPFamilyName"
 }
