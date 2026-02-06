@@ -24,6 +24,7 @@ import (
 	"os"
 
 	"github.com/aws/amazon-ecs-agent/ecs-agent/ipcompatibility"
+	"github.com/aws/amazon-ecs-agent/ecs-agent/logger"
 	"github.com/aws/amazon-ecs-agent/ecs-agent/utils/netlinkwrapper"
 
 	"github.com/vishvananda/netlink"
@@ -43,8 +44,14 @@ func FindLinkByMac(netlinkClient netlinkwrapper.NetLink, mac string) (netlink.Li
 
 	for _, link := range links {
 		attrs := link.Attrs()
-		if attrs != nil && bytes.Equal(parsedMac, attrs.HardwareAddr) {
-			return link, nil
+		if attrs != nil {
+			logger.Info("Found net link", logger.Fields{
+				"TargetMac":  mac,
+				"CurrentMac": attrs.HardwareAddr.String(),
+			})
+			if bytes.Equal(parsedMac, attrs.HardwareAddr) {
+				return link, nil
+			}
 		}
 	}
 
@@ -57,17 +64,28 @@ func FindLinkByMac(netlinkClient netlinkwrapper.NetLink, mac string) (netlink.Li
 func HasDefaultRoute(
 	netlinkClient netlinkwrapper.NetLink, link netlink.Link, ipFamily int,
 ) (bool, error) {
+	ipFamilyName := ipFamilyToString(ipFamily)
 	routes, err := netlinkClient.RouteList(link, ipFamily)
 	if err != nil {
 		return false, fmt.Errorf("failed to list routes: %w", err)
 	}
 
 	for _, route := range routes {
+		logger.Info("Found route from the given net link", logger.Fields{
+			"Route":        route.String(),
+			"IPFamilyCode": ipFamily,
+			"IPFamilyName": ipFamilyName,
+		})
 		if isDefaultRoute(route, ipFamily) {
 			return true, nil
 		}
 	}
 
+	logger.Info("No default route found",
+		logger.Fields{
+			"IPFamilyCode": ipFamily,
+			"IPFamilyName": ipFamilyName,
+		})
 	return false, nil
 }
 
@@ -145,6 +163,8 @@ func DetermineIPCompatibility(
 			return ipcompatibility.NewIPCompatibility(false, false),
 				fmt.Errorf("failed to find link for mac '%s': %w", mac, err)
 		}
+	} else {
+		logger.Warn("No mac is provided to determine IP compatibility")
 	}
 
 	// Determine IPv4 compatibility
@@ -294,4 +314,17 @@ func FilterIPv6GlobalUnicast(ipAddrs []net.IP) []net.IP {
 		}
 	}
 	return ipv6Addrs
+}
+
+// ipFamilyToString converts the ip to the a human-readable name.
+func ipFamilyToString(ip int) string {
+	switch ip {
+	case netlink.FAMILY_ALL:
+		return "IPAll"
+	case netlink.FAMILY_V4:
+		return "IPv4"
+	case netlink.FAMILY_V6:
+		return "IPv6"
+	}
+	return "UnknownIPFamilyName"
 }
