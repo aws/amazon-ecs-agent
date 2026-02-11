@@ -520,18 +520,25 @@ func (m *managedLinux) configureDaemonNetNS(ctx context.Context, taskID string, 
 
 		// Create MI-Bridge for daemon-bridge mode only if not already configured
 		if !m.isDaemonNamespaceConfigured(netNS.Path) {
-			var cniNetConf []ecscni.PluginConfig
-			cniNetConf = append(cniNetConf, createDaemonBridgePluginConfig(netNS.Path))
-			add := true
+			// Determine IP compatibility from the primary network interface
+			ipComp := m.getIPCompatibilityFromNetNS(netNS)
 
-			_, err = m.common.executeCNIPlugin(ctx, add, cniNetConf...)
+			// Create daemon bridge config with IP compatibility
+			bridgeConfig, err := createDaemonBridgePluginConfig(netNS.Path, ipComp)
 			if err != nil {
-				err = errors.Wrap(err, "failed to setup daemon network namespace bridge")
-				return err
+				return errors.Wrap(err, "failed to create daemon bridge plugin config")
+			}
+
+			var cniNetConf []ecscni.PluginConfig
+			cniNetConf = append(cniNetConf, bridgeConfig)
+
+			_, err = m.common.executeCNIPlugin(ctx, true, cniNetConf...)
+			if err != nil {
+				return errors.Wrap(err, "failed to setup daemon network namespace bridge")
 			}
 
 			// Add NAT masquerade rule for external connectivity
-			err = m.addDaemonBridgeNATRule()
+			err = m.addDaemonBridgeNATRule(ipComp)
 			if err != nil {
 				logger.Warn("Failed to add NAT rule for daemon-bridge", logger.Fields{
 					loggerfield.Error: err,
@@ -550,20 +557,60 @@ func (m *managedLinux) ConfigureDaemonNetNS(netNS *tasknetworkconfig.NetworkName
 	return m.configureDaemonNetNS(context.Background(), netNS.Path, netNS)
 }
 
-// addDaemonBridgeNATRule adds iptables MASQUERADE rule for daemon-bridge external connectivity
-func (m *managedLinux) addDaemonBridgeNATRule() error {
-	if err := enableSystemSettings(); err != nil {
+// addDaemonBridgeNATRule adds iptables/ip6tables MASQUERADE rules for daemon-bridge external connectivity
+func (m *managedLinux) addDaemonBridgeNATRule(ipComp ipcompatibility.IPCompatibility) error {
+	if err := enableSystemSettings(ipComp); err != nil {
 		return err
 	}
 
-	// Check if rule already exists
-	err := modifyNetfilterEntry(iptablesTableNat, iptablesCheck, getDaemonBridgeNATArgs)
-	if err != nil {
-		// Rule doesn't exist, add it
-		return modifyNetfilterEntry(iptablesTableNat, iptablesAppend, getDaemonBridgeNATArgs)
+	// Setup IPv4 NAT rule if IPv4 compatible
+	if ipComp.IsIPv4Compatible() {
+		// Check if IPv4 rule already exists
+		getIPv4Args := func() []string { return getDaemonBridgeNATArgs(ECSSubNet) }
+		err := modifyNetfilterEntry(iptablesTableNat, iptablesCheck, getIPv4Args, false)
+		if err != nil {
+			// Rule doesn't exist, add it
+			if err := modifyNetfilterEntry(iptablesTableNat, iptablesAppend, getIPv4Args, false); err != nil {
+				return fmt.Errorf("failed to add IPv4 NAT rule: %w", err)
+			}
+			logger.Info("IPv4 NAT rule added for daemon-bridge")
+		} else {
+			logger.Info("IPv4 NAT rule already exists for daemon-bridge")
+		}
 	}
 
-	return nil // Rule already exists
+	// Setup IPv6 NAT rule if IPv6 compatible
+	if ipComp.IsIPv6Compatible() {
+		// For IPv6, we use a simple MASQUERADE rule for all traffic on the output interface
+		// Check if IPv6 rule already exists
+		err := modifyNetfilterEntry(iptablesTableNat, iptablesCheck, getSimpleIPv6NATArgs, true)
+		if err != nil {
+			// Rule doesn't exist, add it
+			if err := modifyNetfilterEntry(iptablesTableNat, iptablesAppend, getSimpleIPv6NATArgs, true); err != nil {
+				return fmt.Errorf("failed to add IPv6 NAT rule: %w", err)
+			}
+			logger.Info("IPv6 NAT rule added for daemon-bridge")
+		} else {
+			logger.Info("IPv6 NAT rule already exists for daemon-bridge")
+		}
+	}
+
+	return nil
+}
+
+// getIPCompatibilityFromNetNS determines IP compatibility from the network namespace's primary interface.
+// It checks if the primary interface has IPv4 and/or IPv6 addresses configured.
+func (m *managedLinux) getIPCompatibilityFromNetNS(netNS *tasknetworkconfig.NetworkNamespace) ipcompatibility.IPCompatibility {
+	primaryIface := netNS.GetPrimaryInterface()
+	if primaryIface == nil {
+		// Default to IPv4 only if no primary interface found
+		return ipcompatibility.NewIPv4OnlyCompatibility()
+	}
+
+	hasIPv4 := len(primaryIface.IPV4Addresses) > 0
+	hasIPv6 := len(primaryIface.IPV6Addresses) > 0
+
+	return ipcompatibility.NewIPCompatibility(hasIPv4, hasIPv6)
 }
 
 // StopDaemonNetNS stops and cleans up a daemon network namespace.
@@ -574,11 +621,24 @@ func (m *managedLinux) StopDaemonNetNS(ctx context.Context, netNS *tasknetworkco
 	})
 
 	// Cleanup bridge config(veth pair).
+	// Use IPv4-only compatibility for cleanup since we're just cleaning up the namespace
+	// and the route configuration doesn't matter for deletion.
+	ipComp := ipcompatibility.NewIPv4OnlyCompatibility()
+	bridgeConfig, err := createDaemonBridgePluginConfig(netNS.Path, ipComp)
+	if err != nil {
+		err = errors.Wrap(err, "failed to create daemon bridge plugin config to stop daemon netns")
+		logger.Error("StopDaemonNetNS failed", logger.Fields{
+			"netNSPath":       netNS.Path,
+			loggerfield.Error: err,
+		})
+		return err
+	}
+
 	var cniNetConf []ecscni.PluginConfig
-	cniNetConf = append(cniNetConf, createDaemonBridgePluginConfig(netNS.Path))
+	cniNetConf = append(cniNetConf, bridgeConfig)
 	add := false
 
-	_, err := m.common.executeCNIPlugin(ctx, add, cniNetConf...)
+	_, err = m.common.executeCNIPlugin(ctx, add, cniNetConf...)
 	if err != nil {
 		err = errors.Wrap(err, "failed to stop daemon network namespace bridge")
 		logger.Error("StopDaemonNetNS failed", logger.Fields{

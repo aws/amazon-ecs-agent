@@ -25,6 +25,15 @@ const (
 	DaemonBridgeGatewayIP   = "169.254.172.1"
 	DefaultRouteDestination = "0.0.0.0/0"
 
+	// IPv6 daemon-bridge networking constants
+	// Using fd00:ec2::172:0/112 as a unique local address (ULA) subnet for ECS internal communication.
+	// ULA addresses (fd00::/8) are private addresses routable within a site but not on the global internet,
+	// similar to IPv4 private ranges (10.0.0.0/8, 192.168.0.0/16).
+	// The ::172: portion references the IPv4 ECS subnet (169.254.172.0/22) for consistency.
+	ECSSubNetIPv6               = "fd00:ec2::172:0/112"
+	DaemonBridgeGatewayIPv6     = "fd00:ec2::172:1"
+	DefaultRouteDestinationIPv6 = "::/0"
+
 	CNIPluginLogFileEnv    = "ECS_CNI_LOG_FILE"
 	VPCCNIPluginLogFileEnv = "VPC_CNI_LOG_FILE"
 	IPAMDataPathEnv        = "IPAM_DB_PATH"
