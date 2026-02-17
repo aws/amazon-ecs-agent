@@ -18,6 +18,8 @@ import (
 	"math/rand"
 	"time"
 
+	"github.com/aws/amazon-ecs-agent/ecs-agent/logger"
+	"github.com/aws/amazon-ecs-agent/ecs-agent/logger/field"
 	"github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/aws/aws-sdk-go-v2/aws/retry"
 	"github.com/aws/aws-sdk-go-v2/service/ecs"
@@ -72,7 +74,16 @@ func (retrier *oneDayRetrier) MaxAttempts() int {
 // backoff between 30ms and 1 minute.
 // See the const comments for math on how this gets us to around 24 hours
 // total.
-func (retrier *oneDayRetrier) RetryDelay(attempt int, _ error) (time.Duration, error) {
+func (retrier *oneDayRetrier) RetryDelay(attempt int, err error) (time.Duration, error) {
+	// To prevent log noise in cases like expected prolonged network disconnection,
+	// we log first 5 attempts and every 50th attempt.
+	if attempt <= 5 || attempt%50 == 0 {
+		logger.Debug("Retrying ECS API call due to retriable error", logger.Fields{
+			"attempt":   attempt,
+			field.Error: err,
+		})
+	}
+
 	if attempt <= submitStateChangeInitialRetries {
 		delay := int(math.Pow(2, float64(attempt))) * (rand.Intn(30) + 30)
 		return time.Duration(delay) * time.Millisecond, nil
