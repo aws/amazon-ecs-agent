@@ -23,6 +23,9 @@ import (
 	"sync"
 	"time"
 
+	"github.com/aws/aws-sdk-go-v2/aws"
+	"github.com/aws/aws-sdk-go-v2/aws/ratelimit"
+	"github.com/aws/aws-sdk-go-v2/aws/retry"
 	"github.com/aws/aws-sdk-go-v2/config"
 	"github.com/aws/aws-sdk-go-v2/feature/ec2/imds"
 
@@ -132,7 +135,12 @@ func NewEC2MetadataClient(client HttpClient) (EC2MetadataClient, error) {
 		cfg, err := config.LoadDefaultConfig(
 			context.TODO(),
 			config.WithCredentialsProvider(credentialsProvider),
-			config.WithRetryMaxAttempts(metadataRetries),
+			config.WithRetryer(func() aws.Retryer {
+				return retry.NewStandard(func(o *retry.StandardOptions) {
+					o.RateLimiter = ratelimit.None
+					o.MaxAttempts = metadataRetries
+				})
+			}),
 		)
 		if err != nil {
 			return nil, err
