@@ -13,7 +13,7 @@ require (
 	github.com/aws/aws-sdk-go-v2/feature/ec2/imds v1.16.18
 	github.com/aws/aws-sdk-go-v2/service/ec2 v1.195.0
 	github.com/aws/aws-sdk-go-v2/service/ecs v0.0.0-00010101000000-000000000000
-	github.com/aws/smithy-go v1.22.4
+	github.com/aws/smithy-go v1.24.0
 	github.com/cihub/seelog v0.0.0-20170130134532-f561c5e57575
 	github.com/container-storage-interface/spec v1.8.0
 	github.com/containernetworking/cni v1.1.2
