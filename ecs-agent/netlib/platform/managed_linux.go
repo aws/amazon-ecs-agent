@@ -523,6 +523,10 @@ func (m *managedLinux) configureDaemonNetNS(ctx context.Context, taskID string, 
 			// Determine IP compatibility from the primary network interface
 			ipComp := m.getIPCompatibilityFromNetNS(netNS)
 
+			// Set environment variables for CNI plugins
+			m.common.os.Setenv(CNIPluginLogFileEnv, ecscni.PluginLogPath)
+			m.common.os.Setenv(IPAMDataPathEnv, filepath.Join(m.common.stateDBDir, IPAMDataFileName))
+
 			// Create daemon bridge config with IP compatibility
 			bridgeConfig, err := createDaemonBridgePluginConfig(netNS.Path, ipComp)
 			if err != nil {

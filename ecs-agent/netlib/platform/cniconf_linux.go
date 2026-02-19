@@ -185,9 +185,16 @@ func createDaemonBridgePluginConfig(netNSPath string, ipComp ipcompatibility.IPC
 		ID:         netNSPath,
 	}
 
+	// Assign static IP for daemon containers
+	if ipComp.IsIPv4Compatible() {
+		ipamConfig.IPV4Address = DaemonBridgeIP
+		ipamConfig.IPV4Gateway = DaemonBridgeGatewayIP
+	}
+
 	// Add IPv6 subnet and gateway if IPv6 compatible
 	if ipComp.IsIPv6Compatible() {
 		ipamConfig.IPV6Subnet = ECSSubNetIPv6
+		ipamConfig.IPV6Address = DaemonBridgeIPv6
 		ipamConfig.IPV6Gateway = DaemonBridgeGatewayIPv6
 	}
 
