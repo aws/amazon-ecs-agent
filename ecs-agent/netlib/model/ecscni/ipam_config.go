@@ -42,6 +42,14 @@ type IPAMConfig struct {
 	// IPV6Routes is the IPv6 route to added in the container namespace
 	IPV6Routes []*types.Route `json:"ipv6-routes,omitempty"`
 
+	// ConnectedSubnetMaskSizeIPv4 specifies the IPv4 subnet mask size for connected subnet routes
+	// For daemon-bridge: 22 (169.254.172.0/22), for awsvpc: 0 (disabled)
+	ConnectedSubnetMaskSizeIPv4 int `json:"connectedSubnetMaskSizeIPv4,omitempty"`
+
+	// ConnectedSubnetMaskSizeIPv6 specifies the IPv6 subnet mask size for connected subnet routes
+	// For daemon-bridge: 112 (fd00:ec2::172:0/112), for awsvpc: 0 (disabled)
+	ConnectedSubnetMaskSizeIPv6 int `json:"connectedSubnetMaskSizeIPv6,omitempty"`
+
 	// ID is the key stored with the assigned ip in ipam
 	ID string `json:"id"`
 }
