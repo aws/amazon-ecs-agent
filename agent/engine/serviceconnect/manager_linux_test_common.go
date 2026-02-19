@@ -148,6 +148,7 @@ func testAgentContainerModificationsForServiceConnect(t *testing.T, privilegedMo
 		"ENVOY_ENABLE_IAM_AUTH_FOR_XDS": "0",
 		"APPNET_ENVOY_LOG_DESTINATION":  "/some/other/log",
 	}
+	expectedENVsWithFIPS := copyMap(expectedENVs, "APPNET_FIPS_MODE_ENABLED", "true")
 
 	type testCase struct {
 		name                 string
@@ -157,6 +158,7 @@ func testAgentContainerModificationsForServiceConnect(t *testing.T, privilegedMo
 		expectedBindDirPerm  string
 		expectedBindDirOwner uint32
 		containerInstanceARN string
+		fipsEnabled          bool
 	}
 	testcases := []testCase{
 		{
@@ -167,6 +169,17 @@ func testAgentContainerModificationsForServiceConnect(t *testing.T, privilegedMo
 			expectedBindDirPerm:  fs.FileMode(0700).String(),
 			expectedBindDirOwner: serviceconnect.AppNetUID,
 			containerInstanceARN: "arn:aws:ecs:us-west-2:123456789012:container-instance/12345678-test-test-test-123456789012",
+			fipsEnabled:          false,
+		},
+		{
+			name:                 "Service connect container with FIPS enabled",
+			container:            serviceConnectContainer,
+			expectedENV:          copyMap(expectedENVsWithFIPS, "ECS_CONTAINER_INSTANCE_ARN", "arn:aws:ecs:us-west-2:123456789012:container-instance/12345678-test-test-test-123456789012"),
+			expectedBinds:        expectedBinds,
+			expectedBindDirPerm:  fs.FileMode(0700).String(),
+			expectedBindDirOwner: serviceconnect.AppNetUID,
+			containerInstanceARN: "arn:aws:ecs:us-west-2:123456789012:container-instance/12345678-test-test-test-123456789012",
+			fipsEnabled:          true,
 		},
 		{
 			name:                 "Service connect container has extra binds/ENV. US gov region has no /etc/pki mount.",
@@ -259,6 +272,10 @@ func testAgentContainerModificationsForServiceConnect(t *testing.T, privilegedMo
 
 	for _, tc := range testcases {
 		t.Run(tc.name, func(t *testing.T) {
+			config.SetFIPSEnabled(tc.fipsEnabled)
+			defer config.SetFIPSEnabled(false)
+			// Reset container environment to avoid pollution from previous test cases
+			tc.container.Environment = make(map[string]string)
 			hostConfig := &dockercontainer.HostConfig{}
 			scManager.containerInstanceARN = tc.containerInstanceARN
 			err := scManager.AugmentTaskContainer(scTask, tc.container, hostConfig,
