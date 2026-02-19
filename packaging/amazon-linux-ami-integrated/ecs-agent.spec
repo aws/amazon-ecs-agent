@@ -27,7 +27,7 @@
 %global ebs_csi_driver_dir /var/lib/ecs/deps/daemons/ebs-csi-driver
 
 Name:           ecs-init
-Version:        1.101.3
+Version:        1.102.0
 Release:        1%{?dist}
 License:        Apache 2.0
 Summary:        Amazon Elastic Container Service initialization application
@@ -61,6 +61,15 @@ Requires:       procps
 # statements by reading out the vendor directory:
 #
 # find ../../ecs-init/vendor -name \*.go -exec dirname {} \; | sort | uniq | sed 's,^.*ecs-init/vendor/,,; s/^/bundled(golang(/; s/$/))/;' | sed 's/^/Provides:\t/' | expand -
+Provides:       bundled(golang(github.com/Azure/go-ansiterm))
+Provides:       bundled(golang(github.com/Azure/go-ansiterm/winterm))
+Provides:       bundled(golang(github.com/Microsoft/go-winio))
+Provides:       bundled(golang(github.com/Microsoft/go-winio/internal/fs))
+Provides:       bundled(golang(github.com/Microsoft/go-winio/internal/socket))
+Provides:       bundled(golang(github.com/Microsoft/go-winio/internal/stringbuffer))
+Provides:       bundled(golang(github.com/Microsoft/go-winio/pkg/guid))
+Provides:       bundled(golang(github.com/NVIDIA/go-nvml/pkg/dl))
+Provides:       bundled(golang(github.com/NVIDIA/go-nvml/pkg/nvml))
 Provides:       bundled(golang(github.com/aws/amazon-ecs-agent/ecs-agent/awsrulesfn))
 Provides:       bundled(golang(github.com/aws/amazon-ecs-agent/ecs-agent/ipcompatibility))
 Provides:       bundled(golang(github.com/aws/amazon-ecs-agent/ecs-agent/logger))
@@ -177,8 +186,6 @@ Provides:       bundled(golang(github.com/aws/smithy-go/tracing))
 Provides:       bundled(golang(github.com/aws/smithy-go/transport/http))
 Provides:       bundled(golang(github.com/aws/smithy-go/transport/http/internal/io))
 Provides:       bundled(golang(github.com/aws/smithy-go/waiter))
-Provides:       bundled(golang(github.com/Azure/go-ansiterm))
-Provides:       bundled(golang(github.com/Azure/go-ansiterm/winterm))
 Provides:       bundled(golang(github.com/cihub/seelog))
 Provides:       bundled(golang(github.com/cihub/seelog/archive))
 Provides:       bundled(golang(github.com/cihub/seelog/archive/gzip))
@@ -228,11 +235,6 @@ Provides:       bundled(golang(github.com/klauspost/compress/internal/cpuinfo))
 Provides:       bundled(golang(github.com/klauspost/compress/internal/snapref))
 Provides:       bundled(golang(github.com/klauspost/compress/zstd))
 Provides:       bundled(golang(github.com/klauspost/compress/zstd/internal/xxhash))
-Provides:       bundled(golang(github.com/Microsoft/go-winio))
-Provides:       bundled(golang(github.com/Microsoft/go-winio/internal/fs))
-Provides:       bundled(golang(github.com/Microsoft/go-winio/internal/socket))
-Provides:       bundled(golang(github.com/Microsoft/go-winio/internal/stringbuffer))
-Provides:       bundled(golang(github.com/Microsoft/go-winio/pkg/guid))
 Provides:       bundled(golang(github.com/moby/patternmatcher))
 Provides:       bundled(golang(github.com/moby/sys/sequential))
 Provides:       bundled(golang(github.com/moby/sys/user))
@@ -240,8 +242,6 @@ Provides:       bundled(golang(github.com/moby/sys/userns))
 Provides:       bundled(golang(github.com/moby/term))
 Provides:       bundled(golang(github.com/moby/term/windows))
 Provides:       bundled(golang(github.com/morikuni/aec))
-Provides:       bundled(golang(github.com/NVIDIA/go-nvml/pkg/dl))
-Provides:       bundled(golang(github.com/NVIDIA/go-nvml/pkg/nvml))
 Provides:       bundled(golang(github.com/opencontainers/go-digest))
 Provides:       bundled(golang(github.com/opencontainers/image-spec/specs-go))
 Provides:       bundled(golang(github.com/opencontainers/image-spec/specs-go/v1))
@@ -392,6 +392,9 @@ fi
 %endif
 
 %changelog
+* Thu Feb 19 2026 Cameron Sparr <cssparr@amazon.com> - 1.102.0-1
+- Cache Agent version 1.102.0
+
 * Thu Jan 29 2026 Thean Lim <theanlim@amazon.com> - 1.101.3-1
 - Cache Agent version 1.101.3
 
