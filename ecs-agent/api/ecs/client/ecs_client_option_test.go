@@ -119,3 +119,14 @@ func TestWithAvailableMemoryProvider(t *testing.T) {
 	option(client)
 	assert.NotNil(t, client.availableMemoryProvider)
 }
+
+func TestWithNeuronCoresResourceProvider(t *testing.T) {
+	client := &ecsClient{}
+	option := WithNeuronCoresResourceProvider(func() []string {
+		return []string{"0", "1"}
+	})
+	option(client)
+	assert.NotNil(t, client.neuronCoresResourceProvider)
+	coreIDs := client.neuronCoresResourceProvider()
+	assert.Equal(t, []string{"0", "1"}, coreIDs)
+}
