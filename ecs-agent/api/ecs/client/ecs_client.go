@@ -501,6 +501,9 @@ func (client *ecsClient) getResources() ([]types.Resource, error) {
 				StringSetValue: neuronCoreIDs,
 			}
 			resources = append(resources, neuronResource)
+			logger.Debug("Neuron cores resource for ECS client", logger.Fields{
+				"neuronCoreIDs": neuronCoreIDs,
+			})
 		}
 	}
 
