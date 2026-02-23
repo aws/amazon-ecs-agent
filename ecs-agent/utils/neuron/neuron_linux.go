@@ -32,7 +32,7 @@ import (
 func DiscoverCores(rootPath string) (*NeuronCores, error) {
 	sysfsPath := filepath.Join(rootPath, "sys/class/neuron_device")
 	devPath := filepath.Join(rootPath, "dev")
-	
+
 	// Enumerate devices from sysfs
 	devicePaths, err := filepath.Glob(filepath.Join(sysfsPath, "neuron*"))
 	if err != nil {

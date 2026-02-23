@@ -56,7 +56,7 @@ func GetUniqueDevices(cores []NeuronCore) []NeuronDevice {
 	for _, core := range cores {
 		deviceMap[core.Device.ID] = core.Device
 	}
-	
+
 	devices := make([]NeuronDevice, 0, len(deviceMap))
 	for _, device := range deviceMap {
 		devices = append(devices, device)

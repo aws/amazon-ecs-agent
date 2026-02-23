@@ -27,11 +27,11 @@ import (
 func TestDiscoverCores(t *testing.T) {
 	t.Run("no devices", func(t *testing.T) {
 		tmpDir := t.TempDir()
-		
+
 		// Create empty sysfs directory
 		sysfsPath := filepath.Join(tmpDir, "sys/class/neuron_device")
 		require.NoError(t, os.MkdirAll(sysfsPath, 0755))
-		
+
 		cores, err := DiscoverCores(tmpDir)
 		assert.NoError(t, err)
 		assert.Nil(t, cores)
@@ -39,20 +39,20 @@ func TestDiscoverCores(t *testing.T) {
 
 	t.Run("single device with multiple cores", func(t *testing.T) {
 		tmpDir := t.TempDir()
-		
+
 		// Create sysfs structure
 		sysfsPath := filepath.Join(tmpDir, "sys/class/neuron_device/neuron0")
 		require.NoError(t, os.MkdirAll(sysfsPath, 0755))
 		require.NoError(t, os.WriteFile(filepath.Join(sysfsPath, "core_count"), []byte("2"), 0644))
-		
+
 		// Create device file
 		devPath := filepath.Join(tmpDir, "dev")
 		require.NoError(t, os.MkdirAll(devPath, 0755))
 		require.NoError(t, os.WriteFile(filepath.Join(devPath, "neuron0"), []byte{}, 0644))
-		
+
 		cores, err := DiscoverCores(tmpDir)
 		require.NoError(t, err)
-		
+
 		expected := &NeuronCores{
 			cores: map[string]NeuronCore{
 				"0": {ID: "0", Device: NeuronDevice{ID: "0", Path: "/dev/neuron0"}},
@@ -64,26 +64,26 @@ func TestDiscoverCores(t *testing.T) {
 
 	t.Run("multiple devices", func(t *testing.T) {
 		tmpDir := t.TempDir()
-		
+
 		// Create device 0 with 2 cores
 		sysfsPath0 := filepath.Join(tmpDir, "sys/class/neuron_device/neuron0")
 		require.NoError(t, os.MkdirAll(sysfsPath0, 0755))
 		require.NoError(t, os.WriteFile(filepath.Join(sysfsPath0, "core_count"), []byte("2"), 0644))
-		
+
 		// Create device 1 with 2 cores
 		sysfsPath1 := filepath.Join(tmpDir, "sys/class/neuron_device/neuron1")
 		require.NoError(t, os.MkdirAll(sysfsPath1, 0755))
 		require.NoError(t, os.WriteFile(filepath.Join(sysfsPath1, "core_count"), []byte("2"), 0644))
-		
+
 		// Create device files
 		devPath := filepath.Join(tmpDir, "dev")
 		require.NoError(t, os.MkdirAll(devPath, 0755))
 		require.NoError(t, os.WriteFile(filepath.Join(devPath, "neuron0"), []byte{}, 0644))
 		require.NoError(t, os.WriteFile(filepath.Join(devPath, "neuron1"), []byte{}, 0644))
-		
+
 		cores, err := DiscoverCores(tmpDir)
 		require.NoError(t, err)
-		
+
 		expected := &NeuronCores{
 			cores: map[string]NeuronCore{
 				"0": {ID: "0", Device: NeuronDevice{ID: "0", Path: "/dev/neuron0"}},
@@ -97,15 +97,15 @@ func TestDiscoverCores(t *testing.T) {
 
 	t.Run("missing device file", func(t *testing.T) {
 		tmpDir := t.TempDir()
-		
+
 		sysfsPath := filepath.Join(tmpDir, "sys/class/neuron_device/neuron0")
 		require.NoError(t, os.MkdirAll(sysfsPath, 0755))
 		require.NoError(t, os.WriteFile(filepath.Join(sysfsPath, "core_count"), []byte("2"), 0644))
-		
+
 		// Don't create device file
 		devPath := filepath.Join(tmpDir, "dev")
 		require.NoError(t, os.MkdirAll(devPath, 0755))
-		
+
 		cores, err := DiscoverCores(tmpDir)
 		assert.Error(t, err)
 		assert.Nil(t, cores)
@@ -133,15 +133,15 @@ func TestDiscoverCores(t *testing.T) {
 		for _, tc := range testCases {
 			t.Run(tc.name, func(t *testing.T) {
 				tmpDir := t.TempDir()
-				
+
 				sysfsPath := filepath.Join(tmpDir, "sys/class/neuron_device/neuron0")
 				require.NoError(t, os.MkdirAll(sysfsPath, 0755))
 				require.NoError(t, os.WriteFile(filepath.Join(sysfsPath, "core_count"), []byte(tc.coreCount), 0644))
-				
+
 				devPath := filepath.Join(tmpDir, "dev")
 				require.NoError(t, os.MkdirAll(devPath, 0755))
 				require.NoError(t, os.WriteFile(filepath.Join(devPath, "neuron0"), []byte{}, 0644))
-				
+
 				cores, err := DiscoverCores(tmpDir)
 				assert.Error(t, err)
 				assert.Nil(t, cores)
@@ -152,15 +152,15 @@ func TestDiscoverCores(t *testing.T) {
 
 	t.Run("zero cores", func(t *testing.T) {
 		tmpDir := t.TempDir()
-		
+
 		sysfsPath := filepath.Join(tmpDir, "sys/class/neuron_device/neuron0")
 		require.NoError(t, os.MkdirAll(sysfsPath, 0755))
 		require.NoError(t, os.WriteFile(filepath.Join(sysfsPath, "core_count"), []byte("0"), 0644))
-		
+
 		devPath := filepath.Join(tmpDir, "dev")
 		require.NoError(t, os.MkdirAll(devPath, 0755))
 		require.NoError(t, os.WriteFile(filepath.Join(devPath, "neuron0"), []byte{}, 0644))
-		
+
 		cores, err := DiscoverCores(tmpDir)
 		assert.NoError(t, err)
 		assert.Nil(t, cores)
@@ -170,14 +170,14 @@ func TestDiscoverCores(t *testing.T) {
 func TestGetUniqueDevices(t *testing.T) {
 	device0 := NeuronDevice{ID: "0", Path: "/dev/neuron0"}
 	device1 := NeuronDevice{ID: "1", Path: "/dev/neuron1"}
-	
+
 	cores := []NeuronCore{
 		{ID: "0", Device: device0},
 		{ID: "1", Device: device0},
 		{ID: "2", Device: device1},
 		{ID: "3", Device: device1},
 	}
-	
+
 	devices := GetUniqueDevices(cores)
 	assert.ElementsMatch(t, []NeuronDevice{device0, device1}, devices)
 }
@@ -189,7 +189,7 @@ func TestGetCoreIDs(t *testing.T) {
 		{ID: "1", Device: device},
 		{ID: "2", Device: device},
 	}
-	
+
 	coreIDs := GetCoreIDs(cores)
 	assert.Equal(t, []string{"0", "1", "2"}, coreIDs)
 }
@@ -199,12 +199,12 @@ func TestCoreIDs(t *testing.T) {
 		var nc *NeuronCores
 		assert.Nil(t, nc.CoreIDs())
 	})
-	
+
 	t.Run("empty cores", func(t *testing.T) {
 		nc := &NeuronCores{cores: make(map[string]NeuronCore)}
 		assert.Nil(t, nc.CoreIDs())
 	})
-	
+
 	t.Run("with cores", func(t *testing.T) {
 		device := NeuronDevice{ID: "0", Path: "/dev/neuron0"}
 		nc := &NeuronCores{
