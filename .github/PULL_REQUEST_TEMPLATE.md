@@ -31,6 +31,16 @@ New tests cover the changes: <!-- yes|no -->
 <!--
 Write a short (one line) summary that describes the changes in this
 pull request for inclusion in the changelog.
+
+Format: [Category] Description
+Categories: Feature, Enhancement, Bugfix, Housekeeping
+
+Examples:
+- Feature - Add support for ECS Exec
+- Enhancement - Improve error handling in task cleanup
+- Bugfix - Fixed memory leak in stats collector
+- Housekeeping - Update dependencies
+
 You can see our changelog entry style here:
 https://github.com/aws/amazon-ecs-agent/commit/c9aefebc2b3007f09468f651f6308136bd7b384f
 -->

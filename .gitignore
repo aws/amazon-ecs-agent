@@ -46,3 +46,4 @@ ecs-agent-*.tar
 .run/
 pkg/
 .vscode/
+.kiro/
