@@ -73,6 +73,7 @@ const (
 	agentModeValue = "uds"
 	envoyModeENV   = "ENVOY_ADMIN_MODE"
 	envoyModeValue = "uds"
+	fipsModeENV    = "APPNET_FIPS_MODE_ENABLED"
 
 	containerInstanceArnENV = "ECS_CONTAINER_INSTANCE_ARN"
 
@@ -279,12 +280,21 @@ func (m *manager) initAgentEnvironment(container *apicontainer.Container) {
 	if container.GetLogDriver() == "" {
 		scEnv[defaultAppnetEnvoyLogDestinationENV] = m.logPathContainer
 	}
+	fipsEnabled := config.IsFIPSEnabled()
+	if fipsEnabled {
+		scEnv[fipsModeENV] = "true"
+	}
 
 	container.MergeEnvironmentVariables(scEnv)
+	logger.Info("Service Connect agent environment variables set", logger.Fields{
+		"containerName":    container.Name,
+		"envVars":          scEnv,
+		field.ManagedAgent: "service-connect",
+	})
 }
 
-func (m *manager) initRelayEnvironment(config *config.Config, container *apicontainer.Container) {
-	endpoint := fmt.Sprintf("https://ecs-sc.%s.api.aws", config.AWSRegion)
+func (m *manager) initRelayEnvironment(cfg *config.Config, container *apicontainer.Container) {
+	endpoint := fmt.Sprintf("https://ecs-sc.%s.api.aws", cfg.AWSRegion)
 	if m.ecsClient != nil {
 		discoveredEndpoint, err := m.ecsClient.DiscoverServiceConnectEndpoint(m.containerInstanceARN)
 		if err != nil {
@@ -300,15 +310,24 @@ func (m *manager) initRelayEnvironment(config *config.Config, container *apicont
 	scEnv := map[string]string{
 		m.statusENV:                         filepath.Join(m.statusPathContainer, m.statusFileName),
 		upstreamENV:                         filepath.Join(m.relayPathContainer, m.relayFileName),
-		regionENV:                           config.AWSRegion,
+		regionENV:                           cfg.AWSRegion,
 		envoyModeENV:                        envoyModeValue,
 		agentModeENV:                        agentModeValue,
 		relayEnableENV:                      relayEnableOn,
 		m.endpointENV:                       endpoint,
 		defaultAppnetEnvoyLogDestinationENV: m.logPathContainer,
 	}
+	fipsEnabled := config.IsFIPSEnabled()
+	if fipsEnabled {
+		scEnv[fipsModeENV] = "true"
+	}
 
 	container.MergeEnvironmentVariables(scEnv)
+	logger.Info("Service Connect relay environment variables set", logger.Fields{
+		"containerName":    container.Name,
+		"envVars":          scEnv,
+		field.ManagedAgent: "service-connect",
+	})
 }
 
 func (m *manager) initServiceConnectContainerMapping(
