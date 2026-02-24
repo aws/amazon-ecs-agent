@@ -413,6 +413,7 @@ func TestCreateDaemonBridgePluginConfig(t *testing.T) {
 			expectedConfig: &ecscni.BridgeConfig{
 				CNIConfig: cniConfig,
 				Name:      BridgeInterfaceName,
+				BlockIMDS: true, // IMDS should always be blocked for daemon-bridge
 				IPAM: ecscni.IPAMConfig{
 					CNIConfig: ecscni.CNIConfig{
 						NetNSPath:      netNSPath,
@@ -435,6 +436,7 @@ func TestCreateDaemonBridgePluginConfig(t *testing.T) {
 			expectedConfig: &ecscni.BridgeConfig{
 				CNIConfig: cniConfig,
 				Name:      BridgeInterfaceName,
+				BlockIMDS: true, // IMDS should always be blocked for daemon-bridge
 				IPAM: ecscni.IPAMConfig{
 					CNIConfig: ecscni.CNIConfig{
 						NetNSPath:      netNSPath,
@@ -459,6 +461,7 @@ func TestCreateDaemonBridgePluginConfig(t *testing.T) {
 			expectedConfig: &ecscni.BridgeConfig{
 				CNIConfig: cniConfig,
 				Name:      BridgeInterfaceName,
+				BlockIMDS: true, // IMDS should always be blocked for daemon-bridge
 				IPAM: ecscni.IPAMConfig{
 					CNIConfig: ecscni.CNIConfig{
 						NetNSPath:      netNSPath,

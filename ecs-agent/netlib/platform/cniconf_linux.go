@@ -242,7 +242,13 @@ func createDaemonBridgePluginConfig(netNSPath string, ipComp ipcompatibility.IPC
 		CNIConfig: cniConfig,
 		Name:      BridgeInterfaceName,
 		IPAM:      *ipamConfig,
+		BlockIMDS: true, // Always block IMDS for daemon-bridge tasks
 	}
+
+	logger.Info("Created daemon-bridge config with IMDS blocking enabled", logger.Fields{
+		"netNSPath": netNSPath,
+		"blockIMDS": bridgeConfig.BlockIMDS,
+	})
 
 	return bridgeConfig, nil
 }

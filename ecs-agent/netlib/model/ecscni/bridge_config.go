@@ -24,6 +24,8 @@ type BridgeConfig struct {
 	Name string `json:"bridge"`
 	// IPAM is the configuration to acquire ip/route from ipam plugin
 	IPAM IPAMConfig `json:"ipam,omitempty"`
+	// BlockIMDS specifies whether to block access to instance metadata
+	BlockIMDS bool `json:"blockInstanceMetadata"`
 	// DeviceName is the name of the veth inside the namespace
 	// this was used as a parameter of the libcni, thus don't need to be marshalled
 	// in the plugin configuration
