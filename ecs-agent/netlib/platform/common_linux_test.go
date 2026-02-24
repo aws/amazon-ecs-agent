@@ -373,10 +373,16 @@ func testRegularENIConfiguration(t *testing.T) {
 	ctx := context.TODO()
 	osWrapper := mock_oswrapper.NewMockOS(ctrl)
 	cniClient := mock_ecscni2.NewMockCNI(ctrl)
+	mockNSUtil := mock_ecscni.NewMockNetNSUtil(ctrl)
+
+	// Mock daemon namespace check
+	mockNSUtil.EXPECT().GetNetNSPath("host-daemon").Return("/var/run/netns/host-daemon").AnyTimes()
+	mockNSUtil.EXPECT().NSExists("/var/run/netns/host-daemon").Return(false, nil).AnyTimes()
 
 	commonPlatform := &common{
 		os:         osWrapper,
 		cniClient:  cniClient,
+		nsUtil:     mockNSUtil,
 		stateDBDir: "dummy-db-dir",
 	}
 
@@ -384,7 +390,7 @@ func testRegularENIConfiguration(t *testing.T) {
 
 	// When the ENI is the primary ENI.
 	eniConfig := createENIPluginConfigs(netNSPath, eni)
-	bridgeConfig := createBridgePluginConfig(netNSPath)
+	bridgeConfig := commonPlatform.createBridgePluginConfig(netNSPath)
 	gomock.InOrder(
 		osWrapper.EXPECT().Setenv("ECS_CNI_LOG_FILE", ecscni.PluginLogPath).Times(1),
 		osWrapper.EXPECT().Setenv("IPAM_DB_PATH", filepath.Join(commonPlatform.stateDBDir, "eni-ipam.db")),
@@ -424,15 +430,22 @@ func testBranchENIConfiguration(t *testing.T) {
 	ctx := context.TODO()
 	osWrapper := mock_oswrapper.NewMockOS(ctrl)
 	cniClient := mock_ecscni2.NewMockCNI(ctrl)
+	mockNSUtil := mock_ecscni.NewMockNetNSUtil(ctrl)
+
+	// Mock daemon namespace check
+	mockNSUtil.EXPECT().GetNetNSPath("host-daemon").Return("/var/run/netns/host-daemon").AnyTimes()
+	mockNSUtil.EXPECT().NSExists("/var/run/netns/host-daemon").Return(false, nil).AnyTimes()
+
 	commonPlatform := &common{
 		os:         osWrapper,
 		cniClient:  cniClient,
+		nsUtil:     mockNSUtil,
 		stateDBDir: "dummy-db-dir",
 	}
 
 	branchENI := getTestBranchV4ENI()
 	branchENI.DesiredStatus = status.NetworkReadyPull
-	bridgeConfig := createBridgePluginConfig(netNSPath)
+	bridgeConfig := commonPlatform.createBridgePluginConfig(netNSPath)
 	cniConfig := createBranchENIConfig(netNSPath, branchENI, VPCBranchENIInterfaceTypeVlan, blockInstanceMetadataDefault)
 	gomock.InOrder(
 		osWrapper.EXPECT().Setenv("IPAM_DB_PATH", filepath.Join(commonPlatform.stateDBDir, "eni-ipam.db")),

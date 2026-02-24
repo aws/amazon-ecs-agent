@@ -25,10 +25,12 @@ import (
 
 	"github.com/aws/amazon-ecs-agent/ecs-agent/ipcompatibility"
 	"github.com/aws/amazon-ecs-agent/ecs-agent/netlib/model/ecscni"
+	mock_ecscni "github.com/aws/amazon-ecs-agent/ecs-agent/netlib/model/ecscni/mocks_nsutil"
 	"github.com/aws/amazon-ecs-agent/ecs-agent/netlib/model/networkinterface"
 	"github.com/aws/amazon-ecs-agent/ecs-agent/netlib/model/status"
 
 	"github.com/containernetworking/cni/pkg/types"
+	"github.com/golang/mock/gomock"
 	"github.com/stretchr/testify/require"
 )
 
@@ -43,6 +45,17 @@ const (
 )
 
 func TestCreateBridgeConfig(t *testing.T) {
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+
+	mockNSUtil := mock_ecscni.NewMockNetNSUtil(ctrl)
+	mockNSUtil.EXPECT().GetNetNSPath("host-daemon").Return("/var/run/netns/host-daemon").AnyTimes()
+	mockNSUtil.EXPECT().NSExists("/var/run/netns/host-daemon").Return(false, nil).AnyTimes()
+
+	c := &common{
+		nsUtil: mockNSUtil,
+	}
+
 	cniConfig := ecscni.CNIConfig{
 		NetNSPath:      netNSPath,
 		CNISpecVersion: cniSpecVersion,
@@ -74,7 +87,7 @@ func TestCreateBridgeConfig(t *testing.T) {
 
 	expected, err := json.Marshal(bridgeConfig)
 	require.NoError(t, err)
-	actual, err := json.Marshal(createBridgePluginConfig(netNSPath))
+	actual, err := json.Marshal(c.createBridgePluginConfig(netNSPath))
 	require.NoError(t, err)
 
 	require.Equal(t, expected, actual)
@@ -406,9 +419,12 @@ func TestCreateDaemonBridgePluginConfig(t *testing.T) {
 						CNISpecVersion: cniSpecVersion,
 						CNIPluginName:  IPAMPluginName,
 					},
-					IPV4Subnet: ECSSubNet,
-					IPV4Routes: []*types.Route{agentRoute, defaultRouteIPv4},
-					ID:         netNSPath,
+					IPV4Subnet:                  ECSSubNet,
+					IPV4Address:                 DaemonBridgeIP,
+					IPV4Gateway:                 DaemonBridgeGatewayIP,
+					IPV4Routes:                  []*types.Route{agentRoute, defaultRouteIPv4},
+					ConnectedSubnetMaskSizeIPv4: 22,
+					ID:                          netNSPath,
 				},
 			},
 			expectError: false,
@@ -425,12 +441,14 @@ func TestCreateDaemonBridgePluginConfig(t *testing.T) {
 						CNISpecVersion: cniSpecVersion,
 						CNIPluginName:  IPAMPluginName,
 					},
-					IPV4Subnet:  ECSSubNet,
-					IPV4Routes:  []*types.Route{agentRoute}, // ECS agent endpoint always included
-					IPV6Subnet:  ECSSubNetIPv6,
-					IPV6Gateway: DaemonBridgeGatewayIPv6,
-					IPV6Routes:  []*types.Route{defaultRouteIPv6},
-					ID:          netNSPath,
+					IPV4Subnet:                  ECSSubNet,
+					IPV4Routes:                  []*types.Route{agentRoute}, // ECS agent endpoint always included
+					IPV6Subnet:                  ECSSubNetIPv6,
+					IPV6Address:                 DaemonBridgeIPv6,
+					IPV6Gateway:                 DaemonBridgeGatewayIPv6,
+					IPV6Routes:                  []*types.Route{defaultRouteIPv6},
+					ConnectedSubnetMaskSizeIPv6: 112,
+					ID:                          netNSPath,
 				},
 			},
 			expectError: false,
@@ -447,12 +465,17 @@ func TestCreateDaemonBridgePluginConfig(t *testing.T) {
 						CNISpecVersion: cniSpecVersion,
 						CNIPluginName:  IPAMPluginName,
 					},
-					IPV4Subnet:  ECSSubNet,
-					IPV4Routes:  []*types.Route{agentRoute, defaultRouteIPv4},
-					IPV6Subnet:  ECSSubNetIPv6,
-					IPV6Gateway: DaemonBridgeGatewayIPv6,
-					IPV6Routes:  []*types.Route{defaultRouteIPv6},
-					ID:          netNSPath,
+					IPV4Subnet:                  ECSSubNet,
+					IPV4Address:                 DaemonBridgeIP,
+					IPV4Gateway:                 DaemonBridgeGatewayIP,
+					IPV4Routes:                  []*types.Route{agentRoute, defaultRouteIPv4},
+					IPV6Subnet:                  ECSSubNetIPv6,
+					IPV6Address:                 DaemonBridgeIPv6,
+					IPV6Gateway:                 DaemonBridgeGatewayIPv6,
+					IPV6Routes:                  []*types.Route{defaultRouteIPv6},
+					ConnectedSubnetMaskSizeIPv4: 22,
+					ConnectedSubnetMaskSizeIPv6: 112,
+					ID:                          netNSPath,
 				},
 			},
 			expectError: false,

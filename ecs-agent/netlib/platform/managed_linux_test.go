@@ -70,7 +70,7 @@ func testManagedLinuxRegularENIConfiguration(t *testing.T) {
 
 	// When the ENI is the primary ENI.
 	eniConfig := createENIPluginConfigs(netNSPath, eni)
-	bridgeConfig := createBridgePluginConfig(netNSPath)
+	bridgeConfig := managedLinuxPlatform.createBridgePluginConfig(netNSPath)
 	gomock.InOrder(
 		osWrapper.EXPECT().Setenv("ECS_CNI_LOG_FILE", ecscni.PluginLogPath).Times(1),
 		osWrapper.EXPECT().Setenv("IPAM_DB_PATH", filepath.Join(managedLinuxPlatform.stateDBDir, "eni-ipam.db")),
@@ -112,7 +112,7 @@ func testManagedLinuxBranchENIConfiguration(t *testing.T) {
 	ctx, osWrapper, cniClient, eni, managedLinuxPlatform := setupManagedLinuxTestConfigureInterface(ctrl, getTestBranchV4ENI)
 
 	eni.DesiredStatus = status.NetworkReadyPull
-	bridgeConfig := createBridgePluginConfig(netNSPath)
+	bridgeConfig := managedLinuxPlatform.createBridgePluginConfig(netNSPath)
 	cniConfig := createBranchENIConfig(netNSPath, eni, VPCBranchENIInterfaceTypeVlan, blockInstanceMetadataDefault)
 	gomock.InOrder(
 		osWrapper.EXPECT().Setenv("IPAM_DB_PATH", filepath.Join(managedLinuxPlatform.stateDBDir, "eni-ipam.db")),
@@ -336,11 +336,18 @@ func setupManagedLinuxTestConfigureInterface(
 	ctx := context.TODO()
 	osWrapper := mock_oswrapper.NewMockOS(ctrl)
 	cniClient := mock_ecscni2.NewMockCNI(ctrl)
+	mockNSUtil := mock_ecscni.NewMockNetNSUtil(ctrl)
+
+	// Mock daemon namespace check
+	mockNSUtil.EXPECT().GetNetNSPath("host-daemon").Return("/var/run/netns/host-daemon").AnyTimes()
+	mockNSUtil.EXPECT().NSExists("/var/run/netns/host-daemon").Return(false, nil).AnyTimes()
+
 	eni := getTestENI()
 	managedLinuxPlatform := &managedLinux{
 		common: common{
 			os:         osWrapper,
 			cniClient:  cniClient,
+			nsUtil:     mockNSUtil,
 			stateDBDir: "dummy-db-dir",
 		},
 		client: nil,

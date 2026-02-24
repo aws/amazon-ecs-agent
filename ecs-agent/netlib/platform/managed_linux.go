@@ -190,13 +190,13 @@ func (m *managedLinux) configureRegularENI(ctx context.Context, netNSPath string
 	case status.NetworkReadyPull:
 		// The task metadata interface setup by bridge plugin is required only for the primary ENI.
 		if eni.IsPrimary() {
-			cniNetConf = append(cniNetConf, createBridgePluginConfig(netNSPath))
+			cniNetConf = append(cniNetConf, m.createBridgePluginConfig(netNSPath))
 		}
 		cniNetConf = append(cniNetConf, createENIPluginConfigs(netNSPath, eni))
 		add = true
 	case status.NetworkDeleted:
 		if eni.IsPrimary() {
-			cniNetConf = append(cniNetConf, createBridgePluginConfig(netNSPath))
+			cniNetConf = append(cniNetConf, m.createBridgePluginConfig(netNSPath))
 		}
 		cniNetConf = append(cniNetConf, createENIPluginConfigs(netNSPath, eni))
 		add = false
@@ -230,13 +230,13 @@ func (m *managedLinux) configureBranchENI(ctx context.Context, netNSPath string,
 	case status.NetworkReadyPull:
 		// Setup bridge to connect task network namespace to TMDS running in host's primary netns.
 		if eni.IsPrimary() {
-			cniNetConf = append(cniNetConf, createBridgePluginConfig(netNSPath))
+			cniNetConf = append(cniNetConf, m.createBridgePluginConfig(netNSPath))
 		}
 		// We block IMDS access in awsvpc tasks.
 		cniNetConf = append(cniNetConf, createBranchENIConfig(netNSPath, eni, VPCBranchENIInterfaceTypeVlan, blockInstanceMetadataDefault))
 	case status.NetworkDeleted:
 		if eni.IsPrimary() {
-			cniNetConf = append(cniNetConf, createBridgePluginConfig(netNSPath))
+			cniNetConf = append(cniNetConf, m.createBridgePluginConfig(netNSPath))
 		}
 		cniNetConf = append(cniNetConf, createBranchENIConfig(netNSPath, eni, VPCBranchENIInterfaceTypeVlan, blockInstanceMetadataDefault))
 		add = false
@@ -522,6 +522,10 @@ func (m *managedLinux) configureDaemonNetNS(ctx context.Context, taskID string, 
 		if !m.isDaemonNamespaceConfigured(netNS.Path) {
 			// Determine IP compatibility from the primary network interface
 			ipComp := m.getIPCompatibilityFromNetNS(netNS)
+
+			// Set environment variables for CNI plugins
+			m.common.os.Setenv(CNIPluginLogFileEnv, ecscni.PluginLogPath)
+			m.common.os.Setenv(IPAMDataPathEnv, filepath.Join(m.common.stateDBDir, IPAMDataFileName))
 
 			// Create daemon bridge config with IP compatibility
 			bridgeConfig, err := createDaemonBridgePluginConfig(netNS.Path, ipComp)
