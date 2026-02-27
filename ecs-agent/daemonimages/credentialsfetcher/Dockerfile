@@ -26,4 +26,4 @@ RUN mkdir -p /var/scratch
 
 RUN cp /usr/sbin/krb5.conf /etc/krb5.conf
 
-CMD ["/usr/sbin/credentials-fetcherd"]
+CMD ["/usr/sbin/credentials-fetcher"]
