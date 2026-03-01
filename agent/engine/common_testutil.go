@@ -248,7 +248,7 @@ func validateContainerRunWorkflow(t *testing.T,
 }
 
 // checkDockerConfigsExceptEnv checks whether the contents in the docker config are expected
-// except for the Env field. Checking for Env field is seperated because when agent converts
+// except for the Env field. Checking for Env field is separated because when agent converts
 // its container config to docker config, it iterates over the container's env map and
 // append them into docker config's env slice. So the sequence for the env slice is undetermined,
 // and it needs other logic to check equality.
