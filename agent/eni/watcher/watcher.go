@@ -157,13 +157,9 @@ func (eniWatcher *ENIWatcher) sendENIStateChange(mac string) error {
 // attached
 func (eniWatcher *ENIWatcher) emitTaskENIAttachedEvent(eni *ni.ENIAttachment) {
 	eni.Status = attachment.AttachmentAttached
-	logger.Info("ENI Watcher: emitting task ENI attached event", logger.Fields{
-		"primaryMAC":     eniWatcher.primaryMAC,
-		field.TaskARN:    eni.TaskARN,
-		"attachmentARN":  eni.AttachmentARN,
-		"macAddress":     eni.MACAddress,
-		"attachmentType": eni.AttachmentType,
-	})
+	eniFields := eni.Fields()
+	eniFields["primaryMAC"] = eniWatcher.primaryMAC
+	logger.Info("ENI Watcher: emitting task ENI attached event", eniFields)
 	eniWatcher.eniChangeEvent <- api.TaskStateChange{
 		TaskARN:    eni.TaskARN,
 		Attachment: eni,
@@ -174,12 +170,9 @@ func (eniWatcher *ENIWatcher) emitTaskENIAttachedEvent(eni *ni.ENIAttachment) {
 // status as attached
 func (eniWatcher *ENIWatcher) emitInstanceENIAttachedEvent(eni *ni.ENIAttachment) {
 	eni.Status = attachment.AttachmentAttached
-	logger.Info("ENI Watcher: emitting instance ENI attached event", logger.Fields{
-		"primaryMAC":     eniWatcher.primaryMAC,
-		"attachmentARN":  eni.AttachmentARN,
-		"macAddress":     eni.MACAddress,
-		"attachmentType": eni.AttachmentType,
-	})
+	eniFields := eni.Fields()
+	eniFields["primaryMAC"] = eniWatcher.primaryMAC
+	logger.Info("ENI Watcher: emitting instance ENI attached event", eniFields)
 	eniWatcher.eniChangeEvent <- api.NewAttachmentStateChangeEvent(eni)
 }
 
