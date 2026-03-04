@@ -170,33 +170,33 @@ COVERPKG_EXCLUDE = grep -v -e '/mock' -e '/version/gen$$' | tr '\n' ','
 test: test-ebs-csi
 	cd agent && GO111MODULE=on ${GOTEST} ${VERBOSE} -tags unit -mod vendor \
 		-coverprofile ../cover.out \
-		-coverpkg=$$(go list -mod vendor -tags unit ./... | ${COVERPKG_EXCLUDE}) \
 		-timeout=120s ./... && cd ..
-	go tool cover -func cover.out > coverprofile.out
+	cd agent && go tool cover -func ../cover.out > ../coverprofile.out && cd ..
 	cd ecs-agent && GO111MODULE=on ${GOTEST} ${VERBOSE} -tags unit -mod vendor \
 		-coverprofile ../cover.out \
 		-coverpkg=$$(go list -mod vendor -tags unit ./... | ${COVERPKG_EXCLUDE}) \
 		-timeout=120s ./... && cd ..
-	go tool cover -func cover.out > coverprofile-ecs-agent.out
+	cd ecs-agent && go tool cover -func ../cover.out > ../coverprofile-ecs-agent.out && cd ..
 
 test-init:
-	go test -count=1 -short -v \
-		-coverprofile cover.out \
-		-coverpkg=$$(go list ./ecs-init/... | ${COVERPKG_EXCLUDE}) \
-		./ecs-init/...
-	go tool cover -func cover.out > coverprofile-init.out
+	# Limit -coverpkg to packages with tests to avoid inflating the denominator with untested packages.
+	# TODO: Add unit tests for packages missing coverage instead of excluding them.
+	cd ecs-init && go test -count=1 -short -v \
+		-coverprofile ../cover.out \
+		-coverpkg=$$(go list -f '{{if .TestGoFiles}}{{.ImportPath}}{{end}}' ./... | ${COVERPKG_EXCLUDE}) \
+		./... && cd ..
+	cd ecs-init && go tool cover -func ../cover.out > ../coverprofile-init.out && cd ..
 
 test-silent: test-ebs-csi
 	cd agent && GO111MODULE=on ${GOTEST} -tags unit -mod vendor \
 		-coverprofile ../cover.out \
-		-coverpkg=$$(go list -mod vendor -tags unit ./... | ${COVERPKG_EXCLUDE}) \
 		-timeout=120s ./... && cd ..
-	go tool cover -func cover.out > coverprofile.out
+	cd agent && go tool cover -func ../cover.out > ../coverprofile.out && cd ..
 	cd ecs-agent && GO111MODULE=on ${GOTEST} -tags unit -mod vendor \
 		-coverprofile ../cover.out \
 		-coverpkg=$$(go list -mod vendor -tags unit ./... | ${COVERPKG_EXCLUDE}) \
 		-timeout=120s ./... && cd ..
-	go tool cover -func cover.out > coverprofile-ecs-agent.out
+	cd ecs-agent && go tool cover -func ../cover.out > ../coverprofile-ecs-agent.out && cd ..
 
 .PHONY: analyze-cover-profile
 analyze-cover-profile: coverprofile.out coverprofile-ecs-agent.out
