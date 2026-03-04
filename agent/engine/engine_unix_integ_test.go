@@ -1095,8 +1095,8 @@ func TestInitOOMEvent(t *testing.T) {
 	testTask := CreateTestTask("oomtest")
 	testTask.Containers[0].Memory = 20
 	testTask.Containers[0].Image = testBusyboxImage
-	testTask.Containers[0].Command = []string{"sh", "-c", `x="a"; while true; do x=$x$x$x; done`}
-	// should cause sh to get oomkilled as pid 1
+	// tail /dev/zero continuously reads and buffers zeros, triggering OOM killer
+	testTask.Containers[0].Command = []string{"sh", "-c", "tail /dev/zero"}
 
 	go taskEngine.AddTask(testTask)
 
@@ -1130,6 +1130,14 @@ func TestInitOOMEvent(t *testing.T) {
 	}
 	if !strings.HasPrefix(contEvent.Reason, dockerapi.OutOfMemoryError{}.ErrorName()) {
 		t.Errorf("Expected reason to have OOM error, was: %v", contEvent.Reason)
+		t.Errorf("Container event details - ExitCode: %v, Reason: %q, Status: %s",
+			contEvent.ExitCode, contEvent.Reason, contEvent.Status.String())
+		if contEvent.Container != nil {
+			t.Errorf("Container state - KnownStatus: %s, DesiredStatus: %s, ApplyingError: %v",
+				contEvent.Container.GetKnownStatus().String(),
+				contEvent.Container.GetDesiredStatus().String(),
+				contEvent.Container.ApplyingError)
+		}
 	}
 }
 
