@@ -1,4 +1,5 @@
 // Copyright 2015 Amazon.com, Inc. or its affiliates. All Rights Reserved.
+// Copyright 2015 Amazon.com, Inc. or its affiliates. All Rights Reserved.
 //
 // Licensed under the Apache License, Version 2.0 (the "License"). You may
 // not use this file except in compliance with the License. A copy of the
@@ -24,10 +25,9 @@ import (
 	"github.com/aws/amazon-ecs-agent/ecs-init/apparmor"
 	"github.com/aws/amazon-ecs-agent/ecs-init/cache"
 	"github.com/aws/amazon-ecs-agent/ecs-init/gpu"
+	ctrdapparmor "github.com/containerd/containerd/pkg/apparmor"
 	"github.com/golang/mock/gomock"
 	"github.com/stretchr/testify/assert"
-
-	ctrdapparmor "github.com/containerd/containerd/pkg/apparmor"
 )
 
 // getDockerClientMock backs up getDockerClient package-level function and replaces it with the mock passed as
@@ -43,20 +43,18 @@ func getDockerClientMock(mockDocker dockerClient) func() {
 	}
 }
 
-// disableAppArmorForTest stubs out the AppArmor host check so tests don't
+// mockAppArmorForTest stubs out the AppArmor host check so tests don't
 // depend on the host having /sys/kernel/security/apparmor/profiles accessible.
-func disableAppArmorForTest() func() {
-	origHostSupports := hostSupports
-	origLoadDefaultProfile := loadDefaultProfile
+func mockAppArmorForTest() func() {
 	hostSupports = func() bool { return false }
 	return func() {
-		hostSupports = origHostSupports
-		loadDefaultProfile = origLoadDefaultProfile
+		hostSupports = ctrdapparmor.HostSupports
+		loadDefaultProfile = apparmor.LoadDefaultProfile
 	}
 }
 
 func TestPreStartImageAlreadyCachedAndLoaded(t *testing.T) {
-	defer disableAppArmorForTest()()
+	defer mockAppArmorForTest()()
 	mockCtrl := gomock.NewController(t)
 	defer mockCtrl.Finish()
 
@@ -93,7 +91,7 @@ func TestPreStartImageAlreadyCachedAndLoaded(t *testing.T) {
 }
 
 func TestPreStartReloadNeeded(t *testing.T) {
-	defer disableAppArmorForTest()()
+	defer mockAppArmorForTest()()
 	mockCtrl := gomock.NewController(t)
 	defer mockCtrl.Finish()
 
@@ -135,7 +133,7 @@ func TestPreStartReloadNeeded(t *testing.T) {
 }
 
 func TestPreStartImageNotLoadedCached(t *testing.T) {
-	defer disableAppArmorForTest()()
+	defer mockAppArmorForTest()()
 	mockCtrl := gomock.NewController(t)
 	defer mockCtrl.Finish()
 
@@ -174,7 +172,7 @@ func TestPreStartImageNotLoadedCached(t *testing.T) {
 }
 
 func TestPreStartImageNotCached(t *testing.T) {
-	defer disableAppArmorForTest()()
+	defer mockAppArmorForTest()()
 	mockCtrl := gomock.NewController(t)
 	defer mockCtrl.Finish()
 
@@ -215,7 +213,7 @@ func TestPreStartImageNotCached(t *testing.T) {
 }
 
 func TestPreStartGPUSetupSuccessful(t *testing.T) {
-	defer disableAppArmorForTest()()
+	defer mockAppArmorForTest()()
 	mockCtrl := gomock.NewController(t)
 	defer mockCtrl.Finish()
 
@@ -510,7 +508,7 @@ func TestReloadCacheCached(t *testing.T) {
 }
 
 func TestPrestartLoopbackRoutingNotEnabled(t *testing.T) {
-	defer disableAppArmorForTest()()
+	defer mockAppArmorForTest()()
 	mockCtrl := gomock.NewController(t)
 	defer mockCtrl.Finish()
 
@@ -535,7 +533,7 @@ func TestPrestartLoopbackRoutingNotEnabled(t *testing.T) {
 }
 
 func TestPrestartCredentialsProxyRouteNotCreated(t *testing.T) {
-	defer disableAppArmorForTest()()
+	defer mockAppArmorForTest()()
 	mockCtrl := gomock.NewController(t)
 	defer mockCtrl.Finish()
 
@@ -567,7 +565,7 @@ func TestPrestartCredentialsProxyRouteNotCreated(t *testing.T) {
 }
 
 func TestPrestartTMDSIpv6OnlyRouteNotCreated(t *testing.T) {
-	defer disableAppArmorForTest()()
+	defer mockAppArmorForTest()()
 	mockCtrl := gomock.NewController(t)
 	defer mockCtrl.Finish()
 
@@ -709,10 +707,7 @@ func TestPreStartAppArmorSetup(t *testing.T) {
 			expectedError:    errors.New("error loading apparmor profile"),
 		},
 	}
-	defer func() {
-		hostSupports = ctrdapparmor.HostSupports
-		loadDefaultProfile = apparmor.LoadDefaultProfile
-	}()
+	defer mockAppArmorForTest()()
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
 			hostSupports = func() bool {
