@@ -1,12 +1,16 @@
 # Packages in the ecs-init module that are allowed to have no unit tests.
 # These are interfaces, type definitions, generated code, main entrypoints,
 # or thin OS wrappers with no testable logic.
+# cache and engine have test files behind build tags (//go:build test, //go:build unit)
+# that are not used by test-init, so they effectively have no tests in this context.
 #
 # If coverage CI fails because a new package has no tests, either:
 # 1. Add unit tests for the package (preferred), or
 # 2. Add it here with justification if it has no testable logic.
 /ecs-init$
+/cache$
 /cmd$
+/engine$
 /exec$
 /version$
 /volumes/amazon-ecs-volume-plugin$
