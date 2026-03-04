@@ -166,9 +166,12 @@ test-ebs-csi:
 # Go's coverage redesign (default since Go 1.22+) instruments all packages in the module,
 # diluting coverage % by including mock/generated/untested packages in the denominator.
 # COVERPKG_EXCLUDE removes mock and generated packages.
-# The notest-packages.txt allowlists in scripts/coverfilters/ define packages permitted to have
-# no tests. New packages without tests will inflate the denominator and fail CI, forcing
-# developers to either add tests or explicitly allowlist the package with justification.
+# The notest-packages.txt allowlists in scripts/coverfilters/ define packages permitted
+# to have no tests (interfaces, type definitions, generated code, main entrypoints, or
+# thin OS wrappers with no testable logic). New packages without tests will inflate the
+# denominator and fail CI, forcing developers to either:
+# 1. Add unit tests for the package (preferred), or
+# 2. Add it to the allowlist with a justification in the PR.
 # TODO: Add unit tests for allowlisted packages with real logic, such as
 # agent/eni/pause, ecs-agent/awsrulesfn, ecs-agent/metrics, ecs-agent/utils/httpproxy.
 COVERPKG_EXCLUDE = grep -v -e '/mock' -e '/version/gen$$' | tr '\n' ','

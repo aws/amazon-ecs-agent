@@ -1,6 +1,3 @@
-//go:build unit
-// +build unit
-
 // Copyright 2015 Amazon.com, Inc. or its affiliates. All Rights Reserved.
 //
 // Licensed under the Apache License, Version 2.0 (the "License"). You may
@@ -46,7 +43,20 @@ func getDockerClientMock(mockDocker dockerClient) func() {
 	}
 }
 
+// disableAppArmorForTest stubs out the AppArmor host check so tests don't
+// depend on the host having /sys/kernel/security/apparmor/profiles accessible.
+func disableAppArmorForTest() func() {
+	origHostSupports := hostSupports
+	origLoadDefaultProfile := loadDefaultProfile
+	hostSupports = func() bool { return false }
+	return func() {
+		hostSupports = origHostSupports
+		loadDefaultProfile = origLoadDefaultProfile
+	}
+}
+
 func TestPreStartImageAlreadyCachedAndLoaded(t *testing.T) {
+	defer disableAppArmorForTest()()
 	mockCtrl := gomock.NewController(t)
 	defer mockCtrl.Finish()
 
@@ -83,6 +93,7 @@ func TestPreStartImageAlreadyCachedAndLoaded(t *testing.T) {
 }
 
 func TestPreStartReloadNeeded(t *testing.T) {
+	defer disableAppArmorForTest()()
 	mockCtrl := gomock.NewController(t)
 	defer mockCtrl.Finish()
 
@@ -124,6 +135,7 @@ func TestPreStartReloadNeeded(t *testing.T) {
 }
 
 func TestPreStartImageNotLoadedCached(t *testing.T) {
+	defer disableAppArmorForTest()()
 	mockCtrl := gomock.NewController(t)
 	defer mockCtrl.Finish()
 
@@ -162,6 +174,7 @@ func TestPreStartImageNotLoadedCached(t *testing.T) {
 }
 
 func TestPreStartImageNotCached(t *testing.T) {
+	defer disableAppArmorForTest()()
 	mockCtrl := gomock.NewController(t)
 	defer mockCtrl.Finish()
 
@@ -202,6 +215,7 @@ func TestPreStartImageNotCached(t *testing.T) {
 }
 
 func TestPreStartGPUSetupSuccessful(t *testing.T) {
+	defer disableAppArmorForTest()()
 	mockCtrl := gomock.NewController(t)
 	defer mockCtrl.Finish()
 
@@ -496,6 +510,7 @@ func TestReloadCacheCached(t *testing.T) {
 }
 
 func TestPrestartLoopbackRoutingNotEnabled(t *testing.T) {
+	defer disableAppArmorForTest()()
 	mockCtrl := gomock.NewController(t)
 	defer mockCtrl.Finish()
 
@@ -520,6 +535,7 @@ func TestPrestartLoopbackRoutingNotEnabled(t *testing.T) {
 }
 
 func TestPrestartCredentialsProxyRouteNotCreated(t *testing.T) {
+	defer disableAppArmorForTest()()
 	mockCtrl := gomock.NewController(t)
 	defer mockCtrl.Finish()
 
@@ -551,6 +567,7 @@ func TestPrestartCredentialsProxyRouteNotCreated(t *testing.T) {
 }
 
 func TestPrestartTMDSIpv6OnlyRouteNotCreated(t *testing.T) {
+	defer disableAppArmorForTest()()
 	mockCtrl := gomock.NewController(t)
 	defer mockCtrl.Finish()
 
