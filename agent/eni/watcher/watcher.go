@@ -20,8 +20,9 @@ import (
 
 	"github.com/aws/amazon-ecs-agent/agent/engine/dockerstate"
 	"github.com/aws/amazon-ecs-agent/agent/statechange"
+	"github.com/aws/amazon-ecs-agent/ecs-agent/logger"
+	"github.com/aws/amazon-ecs-agent/ecs-agent/logger/field"
 
-	log "github.com/cihub/seelog"
 	"github.com/pkg/errors"
 
 	"github.com/aws/amazon-ecs-agent/agent/api"
@@ -108,7 +109,10 @@ func (eniWatcher *ENIWatcher) performPeriodicReconciliation(updateInterval time.
 		select {
 		case <-eniWatcher.updateIntervalTicker.C:
 			if err := eniWatcher.reconcileOnce(false); err != nil {
-				log.Warnf("ENI watcher reconciliation failed: %v", err)
+				logger.Warn("ENI Watcher: reconciliation failed", logger.Fields{
+					"primaryMAC": eniWatcher.primaryMAC,
+					field.Error:  err,
+				})
 			}
 		case <-eniWatcher.ctx.Done():
 			eniWatcher.updateIntervalTicker.Stop()
@@ -153,7 +157,13 @@ func (eniWatcher *ENIWatcher) sendENIStateChange(mac string) error {
 // attached
 func (eniWatcher *ENIWatcher) emitTaskENIAttachedEvent(eni *ni.ENIAttachment) {
 	eni.Status = attachment.AttachmentAttached
-	log.Infof("Emitting task ENI attached event for: %s", eni.String())
+	logger.Info("ENI Watcher: emitting task ENI attached event", logger.Fields{
+		"primaryMAC":     eniWatcher.primaryMAC,
+		field.TaskARN:    eni.TaskARN,
+		"attachmentARN":  eni.AttachmentARN,
+		"macAddress":     eni.MACAddress,
+		"attachmentType": eni.AttachmentType,
+	})
 	eniWatcher.eniChangeEvent <- api.TaskStateChange{
 		TaskARN:    eni.TaskARN,
 		Attachment: eni,
@@ -164,7 +174,12 @@ func (eniWatcher *ENIWatcher) emitTaskENIAttachedEvent(eni *ni.ENIAttachment) {
 // status as attached
 func (eniWatcher *ENIWatcher) emitInstanceENIAttachedEvent(eni *ni.ENIAttachment) {
 	eni.Status = attachment.AttachmentAttached
-	log.Infof("Emitting instance ENI attached event for: %s", eni.String())
+	logger.Info("ENI Watcher: emitting instance ENI attached event", logger.Fields{
+		"primaryMAC":     eniWatcher.primaryMAC,
+		"attachmentARN":  eni.AttachmentARN,
+		"macAddress":     eni.MACAddress,
+		"attachmentType": eni.AttachmentType,
+	})
 	eniWatcher.eniChangeEvent <- api.NewAttachmentStateChangeEvent(eni)
 }
 
@@ -187,13 +202,20 @@ func (eniWatcher *ENIWatcher) sendENIStateChangeWithRetries(parentCtx context.Co
 				// This can happen in two scenarios: (1) the ENI is indeed not managed by ECS (i.e. attached manually
 				// by customer); (2) this is an ENI attached by ECS but we have not yet received its information from
 				// ACS.
-				log.Debugf("Not sending state change because we don't know about the ENI: %v", sendErr)
+				logger.Debug("ENI Watcher: MAC not found in agent state, waiting for ACS attachment message", logger.Fields{
+					"primaryMAC": eniWatcher.primaryMAC,
+					"macAddress": macAddress,
+				})
 				return sendErr
 			}
 			// Not unmanagedENIError. Stop retrying when this happens
 			return apierrors.NewRetriableError(apierrors.NewRetriable(false), sendErr)
 		}
 
+		logger.Info("ENI Watcher: found ENI attachment in agent state", logger.Fields{
+			"primaryMAC": eniWatcher.primaryMAC,
+			"macAddress": macAddress,
+		})
 		return nil
 	})
 
