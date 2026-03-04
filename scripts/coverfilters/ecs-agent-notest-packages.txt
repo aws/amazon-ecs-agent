@@ -1,0 +1,39 @@
+# Packages in the ecs-agent module that are allowed to have no unit tests.
+# These are interfaces, type definitions, generated code, thin OS wrappers,
+# or test utilities with no testable logic.
+#
+# If coverage CI fails because a new package has no tests, either:
+# 1. Add unit tests for the package (preferred), or
+# 2. Add it here with justification if it has no testable logic.
+/ecs-agent$
+/acs/model$
+/acs/model/ecsacs$
+/acs/session/testconst$
+/awsrulesfn$
+/config$
+/ec2/http$
+/gmsacredclient/credentialsfetcher$
+/gogenerate$
+/logger/audit$
+/logger/audit/request$
+/logger/field$
+/metrics$
+/netlib/data$
+/netlib/model/serviceconnect$
+/stats$
+/tcs/model$
+/tmds/handlers/response$
+/tmds/handlers/taskprotection/v1/types$
+/tmds/handlers/v1$
+/tmds/handlers/v2$
+/utils/arn$
+/utils/cipher$
+/utils/execwrapper$
+/utils/httpproxy$
+/utils/ioutilwrapper$
+/utils/netlinkwrapper$
+/utils/netwrapper$
+/utils/oswrapper$
+/utils/ttime$
+/volume$
+/wsclient/wsconn$

@@ -162,39 +162,45 @@ endif
 test-ebs-csi:
 	make -C ./ecs-agent/daemonimages/csidriver test
 
-# Filter out mocks and generated code from coverage measurement.
-# Go's coverage redesign (default since Go 1.22+) dilutes coverage % by including
-# these packages. This filter is piped after 'go list' to build the -coverpkg argument.
+# Filter out packages that should not count toward coverage measurement.
+# Go's coverage redesign (default since Go 1.22+) instruments all packages in the module,
+# diluting coverage % by including mock/generated/untested packages in the denominator.
+# COVERPKG_EXCLUDE removes mock and generated packages.
+# The notest-packages.txt allowlists in scripts/coverfilters/ define packages permitted to have
+# no tests. New packages without tests will inflate the denominator and fail CI, forcing
+# developers to either add tests or explicitly allowlist the package with justification.
+# TODO: Add unit tests for allowlisted packages with real logic, such as
+# agent/eni/pause, ecs-agent/awsrulesfn, ecs-agent/metrics, ecs-agent/utils/httpproxy.
 COVERPKG_EXCLUDE = grep -v -e '/mock' -e '/version/gen$$' | tr '\n' ','
 
 test: test-ebs-csi
 	cd agent && GO111MODULE=on ${GOTEST} ${VERBOSE} -tags unit -mod vendor \
 		-coverprofile ../cover.out \
+		-coverpkg=$$(go list -mod vendor -tags unit ./... | grep -v -f ../scripts/coverfilters/agent-notest-packages.txt | ${COVERPKG_EXCLUDE}) \
 		-timeout=120s ./... && cd ..
 	cd agent && go tool cover -func ../cover.out > ../coverprofile.out && cd ..
 	cd ecs-agent && GO111MODULE=on ${GOTEST} ${VERBOSE} -tags unit -mod vendor \
 		-coverprofile ../cover.out \
-		-coverpkg=$$(go list -mod vendor -tags unit ./... | ${COVERPKG_EXCLUDE}) \
+		-coverpkg=$$(go list -mod vendor -tags unit ./... | grep -v -f ../scripts/coverfilters/ecs-agent-notest-packages.txt | ${COVERPKG_EXCLUDE}) \
 		-timeout=120s ./... && cd ..
 	cd ecs-agent && go tool cover -func ../cover.out > ../coverprofile-ecs-agent.out && cd ..
 
 test-init:
-	# Limit -coverpkg to packages with tests to avoid inflating the denominator with untested packages.
-	# TODO: Add unit tests for packages missing coverage instead of excluding them.
 	cd ecs-init && go test -count=1 -short -v \
 		-coverprofile ../cover.out \
-		-coverpkg=$$(go list -f '{{if .TestGoFiles}}{{.ImportPath}}{{end}}' ./... | ${COVERPKG_EXCLUDE}) \
+		-coverpkg=$$(go list ./... | grep -v -f ../scripts/coverfilters/ecs-init-notest-packages.txt | ${COVERPKG_EXCLUDE}) \
 		./... && cd ..
 	cd ecs-init && go tool cover -func ../cover.out > ../coverprofile-init.out && cd ..
 
 test-silent: test-ebs-csi
 	cd agent && GO111MODULE=on ${GOTEST} -tags unit -mod vendor \
 		-coverprofile ../cover.out \
+		-coverpkg=$$(go list -mod vendor -tags unit ./... | grep -v -f ../scripts/coverfilters/agent-notest-packages.txt | ${COVERPKG_EXCLUDE}) \
 		-timeout=120s ./... && cd ..
 	cd agent && go tool cover -func ../cover.out > ../coverprofile.out && cd ..
 	cd ecs-agent && GO111MODULE=on ${GOTEST} -tags unit -mod vendor \
 		-coverprofile ../cover.out \
-		-coverpkg=$$(go list -mod vendor -tags unit ./... | ${COVERPKG_EXCLUDE}) \
+		-coverpkg=$$(go list -mod vendor -tags unit ./... | grep -v -f ../scripts/coverfilters/ecs-agent-notest-packages.txt | ${COVERPKG_EXCLUDE}) \
 		-timeout=120s ./... && cd ..
 	cd ecs-agent && go tool cover -func ../cover.out > ../coverprofile-ecs-agent.out && cd ..
 

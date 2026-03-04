@@ -1,0 +1,37 @@
+# Packages in the agent module that are allowed to have no unit tests.
+# These are interfaces, type definitions, generated code, thin OS wrappers,
+# or test utilities with no testable logic.
+#
+# If coverage CI fails because a new package has no tests, either:
+# 1. Add unit tests for the package (preferred), or
+# 2. Add it here with justification if it has no testable logic.
+/agent$
+/app/args$
+/app/factory$
+/asm/factory$
+/data/models$
+/dockerclient/sdkclient$
+/engine/image$
+/engine/testdata$
+/engine/testutils$
+/eni/netwrapper$
+/eni/pause$
+/eni/udevwrapper$
+/fsx/factory$
+/handlers/utils$
+/sighandlers/exitcodes$
+/ssm/factory$
+/statechange$
+/statemanager/dependencies$
+/stats/resolver$
+/taskresource$
+/taskresource/cgroup/control/factory$
+/taskresource/status$
+/utils/bufiowrapper$
+/utils/ioutilwrapper$
+/utils/mobypkgwrapper$
+/utils/nswrapper$
+/utils/oswrapper$
+/utils/test/ec2util$
+/version$
+/version/gen$
