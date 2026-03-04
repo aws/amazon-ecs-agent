@@ -162,20 +162,40 @@ endif
 test-ebs-csi:
 	make -C ./ecs-agent/daemonimages/csidriver test
 
+# Filter out mocks and generated code from coverage measurement.
+# Go's coverage redesign (default since Go 1.22+) dilutes coverage % by including
+# these packages. This filter is piped after 'go list' to build the -coverpkg argument.
+COVERPKG_EXCLUDE = grep -v -e '/mock' -e '/version/gen$$' | tr '\n' ','
+
 test: test-ebs-csi
-	cd agent && GO111MODULE=on ${GOTEST} ${VERBOSE} -tags unit -mod vendor -coverprofile ../cover.out -timeout=120s ./... && cd ..
+	cd agent && GO111MODULE=on ${GOTEST} ${VERBOSE} -tags unit -mod vendor \
+		-coverprofile ../cover.out \
+		-coverpkg=$$(go list -mod vendor -tags unit ./... | ${COVERPKG_EXCLUDE}) \
+		-timeout=120s ./... && cd ..
 	go tool cover -func cover.out > coverprofile.out
-	cd ecs-agent && GO111MODULE=on ${GOTEST} ${VERBOSE} -tags unit -mod vendor -coverprofile ../cover.out -timeout=120s ./... && cd ..
+	cd ecs-agent && GO111MODULE=on ${GOTEST} ${VERBOSE} -tags unit -mod vendor \
+		-coverprofile ../cover.out \
+		-coverpkg=$$(go list -mod vendor -tags unit ./... | ${COVERPKG_EXCLUDE}) \
+		-timeout=120s ./... && cd ..
 	go tool cover -func cover.out > coverprofile-ecs-agent.out
 
 test-init:
-	go test -count=1 -short -v -coverprofile cover.out ./ecs-init/...
+	go test -count=1 -short -v \
+		-coverprofile cover.out \
+		-coverpkg=$$(go list ./ecs-init/... | ${COVERPKG_EXCLUDE}) \
+		./ecs-init/...
 	go tool cover -func cover.out > coverprofile-init.out
 
 test-silent: test-ebs-csi
-	cd agent && GO111MODULE=on ${GOTEST} -tags unit -mod vendor -coverprofile ../cover.out -timeout=120s ./... && cd ..
+	cd agent && GO111MODULE=on ${GOTEST} -tags unit -mod vendor \
+		-coverprofile ../cover.out \
+		-coverpkg=$$(go list -mod vendor -tags unit ./... | ${COVERPKG_EXCLUDE}) \
+		-timeout=120s ./... && cd ..
 	go tool cover -func cover.out > coverprofile.out
-	cd ecs-agent && GO111MODULE=on ${GOTEST} -tags unit -mod vendor -coverprofile ../cover.out -timeout=120s ./... && cd ..
+	cd ecs-agent && GO111MODULE=on ${GOTEST} -tags unit -mod vendor \
+		-coverprofile ../cover.out \
+		-coverpkg=$$(go list -mod vendor -tags unit ./... | ${COVERPKG_EXCLUDE}) \
+		-timeout=120s ./... && cd ..
 	go tool cover -func cover.out > coverprofile-ecs-agent.out
 
 .PHONY: analyze-cover-profile
