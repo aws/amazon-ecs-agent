@@ -1057,12 +1057,15 @@ func TestVolumesFromRO(t *testing.T) {
 
 	if testTask.Containers[1].GetKnownExitCode() == nil || *testTask.Containers[1].GetKnownExitCode() != 42 {
 		t.Error("Didn't exit due to failure to touch ro fs as expected: ", testTask.Containers[1].GetKnownExitCode())
+		logContainerLogs(t, taskEngine, testTask.Arn, testTask.Containers[1].Name)
 	}
 	if testTask.Containers[2].GetKnownExitCode() == nil || *testTask.Containers[2].GetKnownExitCode() != 0 {
 		t.Error("Couldn't touch with default of rw")
+		logContainerLogs(t, taskEngine, testTask.Arn, testTask.Containers[2].Name)
 	}
 	if testTask.Containers[3].GetKnownExitCode() == nil || *testTask.Containers[3].GetKnownExitCode() != 0 {
 		t.Error("Couldn't touch with explicit rw")
+		logContainerLogs(t, taskEngine, testTask.Arn, testTask.Containers[3].Name)
 	}
 }
 
@@ -1093,10 +1096,9 @@ func TestInitOOMEvent(t *testing.T) {
 	stateChangeEvents := taskEngine.StateChangeEvents()
 
 	testTask := CreateTestTask("oomtest")
-	testTask.Containers[0].Memory = 20
+	testTask.Containers[0].Memory = 10
 	testTask.Containers[0].Image = testBusyboxImage
-	// tail /dev/zero continuously reads and buffers zeros, triggering OOM killer
-	testTask.Containers[0].Command = []string{"sh", "-c", "tail /dev/zero"}
+	testTask.Containers[0].Command = []string{"sh", "-c", "dd if=/dev/urandom of=/dev/shm/fill bs=1M"}
 
 	go taskEngine.AddTask(testTask)
 
@@ -1138,6 +1140,8 @@ func TestInitOOMEvent(t *testing.T) {
 				contEvent.Container.GetDesiredStatus().String(),
 				contEvent.Container.ApplyingError)
 		}
+		// Log container output to help debug why the container didn't OOM
+		logContainerLogs(t, taskEngine, testTask.Arn, testTask.Containers[0].Name)
 	}
 }
 
@@ -1204,6 +1208,7 @@ check_events:
 
 	if testTask.Containers[0].GetKnownExitCode() == nil || *testTask.Containers[0].GetKnownExitCode() != 42 {
 		t.Error("Wrong exit code; file probably wasn't present")
+		logContainerLogs(t, taskEngine, testTask.Arn, testTask.Containers[0].Name)
 	}
 }
 
