@@ -112,6 +112,7 @@ func (c *common) createBridgePluginConfig(netNSPath string) ecscni.PluginConfig 
 		},
 		IPV4Subnet: ECSSubNet,
 		IPV4Routes: []*types.Route{route},
+		IPV6Subnet: ECSSubNetIPv6,
 		ID:         netNSPath,
 	}
 

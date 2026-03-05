@@ -75,6 +75,7 @@ func TestCreateBridgeConfig(t *testing.T) {
 		},
 		IPV4Subnet: ECSSubNet,
 		IPV4Routes: []*types.Route{route},
+		IPV6Subnet: ECSSubNetIPv6,
 		ID:         netNSPath,
 	}
 
