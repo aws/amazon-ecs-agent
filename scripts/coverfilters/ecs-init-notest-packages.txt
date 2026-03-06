@@ -1,0 +1,6 @@
+/ecs-init$
+/cmd$
+/exec$
+/version$
+/volumes/amazon-ecs-volume-plugin$
+/volumes/driver$
