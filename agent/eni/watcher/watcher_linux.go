@@ -24,7 +24,6 @@ import (
 	"github.com/aws/amazon-ecs-agent/ecs-agent/logger"
 	"github.com/aws/amazon-ecs-agent/ecs-agent/logger/field"
 
-	log "github.com/cihub/seelog"
 	"github.com/deniswernert/udev"
 	"github.com/pkg/errors"
 	"github.com/vishvananda/netlink"
@@ -76,7 +75,9 @@ func newWatcher(ctx context.Context,
 	nlWrap := netlinkwrapper.New()
 
 	derivedContext, cancel := context.WithCancel(ctx)
-	log.Info("eni watcher has been initialized")
+	logger.Info("ENI Watcher: initialized", logger.Fields{
+		"primaryMAC": primaryMAC,
+	})
 	return &ENIWatcher{
 		ctx:            derivedContext,
 		cancel:         cancel,
@@ -98,7 +99,9 @@ func (eniWatcher *ENIWatcher) reconcileOnce(withRetry bool) error {
 
 	// Return on empty list
 	if len(links) == 0 {
-		log.Info("ENI watcher reconciliation: no network interfaces discovered for reconciliation")
+		logger.Info("ENI Watcher: reconciliation found no network interfaces", logger.Fields{
+			"primaryMAC": eniWatcher.primaryMAC,
+		})
 		return nil
 	}
 
@@ -113,8 +116,18 @@ func (eniWatcher *ENIWatcher) reconcileOnce(withRetry bool) error {
 		if withRetry {
 			go func(ctx context.Context, macAddress string, timeout time.Duration) {
 				if err := eniWatcher.sendENIStateChangeWithRetries(ctx, macAddress, timeout); err != nil {
-					logger.Error("Unable to send state ENI change", logger.Fields{
-						field.Error: err,
+					// "already sent" is expected for trunk ENI - the attachment was acknowledged previously
+					if strings.Contains(err.Error(), eniStatusSentMsg) {
+						logger.Info("ENI Watcher: ENI attachment status already sent (expected for trunk ENI)", logger.Fields{
+							"primaryMAC": eniWatcher.primaryMAC,
+							"macAddress": macAddress,
+						})
+						return
+					}
+					logger.Error("ENI Watcher: unable to send state change", logger.Fields{
+						"primaryMAC": eniWatcher.primaryMAC,
+						"macAddress": macAddress,
+						field.Error:  err,
 					})
 				}
 			}(eniWatcher.ctx, mac, sendENIStateChangeRetryTimeout)
@@ -125,12 +138,14 @@ func (eniWatcher *ENIWatcher) reconcileOnce(withRetry bool) error {
 			if strings.Contains(err.Error(), eniStatusSentMsg) {
 				continue
 			} else if _, ok := err.(*unmanagedENIError); ok {
-				logger.Debug("Unable to send state ENI change", logger.Fields{
-					field.Error: err,
+				logger.Debug("ENI Watcher: unable to send state change (unmanaged ENI)", logger.Fields{
+					"primaryMAC": eniWatcher.primaryMAC,
+					field.Error:  err,
 				})
 			} else {
-				logger.Warn("Unable to send state ENI change", logger.Fields{
-					field.Error: err,
+				logger.Warn("ENI Watcher: unable to send state change", logger.Fields{
+					"primaryMAC": eniWatcher.primaryMAC,
+					field.Error:  err,
 				})
 			}
 		}
@@ -163,43 +178,101 @@ func (eniWatcher *ENIWatcher) buildState(links []netlink.Link) map[string]string
 func (eniWatcher *ENIWatcher) eventHandler() {
 	// The shutdown channel will be used to terminate the watch for udev events
 	shutdown := eniWatcher.udevMonitor.Monitor(eniWatcher.events)
+	logger.Info("ENI Watcher: udev event handler started, listening for network device events", logger.Fields{
+		"primaryMAC": eniWatcher.primaryMAC,
+	})
 	for {
 		select {
 		case event := <-eniWatcher.events:
 			subsystem, ok := event.Env[udevSubsystem]
 			if !ok || subsystem != udevNetSubsystem {
+				// Log non-net subsystem events at Debug level (wakeup, pci, queues, etc.)
+				logger.Debug("ENI Watcher: received udev event (non-net subsystem, ignoring)", logger.Fields{
+					"primaryMAC": eniWatcher.primaryMAC,
+					"action":     event.Env[udevEventAction],
+					"subsystem":  subsystem,
+					"interface":  event.Env[udevInterface],
+					"devpath":    event.Env[udevDevPath],
+				})
 				continue
 			}
+
+			// Log net subsystem events at Info level
+			logger.Info("ENI Watcher: received udev event", logger.Fields{
+				"primaryMAC": eniWatcher.primaryMAC,
+				"action":     event.Env[udevEventAction],
+				"subsystem":  event.Env[udevSubsystem],
+				"interface":  event.Env[udevInterface],
+				"devpath":    event.Env[udevDevPath],
+			})
 			if event.Env[udevEventAction] != udevAddEvent {
+				logger.Debug("ENI Watcher: ignoring non-add event", logger.Fields{
+					"primaryMAC": eniWatcher.primaryMAC,
+					"action":     event.Env[udevEventAction],
+					"interface":  event.Env[udevInterface],
+				})
 				continue
 			}
 			if !networkutils.IsValidNetworkDevice(event.Env[udevDevPath]) {
-				log.Debugf("ENI watcher event handler: ignoring event for invalid network device: %s", event.String())
+				logger.Debug("ENI Watcher: ignoring event for invalid network device", logger.Fields{
+					"primaryMAC": eniWatcher.primaryMAC,
+					"devpath":    event.Env[udevDevPath],
+					"interface":  event.Env[udevInterface],
+				})
 				continue
 			}
 			netInterface := event.Env[udevInterface]
 			// GetMACAddres and sendENIStateChangeWithRetries can block the execution
 			// of this method for a few seconds in the worst-case scenario.
 			// Execute these within a go-routine
+			primaryMAC := eniWatcher.primaryMAC
 			go func(ctx context.Context, dev string, timeout time.Duration) {
-				log.Debugf("ENI watcher event-handler: add interface: %s", dev)
+				logger.Debug("ENI Watcher: processing add event for interface", logger.Fields{
+					"primaryMAC": primaryMAC,
+					"interface":  dev,
+				})
 				macAddress, err := networkutils.GetMACAddress(eniWatcher.ctx, macAddressRetryTimeout,
 					dev, eniWatcher.netlinkClient)
 				if err != nil {
-					log.Warnf("ENI watcher event-handler: error obtaining MACAddress for interface %s", dev)
+					logger.Warn("ENI Watcher: error obtaining MAC address for interface", logger.Fields{
+						"primaryMAC": primaryMAC,
+						"interface":  dev,
+						field.Error:  err,
+					})
 					return
 				}
 
+				logger.Info("ENI Watcher: obtained MAC address for interface, sending state change", logger.Fields{
+					"primaryMAC": primaryMAC,
+					"interface":  dev,
+					"macAddress": macAddress,
+				})
 				if err := eniWatcher.sendENIStateChangeWithRetries(ctx, macAddress, timeout); err != nil {
-					log.Warnf("ENI watcher event-handler: unable to send state change: %v", err)
+					logger.Warn("ENI Watcher: unable to send state change", logger.Fields{
+						"primaryMAC": primaryMAC,
+						"interface":  dev,
+						"macAddress": macAddress,
+						field.Error:  err,
+					})
+				} else {
+					logger.Info("ENI Watcher: successfully processed ENI attachment", logger.Fields{
+						"primaryMAC": primaryMAC,
+						"interface":  dev,
+						"macAddress": macAddress,
+					})
 				}
 			}(eniWatcher.ctx, netInterface, sendENIStateChangeRetryTimeout)
 		case <-eniWatcher.ctx.Done():
-			log.Info("Stopping udev event handler")
+			logger.Info("ENI Watcher: stopping udev event handler", logger.Fields{
+				"primaryMAC": eniWatcher.primaryMAC,
+			})
 			// Send the shutdown signal and close the connection
 			shutdown <- true
 			if err := eniWatcher.udevMonitor.Close(); err != nil {
-				log.Warnf("Unable to close the udev monitoring socket: %v", err)
+				logger.Warn("ENI Watcher: unable to close udev monitoring socket", logger.Fields{
+					"primaryMAC": eniWatcher.primaryMAC,
+					field.Error:  err,
+				})
 			}
 			return
 		}
