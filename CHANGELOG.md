@@ -1,5 +1,12 @@
 # Changelog
 
+# 1.102.1
+* Enhancement - Improve ENI watcher udev logging [#4887](https://github.com/aws/amazon-ecs-agent/pull/4887)
+* Enhancement - Update go version to 1.25.7, Update unit test coverage logic [#4886](https://github.com/aws/amazon-ecs-agent/pull/4886)
+* Enhancement - Upgrade prometheus deps [#4883](https://github.com/aws/amazon-ecs-agent/pull/4883)
+* Enhancement - Use static IP for daemon tasks for Managed Instances, also updates amazon-ecs-cni-plugins [#4881](https://github.com/aws/amazon-ecs-agent/pull/4881)
+* Bugfix - Fix IMDS client rate limiting to prevent token refresh failures after 401 responses [#4870](https://github.com/aws/amazon-ecs-agent/pull/4870)
+
 # 1.102.0
 * Enhancement - Support AZ ID for TMDS [#4848](https://github.com/aws/amazon-ecs-agent/pull/4848)
 * Enhancement - Improved net utils logging [#4861](https://github.com/aws/amazon-ecs-agent/pull/4861)
