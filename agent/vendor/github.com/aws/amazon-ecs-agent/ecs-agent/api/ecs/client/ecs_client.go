@@ -41,6 +41,7 @@ import (
 	ecsservice "github.com/aws/aws-sdk-go-v2/service/ecs"
 	"github.com/aws/aws-sdk-go-v2/service/ecs/types"
 	"github.com/aws/smithy-go"
+	"github.com/aws/smithy-go/logging"
 	"github.com/docker/docker/pkg/meminfo"
 )
 
@@ -186,6 +187,8 @@ func newECSConfig(
 		awsconfig.WithHTTPClient(httpClient),
 		awsconfig.WithRegion(configAccessor.AWSRegion()),
 		awsconfig.WithCredentialsProvider(credentialsCache),
+		awsconfig.WithClientLogMode(aws.LogRetries),
+		awsconfig.WithLogger(newSDKLoggerAdapter()),
 		endpointFn,
 		awsconfig.WithUseFIPSEndpoint(fipsEndpointState),
 		awsconfig.WithUseDualStackEndpoint(dualStackEndpointState),
@@ -194,6 +197,20 @@ func newECSConfig(
 		return aws.Config{}, err
 	}
 	return ecsConfig, nil
+}
+
+// sdkLoggerAdapter adapts the ECS agent logger to the AWS SDK logging interface.
+type sdkLoggerAdapter struct{}
+
+func newSDKLoggerAdapter() *sdkLoggerAdapter {
+	return &sdkLoggerAdapter{}
+}
+
+func (l *sdkLoggerAdapter) Logf(classification logging.Classification, format string, v ...interface{}) {
+	msg := fmt.Sprintf(format, v...)
+	logger.Debug("AWS SDK retry", logger.Fields{
+		"message": msg,
+	})
 }
 
 // CreateCluster creates a cluster from a given name and returns its ARN.
