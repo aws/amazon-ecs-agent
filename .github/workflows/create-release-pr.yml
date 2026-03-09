@@ -1,0 +1,168 @@
+name: Create Release PR
+
+on:
+  workflow_dispatch:
+    inputs:
+      version:
+        description: 'Release version (X.Y.Z-A format, e.g., 1.102.0-1)'
+        required: true
+        type: string
+
+permissions:
+  contents: write
+  pull-requests: write
+
+jobs:
+  create-release-pr:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Validate version format
+        run: |
+          VERSION="${{ inputs.version }}"
+          if ! [[ "$VERSION" =~ ^[0-9]+\.[0-9]+\.[0-9]+-[0-9]+$ ]]; then
+            echo "::error::Invalid version format '${VERSION}'. Expected X.Y.Z-A (e.g., 1.102.0-1)"
+            exit 1
+          fi
+          AGENT_VERSION="${VERSION%-*}"
+          echo "AGENT_VERSION=$AGENT_VERSION" >> $GITHUB_ENV
+          echo "VERSION=$VERSION" >> $GITHUB_ENV
+
+      - uses: actions/checkout@v6
+        with:
+          submodules: true
+          # Fetch all history for all tags and branches
+          fetch-depth: 0
+
+      - name: Check if release tag already exists
+        run: |
+          echo "Checking if release tag v${AGENT_VERSION} already exists..."
+          if gh release view "v${AGENT_VERSION}" --repo "${{ github.repository }}" &>/dev/null; then
+            echo "::error::Version ${AGENT_VERSION} has already been released (tag v${AGENT_VERSION} exists)"
+            exit 1
+          fi
+          echo "Release v${AGENT_VERSION} does not exist. Proceeding."
+
+      - name: Fetch dev branch
+        run: |
+          git fetch origin dev:dev
+
+      - name: Create staging branch
+        run: |
+          BRANCH_NAME="v${AGENT_VERSION}-stage"
+          git checkout -b "$BRANCH_NAME" origin/dev
+          COMMIT_SHA=$(git rev-parse HEAD)
+          echo "Staging branch: $BRANCH_NAME at $COMMIT_SHA"
+          echo "BRANCH_NAME=$BRANCH_NAME" >> $GITHUB_ENV
+
+      - name: Generate changelog
+        run: |
+          scripts/generate-release-changelog.sh --agent-version "$AGENT_VERSION"
+
+      - name: Update VERSION file
+        run: |
+          echo "$AGENT_VERSION" > VERSION
+
+      - name: get GO_VERSION
+        id: get-go-version
+        run: |
+          set -eou pipefail
+          go_version=$(cat GO_VERSION | tr -d '\n')
+          go_version_length=${#go_version}
+          go_version_re="^([0-9]+\.){1,2}([0-9]+)$"
+          if ! [[ $go_version_length -le 10 && $go_version =~ $go_version_re ]] ; then
+            echo "::error::Invalid GO version in GO_VERSION file"
+            exit 1
+          fi
+          echo "GO_VERSION=$go_version" >> $GITHUB_OUTPUT
+
+      - uses: actions/setup-go@v6
+        with:
+          go-version: ${{ steps.get-go-version.outputs.GO_VERSION }}
+          cache: false
+
+      - name: Generate version.go
+        env:
+          GOPROXY: direct
+        run: |
+          cd agent/version
+          GO111MODULE=off go run gen/version-gen.go
+
+      - name: Update CHANGELOG_MASTER
+        run: |
+          CHANGELOG_MASTER="scripts/changelog/CHANGELOG_MASTER"
+          TIMESTAMP="$(date +%Y-%m-%d)T10:00:00-08:00"
+
+          # Prepend new entry to CHANGELOG_MASTER
+          {
+            printf '%s\n' "${VERSION}"
+            printf '%s\n' "amazon-ecs-bot <amazon-ecs-bot@amazon.com>"
+            printf '%s\n' "${TIMESTAMP}"
+            printf '%s\n' "Cache Agent version ${AGENT_VERSION}"
+            printf '\n'
+            cat "$CHANGELOG_MASTER"
+          } > "${CHANGELOG_MASTER}.tmp"
+          mv "${CHANGELOG_MASTER}.tmp" "$CHANGELOG_MASTER"
+
+      - name: Run ECS init changelog script
+        run: |
+          cd scripts/changelog
+          GO111MODULE=off go run changelog.go
+
+      - name: Update versions in the ECS init spec files
+        run: |
+          sed -i "s/^Version:[[:space:]]*.*/Version:        ${AGENT_VERSION}/" \
+            packaging/amazon-linux-ami-integrated/ecs-agent.spec
+          sed -i "s/^Version:[[:space:]]*.*/Version:        ${AGENT_VERSION}/" \
+            packaging/generic-rpm-integrated/amazon-ecs-init.spec
+      
+      - name: Update vendor list in spec files
+        run: |
+          ./scripts/update-spec-vendor-list.sh
+
+      - name: Update default agent version in ECS init's config
+        run: |
+          sed -i "s/DefaultAgentVersion = \"v[0-9.]*\"/DefaultAgentVersion = \"v${AGENT_VERSION}\"/" \
+            ecs-init/config/common.go
+
+      - name: Update ECSVERSION file
+        run: |
+          echo "$AGENT_VERSION" > ecs-init/ECSVERSION
+
+      - name: Update submodules
+        run: |
+          git submodule update --init
+
+      - name: Commit changes
+        run: |
+          git add -A
+          git config user.name "amazon-ecs-bot"
+          git config user.email "amazon-ecs-bot@amazon.com"
+          git commit -m "Release ${AGENT_VERSION}"
+
+      - name: Push staging branch to origin
+        run: |
+          echo "Pushing branch ${BRANCH_NAME} to origin..."
+          git push --force --set-upstream origin "${BRANCH_NAME}"
+
+      - name: Create pull request
+        env:
+          GH_TOKEN: ${{ secrets.ECS_AGENT_WORKFLOW_SECRET }}
+        run: |
+          PR_BODY=$(cat <<EOF
+          ### Summary
+          Release ${AGENT_VERSION}
+
+          ### Licensing
+
+          By submitting this pull request, I confirm that my contribution is made under the terms of the Apache 2.0 license.
+          EOF
+          )
+
+          PR_URL=$(gh pr create \
+            --title "Release ${AGENT_VERSION}" \
+            --body "$PR_BODY" \
+            --head "${BRANCH_NAME}" \
+            --base dev)
+
+          echo "Pull request created successfully"
+          echo "PR URL: ${PR_URL}"
