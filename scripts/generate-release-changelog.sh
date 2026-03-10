@@ -156,24 +156,27 @@ extract_changelog_description() {
 	local pr_body="$1"
 
 	if [ -z "$pr_body" ]; then
-		return 1
+		return
 	fi
 
-	# Get the first non-empty line after "Description for the changelog"
+	# Get the first non-empty, non-HTML-comment line after "Description for the changelog"
 	# Ref: .github/PULL_REQUEST_TEMPLATE.md
 	local changelog_desc
 	changelog_desc=$(echo "$pr_body" | awk '
         /[Dd]escription for the [Cc]hangelog/ { flag=1; next }
+        /^[[:space:]]*<!--/ { comment=1 }
+        /-->/ { comment=0; next }
+        comment { next }
         flag && NF > 0 { print; exit }
     ' | sed 's/^[[:space:]]*//;s/[[:space:]]*$//')
 
 	if [ -z "$changelog_desc" ]; then
-		return 1
+		return
 	fi
 
 	# Check if changelog should be skipped (N/A or Housekeeping)
 	if echo "$changelog_desc" | grep -qiE '^(n/?a|none|not applicable|housekeeping)'; then
-		return 1
+		return
 	fi
 
 	echo "$changelog_desc"
@@ -238,17 +241,23 @@ process_prs() {
 
 		processed_prs+=("$pr_number")
 
-		local pr_body pr_url
+		local pr_body pr_url pr_title
 		pr_body=$(echo "$response" | jq -r ".body // empty")
 		pr_url=$(echo "$response" | jq -r ".html_url")
+		pr_title=$(echo "$response" | jq -r ".title // empty")
 
-		# Extract changelog description
+		# Extract changelog description, fall back to PR title if there's no changelog description
 		local changelog_desc
 		changelog_desc=$(extract_changelog_description "$pr_body")
 
-		if [ $? -ne 0 ] || [ -z "$changelog_desc" ]; then
-			log_warn "Skipping PR #${pr_number}: No changelog description, marked as N/A, or Housekeeping"
-			continue
+		if [ -z "$changelog_desc" ]; then
+			if [ -n "$pr_title" ]; then
+				log_info "PR #${pr_number}: No changelog description, using PR title"
+				changelog_desc="$pr_title"
+			else
+				log_warn "Skipping PR #${pr_number}: No changelog description or title"
+				continue
+			fi
 		fi
 
 		# Categorize the entry
