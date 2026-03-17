@@ -228,6 +228,8 @@ type ContainerMetric struct {
 
 	CpuStatsSet *CWStatsSet `json:"cpuStatsSet,omitempty" type:"structure"`
 
+	GeneralMetricsPayload []*GeneralMetricsWrapper `json:"generalMetricsPayload,omitempty" type:"list"`
+
 	MemoryStatsSet *CWStatsSet `json:"memoryStatsSet,omitempty" type:"structure"`
 
 	NetworkStatsSet *NetworkStatsSet `json:"networkStatsSet,omitempty" type:"structure"`
@@ -347,7 +349,15 @@ type GeneralMetric struct {
 
 	MetricName *string `json:"metricName,omitempty" type:"string"`
 
+	MetricValueDouble *float64 `json:"metricValueDouble,omitempty" type:"double"`
+
+	MetricValueLong *int64 `json:"metricValueLong,omitempty" type:"long"`
+
+	MetricValueStatsSet *CWStatsSet `json:"metricValueStatsSet,omitempty" type:"structure"`
+
 	MetricValues []*float64 `json:"metricValues,omitempty" type:"list"`
+
+	Unit *string `json:"unit,omitempty" type:"string"`
 }
 
 // String returns the string representation.
@@ -529,6 +539,8 @@ type InstanceStatus struct {
 
 	Status *string `json:"status,omitempty" type:"string" enum:"InstanceHealthcheckStatus"`
 
+	StatusReason *string `json:"statusReason,omitempty" type:"string"`
+
 	Type *string `json:"type,omitempty" type:"string"`
 }
 
@@ -582,6 +594,8 @@ type InstanceStorageMetrics struct {
 	_ struct{} `type:"structure"`
 
 	DataFilesystem *float64 `json:"dataFilesystem,omitempty" type:"double"`
+
+	GeneralMetricsPayload []*GeneralMetricsWrapper `json:"generalMetricsPayload,omitempty" type:"list"`
 
 	RootFilesystem *float64 `json:"rootFilesystem,omitempty" type:"double"`
 }
