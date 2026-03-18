@@ -140,7 +140,8 @@
         "memoryStatsSet":{"shape":"CWStatsSet"},
         "networkStatsSet":{"shape":"NetworkStatsSet"},
         "storageStatsSet":{"shape":"StorageStatsSet"},
-        "restartStatsSet":{"shape":"RestartStatsSet"}
+        "restartStatsSet":{"shape":"RestartStatsSet"},
+        "generalMetricsPayload":{"shape":"GeneralMetricsPayload"}
       }
     },
     "ContainerMetrics":{
@@ -170,12 +171,20 @@
       "members":{
         "metricName":{"shape":"String"},
         "metricValues":{"shape":"MetricValues"},
-        "metricCounts":{"shape":"MetricCounts"}
+        "metricCounts":{"shape":"MetricCounts"},
+        "metricValueDouble":{"shape":"UDouble"},
+        "metricValueLong":{"shape":"ULong"},
+        "metricValueStatsSet":{"shape":"CWStatsSet"},
+        "unit":{"shape":"String"}
       }
     },
     "GeneralMetrics":{
       "type":"list",
       "member":{"shape":"GeneralMetric"}
+    },
+    "GeneralMetricsPayload":{
+      "type":"list",
+      "member":{"shape":"GeneralMetricsWrapper"}
     },
     "GeneralMetricsWrapper":{
       "type":"structure",
@@ -228,6 +237,7 @@
       "members":{
         "type":{"shape":"String"},
         "status":{"shape":"InstanceHealthcheckStatus"},
+        "statusReason":{"shape":"String"},
         "lastUpdated":{"shape":"Timestamp"},
         "lastStatusChange":{"shape":"Timestamp"}
       }
@@ -248,7 +258,8 @@
       "type":"structure",
       "members":{
         "rootFilesystem":{"shape":"Percentage"},
-        "dataFilesystem":{"shape":"Percentage"}
+        "dataFilesystem":{"shape":"Percentage"},
+        "generalMetricsPayload":{"shape":"GeneralMetricsPayload"}
       }
     },
     "InvalidParameterException":{
