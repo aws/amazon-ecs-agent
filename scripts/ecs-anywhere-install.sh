@@ -56,9 +56,9 @@ DEB_URL=""
 RPM_URL=""
 ECS_ENDPOINT=""
 CERTS_FILE=""
-# Whether to check signature for the downloaded amazon-ecs-init package. true unless --skip-gpg-check
-# specified. --skip-gpg-check is mostly for testing purpose (so that we can test a custom build of ecs init package
-# without having to sign it).
+# Whether to check GPG signature for downloaded amazon-ecs-init and amazon-ssm-agent packages. true unless
+# --skip-gpg-check is specified. --skip-gpg-check can be used for testing with custom unsigned ecs-init builds,
+# or when GPG verification is not feasible.
 CHECK_SIG=true
 NO_START=false
 IP_COMPATIBILITY=""
@@ -439,15 +439,19 @@ install-ssm-agent() {
         case "$PKG_MANAGER" in
         apt)
             curl-helper "$dir/$SSM_DEB_PKG_NAME" "$SSM_DEB_URL"
-            curl-helper "$dir/$SSM_DEB_PKG_NAME.sig" "$SSM_DEB_URL.sig"
-            ssm-agent-signature-verify "$dir/$SSM_DEB_PKG_NAME.sig" "$dir/$SSM_DEB_PKG_NAME"
+            if $CHECK_SIG; then
+                curl-helper "$dir/$SSM_DEB_PKG_NAME.sig" "$SSM_DEB_URL.sig"
+                ssm-agent-signature-verify "$dir/$SSM_DEB_PKG_NAME.sig" "$dir/$SSM_DEB_PKG_NAME"
+            fi
             chmod -R a+rX "$dir"
             dpkg -i "$dir/ssm-agent.deb"
             ;;
         dnf | yum | zypper)
             curl-helper "$dir/$SSM_RPM_PKG_NAME" "$SSM_RPM_URL"
-            curl-helper "$dir/$SSM_RPM_PKG_NAME.sig" "$SSM_RPM_URL.sig"
-            ssm-agent-signature-verify "$dir/$SSM_RPM_PKG_NAME.sig" "$dir/$SSM_RPM_PKG_NAME"
+            if $CHECK_SIG; then
+                curl-helper "$dir/$SSM_RPM_PKG_NAME.sig" "$SSM_RPM_URL.sig"
+                ssm-agent-signature-verify "$dir/$SSM_RPM_PKG_NAME.sig" "$dir/$SSM_RPM_PKG_NAME"
+            fi
             local args=""
             local install_args="-y"
             if [[ "$PKG_MANAGER" == "zypper" ]]; then
