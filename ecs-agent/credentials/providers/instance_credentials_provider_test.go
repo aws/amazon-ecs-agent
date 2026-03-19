@@ -82,10 +82,10 @@ func TestInstanceCredentialsCache_EC2RoleCredentials(t *testing.T) {
 			resetEnvVars := setEnvVars(t, "", "")
 			defer resetEnvVars()
 
-			// unset any shared credentials
-			sharedCredsFile := os.Getenv("AWS_SHARED_CREDENTIALS_FILE")
-			os.Unsetenv("AWS_SHARED_CREDENTIALS_FILE")
-			defer os.Setenv("AWS_SHARED_CREDENTIALS_FILE", sharedCredsFile)
+			// Point shared credentials to a non-existent path to prevent the SDK
+			// from falling back to the default ~/.aws/credentials file.
+			resetSharedCredsFile := setSharedCredentialsFileEnv(t, "/dev/null/nonexistent")
+			defer resetSharedCredsFile()
 
 			p := NewInstanceCredentialsCache(isExternal, &nopCredsProvider{}, &testIMDSClient{})
 			creds, err := p.Retrieve(context.TODO())
@@ -107,10 +107,10 @@ func TestInstanceCredentialsCache_RotatingSharedCredentials(t *testing.T) {
 			resetEnvVars := setEnvVars(t, "", "")
 			defer resetEnvVars()
 
-			// unset any shared credentials
-			sharedCredsFile := os.Getenv("AWS_SHARED_CREDENTIALS_FILE")
-			os.Unsetenv("AWS_SHARED_CREDENTIALS_FILE")
-			defer os.Setenv("AWS_SHARED_CREDENTIALS_FILE", sharedCredsFile)
+			// Point shared credentials to a non-existent path to prevent the SDK
+			// from falling back to the default ~/.aws/credentials file.
+			resetSharedCredsFile := setSharedCredentialsFileEnv(t, "/dev/null/nonexistent")
+			defer resetSharedCredsFile()
 
 			p := NewInstanceCredentialsCache(isExternal, &testRotatingSharedCredsProvider{}, &nopIMDSClient{})
 			creds, err := p.Retrieve(context.TODO())
@@ -161,10 +161,10 @@ func TestInstanceCredentialsCache_EC2RoleCredentials_RotatingSharedCredentials(t
 			resetEnvVars := setEnvVars(t, "", "")
 			defer resetEnvVars()
 
-			// unset any shared credentials
-			sharedCredsFile := os.Getenv("AWS_SHARED_CREDENTIALS_FILE")
-			os.Unsetenv("AWS_SHARED_CREDENTIALS_FILE")
-			defer os.Setenv("AWS_SHARED_CREDENTIALS_FILE", sharedCredsFile)
+			// Point shared credentials to a non-existent path to prevent the SDK
+			// from falling back to the default ~/.aws/credentials file.
+			resetSharedCredsFile := setSharedCredentialsFileEnv(t, "/dev/null/nonexistent")
+			defer resetSharedCredsFile()
 
 			p := NewInstanceCredentialsCache(isExternal, &testRotatingSharedCredsProvider{}, &testIMDSClient{})
 			creds, err := p.Retrieve(context.TODO())
@@ -191,10 +191,10 @@ func TestInstanceCredentialsCache_NoValidProviders(t *testing.T) {
 			resetEnvVars := setEnvVars(t, "", "")
 			defer resetEnvVars()
 
-			// unset any shared credentials
-			sharedCredsFile := os.Getenv("AWS_SHARED_CREDENTIALS_FILE")
-			os.Unsetenv("AWS_SHARED_CREDENTIALS_FILE")
-			defer os.Setenv("AWS_SHARED_CREDENTIALS_FILE", sharedCredsFile)
+			// Point shared credentials to a non-existent path to prevent the SDK
+			// from falling back to the default ~/.aws/credentials file.
+			resetSharedCredsFile := setSharedCredentialsFileEnv(t, "/dev/null/nonexistent")
+			defer resetSharedCredsFile()
 
 			p := NewInstanceCredentialsCache(isExternal, &nopCredsProvider{}, &nopIMDSClient{})
 			creds, err := p.Retrieve(context.TODO())
@@ -218,6 +218,29 @@ func setEnvVars(t *testing.T, key string, secret string) func() {
 		// reset before exiting
 		os.Setenv("AWS_ACCESS_KEY_ID", origAKID)
 		os.Setenv("AWS_SECRET_ACCESS_KEY", origSecret)
+	}
+}
+
+// setSharedCredentialsFileEnv overrides the AWS_SHARED_CREDENTIALS_FILE and
+// AWS_CONFIG_FILE environment variables and returns a function that restores
+// the original values.
+func setSharedCredentialsFileEnv(t *testing.T, path string) func() {
+	t.Helper()
+	origCreds := os.Getenv("AWS_SHARED_CREDENTIALS_FILE")
+	origConfig := os.Getenv("AWS_CONFIG_FILE")
+	os.Setenv("AWS_SHARED_CREDENTIALS_FILE", path)
+	os.Setenv("AWS_CONFIG_FILE", path)
+	return func() {
+		if origCreds == "" {
+			os.Unsetenv("AWS_SHARED_CREDENTIALS_FILE")
+		} else {
+			os.Setenv("AWS_SHARED_CREDENTIALS_FILE", origCreds)
+		}
+		if origConfig == "" {
+			os.Unsetenv("AWS_CONFIG_FILE")
+		} else {
+			os.Setenv("AWS_CONFIG_FILE", origConfig)
+		}
 	}
 }
 
