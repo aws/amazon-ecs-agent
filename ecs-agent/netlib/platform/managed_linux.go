@@ -5,6 +5,7 @@ import (
 	goErr "errors"
 	"fmt"
 	"path/filepath"
+	"sync"
 
 	"github.com/aws/amazon-ecs-agent/ecs-agent/acs/model/ecsacs"
 	"github.com/aws/amazon-ecs-agent/ecs-agent/ec2"
@@ -40,7 +41,8 @@ const (
 
 type managedLinux struct {
 	common
-	client ec2.EC2MetadataClient
+	client       ec2.EC2MetadataClient
+	nsSetupMutex sync.Mutex // nsSetupMutex serializes concurrent calls to configureDaemonNetNS and StopDaemonNetNS.
 }
 
 // BuildTaskNetworkConfiguration translates network data in task payload sent by ACS
@@ -504,6 +506,12 @@ func (m *managedLinux) configureDaemonNetNS(ctx context.Context, taskID string, 
 		netNS.DesiredState == status.NetworkReadyPull {
 
 		logger.Debug("Creating daemon netns: " + netNS.Path)
+
+		// Serialize the entire namespace setup to prevent concurrent goroutines from
+		// racing on CreateNetNS, isDaemonNamespaceConfigured, and CNI plugin execution.
+		m.nsSetupMutex.Lock()
+		defer m.nsSetupMutex.Unlock()
+
 		// Create network namespace on the host.
 		err = m.CreateNetNS(netNS.Path)
 		if err != nil {
@@ -518,7 +526,7 @@ func (m *managedLinux) configureDaemonNetNS(ctx context.Context, taskID string, 
 			return err
 		}
 
-		// Create MI-Bridge for daemon-bridge mode only if not already configured
+		// Create MI-Bridge for daemon-bridge mode only if not already configured.
 		if !m.isDaemonNamespaceConfigured(netNS.Path) {
 			// Determine IP compatibility from the primary network interface
 			ipComp := m.getIPCompatibilityFromNetNS(netNS)
@@ -624,10 +632,15 @@ func (m *managedLinux) StopDaemonNetNS(ctx context.Context, netNS *tasknetworkco
 		"knownState": netNS.KnownState,
 	})
 
-	// Cleanup bridge config(veth pair).
-	// Use IPv4-only compatibility for cleanup since we're just cleaning up the namespace
-	// and the route configuration doesn't matter for deletion.
-	ipComp := ipcompatibility.NewIPv4OnlyCompatibility()
+	// Serialize with configureDaemonNetNS to prevent teardown from racing with setup.
+	m.nsSetupMutex.Lock()
+	defer m.nsSetupMutex.Unlock()
+
+	// Cleanup bridge config (veth pair).
+	// Use the actual IP compatibility from the network namespace so that the CNI DEL
+	// config includes both IPv4 and IPv6 IPAM entries. Using IPv4-only here would leave
+	// stale IPv6 IPAM allocations in the database on dual-stack hosts.
+	ipComp := m.getIPCompatibilityFromNetNS(netNS)
 	bridgeConfig, err := createDaemonBridgePluginConfig(netNS.Path, ipComp)
 	if err != nil {
 		err = errors.Wrap(err, "failed to create daemon bridge plugin config to stop daemon netns")
