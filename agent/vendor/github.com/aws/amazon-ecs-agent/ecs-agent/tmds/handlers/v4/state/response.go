@@ -34,6 +34,7 @@ type TaskResponse struct {
 	Containers              []ContainerResponse      `json:"Containers,omitempty"`
 	VPCID                   string                   `json:"VPCID,omitempty"`
 	ServiceName             string                   `json:"ServiceName,omitempty"`
+	Group                   string                   `json:"Group,omitempty"`
 	ClockDrift              *ClockDrift              `json:"ClockDrift,omitempty"`
 	EphemeralStorageMetrics *EphemeralStorageMetrics `json:"EphemeralStorageMetrics,omitempty"`
 	CredentialsID           string                   `json:"-"`
