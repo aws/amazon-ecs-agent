@@ -16,12 +16,14 @@
 package ecstcs
 
 import (
-	"fmt"
 
-	"github.com/aws/amazon-ecs-agent/ecs-agent/utils"
+	"fmt"
+	"time"
+
 	"github.com/aws/aws-sdk-go/aws/awsutil"
 	"github.com/aws/aws-sdk-go/aws/request"
 	"github.com/aws/aws-sdk-go/private/protocol"
+	"github.com/aws/amazon-ecs-agent/ecs-agent/utils"
 )
 
 type AckPublishHealth struct {
@@ -509,6 +511,8 @@ func (s HeartbeatOutput) GoString() string {
 type InstanceMetrics struct {
 	_ struct{} `type:"structure"`
 
+	GeneralMetricsPayload []*GeneralMetricsWrapper `json:"generalMetricsPayload,omitempty" type:"list"`
+
 	Storage *InstanceStorageMetrics `json:"storage,omitempty" type:"structure"`
 }
 
@@ -594,8 +598,6 @@ type InstanceStorageMetrics struct {
 	_ struct{} `type:"structure"`
 
 	DataFilesystem *float64 `json:"dataFilesystem,omitempty" type:"double"`
-
-	GeneralMetricsPayload []*GeneralMetricsWrapper `json:"generalMetricsPayload,omitempty" type:"list"`
 
 	RootFilesystem *float64 `json:"rootFilesystem,omitempty" type:"double"`
 }

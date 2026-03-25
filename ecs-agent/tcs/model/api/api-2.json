@@ -109,6 +109,14 @@
       "exception":true
     },
     "Boolean":{"type":"boolean"},
+    "BoxedUDouble":{
+      "type":"double",
+      "min":0.0
+    },
+    "BoxedULong":{
+      "type":"long",
+      "min":0
+    },
     "CWStatsSet":{
       "type":"structure",
       "members":{
@@ -172,8 +180,8 @@
         "metricName":{"shape":"String"},
         "metricValues":{"shape":"MetricValues"},
         "metricCounts":{"shape":"MetricCounts"},
-        "metricValueDouble":{"shape":"UDouble"},
-        "metricValueLong":{"shape":"ULong"},
+        "metricValueDouble":{"shape":"BoxedUDouble"},
+        "metricValueLong":{"shape":"BoxedULong"},
         "metricValueStatsSet":{"shape":"CWStatsSet"},
         "unit":{"shape":"String"}
       }
@@ -229,7 +237,8 @@
     "InstanceMetrics":{
       "type":"structure",
       "members":{
-        "storage":{"shape":"InstanceStorageMetrics"}
+        "storage":{"shape":"InstanceStorageMetrics"},
+        "generalMetricsPayload":{"shape":"GeneralMetricsPayload"}
       }
     },
     "InstanceStatus":{
@@ -258,8 +267,7 @@
       "type":"structure",
       "members":{
         "rootFilesystem":{"shape":"Percentage"},
-        "dataFilesystem":{"shape":"Percentage"},
-        "generalMetricsPayload":{"shape":"GeneralMetricsPayload"}
+        "dataFilesystem":{"shape":"Percentage"}
       }
     },
     "InvalidParameterException":{
