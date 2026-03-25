@@ -16,14 +16,12 @@
 package ecstcs
 
 import (
-
 	"fmt"
-	"time"
 
+	"github.com/aws/amazon-ecs-agent/ecs-agent/utils"
 	"github.com/aws/aws-sdk-go/aws/awsutil"
 	"github.com/aws/aws-sdk-go/aws/request"
 	"github.com/aws/aws-sdk-go/private/protocol"
-	"github.com/aws/amazon-ecs-agent/ecs-agent/utils"
 )
 
 type AckPublishHealth struct {
