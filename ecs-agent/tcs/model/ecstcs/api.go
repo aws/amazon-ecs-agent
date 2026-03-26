@@ -509,6 +509,8 @@ func (s HeartbeatOutput) GoString() string {
 type InstanceMetrics struct {
 	_ struct{} `type:"structure"`
 
+	GeneralMetricsPayload []*GeneralMetricsWrapper `json:"generalMetricsPayload,omitempty" type:"list"`
+
 	Storage *InstanceStorageMetrics `json:"storage,omitempty" type:"structure"`
 }
 
@@ -594,8 +596,6 @@ type InstanceStorageMetrics struct {
 	_ struct{} `type:"structure"`
 
 	DataFilesystem *float64 `json:"dataFilesystem,omitempty" type:"double"`
-
-	GeneralMetricsPayload []*GeneralMetricsWrapper `json:"generalMetricsPayload,omitempty" type:"list"`
 
 	RootFilesystem *float64 `json:"rootFilesystem,omitempty" type:"double"`
 }
