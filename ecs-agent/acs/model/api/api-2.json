@@ -905,6 +905,7 @@
         "attachments":{"shape":"AttachmentList"},
         "networkMode":{"shape":"String"},
         "serviceName":{"shape":"String"},
+        "group":{"shape":"String"},
         "enableFaultInjection":{"shape":"Boolean"}
       }
     },
