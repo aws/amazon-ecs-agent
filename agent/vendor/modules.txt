@@ -96,7 +96,7 @@ github.com/aws/amazon-ecs-agent/ecs-agent/wsclient
 github.com/aws/amazon-ecs-agent/ecs-agent/wsclient/mock
 github.com/aws/amazon-ecs-agent/ecs-agent/wsclient/wsconn
 # github.com/aws/amazon-ecs-agent/ecs-agent/daemonimages/csidriver v0.0.0-20250814231752-7d5ec06fbcec => ../ecs-agent/daemonimages/csidriver
-## explicit; go 1.23.0
+## explicit; go 1.24.0
 github.com/aws/amazon-ecs-agent/ecs-agent/daemonimages/csidriver/util
 # github.com/aws/aws-sdk-go v1.55.7
 ## explicit; go 1.19
