@@ -1,5 +1,11 @@
 # Changelog
 
+# 1.102.2
+* Enhancement - Update SSM exec agent version to 3.3.4108.0 [#4912](https://github.com/aws/amazon-ecs-agent/pull/4912)
+* Enhancement - Update Go version to 1.25.8 [#4894](https://github.com/aws/amazon-ecs-agent/pull/4894)
+* Enhancement - Apply skip-gpg-check to both ecs-init and ssm agent [#4901](https://github.com/aws/amazon-ecs-agent/pull/4901)
+* Enhancement - Bump google.golang.org/grpc from 1.78.0 to 1.79.3 [#4906](https://github.com/aws/amazon-ecs-agent/pull/4906)
+
 # 1.102.1
 * Enhancement - Improve ENI watcher udev logging [#4887](https://github.com/aws/amazon-ecs-agent/pull/4887)
 * Enhancement - Update go version to 1.25.7, Update unit test coverage logic [#4886](https://github.com/aws/amazon-ecs-agent/pull/4886)
