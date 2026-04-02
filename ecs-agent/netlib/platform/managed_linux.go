@@ -188,17 +188,19 @@ func (m *managedLinux) configureRegularENI(ctx context.Context, netNSPath string
 	m.common.os.Setenv(CNIPluginLogFileEnv, ecscni.PluginLogPath)
 	m.common.os.Setenv(IPAMDataPathEnv, filepath.Join(m.common.stateDBDir, IPAMDataFileName))
 
+	ipComp := ipcompatibility.NewIPCompatibility(len(eni.IPV4Addresses) > 0, len(eni.IPV6Addresses) > 0)
+
 	switch eni.DesiredStatus {
 	case status.NetworkReadyPull:
 		// The task metadata interface setup by bridge plugin is required only for the primary ENI.
 		if eni.IsPrimary() {
-			cniNetConf = append(cniNetConf, m.createBridgePluginConfig(netNSPath))
+			cniNetConf = append(cniNetConf, m.createBridgePluginConfig(netNSPath, ipComp))
 		}
 		cniNetConf = append(cniNetConf, createENIPluginConfigs(netNSPath, eni))
 		add = true
 	case status.NetworkDeleted:
 		if eni.IsPrimary() {
-			cniNetConf = append(cniNetConf, m.createBridgePluginConfig(netNSPath))
+			cniNetConf = append(cniNetConf, m.createBridgePluginConfig(netNSPath, ipComp))
 		}
 		cniNetConf = append(cniNetConf, createENIPluginConfigs(netNSPath, eni))
 		add = false
@@ -226,19 +228,20 @@ func (m *managedLinux) configureBranchENI(ctx context.Context, netNSPath string,
 	var cniNetConf []ecscni.PluginConfig
 	var err error
 	add := true
+	ipComp := ipcompatibility.NewIPCompatibility(len(eni.IPV4Addresses) > 0, len(eni.IPV6Addresses) > 0)
 
 	// Generate CNI network configuration based on the ENI's desired state.
 	switch eni.DesiredStatus {
 	case status.NetworkReadyPull:
 		// Setup bridge to connect task network namespace to TMDS running in host's primary netns.
 		if eni.IsPrimary() {
-			cniNetConf = append(cniNetConf, m.createBridgePluginConfig(netNSPath))
+			cniNetConf = append(cniNetConf, m.createBridgePluginConfig(netNSPath, ipComp))
 		}
 		// We block IMDS access in awsvpc tasks.
 		cniNetConf = append(cniNetConf, createBranchENIConfig(netNSPath, eni, VPCBranchENIInterfaceTypeVlan, blockInstanceMetadataDefault))
 	case status.NetworkDeleted:
 		if eni.IsPrimary() {
-			cniNetConf = append(cniNetConf, m.createBridgePluginConfig(netNSPath))
+			cniNetConf = append(cniNetConf, m.createBridgePluginConfig(netNSPath, ipComp))
 		}
 		cniNetConf = append(cniNetConf, createBranchENIConfig(netNSPath, eni, VPCBranchENIInterfaceTypeVlan, blockInstanceMetadataDefault))
 		add = false

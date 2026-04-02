@@ -26,6 +26,7 @@ import (
 
 	"github.com/aws/amazon-ecs-agent/ecs-agent/acs/model/ecsacs"
 	"github.com/aws/amazon-ecs-agent/ecs-agent/ec2"
+	"github.com/aws/amazon-ecs-agent/ecs-agent/ipcompatibility"
 	"github.com/aws/amazon-ecs-agent/ecs-agent/logger"
 	netlibdata "github.com/aws/amazon-ecs-agent/ecs-agent/netlib/data"
 	"github.com/aws/amazon-ecs-agent/ecs-agent/netlib/model/appmesh"
@@ -698,7 +699,7 @@ func (c *common) configureRegularENI(ctx context.Context, netNSPath string, eni 
 	case status.NetworkReadyPull:
 		// The task metadata interface setup by bridge plugin is required only for the primary ENI.
 		if eni.IsPrimary() {
-			cniNetConf = append(cniNetConf, c.createBridgePluginConfig(netNSPath))
+			cniNetConf = append(cniNetConf, c.createBridgePluginConfig(netNSPath, ipcompatibility.NewIPCompatibility(len(eni.IPV4Addresses) > 0, len(eni.IPV6Addresses) > 0)))
 		}
 		cniNetConf = append(cniNetConf, createENIPluginConfigs(netNSPath, eni))
 		add = true
@@ -736,7 +737,7 @@ func (c *common) configureBranchENI(ctx context.Context, netNSPath string, eni *
 	case status.NetworkReadyPull:
 		// Setup bridge to connect task network namespace to TMDS running in host's primary netns.
 		if eni.IsPrimary() {
-			cniNetConf = append(cniNetConf, c.createBridgePluginConfig(netNSPath))
+			cniNetConf = append(cniNetConf, c.createBridgePluginConfig(netNSPath, ipcompatibility.NewIPCompatibility(len(eni.IPV4Addresses) > 0, len(eni.IPV6Addresses) > 0)))
 		}
 		// We block IMDS access in awsvpc tasks.
 		cniNetConf = append(cniNetConf, createBranchENIConfig(netNSPath, eni, VPCBranchENIInterfaceTypeVlan, blockInstanceMetadataDefault))

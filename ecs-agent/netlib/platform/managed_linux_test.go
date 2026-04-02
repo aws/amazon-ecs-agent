@@ -70,7 +70,7 @@ func testManagedLinuxRegularENIConfiguration(t *testing.T) {
 
 	// When the ENI is the primary ENI.
 	eniConfig := createENIPluginConfigs(netNSPath, eni)
-	bridgeConfig := managedLinuxPlatform.createBridgePluginConfig(netNSPath)
+	bridgeConfig := managedLinuxPlatform.createBridgePluginConfig(netNSPath, ipcompatibility.NewIPv4OnlyCompatibility())
 	gomock.InOrder(
 		osWrapper.EXPECT().Setenv("ECS_CNI_LOG_FILE", ecscni.PluginLogPath).Times(1),
 		osWrapper.EXPECT().Setenv("IPAM_DB_PATH", filepath.Join(managedLinuxPlatform.stateDBDir, "eni-ipam.db")),
@@ -112,7 +112,7 @@ func testManagedLinuxBranchENIConfiguration(t *testing.T) {
 	ctx, osWrapper, cniClient, eni, managedLinuxPlatform := setupManagedLinuxTestConfigureInterface(ctrl, getTestBranchV4ENI)
 
 	eni.DesiredStatus = status.NetworkReadyPull
-	bridgeConfig := managedLinuxPlatform.createBridgePluginConfig(netNSPath)
+	bridgeConfig := managedLinuxPlatform.createBridgePluginConfig(netNSPath, ipcompatibility.NewIPv4OnlyCompatibility())
 	cniConfig := createBranchENIConfig(netNSPath, eni, VPCBranchENIInterfaceTypeVlan, blockInstanceMetadataDefault)
 	gomock.InOrder(
 		osWrapper.EXPECT().Setenv("IPAM_DB_PATH", filepath.Join(managedLinuxPlatform.stateDBDir, "eni-ipam.db")),
