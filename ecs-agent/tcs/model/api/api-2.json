@@ -109,6 +109,14 @@
       "exception":true
     },
     "Boolean":{"type":"boolean"},
+    "BoxedUDouble":{
+      "type":"double",
+      "min":0.0
+    },
+    "BoxedULong":{
+      "type":"long",
+      "min":0
+    },
     "CWStatsSet":{
       "type":"structure",
       "members":{
@@ -140,7 +148,8 @@
         "memoryStatsSet":{"shape":"CWStatsSet"},
         "networkStatsSet":{"shape":"NetworkStatsSet"},
         "storageStatsSet":{"shape":"StorageStatsSet"},
-        "restartStatsSet":{"shape":"RestartStatsSet"}
+        "restartStatsSet":{"shape":"RestartStatsSet"},
+        "generalMetricsPayload":{"shape":"GeneralMetricsPayload"}
       }
     },
     "ContainerMetrics":{
@@ -170,12 +179,20 @@
       "members":{
         "metricName":{"shape":"String"},
         "metricValues":{"shape":"MetricValues"},
-        "metricCounts":{"shape":"MetricCounts"}
+        "metricCounts":{"shape":"MetricCounts"},
+        "metricValueDouble":{"shape":"BoxedUDouble"},
+        "metricValueLong":{"shape":"BoxedULong"},
+        "metricValueStatsSet":{"shape":"CWStatsSet"},
+        "unit":{"shape":"String"}
       }
     },
     "GeneralMetrics":{
       "type":"list",
       "member":{"shape":"GeneralMetric"}
+    },
+    "GeneralMetricsPayload":{
+      "type":"list",
+      "member":{"shape":"GeneralMetricsWrapper"}
     },
     "GeneralMetricsWrapper":{
       "type":"structure",
@@ -220,7 +237,8 @@
     "InstanceMetrics":{
       "type":"structure",
       "members":{
-        "storage":{"shape":"InstanceStorageMetrics"}
+        "storage":{"shape":"InstanceStorageMetrics"},
+        "generalMetricsPayload":{"shape":"GeneralMetricsPayload"}
       }
     },
     "InstanceStatus":{
@@ -228,6 +246,7 @@
       "members":{
         "type":{"shape":"String"},
         "status":{"shape":"InstanceHealthcheckStatus"},
+        "statusReason":{"shape":"String"},
         "lastUpdated":{"shape":"Timestamp"},
         "lastStatusChange":{"shape":"Timestamp"}
       }

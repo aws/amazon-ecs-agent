@@ -187,6 +187,8 @@ type Task struct {
 	// ServiceName is the name of the service to which the task belongs.
 	// It is empty if the task does not belong to any service.
 	ServiceName string
+	// Group is the task group associated with the task.
+	Group string
 	// Containers are the containers for the task
 	Containers []*apicontainer.Container
 	// Associations are the available associations for the task.

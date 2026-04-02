@@ -24,6 +24,7 @@ import (
 	"time"
 
 	"github.com/aws/amazon-ecs-agent/ecs-agent/ipcompatibility"
+	"github.com/aws/amazon-ecs-agent/ecs-agent/logger"
 	"github.com/aws/amazon-ecs-agent/ecs-agent/netlib/model/appmesh"
 	"github.com/aws/amazon-ecs-agent/ecs-agent/netlib/model/ecscni"
 	"github.com/aws/amazon-ecs-agent/ecs-agent/netlib/model/networkinterface"
@@ -91,7 +92,7 @@ func createENIPluginConfigs(netNSPath string, eni *networkinterface.NetworkInter
 }
 
 // createBridgePluginConfig constructs the configuration object for bridge plugin
-func createBridgePluginConfig(netNSPath string) ecscni.PluginConfig {
+func (c *common) createBridgePluginConfig(netNSPath string) ecscni.PluginConfig {
 	cniConfig := ecscni.CNIConfig{
 		NetNSPath:      netNSPath,
 		CNISpecVersion: cniSpecVersion,
@@ -111,7 +112,24 @@ func createBridgePluginConfig(netNSPath string) ecscni.PluginConfig {
 		},
 		IPV4Subnet: ECSSubNet,
 		IPV4Routes: []*types.Route{route},
+		IPV6Subnet: ECSSubNetIPv6,
 		ID:         netNSPath,
+	}
+
+	// Check if daemon namespace exists to enable connected subnet routes for awsvpc tasks. Daemon are first to start and
+	// last to exit on the host, hence daemon network namespace is setup before anyother task on the host.
+	if c.daemonNamespaceExists() {
+		ipamConfig.ConnectedSubnetMaskSizeIPv4 = 22
+		ipamConfig.ConnectedSubnetMaskSizeIPv6 = 112
+		logger.Info("Configured connected subnet masks for awsvpc task (daemon exists)", logger.Fields{
+			"maskSizeIPv4": ipamConfig.ConnectedSubnetMaskSizeIPv4,
+			"maskSizeIPv6": ipamConfig.ConnectedSubnetMaskSizeIPv6,
+		})
+	} else {
+		logger.Info("No daemon namespace found, awsvpc task will not have connected subnet routes", logger.Fields{
+			"maskSizeIPv4": ipamConfig.ConnectedSubnetMaskSizeIPv4,
+			"maskSizeIPv6": ipamConfig.ConnectedSubnetMaskSizeIPv6,
+		})
 	}
 
 	// Invoke the bridge plugin and ipam plugin
@@ -122,6 +140,20 @@ func createBridgePluginConfig(netNSPath string) ecscni.PluginConfig {
 	}
 
 	return bridgeConfig
+}
+
+// daemonNamespaceExists checks if the daemon network namespace exists using the netlib infrastructure
+func (c *common) daemonNamespaceExists() bool {
+	netNSPath := c.nsUtil.GetNetNSPath("host-daemon")
+	exists, err := c.nsUtil.NSExists(netNSPath)
+	if err != nil {
+		logger.Warn("Failed to check daemon namespace existence", logger.Fields{
+			"netNSPath": netNSPath,
+			"error":     err,
+		})
+		return false
+	}
+	return exists
 }
 
 // createDaemonBridgePluginConfig constructs the configuration object for bridge plugin in daemon-bridge mode.
@@ -191,6 +223,10 @@ func createDaemonBridgePluginConfig(netNSPath string, ipComp ipcompatibility.IPC
 		ipamConfig.IPV6Subnet = ECSSubNetIPv6
 		ipamConfig.IPV6Address = DaemonNamespaceIPv6
 		ipamConfig.IPV6Gateway = DaemonBridgeGatewayIPv6
+		ipamConfig.ConnectedSubnetMaskSizeIPv6 = 112 // /112 for daemon-bridge IPv6 subnet
+		logger.Info("Configured IPv6 connected subnet mask for daemon-bridge", logger.Fields{
+			"maskSize": ipamConfig.ConnectedSubnetMaskSizeIPv6,
+		})
 	}
 
 	// Invoke the bridge plugin and ipam plugin
@@ -198,7 +234,13 @@ func createDaemonBridgePluginConfig(netNSPath string, ipComp ipcompatibility.IPC
 		CNIConfig: cniConfig,
 		Name:      BridgeInterfaceName,
 		IPAM:      *ipamConfig,
+		BlockIMDS: true, // Always block IMDS for daemon-bridge tasks
 	}
+
+	logger.Info("Created daemon-bridge config with IMDS blocking enabled", logger.Fields{
+		"netNSPath": netNSPath,
+		"blockIMDS": bridgeConfig.BlockIMDS,
+	})
 
 	return bridgeConfig, nil
 }

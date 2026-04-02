@@ -23,6 +23,7 @@ import (
 	"time"
 
 	"github.com/aws/aws-sdk-go-v2/aws"
+	"github.com/aws/aws-sdk-go-v2/config"
 	"github.com/stretchr/testify/require"
 )
 
@@ -43,6 +44,21 @@ func TestNewRotatingSharedCredentialsProviderV2_AlternateProfile(t *testing.T) {
 }
 
 func TestRotatingSharedCredentialsProviderV2_RetrieveFail_BadPath(t *testing.T) {
+	// Override HOME before calling Retrieve so that the SDK cannot resolve the
+	// default ~/.aws/credentials path. The DefaultSharedConfigFiles variable is
+	// populated at package init time using $HOME, so we must also clear it.
+	origHome := os.Getenv("HOME")
+	os.Setenv("HOME", t.TempDir())
+	origConfigFiles := config.DefaultSharedConfigFiles
+	origCredsFiles := config.DefaultSharedCredentialsFiles
+	config.DefaultSharedConfigFiles = []string{}
+	config.DefaultSharedCredentialsFiles = []string{}
+	defer func() {
+		os.Setenv("HOME", origHome)
+		config.DefaultSharedConfigFiles = origConfigFiles
+		config.DefaultSharedCredentialsFiles = origCredsFiles
+	}()
+
 	p := NewRotatingSharedCredentialsProviderV2()
 	p.file = "/foo/bar/baz/bad/path"
 	v, err := p.Retrieve(context.TODO())
@@ -51,6 +67,19 @@ func TestRotatingSharedCredentialsProviderV2_RetrieveFail_BadPath(t *testing.T) 
 }
 
 func TestRotatingSharedCredentialsProviderV2_RetrieveFail_BadProfile(t *testing.T) {
+	// Override HOME and clear default config/credentials file lists to prevent
+	// the SDK from loading credentials from the default ~/.aws/credentials file.
+	origHome := os.Getenv("HOME")
+	os.Setenv("HOME", t.TempDir())
+	origConfigFiles := config.DefaultSharedConfigFiles
+	origCredsFiles := config.DefaultSharedCredentialsFiles
+	config.DefaultSharedConfigFiles = []string{}
+	config.DefaultSharedCredentialsFiles = []string{}
+	defer func() {
+		os.Setenv("HOME", origHome)
+		config.DefaultSharedConfigFiles = origConfigFiles
+		config.DefaultSharedCredentialsFiles = origCredsFiles
+	}()
 	// create tmp credentials file and use that for this test
 	tmpFile, err := os.CreateTemp(os.TempDir(), "credentials")
 	require.NoError(t, err)

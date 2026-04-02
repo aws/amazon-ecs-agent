@@ -18,8 +18,10 @@
 package engine
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
+	"io"
 	"net"
 	"net/http"
 	"net/http/httptest"
@@ -35,6 +37,7 @@ import (
 	apicontainer "github.com/aws/amazon-ecs-agent/agent/api/container"
 	apitask "github.com/aws/amazon-ecs-agent/agent/api/task"
 	"github.com/aws/amazon-ecs-agent/agent/config"
+	"github.com/aws/amazon-ecs-agent/agent/dockerclient/sdkclientfactory"
 	"github.com/aws/amazon-ecs-agent/agent/taskresource"
 	"github.com/aws/amazon-ecs-agent/agent/taskresource/firelens"
 	taskresourcevolume "github.com/aws/amazon-ecs-agent/agent/taskresource/volume"
@@ -42,7 +45,9 @@ import (
 	apitaskstatus "github.com/aws/amazon-ecs-agent/ecs-agent/api/task/status"
 	"github.com/aws/amazon-ecs-agent/ecs-agent/ec2"
 
+	"github.com/docker/docker/api/types"
 	dockercontainer "github.com/docker/docker/api/types/container"
+	sdkClient "github.com/docker/docker/client"
 	"github.com/pborman/uuid"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -385,4 +390,50 @@ func verifyFirelensResourceCleanup(t *testing.T, cfg *config.Config, firelensTas
 	// Make sure the data directory is cleaned up
 	_, err := os.ReadDir(firelensDataDir)
 	assert.True(t, os.IsNotExist(err), "Firelens data directory has not been cleaned up")
+}
+
+// logContainerLogs logs the stdout/stderr output from a container for debugging test failures.
+// This is a best-effort helper - errors are logged but don't fail the test.
+func logContainerLogs(t *testing.T, taskEngine TaskEngine, taskArn string, containerName string) {
+	containerMap, _ := taskEngine.(*DockerTaskEngine).state.ContainerMapByArn(taskArn)
+	if containerMap == nil {
+		t.Logf("Could not find container map for task %s", taskArn)
+		return
+	}
+
+	container, ok := containerMap[containerName]
+	if !ok || container == nil {
+		t.Logf("Could not find container %s in task %s", containerName, taskArn)
+		return
+	}
+
+	client, err := sdkClient.NewClientWithOpts(
+		sdkClient.WithHost(dockerEndpoint),
+		sdkClient.WithVersion(sdkclientfactory.GetDefaultVersion().String()),
+	)
+	if err != nil {
+		t.Logf("Failed to create Docker client: %v", err)
+		return
+	}
+
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+
+	logReader, err := client.ContainerLogs(ctx, container.DockerID, types.ContainerLogsOptions{
+		ShowStdout: true,
+		ShowStderr: true,
+	})
+	if err != nil {
+		t.Logf("Failed to get container logs: %v", err)
+		return
+	}
+	defer logReader.Close()
+
+	logOutput, err := io.ReadAll(logReader)
+	if err != nil {
+		t.Logf("Failed to read container logs: %v", err)
+		return
+	}
+
+	t.Logf("Container logs for %s:\n%s", containerName, string(logOutput))
 }

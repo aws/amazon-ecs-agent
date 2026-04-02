@@ -25,10 +25,12 @@ import (
 
 	"github.com/aws/amazon-ecs-agent/ecs-agent/ipcompatibility"
 	"github.com/aws/amazon-ecs-agent/ecs-agent/netlib/model/ecscni"
+	mock_ecscni "github.com/aws/amazon-ecs-agent/ecs-agent/netlib/model/ecscni/mocks_nsutil"
 	"github.com/aws/amazon-ecs-agent/ecs-agent/netlib/model/networkinterface"
 	"github.com/aws/amazon-ecs-agent/ecs-agent/netlib/model/status"
 
 	"github.com/containernetworking/cni/pkg/types"
+	"github.com/golang/mock/gomock"
 	"github.com/stretchr/testify/require"
 )
 
@@ -43,6 +45,17 @@ const (
 )
 
 func TestCreateBridgeConfig(t *testing.T) {
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+
+	mockNSUtil := mock_ecscni.NewMockNetNSUtil(ctrl)
+	mockNSUtil.EXPECT().GetNetNSPath("host-daemon").Return("/var/run/netns/host-daemon").AnyTimes()
+	mockNSUtil.EXPECT().NSExists("/var/run/netns/host-daemon").Return(false, nil).AnyTimes()
+
+	c := &common{
+		nsUtil: mockNSUtil,
+	}
+
 	cniConfig := ecscni.CNIConfig{
 		NetNSPath:      netNSPath,
 		CNISpecVersion: cniSpecVersion,
@@ -62,6 +75,7 @@ func TestCreateBridgeConfig(t *testing.T) {
 		},
 		IPV4Subnet: ECSSubNet,
 		IPV4Routes: []*types.Route{route},
+		IPV6Subnet: ECSSubNetIPv6,
 		ID:         netNSPath,
 	}
 
@@ -74,7 +88,7 @@ func TestCreateBridgeConfig(t *testing.T) {
 
 	expected, err := json.Marshal(bridgeConfig)
 	require.NoError(t, err)
-	actual, err := json.Marshal(createBridgePluginConfig(netNSPath))
+	actual, err := json.Marshal(c.createBridgePluginConfig(netNSPath))
 	require.NoError(t, err)
 
 	require.Equal(t, expected, actual)
@@ -406,6 +420,7 @@ func TestCreateDaemonBridgePluginConfig(t *testing.T) {
 			expectedConfig: &ecscni.BridgeConfig{
 				CNIConfig: cniConfig,
 				Name:      BridgeInterfaceName,
+				BlockIMDS: true, // IMDS should always be blocked for daemon-bridge
 				IPAM: ecscni.IPAMConfig{
 					CNIConfig: ecscni.CNIConfig{
 						NetNSPath:      netNSPath,
@@ -426,6 +441,7 @@ func TestCreateDaemonBridgePluginConfig(t *testing.T) {
 			expectedConfig: &ecscni.BridgeConfig{
 				CNIConfig: cniConfig,
 				Name:      BridgeInterfaceName,
+				BlockIMDS: true, // IMDS should always be blocked for daemon-bridge
 				IPAM: ecscni.IPAMConfig{
 					CNIConfig: ecscni.CNIConfig{
 						NetNSPath:      netNSPath,
@@ -450,6 +466,7 @@ func TestCreateDaemonBridgePluginConfig(t *testing.T) {
 			expectedConfig: &ecscni.BridgeConfig{
 				CNIConfig: cniConfig,
 				Name:      BridgeInterfaceName,
+				BlockIMDS: true, // IMDS should always be blocked for daemon-bridge
 				IPAM: ecscni.IPAMConfig{
 					CNIConfig: ecscni.CNIConfig{
 						NetNSPath:      netNSPath,

@@ -2607,6 +2607,8 @@ type Task struct {
 
 	Family *string `json:"family,omitempty" type:"string"`
 
+	Group *string `json:"group,omitempty" type:"string"`
+
 	IpcMode *string `json:"ipcMode,omitempty" type:"string"`
 
 	LaunchType *string `json:"launchType,omitempty" type:"string"`

@@ -162,21 +162,46 @@ endif
 test-ebs-csi:
 	make -C ./ecs-agent/daemonimages/csidriver test
 
+# -coverpkg controls which packages Go instruments for coverage measurement.
+# It enables cross-package coverage: if package A's tests call package B,
+# that counts toward B's coverage. Without -coverpkg, packages with no tests
+# report 0% and dilute the overall coverage.
+# COVERPKG_EXCLUDE filters out mock and generated packages from the -coverpkg list.
+# The notest-packages.txt files in scripts/coverfilters/ list packages allowed to have
+# no tests. New untested packages will lower coverage and may fail CI — either
+# add tests (preferred) or add to the allowlist with justification in the PR.
+COVERPKG_EXCLUDE = grep -v -e '/mock' -e '/version/gen$$' | tr '\n' ','
+
 test: test-ebs-csi
-	cd agent && GO111MODULE=on GOEXPERIMENT=nocoverageredesign ${GOTEST} ${VERBOSE} -tags unit -mod vendor -coverprofile ../cover.out -timeout=120s ./... && cd ..
-	go tool cover -func cover.out > coverprofile.out
-	cd ecs-agent && GO111MODULE=on GOEXPERIMENT=nocoverageredesign ${GOTEST} ${VERBOSE} -tags unit -mod vendor -coverprofile ../cover.out -timeout=120s ./... && cd ..
-	go tool cover -func cover.out > coverprofile-ecs-agent.out
+	cd agent && GO111MODULE=on ${GOTEST} ${VERBOSE} -tags unit -mod vendor \
+		-coverprofile ../cover.out \
+		-coverpkg=$$(go list -mod vendor -tags unit ./... | grep -v -f ../scripts/coverfilters/agent-notest-packages.txt | ${COVERPKG_EXCLUDE}) \
+		-timeout=120s ./... && cd ..
+	cd agent && go tool cover -func ../cover.out > ../coverprofile.out && cd ..
+	cd ecs-agent && GO111MODULE=on ${GOTEST} ${VERBOSE} -tags unit -mod vendor \
+		-coverprofile ../cover.out \
+		-coverpkg=$$(go list -mod vendor -tags unit ./... | grep -v -f ../scripts/coverfilters/ecs-agent-notest-packages.txt | ${COVERPKG_EXCLUDE}) \
+		-timeout=120s ./... && cd ..
+	cd ecs-agent && go tool cover -func ../cover.out > ../coverprofile-ecs-agent.out && cd ..
 
 test-init:
-	GOEXPERIMENT=nocoverageredesign go test -count=1 -short -v -coverprofile cover.out ./ecs-init/...
-	go tool cover -func cover.out > coverprofile-init.out
+	cd ecs-init && go test -count=1 -short -v \
+		-coverprofile ../cover.out \
+		-coverpkg=$$(go list ./... | grep -v -f ../scripts/coverfilters/ecs-init-notest-packages.txt | ${COVERPKG_EXCLUDE}) \
+		./... && cd ..
+	cd ecs-init && go tool cover -func ../cover.out > ../coverprofile-init.out && cd ..
 
 test-silent: test-ebs-csi
-	cd agent && GO111MODULE=on GOEXPERIMENT=nocoverageredesign ${GOTEST} -tags unit -mod vendor -coverprofile ../cover.out -timeout=120s ./... && cd ..
-	go tool cover -func cover.out > coverprofile.out
-	cd ecs-agent && GO111MODULE=on GOEXPERIMENT=nocoverageredesign ${GOTEST} -tags unit -mod vendor -coverprofile ../cover.out -timeout=120s ./... && cd ..
-	go tool cover -func cover.out > coverprofile-ecs-agent.out
+	cd agent && GO111MODULE=on ${GOTEST} -tags unit -mod vendor \
+		-coverprofile ../cover.out \
+		-coverpkg=$$(go list -mod vendor -tags unit ./... | grep -v -f ../scripts/coverfilters/agent-notest-packages.txt | ${COVERPKG_EXCLUDE}) \
+		-timeout=120s ./... && cd ..
+	cd agent && go tool cover -func ../cover.out > ../coverprofile.out && cd ..
+	cd ecs-agent && GO111MODULE=on ${GOTEST} -tags unit -mod vendor \
+		-coverprofile ../cover.out \
+		-coverpkg=$$(go list -mod vendor -tags unit ./... | grep -v -f ../scripts/coverfilters/ecs-agent-notest-packages.txt | ${COVERPKG_EXCLUDE}) \
+		-timeout=120s ./... && cd ..
+	cd ecs-agent && go tool cover -func ../cover.out > ../coverprofile-ecs-agent.out && cd ..
 
 .PHONY: analyze-cover-profile
 analyze-cover-profile: coverprofile.out coverprofile-ecs-agent.out

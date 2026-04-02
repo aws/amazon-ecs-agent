@@ -109,6 +109,7 @@ type ecsClient struct {
 	metricsFactory                   metrics.EntryFactory
 	rciRetryBackoff                  *retry.ExponentialBackoff
 	availableMemoryProvider          func() int32
+	neuronCoresResourceProvider      func() []string
 	isDualStackEnabled               bool
 }
 
@@ -490,7 +491,23 @@ func (client *ecsClient) getResources() ([]types.Resource, error) {
 		StringSetValue: utils.Uint16SliceToStringSlice(client.configAccessor.ReservedPortsUDP()),
 	}
 
-	return []types.Resource{cpuResource, memResource, portResource, udpPortResource}, nil
+	resources := []types.Resource{cpuResource, memResource, portResource, udpPortResource}
+
+	if client.neuronCoresResourceProvider != nil {
+		if neuronCoreIDs := client.neuronCoresResourceProvider(); len(neuronCoreIDs) > 0 {
+			neuronResource := types.Resource{
+				Name:           aws.String("NEURON_CORES"),
+				Type:           aws.String("STRINGSET"),
+				StringSetValue: neuronCoreIDs,
+			}
+			resources = append(resources, neuronResource)
+			logger.Debug("Neuron cores resource for ECS client", logger.Fields{
+				"neuronCoreIDs": neuronCoreIDs,
+			})
+		}
+	}
+
+	return resources, nil
 }
 
 // GetHostResources calling getHostResources to get a list of CPU, MEMORY, PORTS and PORTS_UPD resources

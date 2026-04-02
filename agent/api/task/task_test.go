@@ -1707,6 +1707,7 @@ func TestTaskFromACS(t *testing.T) {
 		Family:        strptr("myFamily"),
 		Version:       strptr("1"),
 		ServiceName:   strptr("myService"),
+		Group:         strptr("service:myService"),
 		Containers: []*ecsacs.Container{
 			{
 				Name:        strptr("myName"),
@@ -1807,6 +1808,7 @@ func TestTaskFromACS(t *testing.T) {
 		Family:              "myFamily",
 		Version:             "1",
 		ServiceName:         "myService",
+		Group:               "service:myService",
 		NetworkMode:         BridgeNetworkMode,
 		Containers: []*apicontainer.Container{
 			{
@@ -3846,6 +3848,7 @@ func TestTaskFromACSServiceNameMissing(t *testing.T) {
 	task, err := TaskFromACS(&taskFromACS, &ecsacs.PayloadMessage{SeqNum: &seqNum})
 	assert.Nil(t, err, "Should be able to handle acs task")
 	assert.Equal(t, task.ServiceName, "")
+	assert.Equal(t, task.Group, "")
 }
 
 func TestGetContainerIndex(t *testing.T) {

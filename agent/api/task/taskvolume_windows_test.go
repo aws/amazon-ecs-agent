@@ -52,6 +52,7 @@ func TestMarshalTaskVolumeFSxWindowsFileServer(t *testing.T) {
 		"Family": "",
 		"Version": "",
 		"ServiceName": "",
+		"Group": "",
 		"Containers": null,
 		"associations": null,
 		"resources": null,	

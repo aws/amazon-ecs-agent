@@ -75,6 +75,7 @@ func TestBooleanMergeNotSetOverridden(t *testing.T) {
 }
 
 func TestBrokenEC2Metadata(t *testing.T) {
+	defer setTestEnv("AWS_DEFAULT_REGION", "")()
 	ctrl := gomock.NewController(t)
 	mockEc2Metadata := mock_ec2.NewMockEC2MetadataClient(ctrl)
 	mockEc2Metadata.EXPECT().PrimaryENIMAC().Return("mac", nil).MaxTimes(1) // Only called on Linux

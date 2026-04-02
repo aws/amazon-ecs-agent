@@ -18,6 +18,7 @@ import (
 
 	prometheus "github.com/prometheus/client_model/go"
 	"github.com/prometheus/common/expfmt"
+	"github.com/prometheus/common/model"
 )
 
 // parseServiceConnectStats method parses stats in prometheus format and converts it to prometheus client model. RawStats looks like below
@@ -33,7 +34,7 @@ import (
 // MetricFamily2{dimensionX=value1, dimensionY=value2, le=1} 2
 // MetricFamily2{dimensionX=value1, dimensionY=value2, le=5} 3
 func parseServiceConnectStats(rawStats io.Reader) (map[string]*prometheus.MetricFamily, error) {
-	var parser expfmt.TextParser
+	parser := expfmt.NewTextParser(model.UTF8Validation)
 	stats, err := parser.TextToMetricFamilies(rawStats)
 	if err != nil {
 		return nil, err

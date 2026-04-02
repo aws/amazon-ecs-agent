@@ -2221,3 +2221,28 @@ func TestAvailableMemoryProvider(t *testing.T) {
 	client := tester.client.(*ecsClient)
 	assert.Equal(t, availableMemory, client.availableMemoryProvider())
 }
+
+func TestGetResourcesWithNeuronCores(t *testing.T) {
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+
+	tester := setup(t, ctrl, ec2.NewBlackholeEC2MetadataClient(), nil,
+		WithNeuronCoresResourceProvider(func() []string {
+			return []string{"0", "1"}
+		}))
+
+	client := tester.client.(*ecsClient)
+	resources, err := client.getResources()
+	assert.NoError(t, err)
+
+	var foundNeuronCores bool
+	for _, r := range resources {
+		if *r.Name == "NEURON_CORES" {
+			foundNeuronCores = true
+			assert.Equal(t, "STRINGSET", *r.Type)
+			assert.Equal(t, []string{"0", "1"}, r.StringSetValue)
+			break
+		}
+	}
+	assert.True(t, foundNeuronCores)
+}

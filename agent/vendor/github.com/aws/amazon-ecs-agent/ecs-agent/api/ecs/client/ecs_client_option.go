@@ -131,3 +131,12 @@ func WithAvailableMemoryProvider(availableMemoryProvider func() int32) ECSClient
 		client.availableMemoryProvider = availableMemoryProvider
 	}
 }
+
+// WithNeuronCoresResourceProvider is an ECSClientOption that configures a
+// provider for the NEURON_CORES resource to be included in RegisterContainerInstance.
+// The provider returns a slice of core IDs which will be converted to a STRINGSET resource.
+func WithNeuronCoresResourceProvider(neuronCoresProvider func() []string) ECSClientOption {
+	return func(client *ecsClient) {
+		client.neuronCoresResourceProvider = neuronCoresProvider
+	}
+}

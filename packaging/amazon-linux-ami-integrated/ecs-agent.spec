@@ -27,7 +27,7 @@
 %global ebs_csi_driver_dir /var/lib/ecs/deps/daemons/ebs-csi-driver
 
 Name:           ecs-init
-Version:        1.101.3
+Version:        1.102.2
 Release:        1%{?dist}
 License:        Apache 2.0
 Summary:        Amazon Elastic Container Service initialization application
@@ -42,7 +42,7 @@ Source5:        amazon-ecs-volume-plugin.conf
 Source6:        ebs-csi-driver-arm64-v%{version}.tar
 Source7:        ebs-csi-driver-v%{version}.tar
 
-BuildRequires:  golang >= 1.24.0
+BuildRequires:  golang >= 1.25.0
 %if %{with systemd}
 BuildRequires:  systemd
 Requires:       systemd
@@ -68,6 +68,23 @@ Provides:       bundled(golang(github.com/aws/amazon-ecs-agent/ecs-agent/utils))
 Provides:       bundled(golang(github.com/aws/amazon-ecs-agent/ecs-agent/utils/net))
 Provides:       bundled(golang(github.com/aws/amazon-ecs-agent/ecs-agent/utils/netlinkwrapper))
 Provides:       bundled(golang(github.com/aws/amazon-ecs-agent/ecs-agent/utils/netlinkwrapper/mocks))
+Provides:       bundled(golang(github.com/aws/aws-sdk-go/aws))
+Provides:       bundled(golang(github.com/aws/aws-sdk-go/aws/awserr))
+Provides:       bundled(golang(github.com/aws/aws-sdk-go/aws/awsutil))
+Provides:       bundled(golang(github.com/aws/aws-sdk-go/aws/client/metadata))
+Provides:       bundled(golang(github.com/aws/aws-sdk-go/aws/credentials))
+Provides:       bundled(golang(github.com/aws/aws-sdk-go/aws/endpoints))
+Provides:       bundled(golang(github.com/aws/aws-sdk-go/aws/request))
+Provides:       bundled(golang(github.com/aws/aws-sdk-go/aws/signer/v4))
+Provides:       bundled(golang(github.com/aws/aws-sdk-go/internal/context))
+Provides:       bundled(golang(github.com/aws/aws-sdk-go/internal/ini))
+Provides:       bundled(golang(github.com/aws/aws-sdk-go/internal/sdkio))
+Provides:       bundled(golang(github.com/aws/aws-sdk-go/internal/sdkmath))
+Provides:       bundled(golang(github.com/aws/aws-sdk-go/internal/shareddefaults))
+Provides:       bundled(golang(github.com/aws/aws-sdk-go/internal/strings))
+Provides:       bundled(golang(github.com/aws/aws-sdk-go/internal/sync/singleflight))
+Provides:       bundled(golang(github.com/aws/aws-sdk-go/private/protocol))
+Provides:       bundled(golang(github.com/aws/aws-sdk-go/private/protocol/rest))
 Provides:       bundled(golang(github.com/aws/aws-sdk-go-v2/aws))
 Provides:       bundled(golang(github.com/aws/aws-sdk-go-v2/aws/arn))
 Provides:       bundled(golang(github.com/aws/aws-sdk-go-v2/aws/defaults))
@@ -126,30 +143,13 @@ Provides:       bundled(golang(github.com/aws/aws-sdk-go-v2/service/s3/internal/
 Provides:       bundled(golang(github.com/aws/aws-sdk-go-v2/service/s3/types))
 Provides:       bundled(golang(github.com/aws/aws-sdk-go-v2/service/sso))
 Provides:       bundled(golang(github.com/aws/aws-sdk-go-v2/service/sso/internal/endpoints))
-Provides:       bundled(golang(github.com/aws/aws-sdk-go-v2/service/sso/types))
 Provides:       bundled(golang(github.com/aws/aws-sdk-go-v2/service/ssooidc))
 Provides:       bundled(golang(github.com/aws/aws-sdk-go-v2/service/ssooidc/internal/endpoints))
 Provides:       bundled(golang(github.com/aws/aws-sdk-go-v2/service/ssooidc/types))
+Provides:       bundled(golang(github.com/aws/aws-sdk-go-v2/service/sso/types))
 Provides:       bundled(golang(github.com/aws/aws-sdk-go-v2/service/sts))
 Provides:       bundled(golang(github.com/aws/aws-sdk-go-v2/service/sts/internal/endpoints))
 Provides:       bundled(golang(github.com/aws/aws-sdk-go-v2/service/sts/types))
-Provides:       bundled(golang(github.com/aws/aws-sdk-go/aws))
-Provides:       bundled(golang(github.com/aws/aws-sdk-go/aws/awserr))
-Provides:       bundled(golang(github.com/aws/aws-sdk-go/aws/awsutil))
-Provides:       bundled(golang(github.com/aws/aws-sdk-go/aws/client/metadata))
-Provides:       bundled(golang(github.com/aws/aws-sdk-go/aws/credentials))
-Provides:       bundled(golang(github.com/aws/aws-sdk-go/aws/endpoints))
-Provides:       bundled(golang(github.com/aws/aws-sdk-go/aws/request))
-Provides:       bundled(golang(github.com/aws/aws-sdk-go/aws/signer/v4))
-Provides:       bundled(golang(github.com/aws/aws-sdk-go/internal/context))
-Provides:       bundled(golang(github.com/aws/aws-sdk-go/internal/ini))
-Provides:       bundled(golang(github.com/aws/aws-sdk-go/internal/sdkio))
-Provides:       bundled(golang(github.com/aws/aws-sdk-go/internal/sdkmath))
-Provides:       bundled(golang(github.com/aws/aws-sdk-go/internal/shareddefaults))
-Provides:       bundled(golang(github.com/aws/aws-sdk-go/internal/strings))
-Provides:       bundled(golang(github.com/aws/aws-sdk-go/internal/sync/singleflight))
-Provides:       bundled(golang(github.com/aws/aws-sdk-go/private/protocol))
-Provides:       bundled(golang(github.com/aws/aws-sdk-go/private/protocol/rest))
 Provides:       bundled(golang(github.com/aws/smithy-go))
 Provides:       bundled(golang(github.com/aws/smithy-go/auth))
 Provides:       bundled(golang(github.com/aws/smithy-go/auth/bearer))
@@ -249,6 +249,7 @@ Provides:       bundled(golang(github.com/pkg/errors))
 Provides:       bundled(golang(github.com/pmezard/go-difflib/difflib))
 Provides:       bundled(golang(github.com/sirupsen/logrus))
 Provides:       bundled(golang(github.com/stretchr/testify/assert))
+Provides:       bundled(golang(github.com/stretchr/testify/assert/yaml))
 Provides:       bundled(golang(github.com/stretchr/testify/require))
 Provides:       bundled(golang(github.com/vishvananda/netlink))
 Provides:       bundled(golang(github.com/vishvananda/netlink/nl))
@@ -392,6 +393,15 @@ fi
 %endif
 
 %changelog
+* Mon Mar 30 2026 Amogh Rathore <amoghr@amazon.com> - 1.102.2-1
+- Cache Agent version 1.102.2
+
+* Fri Mar 06 2026 Prateek Chaudhry <ptchau@amazon.com> - 1.102.1-1
+- Cache Agent version 1.102.1
+
+* Thu Feb 19 2026 Cameron Sparr <cssparr@amazon.com> - 1.102.0-1
+- Cache Agent version 1.102.0
+
 * Thu Jan 29 2026 Thean Lim <theanlim@amazon.com> - 1.101.3-1
 - Cache Agent version 1.101.3
 

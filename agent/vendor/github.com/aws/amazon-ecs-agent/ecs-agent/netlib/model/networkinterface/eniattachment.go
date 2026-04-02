@@ -190,6 +190,28 @@ func (eni *ENIAttachment) GetAttachmentType() string {
 	return eni.AttachmentType
 }
 
+// Fields returns a logger.Fields representation of the ENI Attachment with read lock protection.
+// This is useful for structured logging and avoids multiple individual lock acquisitions.
+func (eni *ENIAttachment) Fields() logger.Fields {
+	eni.guard.RLock()
+	defer eni.guard.RUnlock()
+
+	fields := logger.Fields{
+		"attachmentARN":  eni.AttachmentARN,
+		"attachmentType": eni.AttachmentType,
+		"attachmentSent": eni.AttachStatusSent,
+		"macAddress":     eni.MACAddress,
+		"status":         eni.Status.String(),
+		"expiresAt":      eni.ExpiresAt.Format(time.RFC3339),
+	}
+
+	if eni.AttachmentType != ENIAttachmentTypeInstanceENI {
+		fields[field.TaskARN] = eni.TaskARN
+	}
+
+	return fields
+}
+
 func (eni *ENIAttachment) ShouldAttach() bool {
 	eni.guard.RLock()
 	defer eni.guard.RUnlock()

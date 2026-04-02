@@ -23,6 +23,7 @@ const (
 
 	// Daemon-bridge networking constants.
 	DaemonBridgeGatewayIP   = "169.254.172.1"
+	DaemonBridgeIP          = "169.254.172.2/32"
 	DefaultRouteDestination = "0.0.0.0/0"
 	// DaemonNamespaceIPv4 is the static IPv4 address assigned to daemon namespace interfaces.
 	// The address includes the /22 prefix length to match the ECS subnet.
@@ -35,6 +36,7 @@ const (
 	// The ::172: portion references the IPv4 ECS subnet (169.254.172.0/22) for consistency.
 	ECSSubNetIPv6               = "fd00:ec2::172:0/112"
 	DaemonBridgeGatewayIPv6     = "fd00:ec2::172:1"
+	DaemonBridgeIPv6            = "fd00:ec2::172:2/128"
 	DefaultRouteDestinationIPv6 = "::/0"
 	// DaemonNamespaceIPv6 is the static IPv6 address assigned to daemon namespace interfaces.
 	// The address includes the /112 prefix length to match the ECS IPv6 subnet.
