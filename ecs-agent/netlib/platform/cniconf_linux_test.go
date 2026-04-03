@@ -75,7 +75,6 @@ func TestCreateBridgeConfig(t *testing.T) {
 		},
 		IPV4Subnet: ECSSubNet,
 		IPV4Routes: []*types.Route{route},
-		IPV6Subnet: ECSSubNetIPv6,
 		ID:         netNSPath,
 	}
 
@@ -88,10 +87,64 @@ func TestCreateBridgeConfig(t *testing.T) {
 
 	expected, err := json.Marshal(bridgeConfig)
 	require.NoError(t, err)
-	actual, err := json.Marshal(c.createBridgePluginConfig(netNSPath))
+	actual, err := json.Marshal(c.createBridgePluginConfig(netNSPath, ipcompatibility.NewIPv4OnlyCompatibility()))
 	require.NoError(t, err)
 
 	require.Equal(t, expected, actual)
+}
+
+func TestCreateBridgeConfig_IPv6WithDaemon(t *testing.T) {
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+
+	mockNSUtil := mock_ecscni.NewMockNetNSUtil(ctrl)
+	mockNSUtil.EXPECT().GetNetNSPath("host-daemon").Return("/var/run/netns/host-daemon").AnyTimes()
+	mockNSUtil.EXPECT().NSExists("/var/run/netns/host-daemon").Return(true, nil).AnyTimes()
+
+	c := &common{nsUtil: mockNSUtil}
+
+	config := c.createBridgePluginConfig(netNSPath, ipcompatibility.NewDualStackCompatibility())
+	bridgeConfig := config.(*ecscni.BridgeConfig)
+
+	require.Equal(t, ECSSubNetIPv6, bridgeConfig.IPAM.IPV6Subnet)
+	require.Equal(t, 22, bridgeConfig.IPAM.ConnectedSubnetMaskSizeIPv4)
+	require.Equal(t, 112, bridgeConfig.IPAM.ConnectedSubnetMaskSizeIPv6)
+}
+
+func TestCreateBridgeConfig_IPv4OnlyWithDaemon(t *testing.T) {
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+
+	mockNSUtil := mock_ecscni.NewMockNetNSUtil(ctrl)
+	mockNSUtil.EXPECT().GetNetNSPath("host-daemon").Return("/var/run/netns/host-daemon").AnyTimes()
+	mockNSUtil.EXPECT().NSExists("/var/run/netns/host-daemon").Return(true, nil).AnyTimes()
+
+	c := &common{nsUtil: mockNSUtil}
+
+	config := c.createBridgePluginConfig(netNSPath, ipcompatibility.NewIPv4OnlyCompatibility())
+	bridgeConfig := config.(*ecscni.BridgeConfig)
+
+	require.Empty(t, bridgeConfig.IPAM.IPV6Subnet)
+	require.Equal(t, 22, bridgeConfig.IPAM.ConnectedSubnetMaskSizeIPv4)
+	require.Equal(t, 0, bridgeConfig.IPAM.ConnectedSubnetMaskSizeIPv6)
+}
+
+func TestCreateBridgeConfig_IPv6NoDaemon(t *testing.T) {
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+
+	mockNSUtil := mock_ecscni.NewMockNetNSUtil(ctrl)
+	mockNSUtil.EXPECT().GetNetNSPath("host-daemon").Return("/var/run/netns/host-daemon").AnyTimes()
+	mockNSUtil.EXPECT().NSExists("/var/run/netns/host-daemon").Return(false, nil).AnyTimes()
+
+	c := &common{nsUtil: mockNSUtil}
+
+	config := c.createBridgePluginConfig(netNSPath, ipcompatibility.NewDualStackCompatibility())
+	bridgeConfig := config.(*ecscni.BridgeConfig)
+
+	require.Empty(t, bridgeConfig.IPAM.IPV6Subnet)
+	require.Equal(t, 0, bridgeConfig.IPAM.ConnectedSubnetMaskSizeIPv4)
+	require.Equal(t, 0, bridgeConfig.IPAM.ConnectedSubnetMaskSizeIPv6)
 }
 
 func TestCreateENIConfig(t *testing.T) {

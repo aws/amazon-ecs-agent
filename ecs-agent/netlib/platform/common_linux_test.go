@@ -26,6 +26,7 @@ import (
 	"path/filepath"
 	"testing"
 
+	"github.com/aws/amazon-ecs-agent/ecs-agent/ipcompatibility"
 	mock_data "github.com/aws/amazon-ecs-agent/ecs-agent/netlib/data/mocks"
 	"github.com/aws/amazon-ecs-agent/ecs-agent/netlib/model/ecscni"
 	mock_ecscni2 "github.com/aws/amazon-ecs-agent/ecs-agent/netlib/model/ecscni/mocks_ecscni"
@@ -390,7 +391,7 @@ func testRegularENIConfiguration(t *testing.T) {
 
 	// When the ENI is the primary ENI.
 	eniConfig := createENIPluginConfigs(netNSPath, eni)
-	bridgeConfig := commonPlatform.createBridgePluginConfig(netNSPath)
+	bridgeConfig := commonPlatform.createBridgePluginConfig(netNSPath, ipcompatibility.NewIPv4OnlyCompatibility())
 	gomock.InOrder(
 		osWrapper.EXPECT().Setenv("ECS_CNI_LOG_FILE", ecscni.PluginLogPath).Times(1),
 		osWrapper.EXPECT().Setenv("IPAM_DB_PATH", filepath.Join(commonPlatform.stateDBDir, "eni-ipam.db")),
@@ -445,7 +446,7 @@ func testBranchENIConfiguration(t *testing.T) {
 
 	branchENI := getTestBranchV4ENI()
 	branchENI.DesiredStatus = status.NetworkReadyPull
-	bridgeConfig := commonPlatform.createBridgePluginConfig(netNSPath)
+	bridgeConfig := commonPlatform.createBridgePluginConfig(netNSPath, ipcompatibility.NewIPv4OnlyCompatibility())
 	cniConfig := createBranchENIConfig(netNSPath, branchENI, VPCBranchENIInterfaceTypeVlan, blockInstanceMetadataDefault)
 	gomock.InOrder(
 		osWrapper.EXPECT().Setenv("IPAM_DB_PATH", filepath.Join(commonPlatform.stateDBDir, "eni-ipam.db")),

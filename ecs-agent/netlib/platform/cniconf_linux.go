@@ -92,7 +92,7 @@ func createENIPluginConfigs(netNSPath string, eni *networkinterface.NetworkInter
 }
 
 // createBridgePluginConfig constructs the configuration object for bridge plugin
-func (c *common) createBridgePluginConfig(netNSPath string) ecscni.PluginConfig {
+func (c *common) createBridgePluginConfig(netNSPath string, ipComp ipcompatibility.IPCompatibility) ecscni.PluginConfig {
 	cniConfig := ecscni.CNIConfig{
 		NetNSPath:      netNSPath,
 		CNISpecVersion: cniSpecVersion,
@@ -112,24 +112,24 @@ func (c *common) createBridgePluginConfig(netNSPath string) ecscni.PluginConfig 
 		},
 		IPV4Subnet: ECSSubNet,
 		IPV4Routes: []*types.Route{route},
-		IPV6Subnet: ECSSubNetIPv6,
 		ID:         netNSPath,
 	}
 
-	// Check if daemon namespace exists to enable connected subnet routes for awsvpc tasks. Daemon are first to start and
-	// last to exit on the host, hence daemon network namespace is setup before anyother task on the host.
+	// Only include IPv6 IPAM config when daemon namespace exists AND the task has IPv6.
+	// Setting IPV6Subnet causes the IPAM plugin to allocate an IPv6 address on the task's
+	// eth0, so we only do this where daemons run for tasks that actually need IPv6
+	// connectivity to daemon containers.
 	if c.daemonNamespaceExists() {
 		ipamConfig.ConnectedSubnetMaskSizeIPv4 = 22
-		ipamConfig.ConnectedSubnetMaskSizeIPv6 = 112
-		logger.Info("Configured connected subnet masks for awsvpc task (daemon exists)", logger.Fields{
+		logFields := logger.Fields{
 			"maskSizeIPv4": ipamConfig.ConnectedSubnetMaskSizeIPv4,
-			"maskSizeIPv6": ipamConfig.ConnectedSubnetMaskSizeIPv6,
-		})
-	} else {
-		logger.Info("No daemon namespace found, awsvpc task will not have connected subnet routes", logger.Fields{
-			"maskSizeIPv4": ipamConfig.ConnectedSubnetMaskSizeIPv4,
-			"maskSizeIPv6": ipamConfig.ConnectedSubnetMaskSizeIPv6,
-		})
+		}
+		if ipComp.IsIPv6Compatible() {
+			ipamConfig.IPV6Subnet = ECSSubNetIPv6
+			ipamConfig.ConnectedSubnetMaskSizeIPv6 = 112
+			logFields["maskSizeIPv6"] = ipamConfig.ConnectedSubnetMaskSizeIPv6
+		}
+		logger.Info("Configured connected subnet masks for awsvpc task (daemon exists)", logFields)
 	}
 
 	// Invoke the bridge plugin and ipam plugin
