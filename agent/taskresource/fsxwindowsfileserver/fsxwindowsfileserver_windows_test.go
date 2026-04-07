@@ -22,6 +22,7 @@ import (
 	"fmt"
 	"os"
 	"os/exec"
+	"strings"
 	"testing"
 	"time"
 
@@ -782,12 +783,50 @@ func TestSpecialCharactersInPasswordPSCommand(t *testing.T) {
 	username := "Administrator"
 	password := "AWS@`~!@#$var%^&*()/1asd"
 
-	credsCommand := fmt.Sprintf(psCredentialCommandFormat, username, password)
-
 	// Perform actual exec to determine if the credentials are generated.
 	// Go tests are platform specific and therefore, this would work.
-	cmd := exec.Command("powershell.exe", credsCommand)
+	cmd := exec.Command("pwsh.exe", "-Command", psCredentialCommandFormat)
+	cmd.Env = append(os.Environ(), fmt.Sprintf("fsxUsername=%s", username))
+	cmd.Env = append(cmd.Env, fmt.Sprintf("fsxPassword=%s", password))
 	_, err := cmd.CombinedOutput()
 
+	assert.NoError(t, err)
+}
+
+func TestCommandChainingInPSCommand(t *testing.T) {
+	username := "Administrator'); echo hello; ('"
+	password := "AWS@`~!@#$var%^&*()/1asd"
+
+	// Perform actual exec to determine if the credentials are generated with multiple commands.
+	// Go tests are platform specific and therefore, this would work.
+	cmd := exec.Command("pwsh.exe", "-Command", psCredentialCommandFormat)
+	cmd.Env = append(os.Environ(), fmt.Sprintf("fsxUsername=%s", username))
+	cmd.Env = append(cmd.Env, fmt.Sprintf("fsxPassword=%s", password))
+
+	out, err := cmd.CombinedOutput()
+
+	assert.Contains(t, string(out), "echo")
+	assert.NoError(t, err)
+}
+
+func TestSpecialPasswordInPSCommand(t *testing.T) {
+	password := "AWS@`~!@#$var%^&*()/1asd"
+
+	tempPsCredentialCommandUsingEnv := "$Env:fsxPassword"
+	// Wrap password in single quotes to prevent PowerShell from interpreting special characters.
+	// Escape any single quotes within the password by doubling them.
+	escapedPassword := strings.ReplaceAll(password, "'", "''")
+	tempPsCredentialCommandUsingValue := fmt.Sprintf("'%s'", escapedPassword)
+
+	cmd := exec.Command("pwsh.exe", "-Command", tempPsCredentialCommandUsingEnv)
+	cmd.Env = append(os.Environ(), fmt.Sprintf("fsxPassword=%s", password))
+
+	outEnv, err := cmd.CombinedOutput()
+	assert.NoError(t, err)
+
+	cmd = exec.Command("pwsh.exe", "-Command", tempPsCredentialCommandUsingValue)
+	outValue, err := cmd.CombinedOutput()
+
+	assert.Equal(t, string(outEnv), string(outValue))
 	assert.NoError(t, err)
 }

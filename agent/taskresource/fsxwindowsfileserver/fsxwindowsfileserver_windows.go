@@ -19,6 +19,7 @@ package fsxwindowsfileserver
 import (
 	"encoding/json"
 	"fmt"
+	"os"
 	"os/exec"
 	"strings"
 	"sync"
@@ -46,7 +47,7 @@ import (
 )
 
 const (
-	psCredentialCommandFormat = "$(New-Object System.Management.Automation.PSCredential('%s', $(ConvertTo-SecureString '%s' -AsPlainText -Force)))"
+	psCredentialCommandFormat = "$(New-Object System.Management.Automation.PSCredential($Env:fsxUsername, $(ConvertTo-SecureString $Env:fsxPassword -AsPlainText -Force)))"
 	resourceProvisioningError = "VolumeError: Agent could not create task's volume resources"
 	fsxVolumeType             = "fsx"
 )
@@ -589,13 +590,9 @@ func (fv *FSxWindowsFileServerResource) performHostMount(remotePath string, user
 		}
 	}
 
-	// formatting to keep powershell happy
-	// Replace ' with '' so that Powershell would convert it back to '.
-	password = strings.ReplaceAll(password, "'", "''")
-	credsCommand := fmt.Sprintf(psCredentialCommandFormat, username, password)
-	credsArg := fmt.Sprintf("-Credential %s", credsCommand)
+	credsArg := fmt.Sprintf("-Credential %s", psCredentialCommandFormat)
 
-	remotePathArg := fmt.Sprintf("-RemotePath '%s'", remotePath)
+	remotePathArg := "-RemotePath $Env:fsxRemotePath"
 
 	// New-SmbGlobalMapping cmdlet creates an SMB mapping between the container instance
 	// and SMB share (FSx for Windows File Server file-system)
@@ -612,6 +609,9 @@ func (fv *FSxWindowsFileServerResource) performHostMount(remotePath string, user
 	seelog.Debugf("Executing mapping of fsxwindowsfileserver with cmd: %v %v", strings.Join(args[:3], " "), strings.Join(args[4:], " "))
 
 	cmd := execCommand("powershell.exe", args...)
+	cmd.Env = append(os.Environ(), fmt.Sprintf("fsxUsername=%s", username))
+	cmd.Env = append(cmd.Env, fmt.Sprintf("fsxPassword=%s", password))
+	cmd.Env = append(cmd.Env, fmt.Sprintf("fsxRemotePath=%s", remotePath))
 	out, err := cmd.CombinedOutput()
 	if err != nil {
 		safeOutput := strings.ReplaceAll(string(out), password, "<pass>")
