@@ -100,6 +100,7 @@ type session struct {
 	disconnectJitter               time.Duration
 	inactiveInstanceReconnectDelay time.Duration
 	lastConnectedTime              time.Time
+	lastDisconnectedTime           time.Time
 	firstACSConnectionTime         time.Time
 }
 
@@ -160,6 +161,7 @@ func NewSession(containerInstanceARN string,
 		disconnectJitter:               wsclient.DisconnectJitterMax,
 		inactiveInstanceReconnectDelay: inactiveInstanceReconnectDelay,
 		lastConnectedTime:              time.Time{},
+		lastDisconnectedTime:           time.Time{},
 		firstACSConnectionTime:         time.Time{},
 	}
 }
@@ -190,6 +192,7 @@ func (s *session) Start(ctx context.Context) error {
 			acsError := s.startSessionOnce(ctx)
 
 			// Session with ACS was stopped with some error, start processing the error.
+			s.lastDisconnectedTime = time.Now()
 			reconnectDelay, ok := s.reconnectDelay(acsError)
 
 			if ok {
@@ -270,6 +273,10 @@ func (s *session) startSessionOnce(ctx context.Context) error {
 		return err
 	}
 	s.metricsFactory.New(metrics.ACSSessionCallDurationName).WithGauge(time.Since(acsConnectionStartTime).Milliseconds()).Done(nil)
+	if !s.GetLastDisconnectedTime().IsZero() {
+		s.metricsFactory.New(metrics.ACSDisconnectedDurationName).WithGauge(time.Since(s.GetLastDisconnectedTime()).
+			Milliseconds()).Done(nil)
+	}
 	defer disconnectTimer.Stop()
 
 	if s.GetFirstACSConnectionTime().IsZero() {
@@ -486,6 +493,11 @@ func formatDockerVersion(dockerVersionValue string) string {
 // GetLastConnectedTime returns the timestamp that the last connection was established to ACS.
 func (s *session) GetLastConnectedTime() time.Time {
 	return s.lastConnectedTime
+}
+
+// GetLastDisconnectedTime returns the timestamp that the last time Agent was disconnected from ACS.
+func (s *session) GetLastDisconnectedTime() time.Time {
+	return s.lastDisconnectedTime
 }
 
 func (s *session) GetFirstACSConnectionTime() time.Time {

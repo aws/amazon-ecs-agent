@@ -237,6 +237,11 @@ func TestSessionReconnectsOnConnectErrors(t *testing.T) {
 	mockACSConnectDurationEndpointEntry.EXPECT().WithGauge(gomock.Any()).Return(mockACSConnectDurationEndpointEntry).AnyTimes()
 	mockACSConnectDurationEndpointEntry.EXPECT().Done(gomock.Any()).AnyTimes()
 
+	mockACSDisconnectedDurationEntry := mock_metrics.NewMockEntry(ctrl)
+	mockMetricsFactory.EXPECT().New("ACSSession.ACSDisconnectedDuration").Return(mockACSDisconnectedDurationEntry).AnyTimes()
+	mockACSDisconnectedDurationEntry.EXPECT().WithGauge(gomock.Any()).Return(mockACSDisconnectedDurationEntry).AnyTimes()
+	mockACSDisconnectedDurationEntry.EXPECT().Done(gomock.Any()).AnyTimes()
+
 	ecsClient := mock_ecs.NewMockECSClient(ctrl)
 	ecsClient.EXPECT().DiscoverPollEndpoint(gomock.Any()).Return(acsURL, nil).AnyTimes()
 
@@ -370,6 +375,11 @@ func TestSessionReconnectsWithoutBackoffOnEOFError(t *testing.T) {
 	mockACSConnectDurationEndpointEntry.EXPECT().WithGauge(gomock.Any()).Return(mockACSConnectDurationEndpointEntry).AnyTimes()
 	mockACSConnectDurationEndpointEntry.EXPECT().Done(gomock.Any()).AnyTimes()
 
+	mockACSDisconnectedDurationEntry := mock_metrics.NewMockEntry(ctrl)
+	mockMetricsFactory.EXPECT().New("ACSSession.ACSDisconnectedDuration").Return(mockACSDisconnectedDurationEntry).AnyTimes()
+	mockACSDisconnectedDurationEntry.EXPECT().WithGauge(gomock.Any()).Return(mockACSDisconnectedDurationEntry).AnyTimes()
+	mockACSDisconnectedDurationEntry.EXPECT().Done(gomock.Any()).AnyTimes()
+
 	ecsClient := mock_ecs.NewMockECSClient(ctrl)
 	ecsClient.EXPECT().DiscoverPollEndpoint(gomock.Any()).Return(acsURL, nil).AnyTimes()
 
@@ -430,6 +440,11 @@ func TestSessionReconnectsWithBackoffOnNonEOFError(t *testing.T) {
 	mockMetricsFactory.EXPECT().New("ACSSession.ACSConnectDuration").Return(mockACSConnectDurationEndpointEntry).AnyTimes()
 	mockACSConnectDurationEndpointEntry.EXPECT().WithGauge(gomock.Any()).Return(mockACSConnectDurationEndpointEntry).AnyTimes()
 	mockACSConnectDurationEndpointEntry.EXPECT().Done(gomock.Any()).AnyTimes()
+
+	mockACSDisconnectedDurationEntry := mock_metrics.NewMockEntry(ctrl)
+	mockMetricsFactory.EXPECT().New("ACSSession.ACSDisconnectedDuration").Return(mockACSDisconnectedDurationEntry).AnyTimes()
+	mockACSDisconnectedDurationEntry.EXPECT().WithGauge(gomock.Any()).Return(mockACSDisconnectedDurationEntry).AnyTimes()
+	mockACSDisconnectedDurationEntry.EXPECT().Done(gomock.Any()).AnyTimes()
 
 	ecsClient := mock_ecs.NewMockECSClient(ctrl)
 	ecsClient.EXPECT().DiscoverPollEndpoint(gomock.Any()).Return(acsURL, nil).AnyTimes()
@@ -492,6 +507,11 @@ func TestSessionCallsInactiveInstanceCB(t *testing.T) {
 	mockMetricsFactory.EXPECT().New("ACSSession.ACSConnectDuration").Return(mockACSConnectDurationEndpointEntry).AnyTimes()
 	mockACSConnectDurationEndpointEntry.EXPECT().WithGauge(gomock.Any()).Return(mockACSConnectDurationEndpointEntry).AnyTimes()
 	mockACSConnectDurationEndpointEntry.EXPECT().Done(gomock.Any()).AnyTimes()
+
+	mockACSDisconnectedDurationEntry := mock_metrics.NewMockEntry(ctrl)
+	mockMetricsFactory.EXPECT().New("ACSSession.ACSDisconnectedDuration").Return(mockACSDisconnectedDurationEntry).AnyTimes()
+	mockACSDisconnectedDurationEntry.EXPECT().WithGauge(gomock.Any()).Return(mockACSDisconnectedDurationEntry).AnyTimes()
+	mockACSDisconnectedDurationEntry.EXPECT().Done(gomock.Any()).AnyTimes()
 
 	ecsClient := mock_ecs.NewMockECSClient(ctrl)
 	ecsClient.EXPECT().DiscoverPollEndpoint(gomock.Any()).Return(acsURL, nil).AnyTimes()
@@ -559,6 +579,11 @@ func TestSessionReconnectDelayForInactiveInstanceError(t *testing.T) {
 	mockMetricsFactory.EXPECT().New("ACSSession.ACSConnectDuration").Return(mockACSConnectDurationEndpointEntry).AnyTimes()
 	mockACSConnectDurationEndpointEntry.EXPECT().WithGauge(gomock.Any()).Return(mockACSConnectDurationEndpointEntry).AnyTimes()
 	mockACSConnectDurationEndpointEntry.EXPECT().Done(gomock.Any()).AnyTimes()
+
+	mockACSDisconnectedDurationEntry := mock_metrics.NewMockEntry(ctrl)
+	mockMetricsFactory.EXPECT().New("ACSSession.ACSDisconnectedDuration").Return(mockACSDisconnectedDurationEntry).AnyTimes()
+	mockACSDisconnectedDurationEntry.EXPECT().WithGauge(gomock.Any()).Return(mockACSDisconnectedDurationEntry).AnyTimes()
+	mockACSDisconnectedDurationEntry.EXPECT().Done(gomock.Any()).AnyTimes()
 
 	ecsClient := mock_ecs.NewMockECSClient(ctrl)
 	ecsClient.EXPECT().DiscoverPollEndpoint(gomock.Any()).Return(acsURL, nil).AnyTimes()
@@ -632,6 +657,11 @@ func TestSessionReconnectsOnServeErrors(t *testing.T) {
 	mockACSConnectDurationEndpointEntry.EXPECT().WithGauge(gomock.Any()).Return(mockACSConnectDurationEndpointEntry).AnyTimes()
 	mockACSConnectDurationEndpointEntry.EXPECT().Done(gomock.Any()).AnyTimes()
 
+	mockACSDisconnectedDurationEntry := mock_metrics.NewMockEntry(ctrl)
+	mockMetricsFactory.EXPECT().New("ACSSession.ACSDisconnectedDuration").Return(mockACSDisconnectedDurationEntry).AnyTimes()
+	mockACSDisconnectedDurationEntry.EXPECT().WithGauge(gomock.Any()).Return(mockACSDisconnectedDurationEntry).AnyTimes()
+	mockACSDisconnectedDurationEntry.EXPECT().Done(gomock.Any()).AnyTimes()
+
 	ecsClient := mock_ecs.NewMockECSClient(ctrl)
 	ecsClient.EXPECT().DiscoverPollEndpoint(gomock.Any()).Return(acsURL, nil).AnyTimes()
 
@@ -693,6 +723,12 @@ func TestSessionStopsWhenContextIsCanceled(t *testing.T) {
 	mockACSConnectDurationEndpointEntry.EXPECT().WithGauge(gomock.Any()).Return(mockACSConnectDurationEndpointEntry).AnyTimes()
 	mockACSConnectDurationEndpointEntry.EXPECT().Done(gomock.Any()).AnyTimes()
 
+	mockACSDisconnectedDurationEntry := mock_metrics.NewMockEntry(ctrl)
+	mockMetricsFactory.EXPECT().New("ACSSession.ACSDisconnectedDuration").Return(mockACSDisconnectedDurationEntry)
+	mockACSDisconnectedDurationEntry.EXPECT().WithGauge(gomock.Any()).Return(mockACSDisconnectedDurationEntry)
+	// ACSDisconnectedDuration metric should be emitted exactly once - upon reconnection only.
+	mockACSDisconnectedDurationEntry.EXPECT().Done(gomock.Any())
+
 	ecsClient := mock_ecs.NewMockECSClient(ctrl)
 	ecsClient.EXPECT().DiscoverPollEndpoint(gomock.Any()).Return(acsURL, nil).AnyTimes()
 
@@ -709,12 +745,6 @@ func TestSessionStopsWhenContextIsCanceled(t *testing.T) {
 		Return(time.NewTimer(wsclient.DisconnectTimeout), nil).AnyTimes()
 	mockWsClient.EXPECT().WriteCloseMessage().Return(nil).AnyTimes()
 	mockWsClient.EXPECT().Close().Return(nil).AnyTimes()
-	gomock.InOrder(
-		mockWsClient.EXPECT().Serve(gomock.Any()).Return(io.EOF),
-		mockWsClient.EXPECT().Serve(gomock.Any()).Do(func(interface{}) {
-			cancel()
-		}).Return(inactiveInstanceError),
-	)
 	acsSession := session{
 		containerInstanceARN: testconst.ContainerInstanceARN,
 		ecsClient:            ecsClient,
@@ -728,6 +758,17 @@ func TestSessionStopsWhenContextIsCanceled(t *testing.T) {
 		backoff: retry.NewExponentialBackoff(connectionBackoffMin, connectionBackoffMax,
 			connectionBackoffJitter, connectionBackoffMultiplier),
 	}
+
+	// Last disconnected time should only be set upon reconnection (i.e., not for initial connection).
+	gomock.InOrder(
+		mockWsClient.EXPECT().Serve(gomock.Any()).Do(func(interface{}) {
+			assert.True(t, acsSession.GetLastDisconnectedTime().IsZero())
+		}).Return(io.EOF),
+		mockWsClient.EXPECT().Serve(gomock.Any()).Do(func(interface{}) {
+			assert.False(t, acsSession.GetLastDisconnectedTime().IsZero())
+			cancel()
+		}).Return(inactiveInstanceError),
+	)
 
 	err := acsSession.Start(ctx)
 	assert.Equal(t, context.Canceled, err)
@@ -749,6 +790,11 @@ func TestSessionStopsWhenContextIsErrorDueToTimeout(t *testing.T) {
 	mockMetricsFactory.EXPECT().New("ACSSession.ACSConnectDuration").Return(mockACSConnectDurationEndpointEntry).AnyTimes()
 	mockACSConnectDurationEndpointEntry.EXPECT().WithGauge(gomock.Any()).Return(mockACSConnectDurationEndpointEntry).AnyTimes()
 	mockACSConnectDurationEndpointEntry.EXPECT().Done(gomock.Any()).AnyTimes()
+
+	mockACSDisconnectedDurationEntry := mock_metrics.NewMockEntry(ctrl)
+	mockMetricsFactory.EXPECT().New("ACSSession.ACSDisconnectedDuration").Return(mockACSDisconnectedDurationEntry).AnyTimes()
+	mockACSDisconnectedDurationEntry.EXPECT().WithGauge(gomock.Any()).Return(mockACSDisconnectedDurationEntry).AnyTimes()
+	mockACSDisconnectedDurationEntry.EXPECT().Done(gomock.Any()).AnyTimes()
 
 	ecsClient := mock_ecs.NewMockECSClient(ctrl)
 	ecsClient.EXPECT().DiscoverPollEndpoint(gomock.Any()).Return(acsURL, nil).AnyTimes()
@@ -802,6 +848,11 @@ func TestSessionReconnectsOnDiscoverPollEndpointError(t *testing.T) {
 	mockMetricsFactory.EXPECT().New("ACSSession.ACSConnectDuration").Return(mockACSConnectDurationEndpointEntry).AnyTimes()
 	mockACSConnectDurationEndpointEntry.EXPECT().WithGauge(gomock.Any()).Return(mockACSConnectDurationEndpointEntry).AnyTimes()
 	mockACSConnectDurationEndpointEntry.EXPECT().Done(gomock.Any()).AnyTimes()
+
+	mockACSDisconnectedDurationEntry := mock_metrics.NewMockEntry(ctrl)
+	mockMetricsFactory.EXPECT().New("ACSSession.ACSDisconnectedDuration").Return(mockACSDisconnectedDurationEntry).AnyTimes()
+	mockACSDisconnectedDurationEntry.EXPECT().WithGauge(gomock.Any()).Return(mockACSDisconnectedDurationEntry).AnyTimes()
+	mockACSDisconnectedDurationEntry.EXPECT().Done(gomock.Any()).AnyTimes()
 
 	ecsClient := mock_ecs.NewMockECSClient(ctrl)
 	ctx, cancel := context.WithCancel(context.Background())
@@ -876,6 +927,11 @@ func TestConnectionIsClosedOnIdle(t *testing.T) {
 	mockMetricsFactory.EXPECT().New("ACSSession.ACSConnectDuration").Return(mockACSConnectDurationEndpointEntry).AnyTimes()
 	mockACSConnectDurationEndpointEntry.EXPECT().WithGauge(gomock.Any()).Return(mockACSConnectDurationEndpointEntry).AnyTimes()
 	mockACSConnectDurationEndpointEntry.EXPECT().Done(gomock.Any()).AnyTimes()
+
+	mockACSDisconnectedDurationEntry := mock_metrics.NewMockEntry(ctrl)
+	mockMetricsFactory.EXPECT().New("ACSSession.ACSDisconnectedDuration").Return(mockACSDisconnectedDurationEntry).AnyTimes()
+	mockACSDisconnectedDurationEntry.EXPECT().WithGauge(gomock.Any()).Return(mockACSDisconnectedDurationEntry).AnyTimes()
+	mockACSDisconnectedDurationEntry.EXPECT().Done(gomock.Any()).AnyTimes()
 
 	ecsClient := mock_ecs.NewMockECSClient(ctrl)
 	ecsClient.EXPECT().DiscoverPollEndpoint(gomock.Any()).Return(acsURL, nil).AnyTimes()
@@ -1135,6 +1191,11 @@ func TestSessionCorrectlySetsSendCredentials(t *testing.T) {
 	mockMetricsFactory.EXPECT().New("ACSSession.ACSConnectDuration").Return(mockACSConnectDurationEndpointEntry).AnyTimes()
 	mockACSConnectDurationEndpointEntry.EXPECT().WithGauge(gomock.Any()).Return(mockACSConnectDurationEndpointEntry).AnyTimes()
 	mockACSConnectDurationEndpointEntry.EXPECT().Done(gomock.Any()).AnyTimes()
+
+	mockACSDisconnectedDurationEntry := mock_metrics.NewMockEntry(ctrl)
+	mockMetricsFactory.EXPECT().New("ACSSession.ACSDisconnectedDuration").Return(mockACSDisconnectedDurationEntry).AnyTimes()
+	mockACSDisconnectedDurationEntry.EXPECT().WithGauge(gomock.Any()).Return(mockACSDisconnectedDurationEntry).AnyTimes()
+	mockACSDisconnectedDurationEntry.EXPECT().Done(gomock.Any()).AnyTimes()
 
 	const numInvocations = 10
 	ecsClient := mock_ecs.NewMockECSClient(ctrl)
