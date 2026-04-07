@@ -1310,6 +1310,11 @@ func (mtask *managedTask) taskExecutionRoleCredentialsResolved(resource taskreso
 		return true
 	}
 
+	// If the task's desired status is stopped, no credentials are needed to transition resources.
+	if mtask.GetDesiredStatus().Terminal() {
+		return true
+	}
+
 	// Check if credentials are available
 	_, ok := mtask.credentialsManager.GetTaskCredentials(mtask.Task.GetExecutionCredentialsID())
 	return ok
