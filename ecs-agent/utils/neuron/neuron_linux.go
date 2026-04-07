@@ -22,6 +22,8 @@ import (
 	"sort"
 	"strconv"
 	"strings"
+
+	"github.com/aws/amazon-ecs-agent/ecs-agent/logger"
 )
 
 // DiscoverCores enumerates Neuron devices from sysfs, validates device paths exist,
@@ -95,4 +97,48 @@ func DiscoverCores(rootPath string) (*NeuronCores, error) {
 	}
 
 	return &NeuronCores{cores: cores}, nil
+}
+
+// DiscoverDevices enumerates Neuron devices from sysfs.
+// Returns nil if no devices are found (not an error).
+// Returns error only for I/O failures.
+// rootPath allows testing with custom sysfs location (use "/" for production).
+func DiscoverDevices(rootPath string) (*NeuronDevices, error) {
+	sysfsPath := filepath.Join(rootPath, "sys/class/neuron_device")
+	devPath := filepath.Join(rootPath, "dev")
+
+	devicePaths, err := filepath.Glob(filepath.Join(sysfsPath, "neuron*"))
+	if err != nil {
+		return nil, fmt.Errorf("failed to enumerate neuron devices: %w", err)
+	}
+
+	if len(devicePaths) == 0 {
+		return nil, nil
+	}
+
+	devices := make(map[string]NeuronDevice)
+	for _, devicePath := range devicePaths {
+		// e.g. "/sys/class/neuron_device/neuron0" → "neuron0" → "0"
+		deviceName := filepath.Base(devicePath)
+		deviceID := strings.TrimPrefix(deviceName, "neuron")
+
+		// Skip entries where suffix is not a number
+		if _, err := strconv.Atoi(deviceID); err != nil {
+			logger.Info("Skipping non-numeric neuron sysfs entry", logger.Fields{"entry": deviceName})
+			continue
+		}
+
+		deviceFilePath := filepath.Join(devPath, deviceName)
+
+		if _, err := os.Stat(deviceFilePath); err != nil {
+			return nil, fmt.Errorf("neuron device file %s not found: %w", deviceFilePath, err)
+		}
+
+		devices[deviceID] = NeuronDevice{
+			ID:   deviceID,
+			Path: deviceFilePath,
+		}
+	}
+
+	return &NeuronDevices{devices: devices}, nil
 }

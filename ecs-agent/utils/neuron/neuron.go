@@ -13,6 +13,11 @@
 
 package neuron
 
+import (
+	"maps"
+	"slices"
+)
+
 // NeuronDevice represents a physical Neuron device (chip)
 type NeuronDevice struct {
 	ID   string `json:"id"`   // Logical device ID: "0", "1"
@@ -77,4 +82,30 @@ func GetCoreIDs(cores []NeuronCore) []string {
 // This is exported only for use in tests.
 func NewNeuronCoresForTesting(coresMap map[string]NeuronCore) *NeuronCores {
 	return &NeuronCores{cores: coresMap}
+}
+
+// NeuronDevices contains all discovered Neuron devices.
+type NeuronDevices struct {
+	devices map[string]NeuronDevice // deviceID -> NeuronDevice
+}
+
+// DeviceByID returns the device with the given ID.
+// Returns false if device ID is not found.
+func (nd *NeuronDevices) DeviceByID(id string) (NeuronDevice, bool) {
+	d, ok := nd.devices[id]
+	return d, ok
+}
+
+// DeviceIDs returns all device IDs as strings.
+func (nd *NeuronDevices) DeviceIDs() []string {
+	if nd == nil {
+		return nil
+	}
+	return slices.Collect(maps.Keys(nd.devices))
+}
+
+// NewNeuronDevicesForTesting creates a NeuronDevices instance for testing.
+// This is exported only for use in tests.
+func NewNeuronDevicesForTesting(devicesMap map[string]NeuronDevice) *NeuronDevices {
+	return &NeuronDevices{devices: devicesMap}
 }
