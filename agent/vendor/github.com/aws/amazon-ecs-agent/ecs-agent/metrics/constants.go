@@ -55,9 +55,10 @@ const (
 	TCSDisconnectTimeoutMetricName = agentAvailabilityNamespace + ".TCSDisconnectTimeout"
 
 	// ACS Session Metrics
-	acsSessionNamespace        = "ACSSession"
-	ACSSessionFailureCallName  = acsSessionNamespace + ".ACSConnectFailure"
-	ACSSessionCallDurationName = acsSessionNamespace + ".ACSConnectDuration"
+	acsSessionNamespace         = "ACSSession"
+	ACSSessionFailureCallName   = acsSessionNamespace + ".ACSConnectFailure"
+	ACSSessionCallDurationName  = acsSessionNamespace + ".ACSConnectDuration"
+	ACSDisconnectedDurationName = acsSessionNamespace + ".ACSDisconnectedDuration"
 
 	// TACS Connection Metrics
 	tacsConnectionNamespace  = "TACSConnection"
