@@ -2585,6 +2585,7 @@ func TestTaskExecutionRoleCredentialsResolved(t *testing.T) {
 		name                 string
 		requiresCredentials  bool
 		resourceStatus       resourcestatus.ResourceStatus
+		taskDesiredStatus    apitaskstatus.TaskStatus
 		credentialsAvailable bool
 		expectedResult       bool
 	}{
@@ -2592,6 +2593,7 @@ func TestTaskExecutionRoleCredentialsResolved(t *testing.T) {
 			name:                 "resource does not require execution role credentials",
 			requiresCredentials:  false,
 			resourceStatus:       resourcestatus.ResourceStatusNone,
+			taskDesiredStatus:    apitaskstatus.TaskRunning,
 			credentialsAvailable: false,
 			expectedResult:       true,
 		},
@@ -2599,6 +2601,7 @@ func TestTaskExecutionRoleCredentialsResolved(t *testing.T) {
 			name:                 "resource already created",
 			requiresCredentials:  true,
 			resourceStatus:       resourcestatus.ResourceCreated,
+			taskDesiredStatus:    apitaskstatus.TaskRunning,
 			credentialsAvailable: false,
 			expectedResult:       true,
 		},
@@ -2606,6 +2609,7 @@ func TestTaskExecutionRoleCredentialsResolved(t *testing.T) {
 			name:                 "credentials available",
 			requiresCredentials:  true,
 			resourceStatus:       resourcestatus.ResourceStatusNone,
+			taskDesiredStatus:    apitaskstatus.TaskRunning,
 			credentialsAvailable: true,
 			expectedResult:       true,
 		},
@@ -2613,8 +2617,17 @@ func TestTaskExecutionRoleCredentialsResolved(t *testing.T) {
 			name:                 "credentials not available",
 			requiresCredentials:  true,
 			resourceStatus:       resourcestatus.ResourceStatusNone,
+			taskDesiredStatus:    apitaskstatus.TaskRunning,
 			credentialsAvailable: false,
 			expectedResult:       false,
+		},
+		{
+			name:                 "task desired status is stopped",
+			requiresCredentials:  true,
+			resourceStatus:       resourcestatus.ResourceStatusNone,
+			taskDesiredStatus:    apitaskstatus.TaskStopped,
+			credentialsAvailable: false,
+			expectedResult:       true,
 		},
 	}
 
@@ -2629,6 +2642,7 @@ func TestTaskExecutionRoleCredentialsResolved(t *testing.T) {
 			task := &apitask.Task{
 				Arn:                    "test-task-arn",
 				ExecutionCredentialsID: "test-creds-id",
+				DesiredStatusUnsafe:    tc.taskDesiredStatus,
 			}
 			mtask := &managedTask{
 				Task:               task,
@@ -2638,7 +2652,7 @@ func TestTaskExecutionRoleCredentialsResolved(t *testing.T) {
 			mockResource.EXPECT().RequiresExecutionRoleCredentials().Return(tc.requiresCredentials)
 			if tc.requiresCredentials {
 				mockResource.EXPECT().GetKnownStatus().Return(tc.resourceStatus)
-				if tc.resourceStatus < resourcestatus.ResourceCreated {
+				if tc.resourceStatus < resourcestatus.ResourceCreated && !tc.taskDesiredStatus.Terminal() {
 					if tc.credentialsAvailable {
 						mockCredentialsManager.EXPECT().GetTaskCredentials("test-creds-id").Return(credentials.TaskIAMRoleCredentials{}, true)
 					} else {
