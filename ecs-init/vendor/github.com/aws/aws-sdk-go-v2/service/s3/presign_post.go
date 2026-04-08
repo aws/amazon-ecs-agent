@@ -8,7 +8,6 @@ import (
 	"encoding/hex"
 	"encoding/json"
 	"fmt"
-	"net/url"
 	"strings"
 	"time"
 
@@ -101,7 +100,7 @@ type postSignAdapter struct{}
 func (s *postSignAdapter) PresignPost(
 	credentials aws.Credentials,
 	bucket string, key string,
-	region string, service string, signingTime time.Time, conditions []interface{}, expirationTime time.Time, optFns ...func(*v4.SignerOptions),
+	region string, service string, signingTime time.Time, conditions []any, expirationTime time.Time, optFns ...func(*v4.SignerOptions),
 ) (fields map[string]string, err error) {
 	credentialScope := buildCredentialScope(signingTime, region, service)
 	credentialStr := credentials.AccessKeyID + "/" + credentialScope
@@ -141,7 +140,7 @@ type PresignPost interface {
 	PresignPost(
 		credentials aws.Credentials,
 		bucket string, key string,
-		region string, service string, signingTime time.Time, conditions []interface{}, expirationTime time.Time,
+		region string, service string, signingTime time.Time, conditions []any, expirationTime time.Time,
 		optFns ...func(*v4.SignerOptions),
 	) (fields map[string]string, err error)
 }
@@ -165,7 +164,7 @@ type PresignPostOptions struct {
 	// Available conditions can be found [here]
 	//
 	// [here]https://docs.aws.amazon.com/AmazonS3/latest/API/sigv4-HTTPPOSTConstructPolicy.html#sigv4-PolicyConditions
-	Conditions []interface{}
+	Conditions []any
 }
 
 type presignPostConverter PresignPostOptions
@@ -176,7 +175,7 @@ type presignPostRequestMiddlewareOptions struct {
 	Presigner           PresignPost
 	LogSigning          bool
 	ExpiresIn           time.Duration
-	Conditions          []interface{}
+	Conditions          []any
 }
 
 type presignPostRequestMiddleware struct {
@@ -184,7 +183,7 @@ type presignPostRequestMiddleware struct {
 	presigner           PresignPost
 	logSigning          bool
 	expiresIn           time.Duration
-	conditions          []interface{}
+	conditions          []any
 }
 
 // newPresignPostRequestMiddleware returns a new presignPostRequestMiddleware
@@ -211,10 +210,6 @@ func (s *presignPostRequestMiddleware) HandleFinalize(
 ) (
 	out middleware.FinalizeOutput, metadata middleware.Metadata, err error,
 ) {
-	req, ok := in.Request.(*smithyhttp.Request)
-	if !ok {
-		return out, metadata, fmt.Errorf("unexpected request middleware type %T", in.Request)
-	}
 
 	input := getOperationInput(ctx)
 	asS3Put, ok := input.(*PutObjectInput)
@@ -230,8 +225,7 @@ func (s *presignPostRequestMiddleware) HandleFinalize(
 		return out, metadata, fmt.Errorf("PutObject input does not have a key input")
 	}
 
-	httpReq := req.Build(ctx)
-	u := httpReq.URL.String()
+	uri := getS3ResolvedURI(ctx)
 
 	signingName := awsmiddleware.GetSigningName(ctx)
 	signingRegion := awsmiddleware.GetSigningRegion(ctx)
@@ -265,20 +259,12 @@ func (s *presignPostRequestMiddleware) HandleFinalize(
 		}
 	}
 
-	// Other middlewares may set default values on the URL on the path or as query params. Remove them
-	baseURL := toBaseURL(u)
-
 	out.Result = &PresignedPostRequest{
-		URL:    baseURL,
+		URL:    uri,
 		Values: fields,
 	}
 
 	return out, metadata, nil
-}
-
-func toBaseURL(fullURL string) string {
-	a, _ := url.Parse(fullURL)
-	return a.Scheme + "://" + a.Host
 }
 
 // Adapted from existing PresignConverter middleware
@@ -319,8 +305,8 @@ func (c presignPostConverter) ConvertToPresignMiddleware(stack *middleware.Stack
 	return nil
 }
 
-func createPolicyDocument(expirationTime time.Time, signingTime time.Time, bucket string, key string, credentialString string, securityToken *string, extraConditions []interface{}) (string, error) {
-	initialConditions := []interface{}{
+func createPolicyDocument(expirationTime time.Time, signingTime time.Time, bucket string, key string, credentialString string, securityToken *string, extraConditions []any) (string, error) {
+	initialConditions := []any{
 		map[string]string{
 			algorithmHeader: algorithm,
 		},
@@ -335,7 +321,7 @@ func createPolicyDocument(expirationTime time.Time, signingTime time.Time, bucke
 		},
 	}
 
-	var conditions []interface{}
+	var conditions []any
 	for _, v := range initialConditions {
 		conditions = append(conditions, v)
 	}
@@ -359,7 +345,7 @@ func createPolicyDocument(expirationTime time.Time, signingTime time.Time, bucke
 		conditions = append(conditions, map[string]string{"key": key})
 	}
 
-	policyDoc := map[string]interface{}{
+	policyDoc := map[string]any{
 		"conditions": conditions,
 		"expiration": expirationTime.Format(time.RFC3339),
 	}
@@ -372,18 +358,18 @@ func createPolicyDocument(expirationTime time.Time, signingTime time.Time, bucke
 	return base64.StdEncoding.EncodeToString(jsonBytes), nil
 }
 
-func isAlreadyCheckingForKey(conditions []interface{}) bool {
+func isAlreadyCheckingForKey(conditions []any) bool {
 	// Need to check for two conditions:
 	// 1. A condition of the form ["starts-with", "$key", "mykey"]
 	// 2. A condition of the form {"key": "mykey"}
 	for _, c := range conditions {
-		slice, ok := c.([]interface{})
+		slice, ok := c.([]any)
 		if ok && len(slice) > 1 {
 			if slice[0] == "starts-with" && slice[1] == "$key" {
 				return true
 			}
 		}
-		m, ok := c.(map[string]interface{})
+		m, ok := c.(map[string]any)
 		if ok && len(m) > 0 {
 			for k := range m {
 				if k == "key" {
