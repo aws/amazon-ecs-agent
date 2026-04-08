@@ -16,6 +16,7 @@
 package neuron
 
 import (
+	"fmt"
 	"os"
 	"path/filepath"
 	"testing"
@@ -216,4 +217,120 @@ func TestCoreIDs(t *testing.T) {
 		coreIDs := nc.CoreIDs()
 		assert.ElementsMatch(t, []string{"0", "1"}, coreIDs)
 	})
+}
+
+func TestDiscoverDevices(t *testing.T) {
+	t.Run("no devices", func(t *testing.T) {
+		tmpDir := t.TempDir()
+		require.NoError(t, os.MkdirAll(filepath.Join(tmpDir, "sys/class/neuron_device"), 0755))
+
+		devices, err := DiscoverDevices(tmpDir)
+		assert.NoError(t, err)
+		assert.Nil(t, devices)
+	})
+
+	t.Run("single device", func(t *testing.T) {
+		tmpDir := t.TempDir()
+		require.NoError(t, os.MkdirAll(filepath.Join(tmpDir, "sys/class/neuron_device/neuron0"), 0755))
+		require.NoError(t, os.MkdirAll(filepath.Join(tmpDir, "dev"), 0755))
+		require.NoError(t, os.WriteFile(filepath.Join(tmpDir, "dev/neuron0"), []byte{}, 0644))
+
+		devices, err := DiscoverDevices(tmpDir)
+		require.NoError(t, err)
+
+		expected := &NeuronDevices{
+			devices: map[string]NeuronDevice{
+				"0": {ID: "0", Path: filepath.Join(tmpDir, "dev/neuron0")},
+			},
+		}
+		assert.Equal(t, expected, devices)
+	})
+
+	t.Run("multiple devices", func(t *testing.T) {
+		tmpDir := t.TempDir()
+		require.NoError(t, os.MkdirAll(filepath.Join(tmpDir, "dev"), 0755))
+		for i := 0; i < 3; i++ {
+			require.NoError(t, os.MkdirAll(filepath.Join(tmpDir, fmt.Sprintf("sys/class/neuron_device/neuron%d", i)), 0755))
+			require.NoError(t, os.WriteFile(filepath.Join(tmpDir, fmt.Sprintf("dev/neuron%d", i)), []byte{}, 0644))
+		}
+
+		devices, err := DiscoverDevices(tmpDir)
+		require.NoError(t, err)
+
+		expected := &NeuronDevices{
+			devices: map[string]NeuronDevice{
+				"0": {ID: "0", Path: filepath.Join(tmpDir, "dev/neuron0")},
+				"1": {ID: "1", Path: filepath.Join(tmpDir, "dev/neuron1")},
+				"2": {ID: "2", Path: filepath.Join(tmpDir, "dev/neuron2")},
+			},
+		}
+		assert.Equal(t, expected, devices)
+	})
+
+	t.Run("missing device file", func(t *testing.T) {
+		tmpDir := t.TempDir()
+		require.NoError(t, os.MkdirAll(filepath.Join(tmpDir, "sys/class/neuron_device/neuron0"), 0755))
+		require.NoError(t, os.MkdirAll(filepath.Join(tmpDir, "dev"), 0755))
+
+		devices, err := DiscoverDevices(tmpDir)
+		assert.Error(t, err)
+		assert.Nil(t, devices)
+		assert.ErrorContains(t, err, fmt.Sprintf("neuron device file %s not found", filepath.Join(tmpDir, "dev/neuron0")))
+	})
+
+	t.Run("non-device neuron entries in sysfs", func(t *testing.T) {
+		tmpDir := t.TempDir()
+		// neuron0 is a real device, neuron_monitor matches the glob but is not a device
+		require.NoError(t, os.MkdirAll(filepath.Join(tmpDir, "sys/class/neuron_device/neuron0"), 0755))
+		require.NoError(t, os.MkdirAll(filepath.Join(tmpDir, "sys/class/neuron_device/neuron_monitor"), 0755))
+		require.NoError(t, os.MkdirAll(filepath.Join(tmpDir, "dev"), 0755))
+		require.NoError(t, os.WriteFile(filepath.Join(tmpDir, "dev/neuron0"), []byte{}, 0644))
+
+		devices, err := DiscoverDevices(tmpDir)
+		require.NoError(t, err)
+
+		expected := &NeuronDevices{
+			devices: map[string]NeuronDevice{
+				"0": {ID: "0", Path: filepath.Join(tmpDir, "dev/neuron0")},
+			},
+		}
+		assert.Equal(t, expected, devices)
+	})
+}
+
+func TestNeuronDevices_DeviceIDs(t *testing.T) {
+	t.Run("nil", func(t *testing.T) {
+		var nd *NeuronDevices
+		assert.Nil(t, nd.DeviceIDs())
+	})
+
+	t.Run("empty", func(t *testing.T) {
+		nd := &NeuronDevices{devices: make(map[string]NeuronDevice)}
+		assert.Empty(t, nd.DeviceIDs())
+	})
+
+	t.Run("with devices", func(t *testing.T) {
+		nd := &NeuronDevices{
+			devices: map[string]NeuronDevice{
+				"0": {ID: "0", Path: "/dev/neuron0"},
+				"1": {ID: "1", Path: "/dev/neuron1"},
+			},
+		}
+		assert.ElementsMatch(t, []string{"0", "1"}, nd.DeviceIDs())
+	})
+}
+
+func TestNeuronDevices_DeviceByID(t *testing.T) {
+	nd := &NeuronDevices{
+		devices: map[string]NeuronDevice{
+			"0": {ID: "0", Path: "/dev/neuron0"},
+		},
+	}
+
+	device, ok := nd.DeviceByID("0")
+	assert.True(t, ok)
+	assert.Equal(t, NeuronDevice{ID: "0", Path: "/dev/neuron0"}, device)
+
+	_, ok = nd.DeviceByID("99")
+	assert.False(t, ok)
 }
