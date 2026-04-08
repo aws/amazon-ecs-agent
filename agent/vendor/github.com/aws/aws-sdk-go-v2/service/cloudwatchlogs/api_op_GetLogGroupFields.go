@@ -15,6 +15,9 @@ import (
 // log group. Includes the percentage of log events that contain each field. The
 // search is limited to a time period that you specify.
 //
+// This operation is used for discovering fields within log group events. For
+// discovering fields across data sources, use the GetLogFields operation.
+//
 // You can specify the log group to search by using either logGroupIdentifier or
 // logGroupName . You must specify one of these parameters, but you can't specify
 // both.
@@ -119,7 +122,7 @@ func (c *Client) addOperationGetLogGroupFieldsMiddlewares(stack *middleware.Stac
 	if err = addComputePayloadSHA256(stack); err != nil {
 		return err
 	}
-	if err = addRetry(stack, options); err != nil {
+	if err = addRetry(stack, options, c); err != nil {
 		return err
 	}
 	if err = addRawResponseToMetadata(stack); err != nil {
@@ -141,9 +144,6 @@ func (c *Client) addOperationGetLogGroupFieldsMiddlewares(stack *middleware.Stac
 		return err
 	}
 	if err = addSetLegacyContextSigningOptionsMiddleware(stack); err != nil {
-		return err
-	}
-	if err = addTimeOffsetBuild(stack, c); err != nil {
 		return err
 	}
 	if err = addUserAgentRetryMode(stack, options); err != nil {
@@ -170,16 +170,13 @@ func (c *Client) addOperationGetLogGroupFieldsMiddlewares(stack *middleware.Stac
 	if err = addDisableHTTPSMiddleware(stack, options); err != nil {
 		return err
 	}
-	if err = addSpanInitializeStart(stack); err != nil {
+	if err = addInterceptBeforeRetryLoop(stack, options); err != nil {
 		return err
 	}
-	if err = addSpanInitializeEnd(stack); err != nil {
+	if err = addInterceptAttempt(stack, options); err != nil {
 		return err
 	}
-	if err = addSpanBuildRequestStart(stack); err != nil {
-		return err
-	}
-	if err = addSpanBuildRequestEnd(stack); err != nil {
+	if err = addInterceptors(stack, options); err != nil {
 		return err
 	}
 	return nil

@@ -1,3 +1,202 @@
+# v1.65.0 (2026-03-26)
+
+* **Feature**: This release adds parameter support to saved queries in CloudWatch Logs Insights. Define reusable query templates with named placeholders, invoke them using start query. Available in Console, CLI and SDK
+* **Bug Fix**: Fix a bug where a recorded clock skew could persist on the client even if the client and server clock ended up realigning.
+* **Dependency Update**: Updated to the latest SDK module versions
+
+# v1.64.2 (2026-03-23)
+
+* **Dependency Update**: Updated to the latest SDK module versions
+
+# v1.64.1 (2026-03-13)
+
+* **Dependency Update**: Updated to the latest SDK module versions
+
+# v1.64.0 (2026-03-03)
+
+* **Feature**: CloudWatch Logs updates- Added support for the PutBearerTokenAuthentication API to enable or disable bearer token authentication on a log group. For more information, see CloudWatch Logs API documentation.
+* **Dependency Update**: Bump minimum Go version to 1.24
+* **Dependency Update**: Updated to the latest SDK module versions
+
+# v1.63.2 (2026-02-23)
+
+* **Dependency Update**: Updated to the latest SDK module versions
+
+# v1.63.1 (2026-01-09)
+
+* **Dependency Update**: Updated to the latest SDK module versions
+
+# v1.63.0 (2025-12-15)
+
+* **Feature**: This release allows you to import your historical CloudTrail Lake data into CloudWatch with a few steps, enabling you to easily consolidate operational, security, and compliance data in one place.
+
+# v1.62.2 (2025-12-09)
+
+* No change notes available for this release.
+
+# v1.62.1 (2025-12-08)
+
+* **Dependency Update**: Updated to the latest SDK module versions
+
+# v1.62.0 (2025-12-02)
+
+* **Feature**: CloudWatch Logs adds managed S3 Tables integration to access logs using other analytical tools, as well as facets and field indexing to simplify log analytics in CloudWatch Logs Insights.
+* **Dependency Update**: Updated to the latest SDK module versions
+* **Dependency Update**: Upgrade to smithy-go v1.24.0. Notably this version of the library reduces the allocation footprint of the middleware system. We observe a ~10% reduction in allocations per SDK call with this change.
+
+# v1.61.1 (2025-11-25)
+
+* **Bug Fix**: Add error check for endpoint param binding during auth scheme resolution to fix panic reported in #3234
+
+# v1.61.0 (2025-11-24)
+
+* **Feature**: New CloudWatch Logs feature - LogGroup Deletion Protection, a capability that allows customers to safeguard their critical CloudWatch log groups from accidental or unintended deletion.
+
+# v1.60.1 (2025-11-19.2)
+
+* **Dependency Update**: Updated to the latest SDK module versions
+
+# v1.60.0 (2025-11-19)
+
+* **Feature**: Adding support for ocsf version 1.5, add optional parameter MappingVersion
+
+# v1.59.0 (2025-11-18)
+
+* **Feature**: CloudWatch Logs updates: Added capability to setup a recurring schedule for log insights queries. Logs introduced Scheduled Queries (managed through Create/Update/Get/Delete/List/History Scheduled Query APIs). For more information, see CloudWatch Logs API documentation.
+
+# v1.58.9 (2025-11-12)
+
+* **Bug Fix**: Further reduce allocation overhead when the metrics system isn't in-use.
+* **Bug Fix**: Reduce allocation overhead when the client doesn't have any HTTP interceptors configured.
+* **Bug Fix**: Remove blank trace spans towards the beginning of the request that added no additional information. This conveys a slight reduction in overall allocations.
+
+# v1.58.8 (2025-11-11)
+
+* **Bug Fix**: Return validation error if input region is not a valid host label.
+
+# v1.58.7 (2025-11-04)
+
+* **Dependency Update**: Updated to the latest SDK module versions
+* **Dependency Update**: Upgrade to smithy-go v1.23.2 which should convey some passive reduction of overall allocations, especially when not using the metrics system.
+
+# v1.58.6 (2025-10-30)
+
+* **Dependency Update**: Updated to the latest SDK module versions
+
+# v1.58.5 (2025-10-23)
+
+* **Dependency Update**: Updated to the latest SDK module versions
+
+# v1.58.4 (2025-10-22)
+
+* No change notes available for this release.
+
+# v1.58.3 (2025-10-16)
+
+* **Dependency Update**: Bump minimum Go version to 1.23.
+* **Dependency Update**: Updated to the latest SDK module versions
+
+# v1.58.2 (2025-09-26)
+
+* **Dependency Update**: Updated to the latest SDK module versions
+
+# v1.58.1 (2025-09-23)
+
+* **Dependency Update**: Updated to the latest SDK module versions
+
+# v1.58.0 (2025-09-16)
+
+* **Feature**: Cloudwatch Logs added support for 2 new API parameters in metric and subscription filter APIs to filter log events based on system field values and emit system field values as dimensions and send them to customer destination as additional metadata.
+
+# v1.57.4 (2025-09-10)
+
+* No change notes available for this release.
+
+# v1.57.3 (2025-09-08)
+
+* **Dependency Update**: Updated to the latest SDK module versions
+
+# v1.57.2 (2025-08-29)
+
+* **Dependency Update**: Updated to the latest SDK module versions
+
+# v1.57.1 (2025-08-27)
+
+* **Dependency Update**: Update to smithy-go v1.23.0.
+* **Dependency Update**: Updated to the latest SDK module versions
+
+# v1.57.0 (2025-08-25)
+
+* **Feature**: Remove incorrect endpoint tests
+
+# v1.56.2 (2025-08-21)
+
+* **Dependency Update**: Updated to the latest SDK module versions
+
+# v1.56.1 (2025-08-20)
+
+* **Bug Fix**: Remove unused deserialization code.
+
+# v1.56.0 (2025-08-11)
+
+* **Feature**: Add support for configuring per-service Options via callback on global config.
+* **Dependency Update**: Updated to the latest SDK module versions
+
+# v1.55.0 (2025-08-04)
+
+* **Feature**: Support configurable auth scheme preferences in service clients via AWS_AUTH_SCHEME_PREFERENCE in the environment, auth_scheme_preference in the config file, and through in-code settings on LoadDefaultConfig and client constructor methods.
+* **Dependency Update**: Updated to the latest SDK module versions
+
+# v1.54.1 (2025-07-30)
+
+* **Dependency Update**: Updated to the latest SDK module versions
+
+# v1.54.0 (2025-07-28)
+
+* **Feature**: Add support for HTTP interceptors.
+* **Dependency Update**: Updated to the latest SDK module versions
+
+# v1.53.1 (2025-07-19)
+
+* **Dependency Update**: Updated to the latest SDK module versions
+
+# v1.53.0 (2025-07-18)
+
+* **Feature**: CloudWatchLogs launches GetLogObject API with streaming support for efficient log data retrieval. Logs added support for new AccountPolicy type METRIC_EXTRACTION_POLICY. For more information, see CloudWatch Logs API documentation
+
+# v1.52.0 (2025-07-16.2)
+
+* **Feature**: CloudWatch Logs updates: Added X-Ray tracing for Amazon Bedrock Agent resources. Logs introduced Log Group level resource policies (managed through Put/Delete/Describe Resource Policy APIs). For more information, see CloudWatch Logs API documentation.
+
+# v1.51.0 (2025-06-18)
+
+* **Feature**: Added CloudWatch Logs Transformer support for converting CloudTrail, VPC Flow, EKS Audit, AWS WAF and Route53 Resolver logs to OCSF v1.1 format.
+
+# v1.50.3 (2025-06-17)
+
+* **Dependency Update**: Update to smithy-go v1.22.4.
+* **Dependency Update**: Updated to the latest SDK module versions
+
+# v1.50.2 (2025-06-10)
+
+* **Dependency Update**: Updated to the latest SDK module versions
+
+# v1.50.1 (2025-06-06)
+
+* No change notes available for this release.
+
+# v1.50.0 (2025-05-14)
+
+* **Feature**: This release adds a new API "ListLogGroups" and an improvement in API "DescribeLogGroups"
+
+# v1.49.0 (2025-05-09)
+
+* **Feature**: We are pleased to announce limit increases to our grok processor logs transformation feature. Now you can define 20 Grok patterns in their configurations, with an expanded total pattern matching limit of 512 characters.
+
+# v1.48.0 (2025-04-30)
+
+* **Feature**: CloudWatch Logs supports "DELIVERY" log class. This log class is used only for delivering AWS Lambda logs to Amazon S3 or Amazon Data Firehose.
+
 # v1.47.3 (2025-04-10)
 
 * No change notes available for this release.

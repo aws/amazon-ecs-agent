@@ -67,6 +67,12 @@ type CreateLogGroupInput struct {
 	// This member is required.
 	LogGroupName *string
 
+	// Use this parameter to enable deletion protection for the new log group. When
+	// enabled on a log group, deletion protection blocks all deletion operations until
+	// it is explicitly disabled. By default log groups are created without deletion
+	// protection enabled.
+	DeletionProtectionEnabled *bool
+
 	// The Amazon Resource Name (ARN) of the KMS key to use when encrypting log data.
 	// For more information, see [Amazon Resource Names].
 	//
@@ -74,12 +80,17 @@ type CreateLogGroupInput struct {
 	KmsKeyId *string
 
 	// Use this parameter to specify the log group class for this log group. There are
-	// two classes:
+	// three classes:
 	//
 	//   - The Standard log class supports all CloudWatch Logs features.
 	//
 	//   - The Infrequent Access log class supports a subset of CloudWatch Logs
 	//   features and incurs lower costs.
+	//
+	//   - Use the Delivery log class only for delivering Lambda logs to store in
+	//   Amazon S3 or Amazon Data Firehose. Log events in log groups in the Delivery
+	//   class are kept in CloudWatch Logs for only one day. This log class doesn't offer
+	//   rich CloudWatch Logs capabilities such as CloudWatch Logs Insights queries.
 	//
 	// If you omit this parameter, the default of STANDARD is used.
 	//
@@ -147,7 +158,7 @@ func (c *Client) addOperationCreateLogGroupMiddlewares(stack *middleware.Stack, 
 	if err = addComputePayloadSHA256(stack); err != nil {
 		return err
 	}
-	if err = addRetry(stack, options); err != nil {
+	if err = addRetry(stack, options, c); err != nil {
 		return err
 	}
 	if err = addRawResponseToMetadata(stack); err != nil {
@@ -169,9 +180,6 @@ func (c *Client) addOperationCreateLogGroupMiddlewares(stack *middleware.Stack, 
 		return err
 	}
 	if err = addSetLegacyContextSigningOptionsMiddleware(stack); err != nil {
-		return err
-	}
-	if err = addTimeOffsetBuild(stack, c); err != nil {
 		return err
 	}
 	if err = addUserAgentRetryMode(stack, options); err != nil {
@@ -201,16 +209,13 @@ func (c *Client) addOperationCreateLogGroupMiddlewares(stack *middleware.Stack, 
 	if err = addDisableHTTPSMiddleware(stack, options); err != nil {
 		return err
 	}
-	if err = addSpanInitializeStart(stack); err != nil {
+	if err = addInterceptBeforeRetryLoop(stack, options); err != nil {
 		return err
 	}
-	if err = addSpanInitializeEnd(stack); err != nil {
+	if err = addInterceptAttempt(stack, options); err != nil {
 		return err
 	}
-	if err = addSpanBuildRequestStart(stack); err != nil {
-		return err
-	}
-	if err = addSpanBuildRequestEnd(stack); err != nil {
+	if err = addInterceptors(stack, options); err != nil {
 		return err
 	}
 	return nil

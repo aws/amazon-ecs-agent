@@ -11,9 +11,15 @@ import (
 	smithyhttp "github.com/aws/smithy-go/transport/http"
 )
 
-// Creates an account-level data protection policy, subscription filter policy, or
-// field index policy that applies to all log groups or a subset of log groups in
-// the account.
+// Creates an account-level data protection policy, subscription filter policy,
+// field index policy, transformer policy, or metric extraction policy that applies
+// to all log groups, a subset of log groups, or a data source name and type
+// combination in the account.
+//
+// For field index policies, you can configure indexed fields as facets to enable
+// interactive exploration of your logs. Facets provide value distributions and
+// counts for indexed fields in the CloudWatch Logs Insights console without
+// requiring query execution. For more information, see [Use facets to group and explore logs].
 //
 // To use this operation, you must be signed on with the correct permissions
 // depending on the type of policy that you are creating.
@@ -22,13 +28,19 @@ import (
 //     logs:PutDataProtectionPolicy and logs:PutAccountPolicy permissions.
 //
 //   - To create a subscription filter policy, you must have the
-//     logs:PutSubscriptionFilter and logs:PutccountPolicy permissions.
+//     logs:PutSubscriptionFilter and logs:PutAccountPolicy permissions.
 //
 //   - To create a transformer policy, you must have the logs:PutTransformer and
 //     logs:PutAccountPolicy permissions.
 //
 //   - To create a field index policy, you must have the logs:PutIndexPolicy and
 //     logs:PutAccountPolicy permissions.
+//
+//   - To configure facets for field index policies, you must have the
+//     logs:PutIndexPolicy and logs:PutAccountPolicy permissions.
+//
+//   - To create a metric extraction policy, you must have the
+//     logs:PutMetricExtractionPolicy and logs:PutAccountPolicy permissions.
 //
 // # Data protection policy
 //
@@ -131,7 +143,7 @@ import (
 // selectionCriteria parameter. If you have multiple account-level transformer
 // policies with selection criteria, no two of them can use the same or overlapping
 // log group name prefixes. For example, if you have one policy filtered to log
-// groups that start with my-log , you can't have another field index policy
+// groups that start with my-log , you can't have another transformer policy
 // filtered to my-logpprod or my-logging .
 //
 // You can also set up a transformer at the log-group level. For more information,
@@ -143,15 +155,16 @@ import (
 // # Field index policy
 //
 // You can use field index policies to create indexes on fields found in log
-// events in the log group. Creating field indexes can help lower the scan volume
-// for CloudWatch Logs Insights queries that reference those fields, because these
-// queries attempt to skip the processing of log events that are known to not match
-// the indexed field. Good fields to index are fields that you often need to query
-// for and fields or values that match only a small fraction of the total log
-// events. Common examples of indexes include request ID, session ID, user IDs, or
-// instance IDs. For more information, see [Create field indexes to improve query performance and reduce costs]
+// events for a log group or data source name and type combination. Creating field
+// indexes can help lower the scan volume for CloudWatch Logs Insights queries that
+// reference those fields, because these queries attempt to skip the processing of
+// log events that are known to not match the indexed field. Good fields to index
+// are fields that you often need to query for and fields or values that match only
+// a small fraction of the total log events. Common examples of indexes include
+// request ID, session ID, user IDs, or instance IDs. For more information, see [Create field indexes to improve query performance and reduce costs]
 //
-// To find the fields that are in your log group events, use the [GetLogGroupFields] operation.
+// To find the fields that are in your log group events, use the [GetLogGroupFields] operation. To
+// find the fields for a data source use the [GetLogFields]operation.
 //
 // For example, suppose you have created a field index for requestId . Then, any
 // CloudWatch Logs Insights query on that log group that includes requestId =
@@ -164,33 +177,176 @@ import (
 //
 // You can have one account-level field index policy that applies to all log
 // groups in the account. Or you can create as many as 20 account-level field index
-// policies that are each scoped to a subset of log groups with the
+// policies that are each scoped to a subset of log groups using LogGroupNamePrefix
+// with the selectionCriteria parameter. You can have another 20 account-level
+// field index policies using DataSourceName and DataSourceType for the
 // selectionCriteria parameter. If you have multiple account-level index policies
-// with selection criteria, no two of them can use the same or overlapping log
-// group name prefixes. For example, if you have one policy filtered to log groups
-// that start with my-log , you can't have another field index policy filtered to
-// my-logpprod or my-logging .
+// with LogGroupNamePrefix selection criteria, no two of them can use the same or
+// overlapping log group name prefixes. For example, if you have one policy
+// filtered to log groups that start with my-log, you can't have another field
+// index policy filtered to my-logpprod or my-logging. Similarly, if you have
+// multiple account-level index policies with DataSourceName and DataSourceType
+// selection criteria, no two of them can use the same data source name and type
+// combination. For example, if you have one policy filtered to the data source
+// name amazon_vpc and data source type flow you cannot create another policy with
+// this combination.
 //
 // If you create an account-level field index policy in a monitoring account in
 // cross-account observability, the policy is applied only to the monitoring
 // account and not to any source accounts.
 //
+// CloudWatch Logs provides default field indexes for all log groups in the
+// Standard log class. Default field indexes are automatically available for the
+// following fields:
+//
+//   - @logStream
+//
+//   - @aws.region
+//
+//   - @aws.account
+//
+//   - @source.log
+//
+//   - @data_source_name
+//
+//   - @data_source_type
+//
+//   - @data_format
+//
+//   - traceId
+//
+//   - severityText
+//
+//   - attributes.session.id
+//
+// CloudWatch Logs provides default field indexes for certain data source name and
+// type combinations as well. Default field indexes are automatically available for
+// the following data source name and type combinations as identified in the
+// following list:
+//
+//	  amazon_vpc.flow
+//
+//	- action
+//
+//	- logStatus
+//
+//	- region
+//
+//	- flowDirection
+//
+//	- type
+//
+//	  amazon_route53.resolver_query
+//
+//	- transport
+//
+//	- rcode
+//
+//	  aws_waf.access
+//
+//	- action
+//
+//	- httpRequest.country
+//
+// aws_cloudtrail.data , aws_cloudtrail.management
+//
+//   - eventSource
+//
+//   - eventName
+//
+//   - awsRegion
+//
+//   - userAgent
+//
+//   - errorCode
+//
+//   - eventType
+//
+//   - managementEvent
+//
+//   - readOnly
+//
+//   - eventCategory
+//
+//   - requestId
+//
+// Default field indexes are in addition to any custom field indexes you define
+// within your policy. Default field indexes are not counted towards your [field index quota].
+//
 // If you want to create a field index policy for a single log group, you can use [PutIndexPolicy]
-// instead of PutAccountPolicy . If you do so, that log group will use only that
-// log-group level policy, and will ignore the account-level policy that you create
-// with [PutAccountPolicy].
+// instead of PutAccountPolicy . If you do so, that log group will use that
+// log-group level policy and any account-level policies that match at the data
+// source level; any account-level policy that matches at the log group level (for
+// example, no selection criteria or log group name prefix selection criteria) will
+// be ignored.
+//
+// # Metric extraction policy
+//
+// A metric extraction policy controls whether CloudWatch Metrics can be created
+// through the Embedded Metrics Format (EMF) for log groups in your account. By
+// default, EMF metric creation is enabled for all log groups. You can use metric
+// extraction policies to disable EMF metric creation for your entire account or
+// specific log groups.
+//
+// When a policy disables EMF metric creation for a log group, log events in the
+// EMF format are still ingested, but no CloudWatch Metrics are created from them.
+//
+// Creating a policy disables metrics for Amazon Web Services features that use
+// EMF to create metrics, such as CloudWatch Container Insights and CloudWatch
+// Application Signals. To prevent turning off those features by accident, we
+// recommend that you exclude the underlying log-groups through a
+// selection-criteria such as LogGroupNamePrefix NOT IN ["/aws/containerinsights",
+// "/aws/ecs/containerinsights", "/aws/application-signals/data"] .
+//
+// Each account can have either one account-level metric extraction policy that
+// applies to all log groups, or up to 5 policies that are each scoped to a subset
+// of log groups with the selectionCriteria parameter. The selection criteria
+// supports filtering by LogGroupName and LogGroupNamePrefix using the operators IN
+// and NOT IN . You can specify up to 50 values in each IN or NOT IN list.
+//
+// The selection criteria can be specified in these formats:
+//
+//	LogGroupName IN ["log-group-1", "log-group-2"]
+//
+//	LogGroupNamePrefix NOT IN ["/aws/prefix1", "/aws/prefix2"]
+//
+// If you have multiple account-level metric extraction policies with selection
+// criteria, no two of them can have overlapping criteria. For example, if you have
+// one policy with selection criteria LogGroupNamePrefix IN ["my-log"] , you can't
+// have another metric extraction policy with selection criteria
+// LogGroupNamePrefix IN ["/my-log-prod"] or LogGroupNamePrefix IN ["/my-logging"]
+// , as the set of log groups matching these prefixes would be a subset of the log
+// groups matching the first policy's prefix, creating an overlap.
+//
+// When using NOT IN , only one policy with this operator is allowed per account.
+//
+// When combining policies with IN and NOT IN operators, the overlap check ensures
+// that policies don't have conflicting effects. Two policies with IN and NOT IN
+// operators do not overlap if and only if every value in the IN policy is
+// completely contained within some value in the NOT IN policy. For example:
+//
+//   - If you have a NOT IN policy for prefix "/aws/lambda" , you can create an IN
+//     policy for the exact log group name "/aws/lambda/function1" because the set of
+//     log groups matching "/aws/lambda/function1" is a subset of the log groups
+//     matching "/aws/lambda" .
+//
+//   - If you have a NOT IN policy for prefix "/aws/lambda" , you cannot create an
+//     IN policy for prefix "/aws" because the set of log groups matching "/aws" is
+//     not a subset of the log groups matching "/aws/lambda" .
 //
 // [PutDestination]: https://docs.aws.amazon.com/AmazonCloudWatchLogs/latest/APIReference/API_PutDestination.html
 // [PutTransformer]: https://docs.aws.amazon.com/AmazonCloudWatchLogs/latest/APIReference/API_PutTransformer.html
-// [PutIndexPolicy]: https://docs.aws.amazon.com/AmazonCloudWatchLogs/latest/APIReference/API_PutIndexPolicy.html
+// [GetLogFields]: https://docs.aws.amazon.com/AmazonCloudWatchLogs/latest/APIReference/API_GetLogFields.html
 // [PutDataProtectionPolicy]: https://docs.aws.amazon.com/AmazonCloudWatchLogs/latest/APIReference/API_PutDataProtectionPolicy.html
-// [Protect sensitive log data with masking]: https://docs.aws.amazon.com/AmazonCloudWatch/latest/logs/mask-sensitive-log-data.html
 // [FilterLogEvents]: https://docs.aws.amazon.com/AmazonCloudWatchLogs/latest/APIReference/API_FilterLogEvents.html
-// [GetLogGroupFields]: https://docs.aws.amazon.com/AmazonCloudWatchLogs/latest/APIReference/API_GetLogGroupFields.html
 // [Processors that you can use]: https://docs.aws.amazon.com/AmazonCloudWatch/latest/logs/CloudWatch-Logs-Transformation.html#CloudWatch-Logs-Transformation-Processors
-// [PutAccountPolicy]: https://docs.aws.amazon.com/AmazonCloudWatchLogs/latest/APIReference/API_PutAccountPolicy.html
-// [Create field indexes to improve query performance and reduce costs]: https://docs.aws.amazon.com/AmazonCloudWatch/latest/logs/CloudWatchLogs-Field-Indexing.html
 // [GetLogEvents]: https://docs.aws.amazon.com/AmazonCloudWatchLogs/latest/APIReference/API_GetLogEvents.html
+// [field index quota]: https://docs.aws.amazon.com/AmazonCloudWatch/latest/logs/CloudWatchLogs-Field-Indexing-Syntax
+// [PutIndexPolicy]: https://docs.aws.amazon.com/AmazonCloudWatchLogs/latest/APIReference/API_PutIndexPolicy.html
+// [Protect sensitive log data with masking]: https://docs.aws.amazon.com/AmazonCloudWatch/latest/logs/mask-sensitive-log-data.html
+// [GetLogGroupFields]: https://docs.aws.amazon.com/AmazonCloudWatchLogs/latest/APIReference/API_GetLogGroupFields.html
+// [Use facets to group and explore logs]: https://docs.aws.amazon.com/AmazonCloudWatch/latest/logs/CloudWatchLogs-Facets.html
+// [Create field indexes to improve query performance and reduce costs]: https://docs.aws.amazon.com/AmazonCloudWatch/latest/logs/CloudWatchLogs-Field-Indexing.html
 func (c *Client) PutAccountPolicy(ctx context.Context, params *PutAccountPolicyInput, optFns ...func(*Options)) (*PutAccountPolicyOutput, error) {
 	if params == nil {
 		params = &PutAccountPolicyInput{}
@@ -290,12 +446,20 @@ type PutAccountPolicyInput struct {
 	//
 	//   - Fields The array of field indexes to create.
 	//
+	//   - FieldsV2 The object of field indexes to create along with it's type.
+	//
 	// It must contain at least one field index.
 	//
-	// The following is an example of an index policy document that creates two
-	// indexes, RequestId and TransactionId .
+	// The following is an example of an index policy document that creates indexes
+	// with different types.
 	//
-	//     "policyDocument": "{ \"Fields\": [ \"RequestId\", \"TransactionId\" ] }"
+	//     "policyDocument": "{ \"Fields\": [ \"TransactionId\" ], \"FieldsV2\":
+	//     {\"RequestId\": {\"type\": \"FIELD_INDEX\"}, \"APIName\": {\"type\": \"FACET\"},
+	//     \"StatusCode\": {\"type\": \"FACET\"}}}"
+	//
+	// You can use FieldsV2 to specify the type for each field. Supported types are
+	// FIELD_INDEX and FACET . Field names within Fields and FieldsV2 must be mutually
+	// exclusive.
 	//
 	// [PutDestination]: https://docs.aws.amazon.com/AmazonCloudWatchLogs/latest/APIReference/API_PutDestination.html
 	// [Processors that you can use]: https://docs.aws.amazon.com/AmazonCloudWatch/latest/logs/CloudWatch-Logs-Transformation.html#CloudWatch-Logs-Transformation-Processors
@@ -304,7 +468,8 @@ type PutAccountPolicyInput struct {
 	// This member is required.
 	PolicyDocument *string
 
-	// A name for the policy. This must be unique within the account.
+	// A name for the policy. This must be unique within the account and cannot start
+	// with aws/ .
 	//
 	// This member is required.
 	PolicyName *string
@@ -320,17 +485,27 @@ type PutAccountPolicyInput struct {
 	Scope types.Scope
 
 	// Use this parameter to apply the new policy to a subset of log groups in the
-	// account.
+	// account or a data source name and type combination.
 	//
-	// Specifing selectionCriteria is valid only when you specify
+	// Specifying selectionCriteria is valid only when you specify
 	// SUBSCRIPTION_FILTER_POLICY , FIELD_INDEX_POLICY or TRANSFORMER_POLICY for
 	// policyType .
 	//
-	// If policyType is SUBSCRIPTION_FILTER_POLICY , the only supported
-	// selectionCriteria filter is LogGroupName NOT IN []
+	//   - If policyType is SUBSCRIPTION_FILTER_POLICY , the only supported
+	//   selectionCriteria filter is LogGroupName NOT IN []
 	//
-	// If policyType is FIELD_INDEX_POLICY or TRANSFORMER_POLICY , the only supported
-	// selectionCriteria filter is LogGroupNamePrefix
+	//   - If policyType is TRANSFORMER_POLICY , the only supported selectionCriteria
+	//   filter is LogGroupNamePrefix
+	//
+	//   - If policyType is FIELD_INDEX_POLICY , the supported selectionCriteria
+	//   filters are:
+	//
+	//   - LogGroupNamePrefix
+	//
+	//   - DataSourceName AND DataSourceType
+	//
+	// When you specify selectionCriteria for a field index policy you can use either
+	//   LogGroupNamePrefix by itself or DataSourceName and DataSourceType together.
 	//
 	// The selectionCriteria string can be up to 25KB in length. The length is
 	// determined by using its UTF-8 bytes.
@@ -389,7 +564,7 @@ func (c *Client) addOperationPutAccountPolicyMiddlewares(stack *middleware.Stack
 	if err = addComputePayloadSHA256(stack); err != nil {
 		return err
 	}
-	if err = addRetry(stack, options); err != nil {
+	if err = addRetry(stack, options, c); err != nil {
 		return err
 	}
 	if err = addRawResponseToMetadata(stack); err != nil {
@@ -411,9 +586,6 @@ func (c *Client) addOperationPutAccountPolicyMiddlewares(stack *middleware.Stack
 		return err
 	}
 	if err = addSetLegacyContextSigningOptionsMiddleware(stack); err != nil {
-		return err
-	}
-	if err = addTimeOffsetBuild(stack, c); err != nil {
 		return err
 	}
 	if err = addUserAgentRetryMode(stack, options); err != nil {
@@ -443,16 +615,13 @@ func (c *Client) addOperationPutAccountPolicyMiddlewares(stack *middleware.Stack
 	if err = addDisableHTTPSMiddleware(stack, options); err != nil {
 		return err
 	}
-	if err = addSpanInitializeStart(stack); err != nil {
+	if err = addInterceptBeforeRetryLoop(stack, options); err != nil {
 		return err
 	}
-	if err = addSpanInitializeEnd(stack); err != nil {
+	if err = addInterceptAttempt(stack, options); err != nil {
 		return err
 	}
-	if err = addSpanBuildRequestStart(stack); err != nil {
-		return err
-	}
-	if err = addSpanBuildRequestEnd(stack); err != nil {
+	if err = addInterceptors(stack, options); err != nil {
 		return err
 	}
 	return nil
