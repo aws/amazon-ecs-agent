@@ -12,8 +12,23 @@ import (
 )
 
 // Creates or updates a resource policy allowing other Amazon Web Services
-// services to put log events to this account, such as Amazon Route 53. An account
-// can have up to 10 resource policies per Amazon Web Services Region.
+// services to put log events to this account, such as Amazon Route 53. This API
+// has the following restrictions:
+//
+//   - Supported actions - Policy only supports logs:PutLogEvents and
+//     logs:CreateLogStream actions
+//
+//   - Supported principals - Policy only applies when operations are invoked by
+//     Amazon Web Services service principals (not IAM users, roles, or cross-account
+//     principals
+//
+//   - Policy limits - An account can have a maximum of 10 policies without
+//     resourceARN and one per LogGroup resourceARN
+//
+// Resource policies with actions invoked by non-Amazon Web Services service
+// principals (such as IAM users, roles, or other Amazon Web Services accounts)
+// will not be enforced. For access control involving these principals, use the IAM
+// policies.
 func (c *Client) PutResourcePolicy(ctx context.Context, params *PutResourcePolicyInput, optFns ...func(*Options)) (*PutResourcePolicyOutput, error) {
 	if params == nil {
 		params = &PutResourcePolicyInput{}
@@ -30,6 +45,11 @@ func (c *Client) PutResourcePolicy(ctx context.Context, params *PutResourcePolic
 }
 
 type PutResourcePolicyInput struct {
+
+	// The expected revision ID of the resource policy. Required when resourceArn is
+	// provided to prevent concurrent modifications. Use null when creating a resource
+	// policy for the first time.
+	ExpectedRevisionId *string
 
 	// Details of the new policy, including the identity of the principal that is
 	// enabled to put logs to this account. This is formatted as a JSON string. This
@@ -59,6 +79,10 @@ type PutResourcePolicyInput struct {
 	// Name of the new policy. This parameter is required.
 	PolicyName *string
 
+	// The ARN of the CloudWatch Logs resource to which the resource policy needs to
+	// be added or attached. Currently only supports LogGroup ARN.
+	ResourceArn *string
+
 	noSmithyDocumentSerde
 }
 
@@ -66,6 +90,10 @@ type PutResourcePolicyOutput struct {
 
 	// The new policy.
 	ResourcePolicy *types.ResourcePolicy
+
+	// The revision ID of the created or updated resource policy. Only returned for
+	// resource-scoped policies.
+	RevisionId *string
 
 	// Metadata pertaining to the operation's result.
 	ResultMetadata middleware.Metadata
@@ -107,7 +135,7 @@ func (c *Client) addOperationPutResourcePolicyMiddlewares(stack *middleware.Stac
 	if err = addComputePayloadSHA256(stack); err != nil {
 		return err
 	}
-	if err = addRetry(stack, options); err != nil {
+	if err = addRetry(stack, options, c); err != nil {
 		return err
 	}
 	if err = addRawResponseToMetadata(stack); err != nil {
@@ -129,9 +157,6 @@ func (c *Client) addOperationPutResourcePolicyMiddlewares(stack *middleware.Stac
 		return err
 	}
 	if err = addSetLegacyContextSigningOptionsMiddleware(stack); err != nil {
-		return err
-	}
-	if err = addTimeOffsetBuild(stack, c); err != nil {
 		return err
 	}
 	if err = addUserAgentRetryMode(stack, options); err != nil {
@@ -158,16 +183,13 @@ func (c *Client) addOperationPutResourcePolicyMiddlewares(stack *middleware.Stac
 	if err = addDisableHTTPSMiddleware(stack, options); err != nil {
 		return err
 	}
-	if err = addSpanInitializeStart(stack); err != nil {
+	if err = addInterceptBeforeRetryLoop(stack, options); err != nil {
 		return err
 	}
-	if err = addSpanInitializeEnd(stack); err != nil {
+	if err = addInterceptAttempt(stack, options); err != nil {
 		return err
 	}
-	if err = addSpanBuildRequestStart(stack); err != nil {
-		return err
-	}
-	if err = addSpanBuildRequestEnd(stack); err != nil {
+	if err = addInterceptors(stack, options); err != nil {
 		return err
 	}
 	return nil

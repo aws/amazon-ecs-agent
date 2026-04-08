@@ -74,6 +74,24 @@ type AddKeys struct {
 	noSmithyDocumentSerde
 }
 
+// Contains an aggregate summary of log groups grouped by data source
+// characteristics, including the count of log groups and their grouping
+// identifiers.
+type AggregateLogGroupSummary struct {
+
+	// An array of key-value pairs that identify the data source characteristics used
+	// to group the log groups.
+	//
+	// The size and content of this array depends on the groupBy parameter specified
+	// in the request.
+	GroupingIdentifiers []GroupingIdentifier
+
+	// The number of log groups in this aggregate summary group.
+	LogGroupCount *int32
+
+	noSmithyDocumentSerde
+}
+
 // This structure represents one anomaly that has been found by a logs anomaly
 // detector.
 //
@@ -394,6 +412,36 @@ type CSV struct {
 	noSmithyDocumentSerde
 }
 
+// Represents a data source that categorizes logs by originating service and log
+// type, providing service-based organization complementing traditional log groups.
+type DataSource struct {
+
+	// The name of the data source.
+	//
+	// This member is required.
+	Name *string
+
+	// The type of the data source.
+	Type *string
+
+	noSmithyDocumentSerde
+}
+
+// Filter criteria for data sources, used to specify which data sources to include
+// in operations based on name and type.
+type DataSourceFilter struct {
+
+	// The name pattern to filter data sources by.
+	//
+	// This member is required.
+	Name *string
+
+	// The type pattern to filter data sources by.
+	Type *string
+
+	noSmithyDocumentSerde
+}
+
 // This processor converts a datetime string into a format that you specify.
 //
 // For more information about this processor including examples, see [datetimeConverter] in the
@@ -474,7 +522,7 @@ type Delivery struct {
 	DeliveryDestinationArn *string
 
 	// Displays whether the delivery destination associated with this delivery is
-	// CloudWatch Logs, Amazon S3, or Firehose.
+	// CloudWatch Logs, Amazon S3, Firehose, or X-Ray.
 	DeliveryDestinationType DeliveryDestinationType
 
 	// The name of the delivery source that is associated with this delivery.
@@ -503,7 +551,7 @@ type Delivery struct {
 // This structure contains information about one delivery destination in your
 // account. A delivery destination is an Amazon Web Services resource that
 // represents an Amazon Web Services service that logs can be sent to. CloudWatch
-// Logs, Amazon S3, are supported as Firehose delivery destinations.
+// Logs, Amazon S3, Firehose, and X-Ray are supported as delivery destinations.
 //
 // To configure logs delivery between a supported Amazon Web Services service and
 // a destination, you must do the following:
@@ -539,8 +587,8 @@ type DeliveryDestination struct {
 	// receive the logs.
 	DeliveryDestinationConfiguration *DeliveryDestinationConfiguration
 
-	// Displays whether this delivery destination is CloudWatch Logs, Amazon S3, or
-	// Firehose.
+	// Displays whether this delivery destination is CloudWatch Logs, Amazon S3,
+	// Firehose, or X-Ray.
 	DeliveryDestinationType DeliveryDestinationType
 
 	// The name of this delivery destination.
@@ -651,6 +699,18 @@ type Destination struct {
 	// The Amazon Resource Name (ARN) of the physical target where the log events are
 	// delivered (for example, a Kinesis stream).
 	TargetArn *string
+
+	noSmithyDocumentSerde
+}
+
+// Configuration for where to deliver scheduled query results. Specifies the
+// destination type and associated settings for result delivery.
+type DestinationConfiguration struct {
+
+	// Configuration for delivering query results to Amazon S3.
+	//
+	// This member is required.
+	S3Configuration *S3Configuration
 
 	noSmithyDocumentSerde
 }
@@ -767,6 +827,24 @@ type FieldIndex struct {
 	// log group, the ARN of that log group is displayed here.
 	LogGroupIdentifier *string
 
+	// The type of index. Specify FACET for facet-based indexing or FIELD_INDEX for
+	// field-based indexing. This determines how the field is indexed and can be
+	// queried.
+	Type IndexType
+
+	noSmithyDocumentSerde
+}
+
+// A structure containing the extracted fields from a log event. These fields are
+// extracted based on the log format and can be used for structured querying and
+// analysis.
+type FieldsData struct {
+
+	// The actual log data content returned in the streaming response. This contains
+	// the fields and values of the log event in a structured format that can be parsed
+	// and processed by the client.
+	Data []byte
+
 	noSmithyDocumentSerde
 }
 
@@ -793,19 +871,40 @@ type FilteredLogEvent struct {
 	noSmithyDocumentSerde
 }
 
+// A stream of structured log data returned by the GetLogObject operation. This
+// stream contains log events with their associated metadata and extracted fields.
+//
+// The following types satisfy this interface:
+//
+//	GetLogObjectResponseStreamMemberFields
+type GetLogObjectResponseStream interface {
+	isGetLogObjectResponseStream()
+}
+
+// A structure containing the extracted fields from a log event. These fields are
+// extracted based on the log format and can be used for structured querying and
+// analysis.
+type GetLogObjectResponseStreamMemberFields struct {
+	Value FieldsData
+
+	noSmithyDocumentSerde
+}
+
+func (*GetLogObjectResponseStreamMemberFields) isGetLogObjectResponseStream() {}
+
 // This processor uses pattern matching to parse and structure unstructured data.
 // This processor can also extract fields from log messages.
 //
 // For more information about this processor including examples, see [grok] in the
 // CloudWatch Logs User Guide.
 //
-// [grok]: https://docs.aws.amazon.com/AmazonCloudWatch/latest/logs/CloudWatch-Logs-Transformation.html#CloudWatch-Logs-Transformation-Grok
+// [grok]: https://docs.aws.amazon.com/AmazonCloudWatch/latest/logs/CloudWatch-Logs-Transformation-Configurable.html#CloudWatch-Logs-Transformation-Grok
 type Grok struct {
 
 	// The grok pattern to match against the log event. For a list of supported grok
 	// patterns, see [Supported grok patterns].
 	//
-	// [Supported grok patterns]: https://docs.aws.amazon.com/AmazonCloudWatch/latest/logs/CloudWatch-Logs-Transformation.html#Grok-Patterns
+	// [Supported grok patterns]: https://docs.aws.amazon.com/AmazonCloudWatch/latest/logs/CloudWatch-Logs-Transformation-Configurable.html#CloudWatch-Logs-Transformation-Grok
 	//
 	// This member is required.
 	Match *string
@@ -813,6 +912,103 @@ type Grok struct {
 	// The path to the field in the log event that you want to parse. If you omit this
 	// value, the whole log message is parsed.
 	Source *string
+
+	noSmithyDocumentSerde
+}
+
+// A key-value pair that identifies how log groups are grouped in aggregate
+// summaries.
+type GroupingIdentifier struct {
+
+	// The key that identifies the grouping characteristic. The format of the key uses
+	// dot notation. Examples are, dataSource.Name , dataSource.Type , and
+	// dataSource.Format .
+	Key *string
+
+	// The value associated with the grouping characteristic. Examples are amazon_vpc ,
+	// flow , and OCSF .
+	Value *string
+
+	noSmithyDocumentSerde
+}
+
+// An import job to move data from CloudTrail Event Data Store to CloudWatch.
+type Import struct {
+
+	// The timestamp when the import task was created, expressed as the number of
+	// milliseconds after Jan 1, 1970 00:00:00 UTC.
+	CreationTime *int64
+
+	// Error message related to any failed imports
+	ErrorMessage *string
+
+	// The ARN of the managed CloudWatch Logs log group where the events are being
+	// imported to.
+	ImportDestinationArn *string
+
+	// The filter criteria used for this import task.
+	ImportFilter *ImportFilter
+
+	// The unique identifier of the import task.
+	ImportId *string
+
+	// The ARN of the CloudTrail Lake Event Data Store being imported from.
+	ImportSourceArn *string
+
+	// Statistics about the import progress
+	ImportStatistics *ImportStatistics
+
+	// The current status of the import task. Valid values are IN_PROGRESS, CANCELLED,
+	// COMPLETED and FAILED.
+	ImportStatus ImportStatus
+
+	// The timestamp when the import task was last updated, expressed as the number of
+	// milliseconds after Jan 1, 1970 00:00:00 UTC.
+	LastUpdatedTime *int64
+
+	noSmithyDocumentSerde
+}
+
+// A collection of events being imported to CloudWatch
+type ImportBatch struct {
+
+	// The unique identifier of the import batch.
+	//
+	// This member is required.
+	BatchId *string
+
+	// The current status of the import batch. Valid values are IN_PROGRESS,
+	// CANCELLED, COMPLETED and FAILED.
+	//
+	// This member is required.
+	Status ImportStatus
+
+	// The error message if the batch failed to import. Only present when status is
+	// FAILED.
+	ErrorMessage *string
+
+	noSmithyDocumentSerde
+}
+
+// The filter criteria used for import tasks
+type ImportFilter struct {
+
+	// The end of the time range for events to import, expressed as the number of
+	// milliseconds after Jan 1, 1970 00:00:00 UTC.
+	EndEventTime *int64
+
+	// The start of the time range for events to import, expressed as the number of
+	// milliseconds after Jan 1, 1970 00:00:00 UTC.
+	StartEventTime *int64
+
+	noSmithyDocumentSerde
+}
+
+// Statistics about the import progress
+type ImportStatistics struct {
+
+	// The total number of bytes that have been imported to the managed log group.
+	BytesImported *int64
 
 	noSmithyDocumentSerde
 }
@@ -845,7 +1041,7 @@ type IndexPolicy struct {
 // application or resource being monitored.
 type InputLogEvent struct {
 
-	// The raw event message. Each log event can be no larger than 256 KB.
+	// The raw event message. Each log event can be no larger than 1 MB.
 	//
 	// This member is required.
 	Message *string
@@ -909,7 +1105,7 @@ type IntegrationSummary struct {
 // For more information about this processor including examples, see [listToMap] in the
 // CloudWatch Logs User Guide.
 //
-// [listToMap]: https://docs.aws.amazon.com/AmazonCloudWatch/latest/logs/CloudWatch-Logs-Transformation.html#CloudWatch-Logs-Transformation-listToMap
+// [listToMap]: https://docs.aws.amazon.com/AmazonCloudWatch/latest/logs/CloudWatch-Logs-Transformation-Processors.html#CloudWatch-Logs-Transformation-listToMap
 type ListToMap struct {
 
 	// The key of the field to be extracted as keys in the generated map
@@ -1051,6 +1247,35 @@ type LogEvent struct {
 	noSmithyDocumentSerde
 }
 
+// Represents a log field with its name and data type information for a specific
+// data source.
+type LogFieldsListItem struct {
+
+	// The name of the log field.
+	LogFieldName *string
+
+	// The data type information for the log field.
+	LogFieldType *LogFieldType
+
+	noSmithyDocumentSerde
+}
+
+// Defines the data type structure for a log field, including the type, element
+// information, and nested fields for complex types.
+type LogFieldType struct {
+
+	// For array or collection types, specifies the element type information.
+	Element *LogFieldType
+
+	// For complex types, contains the nested field definitions.
+	Fields []LogFieldsListItem
+
+	// The data type of the log field.
+	Type *string
+
+	noSmithyDocumentSerde
+}
+
 // Represents a log group.
 type LogGroup struct {
 
@@ -1067,6 +1292,11 @@ type LogGroup struct {
 	// [ListTagsForResource]: https://docs.aws.amazon.com/AmazonCloudWatchLogs/latest/APIReference/API_ListTagsForResource.html
 	Arn *string
 
+	// Indicates whether bearer token authentication is enabled for this log group.
+	// When enabled, bearer token authentication is allowed on operations until it is
+	// explicitly disabled.
+	BearerTokenAuthenticationEnabled *bool
+
 	// The creation time of the log group, expressed as the number of milliseconds
 	// after Jan 1, 1970 00:00:00 UTC.
 	CreationTime *int64
@@ -1076,6 +1306,11 @@ type LogGroup struct {
 	//
 	// [PutDataProtectionPolicy]: https://docs.aws.amazon.com/AmazonCloudWatchLogs/latest/APIReference/API_PutDataProtectionPolicy.html
 	DataProtectionStatus DataProtectionStatus
+
+	// Indicates whether deletion protection is enabled for this log group. When
+	// enabled, deletion protection blocks all deletion operations until it is
+	// explicitly disabled.
+	DeletionProtectionEnabled *bool
 
 	// Displays all the properties that this log group has inherited from
 	// account-level settings.
@@ -1100,14 +1335,20 @@ type LogGroup struct {
 	// [ListTagsForResource]: https://docs.aws.amazon.com/AmazonCloudWatchLogs/latest/APIReference/API_ListTagsForResource.html
 	LogGroupArn *string
 
-	// This specifies the log group class for this log group. There are two classes:
+	// This specifies the log group class for this log group. There are three classes:
 	//
 	//   - The Standard log class supports all CloudWatch Logs features.
 	//
 	//   - The Infrequent Access log class supports a subset of CloudWatch Logs
 	//   features and incurs lower costs.
 	//
-	// For details about the features supported by each class, see [Log classes]
+	//   - Use the Delivery log class only for delivering Lambda logs to store in
+	//   Amazon S3 or Amazon Data Firehose. Log events in log groups in the Delivery
+	//   class are kept in CloudWatch Logs for only one day. This log class doesn't offer
+	//   rich CloudWatch Logs capabilities such as CloudWatch Logs Insights queries.
+	//
+	// For details about the features supported by the Standard and Infrequent Access
+	// classes, see [Log classes]
 	//
 	// [Log classes]: https://docs.aws.amazon.com/AmazonCloudWatch/latest/logs/CloudWatch_Logs_Log_Classes.html
 	LogGroupClass LogGroupClass
@@ -1142,6 +1383,24 @@ type LogGroupField struct {
 
 	// The percentage of log events queried that contained the field.
 	Percent int32
+
+	noSmithyDocumentSerde
+}
+
+// This structure contains information about one log group in your account.
+type LogGroupSummary struct {
+
+	// The Amazon Resource Name (ARN) of the log group.
+	LogGroupArn *string
+
+	// The log group class for this log group. For details about the features
+	// supported by each log group class, see [Log classes]
+	//
+	// [Log classes]: https://docs.aws.amazon.com/AmazonCloudWatch/latest/logs/CloudWatch_Logs_Log_Classes.html
+	LogGroupClass LogGroupClass
+
+	// The name of the log group.
+	LogGroupName *string
 
 	noSmithyDocumentSerde
 }
@@ -1231,6 +1490,16 @@ type MetricFilter struct {
 	// The creation time of the metric filter, expressed as the number of milliseconds
 	// after Jan 1, 1970 00:00:00 UTC .
 	CreationTime *int64
+
+	// The list of system fields that are emitted as additional dimensions in the
+	// generated metrics. Returns the emitSystemFieldDimensions value if it was
+	// specified when the metric filter was created.
+	EmitSystemFieldDimensions []string
+
+	// The filter expression that specifies which log events are processed by this
+	// metric filter based on system fields. Returns the fieldSelectionCriteria value
+	// if it was specified when the metric filter was created.
+	FieldSelectionCriteria *string
 
 	// The name of the metric filter.
 	FilterName *string
@@ -1790,6 +2059,36 @@ type ParseRoute53 struct {
 	noSmithyDocumentSerde
 }
 
+// This processor converts logs into [Open Cybersecurity Schema Framework (OCSF)] events.
+//
+// For more information about this processor including examples, see [parseToOCSF] in the
+// CloudWatch Logs User Guide.
+//
+// [parseToOCSF]: https://docs.aws.amazon.com/AmazonCloudWatch/latest/logs/CloudWatch-Logs-Transformation.html#CloudWatch-Logs-Transformation-parseToOCSF
+// [Open Cybersecurity Schema Framework (OCSF)]: https://ocsf.io
+type ParseToOCSF struct {
+
+	// Specify the service or process that produces the log events that will be
+	// converted with this processor.
+	//
+	// This member is required.
+	EventSource EventSource
+
+	// Specify which version of the OCSF schema to use for the transformed log events.
+	//
+	// This member is required.
+	OcsfVersion OCSFVersion
+
+	// The version of the OCSF mapping to use for parsing log data.
+	MappingVersion *string
+
+	// The path to the field in the log event that you want to parse. If you omit this
+	// value, the whole log message is parsed.
+	Source *string
+
+	noSmithyDocumentSerde
+}
+
 // Use this processor to parse Amazon VPC vended logs, extract fields, and and
 // convert them into a JSON format. This processor always processes the entire log
 // event message.
@@ -1957,6 +2256,9 @@ type Processor struct {
 	// [parseRoute53]: https://docs.aws.amazon.com/AmazonCloudWatch/latest/logs/CloudWatch-Logs-Transformation.html#CloudWatch-Logs-Transformation-parseRoute53
 	ParseRoute53 *ParseRoute53
 
+	// Use this parameter to convert logs into Open Cybersecurity Schema (OCSF) format.
+	ParseToOCSF *ParseToOCSF
+
 	// Use this parameter to include the [parseVPC] processor in your transformer.
 	//
 	// If you use this processor, it must be the first processor in your transformer.
@@ -2042,6 +2344,10 @@ type QueryDefinition struct {
 	// The name of the query definition.
 	Name *string
 
+	// If this query definition contains a list of query parameters that define
+	// placeholder variables for the query string, that list appears here.
+	Parameters []QueryParameter
+
 	// The unique ID of the query definition.
 	QueryDefinitionId *string
 
@@ -2084,6 +2390,30 @@ type QueryInfo struct {
 	// The status of this query. Possible values are Cancelled , Complete , Failed ,
 	// Running , Scheduled , and Unknown .
 	Status QueryStatus
+
+	noSmithyDocumentSerde
+}
+
+// This structure defines a query parameter for a saved CloudWatch Logs Insights
+// query definition. Query parameters are supported only for Logs Insights QL
+// queries. They are placeholder variables that you can reference in a query string
+// using the {{parameterName}} syntax. Each parameter can include a default value
+// and a description.
+type QueryParameter struct {
+
+	// The name of the query parameter. A query parameter name must start with a
+	// letter or underscore, and contain only letters, digits, and underscores.
+	//
+	// This member is required.
+	Name *string
+
+	// The default value to use for this query parameter if no value is supplied at
+	// execution time.
+	DefaultValue *string
+
+	// A description of the query parameter that explains its purpose or expected
+	// values.
+	Description *string
 
 	noSmithyDocumentSerde
 }
@@ -2252,6 +2582,17 @@ type ResourcePolicy struct {
 	// The name of the resource policy.
 	PolicyName *string
 
+	// Specifies scope of the resource policy. Valid values are ACCOUNT or RESOURCE.
+	PolicyScope PolicyScope
+
+	// The ARN of the CloudWatch Logs resource to which the resource policy is
+	// attached. Only populated for resource-scoped policies.
+	ResourceArn *string
+
+	// The revision ID of the resource policy. Only populated for resource-scoped
+	// policies.
+	RevisionId *string
+
 	noSmithyDocumentSerde
 }
 
@@ -2273,6 +2614,32 @@ type ResultField struct {
 	noSmithyDocumentSerde
 }
 
+// Configuration for Amazon S3 destination where scheduled query results are
+// delivered.
+type S3Configuration struct {
+
+	// The Amazon S3 URI where query results are delivered. Must be a valid S3 URI
+	// format.
+	//
+	// This member is required.
+	DestinationIdentifier *string
+
+	// The ARN of the IAM role that grants permissions to write query results to the
+	// specified Amazon S3 destination.
+	//
+	// This member is required.
+	RoleArn *string
+
+	// The Amazon Resource Name (ARN) of the KMS encryption key. Must belong to the
+	// same AWS Region as the destination Amazon S3 bucket.
+	KmsKeyId *string
+
+	// The AWS accountId for the bucket owning account.
+	OwnerAccountId *string
+
+	noSmithyDocumentSerde
+}
+
 // This structure contains delivery configurations that apply only when the
 // delivery destination resource is an S3 bucket.
 type S3DeliveryConfiguration struct {
@@ -2289,6 +2656,87 @@ type S3DeliveryConfiguration struct {
 	//
 	// [DescribeConfigurationTemplates]: https://docs.aws.amazon.com/AmazonCloudWatchLogs/latest/APIReference/API_DescribeConfigurationTemplates.html
 	SuffixPath *string
+
+	noSmithyDocumentSerde
+}
+
+// Represents a data source association with an S3 Table Integration, including
+// its status and metadata.
+type S3TableIntegrationSource struct {
+
+	// The timestamp when the data source association was created.
+	CreatedTimeStamp *int64
+
+	// The data source associated with the S3 Table Integration.
+	DataSource *DataSource
+
+	// The unique identifier for this data source association.
+	Identifier *string
+
+	// The current status of the data source association.
+	Status S3TableIntegrationSourceStatus
+
+	// Additional information about the status of the data source association.
+	StatusReason *string
+
+	noSmithyDocumentSerde
+}
+
+// Information about a destination where scheduled query results are processed,
+// including processing status and any error messages.
+type ScheduledQueryDestination struct {
+
+	// The identifier for the destination where results are delivered.
+	DestinationIdentifier *string
+
+	// The type of destination for query results.
+	DestinationType ScheduledQueryDestinationType
+
+	// Error message if destination processing failed.
+	ErrorMessage *string
+
+	// The identifier of the processed result at the destination.
+	ProcessedIdentifier *string
+
+	// The processing status of the destination delivery.
+	Status ActionStatus
+
+	noSmithyDocumentSerde
+}
+
+// Summary information about a scheduled query, including basic configuration and
+// execution status.
+type ScheduledQuerySummary struct {
+
+	// The timestamp when the scheduled query was created.
+	CreationTime *int64
+
+	// Configuration for where query results are delivered.
+	DestinationConfiguration *DestinationConfiguration
+
+	// The status of the most recent execution.
+	LastExecutionStatus ExecutionStatus
+
+	// The timestamp when the scheduled query was last executed.
+	LastTriggeredTime *int64
+
+	// The timestamp when the scheduled query was last updated.
+	LastUpdatedTime *int64
+
+	// The name of the scheduled query.
+	Name *string
+
+	// The cron expression that defines when the scheduled query runs.
+	ScheduleExpression *string
+
+	// The ARN of the scheduled query.
+	ScheduledQueryArn *string
+
+	// The current state of the scheduled query.
+	State ScheduledQueryState
+
+	// The timezone used for evaluating the schedule expression.
+	Timezone *string
 
 	noSmithyDocumentSerde
 }
@@ -2395,6 +2843,16 @@ type SubscriptionFilter struct {
 	// random or grouped by log stream.
 	Distribution Distribution
 
+	// The list of system fields that are included in the log events sent to the
+	// subscription destination. Returns the emitSystemFields value if it was
+	// specified when the subscription filter was created.
+	EmitSystemFields []string
+
+	// The filter expression that specifies which log events are processed by this
+	// subscription filter based on system fields. Returns the fieldSelectionCriteria
+	// value if it was specified when the subscription filter was created.
+	FieldSelectionCriteria *string
+
 	// The name of the subscription filter.
 	FilterName *string
 
@@ -2489,6 +2947,28 @@ type TransformedLogRecord struct {
 	noSmithyDocumentSerde
 }
 
+// A record of a scheduled query execution, including execution status, timestamp,
+// and destination processing results.
+type TriggerHistoryRecord struct {
+
+	// Information about destination processing for this query execution.
+	Destinations []ScheduledQueryDestination
+
+	// Error message if the query execution failed.
+	ErrorMessage *string
+
+	// The execution status of the scheduled query run.
+	ExecutionStatus ExecutionStatus
+
+	// The unique identifier for this query execution.
+	QueryId *string
+
+	// The timestamp when the scheduled query execution was triggered.
+	TriggeredTimestamp *int64
+
+	noSmithyDocumentSerde
+}
+
 // Use this processor to remove leading and trailing whitespace.
 //
 // For more information about this processor including examples, see [trimString] in the
@@ -2571,6 +3051,7 @@ type UnknownUnionMember struct {
 	noSmithyDocumentSerde
 }
 
+func (*UnknownUnionMember) isGetLogObjectResponseStream()  {}
 func (*UnknownUnionMember) isIntegrationDetails()          {}
 func (*UnknownUnionMember) isResourceConfig()              {}
 func (*UnknownUnionMember) isStartLiveTailResponseStream() {}
