@@ -387,6 +387,90 @@ func TestConnectionInactiveTimeout(t *testing.T) {
 	closeSocket(closeWS)
 }
 
+// TestTACSDurationMetrics tests that the TACSSessionCallDurationName and TACSDisconnectedDuration and metrics are
+// emitted when they should be.
+func TestTACSDurationMetrics(t *testing.T) {
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+
+	numTimesConnectToTACS := 2
+	mockMetricsFactory := mock_metrics.NewMockEntryFactory(ctrl)
+
+	// TACSSessionCallDuration is emitted on all connections to TACS.
+	mockDurationEntry := mock_metrics.NewMockEntry(ctrl)
+	mockDurationEntry.EXPECT().WithGauge(gomock.Any()).Return(mockDurationEntry).Times(numTimesConnectToTACS)
+	mockDurationEntry.EXPECT().Done(gomock.Any()).Times(numTimesConnectToTACS)
+	mockMetricsFactory.EXPECT().New(metrics.TACSSessionCallDurationName).Return(mockDurationEntry).
+		Times(numTimesConnectToTACS)
+
+	// TACSDisconnectedDuration should be emitted upon reconnection to TACS only (i.e., all connections to TACS except
+	// the very first one).
+	mockDisconnectedEntry := mock_metrics.NewMockEntry(ctrl)
+	mockDisconnectedEntry.EXPECT().WithGauge(gomock.Any()).Return(mockDisconnectedEntry).Times(numTimesConnectToTACS - 1)
+	mockDisconnectedEntry.EXPECT().Done(gomock.Any()).Times(numTimesConnectToTACS - 1)
+	mockMetricsFactory.EXPECT().New(metrics.TACSDisconnectedDurationName).Return(mockDisconnectedEntry).
+		Times(numTimesConnectToTACS - 1)
+
+	// Start test server.
+	closeWS := make(chan []byte)
+	server, _, requestChan, _, err := wsmock.GetMockServer(closeWS)
+	if err != nil {
+		t.Fatal(err)
+	}
+	server.StartTLS()
+	defer server.Close()
+
+	go func() {
+		for {
+			select {
+			case <-requestChan:
+			}
+		}
+	}()
+
+	testecsclient := &wsmock.TestECSClient{
+		TCSurl: server.URL,
+	}
+
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+
+	deregisterInstanceEventStream := eventstream.NewEventStream("Deregister_Instance", ctx)
+	deregisterInstanceEventStream.StartListening()
+
+	telemetryMessages := make(chan ecstcs.TelemetryMessage, testTelemetryChannelDefaultBufferSize)
+	healthMessages := make(chan ecstcs.HealthMessage, testTelemetryChannelDefaultBufferSize)
+	instanceStatusMessages := make(chan ecstcs.InstanceStatusMessage, testTelemetryChannelDefaultBufferSize)
+
+	tacsSession := telemetrySession{
+		containerInstanceArn:          testInstanceArn,
+		cluster:                       testClusterArn,
+		agentVersion:                  testAgentVersion,
+		agentHash:                     testAgentHash,
+		containerRuntimeVersion:       testContainerRuntimeVersion,
+		disableMetrics:                false,
+		credentialsCache:              aws.NewCredentialsCache(testCreds),
+		cfg:                           testCfg,
+		deregisterInstanceEventStream: deregisterInstanceEventStream,
+		heartbeatTimeout:              50 * time.Millisecond, // use smaller value than testHeartbeatTimeout
+		heartbeatJitterMax:            10 * time.Millisecond, // use smaller value than testHeartbeatJitter
+		disconnectTimeout:             testDisconnectionTimeout,
+		disconnectJitterMax:           testDisconnectionJitter,
+		metricsFactory:                mockMetricsFactory, // use the mock metrics factory
+		metricsChannel:                telemetryMessages,
+		healthChannel:                 healthMessages,
+		instanceStatusChannel:         instanceStatusMessages,
+		doctor:                        emptyDoctor,
+		ecsClient:                     testecsclient,
+		lastDisconnectedTime:          time.Time{},
+	}
+
+	for i := 0; i < numTimesConnectToTACS; i++ {
+		tacsSession.StartTelemetrySession(ctx)
+		tacsSession.lastDisconnectedTime = time.Now()
+	}
+}
+
 // TestTACSConnectionFailureMetric tests that the TACSConnectionFailure metric is recorded when there's a connection error
 func TestTACSConnectionFailureMetric(t *testing.T) {
 	ctrl := gomock.NewController(t)
