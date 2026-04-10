@@ -75,6 +75,7 @@ type telemetrySession struct {
 	instanceStatusChannel         <-chan ecstcs.InstanceStatusMessage
 	doctor                        *doctor.Doctor
 	ecsClient                     TcsEcsClient
+	lastDisconnectedTime          time.Time
 }
 
 func NewTelemetrySession(
@@ -118,6 +119,7 @@ func NewTelemetrySession(
 		metricsFactory:                metricsFactory,
 		doctor:                        doctor,
 		ecsClient:                     ecsClient,
+		lastDisconnectedTime:          time.Time{},
 	}
 }
 
@@ -132,6 +134,7 @@ func (session *telemetrySession) Start(ctx context.Context) error {
 		default:
 		}
 		tcsError := session.StartTelemetrySession(ctx)
+		session.lastDisconnectedTime = time.Now()
 		switch tcsError {
 		case context.Canceled, context.DeadlineExceeded:
 			return tcsError
@@ -175,6 +178,7 @@ func (session *telemetrySession) StartTelemetrySession(ctx context.Context) erro
 		defer session.deregisterInstanceEventStream.Unsubscribe(deregisterContainerInstanceHandler)
 	}
 
+	tacsConnectionStartTime := time.Now()
 	disconnectTimer, err := client.Connect(metrics.TCSDisconnectTimeoutMetricName,
 		session.disconnectTimeout,
 		session.disconnectJitterMax)
@@ -183,6 +187,12 @@ func (session *telemetrySession) StartTelemetrySession(ctx context.Context) erro
 			field.Error: err,
 		})
 		return err
+	}
+	session.metricsFactory.New(metrics.TACSSessionCallDurationName).WithGauge(time.Since(tacsConnectionStartTime).
+		Milliseconds()).Done(nil)
+	if !session.GetLastDisconnectedTime().IsZero() {
+		session.metricsFactory.New(metrics.TACSDisconnectedDurationName).WithGauge(time.Since(
+			session.GetLastDisconnectedTime()).Milliseconds()).Done(nil)
 	}
 	defer disconnectTimer.Stop()
 	logger.Info("Connected to TCS endpoint")
@@ -211,6 +221,11 @@ func (session *telemetrySession) getTelemetryEndpoint() (string, error) {
 		return "", err
 	}
 	return tcsEndpoint, nil
+}
+
+// GetLastDisconnectedTime returns the timestamp that the last time Agent was disconnected from TACS.
+func (session *telemetrySession) GetLastDisconnectedTime() time.Time {
+	return session.lastDisconnectedTime
 }
 
 // heartbeatHandler resets the heartbeat timer when HeartbeatMessage message is received from tcs.
