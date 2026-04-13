@@ -1,5 +1,14 @@
 # Changelog
 
+# 1.99.999
+* Enhancement - Emit duration metrics for TACS connect/disconnect [#4928](https://github.com/aws/amazon-ecs-agent/pull/4928)
+* Enhancement - Bump github.com/aws/aws-sdk-go-v2/aws/protocol/eventstream from 1.6.10 to 1.7.8 in /agent [#4922](https://github.com/aws/amazon-ecs-agent/pull/4922)
+* Enhancement - Bump github.com/aws/aws-sdk-go-v2/aws/protocol/eventstream from 1.6.5 to 1.7.8 in /ecs-init [#4925](https://github.com/aws/amazon-ecs-agent/pull/4925)
+* Enhancement - Track and emit metric for disconnect time from ACS [#4920](https://github.com/aws/amazon-ecs-agent/pull/4920)
+* Enhancement - engine: skip execution role checks when task desired status is stopped [#4918](https://github.com/aws/amazon-ecs-agent/pull/4918)
+* Enhancement - Add NeuronDevices type and sysfs-based device discovery [#4919](https://github.com/aws/amazon-ecs-agent/pull/4919)
+* Bugfix - fix(netlib): Conditionally add IPv6 subnet to IPAM config when IPv6 … [#4916](https://github.com/aws/amazon-ecs-agent/pull/4916)
+
 # 1.102.2
 * Enhancement - Update SSM exec agent version to 3.3.4108.0 [#4912](https://github.com/aws/amazon-ecs-agent/pull/4912)
 * Enhancement - Update Go version to 1.25.8 [#4894](https://github.com/aws/amazon-ecs-agent/pull/4894)
