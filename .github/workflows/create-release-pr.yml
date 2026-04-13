@@ -42,16 +42,14 @@ jobs:
           fi
           echo "Release v${AGENT_VERSION} does not exist. Proceeding."
 
-      - name: Fetch dev branch
+      - name: Fetch latest remote refs
         run: |
-          git fetch origin dev:dev
+          git fetch origin
 
       - name: Create staging branch
         run: |
           BRANCH_NAME="v${AGENT_VERSION}-stage"
-          git checkout -b "$BRANCH_NAME" origin/dev
-          COMMIT_SHA=$(git rev-parse HEAD)
-          echo "Staging branch: $BRANCH_NAME at $COMMIT_SHA"
+          git checkout -b "$BRANCH_NAME"
           echo "BRANCH_NAME=$BRANCH_NAME" >> $GITHUB_ENV
 
       - name: Generate changelog
@@ -139,6 +137,13 @@ jobs:
           git config user.email "amazon-ecs-bot@amazon.com"
           git commit -m "Release ${AGENT_VERSION}"
 
+      - name: Generate App Token
+        id: app-token
+        uses: actions/create-github-app-token@v3
+        with:
+          app-id: ${{ secrets.APP_ID }}
+          private-key: ${{ secrets.APP_PRIVATE_KEY }}
+
       - name: Push staging branch to origin
         run: |
           echo "Pushing branch ${BRANCH_NAME} to origin..."
@@ -146,7 +151,7 @@ jobs:
 
       - name: Create pull request
         env:
-          GH_TOKEN: ${{ secrets.ECS_AGENT_WORKFLOW_SECRET }}
+          GH_TOKEN: ${{ steps.app-token.outputs.token }}
         run: |
           PR_BODY=$(cat <<EOF
           ### Summary
