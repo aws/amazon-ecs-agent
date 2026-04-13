@@ -20,8 +20,8 @@ set -e
 OUTPUT_FILE="CHANGELOG.md"
 REPO_OWNER="aws"
 REPO_NAME="amazon-ecs-agent"
-BASE_BRANCH="master"
-DEV_BRANCH="dev"
+BASE_BRANCH="origin/master"
+DEV_BRANCH="origin/dev"
 AGENT_VERSION=""
 
 # Global arrays to store changelog entries by category
@@ -136,7 +136,7 @@ get_release_changes() {
 	local commits
 
 	# Exclude merge commits using --no-merges
-	commits=$(git log ${BASE_BRANCH}..${DEV_BRANCH} --no-merges --format=%H 2>/dev/null)
+	commits=$(git log ${BASE_BRANCH}..${DEV_BRANCH} --no-merges --format=%H)
 
 	if [ $? -ne 0 ]; then
 		log_error "Failed to get commits. Make sure you're in a git repository and both ${BASE_BRANCH} and ${DEV_BRANCH} branches exist"
