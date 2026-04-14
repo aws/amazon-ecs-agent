@@ -228,30 +228,12 @@ func TestInitializeContainer(t *testing.T) {
 func TestGetExecAgentConfigFileName(t *testing.T) {
 	execAgentConfig := `{
 	"Mgs": {
-		"Region": "",
-		"Endpoint": "",
 		"StopTimeoutMillis": 20000,
 		"SessionWorkersLimit": 2
 	},
 	"Agent": {
-		"Region": "",
-		"OrchestrationRootDir": "",
-		"ContainerMode": true
-	},
-	"Ssm": {
-		"Endpoint": ""
-	},
-	"Mds": {
-		"Endpoint": ""
-	},
-	"S3": {
-		"Endpoint": ""
-	},
-	"Kms": {
-		"Endpoint": ""
-	},
-	"CloudWatchLogs": {
-		"Endpoint": ""
+		"ContainerMode": true,
+		"UseDualStackEndpoint": false
 	}
 }`
 	sha := getExecAgentConfigHash(execAgentConfig)
@@ -481,40 +463,13 @@ func TestFormatSSMAgentConfig(t *testing.T) {
 	// Define a struct that matches the SSM agent config structure
 	type SSMAgentConfig struct {
 		Mgs struct {
-			Region              string `json:"Region"`
-			Endpoint            string `json:"Endpoint"`
-			StopTimeoutMillis   int    `json:"StopTimeoutMillis"`
-			SessionWorkersLimit int    `json:"SessionWorkersLimit"`
+			StopTimeoutMillis   int `json:"StopTimeoutMillis"`
+			SessionWorkersLimit int `json:"SessionWorkersLimit"`
 		} `json:"Mgs"`
 		Agent struct {
-			Region               string `json:"Region"`
-			OrchestrationRootDir string `json:"OrchestrationRootDir"`
-			ContainerMode        bool   `json:"ContainerMode"`
+			ContainerMode        bool `json:"ContainerMode"`
+			UseDualStackEndpoint bool `json:"UseDualStackEndpoint"`
 		} `json:"Agent"`
-		Ssm struct {
-			Endpoint string `json:"Endpoint"`
-		} `json:"Ssm"`
-		Mds struct {
-			Endpoint string `json:"Endpoint"`
-		} `json:"Mds"`
-		S3 struct {
-			Endpoint string `json:"Endpoint"`
-		} `json:"S3"`
-		Kms struct {
-			Endpoint string `json:"Endpoint"`
-		} `json:"Kms"`
-		CloudWatchLogs struct {
-			Endpoint string `json:"Endpoint"`
-		} `json:"CloudWatchLogs"`
-	}
-
-	type expectedEndpoints struct {
-		mgs            string
-		ssm            string
-		mds            string
-		s3             string
-		kms            string
-		cloudWatchLogs string
 	}
 
 	// Create mock ENIs for testing
@@ -542,80 +497,58 @@ func TestFormatSSMAgentConfig(t *testing.T) {
 		NetworkMode: apitask.AWSVPCNetworkMode,
 	}
 
-	expectedDualstackEndpointsIAD := expectedEndpoints{
-		mgs:            "https://ssmmessages.us-east-1.api.aws",
-		ssm:            "https://ssm.us-east-1.api.aws",
-		mds:            "https://ec2messages.us-east-1.api.aws",
-		s3:             "https://s3.dualstack.us-east-1.amazonaws.com",
-		kms:            "https://kms.us-east-1.api.aws",
-		cloudWatchLogs: "https://logs.us-east-1.api.aws",
-	}
-
 	testCases := []struct {
-		name              string
-		sessionLimit      int
-		cfg               *config.Config
-		task              *apitask.Task
-		expectedEndpoints expectedEndpoints
-		expectedError     string
+		name                 string
+		sessionLimit         int
+		cfg                  *config.Config
+		task                 *apitask.Task
+		expectedUseDualStack bool
+		expectedError        string
 	}{
 		{
 			name:         "non-IPv6-only environment with bridge mode task",
 			sessionLimit: 5,
 			cfg: &config.Config{
 				InstanceIPCompatibility: ipcompatibility.NewIPv4OnlyCompatibility(),
-				AWSRegion:               "us-west-2",
 			},
-			task: bridgeTask,
+			task:                 bridgeTask,
+			expectedUseDualStack: false,
 		},
 		{
 			name:         "IPv6-only environment with bridge mode task",
 			sessionLimit: 8,
 			cfg: &config.Config{
 				InstanceIPCompatibility: ipcompatibility.NewIPv6OnlyCompatibility(),
-				AWSRegion:               "us-east-1",
 			},
-			task:              bridgeTask,
-			expectedEndpoints: expectedDualstackEndpointsIAD,
+			task:                 bridgeTask,
+			expectedUseDualStack: true,
 		},
 		{
 			name:         "IPv6-only task ENI with AWSVPC mode",
 			sessionLimit: 15,
 			cfg: &config.Config{
 				InstanceIPCompatibility: ipcompatibility.NewIPv4OnlyCompatibility(),
-				AWSRegion:               "us-east-1",
 			},
-			task:              ipv6OnlyTask,
-			expectedEndpoints: expectedDualstackEndpointsIAD,
+			task:                 ipv6OnlyTask,
+			expectedUseDualStack: true,
 		},
 		{
 			name:         "Dual-stack task ENI with AWSVPC mode",
 			sessionLimit: 15,
 			cfg: &config.Config{
 				InstanceIPCompatibility: ipcompatibility.NewIPv6OnlyCompatibility(),
-				AWSRegion:               "us-east-1",
 			},
-			task: dualStackTask,
+			task:                 dualStackTask,
+			expectedUseDualStack: false,
 		},
 		{
 			name:         "AWSVPC task without ENI",
 			sessionLimit: 5,
 			cfg: &config.Config{
 				InstanceIPCompatibility: ipcompatibility.NewIPv4OnlyCompatibility(),
-				AWSRegion:               "us-west-2",
 			},
 			task:          taskWithoutENI,
 			expectedError: "awsvpc mode task does not have a primary ENI",
-		},
-		{
-			name:         "Invalid region causes endpoint resolution failure",
-			sessionLimit: 5,
-			cfg: &config.Config{
-				InstanceIPCompatibility: ipcompatibility.NewIPv6OnlyCompatibility(),
-				AWSRegion:               "", // Empty region will cause endpoint resolution to fail
-			},
-			task:          bridgeTask,
-			expectedError: "failed to resolve SSM Messages endpoint: region is required to resolve ssmmessages dual stack endpoint",
 		},
 	}
 
@@ -641,13 +574,8 @@ func TestFormatSSMAgentConfig(t *testing.T) {
 			// Verify container mode is true
 			assert.True(t, config.Agent.ContainerMode, "Agent.ContainerMode should be true")
 
-			// Assert each endpoint directly with its expected value from the test case
-			assert.Equal(t, tc.expectedEndpoints.mgs, config.Mgs.Endpoint)
-			assert.Equal(t, tc.expectedEndpoints.ssm, config.Ssm.Endpoint)
-			assert.Equal(t, tc.expectedEndpoints.mds, config.Mds.Endpoint)
-			assert.Equal(t, tc.expectedEndpoints.s3, config.S3.Endpoint)
-			assert.Equal(t, tc.expectedEndpoints.kms, config.Kms.Endpoint)
-			assert.Equal(t, tc.expectedEndpoints.cloudWatchLogs, config.CloudWatchLogs.Endpoint)
+			// Verify UseDualStackEndpoint is set based on the test case expectation
+			assert.Equal(t, tc.expectedUseDualStack, config.Agent.UseDualStackEndpoint)
 		})
 	}
 }

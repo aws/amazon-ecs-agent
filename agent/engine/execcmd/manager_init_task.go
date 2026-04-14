@@ -50,30 +50,12 @@ const (
 var (
 	execAgentConfigTemplate = `{
 	"Mgs": {
-		"Region": "",
-		"Endpoint": "%s",
 		"StopTimeoutMillis": 20000,
 		"SessionWorkersLimit": %d
 	},
 	"Agent": {
-		"Region": "",
-		"OrchestrationRootDir": "",
-		"ContainerMode": true
-	},
-	"Ssm": {
-		"Endpoint": "%s"
-	},
-	"Mds": {
-		"Endpoint": "%s"
-	},
-	"S3": {
-		"Endpoint": "%s"
-	},
-	"Kms": {
-		"Endpoint": "%s"
-	},
-	"CloudWatchLogs": {
-		"Endpoint": "%s"
+		"ContainerMode": true,
+		"UseDualStackEndpoint": %t
 	}
 }`
 
