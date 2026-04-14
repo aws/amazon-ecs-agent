@@ -1,5 +1,5 @@
 ---
-AWSTemplateFormatVersion: '2010-09-09'
+AWSTemplateFormatVersion: "2010-09-09"
 Description: A template that brings up a code pipeline that builds and signs artifacts
 
 Parameters:
@@ -34,11 +34,11 @@ Parameters:
   SigningCodeBuildProjectCustomImageUri:
     Type: String
     Description: A custom ECR image to use with the signing project, can be left blank to use the default Codebuild image
-    Default: ''
+    Default: ""
   SigningCodeBuildProjectCustomImageRepositoryArn:
     Type: String
     Description: The ARN of the ECR repository where the custom image is stored, ignored if SigningCodeBuildProjectCustomImageUri is blank
-    Default: ''
+    Default: ""
   CopyCodeBuildProjectName:
     Type: String
     Description: The name of the copy project
@@ -80,12 +80,7 @@ Parameters:
   ReleaseArtifactsBucketName:
     Type: String
     Description: The name of the bucket where things land at the end, this is assumed to already exist
-  ReleaseArtifactsBucketArn:
-    Type: String
-    Description: The ARN of the bucket where things land at the end, this is assumed to already exist
-  ReleaseArtifactsBucketS3Uri:
-    Type: String
-    Description: The URI of the bucket where things land at the end, this is assumed to already exist (e.g. s3://artifacts)
+
   CodeStarConnectionArn:
     Type: String
     Description: The ARN of the connection to use to connect to GitHub
@@ -107,7 +102,7 @@ Parameters:
 
 Conditions:
   UseCustomSigningImage:
-    !Not [!Equals [!Ref 'SigningCodeBuildProjectCustomImageUri', '']]
+    !Not [!Equals [!Ref "SigningCodeBuildProjectCustomImageUri", ""]]
 
 Resources:
   CodeBuildLogGroup:
@@ -119,7 +114,7 @@ Resources:
   BuildAndSignCodePipelineArtifactBucket:
     Type: AWS::S3::Bucket
     Properties:
-      BucketName: !Sub 'codepipeline-${AWS::Region}-${AWS::AccountId}-artifacts'
+      BucketName: !Sub "codepipeline-${AWS::Region}-${AWS::AccountId}-artifacts"
       BucketEncryption:
         ServerSideEncryptionConfiguration:
           - ServerSideEncryptionByDefault:
@@ -135,7 +130,7 @@ Resources:
   BuildspecsExtractCodeBuildProjectServiceRole:
     Type: AWS::IAM::Role
     Properties:
-      RoleName: !Sub 'buildspecs-extract-codebuild-project-service-role-${AWS::Region}'
+      RoleName: !Sub "buildspecs-extract-codebuild-project-service-role-${AWS::Region}"
       AssumeRolePolicyDocument:
         Version: 2012-10-17
         Statement:
@@ -152,7 +147,7 @@ Resources:
                 Effect: Allow
                 Resource:
                   - !GetAtt CodeBuildLogGroup.Arn
-                  - !Sub '${CodeBuildLogGroup.Arn}:*'
+                  - !Sub "${CodeBuildLogGroup.Arn}:*"
                 Action:
                   - logs:CreateLogGroup
                   - logs:CreateLogStream
@@ -160,7 +155,7 @@ Resources:
               - Sid: ArtifactBucketAccess
                 Effect: Allow
                 Resource:
-                  - !Sub 'arn:aws:s3:::codepipeline-${AWS::Region}-*'
+                  - !Sub "arn:aws:s3:::codepipeline-${AWS::Region}-*"
                 Action:
                   - s3:PutObject
                   - s3:GetObject
@@ -176,7 +171,7 @@ Resources:
               - Sid: CodeBuildCreateReportAccess
                 Effect: Allow
                 Resource:
-                  - !Sub 'arn:aws:codebuild:${AWS::Region}:${AWS::AccountId}:report-group/${BuildspecsExtractCodeBuildProjectName}-*'
+                  - !Sub "arn:aws:codebuild:${AWS::Region}:${AWS::AccountId}:report-group/${BuildspecsExtractCodeBuildProjectName}-*"
                 Action:
                   - codebuild:CreateReportGroup
                   - codebuild:CreateReport
@@ -193,7 +188,7 @@ Resources:
       Description: CodeBuild project to extract buildspecs from the source repo
       Environment:
         ComputeType: BUILD_GENERAL1_SMALL
-        Image: aws/codebuild/amazonlinux2-x86_64-standard:3.0
+        Image: aws/codebuild/amazonlinux-x86_64-standard:6.0
         ImagePullCredentialsType: CODEBUILD
         PrivilegedMode: false
         Type: LINUX_CONTAINER
@@ -213,7 +208,7 @@ Resources:
   AmdBuildCodeBuildProjectServiceRole:
     Type: AWS::IAM::Role
     Properties:
-      RoleName: !Sub 'amd-build-codebuild-project-service-role-${AWS::Region}'
+      RoleName: !Sub "amd-build-codebuild-project-service-role-${AWS::Region}"
       AssumeRolePolicyDocument:
         Version: 2012-10-17
         Statement:
@@ -230,7 +225,7 @@ Resources:
                 Effect: Allow
                 Resource:
                   - !GetAtt CodeBuildLogGroup.Arn
-                  - !Sub '${CodeBuildLogGroup.Arn}:*'
+                  - !Sub "${CodeBuildLogGroup.Arn}:*"
                 Action:
                   - logs:CreateLogGroup
                   - logs:CreateLogStream
@@ -238,7 +233,7 @@ Resources:
               - Sid: ArtifactBucketAccess
                 Effect: Allow
                 Resource:
-                  - !Sub 'arn:aws:s3:::codepipeline-${AWS::Region}-*'
+                  - !Sub "arn:aws:s3:::codepipeline-${AWS::Region}-*"
                 Action:
                   - s3:PutObject
                   - s3:GetObject
@@ -254,7 +249,7 @@ Resources:
               - Sid: CodeBuildCreateReportAccess
                 Effect: Allow
                 Resource:
-                  - !Sub 'arn:aws:codebuild:${AWS::Region}:${AWS::AccountId}:report-group/${AmdBuildCodeBuildProjectName}-*'
+                  - !Sub "arn:aws:codebuild:${AWS::Region}:${AWS::AccountId}:report-group/${AmdBuildCodeBuildProjectName}-*"
                 Action:
                   - codebuild:CreateReportGroup
                   - codebuild:CreateReport
@@ -265,7 +260,7 @@ Resources:
   UbuntuAmdBuildCodeBuildProjectServiceRole:
     Type: AWS::IAM::Role
     Properties:
-      RoleName: !Sub 'ubuntu-amd-build-codebuild-project-service-role-${AWS::Region}'
+      RoleName: !Sub "ubuntu-amd-build-codebuild-project-service-role-${AWS::Region}"
       AssumeRolePolicyDocument:
         Version: 2012-10-17
         Statement:
@@ -282,7 +277,7 @@ Resources:
                 Effect: Allow
                 Resource:
                   - !GetAtt CodeBuildLogGroup.Arn
-                  - !Sub '${CodeBuildLogGroup.Arn}:*'
+                  - !Sub "${CodeBuildLogGroup.Arn}:*"
                 Action:
                   - logs:CreateLogGroup
                   - logs:CreateLogStream
@@ -290,7 +285,7 @@ Resources:
               - Sid: ArtifactBucketAccess
                 Effect: Allow
                 Resource:
-                  - !Sub 'arn:aws:s3:::codepipeline-${AWS::Region}-*'
+                  - !Sub "arn:aws:s3:::codepipeline-${AWS::Region}-*"
                 Action:
                   - s3:PutObject
                   - s3:GetObject
@@ -306,7 +301,7 @@ Resources:
               - Sid: CodeBuildCreateReportAccess
                 Effect: Allow
                 Resource:
-                  - !Sub 'arn:aws:codebuild:${AWS::Region}:${AWS::AccountId}:report-group/${UbuntuAmdBuildCodeBuildProjectName}-*'
+                  - !Sub "arn:aws:codebuild:${AWS::Region}:${AWS::AccountId}:report-group/${UbuntuAmdBuildCodeBuildProjectName}-*"
                 Action:
                   - codebuild:CreateReportGroup
                   - codebuild:CreateReport
@@ -317,7 +312,7 @@ Resources:
   UbuntuArmBuildCodeBuildProjectServiceRole:
     Type: AWS::IAM::Role
     Properties:
-      RoleName: !Sub 'ubuntu-arm-build-codebuild-project-service-role-${AWS::Region}'
+      RoleName: !Sub "ubuntu-arm-build-codebuild-project-service-role-${AWS::Region}"
       AssumeRolePolicyDocument:
         Version: 2012-10-17
         Statement:
@@ -334,7 +329,7 @@ Resources:
                 Effect: Allow
                 Resource:
                   - !GetAtt CodeBuildLogGroup.Arn
-                  - !Sub '${CodeBuildLogGroup.Arn}:*'
+                  - !Sub "${CodeBuildLogGroup.Arn}:*"
                 Action:
                   - logs:CreateLogGroup
                   - logs:CreateLogStream
@@ -342,7 +337,7 @@ Resources:
               - Sid: ArtifactBucketAccess
                 Effect: Allow
                 Resource:
-                  - !Sub 'arn:aws:s3:::codepipeline-${AWS::Region}-*'
+                  - !Sub "arn:aws:s3:::codepipeline-${AWS::Region}-*"
                 Action:
                   - s3:PutObject
                   - s3:GetObject
@@ -358,7 +353,7 @@ Resources:
               - Sid: CodeBuildCreateReportAccess
                 Effect: Allow
                 Resource:
-                  - !Sub 'arn:aws:codebuild:${AWS::Region}:${AWS::AccountId}:report-group/${UbuntuArmBuildCodeBuildProjectName}-*'
+                  - !Sub "arn:aws:codebuild:${AWS::Region}:${AWS::AccountId}:report-group/${UbuntuArmBuildCodeBuildProjectName}-*"
                 Action:
                   - codebuild:CreateReportGroup
                   - codebuild:CreateReport
@@ -375,7 +370,7 @@ Resources:
       Description: CodeBuild project running an Ubuntu docker image to build the ECS Agent deb packages
       Environment:
         ComputeType: BUILD_GENERAL1_SMALL
-        Image: 'public.ecr.aws/lts/ubuntu:20.04'
+        Image: "public.ecr.aws/lts/ubuntu:24.04"
         ImagePullCredentialsType: CODEBUILD
         PrivilegedMode: false
         Type: ARM_CONTAINER
@@ -401,7 +396,7 @@ Resources:
       Description: CodeBuild project to build the ECS Agent Docker image tarball and RPM
       Environment:
         ComputeType: BUILD_GENERAL1_SMALL
-        Image: aws/codebuild/amazonlinux2-x86_64-standard:3.0
+        Image: aws/codebuild/amazonlinux-x86_64-standard:6.0
         ImagePullCredentialsType: CODEBUILD
         PrivilegedMode: true
         Type: LINUX_CONTAINER
@@ -427,7 +422,7 @@ Resources:
       Description: CodeBuild project running an Ubuntu docker image to build the ECS Agent deb packages
       Environment:
         ComputeType: BUILD_GENERAL1_SMALL
-        Image: 'public.ecr.aws/lts/ubuntu:20.04'
+        Image: "public.ecr.aws/lts/ubuntu:24.04"
         ImagePullCredentialsType: CODEBUILD
         PrivilegedMode: false
         Type: LINUX_CONTAINER
@@ -447,7 +442,7 @@ Resources:
   ArmBuildCodeBuildProjectServiceRole:
     Type: AWS::IAM::Role
     Properties:
-      RoleName: !Sub 'arm-build-codebuild-project-service-role-${AWS::Region}'
+      RoleName: !Sub "arm-build-codebuild-project-service-role-${AWS::Region}"
       AssumeRolePolicyDocument:
         Version: 2012-10-17
         Statement:
@@ -464,7 +459,7 @@ Resources:
                 Effect: Allow
                 Resource:
                   - !GetAtt CodeBuildLogGroup.Arn
-                  - !Sub '${CodeBuildLogGroup.Arn}:*'
+                  - !Sub "${CodeBuildLogGroup.Arn}:*"
                 Action:
                   - logs:CreateLogGroup
                   - logs:CreateLogStream
@@ -472,7 +467,7 @@ Resources:
               - Sid: ArtifactBucketAccess
                 Effect: Allow
                 Resource:
-                  - !Sub 'arn:aws:s3:::codepipeline-${AWS::Region}-*'
+                  - !Sub "arn:aws:s3:::codepipeline-${AWS::Region}-*"
                 Action:
                   - s3:PutObject
                   - s3:GetObject
@@ -488,7 +483,7 @@ Resources:
               - Sid: CodeBuildCreateReportAccess
                 Effect: Allow
                 Resource:
-                  - !Sub 'arn:aws:codebuild:${AWS::Region}:${AWS::AccountId}:report-group/${ArmBuildCodeBuildProjectName}-*'
+                  - !Sub "arn:aws:codebuild:${AWS::Region}:${AWS::AccountId}:report-group/${ArmBuildCodeBuildProjectName}-*"
                 Action:
                   - codebuild:CreateReportGroup
                   - codebuild:CreateReport
@@ -505,7 +500,7 @@ Resources:
       Description: CodeBuild project to build the ECS Agent Docker image tarball
       Environment:
         ComputeType: BUILD_GENERAL1_SMALL
-        Image: aws/codebuild/amazonlinux2-aarch64-standard:2.0
+        Image: aws/codebuild/amazonlinux-aarch64-standard:3.0
         ImagePullCredentialsType: CODEBUILD
         PrivilegedMode: true
         Type: ARM_CONTAINER
@@ -525,7 +520,7 @@ Resources:
   SigningCodeBuildProjectServiceRole:
     Type: AWS::IAM::Role
     Properties:
-      RoleName: !Sub 'signing-codebuild-project-service-role-${AWS::Region}'
+      RoleName: !Sub "signing-codebuild-project-service-role-${AWS::Region}"
       AssumeRolePolicyDocument:
         Version: 2012-10-17
         Statement:
@@ -542,7 +537,7 @@ Resources:
                 Effect: Allow
                 Resource:
                   - !GetAtt CodeBuildLogGroup.Arn
-                  - !Sub '${CodeBuildLogGroup.Arn}:*'
+                  - !Sub "${CodeBuildLogGroup.Arn}:*"
                 Action:
                   - logs:CreateLogGroup
                   - logs:CreateLogStream
@@ -550,7 +545,7 @@ Resources:
               - Sid: ArtifactBucketAccess
                 Effect: Allow
                 Resource:
-                  - !Sub 'arn:aws:s3:::codepipeline-${AWS::Region}-*'
+                  - !Sub "arn:aws:s3:::codepipeline-${AWS::Region}-*"
                 Action:
                   - s3:PutObject
                   - s3:GetObject
@@ -560,7 +555,7 @@ Resources:
               - Sid: CodeBuildCreateReportAccess
                 Effect: Allow
                 Resource:
-                  - !Sub 'arn:aws:codebuild:${AWS::Region}:${AWS::AccountId}:report-group/${SigningCodeBuildProjectName}-*'
+                  - !Sub "arn:aws:codebuild:${AWS::Region}:${AWS::AccountId}:report-group/${SigningCodeBuildProjectName}-*"
                 Action:
                   - codebuild:CreateReportGroup
                   - codebuild:CreateReport
@@ -588,7 +583,7 @@ Resources:
                   Effect: Allow
                   Action:
                     - ecr:GetAuthorizationToken
-                  Resource: '*'
+                  Resource: "*"
                 - Sid: EcrImageAccess
                   Effect: Allow
                   Action:
@@ -622,7 +617,7 @@ Resources:
         Image: !If
           - UseCustomSigningImage
           - !Ref SigningCodeBuildProjectCustomImageUri
-          - aws/codebuild/amazonlinux2-x86_64-standard:3.0
+          - aws/codebuild/amazonlinux-x86_64-standard:6.0
         EnvironmentVariables:
           - Name: PASSPHRASE
             Type: SECRETS_MANAGER
@@ -644,7 +639,7 @@ Resources:
   MakeJSONCodeBuildProjectServiceRole:
     Type: AWS::IAM::Role
     Properties:
-      RoleName: !Sub 'make-json-codebuild-project-service-role-${AWS::Region}'
+      RoleName: !Sub "make-json-codebuild-project-service-role-${AWS::Region}"
       AssumeRolePolicyDocument:
         Version: 2012-10-17
         Statement:
@@ -661,7 +656,7 @@ Resources:
                 Effect: Allow
                 Resource:
                   - !GetAtt CodeBuildLogGroup.Arn
-                  - !Sub '${CodeBuildLogGroup.Arn}:*'
+                  - !Sub "${CodeBuildLogGroup.Arn}:*"
                 Action:
                   - logs:CreateLogGroup
                   - logs:CreateLogStream
@@ -669,7 +664,7 @@ Resources:
               - Sid: ArtifactBucketAccess
                 Effect: Allow
                 Resource:
-                  - !Sub 'arn:aws:s3:::codepipeline-${AWS::Region}-*'
+                  - !Sub "arn:aws:s3:::codepipeline-${AWS::Region}-*"
                 Action:
                   - s3:PutObject
                   - s3:GetObject
@@ -679,13 +674,13 @@ Resources:
               - Sid: ResultsBucketAccess
                 Effect: Allow
                 Resource:
-                  - !Ref ReleaseArtifactsBucketArn
-                  - !Sub '${ReleaseArtifactsBucketArn}/*'
+                  - !Sub "arn:aws:s3:::${ReleaseArtifactsBucketName}"
+                  - !Sub "arn:aws:s3:::${ReleaseArtifactsBucketName}/*"
                 Action: s3:*
               - Sid: CodeBuildCreateReportAccess
                 Effect: Allow
                 Resource:
-                  - !Sub 'arn:aws:codebuild:${AWS::Region}:${AWS::AccountId}:report-group/${MakeJSONCodeBuildProjectName}-*'
+                  - !Sub "arn:aws:codebuild:${AWS::Region}:${AWS::AccountId}:report-group/${MakeJSONCodeBuildProjectName}-*"
                 Action:
                   - codebuild:CreateReportGroup
                   - codebuild:CreateReport
@@ -706,11 +701,11 @@ Resources:
         Type: LINUX_CONTAINER
         ComputeType: BUILD_GENERAL1_SMALL
         ImagePullCredentialsType: CODEBUILD
-        Image: aws/codebuild/amazonlinux2-x86_64-standard:3.0
+        Image: aws/codebuild/amazonlinux-x86_64-standard:6.0
         EnvironmentVariables:
           - Name: RESULTS_BUCKET_URI
             Type: PLAINTEXT
-            Value: !Ref ReleaseArtifactsBucketS3Uri
+            Value: !Sub "s3://${ReleaseArtifactsBucketName}"
           - Name: GITHUB_SOURCE_BRANCH_NAME
             Type: PLAINTEXT
             Value: !Ref GithubSourceBranchName
@@ -728,7 +723,7 @@ Resources:
   CopyCodeBuildProjectServiceRole:
     Type: AWS::IAM::Role
     Properties:
-      RoleName: !Sub 'copy-codebuild-project-service-role-${AWS::Region}'
+      RoleName: !Sub "copy-codebuild-project-service-role-${AWS::Region}"
       AssumeRolePolicyDocument:
         Version: 2012-10-17
         Statement:
@@ -745,7 +740,7 @@ Resources:
                 Effect: Allow
                 Resource:
                   - !GetAtt CodeBuildLogGroup.Arn
-                  - !Sub '${CodeBuildLogGroup.Arn}:*'
+                  - !Sub "${CodeBuildLogGroup.Arn}:*"
                 Action:
                   - logs:CreateLogGroup
                   - logs:CreateLogStream
@@ -753,7 +748,7 @@ Resources:
               - Sid: ArtifactBucketAccess
                 Effect: Allow
                 Resource:
-                  - !Sub 'arn:aws:s3:::codepipeline-${AWS::Region}-*'
+                  - !Sub "arn:aws:s3:::codepipeline-${AWS::Region}-*"
                 Action:
                   - s3:PutObject
                   - s3:GetObject
@@ -763,13 +758,13 @@ Resources:
               - Sid: ResultsBucketAccess
                 Effect: Allow
                 Resource:
-                  - !Ref ReleaseArtifactsBucketArn
-                  - !Sub '${ReleaseArtifactsBucketArn}/*'
+                  - !Sub "arn:aws:s3:::${ReleaseArtifactsBucketName}"
+                  - !Sub "arn:aws:s3:::${ReleaseArtifactsBucketName}/*"
                 Action: s3:*
               - Sid: CodeBuildCreateReportAccess
                 Effect: Allow
                 Resource:
-                  - !Sub 'arn:aws:codebuild:${AWS::Region}:${AWS::AccountId}:report-group/${CopyCodeBuildProjectName}-*'
+                  - !Sub "arn:aws:codebuild:${AWS::Region}:${AWS::AccountId}:report-group/${CopyCodeBuildProjectName}-*"
                 Action:
                   - codebuild:CreateReportGroup
                   - codebuild:CreateReport
@@ -790,11 +785,11 @@ Resources:
         Type: LINUX_CONTAINER
         ComputeType: BUILD_GENERAL1_SMALL
         ImagePullCredentialsType: CODEBUILD
-        Image: aws/codebuild/amazonlinux2-x86_64-standard:3.0
+        Image: aws/codebuild/amazonlinux-x86_64-standard:6.0
         EnvironmentVariables:
           - Name: RESULTS_BUCKET_URI
             Type: PLAINTEXT
-            Value: !Ref ReleaseArtifactsBucketS3Uri
+            Value: !Sub "s3://${ReleaseArtifactsBucketName}"
           - Name: GITHUB_SOURCE_BRANCH_NAME
             Type: PLAINTEXT
             Value: !Ref GithubSourceBranchName
@@ -812,7 +807,7 @@ Resources:
   LogsPullerCodeBuildProjectServiceRole:
     Type: AWS::IAM::Role
     Properties:
-      RoleName: !Sub 'logs-puller-codebuild-project-service-role-${AWS::Region}'
+      RoleName: !Sub "logs-puller-codebuild-project-service-role-${AWS::Region}"
       AssumeRolePolicyDocument:
         Version: 2012-10-17
         Statement:
@@ -829,21 +824,21 @@ Resources:
                 Effect: Allow
                 Resource:
                   - !GetAtt CodeBuildLogGroup.Arn
-                  - !Sub '${CodeBuildLogGroup.Arn}:*'
+                  - !Sub "${CodeBuildLogGroup.Arn}:*"
                 Action:
                   - logs:CreateLogGroup
                   - logs:CreateLogStream
                   - logs:PutLogEvents
               - Sid: CloudWatchLogsExportAccess
                 Effect: Allow
-                Resource: '*'
+                Resource: "*"
                 Action:
                   - logs:CreateExportTask
                   - logs:DescribeExportTasks
               - Sid: ArtifactBucketAccess
                 Effect: Allow
                 Resource:
-                  - !Sub 'arn:aws:s3:::codepipeline-${AWS::Region}-*'
+                  - !Sub "arn:aws:s3:::codepipeline-${AWS::Region}-*"
                 Action:
                   - s3:PutObject
                   - s3:GetObject
@@ -853,13 +848,13 @@ Resources:
               - Sid: ResultsBucketAccess
                 Effect: Allow
                 Resource:
-                  - !Ref ReleaseArtifactsBucketArn
-                  - !Sub '${ReleaseArtifactsBucketArn}/*'
+                  - !Sub "arn:aws:s3:::${ReleaseArtifactsBucketName}"
+                  - !Sub "arn:aws:s3:::${ReleaseArtifactsBucketName}/*"
                 Action: s3:*
               - Sid: CodeBuildCreateReportAccess
                 Effect: Allow
                 Resource:
-                  - !Sub 'arn:aws:codebuild:${AWS::Region}:${AWS::AccountId}:report-group/${LogsPullerCodeBuildProjectName}-*'
+                  - !Sub "arn:aws:codebuild:${AWS::Region}:${AWS::AccountId}:report-group/${LogsPullerCodeBuildProjectName}-*"
                 Action:
                   - codebuild:CreateReportGroup
                   - codebuild:CreateReport
@@ -880,7 +875,7 @@ Resources:
         Type: LINUX_CONTAINER
         ComputeType: BUILD_GENERAL1_SMALL
         ImagePullCredentialsType: CODEBUILD
-        Image: aws/codebuild/amazonlinux2-x86_64-standard:3.0
+        Image: aws/codebuild/amazonlinux-x86_64-standard:6.0
         EnvironmentVariables:
           - Name: RELEASE_BUCKET_NAME
             Type: PLAINTEXT
@@ -897,12 +892,12 @@ Resources:
         CloudWatchLogs:
           GroupName: !Ref CodeBuildLogGroupName
           Status: ENABLED
-          StreamName: !Ref CopyCodeBuildProjectName
+          StreamName: !Ref LogsPullerCodeBuildProjectName
 
   BuildAndSignCodePipelineServiceRole:
     Type: AWS::IAM::Role
     Properties:
-      RoleName: !Sub 'build-and-sign-codepipeline-service-role-${AWS::Region}'
+      RoleName: !Sub "build-and-sign-codepipeline-service-role-${AWS::Region}"
       AssumeRolePolicyDocument:
         Version: 2012-10-17
         Statement:
@@ -917,7 +912,7 @@ Resources:
             Statement:
               - Sid: CodePipelinePassRoleAccess
                 Effect: Allow
-                Resource: '*'
+                Resource: "*"
                 Action:
                   - iam:PassRole
                 Condition:
@@ -929,17 +924,17 @@ Resources:
                       - ecs-tasks.amazonaws.com
               - Sid: CodePipelineGithubConnectionsAccess
                 Effect: Allow
-                Resource: '*'
+                Resource: "*"
                 Action:
                   - codestar-connections:UseConnection
               - Sid: CodePipelineReadAndWriteToS3Access
                 Effect: Allow
-                Resource: '*'
+                Resource: "*"
                 Action:
                   - s3:*
               - Sid: CodePipelineCodeBuildAccess
                 Effect: Allow
-                Resource: '*'
+                Resource: "*"
                 Action:
                   - codebuild:BatchGetBuilds
                   - codebuild:StartBuild
@@ -953,7 +948,7 @@ Resources:
       RoleArn: !GetAtt BuildAndSignCodePipelineServiceRole.Arn
       ArtifactStore:
         Type: S3
-        Location: !Sub 'codepipeline-${AWS::Region}-${AWS::AccountId}-artifacts'
+        Location: !Sub "codepipeline-${AWS::Region}-${AWS::AccountId}-artifacts"
       Stages:
         - Name: Source
           Actions:
@@ -962,7 +957,7 @@ Resources:
               ActionTypeId:
                 Category: Source
                 Owner: AWS
-                Version: '1'
+                Version: "1"
                 Provider: CodeStarSourceConnection
               Configuration:
                 ConnectionArn: !Ref CodeStarConnectionArn
@@ -981,7 +976,7 @@ Resources:
               ActionTypeId:
                 Category: Build
                 Owner: AWS
-                Version: '1'
+                Version: "1"
                 Provider: CodeBuild
               Configuration:
                 ProjectName: !Ref BuildspecsExtractCodeBuildProject
@@ -997,7 +992,7 @@ Resources:
               ActionTypeId:
                 Category: Build
                 Owner: AWS
-                Version: '1'
+                Version: "1"
                 Provider: CodeBuild
               Configuration:
                 ProjectName: !Ref AmdBuildCodeBuildProject
@@ -1012,7 +1007,7 @@ Resources:
               ActionTypeId:
                 Category: Build
                 Owner: AWS
-                Version: '1'
+                Version: "1"
                 Provider: CodeBuild
               Configuration:
                 ProjectName: !Ref UbuntuAmdBuildCodeBuildProject
@@ -1027,7 +1022,7 @@ Resources:
               ActionTypeId:
                 Category: Build
                 Owner: AWS
-                Version: '1'
+                Version: "1"
                 Provider: CodeBuild
               Configuration:
                 ProjectName: !Ref ArmBuildCodeBuildProject
@@ -1042,7 +1037,7 @@ Resources:
               ActionTypeId:
                 Category: Build
                 Owner: AWS
-                Version: '1'
+                Version: "1"
                 Provider: CodeBuild
               Configuration:
                 ProjectName: !Ref UbuntuArmBuildCodeBuildProject
@@ -1063,7 +1058,7 @@ Resources:
               ActionTypeId:
                 Category: Build
                 Owner: AWS
-                Version: '1'
+                Version: "1"
                 Provider: CodeBuild
               Configuration:
                 ProjectName: !Ref SigningCodeBuildProject
@@ -1085,7 +1080,7 @@ Resources:
               ActionTypeId:
                 Category: Build
                 Owner: AWS
-                Version: '1'
+                Version: "1"
                 Provider: CodeBuild
               Configuration:
                 ProjectName: !Ref MakeJSONCodeBuildProject
@@ -1107,7 +1102,7 @@ Resources:
               ActionTypeId:
                 Category: Build
                 Owner: AWS
-                Version: '1'
+                Version: "1"
                 Provider: CodeBuild
               Configuration:
                 ProjectName: !Ref CopyCodeBuildProject
@@ -1123,7 +1118,7 @@ Resources:
               ActionTypeId:
                 Category: Build
                 Owner: AWS
-                Version: '1'
+                Version: "1"
                 Provider: CodeBuild
               Configuration:
                 ProjectName: !Ref LogsPullerCodeBuildProject
