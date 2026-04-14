@@ -394,25 +394,11 @@ configure-ssm-agent-ipv6() {
         echo "Creating SSM agent configuration for IPv6-only environment"
         mkdir -p "$ssm_config_dir"
 
-        local endpoint_suffix="api.aws"
-        if is-cn-region; then
-            endpoint_suffix="api.amazonwebservices.com.cn"
-        fi
-        if is-eusc-region; then
-            endpoint_suffix="api.amazonwebservices.eu"
-        fi
-
         cat > "$ssm_config_file" << EOF
 {
-        "Ssm": {
-                "Endpoint": "https://ssm.$REGION.$endpoint_suffix"
-        },
-        "Mgs": {
-                "Endpoint": "https://ssmmessages.$REGION.$endpoint_suffix"
-        },
-        "Mds": {
-                "Endpoint": "https://ec2messages.$REGION.$endpoint_suffix"
-        }
+        "Agent": {
+		    "UseDualStackEndpoint": true
+	    }
 }
 EOF
         echo "Created SSM agent configuration file at $ssm_config_file"

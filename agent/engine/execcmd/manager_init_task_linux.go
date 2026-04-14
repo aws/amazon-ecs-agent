@@ -23,7 +23,6 @@ import (
 
 	apitask "github.com/aws/amazon-ecs-agent/agent/api/task"
 	"github.com/aws/amazon-ecs-agent/agent/config"
-	"github.com/aws/amazon-ecs-agent/agent/utils/endpoints"
 	"github.com/aws/amazon-ecs-agent/ecs-agent/logger"
 	dockercontainer "github.com/docker/docker/api/types/container"
 )
@@ -119,19 +118,9 @@ func validConfigExists(configFilePath, expectedHash string) bool {
 
 var GetExecAgentConfigFileName = getAgentConfigFileName
 
-// formatSSMAgentConfig creates the SSM agent configuration with the appropriate endpoints
-// based on whether we're in an IPv6-only environment
+// formatSSMAgentConfig creates the SSM agent configuration, determining
+// whether to use dualstack endpoints based on IPv6-only environment detection.
 func formatSSMAgentConfig(sessionLimit int, cfg *config.Config, task *apitask.Task) (string, error) {
-	var (
-		mgsEndpoint string
-		ssmEndpoint string
-		mdsEndpoint string
-		s3Endpoint  string
-		kmsEndpoint string
-		cwlEndpoint string
-		err         error
-	)
-
 	// SSM Agent needs to use dualstack endpoints for its dependencies
 	// if the network only supports IPv6.
 	useDualStackEndpoints := false
@@ -147,55 +136,10 @@ func formatSSMAgentConfig(sessionLimit int, cfg *config.Config, task *apitask.Ta
 	}
 
 	if useDualStackEndpoints {
-		// Resolve SSM Messages endpoint
-		mgsEndpoint, err = endpoints.ResolveSSMMessagesDualStackEndpoint(cfg.AWSRegion)
-		if err != nil {
-			return "", fmt.Errorf("failed to resolve SSM Messages endpoint: %w", err)
-		}
-
-		// Resolve SSM endpoint
-		ssmEndpoint, err = endpoints.ResolveSSMEndpoint(cfg.AWSRegion, true)
-		if err != nil {
-			return "", fmt.Errorf("failed to resolve SSM endpoint: %w", err)
-		}
-
-		// Resolve EC2 Messages endpoint
-		mdsEndpoint, err = endpoints.ResolveEC2MessagesDualStackEndpoint(cfg.AWSRegion)
-		if err != nil {
-			return "", fmt.Errorf("failed to resolve EC2 Messages endpoint: %w", err)
-		}
-
-		// Resolve S3 endpoint
-		s3Endpoint, err = endpoints.ResolveS3Endpoint(cfg.AWSRegion, true)
-		if err != nil {
-			return "", fmt.Errorf("failed to resolve S3 endpoint: %w", err)
-		}
-
-		// Resolve KMS endpoint
-		kmsEndpoint, err = endpoints.ResolveKMSEndpoint(cfg.AWSRegion, true)
-		if err != nil {
-			return "", fmt.Errorf("failed to resolve KMS endpoint: %w", err)
-		}
-
-		// Resolve CloudWatch Logs endpoint
-		cwlEndpoint, err = endpoints.ResolveCloudWatchLogsEndpoint(cfg.AWSRegion, true)
-		if err != nil {
-			return "", fmt.Errorf("failed to resolve CloudWatch Logs endpoint: %w", err)
-		}
-
-		logger.Info("Using dualstack endpoints for SSM Agent in IPv6-only environment", logger.Fields{
-			"region":      cfg.AWSRegion,
-			"mgsEndpoint": mgsEndpoint,
-			"ssmEndpoint": ssmEndpoint,
-			"mdsEndpoint": mdsEndpoint,
-			"s3Endpoint":  s3Endpoint,
-			"kmsEndpoint": kmsEndpoint,
-			"cwlEndpoint": cwlEndpoint,
-		})
+		logger.Info("Using dualstack endpoints for SSM Agent in IPv6-only environment")
 	}
 
-	return fmt.Sprintf(execAgentConfigTemplate, mgsEndpoint, sessionLimit, ssmEndpoint,
-		mdsEndpoint, s3Endpoint, kmsEndpoint, cwlEndpoint), nil
+	return fmt.Sprintf(execAgentConfigTemplate, sessionLimit, useDualStackEndpoints), nil
 }
 
 func getAgentConfigFileName(sessionLimit int, cfg *config.Config, task *apitask.Task) (string, error) {
