@@ -174,7 +174,7 @@ func (utils *networkUtils) ConvertInterfaceAliasToLUID(interfaceAlias string) (u
 	// https://learn.microsoft.com/en-us/windows/win32/api/netioapi/nf-netioapi-convertinterfacealiastoluid
 	retVal, _, _ := utils.funcConvertInterfaceAliasToLuid(uintptr(unsafe.Pointer(alias)), uintptr(unsafe.Pointer(&luid)))
 	if retVal != 0 {
-		return 0, errors.Errorf("error occured while calling ConvertInterfaceAliasToLuid: %s", syscall.Errno(retVal))
+		return 0, errors.Errorf("error occurred while calling ConvertInterfaceAliasToLuid: %s", syscall.Errno(retVal))
 	}
 
 	return luid, nil
@@ -191,7 +191,7 @@ func (utils *networkUtils) GetMIBIfEntryFromLUID(ifaceLUID uint64) (*MibIfRow2, 
 	// https://learn.microsoft.com/en-us/windows/win32/api/netioapi/nf-netioapi-getifentry2ex
 	retVal, _, _ := utils.funcGetIfEntry2Ex(uintptr(0), uintptr(unsafe.Pointer(row)))
 	if retVal != 0 {
-		return nil, errors.Errorf("error occured while calling GetIfEntry2Ex: %s", syscall.Errno(retVal))
+		return nil, errors.Errorf("error occurred while calling GetIfEntry2Ex: %s", syscall.Errno(retVal))
 	}
 
 	return row, nil
