@@ -33,7 +33,7 @@ phases:
 
         function delete_all_secret_keys() {
           for i in $(gpg --with-colons --fingerprint | grep "^fpr" | cut -d: -f10); do
-            gpg --batch --pinentry-mode loopback --delete-secret-keys "$i"
+            gpg --batch --yes --pinentry-mode loopback --delete-secret-keys "$i"
           done
         }
         EOF
