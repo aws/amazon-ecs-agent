@@ -20,7 +20,7 @@ Parameters:
 
 Resources:
   UbuntuAmdProject:
-    Type: 'AWS::CodeBuild::Project'
+    Type: "AWS::CodeBuild::Project"
     Properties:
       Artifacts:
         EncryptionDisabled: true
@@ -35,11 +35,11 @@ Resources:
       Description: A CodeBuild project to build artifacts (AMD/x86_64). Builds are triggered by PR creation, updates, and merges, and artifacts are saved in S3
       Environment:
         ComputeType: BUILD_GENERAL1_MEDIUM
-        Image: 'public.ecr.aws/lts/ubuntu:20.04'
+        Image: "public.ecr.aws/lts/ubuntu:24.04"
         ImagePullCredentialsType: CODEBUILD
         PrivilegedMode: false
         Type: LINUX_CONTAINER
-      Name: !Sub '${BuildProjectName}-ubuntu-amd'
+      Name: !Sub "${BuildProjectName}-ubuntu-amd"
       QueuedTimeoutInMinutes: 60
       ServiceRole: !Ref ServiceRoleUbuntuAmd
       Source:
@@ -49,7 +49,7 @@ Resources:
       TimeoutInMinutes: 60
       Visibility: PRIVATE
   UbuntuArmProject:
-    Type: 'AWS::CodeBuild::Project'
+    Type: "AWS::CodeBuild::Project"
     Properties:
       Artifacts:
         EncryptionDisabled: true
@@ -64,11 +64,11 @@ Resources:
       Description: A CodeBuild project to build artifacts (ARM). Builds are triggered by PR creation, updates, and merges, and artifacts are saved in S3
       Environment:
         ComputeType: BUILD_GENERAL1_MEDIUM
-        Image: 'public.ecr.aws/lts/ubuntu:20.04'
+        Image: "public.ecr.aws/lts/ubuntu:24.04"
         ImagePullCredentialsType: CODEBUILD
         PrivilegedMode: false
         Type: ARM_CONTAINER
-      Name: !Sub '${BuildProjectName}-ubuntu-arm'
+      Name: !Sub "${BuildProjectName}-ubuntu-arm"
       QueuedTimeoutInMinutes: 60
       ServiceRole: !Ref ServiceRoleUbuntuArm
       Source:
@@ -78,7 +78,7 @@ Resources:
       TimeoutInMinutes: 60
       Visibility: PRIVATE
   ArmProject:
-    Type: 'AWS::CodeBuild::Project'
+    Type: "AWS::CodeBuild::Project"
     Properties:
       Artifacts:
         EncryptionDisabled: true
@@ -93,11 +93,11 @@ Resources:
       Description: A CodeBuild project to build artifacts (ARM). Builds are triggered by PR creation, updates, and merges, and artifacts are saved in S3
       Environment:
         ComputeType: BUILD_GENERAL1_MEDIUM
-        Image: 'aws/codebuild/amazonlinux2-aarch64-standard:3.0'
+        Image: "aws/codebuild/amazonlinux-aarch64-standard:3.0"
         ImagePullCredentialsType: CODEBUILD
         PrivilegedMode: true
         Type: ARM_CONTAINER
-      Name: !Sub '${BuildProjectName}-arm'
+      Name: !Sub "${BuildProjectName}-arm"
       QueuedTimeoutInMinutes: 60
       ServiceRole: !Ref ServiceRoleArm
       Source:
@@ -107,7 +107,7 @@ Resources:
       TimeoutInMinutes: 60
       Visibility: PRIVATE
   AmdProject:
-    Type: 'AWS::CodeBuild::Project'
+    Type: "AWS::CodeBuild::Project"
     Properties:
       Artifacts:
         EncryptionDisabled: true
@@ -122,11 +122,11 @@ Resources:
       Description: A CodeBuild project to build artifacts (AMD/x86_64). Builds are triggered by PR creation, updates, and merges, and artifacts are saved in S3
       Environment:
         ComputeType: BUILD_GENERAL1_MEDIUM
-        Image: 'aws/codebuild/amazonlinux2-x86_64-standard:5.0'
+        Image: "aws/codebuild/amazonlinux-x86_64-standard:6.0"
         ImagePullCredentialsType: CODEBUILD
         PrivilegedMode: true
         Type: LINUX_CONTAINER
-      Name: !Sub '${BuildProjectName}-amd'
+      Name: !Sub "${BuildProjectName}-amd"
       QueuedTimeoutInMinutes: 60
       ServiceRole: !Ref ServiceRoleAmd
       Source:
@@ -138,7 +138,7 @@ Resources:
 
   # Creates a CodeBuild project for Amazon Linux 2 ARM
   Amzn2ArmProject:
-    Type: 'AWS::CodeBuild::Project'
+    Type: "AWS::CodeBuild::Project"
     Properties:
       Artifacts:
         EncryptionDisabled: true
@@ -153,11 +153,11 @@ Resources:
       Description: A CodeBuild project to build artifacts (ARM) on Amazon Linux 2. Builds are triggered by PR creation, updates, and merges, and artifacts are saved in S3.
       Environment:
         ComputeType: BUILD_GENERAL1_MEDIUM
-        Image: 'aws/codebuild/amazonlinux2-aarch64-standard:2.0'
+        Image: "aws/codebuild/amazonlinux2-aarch64-standard:2.0"
         ImagePullCredentialsType: CODEBUILD
         PrivilegedMode: true
         Type: ARM_CONTAINER
-      Name: !Sub '${BuildProjectName}-amzn2-arm'
+      Name: !Sub "${BuildProjectName}-amzn2-arm"
       QueuedTimeoutInMinutes: 60
       ServiceRole: !Ref ServiceRoleAmzn2Arm
       Source:
@@ -169,7 +169,7 @@ Resources:
 
   # Creates a CodeBuild project for Amazon Linux 2 AMD
   Amzn2AmdProject:
-    Type: 'AWS::CodeBuild::Project'
+    Type: "AWS::CodeBuild::Project"
     Properties:
       Artifacts:
         EncryptionDisabled: true
@@ -184,11 +184,11 @@ Resources:
       Description: A CodeBuild project to build artifacts (AMD/x86_64) on Amazon Linux 2. Builds are triggered by PR creation, updates, and merges, and artifacts are saved in S3.
       Environment:
         ComputeType: BUILD_GENERAL1_MEDIUM
-        Image: 'aws/codebuild/amazonlinux2-x86_64-standard:4.0'
+        Image: "aws/codebuild/amazonlinux2-x86_64-standard:4.0"
         ImagePullCredentialsType: CODEBUILD
         PrivilegedMode: true
         Type: LINUX_CONTAINER
-      Name: !Sub '${BuildProjectName}-amzn2-amd'
+      Name: !Sub "${BuildProjectName}-amzn2-amd"
       QueuedTimeoutInMinutes: 60
       ServiceRole: !Ref ServiceRoleAmzn2Amd
       Source:
@@ -200,7 +200,7 @@ Resources:
 
   # Creates a CodeBuild project for Amazon Linux 2023 ARM
   Amzn2023ArmProject:
-    Type: 'AWS::CodeBuild::Project'
+    Type: "AWS::CodeBuild::Project"
     Properties:
       Artifacts:
         EncryptionDisabled: true
@@ -215,11 +215,11 @@ Resources:
       Description: A CodeBuild project to build artifacts (ARM) on Amazon-Linux 2023. Builds are triggered by PR creation, updates, and merges, and artifacts are saved in S3.
       Environment:
         ComputeType: BUILD_GENERAL1_MEDIUM
-        Image: 'aws/codebuild/amazonlinux2-aarch64-standard:3.0'
+        Image: "aws/codebuild/amazonlinux-aarch64-standard:3.0"
         ImagePullCredentialsType: CODEBUILD
         PrivilegedMode: true
         Type: ARM_CONTAINER
-      Name: !Sub '${BuildProjectName}-amzn2023-arm'
+      Name: !Sub "${BuildProjectName}-amzn2023-arm"
       QueuedTimeoutInMinutes: 60
       ServiceRole: !Ref ServiceRoleAmzn2023Arm
       Source:
@@ -231,10 +231,10 @@ Resources:
 
   # Creates a CodeBuild project for Amazon Linux 2023 AMD
   Amzn2023AmdProject:
-    Type: 'AWS::CodeBuild::Project'
+    Type: "AWS::CodeBuild::Project"
     Properties:
       Artifacts:
-        EncryptionDisabled : true
+        EncryptionDisabled: true
         Location: !Ref BuildBucketName
         NamespaceType: NONE
         OverrideArtifactName: true
@@ -246,11 +246,11 @@ Resources:
       Description: A CodeBuild project to build artifacts (AMD/x86_64) on Amazon-Linux 2023. Builds are triggered by PR creation, updates, and merges, and artifacts are saved in S3.
       Environment:
         ComputeType: BUILD_GENERAL1_MEDIUM
-        Image: 'aws/codebuild/amazonlinux2-x86_64-standard:5.0'
+        Image: "aws/codebuild/amazonlinux-x86_64-standard:6.0"
         ImagePullCredentialsType: CODEBUILD
         PrivilegedMode: true
         Type: LINUX_CONTAINER
-      Name: !Sub '${BuildProjectName}-amzn2023-amd'
+      Name: !Sub "${BuildProjectName}-amzn2023-amd"
       QueuedTimeoutInMinutes: 60
       ServiceRole: !Ref ServiceRoleAmzn2023Amd
       Source:
@@ -262,7 +262,7 @@ Resources:
 
   # Defines the service roles for the CodeBuild projects
   ServiceRoleAmd:
-    Type: 'AWS::IAM::Role'
+    Type: "AWS::IAM::Role"
     Properties:
       AssumeRolePolicyDocument:
         Version: 2012-10-17
@@ -270,7 +270,7 @@ Resources:
           - Effect: Allow
             Principal:
               Service: codebuild.amazonaws.com
-            Action: 'sts:AssumeRole'
+            Action: "sts:AssumeRole"
       Description: Service role, allow access to CW and S3
       Path: /
       Policies:
@@ -282,30 +282,30 @@ Resources:
                   - !Sub "arn:aws:logs:${AWS::Region}:${AWS::AccountId}:log-group:/aws/codebuild/${BuildProjectName}-amd"
                   - !Sub "arn:aws:logs:${AWS::Region}:${AWS::AccountId}:log-group:/aws/codebuild/${BuildProjectName}-amd:*"
                 Action:
-                  - 'logs:CreateLogGroup'
-                  - 'logs:CreateLogStream'
-                  - 'logs:PutLogEvents'
+                  - "logs:CreateLogGroup"
+                  - "logs:CreateLogStream"
+                  - "logs:PutLogEvents"
               - Effect: Allow
                 Resource:
-                  - 'arn:aws:s3:::codepipeline-us-west-2-*'
+                  - "arn:aws:s3:::codepipeline-us-west-2-*"
                 Action:
-                  - 's3:PutObject'
-                  - 's3:GetObject'
-                  - 's3:GetObjectVersion'
-                  - 's3:GetBucketAcl'
-                  - 's3:GetBucketLocation'
+                  - "s3:PutObject"
+                  - "s3:GetObject"
+                  - "s3:GetObjectVersion"
+                  - "s3:GetBucketAcl"
+                  - "s3:GetBucketLocation"
               - Effect: Allow
                 Resource:
-                  - !Sub '${BuildBucketArn}/*'
+                  - !Sub "${BuildBucketArn}/*"
                 Action:
-                  - 's3:GetObject'
-                  - 's3:PutObject'
-                  - 's3:GetBucketAcl'
-                  - 's3:GetBucketLocation'
-          PolicyName: !Sub '${AWS::StackName}-ServicePolicyAmd'
-      RoleName: !Sub '${AWS::StackName}-ServiceRoleAmd'
+                  - "s3:GetObject"
+                  - "s3:PutObject"
+                  - "s3:GetBucketAcl"
+                  - "s3:GetBucketLocation"
+          PolicyName: !Sub "${AWS::StackName}-ServicePolicyAmd"
+      RoleName: !Sub "${AWS::StackName}-ServiceRoleAmd"
   ServiceRoleUbuntuAmd:
-    Type: 'AWS::IAM::Role'
+    Type: "AWS::IAM::Role"
     Properties:
       AssumeRolePolicyDocument:
         Version: 2012-10-17
@@ -313,7 +313,7 @@ Resources:
           - Effect: Allow
             Principal:
               Service: codebuild.amazonaws.com
-            Action: 'sts:AssumeRole'
+            Action: "sts:AssumeRole"
       Description: Service role, allow access to CW and S3
       Path: /
       Policies:
@@ -325,30 +325,30 @@ Resources:
                   - !Sub "arn:aws:logs:${AWS::Region}:${AWS::AccountId}:log-group:/aws/codebuild/${BuildProjectName}-ubuntu-amd"
                   - !Sub "arn:aws:logs:${AWS::Region}:${AWS::AccountId}:log-group:/aws/codebuild/${BuildProjectName}-ubuntu-amd:*"
                 Action:
-                  - 'logs:CreateLogGroup'
-                  - 'logs:CreateLogStream'
-                  - 'logs:PutLogEvents'
+                  - "logs:CreateLogGroup"
+                  - "logs:CreateLogStream"
+                  - "logs:PutLogEvents"
               - Effect: Allow
                 Resource:
-                  - 'arn:aws:s3:::codepipeline-us-west-2-*'
+                  - "arn:aws:s3:::codepipeline-us-west-2-*"
                 Action:
-                  - 's3:PutObject'
-                  - 's3:GetObject'
-                  - 's3:GetObjectVersion'
-                  - 's3:GetBucketAcl'
-                  - 's3:GetBucketLocation'
+                  - "s3:PutObject"
+                  - "s3:GetObject"
+                  - "s3:GetObjectVersion"
+                  - "s3:GetBucketAcl"
+                  - "s3:GetBucketLocation"
               - Effect: Allow
                 Resource:
-                  - !Sub '${BuildBucketArn}/*'
+                  - !Sub "${BuildBucketArn}/*"
                 Action:
-                  - 's3:GetObject'
-                  - 's3:PutObject'
-                  - 's3:GetBucketAcl'
-                  - 's3:GetBucketLocation'
-          PolicyName: !Sub '${AWS::StackName}-ServicePolicyUbuntuAmd'
-      RoleName: !Sub '${AWS::StackName}-ServiceRoleUbuntuAmd'
+                  - "s3:GetObject"
+                  - "s3:PutObject"
+                  - "s3:GetBucketAcl"
+                  - "s3:GetBucketLocation"
+          PolicyName: !Sub "${AWS::StackName}-ServicePolicyUbuntuAmd"
+      RoleName: !Sub "${AWS::StackName}-ServiceRoleUbuntuAmd"
   ServiceRoleArm:
-    Type: 'AWS::IAM::Role'
+    Type: "AWS::IAM::Role"
     Properties:
       AssumeRolePolicyDocument:
         Version: 2012-10-17
@@ -356,7 +356,7 @@ Resources:
           - Effect: Allow
             Principal:
               Service: codebuild.amazonaws.com
-            Action: 'sts:AssumeRole'
+            Action: "sts:AssumeRole"
       Description: Service role, allow access to CW and S3
       Path: /
       Policies:
@@ -368,30 +368,30 @@ Resources:
                   - !Sub "arn:aws:logs:${AWS::Region}:${AWS::AccountId}:log-group:/aws/codebuild/${BuildProjectName}-arm"
                   - !Sub "arn:aws:logs:${AWS::Region}:${AWS::AccountId}:log-group:/aws/codebuild/${BuildProjectName}-arm:*"
                 Action:
-                  - 'logs:CreateLogGroup'
-                  - 'logs:CreateLogStream'
-                  - 'logs:PutLogEvents'
+                  - "logs:CreateLogGroup"
+                  - "logs:CreateLogStream"
+                  - "logs:PutLogEvents"
               - Effect: Allow
                 Resource:
-                  - 'arn:aws:s3:::codepipeline-us-west-2-*'
+                  - "arn:aws:s3:::codepipeline-us-west-2-*"
                 Action:
-                  - 's3:PutObject'
-                  - 's3:GetObject'
-                  - 's3:GetObjectVersion'
-                  - 's3:GetBucketAcl'
-                  - 's3:GetBucketLocation'
+                  - "s3:PutObject"
+                  - "s3:GetObject"
+                  - "s3:GetObjectVersion"
+                  - "s3:GetBucketAcl"
+                  - "s3:GetBucketLocation"
               - Effect: Allow
                 Resource:
-                  - !Sub '${BuildBucketArn}/*'
+                  - !Sub "${BuildBucketArn}/*"
                 Action:
-                  - 's3:GetObject'
-                  - 's3:PutObject'
-                  - 's3:GetBucketAcl'
-                  - 's3:GetBucketLocation'
-          PolicyName: !Sub '${AWS::StackName}-ServicePolicyArm'
-      RoleName: !Sub '${AWS::StackName}-ServiceRoleArm'
+                  - "s3:GetObject"
+                  - "s3:PutObject"
+                  - "s3:GetBucketAcl"
+                  - "s3:GetBucketLocation"
+          PolicyName: !Sub "${AWS::StackName}-ServicePolicyArm"
+      RoleName: !Sub "${AWS::StackName}-ServiceRoleArm"
   ServiceRoleUbuntuArm:
-    Type: 'AWS::IAM::Role'
+    Type: "AWS::IAM::Role"
     Properties:
       AssumeRolePolicyDocument:
         Version: 2012-10-17
@@ -399,7 +399,7 @@ Resources:
           - Effect: Allow
             Principal:
               Service: codebuild.amazonaws.com
-            Action: 'sts:AssumeRole'
+            Action: "sts:AssumeRole"
       Description: Service role, allow access to CW and S3
       Path: /
       Policies:
@@ -411,30 +411,30 @@ Resources:
                   - !Sub "arn:aws:logs:${AWS::Region}:${AWS::AccountId}:log-group:/aws/codebuild/${BuildProjectName}-ubuntu-arm"
                   - !Sub "arn:aws:logs:${AWS::Region}:${AWS::AccountId}:log-group:/aws/codebuild/${BuildProjectName}-ubuntu-arm:*"
                 Action:
-                  - 'logs:CreateLogGroup'
-                  - 'logs:CreateLogStream'
-                  - 'logs:PutLogEvents'
+                  - "logs:CreateLogGroup"
+                  - "logs:CreateLogStream"
+                  - "logs:PutLogEvents"
               - Effect: Allow
                 Resource:
-                  - 'arn:aws:s3:::codepipeline-us-west-2-*'
+                  - "arn:aws:s3:::codepipeline-us-west-2-*"
                 Action:
-                  - 's3:PutObject'
-                  - 's3:GetObject'
-                  - 's3:GetObjectVersion'
-                  - 's3:GetBucketAcl'
-                  - 's3:GetBucketLocation'
+                  - "s3:PutObject"
+                  - "s3:GetObject"
+                  - "s3:GetObjectVersion"
+                  - "s3:GetBucketAcl"
+                  - "s3:GetBucketLocation"
               - Effect: Allow
                 Resource:
-                  - !Sub '${BuildBucketArn}/*'
+                  - !Sub "${BuildBucketArn}/*"
                 Action:
-                  - 's3:GetObject'
-                  - 's3:PutObject'
-                  - 's3:GetBucketAcl'
-                  - 's3:GetBucketLocation'
-          PolicyName: !Sub '${AWS::StackName}-ServicePolicyUbuntuArm'
-      RoleName: !Sub '${AWS::StackName}-ServiceRoleUbuntuArm'
+                  - "s3:GetObject"
+                  - "s3:PutObject"
+                  - "s3:GetBucketAcl"
+                  - "s3:GetBucketLocation"
+          PolicyName: !Sub "${AWS::StackName}-ServicePolicyUbuntuArm"
+      RoleName: !Sub "${AWS::StackName}-ServiceRoleUbuntuArm"
   ServiceRoleAmzn2Arm:
-    Type: 'AWS::IAM::Role'
+    Type: "AWS::IAM::Role"
     Properties:
       AssumeRolePolicyDocument:
         Version: 2012-10-17
@@ -442,7 +442,7 @@ Resources:
           - Effect: Allow
             Principal:
               Service: codebuild.amazonaws.com
-            Action: 'sts:AssumeRole'
+            Action: "sts:AssumeRole"
       Description: Service role, allow access to CW and S3
       Path: /
       Policies:
@@ -454,30 +454,30 @@ Resources:
                   - !Sub "arn:aws:logs:${AWS::Region}:${AWS::AccountId}:log-group:/aws/codebuild/${BuildProjectName}-amzn2-arm"
                   - !Sub "arn:aws:logs:${AWS::Region}:${AWS::AccountId}:log-group:/aws/codebuild/${BuildProjectName}-amzn2-arm:*"
                 Action:
-                  - 'logs:CreateLogGroup'
-                  - 'logs:CreateLogStream'
-                  - 'logs:PutLogEvents'
+                  - "logs:CreateLogGroup"
+                  - "logs:CreateLogStream"
+                  - "logs:PutLogEvents"
               - Effect: Allow
                 Resource:
-                  - 'arn:aws:s3:::codepipeline-us-west-2-*'
+                  - "arn:aws:s3:::codepipeline-us-west-2-*"
                 Action:
-                  - 's3:PutObject'
-                  - 's3:GetObject'
-                  - 's3:GetObjectVersion'
-                  - 's3:GetBucketAcl'
-                  - 's3:GetBucketLocation'
+                  - "s3:PutObject"
+                  - "s3:GetObject"
+                  - "s3:GetObjectVersion"
+                  - "s3:GetBucketAcl"
+                  - "s3:GetBucketLocation"
               - Effect: Allow
                 Resource:
-                  - !Sub '${BuildBucketArn}/*'
+                  - !Sub "${BuildBucketArn}/*"
                 Action:
-                  - 's3:GetObject'
-                  - 's3:PutObject'
-                  - 's3:GetBucketAcl'
-                  - 's3:GetBucketLocation'
-          PolicyName: !Sub '${AWS::StackName}-ServicePolicyAmzn2Arm'
-      RoleName: !Sub '${AWS::StackName}-ServiceRoleAmzn2Arm'
+                  - "s3:GetObject"
+                  - "s3:PutObject"
+                  - "s3:GetBucketAcl"
+                  - "s3:GetBucketLocation"
+          PolicyName: !Sub "${AWS::StackName}-ServicePolicyAmzn2Arm"
+      RoleName: !Sub "${AWS::StackName}-ServiceRoleAmzn2Arm"
   ServiceRoleAmzn2Amd:
-    Type: 'AWS::IAM::Role'
+    Type: "AWS::IAM::Role"
     Properties:
       AssumeRolePolicyDocument:
         Version: 2012-10-17
@@ -485,7 +485,7 @@ Resources:
           - Effect: Allow
             Principal:
               Service: codebuild.amazonaws.com
-            Action: 'sts:AssumeRole'
+            Action: "sts:AssumeRole"
       Description: Service role, allow access to CW and S3
       Path: /
       Policies:
@@ -497,30 +497,30 @@ Resources:
                   - !Sub "arn:aws:logs:${AWS::Region}:${AWS::AccountId}:log-group:/aws/codebuild/${BuildProjectName}-amzn2-amd"
                   - !Sub "arn:aws:logs:${AWS::Region}:${AWS::AccountId}:log-group:/aws/codebuild/${BuildProjectName}-amzn2-amd:*"
                 Action:
-                  - 'logs:CreateLogGroup'
-                  - 'logs:CreateLogStream'
-                  - 'logs:PutLogEvents'
+                  - "logs:CreateLogGroup"
+                  - "logs:CreateLogStream"
+                  - "logs:PutLogEvents"
               - Effect: Allow
                 Resource:
-                  - 'arn:aws:s3:::codepipeline-us-west-2-*'
+                  - "arn:aws:s3:::codepipeline-us-west-2-*"
                 Action:
-                  - 's3:PutObject'
-                  - 's3:GetObject'
-                  - 's3:GetObjectVersion'
-                  - 's3:GetBucketAcl'
-                  - 's3:GetBucketLocation'
+                  - "s3:PutObject"
+                  - "s3:GetObject"
+                  - "s3:GetObjectVersion"
+                  - "s3:GetBucketAcl"
+                  - "s3:GetBucketLocation"
               - Effect: Allow
                 Resource:
-                  - !Sub '${BuildBucketArn}/*'
+                  - !Sub "${BuildBucketArn}/*"
                 Action:
-                  - 's3:GetObject'
-                  - 's3:PutObject'
-                  - 's3:GetBucketAcl'
-                  - 's3:GetBucketLocation'
-          PolicyName: !Sub '${AWS::StackName}-ServicePolicyAmzn2Amd'
-      RoleName: !Sub '${AWS::StackName}-ServiceRoleAmzn2Amd'
+                  - "s3:GetObject"
+                  - "s3:PutObject"
+                  - "s3:GetBucketAcl"
+                  - "s3:GetBucketLocation"
+          PolicyName: !Sub "${AWS::StackName}-ServicePolicyAmzn2Amd"
+      RoleName: !Sub "${AWS::StackName}-ServiceRoleAmzn2Amd"
   ServiceRoleAmzn2023Arm:
-    Type: 'AWS::IAM::Role'
+    Type: "AWS::IAM::Role"
     Properties:
       AssumeRolePolicyDocument:
         Version: 2012-10-17
@@ -528,7 +528,7 @@ Resources:
           - Effect: Allow
             Principal:
               Service: codebuild.amazonaws.com
-            Action: 'sts:AssumeRole'
+            Action: "sts:AssumeRole"
       Description: Service role, allow access to CW and S3
       Path: /
       Policies:
@@ -540,30 +540,30 @@ Resources:
                   - !Sub "arn:aws:logs:${AWS::Region}:${AWS::AccountId}:log-group:/aws/codebuild/${BuildProjectName}-amzn2023-arm"
                   - !Sub "arn:aws:logs:${AWS::Region}:${AWS::AccountId}:log-group:/aws/codebuild/${BuildProjectName}-amzn2023-arm:*"
                 Action:
-                  - 'logs:CreateLogGroup'
-                  - 'logs:CreateLogStream'
-                  - 'logs:PutLogEvents'
+                  - "logs:CreateLogGroup"
+                  - "logs:CreateLogStream"
+                  - "logs:PutLogEvents"
               - Effect: Allow
                 Resource:
-                  - 'arn:aws:s3:::codepipeline-us-west-2-*'
+                  - "arn:aws:s3:::codepipeline-us-west-2-*"
                 Action:
-                  - 's3:PutObject'
-                  - 's3:GetObject'
-                  - 's3:GetObjectVersion'
-                  - 's3:GetBucketAcl'
-                  - 's3:GetBucketLocation'
+                  - "s3:PutObject"
+                  - "s3:GetObject"
+                  - "s3:GetObjectVersion"
+                  - "s3:GetBucketAcl"
+                  - "s3:GetBucketLocation"
               - Effect: Allow
                 Resource:
-                  - !Sub '${BuildBucketArn}/*'
+                  - !Sub "${BuildBucketArn}/*"
                 Action:
-                  - 's3:GetObject'
-                  - 's3:PutObject'
-                  - 's3:GetBucketAcl'
-                  - 's3:GetBucketLocation'
-          PolicyName: !Sub '${AWS::StackName}-ServicePolicyAmzn2023Arm'
-      RoleName: !Sub '${AWS::StackName}-ServiceRoleAmzn2023Arm'
+                  - "s3:GetObject"
+                  - "s3:PutObject"
+                  - "s3:GetBucketAcl"
+                  - "s3:GetBucketLocation"
+          PolicyName: !Sub "${AWS::StackName}-ServicePolicyAmzn2023Arm"
+      RoleName: !Sub "${AWS::StackName}-ServiceRoleAmzn2023Arm"
   ServiceRoleAmzn2023Amd:
-    Type: 'AWS::IAM::Role'
+    Type: "AWS::IAM::Role"
     Properties:
       AssumeRolePolicyDocument:
         Version: 2012-10-17
@@ -571,7 +571,7 @@ Resources:
           - Effect: Allow
             Principal:
               Service: codebuild.amazonaws.com
-            Action: 'sts:AssumeRole'
+            Action: "sts:AssumeRole"
       Description: Service role, allow access to CW and S3
       Path: /
       Policies:
@@ -583,25 +583,25 @@ Resources:
                   - !Sub "arn:aws:logs:${AWS::Region}:${AWS::AccountId}:log-group:/aws/codebuild/${BuildProjectName}-amzn2023-amd"
                   - !Sub "arn:aws:logs:${AWS::Region}:${AWS::AccountId}:log-group:/aws/codebuild/${BuildProjectName}-amzn2023-amd:*"
                 Action:
-                  - 'logs:CreateLogGroup'
-                  - 'logs:CreateLogStream'
-                  - 'logs:PutLogEvents'
+                  - "logs:CreateLogGroup"
+                  - "logs:CreateLogStream"
+                  - "logs:PutLogEvents"
               - Effect: Allow
                 Resource:
-                  - 'arn:aws:s3:::codepipeline-us-west-2-*'
+                  - "arn:aws:s3:::codepipeline-us-west-2-*"
                 Action:
-                  - 's3:PutObject'
-                  - 's3:GetObject'
-                  - 's3:GetObjectVersion'
-                  - 's3:GetBucketAcl'
-                  - 's3:GetBucketLocation'
+                  - "s3:PutObject"
+                  - "s3:GetObject"
+                  - "s3:GetObjectVersion"
+                  - "s3:GetBucketAcl"
+                  - "s3:GetBucketLocation"
               - Effect: Allow
                 Resource:
-                  - !Sub '${BuildBucketArn}/*'
+                  - !Sub "${BuildBucketArn}/*"
                 Action:
-                  - 's3:GetObject'
-                  - 's3:PutObject'
-                  - 's3:GetBucketAcl'
-                  - 's3:GetBucketLocation'
-          PolicyName: !Sub '${AWS::StackName}-ServicePolicyAmzn2023Amd'
-      RoleName: !Sub '${AWS::StackName}-ServiceRoleAmzn2023Amd'
+                  - "s3:GetObject"
+                  - "s3:PutObject"
+                  - "s3:GetBucketAcl"
+                  - "s3:GetBucketLocation"
+          PolicyName: !Sub "${AWS::StackName}-ServicePolicyAmzn2023Amd"
+      RoleName: !Sub "${AWS::StackName}-ServiceRoleAmzn2023Amd"
