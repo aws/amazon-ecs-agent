@@ -32,9 +32,8 @@ phases:
         }
 
         function delete_all_secret_keys() {
-          for i in $(gpg --with-colons --fingerprint | grep "^fpr" | cut -d: -f10); do
-            gpg --batch --yes --pinentry-mode loopback --delete-secret-keys "$i"
-          done
+          gpgconf --kill gpg-agent
+          rm -rf /root/.gnupg
         }
         EOF
 
@@ -116,8 +115,8 @@ phases:
       - source /tmp/functions.sh && sign_file $ECS_AGENT_UBUNTU_ARM_DEB
       # Clean up the key just in case
       - source /tmp/functions.sh && delete_all_secret_keys
-      # validate that the keychain is empty
-      - gpg --list-secret-keys --verbose
+      # validate that the keyring has been removed
+      - "[ ! -d /root/.gnupg ] && echo 'Keyring successfully removed' || (echo 'ERROR: keyring still exists' && exit 1)"
 
 artifacts:
   files:
