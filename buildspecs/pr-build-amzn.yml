@@ -3,7 +3,7 @@ version: 0.2
 env:
   variables:
     # Github username of the forked repo on which to make builds
-    GITHUBUSERNAME: aws
+    GITHUBUSERNAME: prateekchaudhry
 
 phases:
   install:
@@ -32,12 +32,12 @@ phases:
       # Same buildspec for different architectures - detect the architecture here and rename the artifacts accordingly
       - architecture=""
       - case $(uname -m) in
-           x86_64)
-             architecture="amd64"
-           ;;
-           aarch64)
-             architecture="arm64"
-           ;;
+        x86_64)
+        architecture="amd64"
+        ;;
+        aarch64)
+        architecture="arm64"
+        ;;
         esac
 
       # Identify the correct AL2023 version to use in the Go installation
@@ -93,7 +93,6 @@ phases:
           mv $GITHUBUSERNAME aws
         fi
       - cd aws/amazon-ecs-agent
-
       # Build Amazon Linux RPM
       - GO111MODULE=auto
       - make amazon-linux-rpm-codebuild 2>&1 | tee -a $BUILD_LOG

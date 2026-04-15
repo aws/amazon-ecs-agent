@@ -3,7 +3,7 @@ version: 0.2
 env:
   variables:
     # Github username of the forked repo on which to make builds
-    GITHUBUSERNAME: aws
+    GITHUBUSERNAME: prateekchaudhry
 
 phases:
   install:
@@ -11,12 +11,12 @@ phases:
       - architecture=""
       # Same buildspec for different architectures - detect the architecture here and rename the artifacts accordingly
       - case $(uname -m) in
-           x86_64)
-             architecture="amd64"
-           ;;
-           aarch64)
-             architecture="arm64"
-           ;;
+        x86_64)
+        architecture="amd64"
+        ;;
+        aarch64)
+        architecture="arm64"
+        ;;
         esac
 
   build:
@@ -37,11 +37,10 @@ phases:
           mv $GITHUBUSERNAME aws
         fi
       - cd aws/amazon-ecs-agent
-
       # Building agent deb
       - GO111MODULE=auto
       - DEBIAN_FRONTEND=noninteractive
-        
+
       - apt-get update -y | tee -a $BUILD_LOG
       - apt-get install -y make dpkg-dev wget devscripts debhelper | tee -a $BUILD_LOG
       - make generic-deb-integrated 2>&1 | tee -a $BUILD_LOG

@@ -3,7 +3,7 @@ version: 0.2
 env:
   variables:
     # Github username of the forked repo on which to make builds
-    GITHUBUSERNAME: aws
+    GITHUBUSERNAME: prateekchaudhry
 
 phases:
   install:
@@ -11,12 +11,12 @@ phases:
       - architecture=""
       # Same buildspec for different architectures - detect the architecture here and rename the artifacts accordingly
       - case $(uname -m) in
-           x86_64)
-             architecture="amd64"
-           ;;
-           aarch64)
-             architecture="arm64"
-           ;;
+        x86_64)
+        architecture="amd64"
+        ;;
+        aarch64)
+        architecture="arm64"
+        ;;
         esac
 
       # Set up proper go version
@@ -58,7 +58,6 @@ phases:
           mv $GITHUBUSERNAME aws
         fi
       - cd aws/amazon-ecs-agent
-
       # Building agent tars
       - GO111MODULE=auto
       - make release-agent 2>&1 | tee -a $BUILD_LOG
@@ -79,7 +78,7 @@ phases:
           CSI_DRIVER_TAR="./ecs-agent/daemonimages/csidriver/tarfiles/ebs-csi-driver-arm64.tar"
         fi
 
-      # List directory files to view artifacts in build log 
+      # List directory files to view artifacts in build log
       - ls
 
   post_build:
