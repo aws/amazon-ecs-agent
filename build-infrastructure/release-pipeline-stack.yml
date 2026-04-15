@@ -369,7 +369,7 @@ Resources:
       ConcurrentBuildLimit: 10
       Description: CodeBuild project running an Ubuntu docker image to build the ECS Agent deb packages
       Environment:
-        ComputeType: BUILD_GENERAL1_SMALL
+        ComputeType: BUILD_GENERAL1_LARGE
         Image: "public.ecr.aws/lts/ubuntu:24.04"
         ImagePullCredentialsType: CODEBUILD
         PrivilegedMode: false
@@ -395,7 +395,7 @@ Resources:
       ConcurrentBuildLimit: 10
       Description: CodeBuild project to build the ECS Agent Docker image tarball and RPM
       Environment:
-        ComputeType: BUILD_GENERAL1_SMALL
+        ComputeType: BUILD_GENERAL1_LARGE
         Image: aws/codebuild/amazonlinux-x86_64-standard:6.0
         ImagePullCredentialsType: CODEBUILD
         PrivilegedMode: true
@@ -421,7 +421,7 @@ Resources:
       ConcurrentBuildLimit: 10
       Description: CodeBuild project running an Ubuntu docker image to build the ECS Agent deb packages
       Environment:
-        ComputeType: BUILD_GENERAL1_SMALL
+        ComputeType: BUILD_GENERAL1_LARGE
         Image: "public.ecr.aws/lts/ubuntu:24.04"
         ImagePullCredentialsType: CODEBUILD
         PrivilegedMode: false
@@ -499,7 +499,7 @@ Resources:
       ConcurrentBuildLimit: 10
       Description: CodeBuild project to build the ECS Agent Docker image tarball
       Environment:
-        ComputeType: BUILD_GENERAL1_SMALL
+        ComputeType: BUILD_GENERAL1_LARGE
         Image: aws/codebuild/amazonlinux-aarch64-standard:3.0
         ImagePullCredentialsType: CODEBUILD
         PrivilegedMode: true

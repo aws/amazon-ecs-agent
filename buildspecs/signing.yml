@@ -27,7 +27,7 @@ phases:
           local file_to_sign="$1"
 
           echo "Signing $file_to_sign"
-          gpg --detach-sign --batch --passphrase $PASSPHRASE --armor --output "$file_to_sign.asc" $file_to_sign
+          gpg --detach-sign --batch --pinentry-mode loopback --passphrase $PASSPHRASE --armor --output "$file_to_sign.asc" $file_to_sign
           echo "Signed $file_to_sign"
         }
 
@@ -67,7 +67,8 @@ phases:
       # Get the private key from secrets manager, jq parse it, turn it into raw output, pipe to file
       - aws secretsmanager get-secret-value --secret-id $PRIVATE_KEY_ARN | jq -r '.SecretString' > private.gpg
       # import the key into the keychain, the private key comes with the public key built in
-      - gpg --allow-secret-key-import --import private.gpg
+      - mkdir -p /root/.gnupg && echo "allow-loopback-pinentry" >> /root/.gnupg/gpg-agent.conf
+      - gpg --batch --pinentry-mode loopback --allow-secret-key-import --import private.gpg
       # remove the private key file because we don't want it to be packaged with the artifacts
       - rm private.gpg
       # Sign the amd tar and rpm (this is a secondary source so we have to do some copying)
@@ -121,38 +122,38 @@ phases:
 artifacts:
   files:
     - $ECS_AGENT_AMD_TAR
-    - '$ECS_AGENT_AMD_TAR.asc'
+    - "$ECS_AGENT_AMD_TAR.asc"
     - $ECS_AGENT_AMD_LATEST_TAR
-    - '$ECS_AGENT_AMD_LATEST_TAR.asc'
+    - "$ECS_AGENT_AMD_LATEST_TAR.asc"
     - $ECS_AGENT_AMD_GITSHORTSHA_TAR
-    - '$ECS_AGENT_AMD_GITSHORTSHA_TAR.asc'
+    - "$ECS_AGENT_AMD_GITSHORTSHA_TAR.asc"
     - $ECS_AGENT_AMD_RPM
-    - '$ECS_AGENT_AMD_RPM.asc'
+    - "$ECS_AGENT_AMD_RPM.asc"
     - $ECS_AGENT_ARM_TAR
-    - '$ECS_AGENT_ARM_TAR.asc'
+    - "$ECS_AGENT_ARM_TAR.asc"
     - $ECS_AGENT_ARM_LATEST_TAR
-    - '$ECS_AGENT_ARM_LATEST_TAR.asc'
+    - "$ECS_AGENT_ARM_LATEST_TAR.asc"
     - $ECS_AGENT_ARM_GITSHORTSHA_TAR
-    - '$ECS_AGENT_ARM_GITSHORTSHA_TAR.asc'
+    - "$ECS_AGENT_ARM_GITSHORTSHA_TAR.asc"
     - $ECS_AGENT_ARM_RPM
-    - '$ECS_AGENT_ARM_RPM.asc'
+    - "$ECS_AGENT_ARM_RPM.asc"
     - $ECS_AGENT_UBUNTU_AMD_DEB
-    - '$ECS_AGENT_UBUNTU_AMD_DEB.asc'
+    - "$ECS_AGENT_UBUNTU_AMD_DEB.asc"
     - $ECS_AGENT_UBUNTU_ARM_DEB
-    - '$ECS_AGENT_UBUNTU_ARM_DEB.asc'
+    - "$ECS_AGENT_UBUNTU_ARM_DEB.asc"
     - $ECS_ANYWHERE_SCRIPT
-    - '$ECS_ANYWHERE_SCRIPT.asc'
+    - "$ECS_ANYWHERE_SCRIPT.asc"
     - $ECS_ANYWHERE_LATEST_SCRIPT
-    - '$ECS_ANYWHERE_LATEST_SCRIPT.asc'
+    - "$ECS_ANYWHERE_LATEST_SCRIPT.asc"
     - $CSI_DRIVER_AMD_TAR
-    - '$CSI_DRIVER_AMD_TAR.asc'
+    - "$CSI_DRIVER_AMD_TAR.asc"
     - $CSI_DRIVER_AMD_LATEST_TAR
-    - '$CSI_DRIVER_AMD_LATEST_TAR.asc'
+    - "$CSI_DRIVER_AMD_LATEST_TAR.asc"
     - $CSI_DRIVER_AMD_GITSHORTSHA_TAR
-    - '$CSI_DRIVER_AMD_GITSHORTSHA_TAR.asc'
+    - "$CSI_DRIVER_AMD_GITSHORTSHA_TAR.asc"
     - $CSI_DRIVER_ARM_TAR
-    - '$CSI_DRIVER_ARM_TAR.asc'
+    - "$CSI_DRIVER_ARM_TAR.asc"
     - $CSI_DRIVER_ARM_LATEST_TAR
-    - '$CSI_DRIVER_ARM_LATEST_TAR.asc'
+    - "$CSI_DRIVER_ARM_LATEST_TAR.asc"
     - $CSI_DRIVER_ARM_GITSHORTSHA_TAR
-    - '$CSI_DRIVER_ARM_GITSHORTSHA_TAR.asc'
+    - "$CSI_DRIVER_ARM_GITSHORTSHA_TAR.asc"
