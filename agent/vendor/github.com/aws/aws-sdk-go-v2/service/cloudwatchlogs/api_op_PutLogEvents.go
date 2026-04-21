@@ -23,11 +23,11 @@ import (
 //   - The maximum batch size is 1,048,576 bytes. This size is calculated as the
 //     sum of all event messages in UTF-8, plus 26 bytes for each log event.
 //
-//   - None of the log events in the batch can be more than 2 hours in the future.
+//   - Events more than 2 hours in the future are rejected while processing
+//     remaining valid events.
 //
-//   - None of the log events in the batch can be more than 14 days in the past.
-//     Also, none of the log events can be from earlier than the retention period of
-//     the log group.
+//   - Events older than 14 days or preceding the log group's retention period are
+//     rejected while processing remaining valid events.
 //
 //   - The log events in the batch must be in chronological order by their
 //     timestamp. The timestamp is the time that the event occurred, expressed as the
@@ -36,17 +36,21 @@ import (
 //     timestamp is specified in .NET format: yyyy-mm-ddThh:mm:ss . For example,
 //     2017-09-15T13:45:30 .)
 //
-//   - A batch of log events in a single request cannot span more than 24 hours.
+//   - A batch of log events in a single request must be in a chronological order.
 //     Otherwise, the operation fails.
 //
-//   - Each log event can be no larger than 256 KB.
+//   - Each log event can be no larger than 1 MB.
 //
 //   - The maximum number of log events in a batch is 10,000.
 //
-//   - The quota of five requests per second per log stream has been removed.
-//     Instead, PutLogEvents actions are throttled based on a per-second per-account
-//     quota. You can request an increase to the per-second throttling quota by using
-//     the Service Quotas service.
+//   - For valid events (within 14 days in the past to 2 hours in future), the
+//     time span in a single batch cannot exceed 24 hours. Otherwise, the operation
+//     fails.
+//
+// The quota of five requests per second per log stream has been removed. Instead,
+// PutLogEvents actions are throttled based on a per-second per-account quota. You
+// can request an increase to the per-second throttling quota by using the Service
+// Quotas service.
 //
 // If a call to PutLogEvents returns "UnrecognizedClientException" the most likely
 // cause is a non-valid Amazon Web Services access key ID or secret key.
@@ -157,7 +161,7 @@ func (c *Client) addOperationPutLogEventsMiddlewares(stack *middleware.Stack, op
 	if err = addComputePayloadSHA256(stack); err != nil {
 		return err
 	}
-	if err = addRetry(stack, options); err != nil {
+	if err = addRetry(stack, options, c); err != nil {
 		return err
 	}
 	if err = addRawResponseToMetadata(stack); err != nil {
@@ -179,9 +183,6 @@ func (c *Client) addOperationPutLogEventsMiddlewares(stack *middleware.Stack, op
 		return err
 	}
 	if err = addSetLegacyContextSigningOptionsMiddleware(stack); err != nil {
-		return err
-	}
-	if err = addTimeOffsetBuild(stack, c); err != nil {
 		return err
 	}
 	if err = addUserAgentRetryMode(stack, options); err != nil {
@@ -211,16 +212,13 @@ func (c *Client) addOperationPutLogEventsMiddlewares(stack *middleware.Stack, op
 	if err = addDisableHTTPSMiddleware(stack, options); err != nil {
 		return err
 	}
-	if err = addSpanInitializeStart(stack); err != nil {
+	if err = addInterceptBeforeRetryLoop(stack, options); err != nil {
 		return err
 	}
-	if err = addSpanInitializeEnd(stack); err != nil {
+	if err = addInterceptAttempt(stack, options); err != nil {
 		return err
 	}
-	if err = addSpanBuildRequestStart(stack); err != nil {
-		return err
-	}
-	if err = addSpanBuildRequestEnd(stack); err != nil {
+	if err = addInterceptors(stack, options); err != nil {
 		return err
 	}
 	return nil

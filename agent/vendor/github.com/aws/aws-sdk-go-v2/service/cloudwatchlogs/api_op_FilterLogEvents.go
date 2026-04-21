@@ -18,7 +18,7 @@ import (
 //
 //   - A time range
 //
-//   - The log stream name, or a log stream name prefix that matches mutltiple log
+//   - The log stream name, or a log stream name prefix that matches multiple log
 //     streams
 //
 // You must have the logs:FilterLogEvents permission to perform this operation.
@@ -39,11 +39,9 @@ import (
 // in a subsequent FilterLogEvents operation. If the results don't include a
 // nextToken , then pagination is finished.
 //
-// If you set startFromHead to true and you don’t include endTime in your request,
-// you can end up in a situation where the pagination doesn't terminate. This can
-// happen when the new log events are being added to the target log streams faster
-// than they are being read. This situation is a good use case for the CloudWatch
-// Logs [Live Tail]feature.
+// Specifying the limit parameter only guarantees that a single page doesn't
+// return more log events than the specified limit, but it might return fewer
+// events than the limit. This is the expected API behavior.
 //
 // The returned log events are sorted by event timestamp, the timestamp when the
 // event was ingested by CloudWatch Logs, and the ID of the PutLogEvents request.
@@ -59,7 +57,6 @@ import (
 // [log transformation]: https://docs.aws.amazon.com/AmazonCloudWatch/latest/logs/CloudWatch-Logs-Transformation.html
 // [CloudWatch cross-account observability]: https://docs.aws.amazon.com/AmazonCloudWatch/latest/monitoring/CloudWatch-Unified-Cross-Account.html
 // [CloudWatch Logs query.]: https://docs.aws.amazon.com/AmazonCloudWatch/latest/logs/AnalyzingLogData.html
-// [Live Tail]: https://docs.aws.amazon.com/AmazonCloudWatch/latest/logs/CloudWatchLogs_LiveTail.html
 func (c *Client) FilterLogEvents(ctx context.Context, params *FilterLogEventsInput, optFns ...func(*Options)) (*FilterLogEventsOutput, error) {
 	if params == nil {
 		params = &FilterLogEventsInput{}
@@ -207,7 +204,7 @@ func (c *Client) addOperationFilterLogEventsMiddlewares(stack *middleware.Stack,
 	if err = addComputePayloadSHA256(stack); err != nil {
 		return err
 	}
-	if err = addRetry(stack, options); err != nil {
+	if err = addRetry(stack, options, c); err != nil {
 		return err
 	}
 	if err = addRawResponseToMetadata(stack); err != nil {
@@ -229,9 +226,6 @@ func (c *Client) addOperationFilterLogEventsMiddlewares(stack *middleware.Stack,
 		return err
 	}
 	if err = addSetLegacyContextSigningOptionsMiddleware(stack); err != nil {
-		return err
-	}
-	if err = addTimeOffsetBuild(stack, c); err != nil {
 		return err
 	}
 	if err = addUserAgentRetryMode(stack, options); err != nil {
@@ -258,16 +252,13 @@ func (c *Client) addOperationFilterLogEventsMiddlewares(stack *middleware.Stack,
 	if err = addDisableHTTPSMiddleware(stack, options); err != nil {
 		return err
 	}
-	if err = addSpanInitializeStart(stack); err != nil {
+	if err = addInterceptBeforeRetryLoop(stack, options); err != nil {
 		return err
 	}
-	if err = addSpanInitializeEnd(stack); err != nil {
+	if err = addInterceptAttempt(stack, options); err != nil {
 		return err
 	}
-	if err = addSpanBuildRequestStart(stack); err != nil {
-		return err
-	}
-	if err = addSpanBuildRequestEnd(stack); err != nil {
+	if err = addInterceptors(stack, options); err != nil {
 		return err
 	}
 	return nil

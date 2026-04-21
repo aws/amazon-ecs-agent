@@ -13,7 +13,8 @@ import (
 
 // Creates or updates a logical delivery source. A delivery source represents an
 // Amazon Web Services resource that sends logs to an logs delivery destination.
-// The destination can be CloudWatch Logs, Amazon S3, or Firehose.
+// The destination can be CloudWatch Logs, Amazon S3, Firehose or X-Ray for sending
+// traces.
 //
 // To configure logs delivery between a delivery destination and an Amazon Web
 // Services service that is supported as a delivery source, you must do the
@@ -68,7 +69,25 @@ type PutDeliverySourceInput struct {
 
 	// Defines the type of log that the source is sending.
 	//
-	//   - For Amazon Bedrock, the valid value is APPLICATION_LOGS .
+	//   - For Amazon Bedrock Agents, the valid values are APPLICATION_LOGS and
+	//   EVENT_LOGS .
+	//
+	//   - For Amazon Bedrock Knowledge Bases, the valid value is APPLICATION_LOGS .
+	//
+	//   - For Amazon Bedrock AgentCore Runtime, the valid values are APPLICATION_LOGS
+	//   , USAGE_LOGS and TRACES .
+	//
+	//   - For Amazon Bedrock AgentCore Tools, the valid values are APPLICATION_LOGS ,
+	//   USAGE_LOGS and TRACES .
+	//
+	//   - For Amazon Bedrock AgentCore Identity, the valid values are APPLICATION_LOGS
+	//   and TRACES .
+	//
+	//   - For Amazon Bedrock AgentCore Memory, the valid values are APPLICATION_LOGS
+	//   and TRACES .
+	//
+	//   - For Amazon Bedrock AgentCore Gateway, the valid values are APPLICATION_LOGS
+	//   and TRACES .
 	//
 	//   - For CloudFront, the valid value is ACCESS_LOGS .
 	//
@@ -80,15 +99,35 @@ type PutDeliverySourceInput struct {
 	//   - For Elemental MediaTailor, the valid values are AD_DECISION_SERVER_LOGS ,
 	//   MANIFEST_SERVICE_LOGS , and TRANSCODE_LOGS .
 	//
+	//   - For Amazon EKS Auto Mode, the valid values are AUTO_MODE_BLOCK_STORAGE_LOGS
+	//   , AUTO_MODE_COMPUTE_LOGS , AUTO_MODE_IPAM_LOGS , and
+	//   AUTO_MODE_LOAD_BALANCING_LOGS .
+	//
+	//   - For Entity Resolution, the valid value is WORKFLOW_LOGS .
+	//
 	//   - For IAM Identity Center, the valid value is ERROR_LOGS .
 	//
-	//   - For Amazon Q, the valid value is EVENT_LOGS .
+	//   - For Network Firewall Proxy, the valid values are ALERT_LOGS , ALLOW_LOGS ,
+	//   and DENY_LOGS .
 	//
-	//   - For Amazon SES mail manager, the valid value is APPLICATION_LOG .
+	//   - For Network Load Balancer, the valid value is NLB_ACCESS_LOGS .
+	//
+	//   - For PCS, the valid values are PCS_SCHEDULER_LOGS and PCS_JOBCOMP_LOGS .
+	//
+	//   - For Quick, the valid values are CHAT_LOGS and FEEDBACK_LOGS .
+	//
+	//   - For Amazon Web Services RTB Fabric, the valid values is APPLICATION_LOGS .
+	//
+	//   - For Amazon Q, the valid values are EVENT_LOGS and SYNC_JOB_LOGS .
+	//
+	//   - For Amazon SES mail manager, the valid values are APPLICATION_LOGS and
+	//   TRAFFIC_POLICY_DEBUG_LOGS .
 	//
 	//   - For Amazon WorkMail, the valid values are ACCESS_CONTROL_LOGS ,
 	//   AUTHENTICATION_LOGS , WORKMAIL_AVAILABILITY_PROVIDER_LOGS ,
 	//   WORKMAIL_MAILBOX_ACCESS_LOGS , and WORKMAIL_PERSONAL_ACCESS_TOKEN_LOGS .
+	//
+	//   - For Amazon VPC Route Server, the valid value is EVENT_LOGS .
 	//
 	// This member is required.
 	LogType *string
@@ -162,7 +201,7 @@ func (c *Client) addOperationPutDeliverySourceMiddlewares(stack *middleware.Stac
 	if err = addComputePayloadSHA256(stack); err != nil {
 		return err
 	}
-	if err = addRetry(stack, options); err != nil {
+	if err = addRetry(stack, options, c); err != nil {
 		return err
 	}
 	if err = addRawResponseToMetadata(stack); err != nil {
@@ -184,9 +223,6 @@ func (c *Client) addOperationPutDeliverySourceMiddlewares(stack *middleware.Stac
 		return err
 	}
 	if err = addSetLegacyContextSigningOptionsMiddleware(stack); err != nil {
-		return err
-	}
-	if err = addTimeOffsetBuild(stack, c); err != nil {
 		return err
 	}
 	if err = addUserAgentRetryMode(stack, options); err != nil {
@@ -216,16 +252,13 @@ func (c *Client) addOperationPutDeliverySourceMiddlewares(stack *middleware.Stac
 	if err = addDisableHTTPSMiddleware(stack, options); err != nil {
 		return err
 	}
-	if err = addSpanInitializeStart(stack); err != nil {
+	if err = addInterceptBeforeRetryLoop(stack, options); err != nil {
 		return err
 	}
-	if err = addSpanInitializeEnd(stack); err != nil {
+	if err = addInterceptAttempt(stack, options); err != nil {
 		return err
 	}
-	if err = addSpanBuildRequestStart(stack); err != nil {
-		return err
-	}
-	if err = addSpanBuildRequestEnd(stack); err != nil {
+	if err = addInterceptors(stack, options); err != nil {
 		return err
 	}
 	return nil
