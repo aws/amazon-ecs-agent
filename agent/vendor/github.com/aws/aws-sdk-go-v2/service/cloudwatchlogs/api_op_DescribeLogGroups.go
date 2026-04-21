@@ -11,8 +11,9 @@ import (
 	smithyhttp "github.com/aws/smithy-go/transport/http"
 )
 
-// Lists the specified log groups. You can list all your log groups or filter the
-// results by prefix. The results are ASCII-sorted by log group name.
+// Returns information about log groups, including data sources that ingest into
+// each log group. You can return all your log groups or filter the results by
+// prefix. The results are ASCII-sorted by log group name.
 //
 // CloudWatch Logs doesn't support IAM policies that control access to the
 // DescribeLogGroups action by using the aws:ResourceTag/key-name  condition key.
@@ -43,41 +44,62 @@ func (c *Client) DescribeLogGroups(ctx context.Context, params *DescribeLogGroup
 
 type DescribeLogGroupsInput struct {
 
-	// When includeLinkedAccounts is set to True , use this parameter to specify the
+	// When includeLinkedAccounts is set to true , use this parameter to specify the
 	// list of accounts to search. You can specify as many as 20 account IDs in the
 	// array.
 	AccountIdentifiers []string
 
-	// If you are using a monitoring account, set this to True to have the operation
+	// If you are using a monitoring account, set this to true to have the operation
 	// return log groups in the accounts listed in accountIdentifiers .
 	//
-	// If this parameter is set to true and accountIdentifiers
+	// If this parameter is set to true and accountIdentifiers contains a null value,
+	// the operation returns all log groups in the monitoring account and all log
+	// groups in all source accounts that are linked to the monitoring account.
 	//
-	// contains a null value, the operation returns all log groups in the monitoring
-	// account and all log groups in all source accounts that are linked to the
-	// monitoring account.
+	// The default for this parameter is false .
 	IncludeLinkedAccounts *bool
 
 	// The maximum number of items returned. If you don't specify a value, the default
 	// is up to 50 items.
 	Limit *int32
 
-	// Specifies the log group class for this log group. There are two classes:
+	// Use this parameter to limit the results to only those log groups in the
+	// specified log group class. If you omit this parameter, log groups of all classes
+	// can be returned.
+	//
+	// Specifies the log group class for this log group. There are three classes:
 	//
 	//   - The Standard log class supports all CloudWatch Logs features.
 	//
 	//   - The Infrequent Access log class supports a subset of CloudWatch Logs
 	//   features and incurs lower costs.
 	//
+	//   - Use the Delivery log class only for delivering Lambda logs to store in
+	//   Amazon S3 or Amazon Data Firehose. Log events in log groups in the Delivery
+	//   class are kept in CloudWatch Logs for only one day. This log class doesn't offer
+	//   rich CloudWatch Logs capabilities such as CloudWatch Logs Insights queries.
+	//
 	// For details about the features supported by each class, see [Log classes]
 	//
 	// [Log classes]: https://docs.aws.amazon.com/AmazonCloudWatch/latest/logs/CloudWatch_Logs_Log_Classes.html
 	LogGroupClass types.LogGroupClass
 
+	// Use this array to filter the list of log groups returned. If you specify this
+	// parameter, the only other filter that you can choose to specify is
+	// includeLinkedAccounts .
+	//
+	// If you are using this operation in a monitoring account, you can specify the
+	// ARNs of log groups in source accounts and in the monitoring account itself. If
+	// you are using this operation in an account that is not a cross-account
+	// monitoring account, you can specify only log group names in the same account as
+	// the operation.
+	LogGroupIdentifiers []string
+
 	// If you specify a string for this parameter, the operation returns only log
 	// groups that have names that match the string based on a case-sensitive substring
-	// search. For example, if you specify Foo , log groups named FooBar , aws/Foo ,
-	// and GroupFoo would match, but foo , F/o/o and Froo would not match.
+	// search. For example, if you specify DataLogs , log groups named DataLogs ,
+	// aws/DataLogs , and GroupDataLogs would match, but datalogs , Data/log/s and
+	// Groupdata would not match.
 	//
 	// If you specify logGroupNamePattern in your request, then only arn , creationTime
 	// , and logGroupName are included in the response.
@@ -101,10 +123,8 @@ type DescribeLogGroupsInput struct {
 
 type DescribeLogGroupsOutput struct {
 
-	// The log groups.
-	//
-	// If the retentionInDays value is not included for a log group, then that log
-	// group's events do not expire.
+	// An array of structures, where each structure contains the information about one
+	// log group.
 	LogGroups []types.LogGroup
 
 	// The token for the next set of items to return. The token expires after 24 hours.
@@ -150,7 +170,7 @@ func (c *Client) addOperationDescribeLogGroupsMiddlewares(stack *middleware.Stac
 	if err = addComputePayloadSHA256(stack); err != nil {
 		return err
 	}
-	if err = addRetry(stack, options); err != nil {
+	if err = addRetry(stack, options, c); err != nil {
 		return err
 	}
 	if err = addRawResponseToMetadata(stack); err != nil {
@@ -172,9 +192,6 @@ func (c *Client) addOperationDescribeLogGroupsMiddlewares(stack *middleware.Stac
 		return err
 	}
 	if err = addSetLegacyContextSigningOptionsMiddleware(stack); err != nil {
-		return err
-	}
-	if err = addTimeOffsetBuild(stack, c); err != nil {
 		return err
 	}
 	if err = addUserAgentRetryMode(stack, options); err != nil {
@@ -201,16 +218,13 @@ func (c *Client) addOperationDescribeLogGroupsMiddlewares(stack *middleware.Stac
 	if err = addDisableHTTPSMiddleware(stack, options); err != nil {
 		return err
 	}
-	if err = addSpanInitializeStart(stack); err != nil {
+	if err = addInterceptBeforeRetryLoop(stack, options); err != nil {
 		return err
 	}
-	if err = addSpanInitializeEnd(stack); err != nil {
+	if err = addInterceptAttempt(stack, options); err != nil {
 		return err
 	}
-	if err = addSpanBuildRequestStart(stack); err != nil {
-		return err
-	}
-	if err = addSpanBuildRequestEnd(stack); err != nil {
+	if err = addInterceptors(stack, options); err != nil {
 		return err
 	}
 	return nil

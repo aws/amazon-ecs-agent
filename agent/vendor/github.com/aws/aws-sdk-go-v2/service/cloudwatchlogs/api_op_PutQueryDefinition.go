@@ -61,9 +61,7 @@ type PutQueryDefinitionInput struct {
 	QueryString *string
 
 	// Used as an idempotency token, to avoid returning an exception if the service
-	// receives the same request twice because of a network
-	//
-	// error.
+	// receives the same request twice because of a network error.
 	ClientToken *string
 
 	// Use this parameter to include specific log groups as part of your query
@@ -74,6 +72,13 @@ type PutQueryDefinitionInput struct {
 	// OpenSearch Service PPL and you omit this parameter, then the updated definition
 	// will contain no log groups.
 	LogGroupNames []string
+
+	// Use this parameter to include specific query parameters as part of your query
+	// definition. Query parameters are supported only for Logs Insights QL queries.
+	// Query parameters allow you to use placeholder variables in your query string
+	// that are substituted with values at execution time. Use the {{parameterName}}
+	// syntax in your query string to reference a parameter.
+	Parameters []types.QueryParameter
 
 	// If you are updating a query definition, use this parameter to specify the ID of
 	// the query definition that you want to update. You can use [DescribeQueryDefinitions]to retrieve the IDs
@@ -141,7 +146,7 @@ func (c *Client) addOperationPutQueryDefinitionMiddlewares(stack *middleware.Sta
 	if err = addComputePayloadSHA256(stack); err != nil {
 		return err
 	}
-	if err = addRetry(stack, options); err != nil {
+	if err = addRetry(stack, options, c); err != nil {
 		return err
 	}
 	if err = addRawResponseToMetadata(stack); err != nil {
@@ -163,9 +168,6 @@ func (c *Client) addOperationPutQueryDefinitionMiddlewares(stack *middleware.Sta
 		return err
 	}
 	if err = addSetLegacyContextSigningOptionsMiddleware(stack); err != nil {
-		return err
-	}
-	if err = addTimeOffsetBuild(stack, c); err != nil {
 		return err
 	}
 	if err = addUserAgentRetryMode(stack, options); err != nil {
@@ -198,16 +200,13 @@ func (c *Client) addOperationPutQueryDefinitionMiddlewares(stack *middleware.Sta
 	if err = addDisableHTTPSMiddleware(stack, options); err != nil {
 		return err
 	}
-	if err = addSpanInitializeStart(stack); err != nil {
+	if err = addInterceptBeforeRetryLoop(stack, options); err != nil {
 		return err
 	}
-	if err = addSpanInitializeEnd(stack); err != nil {
+	if err = addInterceptAttempt(stack, options); err != nil {
 		return err
 	}
-	if err = addSpanBuildRequestStart(stack); err != nil {
-		return err
-	}
-	if err = addSpanBuildRequestEnd(stack); err != nil {
+	if err = addInterceptors(stack, options); err != nil {
 		return err
 	}
 	return nil
