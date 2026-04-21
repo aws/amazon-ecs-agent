@@ -12,6 +12,8 @@
 # permissions and limitations under the License.
 .PHONY: all image mockgen clean
 
+BUILD_PLATFORM:=$(shell uname -m)
+
 # 'go' may not be on the $PATH for sudo tests
 GO_EXECUTABLE=$(shell command -v go 2> /dev/null)
 CSI_DRIVER_VERSION="v$(shell cat CSI_DRIVER_VERSION)"
@@ -23,6 +25,15 @@ IMAGE_REF?="ebs-csi-driver:latest"
 # caution. See `go help test`
 # unit tests include the coverage profile
 GOTEST=${GO_EXECUTABLE} test -count=1
+
+# -race sometimes causes compile issues on Arm
+# see mirroring the same condition in Makefile in root of this repo
+# https://github.com/golang/go/issues/78573
+RACE=
+ifneq (${BUILD_PLATFORM},aarch64)
+	RACE=-race
+endif
+
 ifeq (${TARGET_OS},windows)
 	CSI_DRIVER_BIN=bin/ebs-csi-driver.exe
 else
@@ -41,7 +52,7 @@ image:
 	docker build --build-arg GO_VERSION=$(GO_VERSION) -t $(IMAGE_REF) .
 
 test:
-	GO111MODULE=on ${GOTEST} -v -race ./driver/... -tags unit -mod vendor -timeout=120s
+	GO111MODULE=on ${GOTEST} -v $(RACE) ./driver/... -tags unit -mod vendor -timeout=120s
 
 tarfiles/ebs-csi-driver.tar: image
 	mkdir -p tarfiles
