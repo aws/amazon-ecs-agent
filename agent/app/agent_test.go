@@ -30,6 +30,7 @@ import (
 	"github.com/aws/amazon-ecs-agent/agent/config"
 	mock_containermetadata "github.com/aws/amazon-ecs-agent/agent/containermetadata/mocks"
 	"github.com/aws/amazon-ecs-agent/agent/data"
+	mock_data "github.com/aws/amazon-ecs-agent/agent/data/mocks"
 	"github.com/aws/amazon-ecs-agent/agent/dockerclient"
 	"github.com/aws/amazon-ecs-agent/agent/dockerclient/dockerapi"
 	mock_dockerapi "github.com/aws/amazon-ecs-agent/agent/dockerclient/dockerapi/mocks"
@@ -2115,6 +2116,90 @@ func TestLoadManagedDaemonImage(t *testing.T) {
 
 			agent := &ecsAgent{ctx: context.Background(), dockerClient: dockerClient}
 			agent.loadManagedDaemonImage(daemonManager, imageManager)
+		})
+	}
+}
+
+func TestResolveIMDSIAMRolesConfig(t *testing.T) {
+	tests := []struct {
+		name                string
+		imdsAvailable       bool
+		savedValue          string
+		savedErr            error
+		hasNonTerminalTasks bool
+		expectedEnabled     bool
+		expectPersisted     bool
+	}{
+		{
+			name:            "IMDS not available",
+			imdsAvailable:   false,
+			savedErr:        errors.New("not found"),
+			expectedEnabled: false,
+			expectPersisted: false,
+		},
+		{
+			name:            "fresh instance, IMDS available",
+			imdsAvailable:   true,
+			savedErr:        errors.New("not found"),
+			expectedEnabled: true,
+			expectPersisted: true,
+		},
+		{
+			name:            "previously enabled",
+			imdsAvailable:   true,
+			savedValue:      "true",
+			expectedEnabled: true,
+			expectPersisted: true,
+		},
+		{
+			name:                "not previously enabled, tasks running (in-place upgrade)",
+			imdsAvailable:       true,
+			savedErr:            errors.New("not found"),
+			hasNonTerminalTasks: true,
+			expectedEnabled:     false,
+			expectPersisted:     false,
+		},
+		{
+			name:                "previously enabled, tasks running (restart)",
+			imdsAvailable:       true,
+			savedValue:          "true",
+			hasNonTerminalTasks: true,
+			expectedEnabled:     true,
+			expectPersisted:     true,
+		},
+		{
+			name:            "db error, no tasks running",
+			imdsAvailable:   true,
+			savedValue:      "",
+			savedErr:        errors.New("failed to unmarshal object"),
+			expectedEnabled: true,
+			expectPersisted: true,
+		},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			ctrl := gomock.NewController(t)
+			defer ctrl.Finish()
+
+			ec2MetadataClient := mock_ec2.NewMockEC2MetadataClient(ctrl)
+			if tc.imdsAvailable {
+				ec2MetadataClient.EXPECT().GetMetadata("instance-id").Return("i-123", nil)
+			} else {
+				ec2MetadataClient.EXPECT().GetMetadata("instance-id").Return("", errors.New("unavailable"))
+			}
+
+			mockDataClient := mock_data.NewMockClient(ctrl)
+			mockDataClient.EXPECT().GetMetadata(data.IMDSIAMRolesKey).Return(tc.savedValue, tc.savedErr)
+			mockDataClient.EXPECT().HasNonTerminalTasks().Return(tc.hasNonTerminalTasks)
+			if tc.expectPersisted {
+				mockDataClient.EXPECT().SaveMetadata(data.IMDSIAMRolesKey, "true").Return(nil)
+			}
+
+			cfg := &config.Config{}
+			resolveIMDSIAMRolesConfig(cfg, mockDataClient, ec2MetadataClient)
+
+			assert.Equal(t, tc.expectedEnabled, cfg.IMDSIAMRolesEnabled)
 		})
 	}
 }
