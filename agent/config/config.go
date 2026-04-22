@@ -674,3 +674,26 @@ func IsFIPSEnabled() bool {
 func SetFIPSEnabled(enabled bool) {
 	isFIPSEnabled = enabled
 }
+
+// determineIMDSIAMRolesConfig determines whether the agent should use IMDS for task credential retrieval.
+//
+//lint:ignore U1000 will be used when the feature is enabled
+func (cfg *Config) determineIMDSIAMRolesConfig(imdsAvailable, previouslyEnabled, hasNonTerminalTasks bool) {
+	defer func() {
+		seelog.Debugf("IMDS IAM roles config resolved: enabled=%t", cfg.IMDSIAMRolesEnabled)
+	}()
+
+	// 1. Do not enable the config option if IMDS is not available on the instance.
+	if !imdsAvailable {
+		return
+	}
+
+	// 2. Do not enable the config option if this agent has been upgraded in-place
+	// with running tasks on the instance, to avoid disruption.
+	if hasNonTerminalTasks && !previouslyEnabled {
+		return
+	}
+
+	// Enable the config option
+	cfg.IMDSIAMRolesEnabled = true
+}

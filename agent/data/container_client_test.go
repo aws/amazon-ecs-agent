@@ -42,7 +42,7 @@ func TestManageContainers(t *testing.T) {
 		DockerName: testDockerName,
 		Container: &apicontainer.Container{
 			Name:          testContainerName,
-			TaskARNUnsafe: testTaskArn,
+			TaskARNUnsafe: testTaskArn1,
 		},
 	}
 	require.NoError(t, testClient.SaveDockerContainer(testDockerContainer))
@@ -58,7 +58,7 @@ func TestManageContainers(t *testing.T) {
 	// Test saving a container with SaveContainer.
 	testContainer := &apicontainer.Container{
 		Name:          testContainerName2,
-		TaskARNUnsafe: testTaskArn,
+		TaskARNUnsafe: testTaskArn1,
 	}
 	require.NoError(t, testClient.SaveContainer(testContainer))
 	res, err = testClient.GetContainers()
@@ -90,7 +90,7 @@ func TestSaveContainerInvalidID(t *testing.T) {
 
 func TestGetContainerID(t *testing.T) {
 	c := &apicontainer.Container{
-		TaskARNUnsafe: testTaskArn,
+		TaskARNUnsafe: testTaskArn1,
 		Name:          testContainerName,
 	}
 	id, err := GetContainerID(c)

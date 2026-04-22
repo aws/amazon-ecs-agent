@@ -101,6 +101,10 @@ func (c *noopClient) GetMetadata(string) (string, error) {
 	return "", nil
 }
 
+func (c *noopClient) HasNonTerminalTasks() bool {
+	return false
+}
+
 func (c *noopClient) Close() error {
 	return nil
 }

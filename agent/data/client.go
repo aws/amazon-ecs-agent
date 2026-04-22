@@ -107,6 +107,9 @@ type Client interface {
 	// GetMetadata gets the value of a certain kind of metadata.
 	GetMetadata(string) (string, error)
 
+	// HasNonTerminalTasks returns true if there are any pending or running tasks in the database.
+	HasNonTerminalTasks() bool
+
 	// Close closes the connection to database.
 	Close() error
 }
