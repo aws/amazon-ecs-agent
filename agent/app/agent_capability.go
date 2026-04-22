@@ -23,6 +23,7 @@ import (
 	"github.com/aws/amazon-ecs-agent/agent/config"
 	"github.com/aws/amazon-ecs-agent/agent/dockerclient"
 	dm "github.com/aws/amazon-ecs-agent/agent/engine/daemonmanager"
+	"github.com/aws/amazon-ecs-agent/ecs-agent/capability"
 	"github.com/aws/amazon-ecs-agent/ecs-agent/logger"
 	"github.com/aws/amazon-ecs-agent/ecs-agent/logger/field"
 	md "github.com/aws/amazon-ecs-agent/ecs-agent/manageddaemon"
@@ -345,6 +346,9 @@ func (agent *ecsAgent) capabilities() ([]types.Attribute, error) {
 
 	// IPv6-only cap
 	capabilities = appendIPv6OnlyCapability(capabilities)
+
+	// IMDS IAM roles cap
+	capabilities = agent.appendIMDSIAMRolesCapability(capabilities)
 
 	return capabilities, nil
 }
@@ -676,4 +680,12 @@ func removeAttributesByNames(attributes []types.Attribute, names []string) []typ
 		}
 	}
 	return ret
+}
+
+// appendIMDSIAMRolesCapability appends the IMDS IAM roles capability if the associated config is enabled and supported on this instance.
+func (agent *ecsAgent) appendIMDSIAMRolesCapability(capabilities []types.Attribute) []types.Attribute {
+	if !agent.cfg.IMDSIAMRolesEnabled {
+		return capabilities
+	}
+	return appendNameOnlyAttribute(capabilities, capability.IMDSIAMRoles)
 }

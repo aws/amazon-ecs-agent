@@ -24,6 +24,14 @@ const (
 	ContainerInstanceARNKey = "container-instance-arn"
 	EC2InstanceIDKey        = "ec2-instance-id"
 	TaskManifestSeqNumKey   = "task-manifest-seq-num"
+
+	// IMDSIAMRolesKey tracks whether this instance had previously enabled support
+	// for IMDS-based task credential retrieval.
+	//
+	// This helps distinguish a restart from an in-place agent upgrade where
+	// running tasks were launched without IMDS IAM roles support,
+	// ensuring in-place agent upgrade doesn't disrupt credential delivery.
+	IMDSIAMRolesKey = "imds-iam-roles"
 )
 
 func (c *client) SaveMetadata(key, val string) error {

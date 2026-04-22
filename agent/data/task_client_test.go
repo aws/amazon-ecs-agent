@@ -20,20 +20,22 @@ import (
 	"testing"
 
 	apitask "github.com/aws/amazon-ecs-agent/agent/api/task"
+	apitaskstatus "github.com/aws/amazon-ecs-agent/ecs-agent/api/task/status"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
 
 const (
-	testTaskArn = "arn:aws:ecs:us-west-2:1234567890:task/test-cluster/abc"
+	testTaskArn1 = "arn:aws:ecs:us-west-2:1234567890:task/test-cluster/abc"
+	testTaskArn2 = "arn:aws:ecs:us-west-2:1234567890:task/test-cluster/def"
 )
 
 func TestManageTask(t *testing.T) {
 	testClient := newTestClient(t)
 
 	testTask := &apitask.Task{
-		Arn: testTaskArn,
+		Arn: testTaskArn1,
 	}
 
 	require.NoError(t, testClient.SaveTask(testTask))
@@ -54,4 +56,57 @@ func TestSaveTaskInvalidID(t *testing.T) {
 		Arn: "invalid-arn",
 	}
 	assert.Error(t, testClient.SaveTask(testTask))
+}
+
+func TestHasNonTerminalTasks(t *testing.T) {
+	tests := []struct {
+		name     string
+		tasks    []*apitask.Task
+		expected bool
+	}{
+		{
+			name:     "no tasks",
+			tasks:    nil,
+			expected: false,
+		},
+		{
+			name: "all stopped",
+			tasks: func() []*apitask.Task {
+				task := &apitask.Task{Arn: testTaskArn1}
+				task.SetKnownStatus(apitaskstatus.TaskStopped)
+				return []*apitask.Task{task}
+			}(),
+			expected: false,
+		},
+		{
+			name: "one running",
+			tasks: func() []*apitask.Task {
+				task := &apitask.Task{Arn: testTaskArn1}
+				task.SetKnownStatus(apitaskstatus.TaskRunning)
+				return []*apitask.Task{task}
+			}(),
+			expected: true,
+		},
+		{
+			name: "mixed stopped and running",
+			tasks: func() []*apitask.Task {
+				stopped := &apitask.Task{Arn: testTaskArn1}
+				stopped.SetKnownStatus(apitaskstatus.TaskStopped)
+				running := &apitask.Task{Arn: testTaskArn2}
+				running.SetKnownStatus(apitaskstatus.TaskRunning)
+				return []*apitask.Task{stopped, running}
+			}(),
+			expected: true,
+		},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			testClient := newTestClient(t)
+			for _, task := range tc.tasks {
+				require.NoError(t, testClient.SaveTask(task))
+			}
+			assert.Equal(t, tc.expected, testClient.HasNonTerminalTasks())
+		})
+	}
 }

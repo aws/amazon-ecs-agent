@@ -1668,3 +1668,40 @@ func TestAppendFaultInjectionCapabilities(t *testing.T) {
 		assert.Empty(t, capabilities)
 	})
 }
+
+func TestAppendIMDSIAMRolesCapability(t *testing.T) {
+	tests := []struct {
+		name     string
+		enabled  bool
+		expected bool
+	}{
+		{
+			name:     "disabled",
+			enabled:  false,
+			expected: false,
+		},
+		{
+			name:     "enabled",
+			enabled:  true,
+			expected: true,
+		},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			agent := &ecsAgent{
+				cfg: &config.Config{
+					IMDSIAMRolesEnabled: tc.enabled,
+				},
+			}
+			capabilities := agent.appendIMDSIAMRolesCapability([]types.Attribute{})
+			if tc.expected {
+				assert.Contains(t, capabilities, types.Attribute{
+					Name: aws.String("ecs.capability.imds-iam-roles"),
+				})
+			} else {
+				assert.Empty(t, capabilities)
+			}
+		})
+	}
+}

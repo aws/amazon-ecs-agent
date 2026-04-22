@@ -402,4 +402,7 @@ type Config struct {
 
 	// IP version compatibility for the container instance's default network
 	InstanceIPCompatibility ipcompatibility.IPCompatibility
+
+	// IMDSIAMRolesEnabled controls whether the agent uses IMDS for task credential retrieval.
+	IMDSIAMRolesEnabled bool
 }

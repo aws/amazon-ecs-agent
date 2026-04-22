@@ -1033,3 +1033,55 @@ func setTestEnv(k, v string) func() {
 		os.Unsetenv(k)
 	}
 }
+
+func TestDetermineIMDSIAMRolesConfig(t *testing.T) {
+	tests := []struct {
+		name                string
+		imdsAvailable       bool
+		previouslyEnabled   bool
+		hasNonTerminalTasks bool
+		expectedEnabled     bool
+	}{
+		{
+			name:            "IMDS not available",
+			imdsAvailable:   false,
+			expectedEnabled: false,
+		},
+		{
+			name:                "fresh instance, no tasks",
+			imdsAvailable:       true,
+			previouslyEnabled:   false,
+			hasNonTerminalTasks: false,
+			expectedEnabled:     true,
+		},
+		{
+			name:                "previously enabled, tasks running (restart)",
+			imdsAvailable:       true,
+			previouslyEnabled:   true,
+			hasNonTerminalTasks: true,
+			expectedEnabled:     true,
+		},
+		{
+			name:                "not previously enabled, tasks running (in-place upgrade)",
+			imdsAvailable:       true,
+			previouslyEnabled:   false,
+			hasNonTerminalTasks: true,
+			expectedEnabled:     false,
+		},
+		{
+			name:                "previously enabled, no tasks",
+			imdsAvailable:       true,
+			previouslyEnabled:   true,
+			hasNonTerminalTasks: false,
+			expectedEnabled:     true,
+		},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			cfg := &Config{}
+			cfg.determineIMDSIAMRolesConfig(tc.imdsAvailable, tc.previouslyEnabled, tc.hasNonTerminalTasks)
+			assert.Equal(t, tc.expectedEnabled, cfg.IMDSIAMRolesEnabled)
+		})
+	}
+}

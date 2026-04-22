@@ -73,3 +73,18 @@ func (c *client) GetTasks() ([]*apitask.Task, error) {
 	})
 	return tasks, err
 }
+
+// HasNonTerminalTasks returns true if there are any pending or running tasks in the database.
+func (c *client) HasNonTerminalTasks() bool {
+	tasks, err := c.GetTasks()
+	if err != nil {
+		logger.Warn("Failed to get tasks from DB for running tasks check", logger.Fields{"error": err})
+		return false
+	}
+	for _, task := range tasks {
+		if !task.GetKnownStatus().Terminal() {
+			return true
+		}
+	}
+	return false
+}
