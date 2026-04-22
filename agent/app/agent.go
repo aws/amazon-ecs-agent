@@ -48,6 +48,7 @@ import (
 	"github.com/aws/amazon-ecs-agent/agent/stats/reporter"
 	"github.com/aws/amazon-ecs-agent/agent/taskresource"
 	"github.com/aws/amazon-ecs-agent/agent/utils"
+	"github.com/aws/amazon-ecs-agent/agent/utils/ec2metadata"
 	"github.com/aws/amazon-ecs-agent/agent/utils/loader"
 	"github.com/aws/amazon-ecs-agent/agent/utils/mobypkgwrapper"
 	"github.com/aws/amazon-ecs-agent/agent/version"
@@ -242,6 +243,10 @@ func newAgent(blackholeEC2Metadata bool, acceptInsecureCert *bool) (agent, error
 	} else {
 		dataClient = data.NewNoopClient()
 	}
+
+	// Resolved here rather than during config initialization because it requires
+	// the data client, which is created after config setup.
+	resolveIMDSIAMRolesConfig(cfg, dataClient, ec2MetadataClient)
 
 	var metadataManager containermetadata.Manager
 	if cfg.ContainerMetadataEnabled.Enabled() {
@@ -1284,4 +1289,28 @@ func contains(capabilities []string, capability string) bool {
 	}
 
 	return false
+}
+
+// resolveIMDSIAMRolesConfig determines whether IMDS IAM roles should be enabled and persists the state for agent restarts.
+func resolveIMDSIAMRolesConfig(cfg *config.Config, dataClient data.Client, ec2MetadataClient ec2.EC2MetadataClient) {
+	imdsIAMRolesVal, err := dataClient.GetMetadata(data.IMDSIAMRolesKey)
+	if err != nil {
+		seelog.Debugf("Unable to retrieve %s from database: %v", data.IMDSIAMRolesKey, err)
+	}
+
+	// Metadata values are stored as strings in the database.
+	previouslyEnabled := imdsIAMRolesVal == "true"
+	cfg.DetermineIMDSIAMRolesConfig(ec2metadata.IsIMDSAvailable(ec2MetadataClient),
+		previouslyEnabled,
+		dataClient.HasNonTerminalTasks(),
+	)
+
+	// Persist enablement so the agent knows it was previously enabled, after a restart.
+	if cfg.IMDSIAMRolesEnabled {
+		if err := dataClient.SaveMetadata(data.IMDSIAMRolesKey, "true"); err != nil {
+			seelog.Warnf("Failed to persist %s: %v", data.IMDSIAMRolesKey, err)
+		} else {
+			seelog.Debugf("Persisted %s to database", data.IMDSIAMRolesKey)
+		}
+	}
 }
