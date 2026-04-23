@@ -166,3 +166,16 @@ func JsonBlockToStringToStringMap(jsonBlock string) (map[string]string, error) {
 	err := json.Unmarshal([]byte(jsonBlock), &out)
 	return out, err
 }
+
+// CredentialsIDLogTruncationLen is the number of characters to retain when
+// logging a credentials ID. The full ID is sensitive (bearer token for TMDS).
+const CredentialsIDLogTruncationLen = 8
+
+// TruncateString truncates a string to the specified length and appends
+// "-REDACTED" to indicate the value has been redacted.
+func TruncateString(s string, length int) string {
+	if len(s) <= length {
+		return s
+	}
+	return s[:length] + "-REDACTED"
+}

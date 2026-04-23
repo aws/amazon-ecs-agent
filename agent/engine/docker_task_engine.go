@@ -55,6 +55,7 @@ import (
 	"github.com/aws/amazon-ecs-agent/ecs-agent/eventstream"
 	"github.com/aws/amazon-ecs-agent/ecs-agent/logger"
 	"github.com/aws/amazon-ecs-agent/ecs-agent/logger/field"
+	commonutils "github.com/aws/amazon-ecs-agent/ecs-agent/utils"
 	"github.com/aws/amazon-ecs-agent/ecs-agent/utils/retry"
 	"github.com/aws/amazon-ecs-agent/ecs-agent/utils/ttime"
 
@@ -1719,7 +1720,7 @@ func (engine *DockerTaskEngine) setRegistryCredentials(
 				field.TaskID:        task.GetID(),
 				field.Container:     container.Name,
 				field.Image:         container.Image,
-				field.CredentialsID: task.GetExecutionCredentialsID(),
+				field.CredentialsID: commonutils.TruncateString(task.GetExecutionCredentialsID(), commonutils.CredentialsIDLogTruncationLen),
 				field.RoleType:      credentials.ExecutionRoleType,
 			})
 			return nil, dockerapi.CannotPullECRContainerError{
@@ -1734,7 +1735,7 @@ func (engine *DockerTaskEngine) setRegistryCredentials(
 			field.Image:         container.Image,
 			field.RoleType:      iamCredentials.RoleType,
 			field.RoleARN:       iamCredentials.RoleArn,
-			field.CredentialsID: iamCredentials.CredentialsID,
+			field.CredentialsID: commonutils.TruncateString(iamCredentials.CredentialsID, commonutils.CredentialsIDLogTruncationLen),
 		})
 		container.SetRegistryAuthCredentials(iamCredentials)
 		cleanup = func() { container.SetRegistryAuthCredentials(credentials.IAMRoleCredentials{}) }
