@@ -19,6 +19,7 @@ import (
 	"github.com/aws/amazon-ecs-agent/ecs-agent/acs/model/ecsacs"
 	"github.com/aws/amazon-ecs-agent/ecs-agent/logger"
 	"github.com/aws/amazon-ecs-agent/ecs-agent/logger/field"
+	"github.com/aws/amazon-ecs-agent/ecs-agent/utils"
 	"github.com/aws/amazon-ecs-agent/ecs-agent/wsclient"
 	"github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/pkg/errors"
@@ -102,7 +103,7 @@ func (r *payloadResponder) sendAck(ackRequest interface{}) {
 	credentialsAck, ok := ackRequest.(*ecsacs.IAMRoleCredentialsAckRequest)
 	if ok {
 		logger.Debug(fmt.Sprintf("ACKing credentials associated with %s", PayloadMessageName), logger.Fields{
-			field.CredentialsID: aws.ToString(credentialsAck.CredentialsId),
+			field.CredentialsID: utils.TruncateString(aws.ToString(credentialsAck.CredentialsId), utils.CredentialsIDLogTruncationLen),
 			field.MessageID:     aws.ToString(credentialsAck.MessageId),
 		})
 	} else {
@@ -124,7 +125,7 @@ func (r *payloadResponder) sendAck(ackRequest interface{}) {
 		if credentialsAck != nil {
 			logger.Warn(fmt.Sprintf("Error acknowledging credentials associated with %s",
 				PayloadMessageName), logger.Fields{
-				field.CredentialsID: aws.ToString(credentialsAck.CredentialsId),
+				field.CredentialsID: utils.TruncateString(aws.ToString(credentialsAck.CredentialsId), utils.CredentialsIDLogTruncationLen),
 				field.MessageID:     aws.ToString(credentialsAck.MessageId),
 				field.Error:         err,
 			})

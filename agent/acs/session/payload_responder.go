@@ -30,6 +30,7 @@ import (
 	loggerfield "github.com/aws/amazon-ecs-agent/ecs-agent/logger/field"
 	nlappmesh "github.com/aws/amazon-ecs-agent/ecs-agent/netlib/model/appmesh"
 	ni "github.com/aws/amazon-ecs-agent/ecs-agent/netlib/model/networkinterface"
+	"github.com/aws/amazon-ecs-agent/ecs-agent/utils"
 
 	"github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/pkg/errors"
@@ -159,7 +160,7 @@ func (pmHandler *payloadMessageHandler) addPayloadTasks(payload *ecsacs.PayloadM
 				loggerfield.TaskVersion:   apiTask.Version,
 				loggerfield.RoleARN:       taskIAMRoleCredentials.RoleArn,
 				loggerfield.RoleType:      taskIAMRoleCredentials.RoleType,
-				loggerfield.CredentialsID: taskIAMRoleCredentials.CredentialsID,
+				loggerfield.CredentialsID: utils.TruncateString(taskIAMRoleCredentials.CredentialsID, utils.CredentialsIDLogTruncationLen),
 			})
 			apiTask.SetCredentialsID(taskIAMRoleCredentials.CredentialsID)
 		}
@@ -207,7 +208,7 @@ func (pmHandler *payloadMessageHandler) addPayloadTasks(payload *ecsacs.PayloadM
 				loggerfield.TaskVersion:   apiTask.Version,
 				loggerfield.RoleARN:       taskExecutionIAMRoleCredentials.RoleArn,
 				loggerfield.RoleType:      taskExecutionIAMRoleCredentials.RoleType,
-				loggerfield.CredentialsID: taskExecutionIAMRoleCredentials.CredentialsID,
+				loggerfield.CredentialsID: utils.TruncateString(taskExecutionIAMRoleCredentials.CredentialsID, utils.CredentialsIDLogTruncationLen),
 			})
 			apiTask.SetExecutionRoleCredentialsID(taskExecutionIAMRoleCredentials.CredentialsID)
 		}

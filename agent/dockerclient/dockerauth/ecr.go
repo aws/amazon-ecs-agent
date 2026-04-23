@@ -25,6 +25,7 @@ import (
 	"github.com/aws/amazon-ecs-agent/ecs-agent/credentials"
 	"github.com/aws/amazon-ecs-agent/ecs-agent/logger"
 	"github.com/aws/amazon-ecs-agent/ecs-agent/logger/field"
+	"github.com/aws/amazon-ecs-agent/ecs-agent/utils"
 	"github.com/aws/amazon-ecs-agent/ecs-agent/utils/retry"
 
 	"github.com/aws/aws-sdk-go-v2/aws"
@@ -148,7 +149,7 @@ func (authProvider *ecrAuthProvider) getAuthConfigFromECR(image string, key cach
 
 	logger.Debug("Calling ECR.GetAuthorizationToken", logger.Fields{
 		field.Image:         image,
-		field.CredentialsID: key.credentialsID,
+		field.CredentialsID: utils.TruncateString(key.credentialsID, utils.CredentialsIDLogTruncationLen),
 		field.RegistryID:    key.registryID,
 		field.RoleARN:       key.roleARN,
 		"endpointOverride":  key.endpointOverride,

@@ -43,6 +43,7 @@ import (
 	"github.com/aws/amazon-ecs-agent/ecs-agent/eventstream"
 	"github.com/aws/amazon-ecs-agent/ecs-agent/logger"
 	"github.com/aws/amazon-ecs-agent/ecs-agent/logger/field"
+	"github.com/aws/amazon-ecs-agent/ecs-agent/utils"
 	"github.com/aws/amazon-ecs-agent/ecs-agent/utils/retry"
 	"github.com/aws/amazon-ecs-agent/ecs-agent/utils/ttime"
 )
@@ -1630,7 +1631,7 @@ func (mtask *managedTask) cleanupTask(taskStoppedDuration time.Duration) {
 	if taskExecutionCredentialsID != "" {
 		logger.Info("Cleaning up task's execution credentials", logger.Fields{
 			field.TaskID:        mtask.GetID(),
-			field.CredentialsID: taskExecutionCredentialsID,
+			field.CredentialsID: utils.TruncateString(taskExecutionCredentialsID, utils.CredentialsIDLogTruncationLen),
 		})
 		mtask.credentialsManager.RemoveCredentials(taskExecutionCredentialsID)
 	}
