@@ -8523,6 +8523,12 @@
                     "traits": {
                         "smithy.api#enumValue": "GPU"
                     }
+                },
+                "NEURON_DEVICE": {
+                    "target": "smithy.api#Unit",
+                    "traits": {
+                        "smithy.api#enumValue": "NEURON_DEVICE"
+                    }
                 }
             }
         },

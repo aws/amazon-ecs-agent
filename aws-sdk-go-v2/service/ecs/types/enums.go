@@ -825,6 +825,7 @@ type PlatformDeviceType string
 // Enum values for PlatformDeviceType
 const (
 	PlatformDeviceTypeGpu PlatformDeviceType = "GPU"
+	PlatformDeviceTypeNeuronDevice PlatformDeviceType = "NEURON_DEVICE"
 )
 
 // Values returns all known values for PlatformDeviceType. Note that this can be
@@ -834,6 +835,7 @@ const (
 func (PlatformDeviceType) Values() []PlatformDeviceType {
 	return []PlatformDeviceType{
 		"GPU",
+		"NEURON_DEVICE",
 	}
 }
 
