@@ -1,8 +1,8 @@
 module github.com/aws/amazon-ecs-agent/ecs-agent
 
-go 1.24.0
+go 1.25.0
 
-toolchain go1.24.2
+toolchain go1.25.9
 
 require (
 	github.com/Microsoft/hcsshim v0.12.0

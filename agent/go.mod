@@ -2,6 +2,8 @@ module github.com/aws/amazon-ecs-agent/agent
 
 go 1.25.0
 
+toolchain go1.25.9
+
 require (
 	github.com/aws/amazon-ecs-agent/ecs-agent v0.0.0
 	github.com/aws/amazon-ecs-agent/ecs-agent/daemonimages/csidriver v0.0.0-20250814231752-7d5ec06fbcec

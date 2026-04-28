@@ -6,7 +6,7 @@ github.com/Microsoft/go-winio/internal/socket
 github.com/Microsoft/go-winio/internal/stringbuffer
 github.com/Microsoft/go-winio/pkg/guid
 # github.com/aws/amazon-ecs-agent/ecs-agent v0.0.0 => ../ecs-agent
-## explicit; go 1.24.0
+## explicit; go 1.25.0
 github.com/aws/amazon-ecs-agent/ecs-agent/acs/client
 github.com/aws/amazon-ecs-agent/ecs-agent/acs/model/ecsacs
 github.com/aws/amazon-ecs-agent/ecs-agent/acs/session
@@ -98,7 +98,7 @@ github.com/aws/amazon-ecs-agent/ecs-agent/wsclient
 github.com/aws/amazon-ecs-agent/ecs-agent/wsclient/mock
 github.com/aws/amazon-ecs-agent/ecs-agent/wsclient/wsconn
 # github.com/aws/amazon-ecs-agent/ecs-agent/daemonimages/csidriver v0.0.0-20250814231752-7d5ec06fbcec => ../ecs-agent/daemonimages/csidriver
-## explicit; go 1.24.0
+## explicit; go 1.25.0
 github.com/aws/amazon-ecs-agent/ecs-agent/daemonimages/csidriver/util
 # github.com/aws/aws-sdk-go v1.55.7
 ## explicit; go 1.19

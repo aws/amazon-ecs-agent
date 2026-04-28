@@ -13,7 +13,7 @@ jobs:
           path: src/github.com/aws/amazon-ecs-agent
       - name: get GO_VERSION
         id: get-go-version
-        run:  |
+        run: |
           cd "$Env:GITHUB_WORKSPACE"
           cd "src/github.com/aws/amazon-ecs-agent"
           $ErrorActionPreference = "Stop"
@@ -23,7 +23,7 @@ jobs:
             echo "invalid GO version"
             exit 1
           }
-          Write-Output "GO_VERSION_WINDOWS=$go_version_win" >> $GITHUB_OUTPUT
+          "GO_VERSION_WINDOWS=$go_version_win" | Out-File -FilePath $env:GITHUB_OUTPUT -Append -Encoding utf8
       - uses: actions/setup-go@v6
         with:
           go-version: ${{ steps.get-go-version.outputs.GO_VERSION_WINDOWS }}
