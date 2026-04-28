@@ -14,6 +14,7 @@
 package imds
 
 // NamespaceInfo represents the parsed info file from an iam-ecs-* namespace.
+// JSON tags match the IMDS response format.
 type NamespaceInfo struct {
 	LastUpdated     string                        `json:"LastUpdated"`
 	TaskCredentials map[string]TaskCredentialInfo `json:"TaskCredentials"`
@@ -21,15 +22,25 @@ type NamespaceInfo struct {
 
 // TaskCredentialInfo represents a single entry in the namespace info file.
 type TaskCredentialInfo struct {
-	RoleARN string `json:"RoleARN"`
+	RoleArn string `json:"RoleARN"`
 }
 
 // TaskCredential represents a task credential retrieved from IMDS.
 type TaskCredential struct {
 	TaskID          string
-	RoleARN         string
+	RoleArn         string
 	AccessKeyID     string
 	SecretAccessKey string
 	SessionToken    string
 	Expiration      string
+}
+
+// imdsCredential is used internally by the scanner to deserialize IMDS
+// credential files, which use different field names than TaskCredential
+// (e.g. "Token" vs SessionToken). JSON tags match the IMDS response format.
+type imdsCredential struct {
+	AccessKeyId     string `json:"AccessKeyId"`
+	SecretAccessKey string `json:"SecretAccessKey"`
+	Token           string `json:"Token"`
+	Expiration      string `json:"Expiration"`
 }
