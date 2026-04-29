@@ -47,3 +47,4 @@ ecs-agent-*.tar
 pkg/
 .vscode/
 .kiro/
+!.kiro/steering/
