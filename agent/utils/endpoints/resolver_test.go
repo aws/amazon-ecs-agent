@@ -145,13 +145,12 @@ func TestResolveCloudWatchLogsEndpoint(t *testing.T) {
 			useDualStack: false,
 			expected:     "https://logs.us-iso-west-1.c2s.ic.gov",
 		},
-		// AWS Isolated partition - dual-stack (not supported)
+		// AWS Isolated partition - dual-stack
 		{
 			name:         "Isolated region dual-stack (us-iso-east-1)",
 			region:       "us-iso-east-1",
 			useDualStack: true,
-			expectedError: "failed to resolve CloudWatch Logs endpoint for region 'us-iso-east-1':" +
-				" endpoint rule error, DualStack is enabled but this partition does not support DualStack",
+			expected:     "https://logs.us-iso-east-1.api.aws.ic.gov",
 		},
 		// AWS Isolated-E partition - non-dual-stack
 		{
@@ -160,13 +159,12 @@ func TestResolveCloudWatchLogsEndpoint(t *testing.T) {
 			useDualStack: false,
 			expected:     "https://logs.eu-isoe-west-1.cloud.adc-e.uk",
 		},
-		// AWS Isolated-E partition - dual-stack (not supported)
+		// AWS Isolated-E partition - dual-stack
 		{
 			name:         "Isolated-E region dual-stack (eu-isoe-west-1)",
 			region:       "eu-isoe-west-1",
 			useDualStack: true,
-			expectedError: "failed to resolve CloudWatch Logs endpoint for region 'eu-isoe-west-1':" +
-				" endpoint rule error, DualStack is enabled but this partition does not support DualStack",
+			expected:     "https://logs.eu-isoe-west-1.api.cloud-aws.adc-e.uk",
 		},
 	}
 

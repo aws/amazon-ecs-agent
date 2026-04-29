@@ -3031,43 +3031,43 @@ func TestCreateContainerAwslogsLogDriver(t *testing.T) {
 		{
 			name:                      "test container that uses awslogs log driver in NCL",
 			region:                    "eu-isoe-west-1",
-			expectedLogConfigEndpoint: "", // dual stack endpoint not supported
+			expectedLogConfigEndpoint: "https://logs.eu-isoe-west-1.api.cloud-aws.adc-e.uk",
 			instanceIPCompatibility:   ipcompatibility.NewIPv6OnlyCompatibility(),
 		},
 		{
 			name:                      "test container that uses awslogs log driver in ALE",
 			region:                    "us-isof-south-1",
-			expectedLogConfigEndpoint: "", // dual stack endpoint not supported
+			expectedLogConfigEndpoint: "https://logs.us-isof-south-1.api.aws.hci.ic.gov",
 			instanceIPCompatibility:   ipcompatibility.NewIPv6OnlyCompatibility(),
 		},
 		{
 			name:                      "test container that uses awslogs log driver in LTW",
 			region:                    "us-isof-east-1",
-			expectedLogConfigEndpoint: "", // dual stack endpoint not supported
+			expectedLogConfigEndpoint: "https://logs.us-isof-east-1.api.aws.hci.ic.gov",
 			instanceIPCompatibility:   ipcompatibility.NewIPv6OnlyCompatibility(),
 		},
 		{
 			name:                      "test container that uses awslogs log driver in LCK",
 			region:                    "us-isob-east-1",
-			expectedLogConfigEndpoint: "", // dual stack endpoint not supported
+			expectedLogConfigEndpoint: "https://logs.us-isob-east-1.api.aws.scloud",
 			instanceIPCompatibility:   ipcompatibility.NewIPv6OnlyCompatibility(),
 		},
 		{
 			name:                      "test container that uses awslogs log driver in DCA",
 			region:                    "us-iso-east-1",
-			expectedLogConfigEndpoint: "", // dual stack endpoint not supported
+			expectedLogConfigEndpoint: "https://logs.us-iso-east-1.api.aws.ic.gov",
 			instanceIPCompatibility:   ipcompatibility.NewIPv6OnlyCompatibility(),
 		},
 		{
 			name:                      "test container that uses awslogs log driver in APA",
 			region:                    "us-iso-west-1",
-			expectedLogConfigEndpoint: "", // dual stack endpoint not supported
+			expectedLogConfigEndpoint: "https://logs.us-iso-west-1.api.aws.ic.gov",
 			instanceIPCompatibility:   ipcompatibility.NewIPv6OnlyCompatibility(),
 		},
 		{
 			name:                      "test container that uses awslogs log driver in FFZ - IPv6",
 			region:                    "us-isob-west-1",
-			expectedLogConfigEndpoint: "", // dual stack endpoint not supported
+			expectedLogConfigEndpoint: "https://logs.us-isob-west-1.api.aws.scloud",
 			instanceIPCompatibility:   ipcompatibility.NewIPv6OnlyCompatibility(),
 		},
 		{
@@ -3078,7 +3078,7 @@ func TestCreateContainerAwslogsLogDriver(t *testing.T) {
 		{
 			name:                      "test container that uses awslogs log driver in eusc-de-east-1 - IPv6",
 			region:                    "eusc-de-east-1",
-			expectedLogConfigEndpoint: "", // dual stack endpoint not supported
+			expectedLogConfigEndpoint: "https://logs.eusc-de-east-1.api.amazonwebservices.eu",
 			instanceIPCompatibility:   ipcompatibility.NewIPv6OnlyCompatibility(),
 		},
 	}
