@@ -2058,6 +2058,16 @@ func (engine *DockerTaskEngine) createContainer(task *apitask.Task, container *a
 		}
 	}
 
+	// Inject AWS_REGION / AWS_DEFAULT_REGION unless already set in the task definition,
+	// environment files, or image. Environment files are merged into container.Environment.
+	var imageManagedEnvKeys map[string]bool
+	if !container.IsInternal() {
+		if imageState, ok := engine.imageManager.GetImageStateFromImageName(container.Image); ok && imageState != nil {
+			imageManagedEnvKeys = imageState.GetManagedEnvKeys()
+		}
+	}
+	task.ApplyRegionToContainer(container, engine.cfg.AWSRegion, imageManagedEnvKeys)
+
 	config, err := task.DockerConfig(container, dockerClientVersion)
 	if err != nil {
 		return dockerapi.DockerContainerMetadata{Error: apierrors.NamedError(err)}

@@ -139,7 +139,7 @@ func (imageManager *dockerImageManager) RecordContainerReference(container *apic
 	// On agent restart, container ID was retrieved from agent state file
 	// TODO add setter and getter for modifying this
 	if container.ImageID != "" {
-		if !imageManager.addContainerReferenceToExistingImageState(container) {
+		if !imageManager.addContainerReferenceToExistingImageState(container, nil) {
 			return fmt.Errorf("Failed to add container to existing image state")
 		}
 		return nil
@@ -164,9 +164,14 @@ func (imageManager *dockerImageManager) RecordContainerReference(container *apic
 		imageDigest := imageManager.fetchRepoDigest(imageInspected, container)
 		container.SetImageDigest(imageDigest)
 	}
-	added := imageManager.addContainerReferenceToExistingImageState(container)
+	// Capture managed image env keys for use at container create time.
+	var managedEnvKeys map[string]bool
+	if imageInspected.Config != nil {
+		managedEnvKeys = image.ParseManagedEnvKeys(imageInspected.Config.Env)
+	}
+	added := imageManager.addContainerReferenceToExistingImageState(container, managedEnvKeys)
 	if !added {
-		imageManager.addContainerReferenceToNewImageState(container, imageInspected.Size)
+		imageManager.addContainerReferenceToNewImageState(container, imageInspected.Size, managedEnvKeys)
 	}
 	return nil
 }
@@ -191,7 +196,7 @@ func (imageManager *dockerImageManager) fetchRepoDigest(imageInspected *types.Im
 	return resultRepoDigest
 }
 
-func (imageManager *dockerImageManager) addContainerReferenceToExistingImageState(container *apicontainer.Container) bool {
+func (imageManager *dockerImageManager) addContainerReferenceToExistingImageState(container *apicontainer.Container, managedEnvKeys map[string]bool) bool {
 	// this lock is used for reading the image states in the image manager
 	imageManager.updateLock.RLock()
 	defer imageManager.updateLock.RUnlock()
@@ -199,12 +204,16 @@ func (imageManager *dockerImageManager) addContainerReferenceToExistingImageStat
 	imageState, ok := imageManager.getImageState(container.ImageID)
 	if ok {
 		imageState.UpdateImageState(container)
+		if managedEnvKeys != nil {
+			// nil on restart (no inspect); preserves persisted value.
+			imageState.SetManagedEnvKeys(managedEnvKeys)
+		}
 		imageManager.saveImageStateData(imageState)
 	}
 	return ok
 }
 
-func (imageManager *dockerImageManager) addContainerReferenceToNewImageState(container *apicontainer.Container, imageSize int64) {
+func (imageManager *dockerImageManager) addContainerReferenceToNewImageState(container *apicontainer.Container, imageSize int64, managedEnvKeys map[string]bool) {
 	// this lock is used while creating and adding new image state to image manager
 	imageManager.updateLock.Lock()
 	defer imageManager.updateLock.Unlock()
@@ -213,6 +222,9 @@ func (imageManager *dockerImageManager) addContainerReferenceToNewImageState(con
 	imageState, ok := imageManager.getImageState(container.ImageID)
 	if ok {
 		imageState.UpdateImageState(container)
+		if managedEnvKeys != nil {
+			imageState.SetManagedEnvKeys(managedEnvKeys)
+		}
 		imageManager.saveImageStateData(imageState)
 	} else {
 		sourceImage := &image.Image{
@@ -220,9 +232,10 @@ func (imageManager *dockerImageManager) addContainerReferenceToNewImageState(con
 			Size:    imageSize,
 		}
 		sourceImageState := &image.ImageState{
-			Image:      sourceImage,
-			PulledAt:   time.Now(),
-			LastUsedAt: time.Now(),
+			Image:          sourceImage,
+			PulledAt:       time.Now(),
+			LastUsedAt:     time.Now(),
+			ManagedEnvKeys: managedEnvKeys,
 		}
 		sourceImageState.UpdateImageState(container)
 		imageManager.addImageState(sourceImageState)

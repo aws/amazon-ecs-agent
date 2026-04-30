@@ -191,7 +191,7 @@ func validateContainerRunWorkflow(t *testing.T,
 	client.EXPECT().
 		TagImage(gomock.Any(), canonicalImageRef.String(), container.Image).Return(nil)
 	imageManager.EXPECT().RecordContainerReference(container).Return(nil)
-	imageManager.EXPECT().GetImageStateFromImageName(gomock.Any()).Return(nil, false)
+	imageManager.EXPECT().GetImageStateFromImageName(gomock.Any()).Return(nil, false).AnyTimes()
 	client.EXPECT().APIVersion().Return(defaultDockerClientAPIVersion, nil)
 	dockerConfig, err := task.DockerConfig(container, defaultDockerClientAPIVersion)
 	if err != nil {
