@@ -67,7 +67,7 @@ func TestAddContainerReferenceToNewImageStateSaveData(t *testing.T) {
 		dataClient: dataClient,
 	}
 
-	imageManager.addContainerReferenceToNewImageState(testContainerData, 0)
+	imageManager.addContainerReferenceToNewImageState(testContainerData, 0, nil)
 	imageStates, err := dataClient.GetImageStates()
 	assert.NoError(t, err)
 	assert.Len(t, imageStates, 1)
@@ -80,7 +80,7 @@ func TestAddContainerReferenceToExistingImageStateSaveData(t *testing.T) {
 		dataClient: dataClient,
 	}
 	imageManager.imageStates = append(imageManager.imageStates, testImageStateData)
-	imageManager.addContainerReferenceToExistingImageState(testContainerData)
+	imageManager.addContainerReferenceToExistingImageState(testContainerData, nil)
 	imageStates, err := dataClient.GetImageStates()
 	assert.NoError(t, err)
 	assert.Len(t, imageStates, 1)

@@ -82,6 +82,10 @@ const (
 	// credentials.
 	awsSDKCredentialsRelativeURIPathEnvironmentVariableName = "AWS_CONTAINER_CREDENTIALS_RELATIVE_URI"
 
+	// awsRegionEnvVar and awsDefaultRegionEnvVar are the standard AWS SDK region env vars.
+	awsRegionEnvVar        = "AWS_REGION"
+	awsDefaultRegionEnvVar = "AWS_DEFAULT_REGION"
+
 	NvidiaVisibleDevicesEnvVar = "NVIDIA_VISIBLE_DEVICES"
 	GPUAssociationType         = "gpu"
 
@@ -1022,6 +1026,38 @@ func (task *Task) initializeCredentialsEndpoint(credentialsManager credentials.M
 	}
 
 	task.SetCredentialsRelativeURI(credentialsEndpointRelativeURI)
+}
+
+// ApplyRegionToContainer injects AWS_REGION and AWS_DEFAULT_REGION into the
+// container environment. Injection is skipped if either var is already set in
+// the task definition, environment files, or container image.
+func (task *Task) ApplyRegionToContainer(container *apicontainer.Container, region string, imageManagedEnvKeys map[string]bool) {
+	if region == "" {
+		return
+	}
+	if container.IsInternal() {
+		// Internal containers (pause, SC relay, managed daemons) do not receive injected env vars.
+		return
+	}
+
+	// Skip if the customer set either var in the task definition or environment files.
+	// Environment file vars are merged into container.Environment.
+	_, hasRegion := container.Environment[awsRegionEnvVar]
+	_, hasDefaultRegion := container.Environment[awsDefaultRegionEnvVar]
+	if hasRegion || hasDefaultRegion {
+		return
+	}
+
+	// Skip if the image already has a region preference (e.g. Dockerfile ENV).
+	if imageManagedEnvKeys[awsRegionEnvVar] || imageManagedEnvKeys[awsDefaultRegionEnvVar] {
+		return
+	}
+
+	if container.Environment == nil {
+		container.Environment = make(map[string]string)
+	}
+	container.Environment[awsRegionEnvVar] = region
+	container.Environment[awsDefaultRegionEnvVar] = region
 }
 
 // initializeContainersV3MetadataEndpoint generates a v3 endpoint id for each container, constructs the

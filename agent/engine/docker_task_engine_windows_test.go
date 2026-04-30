@@ -94,8 +94,10 @@ func TestDeleteTask(t *testing.T) {
 func TestCredentialSpecResourceTaskFile(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.TODO())
 	defer cancel()
-	ctrl, client, mockTime, taskEngine, credentialsManager, _, _, _ := mocks(t, ctx, &defaultConfig)
+	ctrl, client, mockTime, taskEngine, credentialsManager, imageManager, _, _ := mocks(t, ctx, &defaultConfig)
 	defer ctrl.Finish()
+
+	imageManager.EXPECT().GetImageStateFromImageName(gomock.Any()).Return(nil, false).AnyTimes()
 
 	// metadata required for createContainer workflow validation
 	credentialSpecTaskARN := "credentialSpecTask"
@@ -177,8 +179,10 @@ func TestCredentialSpecResourceTaskFile(t *testing.T) {
 func TestCredentialSpecResourceTaskFileErr(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.TODO())
 	defer cancel()
-	ctrl, client, mockTime, taskEngine, credentialsManager, _, _, _ := mocks(t, ctx, &defaultConfig)
+	ctrl, client, mockTime, taskEngine, credentialsManager, imageManager, _, _ := mocks(t, ctx, &defaultConfig)
 	defer ctrl.Finish()
+
+	imageManager.EXPECT().GetImageStateFromImageName(gomock.Any()).Return(nil, false).AnyTimes()
 
 	// metadata required for createContainer workflow validation
 	credentialSpecTaskARN := "credentialSpecTask"
@@ -346,7 +350,7 @@ func TestTaskWithSteadyStateResourcesProvisioned(t *testing.T) {
 		TagImage(gomock.Any(), expectedCanonicalRef, sleepContainer.Image).
 		Return(nil)
 	imageManager.EXPECT().RecordContainerReference(sleepContainer).Return(nil)
-	imageManager.EXPECT().GetImageStateFromImageName(sleepContainer.Image).Return(nil, false)
+	imageManager.EXPECT().GetImageStateFromImageName(sleepContainer.Image).Return(nil, false).AnyTimes()
 
 	gomock.InOrder(
 		// Ensure that the pause container is created first
@@ -588,7 +592,7 @@ func TestPauseContainerHappyPath(t *testing.T) {
 		Return(dockerapi.DockerContainerMetadata{}).
 		Times(2)
 	imageManager.EXPECT().RecordContainerReference(gomock.Any()).Return(nil).Times(2)
-	imageManager.EXPECT().GetImageStateFromImageName(gomock.Any()).Return(nil, false).Times(2)
+	imageManager.EXPECT().GetImageStateFromImageName(gomock.Any()).Return(nil, false).AnyTimes()
 	dockerClient.EXPECT().APIVersion().Return(defaultDockerClientAPIVersion, nil).Times(2)
 
 	dockerClient.EXPECT().CreateContainer(gomock.Any(), gomock.Any(), gomock.Any(),

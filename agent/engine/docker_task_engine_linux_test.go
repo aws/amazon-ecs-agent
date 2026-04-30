@@ -123,6 +123,7 @@ func TestResourceContainerProgression(t *testing.T) {
 	manifestPullClient := mock_dockerapi.NewMockDockerClient(ctrl)
 
 	expectedCanonicalRef := sleepContainer.Image + "@" + testDigest.String()
+	imageManager.EXPECT().GetImageStateFromImageName(sleepContainer.Image).Return(nil, false).AnyTimes()
 	// Hierarchical memory accounting is always enabled in CgroupV2 and no controller file exists to configure it
 	if config.CgroupV2 {
 		gomock.InOrder(
@@ -143,7 +144,6 @@ func TestResourceContainerProgression(t *testing.T) {
 				TagImage(gomock.Any(), expectedCanonicalRef, sleepContainer.Image).
 				Return(nil),
 			imageManager.EXPECT().RecordContainerReference(sleepContainer).Return(nil),
-			imageManager.EXPECT().GetImageStateFromImageName(sleepContainer.Image).Return(nil, false),
 			client.EXPECT().APIVersion().Return(defaultDockerClientAPIVersion, nil),
 			client.EXPECT().CreateContainer(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).Do(
 				func(ctx interface{}, config *dockercontainer.Config, hostConfig *dockercontainer.HostConfig, containerName string, z time.Duration) {
@@ -185,7 +185,6 @@ func TestResourceContainerProgression(t *testing.T) {
 				TagImage(gomock.Any(), expectedCanonicalRef, sleepContainer.Image).
 				Return(nil),
 			imageManager.EXPECT().RecordContainerReference(sleepContainer).Return(nil),
-			imageManager.EXPECT().GetImageStateFromImageName(sleepContainer.Image).Return(nil, false),
 			client.EXPECT().APIVersion().Return(defaultDockerClientAPIVersion, nil),
 			client.EXPECT().CreateContainer(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).Do(
 				func(ctx interface{}, config *dockercontainer.Config, hostConfig *dockercontainer.HostConfig, containerName string, z time.Duration) {
@@ -605,10 +604,11 @@ func TestCreateFirelensContainer(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			ctx, cancel := context.WithCancel(context.TODO())
 			defer cancel()
-			ctrl, client, mockTime, taskEngine, _, _, _, _ := mocks(t, ctx, &defaultConfig)
+			ctrl, client, mockTime, taskEngine, _, imageManager, _, _ := mocks(t, ctx, &defaultConfig)
 			defer ctrl.Finish()
 
 			mockTime.EXPECT().Now().AnyTimes()
+			imageManager.EXPECT().GetImageStateFromImageName(gomock.Any()).Return(nil, false).AnyTimes()
 			client.EXPECT().APIVersion().Return(defaultDockerClientAPIVersion, nil).AnyTimes()
 			client.EXPECT().CreateContainer(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).Do(
 				func(ctx context.Context,
@@ -721,7 +721,7 @@ func TestTaskWithSteadyStateResourcesProvisioned(t *testing.T) {
 		TagImage(gomock.Any(), expectedCanonicalRef, sleepContainer.Image).
 		Return(nil)
 	imageManager.EXPECT().RecordContainerReference(sleepContainer).Return(nil)
-	imageManager.EXPECT().GetImageStateFromImageName(sleepContainer.Image).Return(nil, false)
+	imageManager.EXPECT().GetImageStateFromImageName(sleepContainer.Image).Return(nil, false).AnyTimes()
 
 	gomock.InOrder(
 		// Ensure that the pause container is created first
@@ -935,7 +935,7 @@ func TestPauseContainerHappyPath(t *testing.T) {
 		Return(dockerapi.DockerContainerMetadata{}).
 		Times(2)
 	imageManager.EXPECT().RecordContainerReference(gomock.Any()).Return(nil).Times(2)
-	imageManager.EXPECT().GetImageStateFromImageName(gomock.Any()).Return(nil, false).Times(2)
+	imageManager.EXPECT().GetImageStateFromImageName(gomock.Any()).Return(nil, false).AnyTimes()
 	dockerClient.EXPECT().APIVersion().Return(defaultDockerClientAPIVersion, nil).Times(2)
 
 	dockerClient.EXPECT().CreateContainer(gomock.Any(), gomock.Any(), gomock.Any(),
@@ -1152,7 +1152,7 @@ func TestContainersWithServiceConnect(t *testing.T) {
 		Return(registry.DistributionInspect{}, nil)
 	dockerClient.EXPECT().PullImage(gomock.Any(), gomock.Any(), nil, gomock.Any()).Return(dockerapi.DockerContainerMetadata{}).Times(2)
 	imageManager.EXPECT().RecordContainerReference(gomock.Any()).Return(nil).Times(2)
-	imageManager.EXPECT().GetImageStateFromImageName(gomock.Any()).Return(nil, false).Times(2)
+	imageManager.EXPECT().GetImageStateFromImageName(gomock.Any()).Return(nil, false).AnyTimes()
 	dockerClient.EXPECT().APIVersion().Return(defaultDockerClientAPIVersion, nil).Times(4)
 
 	serviceConnectCreate, _, scStop := setupMockSCTaskContainer("service-connect", sleepTask.Containers[2], scContainerID, 1337, containerNetNS, serviceConnectManager, dockerClient, nil)
@@ -1355,7 +1355,7 @@ func TestContainersWithServiceConnect_BridgeMode(t *testing.T) {
 		Return(registry.DistributionInspect{}, nil)
 	dockerClient.EXPECT().PullImage(gomock.Any(), gomock.Any(), nil, gomock.Any()).Return(dockerapi.DockerContainerMetadata{}).Times(1)
 	imageManager.EXPECT().RecordContainerReference(gomock.Any()).Return(nil).Times(1)
-	imageManager.EXPECT().GetImageStateFromImageName(gomock.Any()).Return(nil, false).Times(1)
+	imageManager.EXPECT().GetImageStateFromImageName(gomock.Any()).Return(nil, false).AnyTimes()
 	dockerClient.EXPECT().APIVersion().Return(defaultDockerClientAPIVersion, nil).Times(2)
 
 	cleanup := make(chan time.Time)
@@ -1544,8 +1544,10 @@ func TestWatchAppNetImage(t *testing.T) {
 func TestCredentialSpecResourceTaskFile(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.TODO())
 	defer cancel()
-	ctrl, client, mockTime, taskEngine, credentialsManager, _, _, _ := mocks(t, ctx, &defaultConfig)
+	ctrl, client, mockTime, taskEngine, credentialsManager, imageManager, _, _ := mocks(t, ctx, &defaultConfig)
 	defer ctrl.Finish()
+
+	imageManager.EXPECT().GetImageStateFromImageName(gomock.Any()).Return(nil, false).AnyTimes()
 
 	// metadata required for createContainer workflow validation
 	credentialSpecTaskARN := "credentialSpecTask"

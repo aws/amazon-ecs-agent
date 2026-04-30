@@ -1406,6 +1406,104 @@ func TestInitializeContainersV1AgentAPIEndpoint(t *testing.T) {
 	}
 }
 
+func TestApplyRegionToContainerPrecedence(t *testing.T) {
+	tests := []struct {
+		name           string
+		containerType  apicontainer.ContainerType
+		taskDefEnvs    map[string]string
+		imageEnvKeys   map[string]bool
+		instanceRegion string
+		wantRegion     string // expected AWS_REGION ("" = not injected)
+		wantDefaultReg string // expected AWS_DEFAULT_REGION ("" = not injected)
+	}{
+		{
+			name:           "no overrides — inject both vars",
+			instanceRegion: "us-west-2",
+			wantRegion:     "us-west-2",
+			wantDefaultReg: "us-west-2",
+		},
+		{
+			name:           "nil image region keys — injection still proceeds",
+			instanceRegion: "us-west-2",
+			wantRegion:     "us-west-2",
+			wantDefaultReg: "us-west-2",
+		},
+		{
+			name:           "empty region — nothing injected",
+			instanceRegion: "",
+			wantRegion:     "",
+			wantDefaultReg: "",
+		},
+		{
+			name:           "internal container (CNI pause) — skip injection",
+			containerType:  apicontainer.ContainerCNIPause,
+			instanceRegion: "us-west-2",
+			wantRegion:     "",
+			wantDefaultReg: "",
+		},
+		{
+			// Image already has AWS_REGION: neither var is injected (both would be or neither).
+			name:           "image has AWS_REGION — no injection",
+			imageEnvKeys:   map[string]bool{awsRegionEnvVar: true},
+			instanceRegion: "us-west-2",
+			wantRegion:     "",
+			wantDefaultReg: "",
+		},
+		{
+			// Image already has AWS_DEFAULT_REGION: neither var is injected.
+			name:           "image has AWS_DEFAULT_REGION — no injection",
+			imageEnvKeys:   map[string]bool{awsDefaultRegionEnvVar: true},
+			instanceRegion: "us-west-2",
+			wantRegion:     "",
+			wantDefaultReg: "",
+		},
+		{
+			// Task def already has AWS_REGION: injection skipped, task def value preserved,
+			// AWS_DEFAULT_REGION is not added.
+			name:           "task definition has AWS_REGION — no injection, task def value preserved",
+			taskDefEnvs:    map[string]string{awsRegionEnvVar: "eu-west-1"},
+			instanceRegion: "us-west-2",
+			wantRegion:     "eu-west-1",
+			wantDefaultReg: "",
+		},
+		{
+			// Task def already has AWS_DEFAULT_REGION: injection skipped, task def value
+			// preserved, AWS_REGION is not added.
+			name:           "task definition has AWS_DEFAULT_REGION — no injection, task def value preserved",
+			taskDefEnvs:    map[string]string{awsDefaultRegionEnvVar: "ap-southeast-1"},
+			instanceRegion: "us-west-2",
+			wantRegion:     "",
+			wantDefaultReg: "ap-southeast-1",
+		},
+		{
+			// Task def check runs before image check: one var in task def suppresses
+			// injection entirely, so the other var from the image is also not applied.
+			name:           "task definition has AWS_REGION, image has AWS_DEFAULT_REGION — no injection",
+			taskDefEnvs:    map[string]string{awsRegionEnvVar: "eu-west-1"},
+			imageEnvKeys:   map[string]bool{awsDefaultRegionEnvVar: true},
+			instanceRegion: "us-west-2",
+			wantRegion:     "eu-west-1",
+			wantDefaultReg: "",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			container := &apicontainer.Container{
+				Name:        "app",
+				Type:        tt.containerType,
+				Environment: tt.taskDefEnvs,
+			}
+			task := Task{Containers: []*apicontainer.Container{container}}
+
+			task.ApplyRegionToContainer(container, tt.instanceRegion, tt.imageEnvKeys)
+
+			assert.Equal(t, tt.wantRegion, container.Environment[awsRegionEnvVar])
+			assert.Equal(t, tt.wantDefaultReg, container.Environment[awsDefaultRegionEnvVar])
+		})
+	}
+}
+
 func TestPostUnmarshalTaskWithLocalVolumes(t *testing.T) {
 	// Constants used here are defined in task_unix_test.go and task_windows_test.go
 	taskFromACS := ecsacs.Task{
