@@ -19,10 +19,12 @@ import (
 	"context"
 	"log"
 	"net"
+	"sync/atomic"
 	"testing"
 	"time"
 
 	pb "github.com/aws/amazon-ecs-agent/ecs-agent/gmsacredclient/credentialsfetcher"
+	"github.com/aws/amazon-ecs-agent/ecs-agent/utils/retry"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"google.golang.org/grpc"
@@ -107,11 +109,16 @@ func (*mockCredentialsFetcherServer) DeleteKerberosLease(ctx context.Context, re
 }
 
 func dialer() func(context.Context, string) (net.Conn, error) {
+	return dialerForServer(&mockCredentialsFetcherServer{})
+}
+
+// dialerForServer creates a bufconn-based dialer for the given gRPC server.
+func dialerForServer(srv pb.CredentialsFetcherServiceServer) func(context.Context, string) (net.Conn, error) {
 	listener := bufconn.Listen(1024 * 1024)
 
 	server := grpc.NewServer()
 
-	pb.RegisterCredentialsFetcherServiceServer(server, &mockCredentialsFetcherServer{})
+	pb.RegisterCredentialsFetcherServiceServer(server, srv)
 
 	go func() {
 		if err := server.Serve(listener); err != nil {
@@ -122,6 +129,23 @@ func dialer() func(context.Context, string) (net.Conn, error) {
 	return func(context.Context, string) (net.Conn, error) {
 		return listener.Dial()
 	}
+}
+
+// newConnForServer creates a gRPC client connection backed by the given server.
+func newConnForServer(t *testing.T, srv pb.CredentialsFetcherServiceServer) *grpc.ClientConn {
+	t.Helper()
+	ctx := context.Background()
+	conn, err := grpc.DialContext(ctx, "", grpc.WithInsecure(), grpc.WithContextDialer(dialerForServer(srv)))
+	require.NoError(t, err)
+	return conn
+}
+
+// newFastClient creates a CredentialsFetcherClient with a near-zero backoff so
+// retry tests complete quickly.
+func newFastClient(conn *grpc.ClientConn) CredentialsFetcherClient {
+	c := NewCredentialsFetcherClient(conn, time.Minute)
+	c.backoff = retry.NewExponentialBackoff(time.Nanosecond, time.Nanosecond, 0, 1)
+	return c
 }
 
 func TestCredentialsFetcherClient_Health(t *testing.T) {
@@ -449,4 +473,125 @@ func TestCredentialsFetcherClient_DeleteKerberosLease(t *testing.T) {
 			}
 		})
 	}
+}
+
+// transientThenSucceedServer is a mock gRPC server that returns a transient
+// Unavailable error for the first `failCount` calls, then succeeds.
+type transientThenSucceedServer struct {
+	pb.UnimplementedCredentialsFetcherServiceServer
+	// callCount tracks the total number of calls received across all methods.
+	callCount atomic.Int32
+	// failCount is the number of initial calls that should return a transient error.
+	failCount int32
+}
+
+func (s *transientThenSucceedServer) shouldFail() bool {
+	return s.callCount.Add(1) <= s.failCount
+}
+
+func (s *transientThenSucceedServer) AddKerberosLease(ctx context.Context, req *pb.CreateKerberosLeaseRequest) (*pb.CreateKerberosLeaseResponse, error) {
+	if s.shouldFail() {
+		return nil, status.Errorf(codes.Unavailable, "service temporarily unavailable")
+	}
+	return &pb.CreateKerberosLeaseResponse{
+		LeaseId:                  leaseid,
+		CreatedKerberosFilePaths: []string{"/var/credentials-fetcher/krbdir/123456/webapp01"},
+	}, nil
+}
+
+// terminalErrorServer always returns a terminal (non-retriable) error.
+type terminalErrorServer struct {
+	pb.UnimplementedCredentialsFetcherServiceServer
+	callCount atomic.Int32
+}
+
+func (s *terminalErrorServer) AddKerberosLease(ctx context.Context, req *pb.CreateKerberosLeaseRequest) (*pb.CreateKerberosLeaseResponse, error) {
+	s.callCount.Add(1)
+	return nil, status.Errorf(codes.PermissionDenied, "permission denied")
+}
+
+// renewFailedServer returns Status:"failed" from RenewKerberosArnLease with no gRPC error,
+// exercising the application-level failure branch in RenewKerberosArnLease.
+type renewFailedServer struct {
+	pb.UnimplementedCredentialsFetcherServiceServer
+}
+
+func (*renewFailedServer) RenewKerberosArnLease(_ context.Context, _ *pb.RenewKerberosArnLeaseRequest) (*pb.RenewKerberosArnLeaseResponse, error) {
+	return &pb.RenewKerberosArnLeaseResponse{Status: "failed"}, nil
+}
+
+// TestIsRetriableGRPCError verifies the error classification logic.
+func TestIsRetriableGRPCError(t *testing.T) {
+	tests := []struct {
+		name      string
+		err       error
+		retriable bool
+	}{
+		{"nil error", nil, false},
+		{"Unavailable", status.Errorf(codes.Unavailable, "unavailable"), true},
+		{"DeadlineExceeded", status.Errorf(codes.DeadlineExceeded, "deadline"), true},
+		{"ResourceExhausted", status.Errorf(codes.ResourceExhausted, "exhausted"), true},
+		{"Aborted", status.Errorf(codes.Aborted, "aborted"), true},
+		{"Internal", status.Errorf(codes.Internal, "internal"), true},
+		{"InvalidArgument", status.Errorf(codes.InvalidArgument, "bad arg"), false},
+		{"PermissionDenied", status.Errorf(codes.PermissionDenied, "denied"), false},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			assert.Equal(t, tt.retriable, isRetriableGRPCError(tt.err))
+		})
+	}
+}
+
+// TestAddKerberosLease_RetryOnTransientError verifies that callWithRetry retries
+// on transient errors and eventually succeeds.
+func TestAddKerberosLease_RetryOnTransientError(t *testing.T) {
+	srv := &transientThenSucceedServer{failCount: 2}
+	conn := newConnForServer(t, srv)
+
+	response, err := newFastClient(conn).
+		AddKerberosLease(context.Background(), []string{credspec_webapp01})
+
+	require.NoError(t, err)
+	assert.Equal(t, leaseid, response.LeaseID)
+	assert.Equal(t, int32(3), srv.callCount.Load(), "expected 2 failures + 1 success = 3 total calls")
+}
+
+// TestAddKerberosLease_ExhaustsRetries verifies that callWithRetry gives up
+// after grpcCallRetryAttempts and returns the last error.
+func TestAddKerberosLease_ExhaustsRetries(t *testing.T) {
+	srv := &transientThenSucceedServer{failCount: grpcCallRetryAttempts + 1}
+	conn := newConnForServer(t, srv)
+
+	_, err := newFastClient(conn).
+		AddKerberosLease(context.Background(), []string{credspec_webapp01})
+
+	require.Error(t, err)
+	assert.Equal(t, int32(grpcCallRetryAttempts), srv.callCount.Load())
+}
+
+// TestAddKerberosLease_NoRetryOnTerminalError verifies that callWithRetry does
+// not retry terminal errors and preserves the original gRPC status code.
+func TestAddKerberosLease_NoRetryOnTerminalError(t *testing.T) {
+	srv := &terminalErrorServer{}
+	conn := newConnForServer(t, srv)
+
+	_, err := newFastClient(conn).
+		AddKerberosLease(context.Background(), []string{credspec_webapp01})
+
+	require.Error(t, err)
+	assert.Equal(t, int32(1), srv.callCount.Load())
+	assert.Equal(t, codes.PermissionDenied, status.Code(err))
+}
+
+// TestRenewKerberosArnLease_FailedStatus verifies that a daemon response with
+// Status:"failed" (no gRPC error) is returned as an error to the caller.
+func TestRenewKerberosArnLease_FailedStatus(t *testing.T) {
+	conn := newConnForServer(t, &renewFailedServer{})
+
+	_, err := newFastClient(conn).
+		RenewKerberosArnLease(context.Background(), "id", "secret", "token", "us-east-1")
+
+	require.Error(t, err)
+	assert.Equal(t, codes.Internal, status.Code(err))
 }

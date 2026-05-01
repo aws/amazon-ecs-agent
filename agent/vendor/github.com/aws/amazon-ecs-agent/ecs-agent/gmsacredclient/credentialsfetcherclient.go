@@ -1,3 +1,15 @@
+// Copyright Amazon.com Inc. or its affiliates. All Rights Reserved.
+//
+// Licensed under the Apache License, Version 2.0 (the "License"). You may
+// not use this file except in compliance with the License. A copy of the
+// License is located at
+//
+//	http://aws.amazon.com/apache2.0/
+//
+// or in the "license" file accompanying this file. This file is distributed
+// on an "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either
+// express or implied. See the License for the specific language governing
+// permissions and limitations under the License.
 package gmsacredclient
 
 import (
@@ -6,6 +18,7 @@ import (
 	"time"
 
 	pb "github.com/aws/amazon-ecs-agent/ecs-agent/gmsacredclient/credentialsfetcher"
+	"github.com/aws/amazon-ecs-agent/ecs-agent/utils/retry"
 	"github.com/cihub/seelog"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
@@ -13,9 +26,19 @@ import (
 	"google.golang.org/grpc/status"
 )
 
+// Retry policy for gRPC calls to the credentials fetcher daemon.
+const (
+	grpcCallRetryAttempts        = 3
+	grpcCallRetryBackoffMin      = 1 * time.Second
+	grpcCallRetryBackoffMax      = 5 * time.Second
+	grpcCallRetryBackoffJitter   = 0.2
+	grpcCallRetryBackoffMultiple = 2.0
+)
+
 type CredentialsFetcherClient struct {
 	conn    *grpc.ClientConn
 	timeout time.Duration
+	backoff retry.Backoff
 }
 
 // GetGrpcClientConnection() returns grpc client connection
@@ -50,6 +73,12 @@ func NewCredentialsFetcherClient(conn *grpc.ClientConn, timeout time.Duration) C
 	return CredentialsFetcherClient{
 		conn:    conn,
 		timeout: timeout,
+		backoff: retry.NewExponentialBackoff(
+			grpcCallRetryBackoffMin,
+			grpcCallRetryBackoffMax,
+			grpcCallRetryBackoffJitter,
+			grpcCallRetryBackoffMultiple,
+		),
 	}
 }
 
@@ -69,6 +98,60 @@ type CredentialsFetcherArnResponse struct {
 	KerberosTicketsMap map[string]string
 }
 
+// isRetriableGRPCError returns true for transient errors (Unavailable,
+// DeadlineExceeded, ResourceExhausted, Aborted, Internal) and false for
+// terminal ones (InvalidArgument, PermissionDenied, etc.).
+func isRetriableGRPCError(err error) bool {
+	if err == nil {
+		return false
+	}
+	s, _ := status.FromError(err)
+	switch s.Code() {
+	case codes.Unavailable,
+		codes.DeadlineExceeded,
+		codes.ResourceExhausted,
+		codes.Aborted,
+		codes.Internal:
+		return true
+	default:
+		return false
+	}
+}
+
+// callWithRetry calls fn with retries on transient gRPC errors, stopping
+// immediately on terminal ones. The timeout is the total budget across all
+// attempts — each attempt gets an equal share of it.
+func callWithRetry[T any](ctx context.Context, backoff retry.Backoff, timeout time.Duration, operation string, fn func(context.Context) (T, error)) (T, error) {
+	var zero T
+	var result T
+	var lastErr error
+
+	perAttemptTimeout := timeout / grpcCallRetryAttempts
+
+	retry.RetryNWithBackoffCtx(ctx, backoff, grpcCallRetryAttempts, func() error {
+		callCtx, cancel := context.WithTimeout(ctx, perAttemptTimeout)
+		defer cancel()
+
+		r, err := fn(callCtx)
+		lastErr = err
+		if err != nil {
+			if isRetriableGRPCError(err) {
+				seelog.Warnf("transient error during %s, will retry: %v", operation, err)
+				return err
+			}
+			seelog.Errorf("terminal error during %s: %v", operation, err)
+			return nil
+		}
+		result = r
+		return nil
+	})
+
+	if lastErr != nil {
+		return zero, lastErr
+	}
+	return result, nil
+}
+
 // HealthCheck() invokes credentials fetcher daemon running on the host
 // to check the health status of daemon
 func (c CredentialsFetcherClient) HealthCheck(ctx context.Context, serviceName string) (string, error) {
@@ -80,12 +163,10 @@ func (c CredentialsFetcherClient) HealthCheck(ctx context.Context, serviceName s
 
 	request := &pb.HealthCheckRequest{Service: serviceName}
 
-	ctx, cancel := context.WithTimeout(ctx, time.Minute)
-	defer cancel()
-
-	response, err := client.HealthCheck(ctx, request)
+	response, err := callWithRetry(ctx, c.backoff, c.timeout, "credentials-fetcher health check", func(callCtx context.Context) (*pb.HealthCheckResponse, error) {
+		return client.HealthCheck(callCtx, request)
+	})
 	if err != nil {
-		seelog.Errorf("credentials-fetcher daemon status is unhealthy during health check: %v", err)
 		return "", err
 	}
 	seelog.Debugf("credentials-fetcher daemon is running")
@@ -109,12 +190,10 @@ func (c CredentialsFetcherClient) AddKerberosArnLease(ctx context.Context, crede
 
 	request := &pb.KerberosArnLeaseRequest{CredspecArns: credentialspecsArns, AccessKeyId: accessKeyId, SecretAccessKey: secretKey, SessionToken: sessionToken, Region: region}
 
-	ctx, cancel := context.WithTimeout(ctx, time.Minute)
-	defer cancel()
-
-	response, err := client.AddKerberosArnLease(ctx, request)
+	response, err := callWithRetry(ctx, c.backoff, c.timeout, "add kerberos ARN lease", func(callCtx context.Context) (*pb.CreateKerberosArnLeaseResponse, error) {
+		return client.AddKerberosArnLease(callCtx, request)
+	})
 	if err != nil {
-		seelog.Errorf("could not create kerberos tickets: %v", err)
 		return CredentialsFetcherArnResponse{}, err
 	}
 	seelog.Infof("created kerberos tickets and associated with LeaseID: %s", response.GetLeaseId())
@@ -147,12 +226,10 @@ func (c CredentialsFetcherClient) RenewKerberosArnLease(ctx context.Context, acc
 
 	request := &pb.RenewKerberosArnLeaseRequest{AccessKeyId: accessKeyId, SecretAccessKey: secretKey, SessionToken: sessionToken, Region: region}
 
-	ctx, cancel := context.WithTimeout(ctx, time.Minute)
-	defer cancel()
-
-	response, err := client.RenewKerberosArnLease(ctx, request)
+	response, err := callWithRetry(ctx, c.backoff, c.timeout, "renew kerberos ARN lease", func(callCtx context.Context) (*pb.RenewKerberosArnLeaseResponse, error) {
+		return client.RenewKerberosArnLease(callCtx, request)
+	})
 	if err != nil {
-		seelog.Errorf("could not renew kerberos tickets: %v", err)
 		return codes.Internal.String(), err
 	}
 
@@ -177,12 +254,10 @@ func (c CredentialsFetcherClient) AddKerberosLease(ctx context.Context, credenti
 
 	request := &pb.CreateKerberosLeaseRequest{CredspecContents: credentialspecs}
 
-	ctx, cancel := context.WithTimeout(ctx, time.Minute)
-	defer cancel()
-
-	response, err := client.AddKerberosLease(ctx, request)
+	response, err := callWithRetry(ctx, c.backoff, c.timeout, "add kerberos lease", func(callCtx context.Context) (*pb.CreateKerberosLeaseResponse, error) {
+		return client.AddKerberosLease(callCtx, request)
+	})
 	if err != nil {
-		seelog.Errorf("could not create kerberos tickets: %v", err)
 		return CredentialsFetcherResponse{}, err
 	}
 	seelog.Infof("created kerberos tickets and associated with LeaseID: %s", response.GetLeaseId())
@@ -213,12 +288,10 @@ func (c CredentialsFetcherClient) AddNonDomainJoinedKerberosLease(ctx context.Co
 
 	request := &pb.CreateNonDomainJoinedKerberosLeaseRequest{CredspecContents: credentialspecs, Username: username, Password: password, Domain: domain}
 
-	ctx, cancel := context.WithTimeout(ctx, time.Minute)
-	defer cancel()
-
-	response, err := client.AddNonDomainJoinedKerberosLease(ctx, request)
+	response, err := callWithRetry(ctx, c.backoff, c.timeout, "add non-domain-joined kerberos lease", func(callCtx context.Context) (*pb.CreateNonDomainJoinedKerberosLeaseResponse, error) {
+		return client.AddNonDomainJoinedKerberosLease(callCtx, request)
+	})
 	if err != nil {
-		seelog.Errorf("could not create kerberos tickets: %v", err)
 		return CredentialsFetcherResponse{}, err
 	}
 	seelog.Infof("created kerberos tickets and associated with LeaseID: %s", response.GetLeaseId())
@@ -244,12 +317,10 @@ func (c CredentialsFetcherClient) RenewNonDomainJoinedKerberosLease(ctx context.
 
 	request := &pb.RenewNonDomainJoinedKerberosLeaseRequest{Username: username, Password: password, Domain: domain}
 
-	ctx, cancel := context.WithTimeout(ctx, time.Minute)
-	defer cancel()
-
-	response, err := client.RenewNonDomainJoinedKerberosLease(ctx, request)
+	response, err := callWithRetry(ctx, c.backoff, c.timeout, "renew non-domain-joined kerberos lease", func(callCtx context.Context) (*pb.RenewNonDomainJoinedKerberosLeaseResponse, error) {
+		return client.RenewNonDomainJoinedKerberosLease(callCtx, request)
+	})
 	if err != nil {
-		seelog.Errorf("could not renew kerberos tickets: %v", err)
 		return CredentialsFetcherResponse{}, err
 	}
 
@@ -273,12 +344,10 @@ func (c CredentialsFetcherClient) DeleteKerberosLease(ctx context.Context, lease
 
 	request := &pb.DeleteKerberosLeaseRequest{LeaseId: leaseid}
 
-	ctx, cancel := context.WithTimeout(ctx, time.Minute)
-	defer cancel()
-
-	response, err := client.DeleteKerberosLease(ctx, request)
+	response, err := callWithRetry(ctx, c.backoff, c.timeout, "delete kerberos lease", func(callCtx context.Context) (*pb.DeleteKerberosLeaseResponse, error) {
+		return client.DeleteKerberosLease(callCtx, request)
+	})
 	if err != nil {
-		seelog.Errorf("could not delete kerberos tickets: %v", err)
 		return CredentialsFetcherResponse{}, err
 	}
 	seelog.Infof("deleted kerberos associated with LeaseID: %s", response.GetLeaseId())
