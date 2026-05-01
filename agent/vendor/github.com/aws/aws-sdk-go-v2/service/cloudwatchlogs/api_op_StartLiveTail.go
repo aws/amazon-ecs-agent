@@ -47,6 +47,13 @@ import (
 //	- A [SessionTimeoutException]object is returned when the session times out, after it has been kept
 //	open for three hours.
 //
+// The StartLiveTail API routes requests using SDK host prefix injection. SDK
+// versions released before April 1, 2026 route to
+// streaming-logs.Region.amazonaws.com , which does not support VPC endpoints. SDK
+// versions released on or after April 1, 2026 route to
+// stream-logs.Region.amazonaws.com , which supports VPC endpoints. To set up a VPC
+// endpoint for this API, see [Creating a VPC endpoint for CloudWatch Logs].
+//
 // You can end a session before it times out by closing the session stream or by
 // closing the client that is receiving the stream. The session also ends if the
 // established connection between the client and the server breaks.
@@ -56,6 +63,7 @@ import (
 // [LiveTailSessionStart]: https://docs.aws.amazon.com/AmazonCloudWatchLogs/latest/APIReference/API_LiveTailSessionStart.html
 // [LiveTailSessionUpdate]: https://docs.aws.amazon.com/AmazonCloudWatchLogs/latest/APIReference/API_LiveTailSessionUpdate.html
 // [Use Live Tail to view logs in near real time]: https://docs.aws.amazon.com/AmazonCloudWatch/latest/logs/CloudWatchLogs_LiveTail.html
+// [Creating a VPC endpoint for CloudWatch Logs]: https://docs.aws.amazon.com/AmazonCloudWatch/latest/logs/cloudwatch-logs-and-interface-VPC.html#create-VPC-endpoint-for-CloudWatchLogs
 // [Start a Live Tail session using an Amazon Web Services SDK]: https://docs.aws.amazon.com/AmazonCloudWatch/latest/logs/example_cloudwatch-logs_StartLiveTail_section.html
 //
 // [SessionTimeoutException]: https://docs.aws.amazon.com/AmazonCloudWatchLogs/latest/APIReference/API_StartLiveTailResponseStream.html#CWL-Type-StartLiveTailResponseStream-SessionTimeoutException
@@ -175,7 +183,7 @@ func (c *Client) addOperationStartLiveTailMiddlewares(stack *middleware.Stack, o
 	if err = addComputePayloadSHA256(stack); err != nil {
 		return err
 	}
-	if err = addRetry(stack, options); err != nil {
+	if err = addRetry(stack, options, c); err != nil {
 		return err
 	}
 	if err = addRawResponseToMetadata(stack); err != nil {
@@ -191,9 +199,6 @@ func (c *Client) addOperationStartLiveTailMiddlewares(stack *middleware.Stack, o
 		return err
 	}
 	if err = addSetLegacyContextSigningOptionsMiddleware(stack); err != nil {
-		return err
-	}
-	if err = addTimeOffsetBuild(stack, c); err != nil {
 		return err
 	}
 	if err = addUserAgentRetryMode(stack, options); err != nil {
@@ -226,16 +231,13 @@ func (c *Client) addOperationStartLiveTailMiddlewares(stack *middleware.Stack, o
 	if err = addDisableHTTPSMiddleware(stack, options); err != nil {
 		return err
 	}
-	if err = addSpanInitializeStart(stack); err != nil {
+	if err = addInterceptBeforeRetryLoop(stack, options); err != nil {
 		return err
 	}
-	if err = addSpanInitializeEnd(stack); err != nil {
+	if err = addInterceptAttempt(stack, options); err != nil {
 		return err
 	}
-	if err = addSpanBuildRequestStart(stack); err != nil {
-		return err
-	}
-	if err = addSpanBuildRequestEnd(stack); err != nil {
+	if err = addInterceptors(stack, options); err != nil {
 		return err
 	}
 	return nil
