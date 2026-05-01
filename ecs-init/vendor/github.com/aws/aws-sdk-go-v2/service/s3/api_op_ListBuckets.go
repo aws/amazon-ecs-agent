@@ -13,12 +13,25 @@ import (
 	smithyhttp "github.com/aws/smithy-go/transport/http"
 )
 
-// This operation is not supported by directory buckets.
+// This operation is not supported for directory buckets.
 //
 // Returns a list of all buckets owned by the authenticated sender of the request.
-// To use this operation, you must have the s3:ListAllMyBuckets permission.
+// To grant IAM permission to use this operation, you must add the
+// s3:ListAllMyBuckets policy action.
 //
 // For information about Amazon S3 buckets, see [Creating, configuring, and working with Amazon S3 buckets].
+//
+// We strongly recommend using only paginated ListBuckets requests. Unpaginated
+// ListBuckets requests are only supported for Amazon Web Services accounts set to
+// the default general purpose bucket quota of 10,000. If you have an approved
+// general purpose bucket quota above 10,000, you must send paginated ListBuckets
+// requests to list your account’s buckets. All unpaginated ListBuckets requests
+// will be rejected for Amazon Web Services accounts with a general purpose bucket
+// quota greater than 10,000.
+//
+// You must URL encode any signed header values that contain spaces. For example,
+// if your header value is my file.txt , containing two spaces after my , you must
+// URL encode this value to my%20%20file.txt .
 //
 // [Creating, configuring, and working with Amazon S3 buckets]: https://docs.aws.amazon.com/AmazonS3/latest/userguide/creating-buckets-s3.html
 func (c *Client) ListBuckets(ctx context.Context, params *ListBucketsInput, optFns ...func(*Options)) (*ListBucketsOutput, error) {
@@ -38,6 +51,20 @@ func (c *Client) ListBuckets(ctx context.Context, params *ListBucketsInput, optF
 
 type ListBucketsInput struct {
 
+	// Limits the response to buckets that are located in the specified Amazon Web
+	// Services Region. The Amazon Web Services Region must be expressed according to
+	// the Amazon Web Services Region code, such as us-west-2 for the US West (Oregon)
+	// Region. For a list of the valid values for all of the Amazon Web Services
+	// Regions, see [Regions and Endpoints].
+	//
+	// Requests made to a Regional endpoint that is different from the bucket-region
+	// parameter are not supported. For example, if you want to limit the response to
+	// your buckets in Region us-west-2 , the request must be made to an endpoint in
+	// Region us-west-2 .
+	//
+	// [Regions and Endpoints]: https://docs.aws.amazon.com/general/latest/gr/rande.html#s3_region
+	BucketRegion *string
+
 	// ContinuationToken indicates to Amazon S3 that the list is being continued on
 	// this bucket with a token. ContinuationToken is obfuscated and is not a real
 	// key. You can use this ContinuationToken for pagination of the list results.
@@ -45,12 +72,21 @@ type ListBucketsInput struct {
 	// Length Constraints: Minimum length of 0. Maximum length of 1024.
 	//
 	// Required: No.
+	//
+	// If you specify the bucket-region , prefix , or continuation-token query
+	// parameters without using max-buckets to set the maximum number of buckets
+	// returned in the response, Amazon S3 applies a default page size of 10,000 and
+	// provides a continuation token if there are more buckets.
 	ContinuationToken *string
 
 	// Maximum number of buckets to be returned in response. When the number is more
 	// than the count of buckets that are owned by an Amazon Web Services account,
 	// return all the buckets in response.
 	MaxBuckets *int32
+
+	// Limits the response to bucket names that begin with the specified bucket name
+	// prefix.
+	Prefix *string
 
 	noSmithyDocumentSerde
 }
@@ -68,6 +104,11 @@ type ListBucketsOutput struct {
 
 	// The owner of the buckets listed.
 	Owner *types.Owner
+
+	// If Prefix was sent with the request, it is included in the response.
+	//
+	// All bucket names in the response begin with the specified bucket name prefix.
+	Prefix *string
 
 	// Metadata pertaining to the operation's result.
 	ResultMetadata middleware.Metadata
@@ -109,7 +150,7 @@ func (c *Client) addOperationListBucketsMiddlewares(stack *middleware.Stack, opt
 	if err = addComputePayloadSHA256(stack); err != nil {
 		return err
 	}
-	if err = addRetry(stack, options); err != nil {
+	if err = addRetry(stack, options, c); err != nil {
 		return err
 	}
 	if err = addRawResponseToMetadata(stack); err != nil {
@@ -136,13 +177,13 @@ func (c *Client) addOperationListBucketsMiddlewares(stack *middleware.Stack, opt
 	if err = addPutBucketContextMiddleware(stack); err != nil {
 		return err
 	}
-	if err = addTimeOffsetBuild(stack, c); err != nil {
-		return err
-	}
 	if err = addUserAgentRetryMode(stack, options); err != nil {
 		return err
 	}
 	if err = addIsExpressUserAgent(stack); err != nil {
+		return err
+	}
+	if err = addCredentialSource(stack, options); err != nil {
 		return err
 	}
 	if err = stack.Initialize.Add(newServiceMetadataMiddleware_opListBuckets(options.Region), middleware.Before); err != nil {
@@ -175,16 +216,13 @@ func (c *Client) addOperationListBucketsMiddlewares(stack *middleware.Stack, opt
 	if err = addSerializeImmutableHostnameBucketMiddleware(stack, options); err != nil {
 		return err
 	}
-	if err = addSpanInitializeStart(stack); err != nil {
+	if err = addInterceptBeforeRetryLoop(stack, options); err != nil {
 		return err
 	}
-	if err = addSpanInitializeEnd(stack); err != nil {
+	if err = addInterceptAttempt(stack, options); err != nil {
 		return err
 	}
-	if err = addSpanBuildRequestStart(stack); err != nil {
-		return err
-	}
-	if err = addSpanBuildRequestEnd(stack); err != nil {
+	if err = addInterceptors(stack, options); err != nil {
 		return err
 	}
 	return nil
