@@ -220,6 +220,10 @@ func (agent *ecsAgent) appendEFSCapabilities(capabilities []types.Attribute) []t
 	return appendNameOnlyAttribute(capabilities, attributePrefix+capabilityEFS)
 }
 
+func (agent *ecsAgent) appendS3FilesCapabilities(capabilities []types.Attribute) []types.Attribute {
+	return appendNameOnlyAttribute(capabilities, attributePrefix+capabilityS3Files)
+}
+
 func (agent *ecsAgent) appendEFSVolumePluginCapabilities(capabilities []types.Attribute, pluginCapability string) []types.Attribute {
 	return appendNameOnlyAttribute(capabilities, attributePrefix+pluginCapability)
 }

@@ -120,6 +120,13 @@ func (pmHandler *payloadMessageHandler) addPayloadTasks(payload *ecsacs.PayloadM
 			initializeAttachmentTypeVolume(task, volName)
 		}
 
+		// Same for S3 Files attachments - mark matching volumes as "attachment" type
+		// so they pass through UnmarshalJSON without error.
+		s3filesVolNames := getS3FilesAttachmentVolumeNames(task)
+		for _, volName := range s3filesVolNames {
+			initializeAttachmentTypeVolume(task, volName)
+		}
+
 		apiTask, err := apitask.TaskFromACS(task, payload)
 		if err != nil {
 			pmHandler.handleInvalidTask(task, err, payload)
@@ -362,4 +369,19 @@ func initializeAttachmentTypeVolume(acsTask *ecsacs.Task, volName string) {
 			volume.Type = &newType
 		}
 	}
+}
+
+// getS3FilesAttachmentVolumeNames returns the volume names from all S3 Files attachments in the task.
+func getS3FilesAttachmentVolumeNames(acsTask *ecsacs.Task) []string {
+	var volNames []string
+	for _, attachment := range acsTask.Attachments {
+		if aws.ToString(attachment.AttachmentType) == apiresource.S3FilesTaskAttach {
+			for _, property := range attachment.AttachmentProperties {
+				if aws.ToString(property.Name) == apiresource.S3FilesVolumeNameKey {
+					volNames = append(volNames, aws.ToString(property.Value))
+				}
+			}
+		}
+	}
+	return volNames
 }

@@ -43,6 +43,7 @@ import (
 	taskresourcevolume "github.com/aws/amazon-ecs-agent/agent/taskresource/volume"
 	"github.com/aws/amazon-ecs-agent/agent/utils"
 	"github.com/aws/amazon-ecs-agent/ecs-agent/acs/model/ecsacs"
+	apiresource "github.com/aws/amazon-ecs-agent/ecs-agent/api/attachment/resource"
 	"github.com/aws/amazon-ecs-agent/ecs-agent/api/container/restart"
 	apicontainerstatus "github.com/aws/amazon-ecs-agent/ecs-agent/api/container/status"
 	apierrors "github.com/aws/amazon-ecs-agent/ecs-agent/api/errors"
@@ -384,6 +385,10 @@ func (task *Task) initializeVolumes(cfg *config.Config, dockerClient dockerapi.D
 		return apierrors.NewResourceInitError(task.Arn, err)
 	}
 	err = task.initializeEFSVolumes(cfg, dockerClient, ctx)
+	if err != nil {
+		return apierrors.NewResourceInitError(task.Arn, err)
+	}
+	err = task.initializeS3FilesVolumes(cfg, dockerClient, ctx)
 	if err != nil {
 		return apierrors.NewResourceInitError(task.Arn, err)
 	}
@@ -860,6 +865,58 @@ func (task *Task) addEFSVolumes(
 		"task",
 		false,
 		driverName,
+		driverOpts,
+		map[string]string{},
+		dockerClient,
+	)
+	if err != nil {
+		return err
+	}
+
+	vol.Volume = &volumeResource.VolumeConfig
+	task.AddResource(resourcetype.DockerVolumeKey, volumeResource)
+	task.updateContainerVolumeDependency(vol.Name)
+	return nil
+}
+
+// initializeS3FilesVolumes inspects the volume definitions in the attachment.
+// If it finds S3 Files volumes in the attachment, then it converts it to a docker
+// volume definition.
+func (task *Task) initializeS3FilesVolumes(cfg *config.Config, dockerClient dockerapi.DockerClient, ctx context.Context) error {
+	for i, vol := range task.Volumes {
+		if vol.Type != apiresource.S3FilesTaskAttach {
+			continue
+		}
+		s3vol, ok := vol.Volume.(*taskresourcevolume.S3FilesVolumeConfig)
+		if !ok {
+			return errors.New("task volume: volume configuration does not match the type 's3files'")
+		}
+		err := task.addS3FilesVolumes(ctx, cfg, dockerClient, &task.Volumes[i], s3vol)
+		if err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+// addS3FilesVolumes converts the S3 Files task definition into an internal docker volume
+// using the ECS volume plugin and updates container dependency.
+func (task *Task) addS3FilesVolumes(
+	ctx context.Context,
+	cfg *config.Config,
+	dockerClient dockerapi.DockerClient,
+	vol *TaskVolume,
+	s3vol *taskresourcevolume.S3FilesVolumeConfig,
+) error {
+	driverOpts := s3vol.GetVolumePluginDriverOptions(task.GetCredentialsRelativeURI())
+	volumeResource, err := taskresourcevolume.NewVolumeResource(
+		ctx,
+		vol.Name,
+		taskresourcevolume.S3FilesVolumeType,
+		task.volumeName(vol.Name),
+		"task",
+		false,
+		taskresourcevolume.ECSVolumePlugin,
 		driverOpts,
 		map[string]string{},
 		dockerClient,

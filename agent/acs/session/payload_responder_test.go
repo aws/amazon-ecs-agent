@@ -1118,3 +1118,78 @@ func validateTaskAndCredentials(taskCredentialsAck, expectedCredentialsAckForTas
 	}
 	return nil
 }
+
+func TestGetS3FilesAttachmentVolumeNames(t *testing.T) {
+	tests := []struct {
+		name            string
+		attachments     []*ecsacs.Attachment
+		expectedVolumes []string
+	}{
+		{
+			name: "found",
+			attachments: []*ecsacs.Attachment{
+				{
+					AttachmentType: aws.String(apiresource.S3FilesTaskAttach),
+					AttachmentProperties: []*ecsacs.AttachmentProperty{
+						{Name: aws.String("volumeId"), Value: aws.String("fs-123")},
+						{Name: aws.String("volumeName"), Value: aws.String("myS3Volume")},
+					},
+				},
+			},
+			expectedVolumes: []string{"myS3Volume"},
+		},
+		{
+			name: "no s3 files",
+			attachments: []*ecsacs.Attachment{
+				{
+					AttachmentType: aws.String(apiresource.EBSTaskAttach),
+					AttachmentProperties: []*ecsacs.AttachmentProperty{
+						{Name: aws.String("volumeName"), Value: aws.String("ebsVol")},
+					},
+				},
+			},
+			expectedVolumes: nil,
+		},
+		{
+			name: "mixed",
+			attachments: []*ecsacs.Attachment{
+				{
+					AttachmentType: aws.String(apiresource.EBSTaskAttach),
+					AttachmentProperties: []*ecsacs.AttachmentProperty{
+						{Name: aws.String("volumeName"), Value: aws.String("ebsVol")},
+					},
+				},
+				{
+					AttachmentType: aws.String(apiresource.S3FilesTaskAttach),
+					AttachmentProperties: []*ecsacs.AttachmentProperty{
+						{Name: aws.String("volumeId"), Value: aws.String("fs-111")},
+						{Name: aws.String("volumeName"), Value: aws.String("s3Vol1")},
+					},
+				},
+				{
+					AttachmentType: aws.String(apiresource.S3FilesTaskAttach),
+					AttachmentProperties: []*ecsacs.AttachmentProperty{
+						{Name: aws.String("volumeId"), Value: aws.String("fs-222")},
+						{Name: aws.String("volumeName"), Value: aws.String("s3Vol2")},
+					},
+				},
+			},
+			expectedVolumes: []string{"s3Vol1", "s3Vol2"},
+		},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			acsTask := &ecsacs.Task{Attachments: tc.attachments}
+			volNames := getS3FilesAttachmentVolumeNames(acsTask)
+			if tc.expectedVolumes == nil {
+				assert.Empty(t, volNames)
+			} else {
+				require.Len(t, volNames, len(tc.expectedVolumes))
+				for _, expected := range tc.expectedVolumes {
+					assert.Contains(t, volNames, expected)
+				}
+			}
+		})
+	}
+}
