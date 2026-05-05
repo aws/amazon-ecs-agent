@@ -22,6 +22,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/aws/amazon-ecs-agent/ecs-agent/credentials"
 	mock_ec2 "github.com/aws/amazon-ecs-agent/ecs-agent/ec2/mocks"
 
 	"github.com/aws/aws-sdk-go-v2/aws"
@@ -32,8 +33,6 @@ import (
 const (
 	testTaskID1 = "0ee1b6f1feef4ff2bacdf2c99732d506"
 	testTaskID2 = "aabbccdd11223344aabbccdd11223344"
-	testRoleID1 = "AROAEXAMPLEROLEID1"
-	testRoleID2 = "AROAEXAMPLEROLEID2"
 	testRoleARN = "arn:aws:iam::123456789012:role/TestRole"
 )
 
@@ -73,9 +72,10 @@ func testInfoJSON(entries map[string]string) string {
 }
 
 // testCred is a helper func that returns a TaskCredential with the given fields.
-func testCred(taskID, roleArn, accessKeyID string) TaskCredential {
+func testCred(taskID, roleType, roleArn, accessKeyID string) TaskCredential {
 	return TaskCredential{
 		TaskID:          taskID,
+		RoleType:        roleType,
 		RoleArn:         roleArn,
 		AccessKeyID:     accessKeyID,
 		SecretAccessKey: "secret",
@@ -151,8 +151,8 @@ func TestDiscoverNamespaces(t *testing.T) {
 }
 
 func TestScanNamespace(t *testing.T) {
-	key1 := testTaskID1 + "-" + testRoleID1
-	key2 := testTaskID2 + "-" + testRoleID2
+	key1 := testTaskID1 + "-" + credentials.ApplicationRoleType
+	key2 := testTaskID2 + "-" + credentials.ExecutionRoleType
 
 	tests := []struct {
 		name          string
@@ -172,7 +172,9 @@ func TestScanNamespace(t *testing.T) {
 				m.EXPECT().GetMetadata("iam-ecs-1/security-credentials/"+key1).Return(
 					testCredentialJSON("AKID1"), nil)
 			},
-			expectedCreds:           []TaskCredential{testCred(testTaskID1, testRoleARN, "AKID1")},
+			expectedCreds: []TaskCredential{
+				testCred(testTaskID1, credentials.ApplicationRoleType, testRoleARN, "AKID1"),
+			},
 			expectLastUpdatedCached: aws.Bool(true),
 		},
 		{
@@ -189,8 +191,8 @@ func TestScanNamespace(t *testing.T) {
 					testCredentialJSON("AKID2"), nil)
 			},
 			expectedCreds: []TaskCredential{
-				testCred(testTaskID1, testRoleARN, "AKID1"),
-				testCred(testTaskID2, testRoleARN, "AKID2"),
+				testCred(testTaskID1, credentials.ApplicationRoleType, testRoleARN, "AKID1"),
+				testCred(testTaskID2, credentials.ExecutionRoleType, testRoleARN, "AKID2"),
 			},
 		},
 		{
@@ -231,7 +233,9 @@ func TestScanNamespace(t *testing.T) {
 				m.EXPECT().GetMetadata("iam-ecs-1/security-credentials/"+key2).Return(
 					testCredentialJSON("AKID2"), nil)
 			},
-			expectedCreds:           []TaskCredential{testCred(testTaskID2, testRoleARN, "AKID2")},
+			expectedCreds: []TaskCredential{
+				testCred(testTaskID2, credentials.ExecutionRoleType, testRoleARN, "AKID2"),
+			},
 			expectLastUpdatedCached: aws.Bool(false),
 		},
 		{
@@ -274,7 +278,9 @@ func TestScanNamespace(t *testing.T) {
 			lastUpdated: map[string]time.Time{
 				"iam-ecs-1": time.Date(2026, 4, 28, 0, 0, 0, 0, time.UTC),
 			},
-			expectedCreds: []TaskCredential{testCred(testTaskID1, testRoleARN, "AKID_NEW")},
+			expectedCreds: []TaskCredential{
+				testCred(testTaskID1, credentials.ApplicationRoleType, testRoleARN, "AKID_NEW"),
+			},
 		},
 	}
 
@@ -310,17 +316,25 @@ func TestScanNamespace(t *testing.T) {
 		})
 	}
 }
-func TestParseTaskID(t *testing.T) {
+func TestParseCredentialKey(t *testing.T) {
 	tests := []struct {
-		name           string
-		key            string
-		expectedTaskID string
-		expectError    bool
+		name             string
+		key              string
+		expectedTaskID   string
+		expectedRoleType string
+		expectError      bool
 	}{
 		{
-			name:           "standard key",
-			key:            testTaskID1 + "-" + testRoleID1,
-			expectedTaskID: testTaskID1,
+			name:             "task application key",
+			key:              testTaskID1 + "-TaskApplication",
+			expectedTaskID:   testTaskID1,
+			expectedRoleType: "TaskApplication",
+		},
+		{
+			name:             "task execution key",
+			key:              testTaskID1 + "-TaskExecution",
+			expectedTaskID:   testTaskID1,
+			expectedRoleType: "TaskExecution",
 		},
 		{
 			name:        "no delimiter",
@@ -332,16 +346,22 @@ func TestParseTaskID(t *testing.T) {
 			key:         "",
 			expectError: true,
 		},
+		{
+			name:        "delimiter only",
+			key:         "-",
+			expectError: true,
+		},
 	}
 
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
-			taskID, err := parseTaskID(tc.key)
+			taskID, roleType, err := parseCredentialKey(tc.key)
 			if tc.expectError {
 				assert.Error(t, err)
 			} else {
 				assert.NoError(t, err)
 				assert.Equal(t, tc.expectedTaskID, taskID)
+				assert.Equal(t, tc.expectedRoleType, roleType)
 			}
 		})
 	}
@@ -364,8 +384,8 @@ func TestScan(t *testing.T) {
 		{
 			name: "end to end with multiple namespaces",
 			setupMock: func(m *mock_ec2.MockEC2MetadataClient) {
-				key1 := testTaskID1 + "-" + testRoleID1
-				key2 := testTaskID2 + "-" + testRoleID2
+				key1 := testTaskID1 + "-" + credentials.ApplicationRoleType
+				key2 := testTaskID2 + "-" + credentials.ExecutionRoleType
 				m.EXPECT().GetMetadata("").Return("iam-ecs-1\niam-ecs-2", nil)
 				m.EXPECT().GetMetadata("iam-ecs-1/info").Return(
 					testInfoJSON(map[string]string{key1: testRoleARN}), nil)
@@ -377,8 +397,8 @@ func TestScan(t *testing.T) {
 					testCredentialJSON("AKID2"), nil)
 			},
 			expectedCreds: []TaskCredential{
-				testCred(testTaskID1, testRoleARN, "AKID1"),
-				testCred(testTaskID2, testRoleARN, "AKID2"),
+				testCred(testTaskID1, credentials.ApplicationRoleType, testRoleARN, "AKID1"),
+				testCred(testTaskID2, credentials.ExecutionRoleType, testRoleARN, "AKID2"),
 			},
 		},
 		{

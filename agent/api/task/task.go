@@ -2849,6 +2849,19 @@ func (task *Task) GetExecutionCredentialsID() string {
 	return task.ExecutionCredentialsID
 }
 
+// GetCredentialsIDForRoleType returns the credentials ID for the given role
+// type on the task.
+func (task *Task) GetCredentialsIDForRoleType(roleType string) string {
+	switch roleType {
+	case credentials.ApplicationRoleType:
+		return task.GetCredentialsID()
+	case credentials.ExecutionRoleType:
+		return task.GetExecutionCredentialsID()
+	default:
+		return ""
+	}
+}
+
 // GetDesiredStatus gets the desired status of the task
 func (task *Task) GetDesiredStatus() apitaskstatus.TaskStatus {
 	task.lock.RLock()

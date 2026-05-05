@@ -6044,3 +6044,55 @@ func TestDockerConfigContainerLabelsWithEnvVar_ECS_PAUSE_LABELS(t *testing.T) {
 
 	assert.Equal(t, 0, len(config.Labels))
 }
+
+func TestGetCredentialsIDForRoleType(t *testing.T) {
+	tests := []struct {
+		name       string
+		credID     string
+		execCredID string
+		roleType   string
+		expectedID string
+	}{
+		{
+			name:       "application role type",
+			credID:     "cred-task",
+			execCredID: "cred-exec",
+			roleType:   credentials.ApplicationRoleType,
+			expectedID: "cred-task",
+		},
+		{
+			name:       "execution role type",
+			credID:     "cred-task",
+			execCredID: "cred-exec",
+			roleType:   credentials.ExecutionRoleType,
+			expectedID: "cred-exec",
+		},
+		{
+			name:       "unknown role type",
+			credID:     "cred-task",
+			execCredID: "cred-exec",
+			roleType:   "UnknownType",
+			expectedID: "",
+		},
+		{
+			name:       "empty credentials ID",
+			credID:     "",
+			execCredID: "",
+			roleType:   credentials.ApplicationRoleType,
+			expectedID: "",
+		},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			task := &Task{Arn: "arn:aws:ecs:us-west-2:123:task/cluster/abc"}
+			if tc.credID != "" {
+				task.SetCredentialsID(tc.credID)
+			}
+			if tc.execCredID != "" {
+				task.SetExecutionRoleCredentialsID(tc.execCredID)
+			}
+			assert.Equal(t, tc.expectedID, task.GetCredentialsIDForRoleType(tc.roleType))
+		})
+	}
+}

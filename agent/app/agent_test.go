@@ -2118,3 +2118,51 @@ func TestLoadManagedDaemonImage(t *testing.T) {
 		})
 	}
 }
+
+func TestGetIMDSCredentialRefresher(t *testing.T) {
+	tests := []struct {
+		name            string
+		enabled         bool
+		expectRefresher bool
+	}{
+		{
+			name:            "disabled, returns nil",
+			enabled:         false,
+			expectRefresher: false,
+		},
+		{
+			name:            "enabled, returns refresher",
+			enabled:         true,
+			expectRefresher: true,
+		},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			ctrl := gomock.NewController(t)
+			defer ctrl.Finish()
+
+			ctx, cancel := context.WithCancel(context.Background())
+			defer cancel()
+
+			mockEngine := mock_engine.NewMockTaskEngine(ctrl)
+			mockCredManager := mock_credentials.NewMockManager(ctrl)
+			mockEC2Metadata := mock_ec2.NewMockEC2MetadataClient(ctrl)
+
+			agent := &ecsAgent{
+				ctx:               ctx,
+				cfg:               &config.Config{IMDSIAMRolesEnabled: tc.enabled},
+				ec2MetadataClient: mockEC2Metadata,
+			}
+
+			result := agent.getIMDSCredentialRefresher(
+				mockCredManager, mockEngine,
+			)
+			if tc.expectRefresher {
+				assert.NotNil(t, result)
+			} else {
+				assert.Nil(t, result)
+			}
+		})
+	}
+}

@@ -41,6 +41,7 @@ import (
 	"github.com/aws/amazon-ecs-agent/agent/eni/watcher"
 	"github.com/aws/amazon-ecs-agent/agent/eventhandler"
 	"github.com/aws/amazon-ecs-agent/agent/handlers"
+	"github.com/aws/amazon-ecs-agent/agent/imdscreds"
 	"github.com/aws/amazon-ecs-agent/agent/sighandlers"
 	"github.com/aws/amazon-ecs-agent/agent/sighandlers/exitcodes"
 	"github.com/aws/amazon-ecs-agent/agent/statemanager"
@@ -57,6 +58,7 @@ import (
 	ecsclient "github.com/aws/amazon-ecs-agent/ecs-agent/api/ecs/client"
 	apierrors "github.com/aws/amazon-ecs-agent/ecs-agent/api/errors"
 	"github.com/aws/amazon-ecs-agent/ecs-agent/credentials"
+	"github.com/aws/amazon-ecs-agent/ecs-agent/credentials/imds"
 	"github.com/aws/amazon-ecs-agent/ecs-agent/credentials/providers"
 	"github.com/aws/amazon-ecs-agent/ecs-agent/doctor"
 	"github.com/aws/amazon-ecs-agent/ecs-agent/ec2"
@@ -969,6 +971,11 @@ func (agent *ecsAgent) startAsyncRoutines(
 		go agent.startSpotInstanceDrainingPoller(agent.ctx, client)
 	}
 
+	// Start IMDS credential refresher for periodic task credential retrieval via IMDS.
+	if imdsRefresher := agent.getIMDSCredentialRefresher(credentialsManager, taskEngine); imdsRefresher != nil {
+		go imdsRefresher.Start()
+	}
+
 	// Agent introspection api
 	go handlers.ServeIntrospectionHTTPEndpoint(agent.ctx, &agent.containerInstanceARN, taskEngine, agent.cfg)
 
@@ -1018,6 +1025,21 @@ func (agent *ecsAgent) startSpotInstanceDrainingPoller(ctx context.Context, clie
 			time.Sleep(time.Second)
 		}
 	}
+}
+
+// getIMDSCredentialRefresher returns an IMDS credential refresher
+// if the IMDSIAMRolesEnabled configuration is enabled.
+func (agent *ecsAgent) getIMDSCredentialRefresher(
+	credentialsManager credentials.Manager,
+	taskEngine engine.TaskEngine,
+) *imdscreds.IMDSCredentialRefresher {
+	if agent.cfg.IMDSIAMRolesEnabled {
+		imdsScanner := imds.NewScanner(agent.ec2MetadataClient)
+		return imdscreds.NewIMDSCredentialRefresher(
+			agent.ctx, imdsScanner, credentialsManager, taskEngine,
+		)
+	}
+	return nil
 }
 
 // spotInstanceDrainingPoller returns true if spot instance interruption has been
