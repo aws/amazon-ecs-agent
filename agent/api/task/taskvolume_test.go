@@ -813,3 +813,129 @@ func TestSetPausePIDInVolumeResources(t *testing.T) {
 	task.SetPausePIDInVolumeResources("pid")
 	assert.Equal(t, "pid", volRes.GetPauseContainerPID())
 }
+
+func TestUnmarshalS3FilesVolume(t *testing.T) {
+	taskDef := []byte(`{
+		"Arn": "test",
+		"Family": "",
+		"Version": "",
+		"Containers": null,
+		"associations": null,
+		"resources": null,
+		"volumes": [
+		  {
+			"s3filesVolumeConfiguration": {
+				"volumeId": "fs-123",
+				"volumeName": "myS3Vol",
+				"s3FilesRootDirectory": "/data",
+				"s3FilesTransitEncryptionPort": "2049",
+				"s3FilesAccessPointId": "fsap-456",
+				"dockerVolumeName": "docker-vol-name"
+			},
+			"name": "1",
+			"type": "s3files"
+		  }
+		],
+		"DesiredStatus": "NONE",
+		"KnownStatus": "NONE",
+		"KnownTime": "0001-01-01T00:00:00Z",
+		"PullStartedAt": "0001-01-01T00:00:00Z",
+		"PullStoppedAt": "0001-01-01T00:00:00Z",
+		"ExecutionStoppedAt": "0001-01-01T00:00:00Z",
+		"SentStatus": "NONE",
+		"executionCredentialsID": "",
+		"credentialsID": "",
+		"ENI": null,
+		"AppMesh": null,
+		"PlatformFields": {}
+	  }`)
+
+	var task Task
+	err := json.Unmarshal(taskDef, &task)
+	require.NoError(t, err, "Could not unmarshal task")
+
+	require.Len(t, task.Volumes, 1)
+	assert.Equal(t, apiresource.S3FilesTaskAttach, task.Volumes[0].Type)
+	assert.Equal(t, "1", task.Volumes[0].Name)
+	s3cfg, ok := task.Volumes[0].Volume.(*taskresourcevolume.S3FilesVolumeConfig)
+	require.True(t, ok)
+	assert.Equal(t, "fs-123", s3cfg.VolumeId)
+	assert.Equal(t, "myS3Vol", s3cfg.VolumeName)
+	assert.Equal(t, "/data", s3cfg.S3FilesRootDirectory)
+	assert.Equal(t, "2049", s3cfg.S3FilesTransitEncryptionPort)
+	assert.Equal(t, "fsap-456", s3cfg.S3FilesAccessPointId)
+	assert.Equal(t, "docker-vol-name", s3cfg.DockerVolumeName)
+}
+
+func TestMarshalS3FilesVolume(t *testing.T) {
+	task := &Task{
+		Arn: "test",
+		Volumes: []TaskVolume{
+			{
+				Name: "s3vol",
+				Type: apiresource.S3FilesTaskAttach,
+				Volume: &taskresourcevolume.S3FilesVolumeConfig{
+					VolumeId:                     "fs-123",
+					VolumeName:                   "myS3Vol",
+					S3FilesRootDirectory:         "/data",
+					S3FilesTransitEncryptionPort: "2049",
+					S3FilesAccessPointId:         "fsap-456",
+					DockerVolumeName:             "docker-vol-name",
+				},
+			},
+		},
+	}
+
+	marshal, err := json.Marshal(task)
+	require.NoError(t, err, "Could not marshal task")
+
+	var out Task
+	err = json.Unmarshal(marshal, &out)
+	require.NoError(t, err, "Could not unmarshal task")
+
+	require.Len(t, out.Volumes, 1)
+	assert.Equal(t, apiresource.S3FilesTaskAttach, out.Volumes[0].Type)
+	assert.Equal(t, "s3vol", out.Volumes[0].Name)
+	s3cfg, ok := out.Volumes[0].Volume.(*taskresourcevolume.S3FilesVolumeConfig)
+	require.True(t, ok)
+	assert.Equal(t, "fs-123", s3cfg.VolumeId)
+	assert.Equal(t, "myS3Vol", s3cfg.VolumeName)
+	assert.Equal(t, "/data", s3cfg.S3FilesRootDirectory)
+	assert.Equal(t, "2049", s3cfg.S3FilesTransitEncryptionPort)
+	assert.Equal(t, "fsap-456", s3cfg.S3FilesAccessPointId)
+	assert.Equal(t, "docker-vol-name", s3cfg.DockerVolumeName)
+}
+
+func TestUnmarshalS3FilesVolume_NilConfig(t *testing.T) {
+	taskDef := []byte(`{
+		"Arn": "test",
+		"Family": "",
+		"Version": "",
+		"Containers": null,
+		"associations": null,
+		"resources": null,
+		"volumes": [
+		  {
+			"name": "1",
+			"type": "s3files"
+		  }
+		],
+		"DesiredStatus": "NONE",
+		"KnownStatus": "NONE",
+		"KnownTime": "0001-01-01T00:00:00Z",
+		"PullStartedAt": "0001-01-01T00:00:00Z",
+		"PullStoppedAt": "0001-01-01T00:00:00Z",
+		"ExecutionStoppedAt": "0001-01-01T00:00:00Z",
+		"SentStatus": "NONE",
+		"executionCredentialsID": "",
+		"credentialsID": "",
+		"ENI": null,
+		"AppMesh": null,
+		"PlatformFields": {}
+	  }`)
+
+	var task Task
+	err := json.Unmarshal(taskDef, &task)
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "empty s3files")
+}

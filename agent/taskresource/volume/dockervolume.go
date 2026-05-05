@@ -42,6 +42,7 @@ const (
 	resourceProvisioningError = "VolumeError: Agent could not create task's volume resources"
 	EFSVolumeType             = "efs"
 	EBSVolumeType             = "ebs"
+	S3FilesVolumeType         = "s3files"
 	DockerVolumeType          = "docker"
 	FSHostVolumeType          = "fshost"
 	netNSFormat               = "/proc/%s/ns/net"
@@ -484,14 +485,14 @@ func (vol *VolumeResource) GetAppliedStatus() resourcestatus.ResourceStatus {
 
 // DependOnTaskNetwork shows whether the resource creation needs task network setup beforehand
 func (vol *VolumeResource) DependOnTaskNetwork() bool {
-	return vol.VolumeType == EFSVolumeType
+	return vol.VolumeType == EFSVolumeType || vol.VolumeType == S3FilesVolumeType
 }
 
 // BuildContainerDependency sets the container dependencies of the resource.
 func (vol *VolumeResource) BuildContainerDependency(containerName string, satisfied apicontainerstatus.ContainerStatus,
 	dependent resourcestatus.ResourceStatus) {
-	// No op for non-EFS volume type
-	if vol.VolumeType != EFSVolumeType {
+	// No op for non-EFS and non-S3Files volume type
+	if vol.VolumeType != EFSVolumeType && vol.VolumeType != S3FilesVolumeType {
 		return
 	}
 
@@ -509,8 +510,8 @@ func (vol *VolumeResource) BuildContainerDependency(containerName string, satisf
 
 // GetContainerDependencies returns the container dependencies of the resource.
 func (vol *VolumeResource) GetContainerDependencies(dependent resourcestatus.ResourceStatus) []apicontainer.ContainerDependency {
-	// No op for non-EFS volume type
-	if vol.VolumeType != EFSVolumeType {
+	// No op for non-EFS and non-S3Files volume type
+	if vol.VolumeType != EFSVolumeType && vol.VolumeType != S3FilesVolumeType {
 		return nil
 	}
 

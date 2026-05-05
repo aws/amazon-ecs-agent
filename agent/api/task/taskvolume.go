@@ -79,6 +79,8 @@ func (tv *TaskVolume) UnmarshalJSON(b []byte) error {
 		return tv.unmarshalFSxWindowsFileServerVolume(intermediate["fsxWindowsFileServerVolumeConfiguration"])
 	case apiresource.EBSTaskAttach:
 		return tv.unmarshalEBSVolume(intermediate["ebsVolumeConfiguration"])
+	case apiresource.S3FilesTaskAttach:
+		return tv.unmarshalS3FilesVolume(intermediate["s3filesVolumeConfiguration"])
 	case AttachmentType:
 		seelog.Warn("Obtaining the volume configuration from task attachments.")
 		return nil
@@ -109,6 +111,8 @@ func (tv *TaskVolume) MarshalJSON() ([]byte, error) {
 		result["fsxWindowsFileServerVolumeConfiguration"] = tv.Volume
 	case apiresource.EBSTaskAttach:
 		result["ebsVolumeConfiguration"] = tv.Volume
+	case apiresource.S3FilesTaskAttach:
+		result["s3filesVolumeConfiguration"] = tv.Volume
 	default:
 		return nil, errors.Errorf("unrecognized volume type: %q", tv.Type)
 	}
@@ -193,6 +197,18 @@ func (tv *TaskVolume) unmarshalEBSVolume(data json.RawMessage) error {
 	}
 
 	tv.Volume = &ebsVoumeConfig
+	return nil
+}
+
+func (tv *TaskVolume) unmarshalS3FilesVolume(data json.RawMessage) error {
+	if data == nil {
+		return errors.New("invalid volume: empty s3files volume configuration")
+	}
+	var s3filesConfig taskresourcevolume.S3FilesVolumeConfig
+	if err := json.Unmarshal(data, &s3filesConfig); err != nil {
+		return err
+	}
+	tv.Volume = &s3filesConfig
 	return nil
 }
 

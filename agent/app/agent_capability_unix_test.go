@@ -916,6 +916,7 @@ func TestCapabilitiesUnix(t *testing.T) {
 		attributePrefix + capabilityContainerPortRange,
 		attributePrefix + capabilityContainerRestartPolicy,
 		attributePrefix + capabilityEBSTANonRootUser,
+		attributePrefix + capabilityS3Files,
 	}
 
 	var expectedCapabilities []types.Attribute

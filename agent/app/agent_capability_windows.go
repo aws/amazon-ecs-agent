@@ -97,6 +97,10 @@ func (agent *ecsAgent) appendEFSCapabilities(capabilities []types.Attribute) []t
 	return capabilities
 }
 
+func (agent *ecsAgent) appendS3FilesCapabilities(capabilities []types.Attribute) []types.Attribute {
+	return capabilities
+}
+
 func (agent *ecsAgent) appendFirelensLoggingDriverCapabilities(capabilities []types.Attribute) []types.Attribute {
 	return capabilities
 }
