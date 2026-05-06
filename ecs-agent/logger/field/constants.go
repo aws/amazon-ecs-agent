@@ -75,4 +75,6 @@ const (
 	Region                  = "region"
 	DockerVersion           = "dockerVersion"
 	NetworkInterface        = "networkInterface"
+	LeaseID                 = "leaseID"
+	Attempts                = "attempts"
 )

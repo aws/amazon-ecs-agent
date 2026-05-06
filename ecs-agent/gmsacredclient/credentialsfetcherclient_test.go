@@ -25,6 +25,7 @@ import (
 
 	pb "github.com/aws/amazon-ecs-agent/ecs-agent/gmsacredclient/credentialsfetcher"
 	"github.com/aws/amazon-ecs-agent/ecs-agent/utils/retry"
+
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"google.golang.org/grpc"
@@ -520,30 +521,7 @@ func (*renewFailedServer) RenewKerberosArnLease(_ context.Context, _ *pb.RenewKe
 	return &pb.RenewKerberosArnLeaseResponse{Status: "failed"}, nil
 }
 
-// TestIsRetriableGRPCError verifies the error classification logic.
-func TestIsRetriableGRPCError(t *testing.T) {
-	tests := []struct {
-		name      string
-		err       error
-		retriable bool
-	}{
-		{"nil error", nil, false},
-		{"Unavailable", status.Errorf(codes.Unavailable, "unavailable"), true},
-		{"DeadlineExceeded", status.Errorf(codes.DeadlineExceeded, "deadline"), true},
-		{"ResourceExhausted", status.Errorf(codes.ResourceExhausted, "exhausted"), true},
-		{"Aborted", status.Errorf(codes.Aborted, "aborted"), true},
-		{"Internal", status.Errorf(codes.Internal, "internal"), true},
-		{"InvalidArgument", status.Errorf(codes.InvalidArgument, "bad arg"), false},
-		{"PermissionDenied", status.Errorf(codes.PermissionDenied, "denied"), false},
-	}
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			assert.Equal(t, tt.retriable, isRetriableGRPCError(tt.err))
-		})
-	}
-}
-
-// TestAddKerberosLease_RetryOnTransientError verifies that callWithRetry retries
+// TestAddKerberosLease_RetryOnTransientError verifies that retry.CallWithRetry retries
 // on transient errors and eventually succeeds.
 func TestAddKerberosLease_RetryOnTransientError(t *testing.T) {
 	srv := &transientThenSucceedServer{failCount: 2}
@@ -557,7 +535,7 @@ func TestAddKerberosLease_RetryOnTransientError(t *testing.T) {
 	assert.Equal(t, int32(3), srv.callCount.Load(), "expected 2 failures + 1 success = 3 total calls")
 }
 
-// TestAddKerberosLease_ExhaustsRetries verifies that callWithRetry gives up
+// TestAddKerberosLease_ExhaustsRetries verifies that retry.CallWithRetry gives up
 // after grpcCallRetryAttempts and returns the last error.
 func TestAddKerberosLease_ExhaustsRetries(t *testing.T) {
 	srv := &transientThenSucceedServer{failCount: grpcCallRetryAttempts + 1}
@@ -570,7 +548,7 @@ func TestAddKerberosLease_ExhaustsRetries(t *testing.T) {
 	assert.Equal(t, int32(grpcCallRetryAttempts), srv.callCount.Load())
 }
 
-// TestAddKerberosLease_NoRetryOnTerminalError verifies that callWithRetry does
+// TestAddKerberosLease_NoRetryOnTerminalError verifies that retry.CallWithRetry does
 // not retry terminal errors and preserves the original gRPC status code.
 func TestAddKerberosLease_NoRetryOnTerminalError(t *testing.T) {
 	srv := &terminalErrorServer{}
