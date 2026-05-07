@@ -189,39 +189,70 @@ func TestCredentialsFetcherClient_Health(t *testing.T) {
 }
 
 func TestCredentialsFetcherClient_AddKerberosLease(t *testing.T) {
+	transientSrv := &transientThenSucceedServer{failCount: 2}
+	exhaustedSrv := &transientThenSucceedServer{failCount: grpcCallRetryAttempts + 1}
+	terminalSrv := &terminalErrorServer{}
+
 	tests := []struct {
 		name             string
+		server           pb.CredentialsFetcherServiceServer
 		credspecContents []string
 		response         CredentialsFetcherResponse
 		expectedError    string
+		afterFn          func(t *testing.T)
 	}{
 		{
-			"invalid request empty credspec contents",
-			[]string{},
-			CredentialsFetcherResponse{},
-			"rpc error: code = InvalidArgument desc = credentialspecs should not be empty",
+			name:             "invalid request empty credspec contents",
+			server:           &mockCredentialsFetcherServer{},
+			credspecContents: []string{},
+			expectedError:    "rpc error: code = InvalidArgument desc = credentialspecs should not be empty",
 		},
 		{
-			"valid request credspecs associated to gMSA account",
-			[]string{credspec_webapp01},
-			CredentialsFetcherResponse{LeaseID: leaseid, KerberosTicketPaths: []string{"/var/credentials-fetcher/krbdir/123456/webapp01", "/var/credentials-fetcher/krbdir/123456/webapp02"}},
-			"",
+			name:             "valid request credspecs associated to gMSA account",
+			server:           &mockCredentialsFetcherServer{},
+			credspecContents: []string{credspec_webapp01},
+			response:         CredentialsFetcherResponse{LeaseID: leaseid, KerberosTicketPaths: []string{"/var/credentials-fetcher/krbdir/123456/webapp01", "/var/credentials-fetcher/krbdir/123456/webapp02"}},
+		},
+		{
+			name:             "succeeds after transient failures",
+			server:           transientSrv,
+			credspecContents: []string{credspec_webapp01},
+			response:         CredentialsFetcherResponse{LeaseID: leaseid, KerberosTicketPaths: []string{"/var/credentials-fetcher/krbdir/123456/webapp01"}},
+			afterFn: func(t *testing.T) {
+				assert.Equal(t, int32(3), transientSrv.callCount.Load(), "expected 2 failures + 1 success = 3 total calls")
+			},
+		},
+		{
+			name:             "exhausted retries returns last error",
+			server:           exhaustedSrv,
+			credspecContents: []string{credspec_webapp01},
+			expectedError:    "rpc error: code = Unavailable desc = service temporarily unavailable",
+			afterFn: func(t *testing.T) {
+				assert.Equal(t, int32(grpcCallRetryAttempts), exhaustedSrv.callCount.Load())
+			},
+		},
+		{
+			name:             "terminal error is not retried",
+			server:           terminalSrv,
+			credspecContents: []string{credspec_webapp01},
+			expectedError:    "rpc error: code = PermissionDenied desc = permission denied",
+			afterFn: func(t *testing.T) {
+				assert.Equal(t, int32(1), terminalSrv.callCount.Load())
+			},
 		},
 	}
 
-	ctx := context.Background()
-
-	conn, err := grpc.DialContext(ctx, "", grpc.WithInsecure(), grpc.WithContextDialer(dialer()))
-	require.NoError(t, err)
-	defer conn.Close()
-
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			response, err := NewCredentialsFetcherClient(conn, time.Minute).AddKerberosLease(context.Background(), tt.credspecContents)
+			conn := newConnForServer(t, tt.server)
+			response, err := newFastClient(conn).AddKerberosLease(context.Background(), tt.credspecContents)
 			if tt.expectedError != "" {
 				assert.EqualError(t, err, tt.expectedError)
 			} else {
 				assert.Equal(t, tt.response, response)
+			}
+			if tt.afterFn != nil {
+				tt.afterFn(t)
 			}
 		})
 	}
@@ -291,6 +322,7 @@ func TestCredentialsFetcherClient_AddNonDomainJoinedKerberosArnLease(t *testing.
 func TestCredentialsFetcherClient_RenewNonDomainJoinedKerberosArnLease(t *testing.T) {
 	tests := []struct {
 		name          string
+		server        pb.CredentialsFetcherServiceServer
 		accessId      string
 		secretKey     string
 		sessionToken  string
@@ -299,33 +331,34 @@ func TestCredentialsFetcherClient_RenewNonDomainJoinedKerberosArnLease(t *testin
 		expectedError string
 	}{
 		{
-			"invalid request username, password or domain should not be empty",
-			"",
-			"",
-			"",
-			"",
-			"",
-			"rpc error: code = InvalidArgument desc = accessid, secretkey, sessiontoken or region should not be empty",
+			name:          "invalid request username, password or domain should not be empty",
+			server:        &mockCredentialsFetcherServer{},
+			expectedError: "rpc error: code = InvalidArgument desc = accessid, secretkey, sessiontoken or region should not be empty",
 		},
 		{
-			"valid request credspecs associated to gMSA account",
-			"testaccessid",
-			"testsecret",
-			"testsessiontoken",
-			"testregion",
-			"OK",
-			"",
+			name:         "valid request credspecs associated to gMSA account",
+			server:       &mockCredentialsFetcherServer{},
+			accessId:     "testaccessid",
+			secretKey:    "testsecret",
+			sessionToken: "testsessiontoken",
+			region:       "testregion",
+			response:     "OK",
+		},
+		{
+			name:          "daemon Status:failed response is returned as an error",
+			server:        &renewFailedServer{},
+			accessId:      "testaccessid",
+			secretKey:     "testsecret",
+			sessionToken:  "testsessiontoken",
+			region:        "testregion",
+			expectedError: "rpc error: code = Internal desc = renewal of kerberos tickets failed",
 		},
 	}
-	ctx := context.Background()
-
-	conn, err := grpc.DialContext(ctx, "", grpc.WithInsecure(), grpc.WithContextDialer(dialer()))
-	require.NoError(t, err)
-	defer conn.Close()
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			response, err := NewCredentialsFetcherClient(conn, time.Minute).RenewKerberosArnLease(context.Background(), tt.accessId, tt.secretKey, tt.sessionToken, tt.region)
+			conn := newConnForServer(t, tt.server)
+			response, err := newFastClient(conn).RenewKerberosArnLease(context.Background(), tt.accessId, tt.secretKey, tt.sessionToken, tt.region)
 			if tt.expectedError != "" {
 				assert.EqualError(t, err, tt.expectedError)
 			} else {
@@ -519,57 +552,4 @@ type renewFailedServer struct {
 
 func (*renewFailedServer) RenewKerberosArnLease(_ context.Context, _ *pb.RenewKerberosArnLeaseRequest) (*pb.RenewKerberosArnLeaseResponse, error) {
 	return &pb.RenewKerberosArnLeaseResponse{Status: "failed"}, nil
-}
-
-// TestAddKerberosLease_RetryOnTransientError verifies that retry.CallWithRetry retries
-// on transient errors and eventually succeeds.
-func TestAddKerberosLease_RetryOnTransientError(t *testing.T) {
-	srv := &transientThenSucceedServer{failCount: 2}
-	conn := newConnForServer(t, srv)
-
-	response, err := newFastClient(conn).
-		AddKerberosLease(context.Background(), []string{credspec_webapp01})
-
-	require.NoError(t, err)
-	assert.Equal(t, leaseid, response.LeaseID)
-	assert.Equal(t, int32(3), srv.callCount.Load(), "expected 2 failures + 1 success = 3 total calls")
-}
-
-// TestAddKerberosLease_ExhaustsRetries verifies that retry.CallWithRetry gives up
-// after grpcCallRetryAttempts and returns the last error.
-func TestAddKerberosLease_ExhaustsRetries(t *testing.T) {
-	srv := &transientThenSucceedServer{failCount: grpcCallRetryAttempts + 1}
-	conn := newConnForServer(t, srv)
-
-	_, err := newFastClient(conn).
-		AddKerberosLease(context.Background(), []string{credspec_webapp01})
-
-	require.Error(t, err)
-	assert.Equal(t, int32(grpcCallRetryAttempts), srv.callCount.Load())
-}
-
-// TestAddKerberosLease_NoRetryOnTerminalError verifies that retry.CallWithRetry does
-// not retry terminal errors and preserves the original gRPC status code.
-func TestAddKerberosLease_NoRetryOnTerminalError(t *testing.T) {
-	srv := &terminalErrorServer{}
-	conn := newConnForServer(t, srv)
-
-	_, err := newFastClient(conn).
-		AddKerberosLease(context.Background(), []string{credspec_webapp01})
-
-	require.Error(t, err)
-	assert.Equal(t, int32(1), srv.callCount.Load())
-	assert.Equal(t, codes.PermissionDenied, status.Code(err))
-}
-
-// TestRenewKerberosArnLease_FailedStatus verifies that a daemon response with
-// Status:"failed" (no gRPC error) is returned as an error to the caller.
-func TestRenewKerberosArnLease_FailedStatus(t *testing.T) {
-	conn := newConnForServer(t, &renewFailedServer{})
-
-	_, err := newFastClient(conn).
-		RenewKerberosArnLease(context.Background(), "id", "secret", "token", "us-east-1")
-
-	require.Error(t, err)
-	assert.Equal(t, codes.Internal, status.Code(err))
 }

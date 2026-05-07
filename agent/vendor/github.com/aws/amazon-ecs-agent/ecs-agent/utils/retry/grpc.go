@@ -31,6 +31,8 @@ func IsRetriableGRPCError(err error) bool {
 		return false
 	}
 	s, _ := status.FromError(err)
+	// Retriable codes are based on the gRPC status code guidance at
+	// https://grpc.io/docs/guides/status-codes/
 	switch s.Code() {
 	case codes.Unavailable,
 		codes.DeadlineExceeded,
