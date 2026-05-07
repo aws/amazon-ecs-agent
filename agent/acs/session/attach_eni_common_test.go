@@ -117,7 +117,9 @@ func testENIAckWithinTimeout(t *testing.T, attachmentType string) {
 	assert.True(t, ok)
 	eniAttachment.SetSentStatus()
 
-	time.Sleep(time.Millisecond * testconst.WaitTimeoutMillis)
+	// Invoke the timeout callback directly instead of sleeping and relying on the real timer.
+	// This tests the same logic (IsSent() prevents removal) without any timing dependency.
+	eniHandler.handleENIAckTimeout()
 
 	assert.Len(t, taskEngineState.(*dockerstate.DockerTaskEngineState).AllENIAttachments(), 1)
 }
@@ -159,7 +161,9 @@ func testHandleENIAttachment(t *testing.T, attachmentType, taskArn string) {
 	assert.True(t, ok)
 	eniAttachment.SetSentStatus()
 
-	time.Sleep(time.Millisecond * testconst.WaitTimeoutMillis)
+	// Invoke the timeout callback directly instead of sleeping and relying on the real timer.
+	// This tests the same logic (IsSent() prevents removal) without any timing dependency.
+	eniHandler.handleENIAckTimeout()
 
 	assert.Len(t, taskEngineState.(*dockerstate.DockerTaskEngineState).AllENIAttachments(), 1)
 	res, err := dataClient.GetENIAttachments()
