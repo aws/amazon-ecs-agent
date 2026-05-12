@@ -488,7 +488,7 @@ LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
 THE SOFTWARE.
 ```
-## github.com/docker/docker/api/types ([Apache-2.0](https://github.com/aws/amazon-ecs-agent/blob/HEAD/ecs-agent/vendor/github.com/docker/docker/LICENSE))
+## github.com/moby/moby/api/types ([Apache-2.0](https://github.com/aws/amazon-ecs-agent/blob/HEAD/ecs-agent/vendor/github.com/moby/moby/LICENSE))
 
 ```
                                  Apache License
