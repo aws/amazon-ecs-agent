@@ -1,0 +1,41 @@
+rules:
+  - id: command-injection-exec-variable
+    patterns:
+      - pattern-either:
+          - pattern: execCommand($CMD, $...ARGS)
+          - pattern: exec.Command($CMD, $...ARGS)
+          - pattern: exec.CommandContext($CTX, $CMD, $...ARGS)
+      - pattern-not: execCommand("...", "...")
+      - pattern-not: exec.Command("...", "...")
+      - pattern-not: exec.CommandContext($CTX, "...", "...")
+    message: >
+      Potential command injection: variable arguments passed to shell execution function.
+      Use environment variables to pass untrusted input to subprocesses instead of
+      interpolating into command strings. See https://github.com/aws/amazon-ecs-agent/commit/09f274e0157dcbc777c4bbb2e40b6c55ae6646ad
+    languages: [go]
+    severity: ERROR
+    paths:
+      include:
+        - '*windows*'
+    metadata:
+      cwe: "CWE-78"
+      confidence: MEDIUM
+
+  - id: unsanitized-powershell-interpolation
+    patterns:
+      - pattern: fmt.Sprintf($FMT, ..., $VAR, ...)
+      - metavariable-regex:
+          metavariable: $FMT
+          regex: ".*powershell.*|.*PSCredential.*|.*RemotePath.*|.*New-Smb.*"
+    message: >
+      String interpolation into PowerShell command without sanitization.
+      Use environment variables to pass untrusted input to subprocesses instead of
+      interpolating into command strings. See https://github.com/aws/amazon-ecs-agent/commit/09f274e0157dcbc777c4bbb2e40b6c55ae6646ad
+    languages: [go]
+    severity: WARNING
+    paths:
+      include:
+        - '*windows*'
+    metadata:
+      cwe: "CWE-78"
+      confidence: MEDIUM
