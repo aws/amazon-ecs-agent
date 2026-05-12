@@ -20,29 +20,27 @@ import (
 	"testing"
 
 	"github.com/aws/amazon-ecs-agent/ecs-agent/utils"
-	"github.com/docker/docker/api/types"
+	"github.com/moby/moby/api/types/container"
 	"github.com/stretchr/testify/require"
 )
 
 func TestAggregateOSDependentStats(t *testing.T) {
 	dockerStat := getTestStatsJSONForOSDependentStats(1, 2, 3, 4, 5)
 	lastStatBeforeLastRestart := getTestStatsJSONForOSDependentStats(5, 4, 3, 2, 1)
-	expectedAggregatedStat := types.StatsJSON{
-		Stats: types.Stats{
-			MemoryStats: types.MemoryStats{
-				CommitPeak: utils.MaxNum(dockerStat.MemoryStats.CommitPeak,
-					lastStatBeforeLastRestart.MemoryStats.CommitPeak),
-			},
-			StorageStats: types.StorageStats{
-				ReadCountNormalized: dockerStat.StorageStats.ReadCountNormalized +
-					lastStatBeforeLastRestart.StorageStats.ReadCountNormalized,
-				ReadSizeBytes: dockerStat.StorageStats.ReadSizeBytes +
-					lastStatBeforeLastRestart.StorageStats.ReadSizeBytes,
-				WriteCountNormalized: dockerStat.StorageStats.WriteCountNormalized +
-					lastStatBeforeLastRestart.StorageStats.WriteCountNormalized,
-				WriteSizeBytes: dockerStat.StorageStats.WriteSizeBytes +
-					lastStatBeforeLastRestart.StorageStats.WriteSizeBytes,
-			},
+	expectedAggregatedStat := container.StatsResponse{
+		MemoryStats: container.MemoryStats{
+			CommitPeak: utils.MaxNum(dockerStat.MemoryStats.CommitPeak,
+				lastStatBeforeLastRestart.MemoryStats.CommitPeak),
+		},
+		StorageStats: container.StorageStats{
+			ReadCountNormalized: dockerStat.StorageStats.ReadCountNormalized +
+				lastStatBeforeLastRestart.StorageStats.ReadCountNormalized,
+			ReadSizeBytes: dockerStat.StorageStats.ReadSizeBytes +
+				lastStatBeforeLastRestart.StorageStats.ReadSizeBytes,
+			WriteCountNormalized: dockerStat.StorageStats.WriteCountNormalized +
+				lastStatBeforeLastRestart.StorageStats.WriteCountNormalized,
+			WriteSizeBytes: dockerStat.StorageStats.WriteSizeBytes +
+				lastStatBeforeLastRestart.StorageStats.WriteSizeBytes,
 		},
 	}
 
@@ -51,18 +49,16 @@ func TestAggregateOSDependentStats(t *testing.T) {
 }
 
 func getTestStatsJSONForOSDependentStats(commitPeak, readCountNormalized, readSizeBytes, writeCountNormalized,
-	writeSizeBytes uint64) *types.StatsJSON {
-	return &types.StatsJSON{
-		Stats: types.Stats{
-			MemoryStats: types.MemoryStats{
-				CommitPeak: commitPeak,
-			},
-			StorageStats: types.StorageStats{
-				ReadCountNormalized:  readCountNormalized,
-				ReadSizeBytes:        readSizeBytes,
-				WriteCountNormalized: writeCountNormalized,
-				WriteSizeBytes:       writeSizeBytes,
-			},
+	writeSizeBytes uint64) *container.StatsResponse {
+	return &container.StatsResponse{
+		MemoryStats: container.MemoryStats{
+			CommitPeak: commitPeak,
+		},
+		StorageStats: container.StorageStats{
+			ReadCountNormalized:  readCountNormalized,
+			ReadSizeBytes:        readSizeBytes,
+			WriteCountNormalized: writeCountNormalized,
+			WriteSizeBytes:       writeSizeBytes,
 		},
 	}
 }

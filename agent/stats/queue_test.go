@@ -23,7 +23,7 @@ import (
 	"time"
 
 	"github.com/aws/amazon-ecs-agent/ecs-agent/tcs/model/ecstcs"
-	"github.com/docker/docker/api/types"
+	"github.com/moby/moby/api/types/container"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -791,20 +791,18 @@ func TestPerSecNetworkStatSetFailWithOneDatapoint(t *testing.T) {
 func TestAggregateOSIndependentStats(t *testing.T) {
 	dockerStat := getTestStatsJSONForOSIndependentStats(1, 2, 3, 4, 5, 6, 7, 8, 9)
 	lastStatBeforeLastRestart := getTestStatsJSONForOSIndependentStats(9, 8, 7, 6, 5, 4, 3, 2, 1)
-	expectedAggregatedStat := types.StatsJSON{
-		Stats: types.Stats{
-			CPUStats: types.CPUStats{
-				CPUUsage: types.CPUUsage{
-					TotalUsage: dockerStat.CPUStats.CPUUsage.TotalUsage +
-						lastStatBeforeLastRestart.CPUStats.CPUUsage.TotalUsage,
-					UsageInKernelmode: dockerStat.CPUStats.CPUUsage.UsageInKernelmode +
-						lastStatBeforeLastRestart.CPUStats.CPUUsage.UsageInKernelmode,
-					UsageInUsermode: dockerStat.CPUStats.CPUUsage.UsageInUsermode +
-						lastStatBeforeLastRestart.CPUStats.CPUUsage.UsageInUsermode,
-				},
+	expectedAggregatedStat := container.StatsResponse{
+		CPUStats: container.CPUStats{
+			CPUUsage: container.CPUUsage{
+				TotalUsage: dockerStat.CPUStats.CPUUsage.TotalUsage +
+					lastStatBeforeLastRestart.CPUStats.CPUUsage.TotalUsage,
+				UsageInKernelmode: dockerStat.CPUStats.CPUUsage.UsageInKernelmode +
+					lastStatBeforeLastRestart.CPUStats.CPUUsage.UsageInKernelmode,
+				UsageInUsermode: dockerStat.CPUStats.CPUUsage.UsageInUsermode +
+					lastStatBeforeLastRestart.CPUStats.CPUUsage.UsageInUsermode,
 			},
 		},
-		Networks: map[string]types.NetworkStats{
+		Networks: map[string]container.NetworkStats{
 			testNetworkNameA: {
 				RxBytes: dockerStat.Networks[testNetworkNameA].RxBytes +
 					lastStatBeforeLastRestart.Networks[testNetworkNameA].RxBytes,
@@ -841,27 +839,25 @@ func TestAggregateOSIndependentStats(t *testing.T) {
 }
 
 func TestGetAggregatedDockerStatAcrossRestarts(t *testing.T) {
-	var dockerStat, lastStatBeforeLastRestart, lastStatInStatsQueue types.StatsJSON
-	lastStatInStatsQueue.Stats.CPUStats.CPUUsage.TotalUsage = uint64(123)
+	var dockerStat, lastStatBeforeLastRestart, lastStatInStatsQueue container.StatsResponse
+	lastStatInStatsQueue.CPUStats.CPUUsage.TotalUsage = uint64(123)
 
 	dockerStat = *getAggregatedDockerStatAcrossRestarts(&dockerStat, &lastStatBeforeLastRestart, &lastStatInStatsQueue)
-	require.Equal(t, lastStatInStatsQueue.Stats.CPUStats.CPUUsage.TotalUsage,
+	require.Equal(t, lastStatInStatsQueue.CPUStats.CPUUsage.TotalUsage,
 		dockerStat.PreCPUStats.CPUUsage.TotalUsage)
 }
 
 func getTestStatsJSONForOSIndependentStats(totalCPUUsage, usageInKernelMode, usageInUserMode, rxBytes, rxPackets,
-	rxDropped, txBytes, txPackets, txDropped uint64) *types.StatsJSON {
-	return &types.StatsJSON{
-		Stats: types.Stats{
-			CPUStats: types.CPUStats{
-				CPUUsage: types.CPUUsage{
-					TotalUsage:        totalCPUUsage,
-					UsageInKernelmode: usageInKernelMode,
-					UsageInUsermode:   usageInUserMode,
-				},
+	rxDropped, txBytes, txPackets, txDropped uint64) *container.StatsResponse {
+	return &container.StatsResponse{
+		CPUStats: container.CPUStats{
+			CPUUsage: container.CPUUsage{
+				TotalUsage:        totalCPUUsage,
+				UsageInKernelmode: usageInKernelMode,
+				UsageInUsermode:   usageInUserMode,
 			},
 		},
-		Networks: map[string]types.NetworkStats{
+		Networks: map[string]container.NetworkStats{
 			testNetworkNameA: {
 				RxBytes:   rxBytes,
 				RxPackets: rxPackets,
@@ -931,7 +927,7 @@ func TestQueueAddContainerStat(t *testing.T) {
 	testCases := []struct {
 		name                        string
 		containerHasRestartedBefore bool
-		lastStatBeforeLastRestart   types.StatsJSON
+		lastStatBeforeLastRestart   container.StatsResponse
 	}{
 		{
 			name:                        "container has not restarted before",

@@ -35,6 +35,7 @@ import (
 	registry "github.com/docker/docker/api/types/registry"
 	system "github.com/docker/docker/api/types/system"
 	gomock "github.com/golang/mock/gomock"
+	container1 "github.com/moby/moby/api/types/container"
 )
 
 // MockDockerClient is a mock of DockerClient interface.
@@ -407,10 +408,10 @@ func (mr *MockDockerClientMockRecorder) StartContainerExec(arg0, arg1, arg2, arg
 }
 
 // Stats mocks base method.
-func (m *MockDockerClient) Stats(arg0 context.Context, arg1 string, arg2 time.Duration) (<-chan *types.StatsJSON, <-chan error) {
+func (m *MockDockerClient) Stats(arg0 context.Context, arg1 string, arg2 time.Duration) (<-chan *container1.StatsResponse, <-chan error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "Stats", arg0, arg1, arg2)
-	ret0, _ := ret[0].(<-chan *types.StatsJSON)
+	ret0, _ := ret[0].(<-chan *container1.StatsResponse)
 	ret1, _ := ret[1].(<-chan error)
 	return ret0, ret1
 }
