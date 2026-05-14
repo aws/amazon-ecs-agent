@@ -1036,7 +1036,8 @@ func (agent *ecsAgent) getIMDSCredentialRefresher(
 	if agent.cfg.IMDSIAMRolesEnabled {
 		imdsScanner := imds.NewScanner(agent.ec2MetadataClient)
 		return imdscreds.NewIMDSCredentialRefresher(
-			agent.ctx, imdsScanner, credentialsManager, taskEngine,
+			agent.ctx, imdsScanner, credentialsManager,
+			taskEngine, imdscreds.ScanInterval,
 		)
 	}
 	return nil
