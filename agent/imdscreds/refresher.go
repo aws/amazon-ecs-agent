@@ -28,18 +28,19 @@ import (
 )
 
 const (
-	// scanInterval is the interval between IMDS credential scans.
+	// ScanInterval is the default interval between IMDS credential scans.
 	// TODO: this value will be finalized based on load testing.
-	scanInterval = 15 * time.Minute
+	ScanInterval = 15 * time.Minute
 )
 
 // IMDSCredentialRefresher periodically scans IMDS for rotated task credentials
 // and upserts them into the credentials manager.
 type IMDSCredentialRefresher struct {
-	ctx         context.Context
-	scanner     imds.Scanner
-	credManager credentials.Manager
-	taskEngine  engine.TaskEngine
+	ctx          context.Context
+	scanner      imds.Scanner
+	credManager  credentials.Manager
+	taskEngine   engine.TaskEngine
+	scanInterval time.Duration
 }
 
 // NewIMDSCredentialRefresher creates a new IMDS credential refresher.
@@ -48,12 +49,14 @@ func NewIMDSCredentialRefresher(
 	scanner imds.Scanner,
 	credManager credentials.Manager,
 	taskEngine engine.TaskEngine,
+	scanInterval time.Duration,
 ) *IMDSCredentialRefresher {
 	return &IMDSCredentialRefresher{
-		ctx:         ctx,
-		scanner:     scanner,
-		credManager: credManager,
-		taskEngine:  taskEngine,
+		ctx:          ctx,
+		scanner:      scanner,
+		credManager:  credManager,
+		taskEngine:   taskEngine,
+		scanInterval: scanInterval,
 	}
 }
 
@@ -61,7 +64,7 @@ func NewIMDSCredentialRefresher(
 // context is cancelled.
 func (r *IMDSCredentialRefresher) Start() {
 	logger.Info("Starting IMDS credential refresher")
-	ticker := time.NewTicker(scanInterval)
+	ticker := time.NewTicker(r.scanInterval)
 	defer ticker.Stop()
 	for {
 		select {
