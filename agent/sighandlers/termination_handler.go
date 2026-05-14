@@ -36,7 +36,6 @@ import (
 	apierrors "github.com/aws/amazon-ecs-agent/ecs-agent/api/errors"
 
 	"github.com/cihub/seelog"
-	bolt "go.etcd.io/bbolt"
 )
 
 const (
@@ -138,5 +137,6 @@ func saveStateAll(state dockerstate.TaskEngineState, dataClient data.Client) {
 		}
 	}
 	// Wait to ensure data is saved.
-	time.Sleep(bolt.DefaultMaxBatchDelay)
+	// 10ms matches bbolt's DefaultMaxBatchDelay (moved to internal/common in v1.4.x).
+	time.Sleep(10 * time.Millisecond)
 }
