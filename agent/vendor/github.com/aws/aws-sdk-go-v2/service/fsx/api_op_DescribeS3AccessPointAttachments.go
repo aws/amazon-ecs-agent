@@ -11,53 +11,39 @@ import (
 	smithyhttp "github.com/aws/smithy-go/transport/http"
 )
 
-// Returns the description of a specific Amazon File Cache resource, if a
-// FileCacheIds value is provided for that cache. Otherwise, it returns
-// descriptions of all caches owned by your Amazon Web Services account in the
-// Amazon Web Services Region of the endpoint that you're calling.
+// Describes one or more S3 access points attached to Amazon FSx volumes.
 //
-// When retrieving all cache descriptions, you can optionally specify the
-// MaxResults parameter to limit the number of descriptions in a response. If more
-// cache descriptions remain, the operation returns a NextToken value in the
-// response. In this case, send a later request with the NextToken request
-// parameter set to the value of NextToken from the last response.
+// The requester requires the following permission to perform this action:
 //
-// This operation is used in an iterative process to retrieve a list of your cache
-// descriptions. DescribeFileCaches is called first without a NextToken value. Then
-// the operation continues to be called with the NextToken parameter set to the
-// value of the last NextToken value until a response has no NextToken .
-//
-// When using this operation, keep the following in mind:
-//
-//   - The implementation might return fewer than MaxResults cache descriptions
-//     while still including a NextToken value.
-//
-//   - The order of caches returned in the response of one DescribeFileCaches call
-//     and the order of caches returned across the responses of a multicall iteration
-//     is unspecified.
-func (c *Client) DescribeFileCaches(ctx context.Context, params *DescribeFileCachesInput, optFns ...func(*Options)) (*DescribeFileCachesOutput, error) {
+//   - fsx:DescribeS3AccessPointAttachments
+func (c *Client) DescribeS3AccessPointAttachments(ctx context.Context, params *DescribeS3AccessPointAttachmentsInput, optFns ...func(*Options)) (*DescribeS3AccessPointAttachmentsOutput, error) {
 	if params == nil {
-		params = &DescribeFileCachesInput{}
+		params = &DescribeS3AccessPointAttachmentsInput{}
 	}
 
-	result, metadata, err := c.invokeOperation(ctx, "DescribeFileCaches", params, optFns, c.addOperationDescribeFileCachesMiddlewares)
+	result, metadata, err := c.invokeOperation(ctx, "DescribeS3AccessPointAttachments", params, optFns, c.addOperationDescribeS3AccessPointAttachmentsMiddlewares)
 	if err != nil {
 		return nil, err
 	}
 
-	out := result.(*DescribeFileCachesOutput)
+	out := result.(*DescribeS3AccessPointAttachmentsOutput)
 	out.ResultMetadata = metadata
 	return out, nil
 }
 
-type DescribeFileCachesInput struct {
+type DescribeS3AccessPointAttachmentsInput struct {
 
-	// IDs of the caches whose descriptions you want to retrieve (String).
-	FileCacheIds []string
+	// Enter a filter Name and Values pair to view a select set of S3 access point
+	// attachments.
+	Filters []types.S3AccessPointAttachmentsFilter
 
 	// The maximum number of resources to return in the response. This value must be
 	// an integer greater than zero.
 	MaxResults *int32
+
+	// The names of the S3 access point attachments whose descriptions you want to
+	// retrieve.
+	Names []string
 
 	// (Optional) Opaque pagination token returned from a previous operation (String).
 	// If present, this token indicates from what point you can continue processing the
@@ -67,15 +53,16 @@ type DescribeFileCachesInput struct {
 	noSmithyDocumentSerde
 }
 
-type DescribeFileCachesOutput struct {
-
-	// The response object for the DescribeFileCaches operation.
-	FileCaches []types.FileCache
+type DescribeS3AccessPointAttachmentsOutput struct {
 
 	// (Optional) Opaque pagination token returned from a previous operation (String).
 	// If present, this token indicates from what point you can continue processing the
 	// request, where the previous NextToken value left off.
 	NextToken *string
+
+	// Array of S3 access point attachments returned after a successful
+	// DescribeS3AccessPointAttachments operation.
+	S3AccessPointAttachments []types.S3AccessPointAttachment
 
 	// Metadata pertaining to the operation's result.
 	ResultMetadata middleware.Metadata
@@ -83,19 +70,19 @@ type DescribeFileCachesOutput struct {
 	noSmithyDocumentSerde
 }
 
-func (c *Client) addOperationDescribeFileCachesMiddlewares(stack *middleware.Stack, options Options) (err error) {
+func (c *Client) addOperationDescribeS3AccessPointAttachmentsMiddlewares(stack *middleware.Stack, options Options) (err error) {
 	if err := stack.Serialize.Add(&setOperationInputMiddleware{}, middleware.After); err != nil {
 		return err
 	}
-	err = stack.Serialize.Add(&awsAwsjson11_serializeOpDescribeFileCaches{}, middleware.After)
+	err = stack.Serialize.Add(&awsAwsjson11_serializeOpDescribeS3AccessPointAttachments{}, middleware.After)
 	if err != nil {
 		return err
 	}
-	err = stack.Deserialize.Add(&awsAwsjson11_deserializeOpDescribeFileCaches{}, middleware.After)
+	err = stack.Deserialize.Add(&awsAwsjson11_deserializeOpDescribeS3AccessPointAttachments{}, middleware.After)
 	if err != nil {
 		return err
 	}
-	if err := addProtocolFinalizerMiddlewares(stack, options, "DescribeFileCaches"); err != nil {
+	if err := addProtocolFinalizerMiddlewares(stack, options, "DescribeS3AccessPointAttachments"); err != nil {
 		return fmt.Errorf("add protocol finalizers: %v", err)
 	}
 
@@ -147,7 +134,7 @@ func (c *Client) addOperationDescribeFileCachesMiddlewares(stack *middleware.Sta
 	if err = addCredentialSource(stack, options); err != nil {
 		return err
 	}
-	if err = stack.Initialize.Add(newServiceMetadataMiddleware_opDescribeFileCaches(options.Region), middleware.Before); err != nil {
+	if err = stack.Initialize.Add(newServiceMetadataMiddleware_opDescribeS3AccessPointAttachments(options.Region), middleware.Before); err != nil {
 		return err
 	}
 	if err = addRecursionDetection(stack); err != nil {
@@ -177,9 +164,9 @@ func (c *Client) addOperationDescribeFileCachesMiddlewares(stack *middleware.Sta
 	return nil
 }
 
-// DescribeFileCachesPaginatorOptions is the paginator options for
-// DescribeFileCaches
-type DescribeFileCachesPaginatorOptions struct {
+// DescribeS3AccessPointAttachmentsPaginatorOptions is the paginator options for
+// DescribeS3AccessPointAttachments
+type DescribeS3AccessPointAttachmentsPaginatorOptions struct {
 	// The maximum number of resources to return in the response. This value must be
 	// an integer greater than zero.
 	Limit int32
@@ -189,22 +176,24 @@ type DescribeFileCachesPaginatorOptions struct {
 	StopOnDuplicateToken bool
 }
 
-// DescribeFileCachesPaginator is a paginator for DescribeFileCaches
-type DescribeFileCachesPaginator struct {
-	options   DescribeFileCachesPaginatorOptions
-	client    DescribeFileCachesAPIClient
-	params    *DescribeFileCachesInput
+// DescribeS3AccessPointAttachmentsPaginator is a paginator for
+// DescribeS3AccessPointAttachments
+type DescribeS3AccessPointAttachmentsPaginator struct {
+	options   DescribeS3AccessPointAttachmentsPaginatorOptions
+	client    DescribeS3AccessPointAttachmentsAPIClient
+	params    *DescribeS3AccessPointAttachmentsInput
 	nextToken *string
 	firstPage bool
 }
 
-// NewDescribeFileCachesPaginator returns a new DescribeFileCachesPaginator
-func NewDescribeFileCachesPaginator(client DescribeFileCachesAPIClient, params *DescribeFileCachesInput, optFns ...func(*DescribeFileCachesPaginatorOptions)) *DescribeFileCachesPaginator {
+// NewDescribeS3AccessPointAttachmentsPaginator returns a new
+// DescribeS3AccessPointAttachmentsPaginator
+func NewDescribeS3AccessPointAttachmentsPaginator(client DescribeS3AccessPointAttachmentsAPIClient, params *DescribeS3AccessPointAttachmentsInput, optFns ...func(*DescribeS3AccessPointAttachmentsPaginatorOptions)) *DescribeS3AccessPointAttachmentsPaginator {
 	if params == nil {
-		params = &DescribeFileCachesInput{}
+		params = &DescribeS3AccessPointAttachmentsInput{}
 	}
 
-	options := DescribeFileCachesPaginatorOptions{}
+	options := DescribeS3AccessPointAttachmentsPaginatorOptions{}
 	if params.MaxResults != nil {
 		options.Limit = *params.MaxResults
 	}
@@ -213,7 +202,7 @@ func NewDescribeFileCachesPaginator(client DescribeFileCachesAPIClient, params *
 		fn(&options)
 	}
 
-	return &DescribeFileCachesPaginator{
+	return &DescribeS3AccessPointAttachmentsPaginator{
 		options:   options,
 		client:    client,
 		params:    params,
@@ -223,12 +212,12 @@ func NewDescribeFileCachesPaginator(client DescribeFileCachesAPIClient, params *
 }
 
 // HasMorePages returns a boolean indicating whether more pages are available
-func (p *DescribeFileCachesPaginator) HasMorePages() bool {
+func (p *DescribeS3AccessPointAttachmentsPaginator) HasMorePages() bool {
 	return p.firstPage || (p.nextToken != nil && len(*p.nextToken) != 0)
 }
 
-// NextPage retrieves the next DescribeFileCaches page.
-func (p *DescribeFileCachesPaginator) NextPage(ctx context.Context, optFns ...func(*Options)) (*DescribeFileCachesOutput, error) {
+// NextPage retrieves the next DescribeS3AccessPointAttachments page.
+func (p *DescribeS3AccessPointAttachmentsPaginator) NextPage(ctx context.Context, optFns ...func(*Options)) (*DescribeS3AccessPointAttachmentsOutput, error) {
 	if !p.HasMorePages() {
 		return nil, fmt.Errorf("no more pages available")
 	}
@@ -245,7 +234,7 @@ func (p *DescribeFileCachesPaginator) NextPage(ctx context.Context, optFns ...fu
 	optFns = append([]func(*Options){
 		addIsPaginatorUserAgent,
 	}, optFns...)
-	result, err := p.client.DescribeFileCaches(ctx, &params, optFns...)
+	result, err := p.client.DescribeS3AccessPointAttachments(ctx, &params, optFns...)
 	if err != nil {
 		return nil, err
 	}
@@ -264,18 +253,18 @@ func (p *DescribeFileCachesPaginator) NextPage(ctx context.Context, optFns ...fu
 	return result, nil
 }
 
-// DescribeFileCachesAPIClient is a client that implements the DescribeFileCaches
-// operation.
-type DescribeFileCachesAPIClient interface {
-	DescribeFileCaches(context.Context, *DescribeFileCachesInput, ...func(*Options)) (*DescribeFileCachesOutput, error)
+// DescribeS3AccessPointAttachmentsAPIClient is a client that implements the
+// DescribeS3AccessPointAttachments operation.
+type DescribeS3AccessPointAttachmentsAPIClient interface {
+	DescribeS3AccessPointAttachments(context.Context, *DescribeS3AccessPointAttachmentsInput, ...func(*Options)) (*DescribeS3AccessPointAttachmentsOutput, error)
 }
 
-var _ DescribeFileCachesAPIClient = (*Client)(nil)
+var _ DescribeS3AccessPointAttachmentsAPIClient = (*Client)(nil)
 
-func newServiceMetadataMiddleware_opDescribeFileCaches(region string) *awsmiddleware.RegisterServiceMetadata {
+func newServiceMetadataMiddleware_opDescribeS3AccessPointAttachments(region string) *awsmiddleware.RegisterServiceMetadata {
 	return &awsmiddleware.RegisterServiceMetadata{
 		Region:        region,
 		ServiceID:     ServiceID,
-		OperationName: "DescribeFileCaches",
+		OperationName: "DescribeS3AccessPointAttachments",
 	}
 }

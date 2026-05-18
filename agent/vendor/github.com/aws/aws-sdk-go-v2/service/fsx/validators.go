@@ -90,6 +90,26 @@ func (m *validateOpCopySnapshotAndUpdateVolume) HandleInitialize(ctx context.Con
 	return next.HandleInitialize(ctx, in)
 }
 
+type validateOpCreateAndAttachS3AccessPoint struct {
+}
+
+func (*validateOpCreateAndAttachS3AccessPoint) ID() string {
+	return "OperationInputValidation"
+}
+
+func (m *validateOpCreateAndAttachS3AccessPoint) HandleInitialize(ctx context.Context, in middleware.InitializeInput, next middleware.InitializeHandler) (
+	out middleware.InitializeOutput, metadata middleware.Metadata, err error,
+) {
+	input, ok := in.Parameters.(*CreateAndAttachS3AccessPointInput)
+	if !ok {
+		return out, metadata, fmt.Errorf("unknown input parameters type %T", in.Parameters)
+	}
+	if err := validateOpCreateAndAttachS3AccessPointInput(input); err != nil {
+		return out, metadata, err
+	}
+	return next.HandleInitialize(ctx, in)
+}
+
 type validateOpCreateBackup struct {
 }
 
@@ -450,6 +470,26 @@ func (m *validateOpDescribeFileSystemAliases) HandleInitialize(ctx context.Conte
 	return next.HandleInitialize(ctx, in)
 }
 
+type validateOpDetachAndDeleteS3AccessPoint struct {
+}
+
+func (*validateOpDetachAndDeleteS3AccessPoint) ID() string {
+	return "OperationInputValidation"
+}
+
+func (m *validateOpDetachAndDeleteS3AccessPoint) HandleInitialize(ctx context.Context, in middleware.InitializeInput, next middleware.InitializeHandler) (
+	out middleware.InitializeOutput, metadata middleware.Metadata, err error,
+) {
+	input, ok := in.Parameters.(*DetachAndDeleteS3AccessPointInput)
+	if !ok {
+		return out, metadata, fmt.Errorf("unknown input parameters type %T", in.Parameters)
+	}
+	if err := validateOpDetachAndDeleteS3AccessPointInput(input); err != nil {
+		return out, metadata, err
+	}
+	return next.HandleInitialize(ctx, in)
+}
+
 type validateOpDisassociateFileSystemAliases struct {
 }
 
@@ -726,6 +766,10 @@ func addOpCopySnapshotAndUpdateVolumeValidationMiddleware(stack *middleware.Stac
 	return stack.Initialize.Add(&validateOpCopySnapshotAndUpdateVolume{}, middleware.After)
 }
 
+func addOpCreateAndAttachS3AccessPointValidationMiddleware(stack *middleware.Stack) error {
+	return stack.Initialize.Add(&validateOpCreateAndAttachS3AccessPoint{}, middleware.After)
+}
+
 func addOpCreateBackupValidationMiddleware(stack *middleware.Stack) error {
 	return stack.Initialize.Add(&validateOpCreateBackup{}, middleware.After)
 }
@@ -796,6 +840,10 @@ func addOpDeleteVolumeValidationMiddleware(stack *middleware.Stack) error {
 
 func addOpDescribeFileSystemAliasesValidationMiddleware(stack *middleware.Stack) error {
 	return stack.Initialize.Add(&validateOpDescribeFileSystemAliases{}, middleware.After)
+}
+
+func addOpDetachAndDeleteS3AccessPointValidationMiddleware(stack *middleware.Stack) error {
+	return stack.Initialize.Add(&validateOpDetachAndDeleteS3AccessPoint{}, middleware.After)
 }
 
 func addOpDisassociateFileSystemAliasesValidationMiddleware(stack *middleware.Stack) error {
@@ -872,6 +920,50 @@ func validateCompletionReport(v *types.CompletionReport) error {
 	invalidParams := smithy.InvalidParamsError{Context: "CompletionReport"}
 	if v.Enabled == nil {
 		invalidParams.Add(smithy.NewErrParamRequired("Enabled"))
+	}
+	if invalidParams.Len() > 0 {
+		return invalidParams
+	} else {
+		return nil
+	}
+}
+
+func validateCreateAndAttachS3AccessPointOntapConfiguration(v *types.CreateAndAttachS3AccessPointOntapConfiguration) error {
+	if v == nil {
+		return nil
+	}
+	invalidParams := smithy.InvalidParamsError{Context: "CreateAndAttachS3AccessPointOntapConfiguration"}
+	if v.VolumeId == nil {
+		invalidParams.Add(smithy.NewErrParamRequired("VolumeId"))
+	}
+	if v.FileSystemIdentity == nil {
+		invalidParams.Add(smithy.NewErrParamRequired("FileSystemIdentity"))
+	} else if v.FileSystemIdentity != nil {
+		if err := validateOntapFileSystemIdentity(v.FileSystemIdentity); err != nil {
+			invalidParams.AddNested("FileSystemIdentity", err.(smithy.InvalidParamsError))
+		}
+	}
+	if invalidParams.Len() > 0 {
+		return invalidParams
+	} else {
+		return nil
+	}
+}
+
+func validateCreateAndAttachS3AccessPointOpenZFSConfiguration(v *types.CreateAndAttachS3AccessPointOpenZFSConfiguration) error {
+	if v == nil {
+		return nil
+	}
+	invalidParams := smithy.InvalidParamsError{Context: "CreateAndAttachS3AccessPointOpenZFSConfiguration"}
+	if v.VolumeId == nil {
+		invalidParams.Add(smithy.NewErrParamRequired("VolumeId"))
+	}
+	if v.FileSystemIdentity == nil {
+		invalidParams.Add(smithy.NewErrParamRequired("FileSystemIdentity"))
+	} else if v.FileSystemIdentity != nil {
+		if err := validateOpenZFSFileSystemIdentity(v.FileSystemIdentity); err != nil {
+			invalidParams.AddNested("FileSystemIdentity", err.(smithy.InvalidParamsError))
+		}
 	}
 	if invalidParams.Len() > 0 {
 		return invalidParams
@@ -1013,6 +1105,11 @@ func validateCreateFileSystemWindowsConfiguration(v *types.CreateFileSystemWindo
 	if v.AuditLogConfiguration != nil {
 		if err := validateWindowsAuditLogCreateConfiguration(v.AuditLogConfiguration); err != nil {
 			invalidParams.AddNested("AuditLogConfiguration", err.(smithy.InvalidParamsError))
+		}
+	}
+	if v.FsrmConfiguration != nil {
+		if err := validateWindowsFsrmConfiguration(v.FsrmConfiguration); err != nil {
+			invalidParams.AddNested("FsrmConfiguration", err.(smithy.InvalidParamsError))
 		}
 	}
 	if invalidParams.Len() > 0 {
@@ -1271,6 +1368,61 @@ func validateLustreLogCreateConfiguration(v *types.LustreLogCreateConfiguration)
 	}
 }
 
+func validateOntapFileSystemIdentity(v *types.OntapFileSystemIdentity) error {
+	if v == nil {
+		return nil
+	}
+	invalidParams := smithy.InvalidParamsError{Context: "OntapFileSystemIdentity"}
+	if len(v.Type) == 0 {
+		invalidParams.Add(smithy.NewErrParamRequired("Type"))
+	}
+	if v.UnixUser != nil {
+		if err := validateOntapUnixFileSystemUser(v.UnixUser); err != nil {
+			invalidParams.AddNested("UnixUser", err.(smithy.InvalidParamsError))
+		}
+	}
+	if v.WindowsUser != nil {
+		if err := validateOntapWindowsFileSystemUser(v.WindowsUser); err != nil {
+			invalidParams.AddNested("WindowsUser", err.(smithy.InvalidParamsError))
+		}
+	}
+	if invalidParams.Len() > 0 {
+		return invalidParams
+	} else {
+		return nil
+	}
+}
+
+func validateOntapUnixFileSystemUser(v *types.OntapUnixFileSystemUser) error {
+	if v == nil {
+		return nil
+	}
+	invalidParams := smithy.InvalidParamsError{Context: "OntapUnixFileSystemUser"}
+	if v.Name == nil {
+		invalidParams.Add(smithy.NewErrParamRequired("Name"))
+	}
+	if invalidParams.Len() > 0 {
+		return invalidParams
+	} else {
+		return nil
+	}
+}
+
+func validateOntapWindowsFileSystemUser(v *types.OntapWindowsFileSystemUser) error {
+	if v == nil {
+		return nil
+	}
+	invalidParams := smithy.InvalidParamsError{Context: "OntapWindowsFileSystemUser"}
+	if v.Name == nil {
+		invalidParams.Add(smithy.NewErrParamRequired("Name"))
+	}
+	if invalidParams.Len() > 0 {
+		return invalidParams
+	} else {
+		return nil
+	}
+}
+
 func validateOpenZFSClientConfiguration(v *types.OpenZFSClientConfiguration) error {
 	if v == nil {
 		return nil
@@ -1328,6 +1480,26 @@ func validateOpenZFSCreateRootVolumeConfiguration(v *types.OpenZFSCreateRootVolu
 	}
 }
 
+func validateOpenZFSFileSystemIdentity(v *types.OpenZFSFileSystemIdentity) error {
+	if v == nil {
+		return nil
+	}
+	invalidParams := smithy.InvalidParamsError{Context: "OpenZFSFileSystemIdentity"}
+	if len(v.Type) == 0 {
+		invalidParams.Add(smithy.NewErrParamRequired("Type"))
+	}
+	if v.PosixUser != nil {
+		if err := validateOpenZFSPosixFileSystemUser(v.PosixUser); err != nil {
+			invalidParams.AddNested("PosixUser", err.(smithy.InvalidParamsError))
+		}
+	}
+	if invalidParams.Len() > 0 {
+		return invalidParams
+	} else {
+		return nil
+	}
+}
+
 func validateOpenZFSNfsExport(v *types.OpenZFSNfsExport) error {
 	if v == nil {
 		return nil
@@ -1356,6 +1528,24 @@ func validateOpenZFSNfsExports(v []types.OpenZFSNfsExport) error {
 		if err := validateOpenZFSNfsExport(&v[i]); err != nil {
 			invalidParams.AddNested(fmt.Sprintf("[%d]", i), err.(smithy.InvalidParamsError))
 		}
+	}
+	if invalidParams.Len() > 0 {
+		return invalidParams
+	} else {
+		return nil
+	}
+}
+
+func validateOpenZFSPosixFileSystemUser(v *types.OpenZFSPosixFileSystemUser) error {
+	if v == nil {
+		return nil
+	}
+	invalidParams := smithy.InvalidParamsError{Context: "OpenZFSPosixFileSystemUser"}
+	if v.Uid == nil {
+		invalidParams.Add(smithy.NewErrParamRequired("Uid"))
+	}
+	if v.Gid == nil {
+		invalidParams.Add(smithy.NewErrParamRequired("Gid"))
 	}
 	if invalidParams.Len() > 0 {
 		return invalidParams
@@ -1424,12 +1614,6 @@ func validateSelfManagedActiveDirectoryConfiguration(v *types.SelfManagedActiveD
 	invalidParams := smithy.InvalidParamsError{Context: "SelfManagedActiveDirectoryConfiguration"}
 	if v.DomainName == nil {
 		invalidParams.Add(smithy.NewErrParamRequired("DomainName"))
-	}
-	if v.UserName == nil {
-		invalidParams.Add(smithy.NewErrParamRequired("UserName"))
-	}
-	if v.Password == nil {
-		invalidParams.Add(smithy.NewErrParamRequired("Password"))
 	}
 	if v.DnsIps == nil {
 		invalidParams.Add(smithy.NewErrParamRequired("DnsIps"))
@@ -1536,6 +1720,11 @@ func validateUpdateFileSystemWindowsConfiguration(v *types.UpdateFileSystemWindo
 			invalidParams.AddNested("AuditLogConfiguration", err.(smithy.InvalidParamsError))
 		}
 	}
+	if v.FsrmConfiguration != nil {
+		if err := validateWindowsFsrmConfiguration(v.FsrmConfiguration); err != nil {
+			invalidParams.AddNested("FsrmConfiguration", err.(smithy.InvalidParamsError))
+		}
+	}
 	if invalidParams.Len() > 0 {
 		return invalidParams
 	} else {
@@ -1622,6 +1811,21 @@ func validateWindowsAuditLogCreateConfiguration(v *types.WindowsAuditLogCreateCo
 	}
 }
 
+func validateWindowsFsrmConfiguration(v *types.WindowsFsrmConfiguration) error {
+	if v == nil {
+		return nil
+	}
+	invalidParams := smithy.InvalidParamsError{Context: "WindowsFsrmConfiguration"}
+	if v.FsrmServiceEnabled == nil {
+		invalidParams.Add(smithy.NewErrParamRequired("FsrmServiceEnabled"))
+	}
+	if invalidParams.Len() > 0 {
+		return invalidParams
+	} else {
+		return nil
+	}
+}
+
 func validateOpAssociateFileSystemAliasesInput(v *AssociateFileSystemAliasesInput) error {
 	if v == nil {
 		return nil
@@ -1685,6 +1889,34 @@ func validateOpCopySnapshotAndUpdateVolumeInput(v *CopySnapshotAndUpdateVolumeIn
 	}
 	if v.SourceSnapshotARN == nil {
 		invalidParams.Add(smithy.NewErrParamRequired("SourceSnapshotARN"))
+	}
+	if invalidParams.Len() > 0 {
+		return invalidParams
+	} else {
+		return nil
+	}
+}
+
+func validateOpCreateAndAttachS3AccessPointInput(v *CreateAndAttachS3AccessPointInput) error {
+	if v == nil {
+		return nil
+	}
+	invalidParams := smithy.InvalidParamsError{Context: "CreateAndAttachS3AccessPointInput"}
+	if v.Name == nil {
+		invalidParams.Add(smithy.NewErrParamRequired("Name"))
+	}
+	if len(v.Type) == 0 {
+		invalidParams.Add(smithy.NewErrParamRequired("Type"))
+	}
+	if v.OpenZFSConfiguration != nil {
+		if err := validateCreateAndAttachS3AccessPointOpenZFSConfiguration(v.OpenZFSConfiguration); err != nil {
+			invalidParams.AddNested("OpenZFSConfiguration", err.(smithy.InvalidParamsError))
+		}
+	}
+	if v.OntapConfiguration != nil {
+		if err := validateCreateAndAttachS3AccessPointOntapConfiguration(v.OntapConfiguration); err != nil {
+			invalidParams.AddNested("OntapConfiguration", err.(smithy.InvalidParamsError))
+		}
 	}
 	if invalidParams.Len() > 0 {
 		return invalidParams
@@ -2127,6 +2359,21 @@ func validateOpDescribeFileSystemAliasesInput(v *DescribeFileSystemAliasesInput)
 	invalidParams := smithy.InvalidParamsError{Context: "DescribeFileSystemAliasesInput"}
 	if v.FileSystemId == nil {
 		invalidParams.Add(smithy.NewErrParamRequired("FileSystemId"))
+	}
+	if invalidParams.Len() > 0 {
+		return invalidParams
+	} else {
+		return nil
+	}
+}
+
+func validateOpDetachAndDeleteS3AccessPointInput(v *DetachAndDeleteS3AccessPointInput) error {
+	if v == nil {
+		return nil
+	}
+	invalidParams := smithy.InvalidParamsError{Context: "DetachAndDeleteS3AccessPointInput"}
+	if v.Name == nil {
+		invalidParams.Add(smithy.NewErrParamRequired("Name"))
 	}
 	if invalidParams.Len() > 0 {
 		return invalidParams

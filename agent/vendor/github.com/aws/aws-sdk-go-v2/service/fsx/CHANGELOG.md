@@ -1,3 +1,202 @@
+# v1.65.10 (2026-05-05)
+
+* No change notes available for this release.
+
+# v1.65.9 (2026-04-29)
+
+* **Dependency Update**: Update to smithy-go v1.25.1.
+* **Dependency Update**: Updated to the latest SDK module versions
+
+# v1.65.8 (2026-04-17)
+
+* **Dependency Update**: Bump smithy-go to 1.25.0 to support endpointBdd trait
+* **Dependency Update**: Updated to the latest SDK module versions
+
+# v1.65.7 (2026-03-26)
+
+* **Bug Fix**: Fix a bug where a recorded clock skew could persist on the client even if the client and server clock ended up realigning.
+* **Dependency Update**: Updated to the latest SDK module versions
+
+# v1.65.6 (2026-03-13)
+
+* **Dependency Update**: Updated to the latest SDK module versions
+
+# v1.65.5 (2026-03-03)
+
+* **Dependency Update**: Bump minimum Go version to 1.24
+* **Dependency Update**: Updated to the latest SDK module versions
+
+# v1.65.4 (2026-02-23)
+
+* **Dependency Update**: Updated to the latest SDK module versions
+
+# v1.65.3 (2026-01-12)
+
+* No change notes available for this release.
+
+# v1.65.2 (2026-01-09)
+
+* **Dependency Update**: Updated to the latest SDK module versions
+
+# v1.65.1 (2025-12-08)
+
+* **Dependency Update**: Updated to the latest SDK module versions
+
+# v1.65.0 (2025-12-02)
+
+* **Feature**: S3 Access Points support for FSx for NetApp ONTAP
+* **Dependency Update**: Updated to the latest SDK module versions
+* **Dependency Update**: Upgrade to smithy-go v1.24.0. Notably this version of the library reduces the allocation footprint of the middleware system. We observe a ~10% reduction in allocations per SDK call with this change.
+
+# v1.64.2 (2025-11-25)
+
+* **Bug Fix**: Add error check for endpoint param binding during auth scheme resolution to fix panic reported in #3234
+
+# v1.64.1 (2025-11-19.2)
+
+* **Dependency Update**: Updated to the latest SDK module versions
+
+# v1.64.0 (2025-11-19)
+
+* **Feature**: Adding File Server Resource Manager configuration to FSx Windows
+
+# v1.63.2 (2025-11-12)
+
+* **Bug Fix**: Further reduce allocation overhead when the metrics system isn't in-use.
+* **Bug Fix**: Reduce allocation overhead when the client doesn't have any HTTP interceptors configured.
+* **Bug Fix**: Remove blank trace spans towards the beginning of the request that added no additional information. This conveys a slight reduction in overall allocations.
+
+# v1.63.1 (2025-11-11)
+
+* **Bug Fix**: Return validation error if input region is not a valid host label.
+
+# v1.63.0 (2025-11-05)
+
+* **Feature**: Amazon FSx now enables secure management of Active Directory credentials through AWS Secrets Manager integration. Customers can use Secret ARNs instead of direct credentials when joining resources to Active Directory domains.
+
+# v1.62.4 (2025-11-04)
+
+* **Dependency Update**: Updated to the latest SDK module versions
+* **Dependency Update**: Upgrade to smithy-go v1.23.2 which should convey some passive reduction of overall allocations, especially when not using the metrics system.
+
+# v1.62.3 (2025-10-30)
+
+* **Dependency Update**: Updated to the latest SDK module versions
+
+# v1.62.2 (2025-10-23)
+
+* **Dependency Update**: Updated to the latest SDK module versions
+
+# v1.62.1 (2025-10-16)
+
+* **Dependency Update**: Bump minimum Go version to 1.23.
+* **Dependency Update**: Updated to the latest SDK module versions
+
+# v1.62.0 (2025-09-30)
+
+* **Feature**: Add Dual-Stack support for Amazon FSx for NetApp ONTAP and Windows File Server
+
+# v1.61.6 (2025-09-26)
+
+* **Dependency Update**: Updated to the latest SDK module versions
+
+# v1.61.5 (2025-09-23)
+
+* **Dependency Update**: Updated to the latest SDK module versions
+
+# v1.61.4 (2025-09-10)
+
+* No change notes available for this release.
+
+# v1.61.3 (2025-09-08)
+
+* **Dependency Update**: Updated to the latest SDK module versions
+
+# v1.61.2 (2025-08-29)
+
+* **Dependency Update**: Updated to the latest SDK module versions
+
+# v1.61.1 (2025-08-27)
+
+* **Dependency Update**: Update to smithy-go v1.23.0.
+* **Dependency Update**: Updated to the latest SDK module versions
+
+# v1.61.0 (2025-08-25)
+
+* **Feature**: Remove incorrect endpoint tests
+
+# v1.60.2 (2025-08-21)
+
+* **Dependency Update**: Updated to the latest SDK module versions
+
+# v1.60.1 (2025-08-20)
+
+* **Bug Fix**: Remove unused deserialization code.
+
+# v1.60.0 (2025-08-14)
+
+* **Feature**: Amazon FSx for NetApp ONTAP 2nd generation file systems now support decreasing SSD storage capacity.
+
+# v1.59.0 (2025-08-13)
+
+* **Feature**: Add Dual-Stack support for Amazon FSx for OpenZFS file systems
+
+# v1.58.0 (2025-08-11)
+
+* **Feature**: Add support for configuring per-service Options via callback on global config.
+* **Dependency Update**: Updated to the latest SDK module versions
+
+# v1.57.0 (2025-08-04)
+
+* **Feature**: Support configurable auth scheme preferences in service clients via AWS_AUTH_SCHEME_PREFERENCE in the environment, auth_scheme_preference in the config file, and through in-code settings on LoadDefaultConfig and client constructor methods.
+* **Dependency Update**: Updated to the latest SDK module versions
+
+# v1.56.1 (2025-07-30)
+
+* **Dependency Update**: Updated to the latest SDK module versions
+
+# v1.56.0 (2025-07-28)
+
+* **Feature**: Add support for HTTP interceptors.
+* **Dependency Update**: Updated to the latest SDK module versions
+
+# v1.55.2 (2025-07-19)
+
+* **Dependency Update**: Updated to the latest SDK module versions
+
+# v1.55.1 (2025-07-15)
+
+* No change notes available for this release.
+
+# v1.55.0 (2025-06-25)
+
+* **Feature**: Add support for the ability to create Amazon S3 Access Points for Amazon FSx for OpenZFS file systems.
+
+# v1.54.2 (2025-06-17)
+
+* **Dependency Update**: Update to smithy-go v1.22.4.
+* **Dependency Update**: Updated to the latest SDK module versions
+
+# v1.54.1 (2025-06-10)
+
+* **Dependency Update**: Updated to the latest SDK module versions
+
+# v1.54.0 (2025-05-29)
+
+* **Feature**: FSx API changes to support the public launch of new Intelligent Tiering storage class on Amazon FSx for Lustre
+
+# v1.53.4 (2025-05-09)
+
+* No change notes available for this release.
+
+# v1.53.3 (2025-04-17)
+
+* No change notes available for this release.
+
+# v1.53.2 (2025-04-03)
+
+* No change notes available for this release.
+
 # v1.53.1 (2025-03-04.2)
 
 * **Bug Fix**: Add assurance test for operation order.

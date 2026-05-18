@@ -127,6 +127,10 @@ type CreateFileSystemFromBackupInput struct {
 	//   - ImportPath
 	LustreConfiguration *types.CreateFileSystemLustreConfiguration
 
+	// Sets the network type for the Amazon FSx for OpenZFS file system that you're
+	// creating from a backup.
+	NetworkType types.NetworkType
+
 	// The OpenZFS configuration for the file system that's being created.
 	OpenZFSConfiguration *types.CreateFileSystemOpenZFSConfiguration
 
@@ -147,14 +151,20 @@ type CreateFileSystemFromBackupInput struct {
 	// value, Amazon FSx responds with an HTTP status code 400 Bad Request.
 	StorageCapacity *int32
 
-	// Sets the storage type for the Windows or OpenZFS file system that you're
-	// creating from a backup. Valid values are SSD and HDD .
+	// Sets the storage type for the Windows, OpenZFS, or Lustre file system that
+	// you're creating from a backup. Valid values are SSD , HDD , and
+	// INTELLIGENT_TIERING .
 	//
 	//   - Set to SSD to use solid state drive storage. SSD is supported on all Windows
 	//   and OpenZFS deployment types.
 	//
 	//   - Set to HDD to use hard disk drive storage. HDD is supported on SINGLE_AZ_2
 	//   and MULTI_AZ_1 FSx for Windows File Server file system deployment types.
+	//
+	//   - Set to INTELLIGENT_TIERING to use fully elastic, intelligently-tiered
+	//   storage. Intelligent-Tiering is only available for OpenZFS file systems with the
+	//   Multi-AZ deployment type and for Lustre file systems with the Persistent_2
+	//   deployment type.
 	//
 	// The default value is SSD .
 	//
@@ -221,7 +231,7 @@ func (c *Client) addOperationCreateFileSystemFromBackupMiddlewares(stack *middle
 	if err = addComputePayloadSHA256(stack); err != nil {
 		return err
 	}
-	if err = addRetry(stack, options); err != nil {
+	if err = addRetry(stack, options, c); err != nil {
 		return err
 	}
 	if err = addRawResponseToMetadata(stack); err != nil {
@@ -243,9 +253,6 @@ func (c *Client) addOperationCreateFileSystemFromBackupMiddlewares(stack *middle
 		return err
 	}
 	if err = addSetLegacyContextSigningOptionsMiddleware(stack); err != nil {
-		return err
-	}
-	if err = addTimeOffsetBuild(stack, c); err != nil {
 		return err
 	}
 	if err = addUserAgentRetryMode(stack, options); err != nil {
@@ -278,16 +285,13 @@ func (c *Client) addOperationCreateFileSystemFromBackupMiddlewares(stack *middle
 	if err = addDisableHTTPSMiddleware(stack, options); err != nil {
 		return err
 	}
-	if err = addSpanInitializeStart(stack); err != nil {
+	if err = addInterceptBeforeRetryLoop(stack, options); err != nil {
 		return err
 	}
-	if err = addSpanInitializeEnd(stack); err != nil {
+	if err = addInterceptAttempt(stack, options); err != nil {
 		return err
 	}
-	if err = addSpanBuildRequestStart(stack); err != nil {
-		return err
-	}
-	if err = addSpanBuildRequestEnd(stack); err != nil {
+	if err = addInterceptors(stack, options); err != nil {
 		return err
 	}
 	return nil

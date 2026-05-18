@@ -130,6 +130,9 @@ type AdministrativeAction struct {
 	// Provides information about a failed administrative action.
 	FailureDetails *AdministrativeActionFailureDetails
 
+	// A detailed error message.
+	Message *string
+
 	// The percentage-complete status of a STORAGE_OPTIMIZATION or
 	// DOWNLOAD_DATA_FROM_BACKUP administrative action. Does not apply to any other
 	// administrative action type.
@@ -512,6 +515,61 @@ type CreateAggregateConfiguration struct {
 	noSmithyDocumentSerde
 }
 
+// Specifies the FSx for ONTAP volume that the S3 access point will be attached
+// to, and the file system user identity.
+type CreateAndAttachS3AccessPointOntapConfiguration struct {
+
+	// Specifies the file system user identity to use for authorizing file read and
+	// write requests that are made using this S3 access point.
+	//
+	// This member is required.
+	FileSystemIdentity *OntapFileSystemIdentity
+
+	// The ID of the FSx for ONTAP volume to which you want the S3 access point
+	// attached.
+	//
+	// This member is required.
+	VolumeId *string
+
+	noSmithyDocumentSerde
+}
+
+// Specifies the FSx for OpenZFS volume that the S3 access point will be attached
+// to, and the file system user identity.
+type CreateAndAttachS3AccessPointOpenZFSConfiguration struct {
+
+	// Specifies the file system user identity to use for authorizing file read and
+	// write requests that are made using this S3 access point.
+	//
+	// This member is required.
+	FileSystemIdentity *OpenZFSFileSystemIdentity
+
+	// The ID of the FSx for OpenZFS volume to which you want the S3 access point
+	// attached.
+	//
+	// This member is required.
+	VolumeId *string
+
+	noSmithyDocumentSerde
+}
+
+// Used to create an S3 access point that accepts requests only from a virtual
+// private cloud (VPC) to restrict data access to a private network.
+type CreateAndAttachS3AccessPointS3Configuration struct {
+
+	// Specifies an access policy to associate with the S3 access point configuration.
+	// For more information, see [Configuring IAM policies for using access points]in the Amazon Simple Storage Service User Guide.
+	//
+	// [Configuring IAM policies for using access points]: https://docs.aws.amazon.com/AmazonS3/latest/userguide/access-points-policies.html
+	Policy *string
+
+	// If included, Amazon S3 restricts access to this S3 access point to requests
+	// made from the specified virtual private cloud (VPC).
+	VpcConfiguration *S3AccessPointVpcConfiguration
+
+	noSmithyDocumentSerde
+}
+
 // The Amazon File Cache configuration for the cache that you are creating.
 type CreateFileCacheLustreConfiguration struct {
 
@@ -531,17 +589,11 @@ type CreateFileCacheLustreConfiguration struct {
 	// This member is required.
 	PerUnitStorageThroughput *int32
 
-	// A recurring weekly time, in the format D:HH:MM .
-	//
-	// D is the day of the week, for which 1 represents Monday and 7 represents
-	// Sunday. For further details, see [the ISO-8601 spec as described on Wikipedia].
-	//
-	// HH is the zero-padded hour of the day (0-23), and MM is the zero-padded minute
-	// of the hour.
+	// The preferred start time to perform weekly maintenance, formatted d:HH:MM in
+	// the UTC time zone, where d is the weekday number, from 1 through 7, beginning
+	// with Monday and ending with Sunday.
 	//
 	// For example, 1:05:00 specifies maintenance at 5 AM Monday.
-	//
-	// [the ISO-8601 spec as described on Wikipedia]: https://en.wikipedia.org/wiki/ISO_week_date
 	WeeklyMaintenanceStartTime *string
 
 	noSmithyDocumentSerde
@@ -632,6 +684,11 @@ type CreateFileSystemLustreConfiguration struct {
 	// [Lustre data compression]: https://docs.aws.amazon.com/fsx/latest/LustreGuide/data-compression.html
 	DataCompressionType DataCompressionType
 
+	// Specifies the optional provisioned SSD read cache on FSx for Lustre file
+	// systems that use the Intelligent-Tiering storage class. Required when
+	// StorageType is set to INTELLIGENT_TIERING .
+	DataReadCacheConfiguration *LustreReadCacheConfiguration
+
 	// (Optional) Choose SCRATCH_1 and SCRATCH_2 deployment types when you need
 	// temporary storage and shorter-term processing of data. The SCRATCH_2 deployment
 	// type provides in-transit encryption of data and higher burst throughput capacity
@@ -643,13 +700,13 @@ type CreateFileSystemLustreConfiguration struct {
 	// FSx for Lustre is available.
 	//
 	// Choose PERSISTENT_2 for longer-term storage and for latency-sensitive workloads
-	// that require the highest levels of IOPS/throughput. PERSISTENT_2 supports SSD
-	// storage, and offers higher PerUnitStorageThroughput (up to 1000 MB/s/TiB). You
-	// can optionally specify a metadata configuration mode for PERSISTENT_2 which
-	// supports increasing metadata performance. PERSISTENT_2 is available in a
-	// limited number of Amazon Web Services Regions. For more information, and an
-	// up-to-date list of Amazon Web Services Regions in which PERSISTENT_2 is
-	// available, see [File system deployment options for FSx for Lustre]in the Amazon FSx for Lustre User Guide.
+	// that require the highest levels of IOPS/throughput. PERSISTENT_2 supports the
+	// SSD and Intelligent-Tiering storage classes. You can optionally specify a
+	// metadata configuration mode for PERSISTENT_2 which supports increasing metadata
+	// performance. PERSISTENT_2 is available in a limited number of Amazon Web
+	// Services Regions. For more information, and an up-to-date list of Amazon Web
+	// Services Regions in which PERSISTENT_2 is available, see [Deployment and storage class options for FSx for Lustre file systems] in the Amazon FSx for
+	// Lustre User Guide.
 	//
 	// If you choose PERSISTENT_2 , and you set FileSystemTypeVersion to 2.10 , the
 	// CreateFileSystem operation fails.
@@ -662,7 +719,7 @@ type CreateFileSystemLustreConfiguration struct {
 	//
 	// (Default = SCRATCH_1 )
 	//
-	// [File system deployment options for FSx for Lustre]: https://docs.aws.amazon.com/fsx/latest/LustreGuide/using-fsx-lustre.html#lustre-deployment-types
+	// [Deployment and storage class options for FSx for Lustre file systems]: https://docs.aws.amazon.com/fsx/latest/LustreGuide/using-fsx-lustre.html
 	// [Encrypting data in transit]: https://docs.aws.amazon.com/fsx/latest/LustreGuide/encryption-in-transit-fsxl.html
 	DeploymentType LustreDeploymentType
 
@@ -732,13 +789,13 @@ type CreateFileSystemLustreConfiguration struct {
 	// Lustre file system using a PERSISTENT_2 deployment type.
 	MetadataConfiguration *CreateFileSystemLustreMetadataConfiguration
 
-	// Required with PERSISTENT_1 and PERSISTENT_2 deployment types, provisions the
-	// amount of read and write throughput for each 1 tebibyte (TiB) of file system
-	// storage capacity, in MB/s/TiB. File system throughput capacity is calculated by
-	// multiplying ﬁle system storage capacity (TiB) by the PerUnitStorageThroughput
-	// (MB/s/TiB). For a 2.4-TiB ﬁle system, provisioning 50 MB/s/TiB of
-	// PerUnitStorageThroughput yields 120 MB/s of ﬁle system throughput. You pay for
-	// the amount of throughput that you provision.
+	// Required with PERSISTENT_1 and PERSISTENT_2 deployment types using an SSD or
+	// HDD storage class, provisions the amount of read and write throughput for each 1
+	// tebibyte (TiB) of file system storage capacity, in MB/s/TiB. File system
+	// throughput capacity is calculated by multiplying ﬁle system storage capacity
+	// (TiB) by the PerUnitStorageThroughput (MB/s/TiB). For a 2.4-TiB ﬁle system,
+	// provisioning 50 MB/s/TiB of PerUnitStorageThroughput yields 120 MB/s of ﬁle
+	// system throughput. You pay for the amount of throughput that you provision.
 	//
 	// Valid values:
 	//
@@ -753,6 +810,12 @@ type CreateFileSystemLustreConfiguration struct {
 	// Lustre file system. When enabled, root squash restricts root-level access from
 	// clients that try to access your file system as a root user.
 	RootSquashConfiguration *LustreRootSquashConfiguration
+
+	// Specifies the throughput of an FSx for Lustre file system using the
+	// Intelligent-Tiering storage class, measured in megabytes per second (MBps).
+	// Valid values are 4000 MBps or multiples of 4000 MBps. You pay for the amount of
+	// throughput that you provision.
+	ThroughputCapacity *int32
 
 	// (Optional) The preferred start time to perform weekly maintenance, formatted
 	// d:HH:MM in the UTC time zone, where d is the weekday number, from 1 through 7,
@@ -776,9 +839,9 @@ type CreateFileSystemLustreMetadataConfiguration struct {
 	// The metadata configuration mode for provisioning Metadata IOPS for an FSx for
 	// Lustre file system using a PERSISTENT_2 deployment type.
 	//
-	//   - In AUTOMATIC mode, FSx for Lustre automatically provisions and scales the
-	//   number of Metadata IOPS for your file system based on your file system storage
-	//   capacity.
+	//   - In AUTOMATIC mode (supported only on SSD file systems), FSx for Lustre
+	//   automatically provisions and scales the number of Metadata IOPS for your file
+	//   system based on your file system storage capacity.
 	//
 	//   - In USER_PROVISIONED mode, you specify the number of Metadata IOPS to
 	//   provision for your file system.
@@ -788,8 +851,12 @@ type CreateFileSystemLustreMetadataConfiguration struct {
 
 	// (USER_PROVISIONED mode only) Specifies the number of Metadata IOPS to provision
 	// for the file system. This parameter sets the maximum rate of metadata disk IOPS
-	// supported by the file system. Valid values are 1500 , 3000 , 6000 , 12000 , and
-	// multiples of 12000 up to a maximum of 192000 .
+	// supported by the file system.
+	//
+	//   - For SSD file systems, valid values are 1500 , 3000 , 6000 , 12000 , and
+	//   multiples of 12000 up to a maximum of 192000 .
+	//
+	//   - For Intelligent-Tiering file systems, valid values are 6000 and 12000 .
 	//
 	// Iops doesn’t have a default value. If you're using USER_PROVISIONED mode, you
 	// can choose to specify a valid value. If you're using AUTOMATIC mode, you cannot
@@ -843,14 +910,23 @@ type CreateFileSystemOntapConfiguration struct {
 	// The SSD IOPS configuration for the FSx for ONTAP file system.
 	DiskIopsConfiguration *DiskIopsConfiguration
 
-	// (Multi-AZ only) Specifies the IP address range in which the endpoints to access
-	// your file system will be created. By default in the Amazon FSx API, Amazon FSx
-	// selects an unused IP address range for you from the 198.19.* range. By default
-	// in the Amazon FSx console, Amazon FSx chooses the last 64 IP addresses from the
-	// VPC’s primary CIDR range to use as the endpoint IP address range for the file
-	// system. You can have overlapping endpoint IP addresses for file systems deployed
-	// in the same VPC/route tables, as long as they don't overlap with any subnet.
+	// (Multi-AZ only) Specifies the IPv4 address range in which the endpoints to
+	// access your file system will be created. By default in the Amazon FSx API,
+	// Amazon FSx selects an unused IP address range for you from the 198.19.* range.
+	// By default in the Amazon FSx console, Amazon FSx chooses the last 64 IP
+	// addresses from the VPC’s primary CIDR range to use as the endpoint IP address
+	// range for the file system. You can have overlapping endpoint IP addresses for
+	// file systems deployed in the same VPC/route tables, as long as they don't
+	// overlap with any subnet.
 	EndpointIpAddressRange *string
+
+	// (Multi-AZ only) Specifies the IPv6 address range in which the endpoints to
+	// access your file system will be created. By default in the Amazon FSx API and
+	// Amazon FSx console, Amazon FSx selects an available /118 IP address range for
+	// you from one of the VPC's CIDR ranges. You can have overlapping endpoint IP
+	// addresses for file systems deployed in the same VPC/route tables, as long as
+	// they don't overlap with any subnet.
+	EndpointIpv6AddressRange *string
 
 	// The ONTAP administrative password for the fsxadmin user with which you
 	// administer your file system using the NetApp ONTAP CLI and REST API.
@@ -938,17 +1014,11 @@ type CreateFileSystemOntapConfiguration struct {
 	//   - The value of ThroughputCapacityPerHAPair is not a valid value.
 	ThroughputCapacityPerHAPair *int32
 
-	// A recurring weekly time, in the format D:HH:MM .
-	//
-	// D is the day of the week, for which 1 represents Monday and 7 represents
-	// Sunday. For further details, see [the ISO-8601 spec as described on Wikipedia].
-	//
-	// HH is the zero-padded hour of the day (0-23), and MM is the zero-padded minute
-	// of the hour.
+	// The preferred start time to perform weekly maintenance, formatted d:HH:MM in
+	// the UTC time zone, where d is the weekday number, from 1 through 7, beginning
+	// with Monday and ending with Sunday.
 	//
 	// For example, 1:05:00 specifies maintenance at 5 AM Monday.
-	//
-	// [the ISO-8601 spec as described on Wikipedia]: https://en.wikipedia.org/wiki/ISO_week_date
 	WeeklyMaintenanceStartTime *string
 
 	noSmithyDocumentSerde
@@ -990,7 +1060,7 @@ type CreateFileSystemOpenZFSConfiguration struct {
 	DeploymentType OpenZFSDeploymentType
 
 	// Specifies the throughput of an Amazon FSx for OpenZFS file system, measured in
-	// megabytes per second (MBps). Valid values depend on the DeploymentType you
+	// megabytes per second (MBps). Valid values depend on the DeploymentType that you
 	// choose, as follows:
 	//
 	//   - For MULTI_AZ_1 and SINGLE_AZ_2 , valid values are 160, 320, 640, 1280, 2560,
@@ -1039,12 +1109,21 @@ type CreateFileSystemOpenZFSConfiguration struct {
 	// was provisioned, or the mode (by the customer or by Amazon FSx).
 	DiskIopsConfiguration *DiskIopsConfiguration
 
-	// (Multi-AZ only) Specifies the IP address range in which the endpoints to access
-	// your file system will be created. By default in the Amazon FSx API and Amazon
-	// FSx console, Amazon FSx selects an available /28 IP address range for you from
-	// one of the VPC's CIDR ranges. You can have overlapping endpoint IP addresses for
-	// file systems deployed in the same VPC/route tables.
+	// (Multi-AZ only) Specifies the IPv4 address range in which the endpoints to
+	// access your file system will be created. By default in the Amazon FSx API and
+	// Amazon FSx console, Amazon FSx selects an available /28 IP address range for you
+	// from one of the VPC's CIDR ranges. You can have overlapping endpoint IP
+	// addresses for file systems deployed in the same VPC/route tables, as long as
+	// they don't overlap with any subnet.
 	EndpointIpAddressRange *string
+
+	// (Multi-AZ only) Specifies the IPv6 address range in which the endpoints to
+	// access your file system will be created. By default in the Amazon FSx API and
+	// Amazon FSx console, Amazon FSx selects an available /118 IP address range for
+	// you from one of the VPC's CIDR ranges. You can have overlapping endpoint IP
+	// addresses for file systems deployed in the same VPC/route tables, as long as
+	// they don't overlap with any subnet.
+	EndpointIpv6AddressRange *string
 
 	// Required when DeploymentType is set to MULTI_AZ_1 . This specifies the subnet in
 	// which you want the preferred file server to be located.
@@ -1065,17 +1144,11 @@ type CreateFileSystemOpenZFSConfiguration struct {
 	// route table.
 	RouteTableIds []string
 
-	// A recurring weekly time, in the format D:HH:MM .
-	//
-	// D is the day of the week, for which 1 represents Monday and 7 represents
-	// Sunday. For further details, see [the ISO-8601 spec as described on Wikipedia].
-	//
-	// HH is the zero-padded hour of the day (0-23), and MM is the zero-padded minute
-	// of the hour.
+	// The preferred start time to perform weekly maintenance, formatted d:HH:MM in
+	// the UTC time zone, where d is the weekday number, from 1 through 7, beginning
+	// with Monday and ending with Sunday.
 	//
 	// For example, 1:05:00 specifies maintenance at 5 AM Monday.
-	//
-	// [the ISO-8601 spec as described on Wikipedia]: https://en.wikipedia.org/wiki/ISO_week_date
 	WeeklyMaintenanceStartTime *string
 
 	noSmithyDocumentSerde
@@ -1103,10 +1176,7 @@ type CreateFileSystemWindowsConfiguration struct {
 	// create the file system using the AssociateFileSystemAliases operation. You can
 	// remove DNS aliases from the file system after it is created using the
 	// DisassociateFileSystemAliases operation. You only need to specify the alias name
-	// in the request payload.
-	//
-	// For more information, see [Working with DNS Aliases] and [Walkthrough 5: Using DNS aliases to access your file system], including additional steps you must take to be
-	// able to access your file system using a DNS alias.
+	// in the request payload. For more information, see [Managing DNS aliases]and [Accessing data using DNS aliases].
 	//
 	// An alias name has to meet the following requirements:
 	//
@@ -1123,8 +1193,8 @@ type CreateFileSystemWindowsConfiguration struct {
 	// letters (a-z), regardless of how you specify them: as uppercase letters,
 	// lowercase letters, or the corresponding letters in escape codes.
 	//
-	// [Walkthrough 5: Using DNS aliases to access your file system]: https://docs.aws.amazon.com/fsx/latest/WindowsGuide/walkthrough05-file-system-custom-CNAME.html
-	// [Working with DNS Aliases]: https://docs.aws.amazon.com/fsx/latest/WindowsGuide/managing-dns-aliases.html
+	// [Accessing data using DNS aliases]: https://docs.aws.amazon.com/fsx/latest/WindowsGuide/dns-aliases.html
+	// [Managing DNS aliases]: https://docs.aws.amazon.com/fsx/latest/WindowsGuide/managing-dns-aliases.html
 	Aliases []string
 
 	// The configuration that Amazon FSx for Windows File Server uses to audit and log
@@ -1175,6 +1245,10 @@ type CreateFileSystemWindowsConfiguration struct {
 	// storage, up to the maximum limit associated with your chosen throughput
 	// capacity.
 	DiskIopsConfiguration *DiskIopsConfiguration
+
+	// The File Server Resource Manager (FSRM) configuration that Amazon FSx for
+	// Windows File Server uses for the file system. FSRM is disabled by default.
+	FsrmConfiguration *WindowsFsrmConfiguration
 
 	// Required when DeploymentType is set to MULTI_AZ_1 . This specifies the subnet in
 	// which you want the preferred file server to be located. For in-Amazon Web
@@ -1380,11 +1454,12 @@ type CreateOpenZFSVolumeConfiguration struct {
 	ParentVolumeId *string
 
 	// A Boolean value indicating whether tags for the volume should be copied to
-	// snapshots. This value defaults to false . If it's set to true , all tags for the
-	// volume are copied to snapshots where the user doesn't specify tags. If this
-	// value is true , and you specify one or more tags, only the specified tags are
-	// copied to snapshots. If you specify one or more tags when creating the snapshot,
-	// no tags are copied from the volume, regardless of this value.
+	// snapshots. This value defaults to false . If this value is set to true , and you
+	// do not specify any tags, all tags for the original volume are copied over to
+	// snapshots. If this value is set to true , and you do specify one or more tags,
+	// only the specified tags for the original volume are copied over to snapshots. If
+	// you specify one or more tags when creating a new snapshot, no tags are copied
+	// over from the original volume, regardless of this value.
 	CopyTagsToSnapshots *bool
 
 	// Specifies the method used to compress the data on the volume. The compression
@@ -1559,8 +1634,8 @@ type CreateSvmActiveDirectoryConfiguration struct {
 //   - DescribeDataRepositoryAssociations
 //
 // Data repository associations are supported on Amazon File Cache resources and
-// all FSx for Lustre 2.12 and 2.15 file systems, excluding scratch_1 deployment
-// type.
+// all FSx for Lustre 2.12 and 2.15 file systems, excluding Intelligent-Tiering and
+// scratch_1 file systems.
 type DataRepositoryAssociation struct {
 
 	// The system-generated, unique ID of the data repository association.
@@ -2459,17 +2534,11 @@ type FileCacheLustreConfiguration struct {
 	// (MB/s/TiB). The only supported value is 1000 .
 	PerUnitStorageThroughput *int32
 
-	// A recurring weekly time, in the format D:HH:MM .
-	//
-	// D is the day of the week, for which 1 represents Monday and 7 represents
-	// Sunday. For further details, see [the ISO-8601 spec as described on Wikipedia].
-	//
-	// HH is the zero-padded hour of the day (0-23), and MM is the zero-padded minute
-	// of the hour.
+	// The preferred start time to perform weekly maintenance, formatted d:HH:MM in
+	// the UTC time zone, where d is the weekday number, from 1 through 7, beginning
+	// with Monday and ending with Sunday.
 	//
 	// For example, 1:05:00 specifies maintenance at 5 AM Monday.
-	//
-	// [the ISO-8601 spec as described on Wikipedia]: https://en.wikipedia.org/wiki/ISO_week_date
 	WeeklyMaintenanceStartTime *string
 
 	noSmithyDocumentSerde
@@ -2591,6 +2660,9 @@ type FileSystem struct {
 	// [Elastic Network Interfaces]: https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/using-eni.html
 	NetworkInterfaceIds []string
 
+	// The network type of the file system.
+	NetworkType NetworkType
+
 	// The configuration for this Amazon FSx for NetApp ONTAP file system.
 	OntapConfiguration *OntapFileSystemConfiguration
 
@@ -2611,9 +2683,14 @@ type FileSystem struct {
 	// StorageCapacity is outside of the minimum or maximum values.
 	StorageCapacity *int32
 
-	// The type of storage the file system is using. If set to SSD , the file system
-	// uses solid state drive storage. If set to HDD , the file system uses hard disk
-	// drive storage.
+	// The type of storage the file system is using.
+	//
+	//   - If set to SSD , the file system uses solid state drive storage.
+	//
+	//   - If set to HDD , the file system uses hard disk drive storage.
+	//
+	//   - If set to INTELLIGENT_TIERING , the file system uses fully elastic,
+	//   intelligently-tiered storage.
 	StorageType StorageType
 
 	// Specifies the IDs of the subnets that the file system is accessible from. For
@@ -2651,8 +2728,11 @@ type FileSystemEndpoint struct {
 	// The file system's DNS name. You can mount your file system using its DNS name.
 	DNSName *string
 
-	// IP addresses of the file system endpoint.
+	// The IPv4 addresses of the file system endpoint.
 	IpAddresses []string
+
+	// The IPv6 addresses of the file system endpoint.
+	Ipv6Addresses []string
 
 	noSmithyDocumentSerde
 }
@@ -2690,9 +2770,9 @@ type FileSystemLustreMetadataConfiguration struct {
 	// The metadata configuration mode for provisioning Metadata IOPS for the file
 	// system.
 	//
-	//   - In AUTOMATIC mode, FSx for Lustre automatically provisions and scales the
-	//   number of Metadata IOPS on your file system based on your file system storage
-	//   capacity.
+	//   - In AUTOMATIC mode (supported only on SSD file systems), FSx for Lustre
+	//   automatically provisions and scales the number of Metadata IOPS on your file
+	//   system based on your file system storage capacity.
 	//
 	//   - In USER_PROVISIONED mode, you can choose to specify the number of Metadata
 	//   IOPS to provision for your file system.
@@ -2700,8 +2780,12 @@ type FileSystemLustreMetadataConfiguration struct {
 	// This member is required.
 	Mode MetadataConfigurationMode
 
-	// The number of Metadata IOPS provisioned for the file system. Valid values are
-	// 1500 , 3000 , 6000 , 12000 , and multiples of 12000 up to a maximum of 192000 .
+	// The number of Metadata IOPS provisioned for the file system.
+	//
+	//   - For SSD file systems, valid values are 1500 , 3000 , 6000 , 12000 , and
+	//   multiples of 12000 up to a maximum of 192000 .
+	//
+	//   - For Intelligent-Tiering file systems, valid values are 6000 and 12000 .
 	Iops *int32
 
 	noSmithyDocumentSerde
@@ -2764,6 +2848,10 @@ type LustreFileSystemConfiguration struct {
 	// [Lustre data compression]: https://docs.aws.amazon.com/fsx/latest/LustreGuide/data-compression.html
 	DataCompressionType DataCompressionType
 
+	// Required when StorageType is set to INTELLIGENT_TIERING . Specifies the optional
+	// provisioned SSD read cache.
+	DataReadCacheConfiguration *LustreReadCacheConfiguration
+
 	// The data repository configuration object for Lustre file systems returned in
 	// the response of the CreateFileSystem operation.
 	//
@@ -2783,11 +2871,11 @@ type LustreFileSystemConfiguration struct {
 	// storage and workloads and encryption of data in transit. PERSISTENT_2 offers
 	// higher PerUnitStorageThroughput (up to 1000 MB/s/TiB) along with a lower
 	// minimum storage capacity requirement (600 GiB). To learn more about FSx for
-	// Lustre deployment types, see [FSx for Lustre deployment options].
+	// Lustre deployment types, see [Deployment and storage class options for FSx for Lustre file systems].
 	//
 	// The default is SCRATCH_1 .
 	//
-	// [FSx for Lustre deployment options]: https://docs.aws.amazon.com/fsx/latest/LustreGuide/lustre-deployment-types.html
+	// [Deployment and storage class options for FSx for Lustre file systems]: https://docs.aws.amazon.com/fsx/latest/LustreGuide/using-fsx-lustre.html
 	DeploymentType LustreDeploymentType
 
 	// The type of drive cache used by PERSISTENT_1 file systems that are provisioned
@@ -2837,6 +2925,10 @@ type LustreFileSystemConfiguration struct {
 	// When enabled, root squash restricts root-level access from clients that try to
 	// access your file system as a root user.
 	RootSquashConfiguration *LustreRootSquashConfiguration
+
+	// The throughput of an Amazon FSx for Lustre file system using the
+	// Intelligent-Tiering storage class, measured in megabytes per second (MBps).
+	ThroughputCapacity *int32
 
 	// The preferred start time to perform weekly maintenance, formatted d:HH:MM in
 	// the UTC time zone. Here, d is the weekday number, from 1 through 7, beginning
@@ -2920,6 +3012,34 @@ type LustreLogCreateConfiguration struct {
 	//   - If Level is set to DISABLED , you cannot specify a destination in
 	//   Destination .
 	Destination *string
+
+	noSmithyDocumentSerde
+}
+
+//	The configuration for the optional provisioned SSD read cache on Amazon FSx
+//
+// for Lustre file systems that use the Intelligent-Tiering storage class.
+type LustreReadCacheConfiguration struct {
+
+	//  Required if SizingMode is set to USER_PROVISIONED . Specifies the size of the
+	// file system's SSD read cache, in gibibytes (GiB).
+	//
+	// The SSD read cache size is distributed across provisioned file servers in your
+	// file system. Intelligent-Tiering file systems support a minimum of 32 GiB and
+	// maximum of 131072 GiB for SSD read cache size for every 4,000 MB/s of throughput
+	// capacity provisioned.
+	SizeGiB *int32
+
+	//  Specifies how the provisioned SSD read cache is sized, as follows:
+	//
+	//   - Set to NO_CACHE if you do not want to use an SSD read cache with your
+	//   Intelligent-Tiering file system.
+	//
+	//   - Set to USER_PROVISIONED to specify the exact size of your SSD read cache.
+	//
+	//   - Set to PROPORTIONAL_TO_THROUGHPUT_CAPACITY to have your SSD read cache
+	//   automatically sized based on your throughput capacity.
+	SizingMode LustreReadCacheSizingMode
 
 	noSmithyDocumentSerde
 }
@@ -3030,14 +3150,22 @@ type OntapFileSystemConfiguration struct {
 	// provisioned IOPS and the provision mode.
 	DiskIopsConfiguration *DiskIopsConfiguration
 
-	// (Multi-AZ only) Specifies the IP address range in which the endpoints to access
-	// your file system will be created. By default in the Amazon FSx API, Amazon FSx
-	// selects an unused IP address range for you from the 198.19.* range. By default
-	// in the Amazon FSx console, Amazon FSx chooses the last 64 IP addresses from the
-	// VPC’s primary CIDR range to use as the endpoint IP address range for the file
-	// system. You can have overlapping endpoint IP addresses for file systems deployed
-	// in the same VPC/route tables.
+	// (Multi-AZ only) Specifies the IPv4 address range in which the endpoints to
+	// access your file system will be created. By default in the Amazon FSx API,
+	// Amazon FSx selects an unused IP address range for you from the 198.19.* range.
+	// By default in the Amazon FSx console, Amazon FSx chooses the last 64 IP
+	// addresses from the VPC’s primary CIDR range to use as the endpoint IP address
+	// range for the file system. You can have overlapping endpoint IP addresses for
+	// file systems deployed in the same VPC/route tables.
 	EndpointIpAddressRange *string
+
+	// (Multi-AZ only) Specifies the IPv6 address range in which the endpoints to
+	// access your file system will be created. By default in the Amazon FSx API and
+	// Amazon FSx console, Amazon FSx selects an available /118 IP address range for
+	// you from one of the VPC's CIDR ranges. You can have overlapping endpoint IP
+	// addresses for file systems deployed in the same VPC/route tables, as long as
+	// they don't overlap with any subnet.
+	EndpointIpv6AddressRange *string
 
 	// The Management and Intercluster endpoints that are used to access data or to
 	// manage the file system using the NetApp ONTAP CLI, REST API, or NetApp
@@ -3107,18 +3235,44 @@ type OntapFileSystemConfiguration struct {
 	//   - The value of ThroughputCapacityPerHAPair is not a valid value.
 	ThroughputCapacityPerHAPair *int32
 
-	// A recurring weekly time, in the format D:HH:MM .
-	//
-	// D is the day of the week, for which 1 represents Monday and 7 represents
-	// Sunday. For further details, see [the ISO-8601 spec as described on Wikipedia].
-	//
-	// HH is the zero-padded hour of the day (0-23), and MM is the zero-padded minute
-	// of the hour.
+	// The preferred start time to perform weekly maintenance, formatted d:HH:MM in
+	// the UTC time zone, where d is the weekday number, from 1 through 7, beginning
+	// with Monday and ending with Sunday.
 	//
 	// For example, 1:05:00 specifies maintenance at 5 AM Monday.
-	//
-	// [the ISO-8601 spec as described on Wikipedia]: https://en.wikipedia.org/wiki/ISO_week_date
 	WeeklyMaintenanceStartTime *string
+
+	noSmithyDocumentSerde
+}
+
+// Specifies the file system user identity that will be used for authorizing all
+// file access requests that are made using the S3 access point. The identity can
+// be either a UNIX user or a Windows user.
+type OntapFileSystemIdentity struct {
+
+	// Specifies the FSx for ONTAP user identity type. Valid values are UNIX and
+	// WINDOWS .
+	//
+	// This member is required.
+	Type OntapFileSystemUserType
+
+	// Specifies the UNIX user identity for file system operations.
+	UnixUser *OntapUnixFileSystemUser
+
+	// Specifies the Windows user identity for file system operations.
+	WindowsUser *OntapWindowsFileSystemUser
+
+	noSmithyDocumentSerde
+}
+
+// The FSx for ONTAP UNIX file system user that is used for authorizing all file
+// access requests that are made using the S3 access point.
+type OntapUnixFileSystemUser struct {
+
+	// The name of the UNIX user. The name can be up to 256 characters long.
+	//
+	// This member is required.
+	Name *string
 
 	noSmithyDocumentSerde
 }
@@ -3232,6 +3386,19 @@ type OntapVolumeConfiguration struct {
 	//
 	// [Volume types]: https://docs.aws.amazon.com/fsx/latest/ONTAPGuide/volume-types.html
 	VolumeStyle VolumeStyle
+
+	noSmithyDocumentSerde
+}
+
+// The FSx for ONTAP Windows file system user that is used for authorizing all
+// file access requests that are made using the S3 access point.
+type OntapWindowsFileSystemUser struct {
+
+	// The name of the Windows user. The name can be up to 256 characters long and
+	// supports Active Directory users.
+	//
+	// This member is required.
+	Name *string
 
 	noSmithyDocumentSerde
 }
@@ -3360,16 +3527,28 @@ type OpenZFSFileSystemConfiguration struct {
 	// was provisioned, or the mode (by the customer or by Amazon FSx).
 	DiskIopsConfiguration *DiskIopsConfiguration
 
-	// The IP address of the endpoint that is used to access data or to manage the
+	// The IPv4 address of the endpoint that is used to access data or to manage the
 	// file system.
 	EndpointIpAddress *string
 
-	// (Multi-AZ only) Specifies the IP address range in which the endpoints to access
-	// your file system will be created. By default in the Amazon FSx API and Amazon
-	// FSx console, Amazon FSx selects an available /28 IP address range for you from
-	// one of the VPC's CIDR ranges. You can have overlapping endpoint IP addresses for
-	// file systems deployed in the same VPC/route tables.
+	// (Multi-AZ only) Specifies the IPv4 address range in which the endpoints to
+	// access your file system will be created. By default in the Amazon FSx API and
+	// Amazon FSx console, Amazon FSx selects an available /28 IP address range for you
+	// from one of the VPC's CIDR ranges. You can have overlapping endpoint IP
+	// addresses for file systems deployed in the same VPC/route tables.
 	EndpointIpAddressRange *string
+
+	// The IPv6 address of the endpoint that is used to access data or to manage the
+	// file system.
+	EndpointIpv6Address *string
+
+	// (Multi-AZ only) Specifies the IPv6 address range in which the endpoints to
+	// access your file system will be created. By default in the Amazon FSx API and
+	// Amazon FSx console, Amazon FSx selects an available /118 IP address range for
+	// you from one of the VPC's CIDR ranges. You can have overlapping endpoint IP
+	// addresses for file systems deployed in the same VPC/route tables, as long as
+	// they don't overlap with any subnet.
+	EndpointIpv6AddressRange *string
 
 	// Required when DeploymentType is set to MULTI_AZ_1 . This specifies the subnet in
 	// which you want the preferred file server to be located.
@@ -3390,18 +3569,27 @@ type OpenZFSFileSystemConfiguration struct {
 	// (MBps).
 	ThroughputCapacity *int32
 
-	// A recurring weekly time, in the format D:HH:MM .
-	//
-	// D is the day of the week, for which 1 represents Monday and 7 represents
-	// Sunday. For further details, see [the ISO-8601 spec as described on Wikipedia].
-	//
-	// HH is the zero-padded hour of the day (0-23), and MM is the zero-padded minute
-	// of the hour.
+	// The preferred start time to perform weekly maintenance, formatted d:HH:MM in
+	// the UTC time zone, where d is the weekday number, from 1 through 7, beginning
+	// with Monday and ending with Sunday.
 	//
 	// For example, 1:05:00 specifies maintenance at 5 AM Monday.
-	//
-	// [the ISO-8601 spec as described on Wikipedia]: https://en.wikipedia.org/wiki/ISO_week_date
 	WeeklyMaintenanceStartTime *string
+
+	noSmithyDocumentSerde
+}
+
+// Specifies the file system user identity that will be used for authorizing all
+// file access requests that are made using the S3 access point.
+type OpenZFSFileSystemIdentity struct {
+
+	// Specifies the FSx for OpenZFS user identity type, accepts only POSIX .
+	//
+	// This member is required.
+	Type OpenZFSFileSystemUserType
+
+	// Specifies the UID and GIDs of the file system POSIX user.
+	PosixUser *OpenZFSPosixFileSystemUser
 
 	noSmithyDocumentSerde
 }
@@ -3449,9 +3637,29 @@ type OpenZFSOriginSnapshotConfiguration struct {
 	noSmithyDocumentSerde
 }
 
-//	The configuration for the optional provisioned SSD read cache on file systems
+// The FSx for OpenZFS file system user that is used for authorizing all file
+// access requests that are made using the S3 access point.
+type OpenZFSPosixFileSystemUser struct {
+
+	// The GID of the file system user.
+	//
+	// This member is required.
+	Gid *int64
+
+	// The UID of the file system user.
+	//
+	// This member is required.
+	Uid *int64
+
+	// The list of secondary GIDs for the file system user.
+	SecondaryGids []int64
+
+	noSmithyDocumentSerde
+}
+
+//	The configuration for the optional provisioned SSD read cache on Amazon FSx
 //
-// that use the Intelligent-Tiering storage class.
+// for OpenZFS file systems that use the Intelligent-Tiering storage class.
 type OpenZFSReadCacheConfiguration struct {
 
 	//  Required if SizingMode is set to USER_PROVISIONED . Specifies the size of the
@@ -3671,6 +3879,117 @@ type RetentionPeriod struct {
 	noSmithyDocumentSerde
 }
 
+// Describes the S3 access point configuration of the S3 access point attachment.
+type S3AccessPoint struct {
+
+	// The S3 access point's alias.
+	Alias *string
+
+	// he S3 access point's ARN.
+	ResourceARN *string
+
+	// The S3 access point's virtual private cloud (VPC) configuration.
+	VpcConfiguration *S3AccessPointVpcConfiguration
+
+	noSmithyDocumentSerde
+}
+
+// An S3 access point attached to an Amazon FSx volume.
+type S3AccessPointAttachment struct {
+
+	// The time that the resource was created, in seconds (since
+	// 1970-01-01T00:00:00Z), also known as Unix time.
+	CreationTime *time.Time
+
+	// The lifecycle status of the S3 access point attachment. The lifecycle can have
+	// the following values:
+	//
+	//   - AVAILABLE - the S3 access point attachment is available for use
+	//
+	//   - CREATING - Amazon FSx is creating the S3 access point and attachment
+	//
+	//   - DELETING - Amazon FSx is deleting the S3 access point and attachment
+	//
+	//   - FAILED - The S3 access point attachment is in a failed state. Delete and
+	//   detach the S3 access point attachment, and create a new one.
+	//
+	//   - UPDATING - Amazon FSx is updating the S3 access point attachment
+	Lifecycle S3AccessPointAttachmentLifecycle
+
+	// Describes why a resource lifecycle state changed.
+	LifecycleTransitionReason *LifecycleTransitionReason
+
+	// The name of the S3 access point attachment; also used for the name of the S3
+	// access point.
+	Name *string
+
+	// The ONTAP configuration of the S3 access point attachment.
+	OntapConfiguration *S3AccessPointOntapConfiguration
+
+	// The OpenZFSConfiguration of the S3 access point attachment.
+	OpenZFSConfiguration *S3AccessPointOpenZFSConfiguration
+
+	// The S3 access point configuration of the S3 access point attachment.
+	S3AccessPoint *S3AccessPoint
+
+	// The type of Amazon FSx volume that the S3 access point is attached to.
+	Type S3AccessPointAttachmentType
+
+	noSmithyDocumentSerde
+}
+
+// A set of Name and Values pairs used to view a select set of S3 access point
+// attachments.
+type S3AccessPointAttachmentsFilter struct {
+
+	// The name of the filter.
+	Name S3AccessPointAttachmentsFilterName
+
+	// The values of the filter.
+	Values []string
+
+	noSmithyDocumentSerde
+}
+
+// Describes the FSx for ONTAP attachment configuration of an S3 access point
+// attachment.
+type S3AccessPointOntapConfiguration struct {
+
+	// The file system identity used to authorize file access requests made using the
+	// S3 access point.
+	FileSystemIdentity *OntapFileSystemIdentity
+
+	// The ID of the FSx for ONTAP volume that the S3 access point is attached to.
+	VolumeId *string
+
+	noSmithyDocumentSerde
+}
+
+// Describes the FSx for OpenZFS attachment configuration of an S3 access point
+// attachment.
+type S3AccessPointOpenZFSConfiguration struct {
+
+	// The file system identity used to authorize file access requests made using the
+	// S3 access point.
+	FileSystemIdentity *OpenZFSFileSystemIdentity
+
+	// The ID of the FSx for OpenZFS volume that the S3 access point is attached to.
+	VolumeId *string
+
+	noSmithyDocumentSerde
+}
+
+// If included, Amazon S3 restricts access to this access point to requests from
+// the specified virtual private cloud (VPC).
+type S3AccessPointVpcConfiguration struct {
+
+	// Specifies the virtual private cloud (VPC) for the S3 access point VPC
+	// configuration, if one exists.
+	VpcId *string
+
+	noSmithyDocumentSerde
+}
+
 // The configuration for an Amazon S3 data repository linked to an Amazon FSx for
 // Lustre file system with a data repository association. The configuration
 // consists of an AutoImportPolicy that defines which file events on the data
@@ -3703,6 +4022,11 @@ type SelfManagedActiveDirectoryAttributes struct {
 	// A list of up to three IP addresses of DNS servers or domain controllers in the
 	// self-managed AD directory.
 	DnsIps []string
+
+	// The Amazon Resource Name (ARN) of the Amazon Web Services Secrets Manager
+	// secret containing the service account credentials used to join the file system
+	// to your self-managed Active Directory domain.
+	DomainJoinServiceAccountSecret *string
 
 	// The fully qualified domain name of the self-managed AD directory.
 	DomainName *string
@@ -3744,20 +4068,24 @@ type SelfManagedActiveDirectoryConfiguration struct {
 	// This member is required.
 	DomainName *string
 
-	// The password for the service account on your self-managed AD domain that Amazon
-	// FSx will use to join to your AD domain.
+	// The Amazon Resource Name (ARN) of the Amazon Web Services Secrets Manager
+	// secret containing the self-managed Active Directory domain join service account
+	// credentials. When provided, Amazon FSx uses the credentials stored in this
+	// secret to join the file system to your self-managed Active Directory domain.
 	//
-	// This member is required.
-	Password *string
-
-	// The user name for the service account on your self-managed AD domain that
-	// Amazon FSx will use to join to your AD domain. This account must have the
-	// permission to join computers to the domain in the organizational unit provided
-	// in OrganizationalUnitDistinguishedName , or in the default location of your AD
-	// domain.
+	// The secret must contain two key-value pairs:
 	//
-	// This member is required.
-	UserName *string
+	//   - CUSTOMER_MANAGED_ACTIVE_DIRECTORY_USERNAME - The username for the service
+	//   account
+	//
+	//   - CUSTOMER_MANAGED_ACTIVE_DIRECTORY_PASSWORD - The password for the service
+	//   account
+	//
+	// For more information, see [Using Amazon FSx for Windows with your self-managed Microsoft Active Directory] or [Using Amazon FSx for ONTAP with your self-managed Microsoft Active Directory].
+	//
+	// [Using Amazon FSx for Windows with your self-managed Microsoft Active Directory]: https://docs.aws.amazon.com/fsx/latest/WindowsGuide/self-manage-prereqs.html
+	// [Using Amazon FSx for ONTAP with your self-managed Microsoft Active Directory]: https://docs.aws.amazon.com/fsx/latest/ONTAPGuide/self-manage-prereqs.html
+	DomainJoinServiceAccountSecret *string
 
 	// (Optional) The name of the domain group whose members are granted
 	// administrative privileges for the file system. Administrative privileges include
@@ -3779,6 +4107,17 @@ type SelfManagedActiveDirectoryConfiguration struct {
 	// [RFC 2253]: https://tools.ietf.org/html/rfc2253
 	OrganizationalUnitDistinguishedName *string
 
+	// The password for the service account on your self-managed AD domain that Amazon
+	// FSx will use to join to your AD domain.
+	Password *string
+
+	// The user name for the service account on your self-managed AD domain that
+	// Amazon FSx will use to join to your AD domain. This account must have the
+	// permission to join computers to the domain in the organizational unit provided
+	// in OrganizationalUnitDistinguishedName , or in the default location of your AD
+	// domain.
+	UserName *string
+
 	noSmithyDocumentSerde
 }
 
@@ -3790,6 +4129,12 @@ type SelfManagedActiveDirectoryConfigurationUpdates struct {
 	// A list of up to three DNS server or domain controller IP addresses in your
 	// self-managed Active Directory domain.
 	DnsIps []string
+
+	// Specifies the updated Amazon Resource Name (ARN) of the Amazon Web Services
+	// Secrets Manager secret containing the self-managed Active Directory domain join
+	// service account credentials. Amazon FSx uses this account to join to your
+	// self-managed Active Directory domain.
+	DomainJoinServiceAccountSecret *string
 
 	// Specifies an updated fully qualified domain name of your self-managed Active
 	// Directory configuration.
@@ -4082,8 +4427,11 @@ type SvmEndpoint struct {
 	// The file system's DNS name. You can mount your file system using its DNS name.
 	DNSName *string
 
-	// The SVM endpoint's IP addresses.
+	// The SVM endpoint's IPv4 addresses.
 	IpAddresses []string
+
+	// The SVM endpoint's IPv6 addresses.
+	Ipv6Addresses []string
 
 	noSmithyDocumentSerde
 }
@@ -4177,17 +4525,11 @@ type TieringPolicy struct {
 // The configuration update for an Amazon File Cache resource.
 type UpdateFileCacheLustreConfiguration struct {
 
-	// A recurring weekly time, in the format D:HH:MM .
-	//
-	// D is the day of the week, for which 1 represents Monday and 7 represents
-	// Sunday. For further details, see [the ISO-8601 spec as described on Wikipedia].
-	//
-	// HH is the zero-padded hour of the day (0-23), and MM is the zero-padded minute
-	// of the hour.
+	// The preferred start time to perform weekly maintenance, formatted d:HH:MM in
+	// the UTC time zone, where d is the weekday number, from 1 through 7, beginning
+	// with Monday and ending with Sunday.
 	//
 	// For example, 1:05:00 specifies maintenance at 5 AM Monday.
-	//
-	// [the ISO-8601 spec as described on Wikipedia]: https://en.wikipedia.org/wiki/ISO_week_date
 	WeeklyMaintenanceStartTime *string
 
 	noSmithyDocumentSerde
@@ -4249,6 +4591,10 @@ type UpdateFileSystemLustreConfiguration struct {
 	// [Lustre data compression]: https://docs.aws.amazon.com/fsx/latest/LustreGuide/data-compression.html
 	DataCompressionType DataCompressionType
 
+	// Specifies the optional provisioned SSD read cache on Amazon FSx for Lustre file
+	// systems that use the Intelligent-Tiering storage class.
+	DataReadCacheConfiguration *LustreReadCacheConfiguration
+
 	// The Lustre logging configuration used when updating an Amazon FSx for Lustre
 	// file system. When logging is enabled, Lustre logs error and warning events for
 	// data repositories associated with your file system to Amazon CloudWatch Logs.
@@ -4280,6 +4626,12 @@ type UpdateFileSystemLustreConfiguration struct {
 	// clients that try to access your file system as a root user.
 	RootSquashConfiguration *LustreRootSquashConfiguration
 
+	// The throughput of an Amazon FSx for Lustre file system using an
+	// Intelligent-Tiering storage class, measured in megabytes per second (MBps). You
+	// can only increase your file system's throughput. Valid values are 4000 MBps or
+	// multiples of 4000 MBps.
+	ThroughputCapacity *int32
+
 	// (Optional) The preferred start time to perform weekly maintenance, formatted
 	// d:HH:MM in the UTC time zone. d is the weekday number, from 1 through 7,
 	// beginning with Monday and ending with Sunday.
@@ -4298,8 +4650,12 @@ type UpdateFileSystemLustreConfiguration struct {
 type UpdateFileSystemLustreMetadataConfiguration struct {
 
 	// (USER_PROVISIONED mode only) Specifies the number of Metadata IOPS to provision
-	// for your file system. Valid values are 1500 , 3000 , 6000 , 12000 , and
-	// multiples of 12000 up to a maximum of 192000 .
+	// for your file system.
+	//
+	//   - For SSD file systems, valid values are 1500 , 3000 , 6000 , 12000 , and
+	//   multiples of 12000 up to a maximum of 192000 .
+	//
+	//   - For Intelligent-Tiering file systems, valid values are 6000 and 12000 .
 	//
 	// The value you provide must be greater than or equal to the current number of
 	// Metadata IOPS provisioned for the file system.
@@ -4308,17 +4664,20 @@ type UpdateFileSystemLustreMetadataConfiguration struct {
 	// The metadata configuration mode for provisioning Metadata IOPS for an FSx for
 	// Lustre file system using a PERSISTENT_2 deployment type.
 	//
-	//   - To increase the Metadata IOPS or to switch from AUTOMATIC mode, specify
-	//   USER_PROVISIONED as the value for this parameter. Then use the Iops parameter
-	//   to provide a Metadata IOPS value that is greater than or equal to the current
-	//   number of Metadata IOPS provisioned for the file system.
+	//   - To increase the Metadata IOPS or to switch an SSD file system from
+	//   AUTOMATIC, specify USER_PROVISIONED as the value for this parameter. Then use
+	//   the Iops parameter to provide a Metadata IOPS value that is greater than or
+	//   equal to the current number of Metadata IOPS provisioned for the file system.
 	//
-	//   - To switch from USER_PROVISIONED mode, specify AUTOMATIC as the value for
-	//   this parameter, but do not input a value for Iops.
+	//   - To switch from USER_PROVISIONED mode on an SSD file system, specify
+	//   AUTOMATIC as the value for this parameter, but do not input a value for Iops.
 	//
-	// If you request to switch from USER_PROVISIONED to AUTOMATIC mode and the
+	//   - If you request to switch from USER_PROVISIONED to AUTOMATIC mode and the
 	//   current Metadata IOPS value is greater than the automated default, FSx for
 	//   Lustre rejects the request because downscaling Metadata IOPS is not supported.
+	//
+	//   - AUTOMATIC mode is not supported on Intelligent-Tiering file systems. For
+	//   Intelligent-Tiering file systems, use USER_PROVISIONED mode.
 	Mode MetadataConfigurationMode
 
 	noSmithyDocumentSerde
@@ -4346,10 +4705,18 @@ type UpdateFileSystemOntapConfiguration struct {
 	// capacity, but you can provision additional IOPS per GB of storage. The
 	// configuration consists of an IOPS mode ( AUTOMATIC or USER_PROVISIONED ), and in
 	// the case of USER_PROVISIONED IOPS, the total number of SSD IOPS provisioned.
-	// For more information, see [Updating SSD storage capacity and IOPS].
+	// For more information, see [File system storage capacity and IOPS].
 	//
-	// [Updating SSD storage capacity and IOPS]: https://docs.aws.amazon.com/fsx/latest/ONTAPGuide/increase-primary-storage.html
+	// [File system storage capacity and IOPS]: https://docs.aws.amazon.com/fsx/latest/ONTAPGuide/storage-capacity-and-IOPS.html
 	DiskIopsConfiguration *DiskIopsConfiguration
+
+	// (Multi-AZ only) Specifies the IPv6 address range in which the endpoints to
+	// access your file system will be created. By default in the Amazon FSx API and
+	// Amazon FSx console, Amazon FSx selects an available /118 IP address range for
+	// you from one of the VPC's CIDR ranges. You can have overlapping endpoint IP
+	// addresses for file systems deployed in the same VPC/route tables, as long as
+	// they don't overlap with any subnet.
+	EndpointIpv6AddressRange *string
 
 	// Update the password for the fsxadmin user by entering a new password. You use
 	// the fsxadmin user to access the NetApp ONTAP CLI and REST API to manage your
@@ -4420,17 +4787,11 @@ type UpdateFileSystemOntapConfiguration struct {
 	//   - The value of ThroughputCapacityPerHAPair is not a valid value.
 	ThroughputCapacityPerHAPair *int32
 
-	// A recurring weekly time, in the format D:HH:MM .
-	//
-	// D is the day of the week, for which 1 represents Monday and 7 represents
-	// Sunday. For further details, see [the ISO-8601 spec as described on Wikipedia].
-	//
-	// HH is the zero-padded hour of the day (0-23), and MM is the zero-padded minute
-	// of the hour.
+	// The preferred start time to perform weekly maintenance, formatted d:HH:MM in
+	// the UTC time zone, where d is the weekday number, from 1 through 7, beginning
+	// with Monday and ending with Sunday.
 	//
 	// For example, 1:05:00 specifies maintenance at 5 AM Monday.
-	//
-	// [the ISO-8601 spec as described on Wikipedia]: https://en.wikipedia.org/wiki/ISO_week_date
 	WeeklyMaintenanceStartTime *string
 
 	noSmithyDocumentSerde
@@ -4478,6 +4839,14 @@ type UpdateFileSystemOpenZFSConfiguration struct {
 	// was provisioned, or the mode (by the customer or by Amazon FSx).
 	DiskIopsConfiguration *DiskIopsConfiguration
 
+	// (Multi-AZ only) Specifies the IPv6 address range in which the endpoints to
+	// access your file system will be created. By default in the Amazon FSx API and
+	// Amazon FSx console, Amazon FSx selects an available /118 IP address range for
+	// you from one of the VPC's CIDR ranges. You can have overlapping endpoint IP
+	// addresses for file systems deployed in the same VPC/route tables, as long as
+	// they don't overlap with any subnet.
+	EndpointIpv6AddressRange *string
+
 	//  The configuration for the optional provisioned SSD read cache on file systems
 	// that use the Intelligent-Tiering storage class.
 	ReadCacheConfiguration *OpenZFSReadCacheConfiguration
@@ -4499,17 +4868,11 @@ type UpdateFileSystemOpenZFSConfiguration struct {
 	//   4096 MB/s.
 	ThroughputCapacity *int32
 
-	// A recurring weekly time, in the format D:HH:MM .
-	//
-	// D is the day of the week, for which 1 represents Monday and 7 represents
-	// Sunday. For further details, see [the ISO-8601 spec as described on Wikipedia].
-	//
-	// HH is the zero-padded hour of the day (0-23), and MM is the zero-padded minute
-	// of the hour.
+	// The preferred start time to perform weekly maintenance, formatted d:HH:MM in
+	// the UTC time zone, where d is the weekday number, from 1 through 7, beginning
+	// with Monday and ending with Sunday.
 	//
 	// For example, 1:05:00 specifies maintenance at 5 AM Monday.
-	//
-	// [the ISO-8601 spec as described on Wikipedia]: https://en.wikipedia.org/wiki/ISO_week_date
 	WeeklyMaintenanceStartTime *string
 
 	noSmithyDocumentSerde
@@ -4542,6 +4905,10 @@ type UpdateFileSystemWindowsConfiguration struct {
 	// storage, up to the maximum limit associated with your chosen throughput
 	// capacity.
 	DiskIopsConfiguration *DiskIopsConfiguration
+
+	// The File Server Resource Manager (FSRM) configuration that Amazon FSx for
+	// Windows File Server uses for the file system. FSRM is disabled by default.
+	FsrmConfiguration *WindowsFsrmConfiguration
 
 	// The configuration Amazon FSx uses to join the Windows File Server instance to
 	// the self-managed Microsoft AD directory. You cannot make a self-managed
@@ -4945,9 +5312,9 @@ type WindowsFileSystemConfiguration struct {
 	// create the file system using the AssociateFileSystemAliases operation. You can
 	// remove DNS aliases from the file system after it is created using the
 	// DisassociateFileSystemAliases operation. You only need to specify the alias name
-	// in the request payload. For more information, see [DNS aliases].
+	// in the request payload. For more information, see [Managing DNS aliases].
 	//
-	// [DNS aliases]: https://docs.aws.amazon.com/fsx/latest/WindowsGuide/managing-dns-aliases.html
+	// [Managing DNS aliases]: https://docs.aws.amazon.com/fsx/latest/WindowsGuide/managing-dns-aliases.html
 	Aliases []Alias
 
 	// The configuration that Amazon FSx for Windows File Server uses to audit and log
@@ -4996,22 +5363,35 @@ type WindowsFileSystemConfiguration struct {
 	// capacity.
 	DiskIopsConfiguration *DiskIopsConfiguration
 
+	// The File Server Resource Manager (FSRM) configuration that Amazon FSx for
+	// Windows File Server uses for the file system. FSRM is disabled by default.
+	FsrmConfiguration *WindowsFsrmConfiguration
+
 	// The list of maintenance operations in progress for this file system.
 	MaintenanceOperationsInProgress []FileSystemMaintenanceOperation
 
-	// For MULTI_AZ_1 deployment types, the IP address of the primary, or preferred,
+	// For MULTI_AZ_1 deployment types, the IPv4 address of the primary, or preferred,
 	// file server.
 	//
 	// Use this IP address when mounting the file system on Linux SMB clients or
 	// Windows SMB clients that are not joined to a Microsoft Active Directory.
-	// Applicable for all Windows file system deployment types. This IP address is
+	// Applicable for all Windows file system deployment types. This IPv4 address is
 	// temporarily unavailable when the file system is undergoing maintenance. For
 	// Linux and Windows SMB clients that are joined to an Active Directory, use the
 	// file system's DNSName instead. For more information on mapping and mounting file
-	// shares, see [Accessing File Shares].
+	// shares, see [Accessing data using file shares].
 	//
-	// [Accessing File Shares]: https://docs.aws.amazon.com/fsx/latest/WindowsGuide/accessing-file-shares.html
+	// [Accessing data using file shares]: https://docs.aws.amazon.com/fsx/latest/WindowsGuide/using-file-shares.html
 	PreferredFileServerIp *string
+
+	// For MULTI_AZ_1 deployment types, the IPv6 address of the primary, or preferred,
+	// file server. Use this IP address when mounting the file system on Linux SMB
+	// clients or Windows SMB clients that are not joined to a Microsoft Active
+	// Directory. Applicable for all Windows file system deployment types. This IPv6
+	// address is temporarily unavailable when the file system is undergoing
+	// maintenance. For Linux and Windows SMB clients that are joined to an Active
+	// Directory, use the file system's DNSName instead.
+	PreferredFileServerIpv6 *string
 
 	// For MULTI_AZ_1 deployment types, it specifies the ID of the subnet where the
 	// preferred file server is located. Must be one of the two subnet IDs specified in
@@ -5046,6 +5426,35 @@ type WindowsFileSystemConfiguration struct {
 	// the UTC time zone. d is the weekday number, from 1 through 7, beginning with
 	// Monday and ending with Sunday.
 	WeeklyMaintenanceStartTime *string
+
+	noSmithyDocumentSerde
+}
+
+// The File Server Resource Manager (FSRM) configuration that Amazon FSx for
+// Windows File Server uses for the file system. When FSRM is enabled, you can
+// manage and monitor storage quotas, file screening, storage reports, and file
+// classification.
+type WindowsFsrmConfiguration struct {
+
+	// Specifies whether FSRM is enabled or disabled on the file system. When TRUE ,
+	// the FSRM service is enabled and monitor file operations according to configured
+	// policies. When FALSE or omitted, FSRM is disabled. The default value is FALSE .
+	//
+	// This member is required.
+	FsrmServiceEnabled *bool
+
+	// The Amazon Resource Name (ARN) for the destination of the FSRM event logs. The
+	// destination can be any Amazon CloudWatch Logs log group ARN or Amazon Kinesis
+	// Data Firehose delivery stream ARN.
+	//
+	// The name of the Amazon CloudWatch Logs log group must begin with the /aws/fsx
+	// prefix. The name of the Amazon Kinesis Data Firehose delivery stream must begin
+	// with the aws-fsx prefix.
+	//
+	// The destination ARN (either CloudWatch Logs log group or Kinesis Data Firehose
+	// delivery stream) must be in the same Amazon Web Services partition, Amazon Web
+	// Services Region, and Amazon Web Services account as your Amazon FSx file system.
+	EventLogDestination *string
 
 	noSmithyDocumentSerde
 }

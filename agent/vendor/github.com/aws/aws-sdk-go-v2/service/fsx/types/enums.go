@@ -9,6 +9,7 @@ const (
 	ActiveDirectoryErrorTypeDomainNotFound         ActiveDirectoryErrorType = "DOMAIN_NOT_FOUND"
 	ActiveDirectoryErrorTypeIncompatibleDomainMode ActiveDirectoryErrorType = "INCOMPATIBLE_DOMAIN_MODE"
 	ActiveDirectoryErrorTypeWrongVpc               ActiveDirectoryErrorType = "WRONG_VPC"
+	ActiveDirectoryErrorTypeInvalidNetworkType     ActiveDirectoryErrorType = "INVALID_NETWORK_TYPE"
 	ActiveDirectoryErrorTypeInvalidDomainStage     ActiveDirectoryErrorType = "INVALID_DOMAIN_STAGE"
 )
 
@@ -21,6 +22,7 @@ func (ActiveDirectoryErrorType) Values() []ActiveDirectoryErrorType {
 		"DOMAIN_NOT_FOUND",
 		"INCOMPATIBLE_DOMAIN_MODE",
 		"WRONG_VPC",
+		"INVALID_NETWORK_TYPE",
 		"INVALID_DOMAIN_STAGE",
 	}
 }
@@ -656,6 +658,27 @@ func (LustreDeploymentType) Values() []LustreDeploymentType {
 	}
 }
 
+type LustreReadCacheSizingMode string
+
+// Enum values for LustreReadCacheSizingMode
+const (
+	LustreReadCacheSizingModeNoCache                          LustreReadCacheSizingMode = "NO_CACHE"
+	LustreReadCacheSizingModeUserProvisioned                  LustreReadCacheSizingMode = "USER_PROVISIONED"
+	LustreReadCacheSizingModeProportionalToThroughputCapacity LustreReadCacheSizingMode = "PROPORTIONAL_TO_THROUGHPUT_CAPACITY"
+)
+
+// Values returns all known values for LustreReadCacheSizingMode. Note that this
+// can be expanded in the future, and so it is only as up to date as the client.
+//
+// The ordering of this slice is not guaranteed to be stable across updates.
+func (LustreReadCacheSizingMode) Values() []LustreReadCacheSizingMode {
+	return []LustreReadCacheSizingMode{
+		"NO_CACHE",
+		"USER_PROVISIONED",
+		"PROPORTIONAL_TO_THROUGHPUT_CAPACITY",
+	}
+}
+
 type MetadataConfigurationMode string
 
 // Enum values for MetadataConfigurationMode
@@ -672,6 +695,25 @@ func (MetadataConfigurationMode) Values() []MetadataConfigurationMode {
 	return []MetadataConfigurationMode{
 		"AUTOMATIC",
 		"USER_PROVISIONED",
+	}
+}
+
+type NetworkType string
+
+// Enum values for NetworkType
+const (
+	NetworkTypeIpv4 NetworkType = "IPV4"
+	NetworkTypeDual NetworkType = "DUAL"
+)
+
+// Values returns all known values for NetworkType. Note that this can be expanded
+// in the future, and so it is only as up to date as the client.
+//
+// The ordering of this slice is not guaranteed to be stable across updates.
+func (NetworkType) Values() []NetworkType {
+	return []NetworkType{
+		"IPV4",
+		"DUAL",
 	}
 }
 
@@ -712,6 +754,25 @@ func (OntapDeploymentType) Values() []OntapDeploymentType {
 		"SINGLE_AZ_1",
 		"SINGLE_AZ_2",
 		"MULTI_AZ_2",
+	}
+}
+
+type OntapFileSystemUserType string
+
+// Enum values for OntapFileSystemUserType
+const (
+	OntapFileSystemUserTypeUnix    OntapFileSystemUserType = "UNIX"
+	OntapFileSystemUserTypeWindows OntapFileSystemUserType = "WINDOWS"
+)
+
+// Values returns all known values for OntapFileSystemUserType. Note that this can
+// be expanded in the future, and so it is only as up to date as the client.
+//
+// The ordering of this slice is not guaranteed to be stable across updates.
+func (OntapFileSystemUserType) Values() []OntapFileSystemUserType {
+	return []OntapFileSystemUserType{
+		"UNIX",
+		"WINDOWS",
 	}
 }
 
@@ -800,6 +861,23 @@ func (OpenZFSDeploymentType) Values() []OpenZFSDeploymentType {
 		"SINGLE_AZ_HA_1",
 		"SINGLE_AZ_HA_2",
 		"MULTI_AZ_1",
+	}
+}
+
+type OpenZFSFileSystemUserType string
+
+// Enum values for OpenZFSFileSystemUserType
+const (
+	OpenZFSFileSystemUserTypePosix OpenZFSFileSystemUserType = "POSIX"
+)
+
+// Values returns all known values for OpenZFSFileSystemUserType. Note that this
+// can be expanded in the future, and so it is only as up to date as the client.
+//
+// The ordering of this slice is not guaranteed to be stable across updates.
+func (OpenZFSFileSystemUserType) Values() []OpenZFSFileSystemUserType {
+	return []OpenZFSFileSystemUserType{
+		"POSIX",
 	}
 }
 
@@ -967,6 +1045,75 @@ func (RetentionPeriodType) Values() []RetentionPeriodType {
 	}
 }
 
+type S3AccessPointAttachmentLifecycle string
+
+// Enum values for S3AccessPointAttachmentLifecycle
+const (
+	S3AccessPointAttachmentLifecycleAvailable     S3AccessPointAttachmentLifecycle = "AVAILABLE"
+	S3AccessPointAttachmentLifecycleCreating      S3AccessPointAttachmentLifecycle = "CREATING"
+	S3AccessPointAttachmentLifecycleDeleting      S3AccessPointAttachmentLifecycle = "DELETING"
+	S3AccessPointAttachmentLifecycleUpdating      S3AccessPointAttachmentLifecycle = "UPDATING"
+	S3AccessPointAttachmentLifecycleFailed        S3AccessPointAttachmentLifecycle = "FAILED"
+	S3AccessPointAttachmentLifecycleMisconfigured S3AccessPointAttachmentLifecycle = "MISCONFIGURED"
+)
+
+// Values returns all known values for S3AccessPointAttachmentLifecycle. Note that
+// this can be expanded in the future, and so it is only as up to date as the
+// client.
+//
+// The ordering of this slice is not guaranteed to be stable across updates.
+func (S3AccessPointAttachmentLifecycle) Values() []S3AccessPointAttachmentLifecycle {
+	return []S3AccessPointAttachmentLifecycle{
+		"AVAILABLE",
+		"CREATING",
+		"DELETING",
+		"UPDATING",
+		"FAILED",
+		"MISCONFIGURED",
+	}
+}
+
+type S3AccessPointAttachmentsFilterName string
+
+// Enum values for S3AccessPointAttachmentsFilterName
+const (
+	S3AccessPointAttachmentsFilterNameFileSystemId S3AccessPointAttachmentsFilterName = "file-system-id"
+	S3AccessPointAttachmentsFilterNameVolumeId     S3AccessPointAttachmentsFilterName = "volume-id"
+	S3AccessPointAttachmentsFilterNameType         S3AccessPointAttachmentsFilterName = "type"
+)
+
+// Values returns all known values for S3AccessPointAttachmentsFilterName. Note
+// that this can be expanded in the future, and so it is only as up to date as the
+// client.
+//
+// The ordering of this slice is not guaranteed to be stable across updates.
+func (S3AccessPointAttachmentsFilterName) Values() []S3AccessPointAttachmentsFilterName {
+	return []S3AccessPointAttachmentsFilterName{
+		"file-system-id",
+		"volume-id",
+		"type",
+	}
+}
+
+type S3AccessPointAttachmentType string
+
+// Enum values for S3AccessPointAttachmentType
+const (
+	S3AccessPointAttachmentTypeOpenzfs S3AccessPointAttachmentType = "OPENZFS"
+	S3AccessPointAttachmentTypeOntap   S3AccessPointAttachmentType = "ONTAP"
+)
+
+// Values returns all known values for S3AccessPointAttachmentType. Note that this
+// can be expanded in the future, and so it is only as up to date as the client.
+//
+// The ordering of this slice is not guaranteed to be stable across updates.
+func (S3AccessPointAttachmentType) Values() []S3AccessPointAttachmentType {
+	return []S3AccessPointAttachmentType{
+		"OPENZFS",
+		"ONTAP",
+	}
+}
+
 type SecurityStyle string
 
 // Enum values for SecurityStyle
@@ -1094,6 +1241,8 @@ const (
 	StatusCompleted         Status = "COMPLETED"
 	StatusUpdatedOptimizing Status = "UPDATED_OPTIMIZING"
 	StatusOptimizing        Status = "OPTIMIZING"
+	StatusPaused            Status = "PAUSED"
+	StatusCancelled         Status = "CANCELLED"
 )
 
 // Values returns all known values for Status. Note that this can be expanded in
@@ -1108,6 +1257,8 @@ func (Status) Values() []Status {
 		"COMPLETED",
 		"UPDATED_OPTIMIZING",
 		"OPTIMIZING",
+		"PAUSED",
+		"CANCELLED",
 	}
 }
 

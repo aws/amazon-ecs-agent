@@ -6,55 +6,56 @@ import (
 	"context"
 	"fmt"
 	awsmiddleware "github.com/aws/aws-sdk-go-v2/aws/middleware"
+	"github.com/aws/aws-sdk-go-v2/service/fsx/types"
 	"github.com/aws/smithy-go/middleware"
 	smithyhttp "github.com/aws/smithy-go/transport/http"
 )
 
-// Configures whether participant accounts in your organization can create Amazon
-// FSx for NetApp ONTAP Multi-AZ file systems in subnets that are shared by a
-// virtual private cloud (VPC) owner. For more information, see the [Amazon FSx for NetApp ONTAP User Guide].
+// Detaches an S3 access point from an Amazon FSx volume and deletes the S3 access
+// point.
 //
-// We strongly recommend that participant-created Multi-AZ file systems in the
-// shared VPC are deleted before you disable this feature. Once the feature is
-// disabled, these file systems will enter a MISCONFIGURED state and behave like
-// Single-AZ file systems. For more information, see [Important considerations before disabling shared VPC support for Multi-AZ file systems].
+// The requester requires the following permission to perform this action:
 //
-// [Amazon FSx for NetApp ONTAP User Guide]: https://docs.aws.amazon.com/fsx/latest/ONTAPGuide/maz-shared-vpc.html
-// [Important considerations before disabling shared VPC support for Multi-AZ file systems]: https://docs.aws.amazon.com/fsx/latest/ONTAPGuide/maz-shared-vpc.html#disabling-maz-vpc-sharing
-func (c *Client) UpdateSharedVpcConfiguration(ctx context.Context, params *UpdateSharedVpcConfigurationInput, optFns ...func(*Options)) (*UpdateSharedVpcConfigurationOutput, error) {
+//   - fsx:DetachAndDeleteS3AccessPoint
+//
+//   - s3:DeleteAccessPoint
+func (c *Client) DetachAndDeleteS3AccessPoint(ctx context.Context, params *DetachAndDeleteS3AccessPointInput, optFns ...func(*Options)) (*DetachAndDeleteS3AccessPointOutput, error) {
 	if params == nil {
-		params = &UpdateSharedVpcConfigurationInput{}
+		params = &DetachAndDeleteS3AccessPointInput{}
 	}
 
-	result, metadata, err := c.invokeOperation(ctx, "UpdateSharedVpcConfiguration", params, optFns, c.addOperationUpdateSharedVpcConfigurationMiddlewares)
+	result, metadata, err := c.invokeOperation(ctx, "DetachAndDeleteS3AccessPoint", params, optFns, c.addOperationDetachAndDeleteS3AccessPointMiddlewares)
 	if err != nil {
 		return nil, err
 	}
 
-	out := result.(*UpdateSharedVpcConfigurationOutput)
+	out := result.(*DetachAndDeleteS3AccessPointOutput)
 	out.ResultMetadata = metadata
 	return out, nil
 }
 
-type UpdateSharedVpcConfigurationInput struct {
+type DetachAndDeleteS3AccessPointInput struct {
+
+	// The name of the S3 access point attachment that you want to delete.
+	//
+	// This member is required.
+	Name *string
 
 	// (Optional) An idempotency token for resource creation, in a string of up to 63
 	// ASCII characters. This token is automatically filled on your behalf when you use
 	// the Command Line Interface (CLI) or an Amazon Web Services SDK.
 	ClientRequestToken *string
 
-	// Specifies whether participant accounts can create FSx for ONTAP Multi-AZ file
-	// systems in shared subnets. Set to true to enable or false to disable.
-	EnableFsxRouteTableUpdatesFromParticipantAccounts *string
-
 	noSmithyDocumentSerde
 }
 
-type UpdateSharedVpcConfigurationOutput struct {
+type DetachAndDeleteS3AccessPointOutput struct {
 
-	// Indicates whether participant accounts can create FSx for ONTAP Multi-AZ file
-	// systems in shared subnets.
-	EnableFsxRouteTableUpdatesFromParticipantAccounts *string
+	// The lifecycle status of the S3 access point attachment.
+	Lifecycle types.S3AccessPointAttachmentLifecycle
+
+	// The name of the S3 access point attachment being deleted.
+	Name *string
 
 	// Metadata pertaining to the operation's result.
 	ResultMetadata middleware.Metadata
@@ -62,19 +63,19 @@ type UpdateSharedVpcConfigurationOutput struct {
 	noSmithyDocumentSerde
 }
 
-func (c *Client) addOperationUpdateSharedVpcConfigurationMiddlewares(stack *middleware.Stack, options Options) (err error) {
+func (c *Client) addOperationDetachAndDeleteS3AccessPointMiddlewares(stack *middleware.Stack, options Options) (err error) {
 	if err := stack.Serialize.Add(&setOperationInputMiddleware{}, middleware.After); err != nil {
 		return err
 	}
-	err = stack.Serialize.Add(&awsAwsjson11_serializeOpUpdateSharedVpcConfiguration{}, middleware.After)
+	err = stack.Serialize.Add(&awsAwsjson11_serializeOpDetachAndDeleteS3AccessPoint{}, middleware.After)
 	if err != nil {
 		return err
 	}
-	err = stack.Deserialize.Add(&awsAwsjson11_deserializeOpUpdateSharedVpcConfiguration{}, middleware.After)
+	err = stack.Deserialize.Add(&awsAwsjson11_deserializeOpDetachAndDeleteS3AccessPoint{}, middleware.After)
 	if err != nil {
 		return err
 	}
-	if err := addProtocolFinalizerMiddlewares(stack, options, "UpdateSharedVpcConfiguration"); err != nil {
+	if err := addProtocolFinalizerMiddlewares(stack, options, "DetachAndDeleteS3AccessPoint"); err != nil {
 		return fmt.Errorf("add protocol finalizers: %v", err)
 	}
 
@@ -126,10 +127,13 @@ func (c *Client) addOperationUpdateSharedVpcConfigurationMiddlewares(stack *midd
 	if err = addCredentialSource(stack, options); err != nil {
 		return err
 	}
-	if err = addIdempotencyToken_opUpdateSharedVpcConfigurationMiddleware(stack, options); err != nil {
+	if err = addIdempotencyToken_opDetachAndDeleteS3AccessPointMiddleware(stack, options); err != nil {
 		return err
 	}
-	if err = stack.Initialize.Add(newServiceMetadataMiddleware_opUpdateSharedVpcConfiguration(options.Region), middleware.Before); err != nil {
+	if err = addOpDetachAndDeleteS3AccessPointValidationMiddleware(stack); err != nil {
+		return err
+	}
+	if err = stack.Initialize.Add(newServiceMetadataMiddleware_opDetachAndDeleteS3AccessPoint(options.Region), middleware.Before); err != nil {
 		return err
 	}
 	if err = addRecursionDetection(stack); err != nil {
@@ -159,24 +163,24 @@ func (c *Client) addOperationUpdateSharedVpcConfigurationMiddlewares(stack *midd
 	return nil
 }
 
-type idempotencyToken_initializeOpUpdateSharedVpcConfiguration struct {
+type idempotencyToken_initializeOpDetachAndDeleteS3AccessPoint struct {
 	tokenProvider IdempotencyTokenProvider
 }
 
-func (*idempotencyToken_initializeOpUpdateSharedVpcConfiguration) ID() string {
+func (*idempotencyToken_initializeOpDetachAndDeleteS3AccessPoint) ID() string {
 	return "OperationIdempotencyTokenAutoFill"
 }
 
-func (m *idempotencyToken_initializeOpUpdateSharedVpcConfiguration) HandleInitialize(ctx context.Context, in middleware.InitializeInput, next middleware.InitializeHandler) (
+func (m *idempotencyToken_initializeOpDetachAndDeleteS3AccessPoint) HandleInitialize(ctx context.Context, in middleware.InitializeInput, next middleware.InitializeHandler) (
 	out middleware.InitializeOutput, metadata middleware.Metadata, err error,
 ) {
 	if m.tokenProvider == nil {
 		return next.HandleInitialize(ctx, in)
 	}
 
-	input, ok := in.Parameters.(*UpdateSharedVpcConfigurationInput)
+	input, ok := in.Parameters.(*DetachAndDeleteS3AccessPointInput)
 	if !ok {
-		return out, metadata, fmt.Errorf("expected middleware input to be of type *UpdateSharedVpcConfigurationInput ")
+		return out, metadata, fmt.Errorf("expected middleware input to be of type *DetachAndDeleteS3AccessPointInput ")
 	}
 
 	if input.ClientRequestToken == nil {
@@ -188,14 +192,14 @@ func (m *idempotencyToken_initializeOpUpdateSharedVpcConfiguration) HandleInitia
 	}
 	return next.HandleInitialize(ctx, in)
 }
-func addIdempotencyToken_opUpdateSharedVpcConfigurationMiddleware(stack *middleware.Stack, cfg Options) error {
-	return stack.Initialize.Add(&idempotencyToken_initializeOpUpdateSharedVpcConfiguration{tokenProvider: cfg.IdempotencyTokenProvider}, middleware.Before)
+func addIdempotencyToken_opDetachAndDeleteS3AccessPointMiddleware(stack *middleware.Stack, cfg Options) error {
+	return stack.Initialize.Add(&idempotencyToken_initializeOpDetachAndDeleteS3AccessPoint{tokenProvider: cfg.IdempotencyTokenProvider}, middleware.Before)
 }
 
-func newServiceMetadataMiddleware_opUpdateSharedVpcConfiguration(region string) *awsmiddleware.RegisterServiceMetadata {
+func newServiceMetadataMiddleware_opDetachAndDeleteS3AccessPoint(region string) *awsmiddleware.RegisterServiceMetadata {
 	return &awsmiddleware.RegisterServiceMetadata{
 		Region:        region,
 		ServiceID:     ServiceID,
-		OperationName: "UpdateSharedVpcConfiguration",
+		OperationName: "DetachAndDeleteS3AccessPoint",
 	}
 }
