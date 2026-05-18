@@ -152,6 +152,12 @@ type CreateFileSystemInput struct {
 	//   - ImportPath
 	LustreConfiguration *types.CreateFileSystemLustreConfiguration
 
+	// The network type of the Amazon FSx file system that you are creating. Valid
+	// values are IPV4 (which supports IPv4 only) and DUAL (for dual-stack mode, which
+	// supports both IPv4 and IPv6). The default is IPV4 . Supported for FSx for
+	// OpenZFS, FSx for ONTAP, and FSx for Windows File Server file systems.
+	NetworkType types.NetworkType
+
 	// The ONTAP configuration properties of the FSx for ONTAP file system that you
 	// are creating.
 	OntapConfiguration *types.CreateFileSystemOntapConfiguration
@@ -207,20 +213,21 @@ type CreateFileSystemInput struct {
 	//   - Set to SSD to use solid state drive storage. SSD is supported on all
 	//   Windows, Lustre, ONTAP, and OpenZFS deployment types.
 	//
-	//   - Set to HDD to use hard disk drive storage. HDD is supported on SINGLE_AZ_2
+	//   - Set to HDD to use hard disk drive storage, which is supported on SINGLE_AZ_2
 	//   and MULTI_AZ_1 Windows file system deployment types, and on PERSISTENT_1
 	//   Lustre file system deployment types.
 	//
 	//   - Set to INTELLIGENT_TIERING to use fully elastic, intelligently-tiered
 	//   storage. Intelligent-Tiering is only available for OpenZFS file systems with the
-	//   Multi-AZ deployment type.
+	//   Multi-AZ deployment type and for Lustre file systems with the Persistent_2
+	//   deployment type.
 	//
 	// Default value is SSD . For more information, see [Storage type options] in the FSx for Windows File
-	// Server User Guide, [Multiple storage options]in the FSx for Lustre User Guide, and [Working with Intelligent-Tiering] in the Amazon FSx for
+	// Server User Guide, [FSx for Lustre storage classes]in the FSx for Lustre User Guide, and [Working with Intelligent-Tiering] in the Amazon FSx for
 	// OpenZFS User Guide.
 	//
+	// [FSx for Lustre storage classes]: https://docs.aws.amazon.com/fsx/latest/LustreGuide/using-fsx-lustre.html#lustre-storage-classes
 	// [Storage type options]: https://docs.aws.amazon.com/fsx/latest/WindowsGuide/optimize-fsx-costs.html#storage-type-options
-	// [Multiple storage options]: https://docs.aws.amazon.com/fsx/latest/LustreGuide/what-is.html#storage-options
 	// [Working with Intelligent-Tiering]: https://docs.aws.amazon.com/fsx/latest/OpenZFSGuide/performance-intelligent-tiering
 	StorageType types.StorageType
 
@@ -280,7 +287,7 @@ func (c *Client) addOperationCreateFileSystemMiddlewares(stack *middleware.Stack
 	if err = addComputePayloadSHA256(stack); err != nil {
 		return err
 	}
-	if err = addRetry(stack, options); err != nil {
+	if err = addRetry(stack, options, c); err != nil {
 		return err
 	}
 	if err = addRawResponseToMetadata(stack); err != nil {
@@ -302,9 +309,6 @@ func (c *Client) addOperationCreateFileSystemMiddlewares(stack *middleware.Stack
 		return err
 	}
 	if err = addSetLegacyContextSigningOptionsMiddleware(stack); err != nil {
-		return err
-	}
-	if err = addTimeOffsetBuild(stack, c); err != nil {
 		return err
 	}
 	if err = addUserAgentRetryMode(stack, options); err != nil {
@@ -337,16 +341,13 @@ func (c *Client) addOperationCreateFileSystemMiddlewares(stack *middleware.Stack
 	if err = addDisableHTTPSMiddleware(stack, options); err != nil {
 		return err
 	}
-	if err = addSpanInitializeStart(stack); err != nil {
+	if err = addInterceptBeforeRetryLoop(stack, options); err != nil {
 		return err
 	}
-	if err = addSpanInitializeEnd(stack); err != nil {
+	if err = addInterceptAttempt(stack, options); err != nil {
 		return err
 	}
-	if err = addSpanBuildRequestStart(stack); err != nil {
-		return err
-	}
-	if err = addSpanBuildRequestEnd(stack); err != nil {
+	if err = addInterceptors(stack, options); err != nil {
 		return err
 	}
 	return nil

@@ -23,6 +23,8 @@ import (
 //
 //   - DailyAutomaticBackupStartTime
 //
+//   - DiskIopsConfiguration
+//
 //   - SelfManagedActiveDirectoryConfiguration
 //
 //   - StorageCapacity
@@ -30,8 +32,6 @@ import (
 //   - StorageType
 //
 //   - ThroughputCapacity
-//
-//   - DiskIopsConfiguration
 //
 //   - WeeklyMaintenanceStartTime
 //
@@ -49,6 +49,8 @@ import (
 //
 //   - LogConfiguration
 //
+//   - LustreReadCacheConfiguration
+//
 //   - LustreRootSquashConfiguration
 //
 //   - MetadataConfiguration
@@ -56,6 +58,8 @@ import (
 //   - PerUnitStorageThroughput
 //
 //   - StorageCapacity
+//
+//   - ThroughputCapacity
 //
 //   - WeeklyMaintenanceStartTime
 //
@@ -68,6 +72,8 @@ import (
 //   - DailyAutomaticBackupStartTime
 //
 //   - DiskIopsConfiguration
+//
+//   - EndpointIpv6AddressRange
 //
 //   - FsxAdminPassword
 //
@@ -96,6 +102,8 @@ import (
 //   - DailyAutomaticBackupStartTime
 //
 //   - DiskIopsConfiguration
+//
+//   - EndpointIpv6AddressRange
 //
 //   - ReadCacheConfiguration
 //
@@ -143,6 +151,9 @@ type UpdateFileSystemInput struct {
 	// UpdateFileSystem operation.
 	LustreConfiguration *types.UpdateFileSystemLustreConfiguration
 
+	// Changes the network type of an FSx for OpenZFS file system.
+	NetworkType types.NetworkType
+
 	// The configuration updates for an Amazon FSx for NetApp ONTAP file system.
 	OntapConfiguration *types.UpdateFileSystemOntapConfiguration
 
@@ -150,9 +161,10 @@ type UpdateFileSystemInput struct {
 	OpenZFSConfiguration *types.UpdateFileSystemOpenZFSConfiguration
 
 	// Use this parameter to increase the storage capacity of an FSx for Windows File
-	// Server, FSx for Lustre, FSx for OpenZFS, or FSx for ONTAP file system. Specifies
-	// the storage capacity target value, in GiB, to increase the storage capacity for
-	// the file system that you're updating.
+	// Server, FSx for Lustre, FSx for OpenZFS, or FSx for ONTAP file system. For
+	// second-generation FSx for ONTAP file systems, you can also decrease the storage
+	// capacity. Specifies the storage capacity target value, in GiB, for the file
+	// system that you're updating.
 	//
 	// You can't make a storage capacity increase request if there is an existing
 	// storage capacity increase request in progress.
@@ -181,13 +193,16 @@ type UpdateFileSystemInput struct {
 	// capacity, the file system must have at least 16 MBps of throughput capacity. For
 	// more information, see [Managing storage capacity]in the Amazon FSxfor Windows File Server User Guide.
 	//
-	// For ONTAP file systems, the storage capacity target value must be at least 10
-	// percent greater than the current storage capacity value. For more information,
-	// see [Managing storage capacity and provisioned IOPS]in the Amazon FSx for NetApp ONTAP User Guide.
+	// For ONTAP file systems, when increasing storage capacity, the storage capacity
+	// target value must be at least 10 percent greater than the current storage
+	// capacity value. When decreasing storage capacity on second-generation file
+	// systems, the target value must be at least 9 percent smaller than the current
+	// SSD storage capacity. For more information, see [File system storage capacity and IOPS]in the Amazon FSx for NetApp
+	// ONTAP User Guide.
 	//
 	// [Managing storage and throughput capacity]: https://docs.aws.amazon.com/fsx/latest/LustreGuide/managing-storage-capacity.html
 	// [Managing storage capacity]: https://docs.aws.amazon.com/fsx/latest/WindowsGuide/managing-storage-capacity.html
-	// [Managing storage capacity and provisioned IOPS]: https://docs.aws.amazon.com/fsx/latest/ONTAPGuide/managing-storage-capacity.html
+	// [File system storage capacity and IOPS]: https://docs.aws.amazon.com/fsx/latest/ONTAPGuide/storage-capacity-and-IOPS.html
 	StorageCapacity *int32
 
 	// Specifies the file system's storage type.
@@ -245,7 +260,7 @@ func (c *Client) addOperationUpdateFileSystemMiddlewares(stack *middleware.Stack
 	if err = addComputePayloadSHA256(stack); err != nil {
 		return err
 	}
-	if err = addRetry(stack, options); err != nil {
+	if err = addRetry(stack, options, c); err != nil {
 		return err
 	}
 	if err = addRawResponseToMetadata(stack); err != nil {
@@ -267,9 +282,6 @@ func (c *Client) addOperationUpdateFileSystemMiddlewares(stack *middleware.Stack
 		return err
 	}
 	if err = addSetLegacyContextSigningOptionsMiddleware(stack); err != nil {
-		return err
-	}
-	if err = addTimeOffsetBuild(stack, c); err != nil {
 		return err
 	}
 	if err = addUserAgentRetryMode(stack, options); err != nil {
@@ -302,16 +314,13 @@ func (c *Client) addOperationUpdateFileSystemMiddlewares(stack *middleware.Stack
 	if err = addDisableHTTPSMiddleware(stack, options); err != nil {
 		return err
 	}
-	if err = addSpanInitializeStart(stack); err != nil {
+	if err = addInterceptBeforeRetryLoop(stack, options); err != nil {
 		return err
 	}
-	if err = addSpanInitializeEnd(stack); err != nil {
+	if err = addInterceptAttempt(stack, options); err != nil {
 		return err
 	}
-	if err = addSpanBuildRequestStart(stack); err != nil {
-		return err
-	}
-	if err = addSpanBuildRequestEnd(stack); err != nil {
+	if err = addInterceptors(stack, options); err != nil {
 		return err
 	}
 	return nil
