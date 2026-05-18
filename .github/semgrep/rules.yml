@@ -1,0 +1,42 @@
+rules:
+  - id: command-injection-exec-variable
+    patterns:
+      - pattern-either:
+          - pattern: execCommand($CMD, $...ARGS)
+          - pattern: exec.Command($CMD, $...ARGS)
+          - pattern: exec.CommandContext($CTX, $CMD, $...ARGS)
+      # Exclude calls with all literal string arguments (safe, no injection possible).
+      - pattern-not: execCommand("...", "...")
+      - pattern-not: execCommand("...", "...", "...")
+      - pattern-not: exec.Command("...", "...")
+      - pattern-not: exec.Command("...", "...", "...")
+      - pattern-not: exec.CommandContext($CTX, "...", "...")
+      - pattern-not: exec.CommandContext($CTX, "...", "...", "...")
+    message: >
+      Potential command injection: variable arguments passed to shell execution function.
+      Use environment variables to pass untrusted input to subprocesses instead of
+      interpolating into command strings. See https://cwe.mitre.org/data/definitions/78.html
+    languages: [go]
+    severity: WARNING
+    metadata:
+      cwe: "CWE-78"
+      confidence: MEDIUM
+
+  - id: unsanitized-powershell-interpolation
+    options:
+      constant_propagation: true
+    patterns:
+      - pattern: fmt.Sprintf($FMT, $...ARGS)
+      - metavariable-pattern:
+          metavariable: $FMT
+          patterns:
+            - pattern-regex: "(?i)(powershell|new-object|pscredential|new-smb|remotepath|invoke-expression|start-process|invoke-command)"
+    message: >
+      String interpolation into PowerShell command without sanitization.
+      Use environment variables to pass untrusted input to subprocesses instead of
+      interpolating into command strings. See https://cwe.mitre.org/data/definitions/78.html
+    languages: [go]
+    severity: WARNING
+    metadata:
+      cwe: "CWE-78"
+      confidence: MEDIUM

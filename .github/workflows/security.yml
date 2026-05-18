@@ -1,0 +1,44 @@
+name: "Security Scan"
+on: [pull_request]
+permissions:
+  contents: read
+jobs:
+  semgrep:
+    name: Semgrep Security Scanner
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+
+      - name: Run semgrep
+        run: |
+          pip install semgrep --quiet
+          BASE_BRANCH="${{ github.base_ref || github.event.repository.default_branch }}"
+          BASELINE=$(git merge-base HEAD origin/$BASE_BRANCH 2>/dev/null || echo "")
+          BASELINE_FLAG=""
+          if [ -n "$BASELINE" ]; then
+            BASELINE_FLAG="--baseline-commit $BASELINE"
+          fi
+
+          semgrep --config .github/semgrep/rules.yml $BASELINE_FLAG \
+                  --json --output "$RUNNER_TEMP/semgrep.json" \
+                  2> "$RUNNER_TEMP/semgrep.err" || {
+            echo "::error::semgrep failed"
+            cat "$RUNNER_TEMP/semgrep.err"
+            exit 1
+          }
+
+      - name: Report findings
+        if: success()
+        run: |
+          # Emit PR annotations as warnings
+          jq -r '.results[] | "::warning file=\(.path),line=\(.start.line),endLine=\(.end.line)::[\(.check_id)] \(.extra.message)"' \
+            "$RUNNER_TEMP/semgrep.json"
+
+          # Fail if any findings exist
+          ERRORS=$(jq '.results | length' "$RUNNER_TEMP/semgrep.json")
+          if [ "$ERRORS" -gt 0 ]; then
+            echo "::error::semgrep found $ERRORS security finding(s). See annotations above."
+            exit 1
+          fi
