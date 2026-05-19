@@ -1,5 +1,18 @@
 # Changelog
 
+# 1.103.2
+* Enhancement - Bump github.com/aws/aws-sdk-go-v2/service/fsx from 1.53.1 to 1.65.10 in /agent [#4966](https://github.com/aws/amazon-ecs-agent/pull/4966)
+* Enhancement - Add semgrep security scan for command injection [#4959](https://github.com/aws/amazon-ecs-agent/pull/4959)
+* Enhancement - Bump golang.org/x/tools from 0.39.0 to 0.45.0 in /ecs-agent [#4965](https://github.com/aws/amazon-ecs-agent/pull/4965)
+* Enhancement - Add integration test for credential refresher [#4961](https://github.com/aws/amazon-ecs-agent/pull/4961)
+* Enhancement - Bump golang.org/x/tools from 0.42.0 to 0.45.0 in /agent [#4873](https://github.com/aws/amazon-ecs-agent/pull/4873)
+* Enhancement - Update Go version to 1.25.10 [#4960](https://github.com/aws/amazon-ecs-agent/pull/4960)
+* Enhancement - Bump go.etcd.io/bbolt from 1.3.9 to 1.4.3 in /ecs-agent [#4872](https://github.com/aws/amazon-ecs-agent/pull/4872)
+* Enhancement - update credentials-fetcher retry comments/tests [#4954](https://github.com/aws/amazon-ecs-agent/pull/4954)
+* Enhancement - Enhancement - Add retry mechanism to credentialsfetcher [#4948](https://github.com/aws/amazon-ecs-agent/pull/4948)
+* Enhancement - Add IMDS credential refresher [#4953](https://github.com/aws/amazon-ecs-agent/pull/4953)
+* Bugfix - fix flaky tests depending on timers [#4955](https://github.com/aws/amazon-ecs-agent/pull/4955)
+
 # 1.103.1
 * Feature - Implement IMDS scanner for task credential retrieval, in the shared library [#4945](https://github.com/aws/amazon-ecs-agent/pull/4945)
 * Feature - Add config/capability for IMDS-based task credential retrieval (disabled for now) [#4938](https://github.com/aws/amazon-ecs-agent/pull/4938)
@@ -21,7 +34,7 @@
 * Enhancement - engine: skip execution role checks when task desired status is stopped [#4918](https://github.com/aws/amazon-ecs-agent/pull/4918)
 * Enhancement - Add NeuronDevices type and sysfs-based device discovery [#4919](https://github.com/aws/amazon-ecs-agent/pull/4919)
 * Bugfix - Fix release workflow branch handling and add GitHub App token [#4929](https://github.com/aws/amazon-ecs-agent/pull/4929)
-* Bugfix - fix(netlib): Conditionally add IPv6 subnet to IPAM config when IPv6 … [#4916](https://github.com/aws/amazon-ecs-agent/pull/4916)
+* Bugfix - Conditionally add IPv6 subnet to IPAM config when IPv6 … [#4916](https://github.com/aws/amazon-ecs-agent/pull/4916)
 
 # 1.102.2
 * Enhancement - Update SSM exec agent version to 3.3.4108.0 [#4912](https://github.com/aws/amazon-ecs-agent/pull/4912)
