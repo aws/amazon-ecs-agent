@@ -11,7 +11,7 @@
 // express or implied. See the License for the specific language governing
 // permissions and limitations under the License.
 
-// Package imds provides an IMDS credential scanner that retrieves task
+// Package imds provides an IMDS credentials scanner that retrieves task
 // credentials from IMDS.
 package imds
 
@@ -48,7 +48,7 @@ const (
 	// IMDS shares a 1024 packets-per-second (PPS) limit with other
 	// link local services (Route 53 DNS, NTP).
 	// Ref: https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/instancedata-data-retrieval.html
-	// The rate limiter keeps credential scanning within ~10% of the total PPS budget
+	// The rate limiter keeps credentials scanning within ~10% of the total PPS budget
 	// to leave headroom for other link-local requests on the instance.
 	//
 	// TODO: this value will be finalized based on load testing.
@@ -75,7 +75,7 @@ type scanner struct {
 	lastUpdated map[string]time.Time
 }
 
-// NewScanner creates a new IMDS credential scanner.
+// NewScanner creates a new IMDS credentials scanner.
 func NewScanner(ec2MetadataClient ec2.EC2MetadataClient) Scanner {
 	return &scanner{
 		ec2MetadataClient: ec2MetadataClient,

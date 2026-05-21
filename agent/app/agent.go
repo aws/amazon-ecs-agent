@@ -971,8 +971,8 @@ func (agent *ecsAgent) startAsyncRoutines(
 		go agent.startSpotInstanceDrainingPoller(agent.ctx, client)
 	}
 
-	// Start IMDS credential refresher for periodic task credential retrieval via IMDS.
-	if imdsRefresher := agent.getIMDSCredentialRefresher(credentialsManager, taskEngine); imdsRefresher != nil {
+	// Start IMDS credentials refresher for periodic task credential retrieval via IMDS.
+	if imdsRefresher := agent.getIMDSCredentialsRefresher(credentialsManager, taskEngine); imdsRefresher != nil {
 		go imdsRefresher.Start()
 	}
 
@@ -1027,15 +1027,15 @@ func (agent *ecsAgent) startSpotInstanceDrainingPoller(ctx context.Context, clie
 	}
 }
 
-// getIMDSCredentialRefresher returns an IMDS credential refresher
+// getIMDSCredentialsRefresher returns an IMDS credentials refresher
 // if the IMDSIAMRolesEnabled configuration is enabled.
-func (agent *ecsAgent) getIMDSCredentialRefresher(
+func (agent *ecsAgent) getIMDSCredentialsRefresher(
 	credentialsManager credentials.Manager,
 	taskEngine engine.TaskEngine,
-) *imdscreds.IMDSCredentialRefresher {
+) *imdscreds.IMDSCredentialsRefresher {
 	if agent.cfg.IMDSIAMRolesEnabled {
 		imdsScanner := imds.NewScanner(agent.ec2MetadataClient)
-		return imdscreds.NewIMDSCredentialRefresher(
+		return imdscreds.NewIMDSCredentialsRefresher(
 			agent.ctx, imdsScanner, credentialsManager,
 			taskEngine, imdscreds.ScanInterval,
 		)

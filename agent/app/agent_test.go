@@ -2119,7 +2119,7 @@ func TestLoadManagedDaemonImage(t *testing.T) {
 	}
 }
 
-func TestGetIMDSCredentialRefresher(t *testing.T) {
+func TestGetIMDSCredentialsRefresher(t *testing.T) {
 	tests := []struct {
 		name            string
 		enabled         bool
@@ -2155,7 +2155,7 @@ func TestGetIMDSCredentialRefresher(t *testing.T) {
 				ec2MetadataClient: mockEC2Metadata,
 			}
 
-			result := agent.getIMDSCredentialRefresher(
+			result := agent.getIMDSCredentialsRefresher(
 				mockCredManager, mockEngine,
 			)
 			if tc.expectRefresher {

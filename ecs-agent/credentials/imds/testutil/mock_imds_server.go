@@ -15,7 +15,7 @@
 // permissions and limitations under the License.
 
 // Package testutil provides a mock IMDS HTTP server for integration testing
-// the IMDS credential scanner with agent's refresher.
+// the IMDS credentials scanner with agent's refresher.
 package testutil
 
 import (
