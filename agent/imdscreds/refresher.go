@@ -28,14 +28,14 @@ import (
 )
 
 const (
-	// ScanInterval is the default interval between IMDS credential scans.
+	// ScanInterval is the default interval between IMDS credentials scans.
 	// TODO: this value will be finalized based on load testing.
 	ScanInterval = 15 * time.Minute
 )
 
-// IMDSCredentialRefresher periodically scans IMDS for rotated task credentials
+// IMDSCredentialsRefresher periodically scans IMDS for rotated task credentials
 // and upserts them into the credentials manager.
-type IMDSCredentialRefresher struct {
+type IMDSCredentialsRefresher struct {
 	ctx          context.Context
 	scanner      imds.Scanner
 	credManager  credentials.Manager
@@ -43,15 +43,15 @@ type IMDSCredentialRefresher struct {
 	scanInterval time.Duration
 }
 
-// NewIMDSCredentialRefresher creates a new IMDS credential refresher.
-func NewIMDSCredentialRefresher(
+// NewIMDSCredentialsRefresher creates a new IMDS credentials refresher.
+func NewIMDSCredentialsRefresher(
 	ctx context.Context,
 	scanner imds.Scanner,
 	credManager credentials.Manager,
 	taskEngine engine.TaskEngine,
 	scanInterval time.Duration,
-) *IMDSCredentialRefresher {
-	return &IMDSCredentialRefresher{
+) *IMDSCredentialsRefresher {
+	return &IMDSCredentialsRefresher{
 		ctx:          ctx,
 		scanner:      scanner,
 		credManager:  credManager,
@@ -60,10 +60,10 @@ func NewIMDSCredentialRefresher(
 	}
 }
 
-// Start begins the periodic IMDS credential scan loop. It blocks until the
+// Start begins the periodic IMDS credentials scan loop. It blocks until the
 // context is cancelled.
-func (r *IMDSCredentialRefresher) Start() {
-	logger.Info("Starting IMDS credential refresher")
+func (r *IMDSCredentialsRefresher) Start() {
+	logger.Info("Starting IMDS credentials refresher")
 	ticker := time.NewTicker(r.scanInterval)
 	defer ticker.Stop()
 	for {
@@ -71,18 +71,18 @@ func (r *IMDSCredentialRefresher) Start() {
 		case <-ticker.C:
 			r.refresh()
 		case <-r.ctx.Done():
-			logger.Info("IMDS credential refresher stopped")
+			logger.Info("IMDS credentials refresher stopped")
 			return
 		}
 	}
 }
 
-// refresh performs a single IMDS credential scan and upserts any matching
+// refresh performs a single IMDS credentials scan and upserts any matching
 // credentials into the credentials manager.
-func (r *IMDSCredentialRefresher) refresh() {
+func (r *IMDSCredentialsRefresher) refresh() {
 	tasks, err := r.taskEngine.ListTasks()
 	if err != nil {
-		logger.Error("IMDS credential refresh: failed to list tasks", logger.Fields{
+		logger.Error("IMDS credentials refresh: failed to list tasks", logger.Fields{
 			field.Error: err,
 		})
 		return
@@ -91,13 +91,13 @@ func (r *IMDSCredentialRefresher) refresh() {
 	// Build a map of task ID -> task for non-terminal tasks.
 	nonTerminalTasks := nonTerminalTasksByID(tasks)
 	if len(nonTerminalTasks) == 0 {
-		logger.Debug("IMDS credential refresh: no non-terminal tasks, skipping scan")
+		logger.Debug("IMDS credentials refresh: no non-terminal tasks, skipping scan")
 		return
 	}
 
 	creds, err := r.scanner.Scan(r.ctx)
 	if err != nil {
-		logger.Error("IMDS credential refresh: scan failed", logger.Fields{
+		logger.Error("IMDS credentials refresh: scan failed", logger.Fields{
 			field.Error: err,
 		})
 		return
@@ -108,7 +108,7 @@ func (r *IMDSCredentialRefresher) refresh() {
 		if !ok {
 			// Credential for a task that's either terminal or unknown
 			// (for example, due to data corruption); skip.
-			logger.Debug("IMDS credential refresh: task not in non-terminal set, skipping", logger.Fields{
+			logger.Debug("IMDS credentials refresh: task not in non-terminal set, skipping", logger.Fields{
 				field.TaskID: cred.TaskID,
 			})
 			continue
@@ -119,12 +119,12 @@ func (r *IMDSCredentialRefresher) refresh() {
 
 // upsertCredential maps an IMDS credential to the task's role type
 // and upserts it into the credentials manager.
-func (r *IMDSCredentialRefresher) upsertCredential(
+func (r *IMDSCredentialsRefresher) upsertCredential(
 	task *apitask.Task, cred imds.TaskCredential,
 ) {
 	credentialsID := task.GetCredentialsIDForRoleType(cred.RoleType)
 	if credentialsID == "" {
-		logger.Warn("IMDS credential refresh: no credentials ID for task",
+		logger.Warn("IMDS credentials refresh: no credentials ID for task",
 			logger.Fields{
 				field.TaskID: cred.TaskID,
 				"roleType":   cred.RoleType,
@@ -145,7 +145,7 @@ func (r *IMDSCredentialRefresher) upsertCredential(
 		},
 	})
 	if err != nil {
-		logger.Error("IMDS credential refresh: failed to upsert credential",
+		logger.Error("IMDS credentials refresh: failed to upsert credential",
 			logger.Fields{
 				field.TaskID: cred.TaskID,
 				field.Error:  err,
