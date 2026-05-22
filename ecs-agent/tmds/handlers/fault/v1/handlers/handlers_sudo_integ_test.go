@@ -21,9 +21,13 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"io"
 	"net"
 	"net/http"
 	"os/exec"
+	"strconv"
+	"strings"
+	"sync"
 	"testing"
 	"time"
 
@@ -43,11 +47,12 @@ import (
 )
 
 const (
-	endpointId     = "endpoint"
-	taskARN        = "t1"
-	startEndpoint  = "/api/%s/fault/v1/%s/start"
-	stopEndpoint   = "/api/%s/fault/v1/%s/stop"
-	statusEndpoint = "/api/%s/fault/v1/%s/status"
+	endpointId         = "endpoint"
+	taskARN            = "t1"
+	startEndpoint      = "/api/%s/fault/v1/%s/start"
+	stopEndpoint       = "/api/%s/fault/v1/%s/stop"
+	statusEndpoint     = "/api/%s/fault/v1/%s/status"
+	addSourcesEndpoint = "/api/%s/fault/v1/%s/add-sources"
 )
 
 var (
@@ -172,6 +177,16 @@ func startServer(t *testing.T) (*http.Server, int) {
 	router.HandleFunc(
 		fmt.Sprintf(statusEndpoint, endpointId, types.PacketLossFaultType),
 		handler.CheckNetworkPacketLoss(),
+	).Methods(http.MethodPost)
+
+	// Registering the add-sources fault injection handlers for both fault types
+	router.HandleFunc(
+		fmt.Sprintf(addSourcesEndpoint, endpointId, types.LatencyFaultType),
+		handler.AddSourcesNetworkLatency(),
+	).Methods(http.MethodPost)
+	router.HandleFunc(
+		fmt.Sprintf(addSourcesEndpoint, endpointId, types.PacketLossFaultType),
+		handler.AddSourcesNetworkPacketLoss(),
 	).Methods(http.MethodPost)
 
 	server := &http.Server{
@@ -374,4 +389,615 @@ func TestParallelNetworkFaults(t *testing.T) {
 			assert.Equal(t, tc.responseCode2, res2.StatusCode)
 		})
 	}
+}
+
+// ===========================================================================
+// FIS-driven add-sources endpoint integration tests.
+//
+// Covers the happy paths, 404 / 400 contract responses, and the
+// concurrency / idempotency expectations of the add-sources endpoint for
+// both latency and packet-loss fault types.
+//
+// IPv6 rejection cases are intentionally omitted because the implementation
+// accepts IPv6 addresses and CIDR blocks, and a v6 filter is installed
+// successfully end to end. host-vs-awsvpc network mode and
+// multiple-interface permutations are omitted because the sudo-style
+// harness only models a single host-mode interface; those network-mode
+// cases are covered by handler-level unit tests in handlers_test.go. Rate
+// limit and telemetry cases are omitted because this harness wires
+// handlers without the tollbooth limiter or telemetry middleware that
+// would make the observable behavior meaningful.
+// ===========================================================================
+
+// addSourcesRequestBody constructs the JSON shape the SSM script sends to
+// the add-sources endpoint. A nil list is omitted from the encoded JSON
+// entirely; pass an empty []string{} to send the field with a `[]` value
+// (used by the empty-request 400 case). The two arguments are independent.
+func addSourcesRequestBody(sources, sourcesToFilter []string) map[string]interface{} {
+	body := map[string]interface{}{}
+	if sources != nil {
+		body["Sources"] = sources
+	}
+	if sourcesToFilter != nil {
+		body["SourcesToFilter"] = sourcesToFilter
+	}
+	return body
+}
+
+// postFault sends a POST to the named fault endpoint on the test server and
+// returns the status code and response body. body=nil sends an empty
+// request; body=string sends the raw string verbatim (used for the
+// malformed-JSON case); any other value is JSON-marshalled. The response
+// body is fully read and the underlying connection closed before this
+// helper returns.
+func postFault(t *testing.T, port int, urlFormat, faultType string, body interface{}) (int, []byte) {
+	t.Helper()
+	var reader io.Reader
+	switch v := body.(type) {
+	case nil:
+		reader = nil
+	case string:
+		reader = strings.NewReader(v)
+	default:
+		buf, err := json.Marshal(v)
+		require.NoError(t, err)
+		reader = bytes.NewReader(buf)
+	}
+	req, err := http.NewRequest(http.MethodPost,
+		getURL(port, fmt.Sprintf(urlFormat, endpointId, faultType)),
+		reader)
+	require.NoError(t, err)
+	req.Header.Set("Content-Type", "application/json")
+
+	resp, err := http.DefaultClient.Do(req)
+	require.NoError(t, err)
+	defer resp.Body.Close()
+	respBody, err := io.ReadAll(resp.Body)
+	require.NoError(t, err)
+	return resp.StatusCode, respBody
+}
+
+// startLatencyFault issues a /start request that brings the latency tc
+// hierarchy up against the host's default interface. The caller is
+// responsible for cleanup (typically via defer cleanupLatencyAndPacketLossFaults).
+func startLatencyFault(t *testing.T, port int) {
+	t.Helper()
+	body := getNetworkLatencyRequestBody(100, 0,
+		[]string{"203.0.113.1"}, nil)
+	status, respBody := postFault(t, port, startEndpoint, types.LatencyFaultType, body)
+	require.Equal(t, http.StatusOK, status,
+		"latency /start failed: %s", string(respBody))
+}
+
+// startPacketLossFault is the packet-loss twin of startLatencyFault.
+func startPacketLossFault(t *testing.T, port int) {
+	t.Helper()
+	body := getNetworkPacketLossRequestBody(50,
+		[]string{"203.0.113.1"}, nil)
+	status, respBody := postFault(t, port, startEndpoint, types.PacketLossFaultType, body)
+	require.Equal(t, http.StatusOK, status,
+		"packet-loss /start failed: %s", string(respBody))
+}
+
+// hostInterface returns the host's default network interface name. Tests
+// that need to introspect real tc state shell out against this device.
+func hostInterface(t *testing.T) string {
+	t.Helper()
+	dev, err := netconfig.DefaultNetInterfaceName(netconfig.NewNetworkConfigClient().NetlinkClient)
+	require.NoError(t, err)
+	require.NotEmpty(t, dev)
+	return dev
+}
+
+// tcShowTimeout caps how long any tc inspection helper waits for a real tc
+// invocation. 5s is the same budget the fault handler uses for tc commands;
+// keeping the test side identical avoids spurious skews between observed
+// behavior and the production timeout.
+const tcShowTimeout = 5 * time.Second
+
+// tcFilterShow runs `tc filter show dev <iface>` and returns its output.
+// Used by tests that assert on which IPs ended up installed by add-sources.
+func tcFilterShow(t *testing.T, iface string) string {
+	t.Helper()
+	cmdCtx, cancel := context.WithTimeout(context.Background(), tcShowTimeout)
+	defer cancel()
+	out, err := exec.CommandContext(cmdCtx, "tc", "filter", "show", "dev", iface).CombinedOutput()
+	require.NoError(t, err, "tc filter show failed: %s", string(out))
+	return string(out)
+}
+
+// tcQdiscShow runs `tc qdisc show dev <iface>` and returns the output.
+// Used by the StopAfterAdd test to assert the qdisc hierarchy is fully gone.
+func tcQdiscShow(t *testing.T, iface string) string {
+	t.Helper()
+	cmdCtx, cancel := context.WithTimeout(context.Background(), tcShowTimeout)
+	defer cancel()
+	out, err := exec.CommandContext(cmdCtx, "tc", "qdisc", "show", "dev", iface).CombinedOutput()
+	require.NoError(t, err, "tc qdisc show failed: %s", string(out))
+	return string(out)
+}
+
+// hexForIPv4 converts a dotted-quad IPv4 address into the lowercase 8-char
+// hex representation tc filter show uses in its `match <hex>/ffffffff at 16`
+// output. tc renders the destination IP as a single 32-bit big-endian word.
+// The test fails fast on a malformed input so callers don't have to guard
+// against silent empty-string returns.
+func hexForIPv4(t *testing.T, ip string) string {
+	t.Helper()
+	parts := strings.Split(ip, ".")
+	require.Lenf(t, parts, 4, "hexForIPv4: %q is not a dotted-quad IPv4 address", ip)
+	out := make([]byte, 0, 8)
+	const hex = "0123456789abcdef"
+	for _, p := range parts {
+		n, err := strconv.Atoi(p)
+		require.NoErrorf(t, err, "hexForIPv4: octet %q in %q is not an integer", p, ip)
+		require.Truef(t, n >= 0 && n <= 255,
+			"hexForIPv4: octet %d in %q out of range", n, ip)
+		out = append(out, hex[(n>>4)&0xf], hex[n&0xf])
+	}
+	return string(out)
+}
+
+// assertFilterContainsIP fails the test with a focused message if the tc
+// filter table doesn't include the hex-encoded form of `ip`. Replaces ad-hoc
+// `assert.Contains(filterOutput, hexForIPv4(t, ip))` calls so failures cite
+// the specific IP that was missing rather than dumping the full tc table
+// with no hint of which assertion failed.
+func assertFilterContainsIP(t *testing.T, filterOutput, ip string) {
+	t.Helper()
+	assert.Containsf(t, filterOutput, hexForIPv4(t, ip),
+		"tc filter table missing %s:\n%s", ip, filterOutput)
+}
+
+// ---------------------------------------------------------------------------
+// Happy-path tests.
+// ---------------------------------------------------------------------------
+
+// TestAddSourcesLatencyHappyPath: with a latency
+// fault running, posting two new IPs to /add-sources returns 200 and both
+// IPs land on the impaired flowid (1:1) in the tc filter table.
+func TestAddSourcesLatencyHappyPath(t *testing.T) {
+	skipForUnsupportedTc(t)
+	server, port := startServer(t)
+	defer shutdownServer(t, server)
+	defer cleanupLatencyAndPacketLossFaults(t, port)
+
+	startLatencyFault(t, port)
+
+	const ip1, ip2 = "203.0.113.10", "203.0.113.11"
+	status, body := postFault(t, port, addSourcesEndpoint, types.LatencyFaultType,
+		addSourcesRequestBody([]string{ip1, ip2}, nil))
+	assert.Equal(t, http.StatusOK, status)
+	assert.JSONEq(t, `{"Status":"running"}`, string(body))
+
+	// Verify the kernel actually installed filters for both IPs on flowid 1:1.
+	filterOutput := tcFilterShow(t, hostInterface(t))
+	assertFilterContainsIP(t, filterOutput, ip1)
+	assertFilterContainsIP(t, filterOutput, ip2)
+	assert.Contains(t, filterOutput, "flowid 1:1",
+		"impaired flow not present in filter table")
+}
+
+// TestAddSourcesPacketLossHappyPath is the packet-loss twin of
+// TestAddSourcesLatencyHappyPath.
+func TestAddSourcesPacketLossHappyPath(t *testing.T) {
+	skipForUnsupportedTc(t)
+	server, port := startServer(t)
+	defer shutdownServer(t, server)
+	defer cleanupLatencyAndPacketLossFaults(t, port)
+
+	startPacketLossFault(t, port)
+
+	const ip = "203.0.113.20"
+	status, body := postFault(t, port, addSourcesEndpoint, types.PacketLossFaultType,
+		addSourcesRequestBody([]string{ip}, nil))
+	assert.Equal(t, http.StatusOK, status)
+	assert.JSONEq(t, `{"Status":"running"}`, string(body))
+
+	filterOutput := tcFilterShow(t, hostInterface(t))
+	assertFilterContainsIP(t, filterOutput, ip)
+}
+
+// TestAddSourcesWithSourcesToFilter: a request
+// mixing Sources (impaired, flowid 1:1) and SourcesToFilter (allowlist,
+// flowid 1:3) installs both filter shapes.
+func TestAddSourcesWithSourcesToFilter(t *testing.T) {
+	skipForUnsupportedTc(t)
+	server, port := startServer(t)
+	defer shutdownServer(t, server)
+	defer cleanupLatencyAndPacketLossFaults(t, port)
+
+	startLatencyFault(t, port)
+
+	const impairedIP = "203.0.113.30"
+	const allowlistIP = "10.0.0.99"
+	status, _ := postFault(t, port, addSourcesEndpoint, types.LatencyFaultType,
+		addSourcesRequestBody([]string{impairedIP}, []string{allowlistIP}))
+	assert.Equal(t, http.StatusOK, status)
+
+	filterOutput := tcFilterShow(t, hostInterface(t))
+	assertFilterContainsIP(t, filterOutput, impairedIP)
+	assertFilterContainsIP(t, filterOutput, allowlistIP)
+	assert.Contains(t, filterOutput, "flowid 1:1")
+	assert.Contains(t, filterOutput, "flowid 1:3")
+}
+
+// TestAddSourcesOnlySourcesToFilter: Sources empty,
+// SourcesToFilter populated. Only the allowlist filter is installed.
+func TestAddSourcesOnlySourcesToFilter(t *testing.T) {
+	skipForUnsupportedTc(t)
+	server, port := startServer(t)
+	defer shutdownServer(t, server)
+	defer cleanupLatencyAndPacketLossFaults(t, port)
+
+	startLatencyFault(t, port)
+
+	// Snapshot the impaired-filter set installed by /start so we can prove
+	// add-sources didn't add another impaired filter on top of it.
+	pre := tcFilterShow(t, hostInterface(t))
+	preFlow11 := strings.Count(pre, "flowid 1:1")
+
+	const allowlistIP = "10.0.0.55"
+	status, _ := postFault(t, port, addSourcesEndpoint, types.LatencyFaultType,
+		addSourcesRequestBody(nil, []string{allowlistIP}))
+	assert.Equal(t, http.StatusOK, status)
+
+	post := tcFilterShow(t, hostInterface(t))
+	assertFilterContainsIP(t, post, allowlistIP)
+	assert.Contains(t, post, "flowid 1:3")
+	assert.Equal(t, preFlow11, strings.Count(post, "flowid 1:1"),
+		"impaired-filter count must not change when only SourcesToFilter is sent")
+}
+
+// TestAddSourcesCIDRBlock: a CIDR block in Sources
+// is accepted and translated into a tc filter for the prefix.
+func TestAddSourcesCIDRBlock(t *testing.T) {
+	skipForUnsupportedTc(t)
+	server, port := startServer(t)
+	defer shutdownServer(t, server)
+	defer cleanupLatencyAndPacketLossFaults(t, port)
+
+	startLatencyFault(t, port)
+
+	// Use a /28 to keep the filter mask distinct from a single-host /32.
+	const cidr = "203.0.113.0/28"
+	status, _ := postFault(t, port, addSourcesEndpoint, types.LatencyFaultType,
+		addSourcesRequestBody([]string{cidr}, nil))
+	assert.Equal(t, http.StatusOK, status)
+
+	filterOutput := tcFilterShow(t, hostInterface(t))
+	// /28 = 0xfffffff0 mask, base 203.0.113.0 = cb007100 in hex.
+	assert.Contains(t, filterOutput, "cb007100/fffffff0",
+		"tc filter table missing CIDR-shaped match: %s", filterOutput)
+}
+
+// ---------------------------------------------------------------------------
+// 404 paths.
+// ---------------------------------------------------------------------------
+
+// TestAddSourcesNoFaultRunningReturns404: with no
+// prior /start, the qdisc hierarchy is absent and add-sources returns 404
+// with the not-running contract message.
+func TestAddSourcesNoFaultRunningReturns404(t *testing.T) {
+	skipForUnsupportedTc(t)
+	server, port := startServer(t)
+	defer shutdownServer(t, server)
+	defer cleanupLatencyAndPacketLossFaults(t, port)
+
+	status, body := postFault(t, port, addSourcesEndpoint, types.LatencyFaultType,
+		addSourcesRequestBody([]string{"203.0.113.10"}, nil))
+	assert.Equal(t, http.StatusNotFound, status)
+	assert.Contains(t, string(body), latencyFaultNotRunningError)
+}
+
+// TestAddSourcesWrongFaultTypeReturns404: latency
+// is running, but the request hits the packet-loss endpoint and
+// faultExistsSelector returns false so the response is 404.
+func TestAddSourcesWrongFaultTypeReturns404(t *testing.T) {
+	skipForUnsupportedTc(t)
+	server, port := startServer(t)
+	defer shutdownServer(t, server)
+	defer cleanupLatencyAndPacketLossFaults(t, port)
+
+	startLatencyFault(t, port)
+
+	status, body := postFault(t, port, addSourcesEndpoint, types.PacketLossFaultType,
+		addSourcesRequestBody([]string{"203.0.113.10"}, nil))
+	assert.Equal(t, http.StatusNotFound, status)
+	assert.Contains(t, string(body), packetLossFaultNotRunningError)
+}
+
+// TestAddSourcesAfterStopReturns404: a /start
+// followed by /stop tears down the qdisc; the next add-sources observes an
+// empty tc state and returns 404.
+func TestAddSourcesAfterStopReturns404(t *testing.T) {
+	skipForUnsupportedTc(t)
+	server, port := startServer(t)
+	defer shutdownServer(t, server)
+	defer cleanupLatencyAndPacketLossFaults(t, port)
+
+	startLatencyFault(t, port)
+	stopStatus, _ := postFault(t, port, stopEndpoint, types.LatencyFaultType, map[string]interface{}{})
+	require.Equal(t, http.StatusOK, stopStatus)
+
+	status, body := postFault(t, port, addSourcesEndpoint, types.LatencyFaultType,
+		addSourcesRequestBody([]string{"203.0.113.10"}, nil))
+	assert.Equal(t, http.StatusNotFound, status)
+	assert.Contains(t, string(body), latencyFaultNotRunningError)
+}
+
+// ---------------------------------------------------------------------------
+// 400 validation paths.
+// ---------------------------------------------------------------------------
+
+// TestAddSourcesEmptyRequestReturns400 verifies that a body with both
+// Sources and SourcesToFilter empty is rejected with 400.
+func TestAddSourcesEmptyRequestReturns400(t *testing.T) {
+	skipForUnsupportedTc(t)
+	server, port := startServer(t)
+	defer shutdownServer(t, server)
+
+	status, body := postFault(t, port, addSourcesEndpoint, types.LatencyFaultType,
+		map[string]interface{}{"Sources": []string{}, "SourcesToFilter": []string{}})
+	assert.Equal(t, http.StatusBadRequest, status)
+	assert.Contains(t, string(body), types.AddSourcesEmptyError)
+}
+
+// TestAddSourcesOverCapReturns400 verifies that a request exceeding
+// AddSourcesMaxIPs is rejected with 400 and an error citing both counts.
+func TestAddSourcesOverCapReturns400(t *testing.T) {
+	skipForUnsupportedTc(t)
+	server, port := startServer(t)
+	defer shutdownServer(t, server)
+
+	overCap := types.AddSourcesMaxIPs + 1
+	ips := make([]string, overCap)
+	for i := range ips {
+		ips[i] = fmt.Sprintf("10.0.0.%d", i+1)
+	}
+	status, body := postFault(t, port, addSourcesEndpoint, types.LatencyFaultType,
+		addSourcesRequestBody(ips, nil))
+	assert.Equal(t, http.StatusBadRequest, status)
+	// The error message pins both the actual count and the cap.
+	assert.Contains(t, string(body), strconv.Itoa(overCap))
+	assert.Contains(t, string(body), strconv.Itoa(types.AddSourcesMaxIPs))
+}
+
+// TestAddSourcesAtCapBoundary: exactly
+// AddSourcesMaxIPs entries across the two lists is accepted.
+func TestAddSourcesAtCapBoundary(t *testing.T) {
+	skipForUnsupportedTc(t)
+	server, port := startServer(t)
+	defer shutdownServer(t, server)
+	defer cleanupLatencyAndPacketLossFaults(t, port)
+
+	startLatencyFault(t, port)
+
+	// Split the cap evenly between the two lists. types.AddSourcesMaxIPs is
+	// even (16) by design; the test would need updating if the cap moved to
+	// an odd value.
+	half := types.AddSourcesMaxIPs / 2
+	srcs := make([]string, half)
+	filters := make([]string, half)
+	// Start the srcs range at 203.0.113.10 to keep it disjoint from the
+	// 203.0.113.1 filter installed by startLatencyFault; otherwise the
+	// `assertFilterContainsIP(out, srcs[0])` check would pass even if the
+	// boundary add-sources call were a no-op.
+	for i := 0; i < half; i++ {
+		srcs[i] = fmt.Sprintf("203.0.113.%d", i+10)
+		filters[i] = fmt.Sprintf("10.0.0.%d", i+10)
+	}
+	status, body := postFault(t, port, addSourcesEndpoint, types.LatencyFaultType,
+		addSourcesRequestBody(srcs, filters))
+	assert.Equal(t, http.StatusOK, status)
+	assert.JSONEq(t, `{"Status":"running"}`, string(body))
+
+	// All AddSourcesMaxIPs entries should have landed in the filter table.
+	// We verify the first and last of each list to keep the assertion focused.
+	out := tcFilterShow(t, hostInterface(t))
+	assertFilterContainsIP(t, out, srcs[0])
+	assertFilterContainsIP(t, out, srcs[len(srcs)-1])
+	assertFilterContainsIP(t, out, filters[0])
+	assertFilterContainsIP(t, out, filters[len(filters)-1])
+}
+
+// TestAddSourcesWithinRequestOverlap verifies that an IP appearing in both
+// Sources and SourcesToFilter within a single request is rejected with 400.
+func TestAddSourcesWithinRequestOverlap(t *testing.T) {
+	skipForUnsupportedTc(t)
+	server, port := startServer(t)
+	defer shutdownServer(t, server)
+
+	const ip = "203.0.113.10"
+	status, body := postFault(t, port, addSourcesEndpoint, types.LatencyFaultType,
+		addSourcesRequestBody([]string{ip}, []string{ip}))
+	assert.Equal(t, http.StatusBadRequest, status)
+	// Pin to the exact error format so accidental edits to the message
+	// have to update the test alongside the production string.
+	assert.Contains(t, string(body), fmt.Sprintf(types.AddSourcesOverlapError, ip))
+}
+
+// TestAddSourcesInvalidIP verifies that a malformed address in Sources is
+// rejected with 400 and the canonical InvalidValueError message.
+func TestAddSourcesInvalidIP(t *testing.T) {
+	skipForUnsupportedTc(t)
+	server, port := startServer(t)
+	defer shutdownServer(t, server)
+
+	status, body := postFault(t, port, addSourcesEndpoint, types.LatencyFaultType,
+		addSourcesRequestBody([]string{"not-an-ip"}, nil))
+	assert.Equal(t, http.StatusBadRequest, status)
+	assert.Contains(t, string(body),
+		fmt.Sprintf(types.InvalidValueError, "not-an-ip", "Sources"))
+}
+
+// TestAddSourcesMalformedJSON sends a truncated
+// JSON object; the decoder fails before validation runs.
+func TestAddSourcesMalformedJSON(t *testing.T) {
+	skipForUnsupportedTc(t)
+	server, port := startServer(t)
+	defer shutdownServer(t, server)
+
+	status, _ := postFault(t, port, addSourcesEndpoint, types.LatencyFaultType,
+		`{"Sources":["1.1.1.1"`)
+	assert.Equal(t, http.StatusBadRequest, status)
+}
+
+// TestAddSourcesMissingBody verifies that a request with no body is
+// rejected with 400 and the MissingRequestBodyError contract message.
+func TestAddSourcesMissingBody(t *testing.T) {
+	skipForUnsupportedTc(t)
+	server, port := startServer(t)
+	defer shutdownServer(t, server)
+
+	status, body := postFault(t, port, addSourcesEndpoint, types.LatencyFaultType, nil)
+	assert.Equal(t, http.StatusBadRequest, status)
+	assert.Contains(t, string(body), types.MissingRequestBodyError)
+}
+
+// ---------------------------------------------------------------------------
+// Concurrency / idempotency.
+// ---------------------------------------------------------------------------
+
+// TestAddSourcesDuplicateAcrossRequestsIdempotent:
+// two sequential add-sources calls with the same IP both succeed.
+//
+// The handler does not deduplicate; the manual-test "Add same IP twice"
+// observation shows the kernel installs a second filter and both calls
+// return 200, which matches the expectation here.
+func TestAddSourcesDuplicateAcrossRequestsIdempotent(t *testing.T) {
+	skipForUnsupportedTc(t)
+	server, port := startServer(t)
+	defer shutdownServer(t, server)
+	defer cleanupLatencyAndPacketLossFaults(t, port)
+
+	startLatencyFault(t, port)
+
+	body := addSourcesRequestBody([]string{"203.0.113.10"}, nil)
+	status1, _ := postFault(t, port, addSourcesEndpoint, types.LatencyFaultType, body)
+	assert.Equal(t, http.StatusOK, status1)
+	status2, _ := postFault(t, port, addSourcesEndpoint, types.LatencyFaultType, body)
+	assert.Equal(t, http.StatusOK, status2)
+}
+
+// TestAddSourcesConcurrentWithStopSerialized: an
+// add-sources and a stop fired concurrently must both terminate, and the
+// add-sources response must be either 200 (it raced ahead of the stop) or
+// 404 (stop tore down the qdisc first). Neither must produce a 500.
+func TestAddSourcesConcurrentWithStopSerialized(t *testing.T) {
+	skipForUnsupportedTc(t)
+	server, port := startServer(t)
+	defer shutdownServer(t, server)
+	defer cleanupLatencyAndPacketLossFaults(t, port)
+
+	startLatencyFault(t, port)
+
+	var wg sync.WaitGroup
+	var addStatus, stopStatus int
+	wg.Add(2)
+	go func() {
+		defer wg.Done()
+		addStatus, _ = postFault(t, port, addSourcesEndpoint, types.LatencyFaultType,
+			addSourcesRequestBody([]string{"203.0.113.10"}, nil))
+	}()
+	go func() {
+		defer wg.Done()
+		stopStatus, _ = postFault(t, port, stopEndpoint, types.LatencyFaultType,
+			map[string]interface{}{})
+	}()
+	wg.Wait()
+
+	assert.Equal(t, http.StatusOK, stopStatus,
+		"stop must complete cleanly even when add-sources is in flight")
+	assert.True(t,
+		addStatus == http.StatusOK || addStatus == http.StatusNotFound,
+		"add-sources concurrent with stop must be 200 or 404, got %d", addStatus)
+	assert.NotEqual(t, http.StatusInternalServerError, addStatus,
+		"add-sources concurrent with stop must not 500")
+}
+
+// TestAddSourcesConcurrentSerialized: two
+// add-sources calls fired concurrently are serialized by the per-namespace
+// lock; both return 200 and every requested filter ends up installed.
+func TestAddSourcesConcurrentSerialized(t *testing.T) {
+	skipForUnsupportedTc(t)
+	server, port := startServer(t)
+	defer shutdownServer(t, server)
+	defer cleanupLatencyAndPacketLossFaults(t, port)
+
+	startLatencyFault(t, port)
+
+	const ipA, ipB = "203.0.113.10", "203.0.113.11"
+	var wg sync.WaitGroup
+	statuses := [2]int{}
+	bodies := [2]map[string]interface{}{
+		addSourcesRequestBody([]string{ipA}, nil),
+		addSourcesRequestBody([]string{ipB}, nil),
+	}
+	for i := 0; i < 2; i++ {
+		wg.Add(1)
+		go func(idx int) {
+			defer wg.Done()
+			statuses[idx], _ = postFault(t, port, addSourcesEndpoint,
+				types.LatencyFaultType, bodies[idx])
+		}(i)
+	}
+	wg.Wait()
+
+	assert.Equal(t, http.StatusOK, statuses[0])
+	assert.Equal(t, http.StatusOK, statuses[1])
+
+	out := tcFilterShow(t, hostInterface(t))
+	assertFilterContainsIP(t, out, ipA)
+	assertFilterContainsIP(t, out, ipB)
+}
+
+// TestAddSourcesDoesNotMutateFaultParameters: the
+// add-sources handler must not change the qdisc parameters established at
+// /start. We assert by snapshotting `tc qdisc show` before and after.
+func TestAddSourcesDoesNotMutateFaultParameters(t *testing.T) {
+	skipForUnsupportedTc(t)
+	server, port := startServer(t)
+	defer shutdownServer(t, server)
+	defer cleanupLatencyAndPacketLossFaults(t, port)
+
+	startLatencyFault(t, port)
+
+	iface := hostInterface(t)
+	pre := tcQdiscShow(t, iface)
+
+	status, _ := postFault(t, port, addSourcesEndpoint, types.LatencyFaultType,
+		addSourcesRequestBody([]string{"203.0.113.10"}, nil))
+	require.Equal(t, http.StatusOK, status)
+
+	post := tcQdiscShow(t, iface)
+	assert.Equal(t, pre, post,
+		"qdisc state must not change across add-sources:\nbefore: %s\nafter:  %s", pre, post)
+}
+
+// TestAddSourcesStopAfterAddCleansEverything verifies that
+// /add-sources installs new filters; /stop must remove the entire qdisc
+// hierarchy regardless. We verify by snapshotting `tc qdisc show` before
+// any fault and after the stop, and asserting the two are equal.
+func TestAddSourcesStopAfterAddCleansEverything(t *testing.T) {
+	skipForUnsupportedTc(t)
+	server, port := startServer(t)
+	defer shutdownServer(t, server)
+	defer cleanupLatencyAndPacketLossFaults(t, port)
+
+	iface := hostInterface(t)
+	baseline := tcQdiscShow(t, iface)
+
+	startLatencyFault(t, port)
+	addStatus, _ := postFault(t, port, addSourcesEndpoint, types.LatencyFaultType,
+		addSourcesRequestBody([]string{"203.0.113.10", "203.0.113.11"}, nil))
+	require.Equal(t, http.StatusOK, addStatus)
+	stopStatus, _ := postFault(t, port, stopEndpoint, types.LatencyFaultType,
+		map[string]interface{}{})
+	require.Equal(t, http.StatusOK, stopStatus)
+
+	cleaned := tcQdiscShow(t, iface)
+	assert.Equal(t, baseline, cleaned,
+		"qdisc state must return to baseline after stop:\nbaseline: %s\nafter stop: %s",
+		baseline, cleaned)
 }
