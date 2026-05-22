@@ -508,6 +508,15 @@ var (
 		"Sources":         ipSources,
 		"SourcesToFilter": ipSourcesToFilter,
 	}
+
+	// happyAddSourcesReqBody mirrors the shape the SSM script sends when
+	// extending a running fault with newly resolved IPs. Reuses the existing
+	// ipSources/ipSourcesToFilter fixtures; the add-sources endpoint accepts
+	// IPv4 and IPv6 (validated in ecs-agent/tmds/handlers/fault/v1/types).
+	happyAddSourcesReqBody = map[string]interface{}{
+		"Sources":         ipSources,
+		"SourcesToFilter": ipSourcesToFilter,
+	}
 )
 
 func standardTask() *apitask.Task {
@@ -4292,6 +4301,55 @@ func TestRegisterCheckPacketLossFaultHandler(t *testing.T) {
 	testRegisterFaultHandler(t, tcs, faulthandler.NetworkFaultPath(faulttype.PacketLossFaultType, faulttype.CheckNetworkFaultPostfix), faulttype.CheckNetworkFaultPostfix, faulttype.PacketLossFaultType)
 }
 
+// TestRegisterAddSourcesLatencyFaultHandler verifies the router wires
+// POST /fault/v1/network-latency/add-sources to AddSourcesNetworkLatency and
+// that the telemetry middleware fires exactly once. Handler-level behavior
+// (validation, 404 paths, tc filter commands) is covered in the ecs-agent
+// handler package tests; this test intentionally only exercises the happy
+// path against a running latency fault.
+func TestRegisterAddSourcesLatencyFaultHandler(t *testing.T) {
+	setExecExpectations := func(exec *mock_execwrapper.MockExec, ctrl *gomock.Controller) {
+		ctx, cancel := context.WithTimeout(context.Background(), requestTimeoutDuration)
+		mockCMD := mock_execwrapper.NewMockCmd(ctrl)
+		gomock.InOrder(
+			exec.EXPECT().NewExecContextWithTimeout(gomock.Any(), gomock.Any()).Times(1).Return(ctx, cancel),
+			// checkTCFault: one show command per interface, returns "latency running".
+			exec.EXPECT().CommandContext(gomock.Any(), gomock.Any(), gomock.Any()).Times(1).Return(mockCMD),
+			mockCMD.EXPECT().CombinedOutput().Times(1).Return([]byte(tcLatencyFaultExistsCommandOutput), nil),
+		)
+		// One `tc filter add` per IP in SourcesToFilter (1) + Sources (2).
+		// Relax the exact count with AnyTimes to keep the test robust if the
+		// fixture lists grow; gomock still requires the calls to happen or the
+		// handler would fail on the ones it misses.
+		exec.EXPECT().CommandContext(gomock.Any(), gomock.Any(), gomock.Any()).AnyTimes().Return(mockCMD)
+		mockCMD.EXPECT().CombinedOutput().AnyTimes().Return([]byte(""), nil)
+	}
+	tcs := generateCommonNetworkFaultInjectionTestCases("add sources latency", "running", setExecExpectations, happyAddSourcesReqBody)
+	testRegisterFaultHandler(t, tcs,
+		faulthandler.NetworkFaultPath(faulttype.LatencyFaultType, faulttype.AddNetworkFaultPostfix),
+		faulttype.AddNetworkFaultPostfix, faulttype.LatencyFaultType)
+}
+
+// TestRegisterAddSourcesPacketLossFaultHandler is the packet-loss twin of the
+// latency add-sources registration test.
+func TestRegisterAddSourcesPacketLossFaultHandler(t *testing.T) {
+	setExecExpectations := func(exec *mock_execwrapper.MockExec, ctrl *gomock.Controller) {
+		ctx, cancel := context.WithTimeout(context.Background(), requestTimeoutDuration)
+		mockCMD := mock_execwrapper.NewMockCmd(ctrl)
+		gomock.InOrder(
+			exec.EXPECT().NewExecContextWithTimeout(gomock.Any(), gomock.Any()).Times(1).Return(ctx, cancel),
+			exec.EXPECT().CommandContext(gomock.Any(), gomock.Any(), gomock.Any()).Times(1).Return(mockCMD),
+			mockCMD.EXPECT().CombinedOutput().Times(1).Return([]byte(tcLossFaultExistsCommandOutput), nil),
+		)
+		exec.EXPECT().CommandContext(gomock.Any(), gomock.Any(), gomock.Any()).AnyTimes().Return(mockCMD)
+		mockCMD.EXPECT().CombinedOutput().AnyTimes().Return([]byte(""), nil)
+	}
+	tcs := generateCommonNetworkFaultInjectionTestCases("add sources packet loss", "running", setExecExpectations, happyAddSourcesReqBody)
+	testRegisterFaultHandler(t, tcs,
+		faulthandler.NetworkFaultPath(faulttype.PacketLossFaultType, faulttype.AddNetworkFaultPostfix),
+		faulttype.AddNetworkFaultPostfix, faulttype.PacketLossFaultType)
+}
+
 func testRegisterFaultHandler(t *testing.T, tcs []networkFaultTestCase, tmdsEndpoint, faultOperation, faultType string) {
 	for _, tc := range tcs {
 		t.Run(tc.name, func(t *testing.T) {
@@ -4342,6 +4400,10 @@ func testRegisterFaultHandler(t *testing.T, tcs []networkFaultTestCase, tmdsEndp
 				tmdsAPI = "/api/%s/fault/v1/network-packet-loss/stop"
 			case faulthandler.NetworkFaultPath(faulttype.PacketLossFaultType, faulttype.CheckNetworkFaultPostfix):
 				tmdsAPI = "/api/%s/fault/v1/network-packet-loss/status"
+			case faulthandler.NetworkFaultPath(faulttype.LatencyFaultType, faulttype.AddNetworkFaultPostfix):
+				tmdsAPI = "/api/%s/fault/v1/network-latency/add-sources"
+			case faulthandler.NetworkFaultPath(faulttype.PacketLossFaultType, faulttype.AddNetworkFaultPostfix):
+				tmdsAPI = "/api/%s/fault/v1/network-packet-loss/add-sources"
 			default:
 				t.Error("Unrecognized TMDS Endpoint")
 			}

@@ -71,3 +71,111 @@ func TestRequireIPInRequestSources(t *testing.T) {
 		})
 	}
 }
+
+func TestNetworkFaultAddSourcesRequestValidateRequest(t *testing.T) {
+	ip := func(s string) *string { return aws.String(s) }
+
+	// many16 builds a slice of 16 distinct IPv4 addresses for cap tests.
+	many16 := make([]*string, 16)
+	for i := 0; i < 16; i++ {
+		many16[i] = aws.String(fmt.Sprintf("10.0.0.%d", i+1))
+	}
+	many17 := append([]*string{}, many16...)
+	many17 = append(many17, aws.String("10.0.0.17"))
+
+	tcs := []struct {
+		name    string
+		request NetworkFaultAddSourcesRequest
+		wantErr string // empty means no error expected
+	}{
+		{
+			name:    "both lists empty",
+			request: NetworkFaultAddSourcesRequest{},
+			wantErr: AddSourcesEmptyError,
+		},
+		{
+			name: "Sources only, valid IPv4",
+			request: NetworkFaultAddSourcesRequest{
+				Sources: []*string{ip("1.2.3.4")},
+			},
+		},
+		{
+			name: "SourcesToFilter only, valid IPv4 CIDR",
+			request: NetworkFaultAddSourcesRequest{
+				SourcesToFilter: []*string{ip("10.0.0.0/24")},
+			},
+		},
+		{
+			name: "both lists, disjoint, valid",
+			request: NetworkFaultAddSourcesRequest{
+				Sources:         []*string{ip("1.2.3.4"), ip("5.6.7.8")},
+				SourcesToFilter: []*string{ip("10.0.0.1")},
+			},
+		},
+		{
+			name: "total exactly at cap",
+			request: NetworkFaultAddSourcesRequest{
+				Sources: many16,
+			},
+		},
+		{
+			name: "total exceeds cap",
+			request: NetworkFaultAddSourcesRequest{
+				Sources: many17,
+			},
+			wantErr: fmt.Sprintf(AddSourcesTooManyIPsError, 17, AddSourcesMaxIPs),
+		},
+		{
+			name: "IPv6 in Sources accepted",
+			request: NetworkFaultAddSourcesRequest{
+				Sources: []*string{ip("2001:db8::1")},
+			},
+		},
+		{
+			name: "IPv6 CIDR in SourcesToFilter accepted",
+			request: NetworkFaultAddSourcesRequest{
+				SourcesToFilter: []*string{ip("::1/128")},
+			},
+		},
+		{
+			name: "dual-stack mix across both lists accepted",
+			request: NetworkFaultAddSourcesRequest{
+				Sources:         []*string{ip("1.2.3.4"), ip("2001:db8::1")},
+				SourcesToFilter: []*string{ip("10.0.0.0/24"), ip("2001:db8:1::/48")},
+			},
+		},
+		{
+			name: "non-IP garbage in Sources rejected",
+			request: NetworkFaultAddSourcesRequest{
+				Sources: []*string{ip("not-an-ip")},
+			},
+			wantErr: fmt.Sprintf(InvalidValueError, "not-an-ip", "Sources"),
+		},
+		{
+			name: "Sources and SourcesToFilter overlap",
+			request: NetworkFaultAddSourcesRequest{
+				Sources:         []*string{ip("1.2.3.4")},
+				SourcesToFilter: []*string{ip("1.2.3.4")},
+			},
+			wantErr: fmt.Sprintf(AddSourcesOverlapError, "1.2.3.4"),
+		},
+	}
+	for _, tc := range tcs {
+		t.Run(tc.name, func(t *testing.T) {
+			err := tc.request.ValidateRequest()
+			if tc.wantErr == "" {
+				require.NoError(t, err)
+			} else {
+				require.EqualError(t, err, tc.wantErr)
+			}
+		})
+	}
+}
+
+func TestNetworkFaultAddSourcesRequestToString(t *testing.T) {
+	req := NetworkFaultAddSourcesRequest{
+		Sources:         []*string{aws.String("1.2.3.4")},
+		SourcesToFilter: []*string{aws.String("5.6.7.8")},
+	}
+	require.Equal(t, `{"Sources":["1.2.3.4"],"SourcesToFilter":["5.6.7.8"]}`, req.ToString())
+}
