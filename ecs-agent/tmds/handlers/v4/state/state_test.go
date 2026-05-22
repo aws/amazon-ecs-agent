@@ -24,48 +24,90 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-// Tests that errors.As() function works with ErrorLookupFailure errors
-func TestAsErrorLookupFailure(t *testing.T) {
-	t.Run("as works no wrap", func(t *testing.T) {
-		var target *ErrorLookupFailure
-		var err = NewErrorLookupFailure("reason")
+// Tests that errors.As() function works with ErrorLookupFailure, ErrorMetadataFetchFailure, ErrorStatsFetchFailure, and ErrorStatsLookupFailure errors
+func TestAsErrorFailures(t *testing.T) {
+	tests := []struct {
+		name   string
+		target interface{}
+		err    error
+	}{
+		{
+			name:   "Lookup Error with no wrap",
+			target: new(*ErrorLookupFailure),
+			err:    NewErrorLookupFailure("reason"),
+		},
+		{
+			name:   "Lookup Error with wrap",
+			target: new(*ErrorLookupFailure),
+			err:    errors.Wrap(NewErrorLookupFailure("reason"), "outer"),
+		},
+		{
+			name:   "Metadata Fetch Error with no wrap",
+			target: new(*ErrorMetadataFetchFailure),
+			err:    NewErrorMetadataFetchFailure("containerID"),
+		},
+		{
+			name:   "Metadata Fetch Error with wrap",
+			target: new(*ErrorMetadataFetchFailure),
+			err:    errors.Wrap(NewErrorMetadataFetchFailure("containerID"), "outer"),
+		},
+		{
+			name:   "Stats Fetch Error with no wrap",
+			target: new(*ErrorStatsFetchFailure),
+			err:    NewErrorStatsFetchFailure("containerID", errors.New("cause")),
+		},
+		{
+			name:   "Stats Fetch Error with wrap",
+			target: new(*ErrorStatsFetchFailure),
+			err:    errors.Wrap(NewErrorStatsFetchFailure("reason", nil), "outer"),
+		},
+		{
+			name:   "Stats Lookup Error with no wrap",
+			target: new(*ErrorStatsLookupFailure),
+			err:    NewErrorStatsLookupFailure("containerID"),
+		},
+		{
+			name:   "Stats Lookup Error with wrap",
+			target: new(*ErrorStatsLookupFailure),
+			err:    errors.Wrap(NewErrorStatsLookupFailure("reason"), "outer"),
+		},
+	}
 
-		require.True(t, errors.As(err, &target))
-		assert.Equal(t, err, target)
-	})
-	t.Run("as works wrapped", func(t *testing.T) {
-		var target *ErrorLookupFailure
-		var err = NewErrorLookupFailure("reason")
-
-		require.True(t, errors.As(errors.Wrap(err, "outer"), &target))
-		assert.Equal(t, err, target)
-	})
-	t.Run("as should fail when no match", func(t *testing.T) {
-		var target *ErrorLookupFailure
-		require.False(t, errors.As(errors.New("other error"), &target))
-	})
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			require.True(t, errors.As(tt.err, tt.target))
+		})
+	}
 }
 
-// Tests that errors.As() function works with ErrorMetadataFetchFailure errors
-func TestAsErrorMetadataFetchFailure(t *testing.T) {
-	t.Run("as works no wrap", func(t *testing.T) {
-		var target *ErrorMetadataFetchFailure
-		var err = NewErrorMetadataFetchFailure("containerID")
+func TestAsErrorNoMatch(t *testing.T) {
+	tests := []struct {
+		name   string
+		target interface{}
+	}{
+		{
+			name:   "Lookup failure: as should fail when no match",
+			target: new(*ErrorLookupFailure),
+		},
+		{
+			name:   "Metadata fetch failure: as should fail when no match",
+			target: new(*ErrorMetadataFetchFailure),
+		},
+		{
+			name:   "Stats fetch failure: as should fail when no match",
+			target: new(*ErrorStatsFetchFailure),
+		},
+		{
+			name:   "Stats lookup failure: as should fail when no match",
+			target: new(*ErrorStatsLookupFailure),
+		},
+	}
 
-		require.True(t, errors.As(err, &target))
-		assert.Equal(t, err, target)
-	})
-	t.Run("as works wrapped", func(t *testing.T) {
-		var target *ErrorMetadataFetchFailure
-		var err = NewErrorMetadataFetchFailure("containerID")
-
-		require.True(t, errors.As(errors.Wrap(err, "outer"), &target))
-		assert.Equal(t, err, target)
-	})
-	t.Run("as should fail when no match", func(t *testing.T) {
-		var target *ErrorMetadataFetchFailure
-		require.False(t, errors.As(errors.New("other error"), &target))
-	})
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			require.False(t, errors.As(errors.New("other error"), tt.target))
+		})
+	}
 }
 
 func TestUnwrapErrorStatsFetchFailure(t *testing.T) {
@@ -80,48 +122,10 @@ func TestUnwrapErrorStatsFetchFailure(t *testing.T) {
 	})
 }
 
-func TestAsErrorStatsFetchFailure(t *testing.T) {
-	t.Run("as works no wrap", func(t *testing.T) {
-		var target *ErrorStatsFetchFailure
-		var err = NewErrorStatsFetchFailure("containerID", errors.New("cause"))
-		require.True(t, errors.As(err, &target))
-		assert.Equal(t, err, target)
-	})
-	t.Run("as works wrapped", func(t *testing.T) {
-		var err = NewErrorStatsFetchFailure("reason", nil)
-		var target *ErrorStatsFetchFailure
-		require.True(t, errors.As(errors.Wrap(err, "outer"), &target))
-		assert.Equal(t, err, target)
-	})
-	t.Run("as should fail when no match", func(t *testing.T) {
-		var target *ErrorStatsFetchFailure
-		require.False(t, errors.As(errors.New("other error"), &target))
-	})
-}
-
 // Tests Error() method of ErrorStatsFetchFailure type
 func TestErrorStatsFetchFailureMessage(t *testing.T) {
 	var err error = NewErrorStatsFetchFailure("external reason", errors.New("cause"))
 	assert.Equal(t, "failed to get stats: external reason: cause", err.Error())
-}
-
-func TestAsErrorStatsLookupFailure(t *testing.T) {
-	t.Run("as works no wrap", func(t *testing.T) {
-		var target *ErrorStatsLookupFailure
-		var err = NewErrorStatsLookupFailure("containerID")
-		require.True(t, errors.As(err, &target))
-		assert.Equal(t, err, target)
-	})
-	t.Run("as works wrapped", func(t *testing.T) {
-		var err = NewErrorStatsLookupFailure("reason")
-		var target *ErrorStatsLookupFailure
-		require.True(t, errors.As(errors.Wrap(err, "outer"), &target))
-		assert.Equal(t, err, target)
-	})
-	t.Run("as should fail when no match", func(t *testing.T) {
-		var target *ErrorStatsLookupFailure
-		require.False(t, errors.As(errors.New("other error"), &target))
-	})
 }
 
 func TestErrorDefaultNetworkInterface_Is(t *testing.T) {
@@ -198,3 +202,4 @@ func TestErrorDefaultNetworkInterface_As(t *testing.T) {
 		})
 	}
 }
+
