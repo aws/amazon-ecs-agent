@@ -24,6 +24,7 @@ package tcsclient
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"math/rand"
 	"strconv"
@@ -413,6 +414,72 @@ func TestPublishMetricsRequest(t *testing.T) {
 	}
 }
 
+func TestPublishMetricsOnceRetriesTransientPublishErrors(t *testing.T) {
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+
+	conn := mock_wsconn.NewMockWebsocketConn(ctrl)
+	conn.EXPECT().SetWriteDeadline(gomock.Any()).Return(nil).Times(tcsPublishRetryAttempts)
+	gomock.InOrder(
+		conn.EXPECT().WriteMessage(gomock.Any(), gomock.Any()).Return(errors.New("temporary publish failure")),
+		conn.EXPECT().WriteMessage(gomock.Any(), gomock.Any()).Return(errors.New("temporary publish failure")),
+		conn.EXPECT().WriteMessage(gomock.Any(), gomock.Any()).Return(nil),
+	)
+	conn.EXPECT().SetWriteDeadline(gomock.Any()).Return(nil)
+	conn.EXPECT().Close()
+
+	cs := testCS(conn, nil, nil).(*tcsClientServer)
+	defer cs.Close()
+	message := createIdleTelemetryMessage()
+
+	err := cs.publishMetricsOnce(message)
+
+	assert.NoError(t, err)
+}
+
+func TestPublishMetricsOnceReturnsLastRetryError(t *testing.T) {
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+
+	expectedErr := errors.New("temporary publish failure")
+	conn := mock_wsconn.NewMockWebsocketConn(ctrl)
+	conn.EXPECT().SetWriteDeadline(gomock.Any()).Return(nil).Times(tcsPublishRetryAttempts)
+	conn.EXPECT().WriteMessage(gomock.Any(), gomock.Any()).Return(expectedErr).Times(tcsPublishRetryAttempts)
+	conn.EXPECT().SetWriteDeadline(gomock.Any()).Return(nil)
+	conn.EXPECT().Close()
+
+	cs := testCS(conn, nil, nil).(*tcsClientServer)
+	defer cs.Close()
+	message := createIdleTelemetryMessage()
+
+	err := cs.publishMetricsOnce(message)
+
+	assert.ErrorIs(t, err, expectedErr)
+}
+
+func TestPublishHealthOnceRetriesTransientPublishErrors(t *testing.T) {
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+
+	conn := mock_wsconn.NewMockWebsocketConn(ctrl)
+	conn.EXPECT().SetWriteDeadline(gomock.Any()).Return(nil).Times(tcsPublishRetryAttempts)
+	gomock.InOrder(
+		conn.EXPECT().WriteMessage(gomock.Any(), gomock.Any()).Return(errors.New("temporary publish failure")),
+		conn.EXPECT().WriteMessage(gomock.Any(), gomock.Any()).Return(errors.New("temporary publish failure")),
+		conn.EXPECT().WriteMessage(gomock.Any(), gomock.Any()).Return(nil),
+	)
+	conn.EXPECT().SetWriteDeadline(gomock.Any()).Return(nil)
+	conn.EXPECT().Close()
+
+	cs := testCS(conn, nil, nil).(*tcsClientServer)
+	defer cs.Close()
+	message := createHealthMessage()
+
+	err := cs.publishHealthOnce(message)
+
+	assert.NoError(t, err)
+}
+
 func TestMetricsToPublishMetricRequestsIdleStatsSource(t *testing.T) {
 	cs := tcsClientServer{}
 	statsSource := idleStatsSource{}
@@ -430,6 +497,40 @@ func TestMetricsToPublishMetricRequestsIdleStatsSource(t *testing.T) {
 	lastRequest := requests[0]
 	if !*lastRequest.Metadata.Fin {
 		t.Error("Fin not set to true in Last request")
+	}
+}
+
+func createIdleTelemetryMessage() ecstcs.TelemetryMessage {
+	statsSource := idleStatsSource{}
+	metadata, taskMetrics, _ := statsSource.GetInstanceMetrics(testNotIncludeScStats)
+	return ecstcs.TelemetryMessage{
+		Metadata:    metadata,
+		TaskMetrics: taskMetrics,
+	}
+}
+
+func createHealthMessage() ecstcs.HealthMessage {
+	return ecstcs.HealthMessage{
+		Metadata: &ecstcs.HealthMetadata{
+			Cluster:           aws.String("TestCreatePublishHealthRequests"),
+			ContainerInstance: aws.String("container_instance"),
+			Fin:               aws.Bool(true),
+			MessageId:         aws.String("message_id"),
+		},
+		HealthMetrics: []*ecstcs.TaskHealth{
+			{
+				Containers: []*ecstcs.ContainerHealth{
+					{
+						ContainerName: aws.String("container1"),
+						HealthStatus:  aws.String("HEALTHY"),
+						StatusSince:   (*utils.Timestamp)(aws.Time(time.Now())),
+					},
+				},
+				TaskArn:               aws.String("t1"),
+				TaskDefinitionFamily:  aws.String("tdf1"),
+				TaskDefinitionVersion: aws.String("1"),
+			},
+		},
 	}
 }
 
