@@ -202,4 +202,3 @@ func TestErrorDefaultNetworkInterface_As(t *testing.T) {
 		})
 	}
 }
-
