@@ -94,7 +94,7 @@ func TestNodeStageVolume(t *testing.T) {
 			},
 			expectMock: func(mockMounter MockMounter, mockDeviceIdentifier MockDeviceIdentifier) {
 				successExpectMock(mockMounter, mockDeviceIdentifier)
-				mockMounter.EXPECT().FormatAndMountSensitiveWithFormatOptions(gomock.Eq(devicePath), gomock.Eq(targetPath), gomock.Eq(defaultFsType), gomock.Any(), gomock.Nil(), gomock.Len(0))
+				mockMounter.EXPECT().FormatAndMountSensitiveWithFormatOptions(gomock.Eq(devicePath), gomock.Eq(targetPath), gomock.Eq(defaultFsType), gomock.Any(), gomock.Nil(), gomock.Eq([]string{"-m", "bigtime=0,inobtcount=0,reflink=0", "-i", "nrext64=0"}))
 			},
 			expectPermissionCall: true,
 		},
@@ -183,7 +183,7 @@ func TestNodeStageVolume(t *testing.T) {
 			},
 			expectMock: func(mockMounter MockMounter, mockDeviceIdentifier MockDeviceIdentifier) {
 				successExpectMock(mockMounter, mockDeviceIdentifier)
-				mockMounter.EXPECT().FormatAndMountSensitiveWithFormatOptions(gomock.Eq(devicePath), gomock.Eq(targetPath), gomock.Eq(FSTypeXfs), gomock.Any(), gomock.Nil(), gomock.Len(0))
+				mockMounter.EXPECT().FormatAndMountSensitiveWithFormatOptions(gomock.Eq(devicePath), gomock.Eq(targetPath), gomock.Eq(FSTypeXfs), gomock.Any(), gomock.Nil(), gomock.Eq([]string{"-m", "bigtime=0,inobtcount=0,reflink=0", "-i", "nrext64=0"}))
 			},
 			expectPermissionCall: true,
 		},
@@ -328,7 +328,7 @@ func TestNodeStageVolume(t *testing.T) {
 			},
 			expectMock: func(mockMounter MockMounter, mockDeviceIdentifier MockDeviceIdentifier) {
 				successExpectMock(mockMounter, mockDeviceIdentifier)
-				mockMounter.EXPECT().FormatAndMountSensitiveWithFormatOptions(gomock.Eq(devicePath), gomock.Eq(targetPath), gomock.Eq(defaultFsType), gomock.Any(), gomock.Nil(), gomock.Len(0))
+				mockMounter.EXPECT().FormatAndMountSensitiveWithFormatOptions(gomock.Eq(devicePath), gomock.Eq(targetPath), gomock.Eq(defaultFsType), gomock.Any(), gomock.Nil(), gomock.Eq([]string{"-m", "bigtime=0,inobtcount=0,reflink=0", "-i", "nrext64=0"}))
 			},
 			setupPermissionMocks: func() {
 				// Mock chown failure
