@@ -31,8 +31,8 @@ import (
 )
 
 const (
-	// namespacePrefix is the IMDS path prefix for ECS IAM namespaces.
-	namespacePrefix = "iam-ecs-"
+	// NamespacePrefix is the IMDS path prefix for ECS IAM namespaces.
+	NamespacePrefix = "iam-ecs-"
 
 	// taskIDDelimiter separates the task ID from the rest of the IMDS key.
 	taskIDDelimiter = "-"
@@ -139,7 +139,7 @@ func (s *scanner) discoverNamespaces(ctx context.Context) ([]string, error) {
 	for _, line := range strings.Split(resp, "\n") {
 		// Directory entries may have a trailing slash (e.g. "iam/").
 		entry := strings.TrimSuffix(line, "/")
-		if strings.HasPrefix(entry, namespacePrefix) {
+		if strings.HasPrefix(entry, NamespacePrefix) {
 			namespaces = append(namespaces, entry)
 		}
 	}
