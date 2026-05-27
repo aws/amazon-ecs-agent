@@ -56,10 +56,10 @@ const (
 	requestTimedOutError               = "%s: request timed out"
 	latencyFaultAlreadyRunningError    = "There is already one network latency fault running"
 	packetLossFaultAlreadyRunningError = "There is already one network packet loss fault running"
-	// add-sources 404 messages. We emit a distinct message per fault type so the
-	// SSM script's logs make it obvious which fault it was trying to extend.
-	latencyFaultNotRunningError    = "no network-latency fault is currently running on the task's network namespace"
-	packetLossFaultNotRunningError = "no network-packet-loss fault is currently running on the task's network namespace"
+	// add-sources 404 messages. We emit a distinct message per fault type so
+	// caller logs make it obvious which fault was being extended.
+	latencyFaultNotRunningError    = "no network-latency fault is currently running for the task"
+	packetLossFaultNotRunningError = "no network-packet-loss fault is currently running for the task"
 	// This is our initial assumption of how much time it would take for the Linux commands used to inject faults
 	// to finish. This will be confirmed/updated after more testing.
 	requestTimeoutSeconds = 5
@@ -1092,7 +1092,7 @@ func (h *FaultHandler) CheckNetworkPacketLoss() func(http.ResponseWriter, *http.
 // AddSourcesNetworkLatency extends a running network-latency fault with
 // additional IPs supplied by the caller. It does not modify fault parameters
 // (delay, jitter, flows percent); those are locked in at start time. Returns
-// 404 if no latency fault is currently running on the task's network namespace.
+// 404 if no latency fault is currently running for the task.
 func (h *FaultHandler) AddSourcesNetworkLatency() func(http.ResponseWriter, *http.Request) {
 	// The selector is defined inline so that the rule "this endpoint honors
 	// only the latency flag" lives at the only call site that uses it; the
@@ -1183,9 +1183,9 @@ func (h *FaultHandler) addSourcesHandler(
 			responseBody = types.NewNetworkFaultInjectionErrorResponse(internalError)
 			httpStatusCode = http.StatusInternalServerError
 		} else if !faultPresent(latencyExists, packetLossExists) {
-			// 404 is the signal to the SSM script that the fault is gone and
-			// the refresh loop should stop. The design calls this out as the
-			// expected behavior after a stop has raced ahead of this update.
+			// 404 signals to the caller that the fault is gone, e.g. so a
+			// refresh loop can stop. This is the expected behavior after a
+			// stop has raced ahead of this update.
 			responseBody = types.NewNetworkFaultInjectionErrorResponse(notRunningErr)
 			httpStatusCode = http.StatusNotFound
 		} else {
@@ -1195,10 +1195,10 @@ func (h *FaultHandler) addSourcesHandler(
 				httpStatusCode = http.StatusInternalServerError
 			} else if applyErr != nil {
 				// No rollback on partial application. Filters already installed
-				// stay in place; the SSM script retries the same IPs on the
-				// next refresh cycle, and tc filter add is idempotent enough
-				// across kernel versions that the retry either succeeds or
-				// fails silently without corrupting the qdisc hierarchy.
+				// stay in place; callers retry the same IPs on the next call.
+				// `tc filter add` accepts duplicate u32 matches without error,
+				// so the retry is safe. Any duplicates are reaped when the
+				// qdisc is torn down on stop.
 				responseBody = types.NewNetworkFaultInjectionErrorResponse(internalError)
 				httpStatusCode = http.StatusInternalServerError
 			} else {

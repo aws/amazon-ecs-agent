@@ -324,11 +324,11 @@ func registerFaultHandlers(
 	).Methods("POST")
 
 	// Setting up add-sources handler endpoints for network latency and packet
-	// loss faults. These let the FIS SSM script push newly resolved IPs into a
-	// running tc fault without restarting it. The endpoints use the same
-	// rate-limiter and telemetry middleware wiring as start/stop/status, and
-	// share the metricsFactory so their metrics land in the same
-	// MetadataServer.* namespace.
+	// loss faults. These let callers push newly resolved IPs into a running
+	// tc fault without restarting it. The endpoints use the same rate-limiter
+	// and telemetry middleware wiring as start/stop/status, and share the
+	// metricsFactory so their metrics land in the same MetadataServer.*
+	// namespace.
 	muxRouter.Handle(
 		fault.NetworkFaultPath(faulttype.LatencyFaultType, faulttype.AddNetworkFaultPostfix),
 		fault.TelemetryMiddleware(
