@@ -2631,6 +2631,8 @@ type Task struct {
 
 	TaskDefinitionAccountId *string `json:"taskDefinitionAccountId,omitempty" type:"string"`
 
+	TrustedExecutionConfiguration *TrustedExecutionConfiguration `json:"trustedExecutionConfiguration,omitempty" type:"structure"`
+
 	Version *string `json:"version,omitempty" type:"string"`
 
 	Volumes []*Volume `json:"volumes,omitempty" type:"list"`
@@ -2905,6 +2907,30 @@ func (s TaskStopVerificationOutput) String() string {
 // be included in the string output. The member name will be present, but the
 // value will be replaced with "sensitive".
 func (s TaskStopVerificationOutput) GoString() string {
+	return s.String()
+}
+
+type TrustedExecutionConfiguration struct {
+	_ struct{} `type:"structure"`
+
+	IsolationMode *string `json:"isolationMode,omitempty" type:"string" enum:"IsolationMode"`
+}
+
+// String returns the string representation.
+//
+// API parameter values that are decorated as "sensitive" in the API will not
+// be included in the string output. The member name will be present, but the
+// value will be replaced with "sensitive".
+func (s TrustedExecutionConfiguration) String() string {
+	return awsutil.Prettify(s)
+}
+
+// GoString returns the string representation.
+//
+// API parameter values that are decorated as "sensitive" in the API will not
+// be included in the string output. The member name will be present, but the
+// value will be replaced with "sensitive".
+func (s TrustedExecutionConfiguration) GoString() string {
 	return s.String()
 }
 
