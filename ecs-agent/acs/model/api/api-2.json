@@ -600,6 +600,14 @@
       "exception":true
     },
     "Integer":{"type":"integer"},
+    "IsolationMode":{
+      "type":"string",
+      "enum":[
+        "SHARED",
+        "EXCLUSIVE",
+        "ISOLATED_PARTITION"
+      ]
+    },
     "InvalidClusterException":{
       "type":"structure",
       "members":{
@@ -906,7 +914,8 @@
         "networkMode":{"shape":"String"},
         "serviceName":{"shape":"String"},
         "group":{"shape":"String"},
-        "enableFaultInjection":{"shape":"Boolean"}
+        "enableFaultInjection":{"shape":"Boolean"},
+        "trustedExecutionConfiguration":{"shape":"TrustedExecutionConfiguration"}
       }
     },
     "TaskIdentifier":{
@@ -957,6 +966,12 @@
         "tcp",
         "udp"
       ]
+    },
+    "TrustedExecutionConfiguration":{
+      "type":"structure",
+      "members":{
+        "isolationMode":{"shape":"IsolationMode"}
+      }
     },
     "UpdateInfo":{
       "type":"structure",
