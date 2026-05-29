@@ -1491,6 +1491,93 @@ func TestSessionCallsAddUpdateRequestHandlers(t *testing.T) {
 	assert.True(t, addUpdateRequestHandlersCalled)
 }
 
+func TestDPEAndACSConnFailureTrackerTracking(t *testing.T) {
+	testCases := []struct {
+		name             string
+		setupMocks       func(*mock_ecs.MockECSClient, *mock_wsclient.MockClientFactory, *mock_wsclient.MockClientServer)
+		expectDPEFailing bool
+		expectACSFailing bool
+		expectErr        bool
+	}{
+		{
+			name: "DPE error records both DPE and ACS connectivity failure",
+			setupMocks: func(ecsClient *mock_ecs.MockECSClient, _ *mock_wsclient.MockClientFactory, _ *mock_wsclient.MockClientServer) {
+				ecsClient.EXPECT().DiscoverPollEndpoint(gomock.Any()).Return("", errors.New("endpoint not found"))
+			},
+			expectDPEFailing: true,
+			expectACSFailing: true,
+			expectErr:        true,
+		},
+		{
+			name: "DPE success and ACS connect error records ACS connectivity failure only",
+			setupMocks: func(ecsClient *mock_ecs.MockECSClient, factory *mock_wsclient.MockClientFactory, wsClient *mock_wsclient.MockClientServer) {
+				ecsClient.EXPECT().DiscoverPollEndpoint(gomock.Any()).Return(acsURL, nil)
+				factory.EXPECT().New(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).Return(wsClient)
+				wsClient.EXPECT().Connect(gomock.Any(), gomock.Any(), gomock.Any()).Return(nil, errors.New("connection refused"))
+				wsClient.EXPECT().Close().Return(nil)
+			},
+			expectDPEFailing: false,
+			expectACSFailing: true,
+			expectErr:        true,
+		},
+		{
+			name: "DPE success and ACS connect success records both DPE and ACS connectivity success",
+			setupMocks: func(ecsClient *mock_ecs.MockECSClient, factory *mock_wsclient.MockClientFactory, wsClient *mock_wsclient.MockClientServer) {
+				ecsClient.EXPECT().DiscoverPollEndpoint(gomock.Any()).Return(acsURL, nil)
+				factory.EXPECT().New(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).Return(wsClient)
+				wsClient.EXPECT().Connect(gomock.Any(), gomock.Any(), gomock.Any()).Return(time.NewTimer(wsclient.DisconnectTimeout), nil)
+				wsClient.EXPECT().SetAnyRequestHandler(gomock.Any())
+				wsClient.EXPECT().AddRequestHandler(gomock.Any()).AnyTimes()
+				wsClient.EXPECT().Serve(gomock.Any()).Return(nil)
+				wsClient.EXPECT().Close().Return(nil).AnyTimes()
+				wsClient.EXPECT().WriteCloseMessage().Return(nil).AnyTimes()
+			},
+			expectDPEFailing: false,
+			expectACSFailing: false,
+			expectErr:        false,
+		},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			ctrl := gomock.NewController(t)
+			defer ctrl.Finish()
+
+			ecsClient := mock_ecs.NewMockECSClient(ctrl)
+			mockClientFactory := mock_wsclient.NewMockClientFactory(ctrl)
+			mockWsClient := mock_wsclient.NewMockClientServer(ctrl)
+			tc.setupMocks(ecsClient, mockClientFactory, mockWsClient)
+
+			dpeFailureTracker := metricsfactory.NewFailureTracker(
+				metricsfactory.DPEConnectivityFailureMetricName,
+				metricsfactory.NewNopEntryFactory(),
+			)
+			acsConnFailureTracker := metricsfactory.NewFailureTracker(
+				metricsfactory.ACSConnectivityFailureMetricName,
+				metricsfactory.NewNopEntryFactory(),
+			)
+
+			s := session{
+				containerInstanceARN:  testconst.ContainerInstanceARN,
+				ecsClient:             ecsClient,
+				clientFactory:         mockClientFactory,
+				metricsFactory:        metricsfactory.NewNopEntryFactory(),
+				dpeFailureTracker:     dpeFailureTracker,
+				acsConnFailureTracker: acsConnFailureTracker,
+			}
+
+			err := s.startSessionOnce(context.Background())
+			if tc.expectErr {
+				assert.Error(t, err)
+			} else {
+				assert.NoError(t, err)
+			}
+			assert.Equal(t, tc.expectDPEFailing, dpeFailureTracker.IsFailing())
+			assert.Equal(t, tc.expectACSFailing, acsConnFailureTracker.IsFailing())
+		})
+	}
+}
+
 func startFakeACSServer(closeWS <-chan bool) (*httptest.Server, chan<- string, <-chan string, <-chan error, error) {
 	serverChan := make(chan string, 1)
 	requestsChan := make(chan string, 1)
