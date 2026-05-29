@@ -939,9 +939,43 @@ func (engine *DockerStatsEngine) taskContainerMetricsUnsafe(taskArn string) ([]*
 				}
 			}
 		}
+		// Attach dummy GPU utilization metric to GeneralMetricsPayload.
+		// This is a placeholder for future DCGM-based GPU telemetry.
+		containerMetric.GeneralMetricsPayload = getDummyGPUMetrics()
+
 		containerMetrics = append(containerMetrics, containerMetric)
 	}
 	return containerMetrics, nil
+}
+
+// getDummyGPUMetrics returns a hardcoded GeneralMetricsPayload with a dummy
+// GPUUtilization value. This mirrors the format used by Two's GPU telemetry
+// pipeline where each GPU device gets a GeneralMetricsWrapper with an
+// AcceleratedDevice dimension and per-device metrics.
+func getDummyGPUMetrics() []*ecstcs.GeneralMetricsWrapper {
+	gpuUUID := "GPU-dummy-0000-0000-0000-000000000000"
+	metricName := "GPUUtilization"
+	metricUnit := "Percent"
+	metricValue := float64(42.0)
+	dimensionKey := "AcceleratedDevice"
+
+	return []*ecstcs.GeneralMetricsWrapper{
+		{
+			Dimensions: []*ecstcs.Dimension{
+				{
+					Key:   &dimensionKey,
+					Value: &gpuUUID,
+				},
+			},
+			GeneralMetrics: []*ecstcs.GeneralMetric{
+				{
+					MetricName:        &metricName,
+					MetricValueDouble: &metricValue,
+					Unit:              &metricUnit,
+				},
+			},
+		},
+	}
 }
 
 func (engine *DockerStatsEngine) doRemoveContainerUnsafe(container *StatsContainer, taskArn string) {
