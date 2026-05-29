@@ -138,7 +138,11 @@ func (m *managedLinux) createServiceConnectTasksDNSConfig(taskID string,
 
 	// Copy these files into a task volume, which can be used by containers as well, to
 	// configure their network.
-	return m.copyNetworkConfigFilesToTask(taskID, netNSName)
+	if err := m.copyNetworkConfigFilesToTask(taskID, netNSName); err != nil {
+		return err
+	}
+
+	return m.populateHostsFromFile(netNS)
 }
 
 func (m *managedLinux) ConfigureInterface(
