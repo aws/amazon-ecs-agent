@@ -102,6 +102,23 @@ type session struct {
 	lastConnectedTime              time.Time
 	lastDisconnectedTime           time.Time
 	firstACSConnectionTime         time.Time
+	dpeFailureTracker              *metrics.FailureTracker
+	acsConnFailureTracker          *metrics.FailureTracker
+}
+
+// SessionOption configures optional behavior on the ACS session.
+type SessionOption func(*session)
+
+// WithDPEFailureTracker sets the FailureTracker used to track
+// DiscoverPollEndpoint failures across retry attempts.
+func WithDPEFailureTracker(dpeFailureTracker *metrics.FailureTracker) SessionOption {
+	return func(s *session) { s.dpeFailureTracker = dpeFailureTracker }
+}
+
+// WithACSConnFailureTracker sets the FailureTracker used to track ACS
+// connection failures across retry attempts.
+func WithACSConnFailureTracker(acsConnFailureTracker *metrics.FailureTracker) SessionOption {
+	return func(s *session) { s.acsConnFailureTracker = acsConnFailureTracker }
 }
 
 // NewSession creates a new Session.
@@ -127,10 +144,11 @@ func NewSession(containerInstanceARN string,
 	taskStopper TaskStopper,
 	resourceHandler ResourceHandler,
 	addUpdateRequestHandlers func(wsclient.ClientServer),
+	opts ...SessionOption,
 ) Session {
 	backoff := retry.NewExponentialBackoff(connectionBackoffMin, connectionBackoffMax,
 		connectionBackoffJitter, connectionBackoffMultiplier)
-	return &session{
+	s := &session{
 		containerInstanceARN:           containerInstanceARN,
 		cluster:                        cluster,
 		ecsClient:                      ecsClient,
@@ -164,6 +182,10 @@ func NewSession(containerInstanceARN string,
 		lastDisconnectedTime:           time.Time{},
 		firstACSConnectionTime:         time.Time{},
 	}
+	for _, opt := range opts {
+		opt(s)
+	}
+	return s
 }
 
 // Start starts the session. It'll forever keep trying to connect to ACS unless
@@ -242,12 +264,15 @@ func (s *session) Start(ctx context.Context) error {
 func (s *session) startSessionOnce(ctx context.Context) error {
 	acsEndpoint, err := s.ecsClient.DiscoverPollEndpoint(s.containerInstanceARN)
 	if err != nil {
+		s.dpeFailureTracker.RecordFailure()
+		s.acsConnFailureTracker.RecordFailure()
 		logger.Error("ACS: Unable to discover poll endpoint", logger.Fields{
 			"containerInstanceARN": s.containerInstanceARN,
 			field.Error:            err,
 		})
 		return err
 	}
+	s.dpeFailureTracker.RecordSuccess()
 
 	client := s.clientFactory.New(
 		s.acsURL(acsEndpoint),
@@ -266,6 +291,7 @@ func (s *session) startSessionOnce(ctx context.Context) error {
 	// Metric created for determining whether ACS connection is successful or not
 	s.metricsFactory.New(metrics.ACSSessionFailureCallName).Done(err)
 	if err != nil {
+		s.acsConnFailureTracker.RecordFailure()
 		logger.Error("Failed to connect to ACS", logger.Fields{
 			"containerInstanceARN": s.containerInstanceARN,
 			field.Error:            err,
@@ -288,6 +314,7 @@ func (s *session) startSessionOnce(ctx context.Context) error {
 
 	// Connection to ACS was successful. Moving forward, rely on ACS to send credentials to Agent at its own cadence
 	// and make sure Agent does not force ACS to send credentials for any subsequent reconnects to ACS.
+	s.acsConnFailureTracker.RecordSuccess()
 	logger.Info("Connected to ACS endpoint",
 		logger.Fields{
 			"containerInstanceARN": s.containerInstanceARN,
