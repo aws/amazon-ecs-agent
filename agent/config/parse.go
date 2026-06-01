@@ -46,6 +46,9 @@ const (
 	envCredentialsFetcherHostDir = "CREDENTIALS_FETCHER_HOST_DIR"
 	// envInstanceIPCompatibility is an environment setting to override IP compatibility detection
 	envInstanceIPCompatibility = "ECS_INSTANCE_IP_COMPATIBILITY"
+	// envPropagateTaskMemoryLimitCgroupV2 is an environment setting to enable task memory
+	// limit propagation to containers on cgroupv2 if containers do not already have limit set
+	envPropagateTaskMemoryLimitCgroupV2 = "ECS_PROPAGATE_TASK_MEMORY_LIMIT_CGROUPV2"
 )
 
 func parseCheckpoint(dataDir string) BooleanDefaultFalse {

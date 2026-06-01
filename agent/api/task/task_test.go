@@ -6194,3 +6194,80 @@ func TestGetCredentialsIDForRoleType(t *testing.T) {
 		})
 	}
 }
+
+func TestGetDockerResourcesPropagateTaskMemoryLimitCgroupV2(t *testing.T) {
+	origCgroupV2 := config.CgroupV2
+	defer func() { config.CgroupV2 = origCgroupV2 }()
+
+	testCases := []struct {
+		name            string
+		containerMemory uint
+		taskMemory      int64
+		cgroupV2        bool
+		propagate       config.Conditional
+		expectedMemory  int64
+	}{
+		{
+			name:            "propagates task memory when container has no limit on cgroupv2",
+			containerMemory: uint(0),
+			taskMemory:      int64(256),
+			cgroupV2:        true,
+			propagate:       config.ExplicitlyEnabled,
+			expectedMemory:  int64(268435456),
+		},
+		{
+			name:            "does not propagate when feature is disabled",
+			containerMemory: uint(0),
+			taskMemory:      int64(256),
+			cgroupV2:        true,
+			propagate:       config.ExplicitlyDisabled,
+			expectedMemory:  int64(0),
+		},
+		{
+			name:            "does not propagate when feature is not set",
+			containerMemory: uint(0),
+			taskMemory:      int64(256),
+			cgroupV2:        true,
+			propagate:       config.NotSet,
+			expectedMemory:  int64(0),
+		},
+		{
+			name:            "does not propagate on cgroupv1",
+			containerMemory: uint(0),
+			taskMemory:      int64(256),
+			cgroupV2:        false,
+			propagate:       config.ExplicitlyEnabled,
+			expectedMemory:  int64(0),
+		},
+		{
+			name:            "does not override explicit container memory",
+			containerMemory: uint(256),
+			taskMemory:      int64(512),
+			cgroupV2:        true,
+			propagate:       config.ExplicitlyEnabled,
+			expectedMemory:  int64(268435456),
+		},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			config.CgroupV2 = tc.cgroupV2
+			testTask := &Task{
+				Arn:    "arn:aws:ecs:us-east-1:012345678910:task/c09f0188-7f87-4b0f-bfc3-16296622b6fe",
+				Family: "myFamily",
+				Memory: tc.taskMemory,
+				Containers: []*apicontainer.Container{
+					{
+						Name:   "c1",
+						Memory: tc.containerMemory,
+					},
+				},
+			}
+			cfg := &config.Config{
+				PropagateTaskMemoryLimitCgroupV2: config.BooleanDefaultFalse{Value: tc.propagate},
+			}
+			resources := testTask.getDockerResources(testTask.Containers[0], cfg)
+			assert.Equal(t, tc.expectedMemory, resources.Memory)
+		})
+	}
+}

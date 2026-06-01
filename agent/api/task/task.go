@@ -205,7 +205,7 @@ type Task struct {
 	// CPU is a task-level limit for compute resources. A value of 1 means that
 	// the task may access 100% of 1 vCPU on the instance
 	CPU float64 `json:"Cpu,omitempty"`
-	// Memory is a task-level limit for memory resources in bytes
+	// Memory is a task-level limit for memory resources in MiB.
 	Memory int64 `json:"Memory,omitempty"`
 	// DesiredStatusUnsafe represents the state where the task should go. Generally,
 	// the desired status is informed by the ECS backend as a result of either
@@ -2154,6 +2154,20 @@ func (task *Task) overrideContainerRuntime(container *apicontainer.Container, ho
 func (task *Task) getDockerResources(container *apicontainer.Container, cfg *config.Config) dockercontainer.Resources {
 	// Convert MB to B and set Memory
 	dockerMem := int64(container.Memory * 1024 * 1024)
+	// On cgroupv2, containers use private cgroup namespace by default and cannot see
+	// parent (task-level) memory limits. When PropagateTaskMemoryLimitCgroupV2 is
+	// enabled and cgroupv2 is in use, propagate the task memory limit to containers
+	// that have no explicit memory limit.
+	if dockerMem == 0 && task.Memory > 0 &&
+		config.CgroupV2 && cfg.PropagateTaskMemoryLimitCgroupV2.Enabled() {
+		dockerMem = task.Memory * 1024 * 1024
+		logger.Info("cgroupv2: Propagating task memory limit to container with no"+
+			" memory limit set", logger.Fields{
+			field.TaskID:    task.GetID(),
+			field.Container: container.Name,
+			"bytes":         dockerMem,
+		})
+	}
 	if dockerMem != 0 && dockerMem < apicontainer.DockerContainerMinimumMemoryInBytes {
 		logger.Warn("Memory setting too low for container, increasing to minimum", logger.Fields{
 			field.TaskID:    task.GetID(),

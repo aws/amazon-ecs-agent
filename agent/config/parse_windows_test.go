@@ -146,6 +146,24 @@ func TestParseTaskPidsLimit_Unset(t *testing.T) {
 	assert.Equal(t, 0, parseTaskPidsLimit())
 }
 
+func TestParsePropagateTaskMemoryLimitCgroupV2(t *testing.T) {
+	testCases := []struct {
+		name     string
+		envValue string
+	}{
+		{"not set", ""},
+		{"set to true", "true"},
+	}
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			if tc.envValue != "" {
+				t.Setenv(envPropagateTaskMemoryLimitCgroupV2, tc.envValue)
+			}
+			assert.False(t, parsePropagateTaskMemoryLimitCgroupV2().Enabled())
+		})
+	}
+}
+
 func TestGetDetailedOSFamilyWindows(t *testing.T) {
 	// GetDetailedOSFamily should return the same as GetOSFamily on Windows
 	defer func() {
