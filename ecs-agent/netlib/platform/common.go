@@ -32,6 +32,8 @@ const (
 	FirecrackerPlatform      = "firecracker"
 	ManagedPlatform          = "managed-instance"
 	ManagedDebugPlatform     = "ec2-debug-managed-instance"
+	IsolatedPlatform         = "isolated"
+	IsolatedDebugPlatform    = "ec2-debug-isolated"
 )
 
 // executeCNIPlugin executes CNI plugins with the given network configs and a timeout context.

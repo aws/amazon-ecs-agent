@@ -134,6 +134,17 @@ func NewPlatform(
 			common: commonPlatform,
 			client: ec2Client,
 		}, nil
+	case IsolatedPlatform, IsolatedDebugPlatform:
+		ec2Client, err := ec2.NewEC2MetadataClient(nil)
+		if err != nil {
+			return nil, err
+		}
+		return &isolatedLinux{
+			managedLinux: managedLinux{
+				common: commonPlatform,
+				client: ec2Client,
+			},
+		}, nil
 	}
 	return nil, errors.New("invalid platform: " + platformConfig.Name)
 }
