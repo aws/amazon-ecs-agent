@@ -1,5 +1,19 @@
 # Changelog
 
+# 1.104.0
+* Feature - Add support for ECS S3 Files integration [#4962](https://github.com/aws/amazon-ecs-agent/pull/4962)
+* Feature - Add ECS_PROPAGATE_TASK_MEMORY_LIMIT_CGROUPV2 opt-in config [#4986](https://github.com/aws/amazon-ecs-agent/pull/4986)
+* Enhancement - rename IMDSCredentialRefresher to IMDSCredentialsRefresher [#4969](https://github.com/aws/amazon-ecs-agent/pull/4969)
+* Enhancement - inject AWS_REGION and AWS_DEFAULT_REGION into task containers [#4946](https://github.com/aws/amazon-ecs-agent/pull/4946)
+* Enhancement - Export namespace prefix in IMDS scanner shared library. [#4977](https://github.com/aws/amazon-ecs-agent/pull/4977)
+* Enhancement - Add TrustedExecutionConfiguration to task payload models [#4980](https://github.com/aws/amazon-ecs-agent/pull/4980)
+* Enhancement - Add FailureTracker for DiscoverPollEndpoint + ACS/TCS connect workflows [#4983](https://github.com/aws/amazon-ecs-agent/pull/4983)
+* Enhancement - Bump github.com/gorilla/mux from 1.8.0 to 1.8.1 in /agent [#4976](https://github.com/aws/amazon-ecs-agent/pull/4976)
+* Enhancement - Bump github.com/containerd/containerd from 1.7.29 to 1.7.32 in /ecs-init [#4970](https://github.com/aws/amazon-ecs-agent/pull/4970)
+* Enhancement - Bump google.golang.org/grpc from 1.79.3 to 1.81.1 in /ecs-agent [#4974](https://github.com/aws/amazon-ecs-agent/pull/4974)
+* Enhancement - Bump github.com/containerd/containerd from 1.7.29 to 1.7.32 in /agent [#4982](https://github.com/aws/amazon-ecs-agent/pull/4982)
+* Enhancement - Bump github.com/opencontainers/image-spec from 1.1.0 to 1.1.1 in /agent [#4987](https://github.com/aws/amazon-ecs-agent/pull/4987)
+
 # 1.103.2
 * Enhancement - Bump github.com/aws/aws-sdk-go-v2/service/fsx from 1.53.1 to 1.65.10 in /agent [#4966](https://github.com/aws/amazon-ecs-agent/pull/4966)
 * Enhancement - Add semgrep security scan for command injection [#4959](https://github.com/aws/amazon-ecs-agent/pull/4959)
