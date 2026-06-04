@@ -428,13 +428,16 @@ func TestManagedLinux_CreateDNSConfig(t *testing.T) {
 			ioutil.EXPECT().WriteFile(netNSPath+"/resolv.conf", gomock.Any(), gomock.Any()),
 
 			// Copy hosts file from host and append interface mappings
-			ioutil.EXPECT().ReadFile("/etc/hosts"),
+			ioutil.EXPECT().ReadFile("/etc/hosts").Return([]byte("127.0.0.1 localhost\n"), nil),
 			ioutil.EXPECT().WriteFile(netNSPath+"/hosts", gomock.Any(), gomock.Any()),
 
 			// CopyToVolume created files into task volume
 			volumeAccessor.EXPECT().CopyToVolume(taskID, netNSPath+"/hosts", "hosts", fs.FileMode(0644)).Return(nil).Times(1),
 			volumeAccessor.EXPECT().CopyToVolume(taskID, netNSPath+"/resolv.conf", "resolv.conf", fs.FileMode(0644)).Return(nil).Times(1),
 			volumeAccessor.EXPECT().CopyToVolume(taskID, netNSPath+"/hostname", "hostname", fs.FileMode(0644)).Return(nil).Times(1),
+
+			// Read back hosts file to populate netNS.Hosts.
+			ioutil.EXPECT().ReadFile(netNSPath+"/hosts").Return([]byte("127.0.0.1 localhost\n"), nil),
 		)
 
 		err := ml.CreateDNSConfig(taskID, netns)
@@ -497,6 +500,9 @@ func TestManagedLinux_CreateDNSConfig(t *testing.T) {
 			volumeAccessor.EXPECT().CopyToVolume(taskID, netNSPath+"/hosts", "hosts", fs.FileMode(0644)).Return(nil).Times(1),
 			volumeAccessor.EXPECT().CopyToVolume(taskID, netNSPath+"/resolv.conf", "resolv.conf", fs.FileMode(0644)).Return(nil).Times(1),
 			volumeAccessor.EXPECT().CopyToVolume(taskID, netNSPath+"/hostname", "hostname", fs.FileMode(0644)).Return(nil).Times(1),
+
+			// Read back hosts file to populate netNS.Hosts.
+			ioutil.EXPECT().ReadFile(netNSPath+"/hosts").Return([]byte(hostsData), nil),
 		)
 
 		err := ml.CreateDNSConfig(taskID, netns)
@@ -559,6 +565,9 @@ func TestManagedLinux_CreateDNSConfig(t *testing.T) {
 			volumeAccessor.EXPECT().CopyToVolume(taskID, netNSPath+"/hosts", "hosts", fs.FileMode(0644)).Return(nil).Times(1),
 			volumeAccessor.EXPECT().CopyToVolume(taskID, netNSPath+"/resolv.conf", "resolv.conf", fs.FileMode(0644)).Return(nil).Times(1),
 			volumeAccessor.EXPECT().CopyToVolume(taskID, netNSPath+"/hostname", "hostname", fs.FileMode(0644)).Return(nil).Times(1),
+
+			// Read back hosts file to populate netNS.Hosts.
+			ioutil.EXPECT().ReadFile(netNSPath+"/hosts").Return([]byte(hostsData), nil),
 		)
 
 		err := ml.CreateDNSConfig(taskID, netns)

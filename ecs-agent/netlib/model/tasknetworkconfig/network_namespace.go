@@ -25,6 +25,12 @@ import (
 	"github.com/aws/aws-sdk-go-v2/service/ecs/types"
 )
 
+// Host represents a single entry in a hosts file mapping an IP to one or more hostnames.
+type Host struct {
+	IP        string
+	Hostnames []string
+}
+
 // NetworkNamespace is model representing each network namespace.
 type NetworkNamespace struct {
 	Name  string
@@ -43,6 +49,9 @@ type NetworkNamespace struct {
 
 	// ServiceConnectConfig holds ServiceConnect related parameters for the particular netns.
 	ServiceConnectConfig *serviceconnect.ServiceConnectConfig
+
+	// Hosts is the set of IP-to-hostname mappings effective for this network namespace.
+	Hosts []Host
 
 	KnownState   status.NetworkStatus
 	DesiredState status.NetworkStatus

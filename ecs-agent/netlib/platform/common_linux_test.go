@@ -176,9 +176,13 @@ func TestCommon_CreateDNSFiles(t *testing.T) {
 			volumeAccessor.EXPECT().CopyToVolume(taskID, netNSPath+"/hosts", "hosts", fs.FileMode(0644)).Return(nil).Times(1),
 			volumeAccessor.EXPECT().CopyToVolume(taskID, netNSPath+"/resolv.conf", "resolv.conf", fs.FileMode(0644)).Return(nil).Times(1),
 			volumeAccessor.EXPECT().CopyToVolume(taskID, netNSPath+"/hostname", "hostname", fs.FileMode(0644)).Return(nil).Times(1),
+
+			// Read back hosts file to populate netNS.Hosts.
+			ioutil.EXPECT().ReadFile(netNSPath+"/hosts").Return([]byte(cs.expectedHostsData), nil),
 		)
 		err := commonPlatform.createDNSConfig(taskID, false, netns)
 		require.NoError(t, err)
+		require.Equal(t, parseHosts([]byte(cs.expectedHostsData)), netns.Hosts)
 	}
 }
 
@@ -307,16 +311,20 @@ func TestCommon_CreateDNSFilesForDebug(t *testing.T) {
 
 			gomock.InOrder(
 				// Creation of hosts file.
-				ioutil.EXPECT().ReadFile("/etc/hosts"),
+				ioutil.EXPECT().ReadFile("/etc/hosts").Return([]byte("127.0.0.1 localhost\n"), nil),
 				ioutil.EXPECT().WriteFile(netNSPath+"/hosts", gomock.Any(), gomock.Any()),
 
 				// CopyToVolume created files into task volume.
 				volumeAccessor.EXPECT().CopyToVolume(taskID, netNSPath+"/hosts", "hosts", fs.FileMode(0644)).Return(nil).Times(1),
 				volumeAccessor.EXPECT().CopyToVolume(taskID, netNSPath+"/resolv.conf", "resolv.conf", fs.FileMode(0644)).Return(nil).Times(1),
 				volumeAccessor.EXPECT().CopyToVolume(taskID, netNSPath+"/hostname", "hostname", fs.FileMode(0644)).Return(nil).Times(1),
+
+				// Read back hosts file to populate netNS.Hosts.
+				ioutil.EXPECT().ReadFile(netNSPath+"/hosts").Return([]byte("127.0.0.1 localhost\n"), nil),
 			)
 			err := commonPlatform.createDNSConfig(taskID, true, netns)
 			require.NoError(t, err)
+			require.Equal(t, parseHosts([]byte("127.0.0.1 localhost\n")), netns.Hosts)
 		})
 	}
 
@@ -511,4 +519,90 @@ func testGeneveInterfaceConfiguration(t *testing.T) {
 		Return(nil).Times(1)
 	err = commonPlatform.configureInterface(ctx, netNSPath, v2nIface, netDAO)
 	require.NoError(t, err)
+}
+
+func TestParseHosts(t *testing.T) {
+	tests := []struct {
+		name     string
+		input    string
+		expected []tasknetworkconfig.Host
+	}{
+		{
+			// Canonical example from hosts(5) man page:
+			// https://man7.org/linux/man-pages/man5/hosts.5.html
+			name: "hosts(5) man page example",
+			input: "# The following lines are desirable for IPv4 capable hosts\n" +
+				"127.0.0.1       localhost\n" +
+				"\n" +
+				"# 127.0.1.1 is often used for the FQDN of the machine\n" +
+				"127.0.1.1       thishost.example.org   thishost\n" +
+				"192.168.1.10    foo.example.org        foo\n" +
+				"192.168.1.13    bar.example.org        bar\n" +
+				"146.82.138.7    master.debian.org      master\n" +
+				"209.237.226.90  www.opensource.org\n" +
+				"\n" +
+				"# The following lines are desirable for IPv6 capable hosts\n" +
+				"::1             localhost ip6-localhost ip6-loopback\n" +
+				"ff02::1         ip6-allnodes\n" +
+				"ff02::2         ip6-allrouters\n",
+			expected: []tasknetworkconfig.Host{
+				{IP: "127.0.0.1", Hostnames: []string{"localhost"}},
+				{IP: "127.0.1.1", Hostnames: []string{"thishost.example.org", "thishost"}},
+				{IP: "192.168.1.10", Hostnames: []string{"foo.example.org", "foo"}},
+				{IP: "192.168.1.13", Hostnames: []string{"bar.example.org", "bar"}},
+				{IP: "146.82.138.7", Hostnames: []string{"master.debian.org", "master"}},
+				{IP: "209.237.226.90", Hostnames: []string{"www.opensource.org"}},
+				{IP: "::1", Hostnames: []string{"localhost", "ip6-localhost", "ip6-loopback"}},
+				{IP: "ff02::1", Hostnames: []string{"ip6-allnodes"}},
+				{IP: "ff02::2", Hostnames: []string{"ip6-allrouters"}},
+			},
+		},
+		{
+			name:  "inline comments stripped",
+			input: "192.168.1.1 foo # this is a web server\n10.0.0.1 bar#no space before hash\n",
+			expected: []tasknetworkconfig.Host{
+				{IP: "192.168.1.1", Hostnames: []string{"foo"}},
+				{IP: "10.0.0.1", Hostnames: []string{"bar"}},
+			},
+		},
+		{
+			name:  "tabs as separators",
+			input: "127.0.0.1\tlocalhost\n10.0.0.2\tmy-host\tmy-alias\n",
+			expected: []tasknetworkconfig.Host{
+				{IP: "127.0.0.1", Hostnames: []string{"localhost"}},
+				{IP: "10.0.0.2", Hostnames: []string{"my-host", "my-alias"}},
+			},
+		},
+		{
+			name:     "empty input",
+			input:    "",
+			expected: []tasknetworkconfig.Host{},
+		},
+		{
+			name:     "only comments and blanks",
+			input:    "# comment\n\n  # another\n",
+			expected: []tasknetworkconfig.Host{},
+		},
+		{
+			name:  "line with only IP and no hostname is skipped",
+			input: "192.168.1.1\n10.0.0.1 valid-host\n",
+			expected: []tasknetworkconfig.Host{
+				{IP: "10.0.0.1", Hostnames: []string{"valid-host"}},
+			},
+		},
+		{
+			name:  "invalid IP addresses are skipped",
+			input: "not-an-ip hostname1\n999.999.999.999 hostname2\n10.0.0.1 valid-host\n",
+			expected: []tasknetworkconfig.Host{
+				{IP: "10.0.0.1", Hostnames: []string{"valid-host"}},
+			},
+		},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			result := parseHosts([]byte(tc.input))
+			assert.Equal(t, tc.expected, result)
+		})
+	}
 }

@@ -122,6 +122,9 @@ func TestFirecracker_CreateDNSConfig(t *testing.T) {
 		volumeAccessor.EXPECT().CopyToVolume(taskID, primaryNetNSPath+"/resolv.conf", "resolv.conf", fs.FileMode(0644)).Return(nil).Times(1),
 		volumeAccessor.EXPECT().CopyToVolume(taskID, primaryNetNSPath+"/hostname", "hostname", fs.FileMode(0644)).Return(nil).Times(1),
 
+		// Read back hosts file to populate netNS.Hosts.
+		ioutil.EXPECT().ReadFile(primaryNetNSPath+"/hosts").Return([]byte(primaryHostsData), nil),
+
 		// Creation of secondary netns path.
 		osWrapper.EXPECT().Stat(secondaryNetNSPath).Return(nil, os.ErrNotExist).Times(1),
 		osWrapper.EXPECT().IsNotExist(os.ErrNotExist).Return(true).Times(1),
