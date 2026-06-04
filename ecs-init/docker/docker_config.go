@@ -49,6 +49,7 @@ func createHostConfig(binds []string) *godocker.HostConfig {
 	)
 	binds = append(binds, getNsenterBinds(config.OsStat)...)
 	binds = append(binds, getModInfoBinds(config.OsStat)...)
+	binds = append(binds, getCloudInitResultBinds(config.OsStat)...)
 
 	logConfig := config.AgentDockerLogDriverConfiguration()
 
@@ -122,4 +123,24 @@ func getModInfoBinds(statFn func(string) (os.FileInfo, error)) []string {
 		}
 	}
 	return binds
+}
+
+// cloudInitResultFile is the path to cloud-init's result.json file which records
+// the datasource used during instance boot.
+const cloudInitResultFile = "/var/lib/cloud/data/result.json"
+
+// getCloudInitResultBinds returns a read-only bind mount for cloud-init's result.json
+// if the file exists on the host. Returns an empty slice if the file is missing or
+// if running in external (non-EC2) mode where cloud-init is not applicable.
+func getCloudInitResultBinds(statFn func(string) (os.FileInfo, error)) []string {
+	if config.RunningInExternal() {
+		return []string{}
+	}
+	if _, err := statFn(cloudInitResultFile); err == nil {
+		return []string{cloudInitResultFile + ":" + cloudInitResultFile + readOnly}
+	} else {
+		seelog.Infof("cloud-init result file not found at %s, skip binding it to Agent container: %v",
+			cloudInitResultFile, err)
+	}
+	return []string{}
 }

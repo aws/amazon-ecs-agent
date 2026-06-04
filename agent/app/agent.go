@@ -357,6 +357,18 @@ func (agent *ecsAgent) doStart(containerChangeEventStream *eventstream.EventStre
 	imageManager engine.ImageManager,
 	client ecs.ECSClient,
 	execCmdMgr execcmd.Manager) int {
+	// Check for cloud-init failure before proceeding with startup.
+	// If cloud-init fell back to DataSourceNone but userdata exists on IMDS,
+	// userdata was not executed and the agent may have incorrect config.
+	if !agent.cfg.External.Enabled() {
+		if err := config.CheckCloudInitFailure(agent.ec2MetadataClient, config.CloudInitResultFilePath); err != nil {
+			seelog.Criticalf("Cloud-init failure detected: %v. "+
+				"Userdata was not executed during instance boot. "+
+				"Refusing to start with potentially incorrect config.", err)
+			return exitcodes.ExitTerminal
+		}
+	}
+
 	// check docker version >= 1.9.0, exit agent if older
 	if exitcode, ok := agent.verifyRequiredDockerVersion(); !ok {
 		return exitcode
