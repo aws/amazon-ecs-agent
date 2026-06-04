@@ -36,11 +36,6 @@ if(!(Test-Path -path $SIMULATED_SSM_PLUGINS_DIR\SessionManagerShell))
     New-Item -Path $SIMULATED_SSM_PLUGINS_DIR\SessionManagerShell -ItemType directory -Force
 }
 
-if(!(Test-Path -path $SIMULATED_SSM_PLUGINS_DIR\awsCloudWatch))
-{
-    New-Item -Path $SIMULATED_SSM_PLUGINS_DIR\awsCloudWatch -ItemType directory -Force
-}
-
 if(!(Test-Path -path $SIMULATED_SSM_PLUGINS_DIR\awsDomainJoin))
 {
     New-Item -Path $SIMULATED_SSM_PLUGINS_DIR\awsDomainJoin -ItemType directory -Force
