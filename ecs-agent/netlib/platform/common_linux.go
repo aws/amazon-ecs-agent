@@ -134,7 +134,7 @@ func NewPlatform(
 			common: commonPlatform,
 			client: ec2Client,
 		}, nil
-	case IsolatedPlatform, IsolatedDebugPlatform:
+	case IsolatedPlatform:
 		ec2Client, err := ec2.NewEC2MetadataClient(nil)
 		if err != nil {
 			return nil, err
@@ -143,6 +143,19 @@ func NewPlatform(
 			managedLinux: managedLinux{
 				common: commonPlatform,
 				client: ec2Client,
+			},
+		}, nil
+	case IsolatedDebugPlatform:
+		ec2Client, err := ec2.NewEC2MetadataClient(nil)
+		if err != nil {
+			return nil, err
+		}
+		return &isolatedDebug{
+			isolatedLinux: isolatedLinux{
+				managedLinux: managedLinux{
+					common: commonPlatform,
+					client: ec2Client,
+				},
 			},
 		}, nil
 	}
@@ -581,6 +594,39 @@ func (c *common) createResolvConf(netNSDir string,
 	return c.copyFile(filepath.Join(netNSDir, ResolveConfFileName),
 		filepath.Join(c.resolvConfPath, ResolveConfFileName),
 		taskDNSConfigFileMode)
+}
+
+// parseResolvConf extracts nameserver addresses and search domains from content
+// in the resolv.conf(5) format.
+//
+// Parsing rules (matching the behavior of Go's net.dnsReadConfig in
+// src/net/dnsconfig_unix.go and glibc's res_init):
+//   - Lines starting with ';' or '#' are treated as comments and skipped.
+//   - Fields are separated by any combination of spaces and tabs.
+//   - A "nameserver" line contributes one IP address (the second field).
+//   - A "search" line contributes all subsequent fields as search domains;
+//     if multiple search lines appear, only the last is used.
+//   - All other directives are ignored.
+func parseResolvConf(content []byte) (servers, searches []string) {
+	for _, line := range bytes.Split(content, []byte("\n")) {
+		if len(line) == 0 || line[0] == ';' || line[0] == '#' {
+			continue
+		}
+		fields := bytes.Fields(line)
+		if len(fields) < 2 {
+			continue
+		}
+		switch string(fields[0]) {
+		case "nameserver":
+			servers = append(servers, string(fields[1]))
+		case "search":
+			searches = nil
+			for _, f := range fields[1:] {
+				searches = append(searches, string(f))
+			}
+		}
+	}
+	return servers, searches
 }
 
 func (c *common) copyFile(dst, src string, fileMode os.FileMode) error {

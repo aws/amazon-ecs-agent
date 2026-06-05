@@ -606,3 +606,78 @@ func TestParseHosts(t *testing.T) {
 		})
 	}
 }
+
+func TestParseResolvConf(t *testing.T) {
+	tests := []struct {
+		name            string
+		input           string
+		expectedServers []string
+		expectedSearch  []string
+	}{
+		{
+			// Test fixture from Go's net package resolv.conf parser tests:
+			// https://github.com/golang/go/blob/master/src/net/testdata/resolv.conf
+			name: "Go stdlib test fixture",
+			input: "# /etc/resolv.conf\n" +
+				"domain localdomain\n" +
+				"nameserver 8.8.8.8\n" +
+				"nameserver 2001:4860:4860::8888\n" +
+				"nameserver fe80::1%lo0\n" +
+				"options ndots:5 timeout:10 attempts:3 rotate\n" +
+				"options attempts 3\n",
+			expectedServers: []string{"8.8.8.8", "2001:4860:4860::8888", "fe80::1%lo0"},
+			expectedSearch:  nil,
+		},
+		{
+			name:            "semicolon comments",
+			input:           "; this is a comment\nnameserver 8.8.8.8\n",
+			expectedServers: []string{"8.8.8.8"},
+			expectedSearch:  nil,
+		},
+		{
+			name:            "tabs as separators",
+			input:           "nameserver\t10.0.0.2\nsearch\tlocal\texample.com\n",
+			expectedServers: []string{"10.0.0.2"},
+			expectedSearch:  []string{"local", "example.com"},
+		},
+		{
+			name:            "multiple spaces between keyword and value",
+			input:           "nameserver   8.8.8.8\nsearch   example.com\n",
+			expectedServers: []string{"8.8.8.8"},
+			expectedSearch:  []string{"example.com"},
+		},
+		{
+			name: "last search directive wins",
+			input: "search first.com\n" +
+				"search second.com third.com\n",
+			expectedServers: nil,
+			expectedSearch:  []string{"second.com", "third.com"},
+		},
+		{
+			name:            "empty input",
+			input:           "",
+			expectedServers: nil,
+			expectedSearch:  nil,
+		},
+		{
+			name:            "only comments and blanks",
+			input:           "# comment\n\n; another\n",
+			expectedServers: nil,
+			expectedSearch:  nil,
+		},
+		{
+			name:            "unknown directives ignored",
+			input:           "options ndots:5\nnameserver 10.0.0.2\ndomain example.com\nsortlist 130.155.160.0\n",
+			expectedServers: []string{"10.0.0.2"},
+			expectedSearch:  nil,
+		},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			servers, searches := parseResolvConf([]byte(tc.input))
+			assert.Equal(t, tc.expectedServers, servers)
+			assert.Equal(t, tc.expectedSearch, searches)
+		})
+	}
+}
