@@ -90,4 +90,11 @@ const (
 	DeleteNetworkNamespaceMetricName      = networkBuilderNamespace + ".DeleteNetworkNamespace"
 	V2NDestinationPortExhaustedMetricName = networkBuilderNamespace + ".V2NDestinationPortExhausted"
 	ReleaseGeneveDstPortMetricName        = dbClientMetricNamespace + ".ReleaseGeneveDstPort"
+
+	// IMDS credentials scanner metrics
+	imdsCredentialsScannerMetricNamespace                = "IMDSCredentialsScanner"
+	IMDSCredentialsScannerNamespaceInfoFailureMetricName = imdsCredentialsScannerMetricNamespace +
+		".NamespaceInfoFailure"
+	IMDSCredentialsScannerCredentialFailureMetricName = imdsCredentialsScannerMetricNamespace +
+		".CredentialFailure"
 )

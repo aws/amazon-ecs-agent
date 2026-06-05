@@ -28,6 +28,7 @@ import (
 	ecsagentimds "github.com/aws/amazon-ecs-agent/ecs-agent/credentials/imds"
 	"github.com/aws/amazon-ecs-agent/ecs-agent/credentials/imds/testutil"
 	ecsagentec2 "github.com/aws/amazon-ecs-agent/ecs-agent/ec2"
+	"github.com/aws/amazon-ecs-agent/ecs-agent/metrics"
 
 	sdkimds "github.com/aws/aws-sdk-go-v2/feature/ec2/imds"
 	"github.com/stretchr/testify/assert"
@@ -75,7 +76,7 @@ func TestIMDSCredentialsRefresh(t *testing.T) {
 	defer cleanup()
 
 	// Setup the IMDS scanner.
-	scanner := ecsagentimds.NewScanner(newEC2Client(t, mockIMDS.URL()))
+	scanner := ecsagentimds.NewScanner(newEC2Client(t, mockIMDS.URL()), metrics.NewNopEntryFactory())
 	ctx, cancel := context.WithCancel(context.Background())
 
 	// Setup the credentials refresher.

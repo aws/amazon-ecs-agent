@@ -26,6 +26,7 @@ import (
 	"github.com/aws/amazon-ecs-agent/ecs-agent/ec2"
 	"github.com/aws/amazon-ecs-agent/ecs-agent/logger"
 	"github.com/aws/amazon-ecs-agent/ecs-agent/logger/field"
+	"github.com/aws/amazon-ecs-agent/ecs-agent/metrics"
 
 	"golang.org/x/time/rate"
 )
@@ -56,6 +57,18 @@ const (
 
 	// imdsQueryBurstSize is the token bucket size for the rate limiter.
 	imdsQueryBurstSize = 1
+
+	// Field names attached to scanner failure metrics.
+	//
+	// metricFieldNamespace identifies the iam-ecs-* namespace this metric entry
+	// pertains to.
+	metricFieldNamespace = "Namespace"
+	// metricFieldTaskID identifies the task whose credential entry caused this
+	// metric emission.
+	metricFieldTaskID = "TaskID"
+	// metricFieldRoleType identifies the role type (e.g., TaskApplication,
+	// TaskExecution) of the credential that failed.
+	metricFieldRoleType = "RoleType"
 )
 
 // Scanner fetches task credentials from IMDS iam-ecs-* namespaces.
@@ -66,21 +79,24 @@ type Scanner interface {
 }
 
 // scanner implements the Scanner interface.
-// TODO: add metricsFactory for operational metrics on scan failures.
 type scanner struct {
 	ec2MetadataClient ec2.EC2MetadataClient
 	// rateLimiter controls the rate of IMDS requests.
 	rateLimiter *rate.Limiter
 	// lastUpdated tracks the LastUpdated timestamp from each namespace's info file.
 	lastUpdated map[string]time.Time
+	// metricsFactory emits metrics for scan operations.
+	metricsFactory metrics.EntryFactory
 }
 
 // NewScanner creates a new IMDS credentials scanner.
-func NewScanner(ec2MetadataClient ec2.EC2MetadataClient) Scanner {
+func NewScanner(ec2MetadataClient ec2.EC2MetadataClient,
+	metricsFactory metrics.EntryFactory) Scanner {
 	return &scanner{
 		ec2MetadataClient: ec2MetadataClient,
 		rateLimiter:       rate.NewLimiter(rate.Limit(imdsQueriesPerSec), imdsQueryBurstSize),
 		lastUpdated:       make(map[string]time.Time),
+		metricsFactory:    metricsFactory,
 	}
 }
 
@@ -94,7 +110,7 @@ func (s *scanner) Scan(ctx context.Context) ([]TaskCredential, error) {
 
 	// No namespaces is expected when IMDS does not have ECS task credentials yet.
 	if len(namespaces) == 0 {
-		logger.Debug("No iam-ecs namespaces found in IMDS")
+		logger.Debug("No iam-ecs namespace found in IMDS")
 		return nil, nil
 	}
 
@@ -108,14 +124,15 @@ func (s *scanner) Scan(ctx context.Context) ([]TaskCredential, error) {
 				field.Error: err,
 			})
 			scanErrors = append(scanErrors, err)
-			// Scanning for a namespace failed; try scanning remaining namespaces before returning.
+			// Scanning for a namespace failed; try scanning remaining
+			// namespaces before returning.
 			continue
 		}
 		creds = append(creds, nsCreds...)
 	}
 
-	// Surface an error when all namespaces failed so the caller doesn't
-	// mistake it for "no credentials yet".
+	// Surface an error when scanning all namespaces failed so
+	// the caller doesn't mistake it for "no credentials yet".
 	if len(creds) == 0 && len(scanErrors) > 0 {
 		return nil, fmt.Errorf("imds scan: all %d namespace(s) failed: %w",
 			len(scanErrors), errors.Join(scanErrors...))
@@ -154,17 +171,29 @@ func (s *scanner) scanNamespace(ctx context.Context, namespace string) ([]TaskCr
 	infoPath := fmt.Sprintf(infoPathFormat, namespace)
 	infoResp, err := s.getMetadata(ctx, infoPath)
 	if err != nil {
+		s.metricsFactory.New(metrics.IMDSCredentialsScannerNamespaceInfoFailureMetricName).
+			WithFields(map[string]any{
+				metricFieldNamespace: namespace,
+			}).Done(err)
 		return nil, fmt.Errorf("fetch info for %s: %w", namespace, err)
 	}
 
 	var info NamespaceInfo
 	if err := json.Unmarshal([]byte(infoResp), &info); err != nil {
+		s.metricsFactory.New(metrics.IMDSCredentialsScannerNamespaceInfoFailureMetricName).
+			WithFields(map[string]any{
+				metricFieldNamespace: namespace,
+			}).Done(err)
 		return nil, fmt.Errorf("parse info for %s: %w", namespace, err)
 	}
 
 	// Skip credential fetches if the namespace hasn't been updated since the last scan.
 	lastUpdated, err := time.Parse(time.RFC3339, info.LastUpdated)
 	if err != nil {
+		s.metricsFactory.New(metrics.IMDSCredentialsScannerNamespaceInfoFailureMetricName).
+			WithFields(map[string]any{
+				metricFieldNamespace: namespace,
+			}).Done(err)
 		return nil, fmt.Errorf("parse LastUpdated for %s: %w", namespace, err)
 	}
 	if cached, ok := s.lastUpdated[namespace]; ok && lastUpdated.Equal(cached) {
@@ -183,7 +212,11 @@ func (s *scanner) scanNamespace(ctx context.Context, namespace string) ([]TaskCr
 				"namespace": namespace,
 				field.Error: err,
 			})
-			// Cannot determine task ID; attempt the next credential.
+			s.metricsFactory.New(metrics.IMDSCredentialsScannerCredentialFailureMetricName).
+				WithFields(map[string]any{
+					metricFieldNamespace: namespace,
+				}).Done(err)
+			// Cannot determine task ID and role type; attempt the next credential.
 			hasErrors = true
 			continue
 		}
@@ -191,24 +224,38 @@ func (s *scanner) scanNamespace(ctx context.Context, namespace string) ([]TaskCr
 		credPath := fmt.Sprintf(credentialPathFormat, namespace, key)
 		credResp, err := s.getMetadata(ctx, credPath)
 		if err != nil {
-			logger.Error("Failed to fetch from IMDS", logger.Fields{
+			logger.Error("Failed to fetch credential from IMDS", logger.Fields{
 				field.TaskID: taskID,
+				"roleType":   roleType,
 				"namespace":  namespace,
 				field.Error:  err,
 			})
-			// Fetch failed; try remaining credentials in this namespace.
+			s.metricsFactory.New(metrics.IMDSCredentialsScannerCredentialFailureMetricName).
+				WithFields(map[string]any{
+					metricFieldNamespace: namespace,
+					metricFieldTaskID:    taskID,
+					metricFieldRoleType:  roleType,
+				}).Done(err)
+			// Error fetching credential; try remaining credentials in this namespace.
 			hasErrors = true
 			continue
 		}
 
 		var imdsCred imdsCredential
 		if err := json.Unmarshal([]byte(credResp), &imdsCred); err != nil {
-			logger.Error("Failed to parse IMDS response", logger.Fields{
+			logger.Error("Failed to parse credential from IMDS", logger.Fields{
 				field.TaskID: taskID,
+				"roleType":   roleType,
 				"namespace":  namespace,
 				field.Error:  err,
 			})
-			// Error parsing response; try remaining credentials in this namespace.
+			s.metricsFactory.New(metrics.IMDSCredentialsScannerCredentialFailureMetricName).
+				WithFields(map[string]any{
+					metricFieldNamespace: namespace,
+					metricFieldTaskID:    taskID,
+					metricFieldRoleType:  roleType,
+				}).Done(err)
+			// Error parsing credential; try remaining credentials in this namespace.
 			hasErrors = true
 			continue
 		}
@@ -224,10 +271,16 @@ func (s *scanner) scanNamespace(ctx context.Context, namespace string) ([]TaskCr
 		})
 	}
 
-	// Only cache LastUpdated if all credentials were fetched successfully,
+	// Only cache LastUpdated if there are no failures recorded,
 	// so that failed fetches are retried on the next scan.
 	if !hasErrors {
 		s.lastUpdated[namespace] = lastUpdated
+	}
+
+	// Surface an error when the namespace yielded no credentials and also had
+	// failures, so callers don't mistake it for "no credentials yet".
+	if len(creds) == 0 && hasErrors {
+		return nil, fmt.Errorf("namespace %s: all credential processing failed", namespace)
 	}
 
 	return creds, nil
