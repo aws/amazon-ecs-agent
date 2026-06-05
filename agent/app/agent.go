@@ -1034,7 +1034,9 @@ func (agent *ecsAgent) getIMDSCredentialsRefresher(
 	taskEngine engine.TaskEngine,
 ) *imdscreds.IMDSCredentialsRefresher {
 	if agent.cfg.IMDSIAMRolesEnabled {
-		imdsScanner := imds.NewScanner(agent.ec2MetadataClient)
+		// The agent passes a no-op metrics factory; scanner-emitted metrics,
+		// like other agent runtime metrics, are not consumed today.
+		imdsScanner := imds.NewScanner(agent.ec2MetadataClient, metricsfactory.NewNopEntryFactory())
 		return imdscreds.NewIMDSCredentialsRefresher(
 			agent.ctx, imdsScanner, credentialsManager,
 			taskEngine, imdscreds.ScanInterval,
