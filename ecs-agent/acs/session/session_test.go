@@ -1564,6 +1564,12 @@ func TestDPEAndACSConnFailureTrackerTracking(t *testing.T) {
 				metricsFactory:        metricsfactory.NewNopEntryFactory(),
 				dpeFailureTracker:     dpeFailureTracker,
 				acsConnFailureTracker: acsConnFailureTracker,
+				heartbeatTimeout:      20 * time.Millisecond,
+				heartbeatJitter:       10 * time.Millisecond,
+				disconnectTimeout:     30 * time.Millisecond,
+				disconnectJitter:      10 * time.Millisecond,
+				backoff: retry.NewExponentialBackoff(connectionBackoffMin, connectionBackoffMax,
+					connectionBackoffJitter, connectionBackoffMultiplier),
 			}
 
 			err := s.startSessionOnce(context.Background())
