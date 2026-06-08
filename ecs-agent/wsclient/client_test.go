@@ -55,15 +55,19 @@ func (cs *ClientServerImpl) Close() error {
 }
 
 func TestClientProxy(t *testing.T) {
-	proxy_url := "127.0.0.1:1234"
-	os.Setenv("HTTP_PROXY", proxy_url)
+	// Choose the next available port to start the proxy
+	l, err := net.Listen("tcp", ":0")
+	require.NoError(t, err)
+	proxyURL := l.Addr().String()
+	l.Close()
+	os.Setenv("HTTP_PROXY", proxyURL)
 	defer os.Unsetenv("HTTP_PROXY")
 
 	types := []interface{}{ecsacs.AckRequest{}}
 	cs := getTestClientServer("http://www.amazon.com", types, 1)
-	_, err := cs.Connect(mockDisconnectTimeoutMetricName, DisconnectTimeout, DisconnectJitterMax)
+	_, err = cs.Connect(mockDisconnectTimeoutMetricName, DisconnectTimeout, DisconnectJitterMax)
 	assert.Error(t, err)
-	assert.True(t, strings.Contains(err.Error(), proxy_url), "proxy not found: %s", err.Error())
+	assert.True(t, strings.Contains(err.Error(), proxyURL), "proxy not found: %s", err.Error())
 }
 
 // TestConcurrentWritesDontPanic will force a panic in the websocket library if
