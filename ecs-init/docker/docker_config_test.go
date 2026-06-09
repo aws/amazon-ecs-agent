@@ -50,3 +50,17 @@ func TestGetModinfoBinds(t *testing.T) {
 		assert.Equal(t, "/sbin/modinfo:/sbin/modinfo", binds[0])
 	})
 }
+
+func TestGetCloudInitResultBinds(t *testing.T) {
+	t.Run("result file not found", func(t *testing.T) {
+		binds := getCloudInitResultBinds(
+			func(s string) (os.FileInfo, error) { return nil, errors.New("not found") })
+		assert.Empty(t, binds)
+	})
+	t.Run("result file is found", func(t *testing.T) {
+		binds := getCloudInitResultBinds(
+			func(s string) (os.FileInfo, error) { return nil, nil })
+		require.Len(t, binds, 1)
+		assert.Equal(t, "/var/lib/cloud/data/result.json:/var/lib/cloud/data/result.json:ro", binds[0])
+	})
+}
