@@ -27,6 +27,7 @@ type Manager interface {
 	loader.Loader
 
 	GetLoadedImageName() string
+	GetLoadedImageDigest() string
 	AugmentTaskContainer(
 		task *apitask.Task,
 		container *apicontainer.Container,
