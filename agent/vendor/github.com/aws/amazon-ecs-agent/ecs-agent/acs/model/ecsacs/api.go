@@ -1757,6 +1757,30 @@ func (s *LinuxParameters) Validate() error {
 	return nil
 }
 
+type LogDriverVolumeConfiguration struct {
+	_ struct{} `type:"structure"`
+
+	Driver *string `json:"driver,omitempty" type:"string"`
+}
+
+// String returns the string representation.
+//
+// API parameter values that are decorated as "sensitive" in the API will not
+// be included in the string output. The member name will be present, but the
+// value will be replaced with "sensitive".
+func (s LogDriverVolumeConfiguration) String() string {
+	return awsutil.Prettify(s)
+}
+
+// GoString returns the string representation.
+//
+// API parameter values that are decorated as "sensitive" in the API will not
+// be included in the string output. The member name will be present, but the
+// value will be replaced with "sensitive".
+func (s LogDriverVolumeConfiguration) GoString() string {
+	return s.String()
+}
+
 type ManagedAgent struct {
 	_ struct{} `type:"structure"`
 
@@ -3052,6 +3076,8 @@ type Volume struct {
 	FsxWindowsFileServerVolumeConfiguration *FSxWindowsFileServerVolumeConfiguration `json:"fsxWindowsFileServerVolumeConfiguration,omitempty" type:"structure"`
 
 	Host *HostVolumeProperties `json:"host,omitempty" type:"structure"`
+
+	LogDriverVolumeConfiguration *LogDriverVolumeConfiguration `json:"logDriverVolumeConfiguration,omitempty" type:"structure"`
 
 	Name *string `json:"name,omitempty" type:"string"`
 
