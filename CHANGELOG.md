@@ -1,5 +1,21 @@
 # Changelog
 
+# 1.105.0
+* Feature - feat(acs-model): Add LogDriverVolumeConfiguration to ACS Volume shape [#5005](https://github.com/aws/amazon-ecs-agent/pull/5005)
+* Enhancement - Removed cloudwatch from windows agent capabilities [#5002](https://github.com/aws/amazon-ecs-agent/pull/5002)
+* Enhancement - Update Go version to 1.25.11 [#5003](https://github.com/aws/amazon-ecs-agent/pull/5003)
+* Enhancement - Update golang.org/x/net to v0.56.0 [#5004](https://github.com/aws/amazon-ecs-agent/pull/5004)
+* Enhancement - Add IsolatedDebugPlatform with DNS field backfill [#4998](https://github.com/aws/amazon-ecs-agent/pull/4998)
+* Enhancement - enhancement: Migrate EBS CSI Driver image to AL2023 [#4979](https://github.com/aws/amazon-ecs-agent/pull/4979)
+* Enhancement - Bump github.com/aws/aws-sdk-go-v2/config from 1.29.14 to 1.32.23 in /agent [#4997](https://github.com/aws/amazon-ecs-agent/pull/4997)
+* Enhancement - Detect cloud-init failure at startup to prevent silent cluster miscon… [#4988](https://github.com/aws/amazon-ecs-agent/pull/4988)
+* Enhancement - Add isolated_linux platform for isolated container networking [#4991](https://github.com/aws/amazon-ecs-agent/pull/4991)
+* Enhancement - Emit failure metrics from IMDS credentials scanner [#4995](https://github.com/aws/amazon-ecs-agent/pull/4995)
+* Enhancement - Update SSM GPG key for ECS Anywhere installation [#4992](https://github.com/aws/amazon-ecs-agent/pull/4992)
+* Enhancement - Add Host type and BuildHosts to populate netNS.Hosts [#4985](https://github.com/aws/amazon-ecs-agent/pull/4985)
+* Bugfix - bugfix - Fix TestClientProxy to obtain available port dynamically [#4999](https://github.com/aws/amazon-ecs-agent/pull/4999)
+* Bugfix - Fix flaky TestDPEAndACSConnFailureTrackerTracking nil pointer panic [#4993](https://github.com/aws/amazon-ecs-agent/pull/4993)
+
 # 1.104.0
 * Feature - Add support for ECS S3 Files integration [#4962](https://github.com/aws/amazon-ecs-agent/pull/4962)
 * Feature - Add ECS_PROPAGATE_TASK_MEMORY_LIMIT_CGROUPV2 opt-in config [#4986](https://github.com/aws/amazon-ecs-agent/pull/4986)
