@@ -23,6 +23,9 @@ import (
 	"io"
 	"os"
 	"path/filepath"
+	"runtime"
+	"strings"
+	"sync"
 	"testing"
 
 	"github.com/aws/amazon-ecs-agent/agent/api/container"
@@ -59,6 +62,9 @@ const (
 	s3File                 = "s3key.env"
 	s3Key                  = s3Path + string(filepath.Separator) + s3File
 	tempFile               = "tmp_file"
+
+	// s3ARNFormat builds an environmentFile S3 ARN from a bucket and key.
+	s3ARNFormat = "arn:aws:s3:::%s/%s"
 )
 
 var testIPCompatibility = ipcompatibility.NewIPCompatibility(true, true)
@@ -105,7 +111,7 @@ func TestInitializeFileEnvResource(t *testing.T) {
 	_, _, mockCredentialsManager, _, _, done := setup(t)
 	defer done()
 	envfiles := []container.EnvironmentFile{
-		sampleEnvironmentFile(fmt.Sprintf("arn:aws:s3:::%s/%s", s3Bucket, s3Key), "s3"),
+		sampleEnvironmentFile(fmt.Sprintf(s3ARNFormat, s3Bucket, s3Key), "s3"),
 	}
 
 	testConfig := &config.Config{InstanceIPCompatibility: testIPCompatibility}
@@ -131,7 +137,7 @@ func TestCreateWithEnvVarFile(t *testing.T) {
 	mockFile, mockIOUtil, mockCredentialsManager, mockS3ClientCreator, mockS3Client, done := setup(t)
 	defer done()
 	envfiles := []container.EnvironmentFile{
-		sampleEnvironmentFile(fmt.Sprintf("arn:aws:s3:::%s/%s", s3Bucket, s3Key), "s3"),
+		sampleEnvironmentFile(fmt.Sprintf(s3ARNFormat, s3Bucket, s3Key), "s3"),
 	}
 
 	envfileResource := newMockEnvfileResource(envfiles, mockCredentialsManager, mockS3ClientCreator, mockIOUtil, testIPCompatibility)
@@ -194,7 +200,7 @@ func TestCreateUnableToRetrieveDataFromS3(t *testing.T) {
 	defer done()
 
 	envfiles := []container.EnvironmentFile{
-		sampleEnvironmentFile(fmt.Sprintf("arn:aws:s3:::%s/%s", s3Bucket, s3Key), "s3"),
+		sampleEnvironmentFile(fmt.Sprintf(s3ARNFormat, s3Bucket, s3Key), "s3"),
 	}
 
 	envfileResource := newMockEnvfileResource(envfiles, mockCredentialsManager, mockS3ClientCreator, mockIOUtil, testIPCompatibility)
@@ -222,7 +228,7 @@ func TestCreateUnableToCreateTmpFile(t *testing.T) {
 	_, mockIOUtil, mockCredentialsManager, mockS3ClientCreator, mockS3Client, done := setup(t)
 	defer done()
 	envfiles := []container.EnvironmentFile{
-		sampleEnvironmentFile(fmt.Sprintf("arn:aws:s3:::%s/%s", s3Bucket, s3Key), "s3"),
+		sampleEnvironmentFile(fmt.Sprintf(s3ARNFormat, s3Bucket, s3Key), "s3"),
 	}
 
 	envfileResource := newMockEnvfileResource(envfiles, mockCredentialsManager, mockS3ClientCreator, mockIOUtil, testIPCompatibility)
@@ -250,7 +256,7 @@ func TestCreateRenameFileError(t *testing.T) {
 	defer done()
 
 	envfiles := []container.EnvironmentFile{
-		sampleEnvironmentFile(fmt.Sprintf("arn:aws:s3:::%s/%s", s3Bucket, s3Key), "s3"),
+		sampleEnvironmentFile(fmt.Sprintf(s3ARNFormat, s3Bucket, s3Key), "s3"),
 	}
 
 	envfileResource := newMockEnvfileResource(envfiles, mockCredentialsManager, mockS3ClientCreator, mockIOUtil, testIPCompatibility)
@@ -286,7 +292,7 @@ func TestEnvFileCleanupSuccess(t *testing.T) {
 	defer done()
 
 	envfiles := []container.EnvironmentFile{
-		sampleEnvironmentFile(fmt.Sprintf("arn:aws:s3:::%s/%s", s3Bucket, s3Key), "s3"),
+		sampleEnvironmentFile(fmt.Sprintf(s3ARNFormat, s3Bucket, s3Key), "s3"),
 	}
 
 	envfileResource := newMockEnvfileResource(envfiles, mockCredentialsManager, mockS3ClientCreator, mockIOUtil, testIPCompatibility)
@@ -299,7 +305,7 @@ func TestEnvFileCleanupResourceDirRemoveFail(t *testing.T) {
 	defer done()
 
 	envfiles := []container.EnvironmentFile{
-		sampleEnvironmentFile(fmt.Sprintf("arn:aws:s3:::%s/%s", s3Bucket, s3Key), "s3"),
+		sampleEnvironmentFile(fmt.Sprintf(s3ARNFormat, s3Bucket, s3Key), "s3"),
 	}
 
 	envfileResource := newMockEnvfileResource(envfiles, mockCredentialsManager, mockS3ClientCreator, mockIOUtil, testIPCompatibility)
@@ -323,7 +329,7 @@ func TestReadEnvVarsFromEnvfiles(t *testing.T) {
 	mockScanner := mock_bufio.NewMockScanner(ctrl)
 
 	envfiles := []container.EnvironmentFile{
-		sampleEnvironmentFile(fmt.Sprintf("arn:aws:s3:::%s/%s", s3Bucket, s3Key), "s3"),
+		sampleEnvironmentFile(fmt.Sprintf(s3ARNFormat, s3Bucket, s3Key), "s3"),
 	}
 
 	envfileResource := newMockEnvfileResource(envfiles, nil, nil, mockIOUtil, testIPCompatibility)
@@ -372,7 +378,7 @@ func TestReadEnvVarsCommentFromEnvfiles(t *testing.T) {
 	mockScanner := mock_bufio.NewMockScanner(ctrl)
 
 	envfiles := []container.EnvironmentFile{
-		sampleEnvironmentFile(fmt.Sprintf("arn:aws:s3:::%s/%s", s3Bucket, s3Key), "s3"),
+		sampleEnvironmentFile(fmt.Sprintf(s3ARNFormat, s3Bucket, s3Key), "s3"),
 	}
 
 	envfileResource := newMockEnvfileResource(envfiles, nil, nil, mockIOUtil, testIPCompatibility)
@@ -410,7 +416,7 @@ func TestReadEnvVarsInvalidFromEnvfiles(t *testing.T) {
 	mockScanner := mock_bufio.NewMockScanner(ctrl)
 
 	envfiles := []container.EnvironmentFile{
-		sampleEnvironmentFile(fmt.Sprintf("arn:aws:s3:::%s/%s", s3Bucket, s3Key), "s3"),
+		sampleEnvironmentFile(fmt.Sprintf(s3ARNFormat, s3Bucket, s3Key), "s3"),
 	}
 
 	envfileResource := newMockEnvfileResource(envfiles, nil, nil, mockIOUtil, testIPCompatibility)
@@ -439,12 +445,180 @@ func TestReadEnvVarsInvalidFromEnvfiles(t *testing.T) {
 	assert.Equal(t, 0, len(envVarsList[0]))
 }
 
+// TestCreateRejectsNonLocalKey verifies that an S3 key that would resolve
+// outside the task's envfile resource directory is rejected before any file is
+// written.
+func TestCreateRejectsNonLocalKey(t *testing.T) {
+	nonLocalKeys := []struct {
+		name string
+		arn  string
+	}{
+		{"parent reference", fmt.Sprintf(s3ARNFormat, s3Bucket, "../../../../config.env")},
+		{"deep parent reference", fmt.Sprintf(s3ARNFormat, s3Bucket, "a/b/c/../../../../../../config.env")},
+	}
+	// A backslash is a path separator on Windows but an ordinary character on
+	// other platforms, so a backslash-padded key only resolves outside the
+	// resource directory off Windows. Validate that case where it applies.
+	if runtime.GOOS != "windows" {
+		nonLocalKeys = append(nonLocalKeys, struct {
+			name string
+			arn  string
+		}{"backslash padded reference", fmt.Sprintf(s3ARNFormat, s3Bucket, `a\b\c/../../../../config.env`)})
+	}
+
+	for _, tc := range nonLocalKeys {
+		t.Run(tc.name, func(t *testing.T) {
+			_, mockIOUtil, mockCredentialsManager, mockS3ClientCreator, mockS3Client, done := setup(t)
+			defer done()
+
+			envfiles := []container.EnvironmentFile{
+				sampleEnvironmentFile(tc.arn, "s3"),
+			}
+
+			envfileResource := newMockEnvfileResource(envfiles, mockCredentialsManager, mockS3ClientCreator, mockIOUtil, testIPCompatibility)
+			creds := credentials.TaskIAMRoleCredentials{
+				ARN: iamRoleARN,
+				IAMRoleCredentials: credentials.IAMRoleCredentials{
+					AccessKeyID:     accessKeyId,
+					SecretAccessKey: secretAccessKey,
+				},
+			}
+
+			// The key must be rejected before any temp file is created or any
+			// S3 download happens, so TempFile/Download are never expected.
+			mockCredentialsManager.EXPECT().GetTaskCredentials(executionCredentialsID).Return(creds, true)
+			mockS3ClientCreator.EXPECT().NewS3ManagerClient(gomock.Any(), region, creds.IAMRoleCredentials, testIPCompatibility).Return(mockS3Client, nil).AnyTimes()
+
+			assert.Error(t, envfileResource.Create())
+			assert.Contains(t, envfileResource.GetTerminalReason(), "escapes envfile resource directory")
+		})
+	}
+}
+
+// TestCreateRejectsNonLocalEnvfileInMultiFileSet covers a task definition that
+// lists two envfiles downloading concurrently: one with a normal key and one with
+// a key that resolves outside resourceDir. The first key's directory creation must
+// not let the second one's rename land outside resourceDir; the confinement check
+// rejects the non-local key regardless of the other file succeeding.
+func TestCreateRejectsNonLocalEnvfileInMultiFileSet(t *testing.T) {
+	_, mockIOUtil, mockCredentialsManager, mockS3ClientCreator, mockS3Client, done := setup(t)
+	defer done()
+
+	envfiles := []container.EnvironmentFile{
+		sampleEnvironmentFile(fmt.Sprintf(s3ARNFormat, s3Bucket, "config/app.env"), "s3"),
+		sampleEnvironmentFile(fmt.Sprintf(s3ARNFormat, s3Bucket, "config/a/b/c/../../../../../../escaped.env"), "s3"),
+	}
+
+	envfileResource := newMockEnvfileResource(envfiles, mockCredentialsManager, mockS3ClientCreator, mockIOUtil, testIPCompatibility)
+	creds := credentials.TaskIAMRoleCredentials{
+		ARN: iamRoleARN,
+		IAMRoleCredentials: credentials.IAMRoleCredentials{
+			AccessKeyID:     accessKeyId,
+			SecretAccessKey: secretAccessKey,
+		},
+	}
+
+	// Capture every rename target so we can prove the non-local file is never
+	// moved into place. Downloads run concurrently, so guard the slice with a mutex.
+	var renameMu sync.Mutex
+	var renameTargets []string
+	rename = func(oldpath, newpath string) error {
+		renameMu.Lock()
+		renameTargets = append(renameTargets, newpath)
+		renameMu.Unlock()
+		return nil
+	}
+	defer func() {
+		rename = os.Rename
+	}()
+
+	// Both envfiles download concurrently. The in-bounds one may create a temp
+	// file and download; the non-local one must be rejected by the check.
+	mockCredentialsManager.EXPECT().GetTaskCredentials(executionCredentialsID).Return(creds, true)
+	mockS3ClientCreator.EXPECT().NewS3ManagerClient(gomock.Any(), region, creds.IAMRoleCredentials, testIPCompatibility).Return(mockS3Client, nil).AnyTimes()
+	mockIOUtil.EXPECT().TempFile(resourceDir, gomock.Any()).Return(mock_oswrapper.NewMockFile(), nil).AnyTimes()
+	mockS3Client.EXPECT().Download(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).Return(int64(0), nil).AnyTimes()
+
+	err := envfileResource.Create()
+	assert.Error(t, err)
+	assert.Contains(t, err.Error(), "escapes envfile resource directory")
+
+	// The expectation is that the non-local envfile is never written, not just
+	// that an error was returned. Assert no rename targeted that file and that
+	// every rename that did happen stayed within resourceDir.
+	renameMu.Lock()
+	defer renameMu.Unlock()
+	cleanBase := filepath.Clean(resourceDir) + string(os.PathSeparator)
+	for _, target := range renameTargets {
+		assert.NotContains(t, target, "escaped.env",
+			"non-local envfile was renamed into place: %s", target)
+		assert.True(t, strings.HasPrefix(filepath.Clean(target)+string(os.PathSeparator), cleanBase),
+			"rename target %q resolved outside resourceDir %q", target, resourceDir)
+	}
+}
+
+// TestReadEnvVarsRejectsNonLocalKey verifies the read path is also confined, so a
+// key that resolves outside resourceDir cannot be used to read files off the data
+// mount.
+func TestReadEnvVarsRejectsNonLocalKey(t *testing.T) {
+	_, mockIOUtil, _, _, _, done := setup(t)
+	defer done()
+
+	envfiles := []container.EnvironmentFile{
+		sampleEnvironmentFile(fmt.Sprintf(s3ARNFormat, s3Bucket, "../../../../config.env"), "s3"),
+	}
+
+	envfileResource := newMockEnvfileResource(envfiles, nil, nil, mockIOUtil, testIPCompatibility)
+
+	_, err := envfileResource.ReadEnvVarsFromEnvfiles()
+	assert.Error(t, err)
+	assert.Contains(t, err.Error(), "escapes envfile resource directory")
+}
+
+// TestVerifyEnvfileKeyLocal exercises the confinement helper directly. The
+// bucket/key comes from the task definition; it must stay local to the resource
+// directory once appended to it.
+func TestVerifyEnvfileKeyLocal(t *testing.T) {
+	type keyCase struct {
+		name    string
+		bucket  string
+		key     string
+		wantErr bool
+	}
+	cases := []keyCase{
+		{"simple file", "bucket", "app.env", false},
+		{"nested file", "bucket", "a/b/c.env", false},
+		{"parent reference resolving back inside", "bucket", "a/../app.env", false},
+		{"parent reference", "bucket", "../../../../config.env", true},
+		{"deep parent reference", "bucket", "a/b/c/../../../../../../config.env", true},
+	}
+	// A backslash is a path separator on Windows but an ordinary character on
+	// other platforms, so a backslash-padded key only resolves outside the
+	// resource directory off Windows. Validate those cases where they apply.
+	if runtime.GOOS != "windows" {
+		cases = append(cases,
+			keyCase{"backslash padded reference", "bucket", `a\b\c/../../../../config.env`, true},
+			keyCase{"deep backslash padded reference", "bucket", `a\b\c\d\e\f\g\h/../../../../../../../var/lib/config.env`, true},
+		)
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			err := verifyEnvfileKeyLocal(tc.bucket, tc.key)
+			if tc.wantErr {
+				assert.Error(t, err)
+			} else {
+				assert.NoError(t, err)
+			}
+		})
+	}
+}
+
 func TestReadEnvVarsUnableToReadEnvfile(t *testing.T) {
 	_, mockIOUtil, _, _, _, done := setup(t)
 	defer done()
 
 	envfiles := []container.EnvironmentFile{
-		sampleEnvironmentFile(fmt.Sprintf("arn:aws:s3:::%s/%s", s3Bucket, s3Key), "s3"),
+		sampleEnvironmentFile(fmt.Sprintf(s3ARNFormat, s3Bucket, s3Key), "s3"),
 	}
 
 	envfileResource := newMockEnvfileResource(envfiles, nil, nil, mockIOUtil, testIPCompatibility)
