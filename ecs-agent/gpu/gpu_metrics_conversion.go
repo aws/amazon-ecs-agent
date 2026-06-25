@@ -17,7 +17,7 @@ package gpu
 
 import (
 	"github.com/aws/amazon-ecs-agent/ecs-agent/tcs/model/ecstcs"
-	"github.com/aws/aws-sdk-go/aws"
+	"github.com/aws/aws-sdk-go-v2/aws"
 )
 
 // GPU metric names as they appear in the TACS GeneralMetric payload.
