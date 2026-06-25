@@ -421,8 +421,8 @@ func (c *dcgmClient) initializeLocked(ctx context.Context) error {
 
 	// Wait for initialization with timeout.
 	const initTimeout = 10 * time.Second
-	timeoutCtx, cancel := context.WithTimeout(ctx, initTimeout)
-	defer cancel()
+	timeoutCtx, cancelTimeout := context.WithTimeout(ctx, initTimeout)
+	defer cancelTimeout()
 
 	var result initResult
 	select {
@@ -445,10 +445,10 @@ func (c *dcgmClient) initializeLocked(ctx context.Context) error {
 	c.logger.Info("successfully connected to host engine")
 
 	// Create context for policy violation listener.
-	policyCtx, cancel := context.WithCancel(ctx)
+	policyCtx, cancelPolicy := context.WithCancel(ctx)
 	c.ctx = policyCtx
-	c.cancelPolicyListener = cancel
-	c.shutdownHandlers = append(c.shutdownHandlers, cancel)
+	c.cancelPolicyListener = cancelPolicy
+	c.shutdownHandlers = append(c.shutdownHandlers, cancelPolicy)
 
 	// Register policy violation listeners for all required policies.
 	// These policies monitor critical GPU health indicators that signal hardware degradation or failure.
@@ -462,7 +462,7 @@ func (c *dcgmClient) initializeLocked(ctx context.Context) error {
 	if err != nil {
 		c.logger.Error("failed to register policy listeners", zap.Error(err))
 		c.shutdownHandlers = nil
-		cancel()
+		cancelPolicy()
 		if c.cleanupFunc != nil {
 			c.cleanupFunc()
 		}
@@ -479,7 +479,7 @@ func (c *dcgmClient) initializeLocked(ctx context.Context) error {
 	if err := dcgm.HealthSet(dcgm.GroupAllGPUs(), dcgm.DCGM_HEALTH_WATCH_ALL); err != nil {
 		c.logger.Error("failed to enable health check systems", zap.Error(err))
 		c.shutdownHandlers = nil
-		cancel()
+		cancelPolicy()
 		if c.cleanupFunc != nil {
 			c.cleanupFunc()
 		}
