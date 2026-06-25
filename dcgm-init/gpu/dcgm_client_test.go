@@ -221,12 +221,31 @@ func TestClient_Shutdown_Initialized(t *testing.T) {
 				cleanupCalled = true
 			}
 
+			var destroyedHandles []dcgm.FieldHandle
+			mockFieldGroupDestroy := func(handle dcgm.FieldHandle) error {
+				destroyedHandles = append(destroyedHandles, handle)
+				return nil
+			}
+
+			const (
+				fakeMetricsFieldGroupHandle = 42
+				fakeXidFieldGroupHandle     = 99
+			)
+			var metricsFieldGroup dcgm.FieldHandle
+			metricsFieldGroup.SetHandle(fakeMetricsFieldGroupHandle)
+			var xidFieldGroup dcgm.FieldHandle
+			xidFieldGroup.SetHandle(fakeXidFieldGroupHandle)
+
 			dcgmClient.mu.Lock()
 			dcgmClient.connected = true
 			dcgmClient.metricsWatchActive = true
+			dcgmClient.xidWatchActive = true
+			dcgmClient.metricsFieldGroup = metricsFieldGroup
+			dcgmClient.xidFieldGroup = xidFieldGroup
 			dcgmClient.ctx = ctx
 			dcgmClient.cancelPolicyListener = cancel
 			dcgmClient.cleanupFunc = mockCleanup
+			dcgmClient.fieldGroupDestroyFunc = mockFieldGroupDestroy
 			dcgmClient.shutdownHandlers = []func(){cancel}
 			dcgmClient.mu.Unlock()
 
@@ -235,6 +254,9 @@ func TestClient_Shutdown_Initialized(t *testing.T) {
 
 			assert.NoError(t, err, tc.description)
 			assert.True(t, cleanupCalled, "Cleanup function should have been called")
+			require.Len(t, destroyedHandles, 2, "FieldGroupDestroy should be called for metrics and XID groups")
+			assert.Equal(t, metricsFieldGroup.GetHandle(), destroyedHandles[0].GetHandle(), "First destroy should be metrics field group")
+			assert.Equal(t, xidFieldGroup.GetHandle(), destroyedHandles[1].GetHandle(), "Second destroy should be XID field group")
 
 			// Verify client state was reset.
 			dcgmClient.mu.RLock()

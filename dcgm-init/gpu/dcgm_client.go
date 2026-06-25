@@ -290,6 +290,10 @@ type dcgmClient struct {
 	// deviceIndexToUUID maps GPU device index to UUID. Populated during GetMetrics.
 	deviceIndexToUUID map[uint]string
 
+	// fieldGroupDestroyFunc is the function used to destroy DCGM field groups.
+	// Defaults to dcgm.FieldGroupDestroy; overridable in tests.
+	fieldGroupDestroyFunc func(dcgm.FieldHandle) error
+
 	// Mutex for thread-safe access to state.
 	mu sync.RWMutex
 
@@ -316,6 +320,7 @@ func NewClient(config Config, logger *zap.Logger) Client {
 		socketPath:                socketPath,
 		initializationGracePeriod: gracePeriod,
 		lastShutdown:              time.Now(),
+		fieldGroupDestroyFunc:     dcgm.FieldGroupDestroy,
 		logger:                    logger,
 	}
 }
@@ -671,6 +676,18 @@ func (c *dcgmClient) shutdownLocked() error {
 	}
 	c.shutdownHandlers = nil
 
+	// Destroy field groups before disconnecting to free names on nv-hostengine.
+	if c.metricsWatchActive {
+		if err := c.fieldGroupDestroyFunc(c.metricsFieldGroup); err != nil {
+			c.logger.Debug("failed to destroy metrics field group", zap.Error(err))
+		}
+	}
+	if c.xidWatchActive {
+		if err := c.fieldGroupDestroyFunc(c.xidFieldGroup); err != nil {
+			c.logger.Debug("failed to destroy XID field group", zap.Error(err))
+		}
+	}
+
 	// Call cleanup function to disconnect from host engine.
 	if c.cleanupFunc != nil {
 		c.cleanupFunc()
@@ -841,7 +858,7 @@ func (c *dcgmClient) setupMetricsWatches() {
 	err = dcgm.WatchFieldsWithGroup(fieldGroup, dcgm.GroupAllGPUs())
 	if err != nil {
 		c.logger.Error("failed to watch metrics fields", zap.Error(err))
-		if destroyErr := dcgm.FieldGroupDestroy(fieldGroup); destroyErr != nil {
+		if destroyErr := c.fieldGroupDestroyFunc(fieldGroup); destroyErr != nil {
 			c.logger.Debug("failed to destroy unused metrics field group", zap.Error(destroyErr))
 		}
 		return
@@ -868,7 +885,7 @@ func (c *dcgmClient) setupXidWatch() {
 	err = dcgm.WatchFieldsWithGroup(fieldGroup, dcgm.GroupAllGPUs())
 	if err != nil {
 		c.logger.Error("failed to watch XID fields, XID counting disabled", zap.Error(err))
-		if destroyErr := dcgm.FieldGroupDestroy(fieldGroup); destroyErr != nil {
+		if destroyErr := c.fieldGroupDestroyFunc(fieldGroup); destroyErr != nil {
 			c.logger.Debug("failed to destroy unused XID field group", zap.Error(destroyErr))
 		}
 		return
