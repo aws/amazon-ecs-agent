@@ -16,6 +16,7 @@
 package gpu
 
 import (
+	gputypes "github.com/aws/amazon-ecs-agent/ecs-agent/gpu/types"
 	"github.com/aws/amazon-ecs-agent/ecs-agent/tcs/model/ecstcs"
 	"github.com/aws/aws-sdk-go-v2/aws"
 )
@@ -46,7 +47,7 @@ const gpuDeviceDimensionKey = "AcceleratedDevice"
 
 // GPUMetricToGeneralMetricsWrapper converts a single GPUMetric to a GeneralMetricsWrapper.
 // Only non-nil metric fields are included. Returns nil if all metric fields are nil.
-func GPUMetricToGeneralMetricsWrapper(m GPUMetric) *ecstcs.GeneralMetricsWrapper {
+func GPUMetricToGeneralMetricsWrapper(m gputypes.GPUMetric) *ecstcs.GeneralMetricsWrapper {
 	var generalMetrics []*ecstcs.GeneralMetric
 
 	if m.GPUUtilization != nil {
@@ -120,7 +121,7 @@ func GPUMetricToGeneralMetricsWrapper(m GPUMetric) *ecstcs.GeneralMetricsWrapper
 // GeneralMetricsWrapper entries containing InstanceGPULimit and InstanceGPUUsageTotal.
 // The usageTotal parameter is the pre-computed count of unique GPU device IDs assigned
 // to running task containers. Returns nil if the input slice is empty.
-func GPUMetricsToInstancePayload(metrics []GPUMetric, usageTotal int64) []*ecstcs.GeneralMetricsWrapper {
+func GPUMetricsToInstancePayload(metrics []gputypes.GPUMetric, usageTotal int64) []*ecstcs.GeneralMetricsWrapper {
 	if len(metrics) == 0 {
 		return nil
 	}
@@ -177,7 +178,7 @@ func ExtractInstanceGPUPayloadValues(payload []*ecstcs.GeneralMetricsWrapper) (l
 // GPUMetricsForContainer returns the GeneralMetricsWrapper entries for a specific
 // container based on its assigned GPU device IDs. It matches GPUMetric GPUUUID
 // against the provided device ID list.
-func GPUMetricsForContainer(metrics []GPUMetric, gpuDeviceIDs []string) []*ecstcs.GeneralMetricsWrapper {
+func GPUMetricsForContainer(metrics []gputypes.GPUMetric, gpuDeviceIDs []string) []*ecstcs.GeneralMetricsWrapper {
 	if len(metrics) == 0 || len(gpuDeviceIDs) == 0 {
 		return nil
 	}

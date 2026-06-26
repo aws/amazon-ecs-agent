@@ -18,6 +18,7 @@ package gpu
 import (
 	"testing"
 
+	gputypes "github.com/aws/amazon-ecs-agent/ecs-agent/gpu/types"
 	"github.com/aws/amazon-ecs-agent/ecs-agent/tcs/model/ecstcs"
 	"github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/stretchr/testify/assert"
@@ -29,7 +30,7 @@ func TestGpuMetricToGeneralMetricsWrapper(t *testing.T) {
 
 	testCases := []struct {
 		name              string
-		metric            GPUMetric
+		metric            gputypes.GPUMetric
 		expectNil         bool
 		expectedCount     int
 		expectedDimValue  string
@@ -39,7 +40,7 @@ func TestGpuMetricToGeneralMetricsWrapper(t *testing.T) {
 	}{
 		{
 			name: "all fields populated",
-			metric: GPUMetric{
+			metric: gputypes.GPUMetric{
 				GPUUUID:           "GPU-abc-123",
 				GPUUtilization:    aws.Float64(75.5),
 				MemoryUtilization: aws.Float64(60.0),
@@ -62,14 +63,14 @@ func TestGpuMetricToGeneralMetricsWrapper(t *testing.T) {
 		},
 		{
 			name: "all fields nil",
-			metric: GPUMetric{
+			metric: gputypes.GPUMetric{
 				GPUUUID: "GPU-nil-all",
 			},
 			expectNil: true,
 		},
 		{
 			name: "only GPUUtilization set",
-			metric: GPUMetric{
+			metric: gputypes.GPUMetric{
 				GPUUUID:        "GPU-single-util",
 				GPUUtilization: aws.Float64(42.0),
 			},
@@ -82,7 +83,7 @@ func TestGpuMetricToGeneralMetricsWrapper(t *testing.T) {
 		},
 		{
 			name: "only integer fields set",
-			metric: GPUMetric{
+			metric: gputypes.GPUMetric{
 				GPUUUID:     "GPU-int-only",
 				MemoryTotal: uint64Ptr(16000000000),
 				MemoryUsed:  uint64Ptr(8000000000),
@@ -96,7 +97,7 @@ func TestGpuMetricToGeneralMetricsWrapper(t *testing.T) {
 		},
 		{
 			name: "mixed nil and non-nil fields",
-			metric: GPUMetric{
+			metric: gputypes.GPUMetric{
 				GPUUUID:           "GPU-mixed",
 				GPUUtilization:    aws.Float64(90.0),
 				MemoryUtilization: nil,
@@ -114,7 +115,7 @@ func TestGpuMetricToGeneralMetricsWrapper(t *testing.T) {
 		},
 		{
 			name: "empty GPUUUID with fields populated",
-			metric: GPUMetric{
+			metric: gputypes.GPUMetric{
 				GPUUUID:        "",
 				GPUUtilization: aws.Float64(10.0),
 			},
@@ -127,7 +128,7 @@ func TestGpuMetricToGeneralMetricsWrapper(t *testing.T) {
 		},
 		{
 			name: "zero values for all fields",
-			metric: GPUMetric{
+			metric: gputypes.GPUMetric{
 				GPUUUID:           "GPU-zeros",
 				GPUUtilization:    aws.Float64(0),
 				MemoryUtilization: aws.Float64(0),
@@ -190,7 +191,7 @@ func TestGpuMetricsToInstancePayload(t *testing.T) {
 
 	testCases := []struct {
 		name          string
-		metrics       []GPUMetric
+		metrics       []gputypes.GPUMetric
 		usageTotal    int64
 		expectNil     bool
 		expectedLimit int64
@@ -198,7 +199,7 @@ func TestGpuMetricsToInstancePayload(t *testing.T) {
 	}{
 		{
 			name:      "empty slice returns nil",
-			metrics:   []GPUMetric{},
+			metrics:   []gputypes.GPUMetric{},
 			expectNil: true,
 		},
 		{
@@ -208,7 +209,7 @@ func TestGpuMetricsToInstancePayload(t *testing.T) {
 		},
 		{
 			name: "single device with usage total 1",
-			metrics: []GPUMetric{
+			metrics: []gputypes.GPUMetric{
 				{GPUUUID: "GPU-1", GPUUtilization: aws.Float64(50.0)},
 			},
 			usageTotal:    1,
@@ -218,7 +219,7 @@ func TestGpuMetricsToInstancePayload(t *testing.T) {
 		},
 		{
 			name: "multiple devices with usage total matching count",
-			metrics: []GPUMetric{
+			metrics: []gputypes.GPUMetric{
 				{GPUUUID: "GPU-1", GPUUtilization: aws.Float64(50.0)},
 				{GPUUUID: "GPU-2", Temperature: aws.Float64(70.0)},
 				{GPUUUID: "GPU-3", MemoryTotal: uint64Ptr(8000)},
@@ -230,7 +231,7 @@ func TestGpuMetricsToInstancePayload(t *testing.T) {
 		},
 		{
 			name: "usage total less than device count",
-			metrics: []GPUMetric{
+			metrics: []gputypes.GPUMetric{
 				{GPUUUID: "GPU-1", GPUUtilization: aws.Float64(50.0)},
 				{GPUUUID: "GPU-2"},
 				{GPUUUID: "GPU-3", Temperature: aws.Float64(70.0)},
@@ -243,7 +244,7 @@ func TestGpuMetricsToInstancePayload(t *testing.T) {
 		},
 		{
 			name: "usage total zero",
-			metrics: []GPUMetric{
+			metrics: []gputypes.GPUMetric{
 				{GPUUUID: "GPU-1"},
 				{GPUUUID: "GPU-2"},
 			},
@@ -254,7 +255,7 @@ func TestGpuMetricsToInstancePayload(t *testing.T) {
 		},
 		{
 			name: "eight devices with usage total 5",
-			metrics: []GPUMetric{
+			metrics: []gputypes.GPUMetric{
 				{GPUUUID: "GPU-1"}, {GPUUUID: "GPU-2"}, {GPUUUID: "GPU-3"}, {GPUUUID: "GPU-4"},
 				{GPUUUID: "GPU-5"}, {GPUUUID: "GPU-6"}, {GPUUUID: "GPU-7"}, {GPUUUID: "GPU-8"},
 			},
@@ -325,20 +326,20 @@ func TestGpuMetricsForContainer(t *testing.T) {
 
 	testCases := []struct {
 		name          string
-		metrics       []GPUMetric
+		metrics       []gputypes.GPUMetric
 		deviceIDs     []string
 		expectNil     bool
 		expectedUUIDs []string
 	}{
 		{
 			name:      "empty metrics returns nil",
-			metrics:   []GPUMetric{},
+			metrics:   []gputypes.GPUMetric{},
 			deviceIDs: []string{"GPU-1"},
 			expectNil: true,
 		},
 		{
 			name: "empty device list returns nil",
-			metrics: []GPUMetric{
+			metrics: []gputypes.GPUMetric{
 				{GPUUUID: "GPU-1", GPUUtilization: aws.Float64(50.0)},
 			},
 			deviceIDs: []string{},
@@ -346,7 +347,7 @@ func TestGpuMetricsForContainer(t *testing.T) {
 		},
 		{
 			name: "nil device list returns nil",
-			metrics: []GPUMetric{
+			metrics: []gputypes.GPUMetric{
 				{GPUUUID: "GPU-1", GPUUtilization: aws.Float64(50.0)},
 			},
 			deviceIDs: nil,
@@ -354,7 +355,7 @@ func TestGpuMetricsForContainer(t *testing.T) {
 		},
 		{
 			name: "matching UUIDs returns correct wrappers",
-			metrics: []GPUMetric{
+			metrics: []gputypes.GPUMetric{
 				{GPUUUID: "GPU-1", GPUUtilization: aws.Float64(50.0)},
 				{GPUUUID: "GPU-2", Temperature: aws.Float64(70.0)},
 				{GPUUUID: "GPU-3", PowerDraw: aws.Float64(200.0)},
@@ -365,7 +366,7 @@ func TestGpuMetricsForContainer(t *testing.T) {
 		},
 		{
 			name: "no matching UUIDs returns nil",
-			metrics: []GPUMetric{
+			metrics: []gputypes.GPUMetric{
 				{GPUUUID: "GPU-1", GPUUtilization: aws.Float64(50.0)},
 				{GPUUUID: "GPU-2", Temperature: aws.Float64(70.0)},
 			},
@@ -374,7 +375,7 @@ func TestGpuMetricsForContainer(t *testing.T) {
 		},
 		{
 			name: "partial matches returns only matched",
-			metrics: []GPUMetric{
+			metrics: []gputypes.GPUMetric{
 				{GPUUUID: "GPU-1", GPUUtilization: aws.Float64(50.0)},
 				{GPUUUID: "GPU-2", Temperature: aws.Float64(70.0)},
 				{GPUUUID: "GPU-3", PowerDraw: aws.Float64(200.0)},
@@ -385,7 +386,7 @@ func TestGpuMetricsForContainer(t *testing.T) {
 		},
 		{
 			name: "matching UUID but all nil fields returns nil",
-			metrics: []GPUMetric{
+			metrics: []gputypes.GPUMetric{
 				{GPUUUID: "GPU-1"}, // all nil fields
 			},
 			deviceIDs: []string{"GPU-1"},
@@ -393,7 +394,7 @@ func TestGpuMetricsForContainer(t *testing.T) {
 		},
 		{
 			name: "all UUIDs match",
-			metrics: []GPUMetric{
+			metrics: []gputypes.GPUMetric{
 				{GPUUUID: "GPU-1", GPUUtilization: aws.Float64(50.0)},
 				{GPUUUID: "GPU-2", Temperature: aws.Float64(70.0)},
 			},
@@ -443,7 +444,7 @@ func TestExtractInstanceGPUPayloadValues(t *testing.T) {
 
 	testCases := []struct {
 		name          string
-		metrics       []GPUMetric
+		metrics       []gputypes.GPUMetric
 		usageTotal    int64
 		buildPayload  bool
 		rawPayload    []*ecstcs.GeneralMetricsWrapper
@@ -453,7 +454,7 @@ func TestExtractInstanceGPUPayloadValues(t *testing.T) {
 	}{
 		{
 			name: "round-trip single device usage 1",
-			metrics: []GPUMetric{
+			metrics: []gputypes.GPUMetric{
 				{GPUUUID: "GPU-1", GPUUtilization: aws.Float64(50.0)},
 			},
 			usageTotal:    1,
@@ -464,7 +465,7 @@ func TestExtractInstanceGPUPayloadValues(t *testing.T) {
 		},
 		{
 			name: "round-trip four devices usage 2",
-			metrics: []GPUMetric{
+			metrics: []gputypes.GPUMetric{
 				{GPUUUID: "GPU-1"}, {GPUUUID: "GPU-2"}, {GPUUUID: "GPU-3"}, {GPUUUID: "GPU-4"},
 			},
 			usageTotal:    2,
@@ -475,7 +476,7 @@ func TestExtractInstanceGPUPayloadValues(t *testing.T) {
 		},
 		{
 			name: "round-trip eight devices usage 0",
-			metrics: []GPUMetric{
+			metrics: []gputypes.GPUMetric{
 				{GPUUUID: "GPU-1"}, {GPUUUID: "GPU-2"}, {GPUUUID: "GPU-3"}, {GPUUUID: "GPU-4"},
 				{GPUUUID: "GPU-5"}, {GPUUUID: "GPU-6"}, {GPUUUID: "GPU-7"}, {GPUUUID: "GPU-8"},
 			},

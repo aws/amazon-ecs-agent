@@ -6,6 +6,7 @@ toolchain go1.25.9
 
 require (
 	github.com/Microsoft/hcsshim v0.12.0
+	github.com/aws/amazon-ecs-agent/ecs-agent/gpu/types v0.0.0
 	github.com/aws/aws-sdk-go v1.55.7
 	github.com/aws/aws-sdk-go-v2 v1.36.6
 	github.com/aws/aws-sdk-go-v2/config v1.28.1
@@ -92,3 +93,5 @@ require (
 )
 
 replace github.com/aws/aws-sdk-go-v2/service/ecs => ../aws-sdk-go-v2/service/ecs
+
+replace github.com/aws/amazon-ecs-agent/ecs-agent/gpu/types => ./gpu/types
