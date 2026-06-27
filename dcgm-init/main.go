@@ -16,7 +16,7 @@
 package main
 
 import (
-	_ "github.com/aws/amazon-ecs-agent/ecs-agent/gpu/dcgmclient"
+	_ "github.com/aws/amazon-ecs-agent/ecs-agent/gpu/dcgm"
 )
 
 func main() {}

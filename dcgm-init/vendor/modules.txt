@@ -1,9 +1,9 @@
-# github.com/NVIDIA/go-dcgm v0.0.0-20251203192032-7ac2f778d507
+# github.com/NVIDIA/go-dcgm v0.0.0-20260622182233-0740c4cbc959
 ## explicit; go 1.23
 github.com/NVIDIA/go-dcgm/pkg/dcgm
-# github.com/aws/amazon-ecs-agent/ecs-agent/gpu/dcgmclient v0.0.0 => ../ecs-agent/gpu/dcgmclient
+# github.com/aws/amazon-ecs-agent/ecs-agent v0.0.0 => ../ecs-agent
 ## explicit; go 1.25.0
-github.com/aws/amazon-ecs-agent/ecs-agent/gpu/dcgmclient
+github.com/aws/amazon-ecs-agent/ecs-agent/gpu/dcgm
 # github.com/aws/amazon-ecs-agent/ecs-agent/gpu/types v0.0.0 => ../ecs-agent/gpu/types
 ## explicit; go 1.25.0
 github.com/aws/amazon-ecs-agent/ecs-agent/gpu/types
@@ -24,7 +24,7 @@ github.com/stretchr/testify/require
 # go.uber.org/multierr v1.10.0
 ## explicit; go 1.19
 go.uber.org/multierr
-# go.uber.org/zap v1.27.0
+# go.uber.org/zap v1.28.0
 ## explicit; go 1.19
 go.uber.org/zap
 go.uber.org/zap/buffer
@@ -38,5 +38,5 @@ go.uber.org/zap/zapcore
 # gopkg.in/yaml.v3 v3.0.1
 ## explicit
 gopkg.in/yaml.v3
-# github.com/aws/amazon-ecs-agent/ecs-agent/gpu/dcgmclient => ../ecs-agent/gpu/dcgmclient
+# github.com/aws/amazon-ecs-agent/ecs-agent => ../ecs-agent
 # github.com/aws/amazon-ecs-agent/ecs-agent/gpu/types => ../ecs-agent/gpu/types
