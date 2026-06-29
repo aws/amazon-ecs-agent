@@ -448,8 +448,8 @@ github.com/gorilla/mux
 # github.com/gorilla/websocket v1.5.0
 ## explicit; go 1.12
 github.com/gorilla/websocket
-# github.com/hectane/go-acl v0.0.0-20190604041725-da78bae5fc95
-## explicit; go 1.12
+# github.com/hectane/go-acl v1.0.0
+## explicit; go 1.25.0
 github.com/hectane/go-acl/api
 # github.com/jmespath/go-jmespath v0.4.0
 ## explicit; go 1.14
