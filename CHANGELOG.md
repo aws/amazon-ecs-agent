@@ -13,7 +13,7 @@
 * Enhancement - Emit failure metrics from IMDS credentials scanner [#4995](https://github.com/aws/amazon-ecs-agent/pull/4995)
 * Enhancement - Update SSM GPG key for ECS Anywhere installation [#4992](https://github.com/aws/amazon-ecs-agent/pull/4992)
 * Enhancement - Add Host type and BuildHosts to populate netNS.Hosts [#4985](https://github.com/aws/amazon-ecs-agent/pull/4985)
-* Bugfix - bugfix - Fix TestClientProxy to obtain available port dynamically [#4999](https://github.com/aws/amazon-ecs-agent/pull/4999)
+* Bugfix - Fix TestClientProxy to obtain available port dynamically [#4999](https://github.com/aws/amazon-ecs-agent/pull/4999)
 * Bugfix - Fix flaky TestDPEAndACSConnFailureTrackerTracking nil pointer panic [#4993](https://github.com/aws/amazon-ecs-agent/pull/4993)
 
 # 1.104.0
