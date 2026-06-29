@@ -1,3 +1,9 @@
+amazon-ecs-init (1.105.1-1) stable; urgency=medium
+
+  * Cache Agent version 1.105.1
+
+ -- amazon-ecs-bot <amazon-ecs-bot@amazon.com>  Mon, 29 Jun 2026 18:00:00 +0000
+
 amazon-ecs-init (1.105.0-1) stable; urgency=medium
 
   * Cache Agent version 1.105.0
