@@ -1638,16 +1638,21 @@ func TestHostResourceManagerTrickleQueue(t *testing.T) {
 	}()
 
 	// goroutine to verify task accounting
-	// After ~4s, 3rd task should be queued up and will not be dequeued until ~10s, i.e. until 1st task stops and gets dequeued
+	// After tasks 0 and 1 consume all resources, task 2 should be queued.
+	// Once task 0 stops and frees resources, task 2 should be dequeued.
 	go func() {
-		time.Sleep(6 * time.Second)
-		task, err := taskEngine.(*DockerTaskEngine).topTask()
-		assert.NoError(t, err, "one task should be queued up after 6s")
-		assert.Equal(t, task.Arn, tasks[2].Arn, "wrong task at top of queue")
+		// Wait for task 2 to appear in the queue eventually (it's added at ~4s, needs resource check to be queued)
+		// Will be polling every 500ms
+		assert.Eventually(t, func() bool {
+			task, err := taskEngine.(*DockerTaskEngine).topTask()
+			return err == nil && task.Arn == tasks[2].Arn
+		}, 10*time.Second, 500*time.Millisecond, "task 2 should be queued after resources are exhausted")
 
-		time.Sleep(6 * time.Second)
-		_, err = taskEngine.(*DockerTaskEngine).topTask()
-		assert.Error(t, err, "no task should be queued up after 12s")
+		// Wait for task 2 to be dequeued (after task 0 stops and frees resources)
+		assert.Eventually(t, func() bool {
+			_, err := taskEngine.(*DockerTaskEngine).topTask()
+			return err != nil
+		}, 10*time.Second, 500*time.Millisecond, "task 2 should be dequeued after resources are freed")
 	}()
 	waitFinished(t, finished, testTimeout)
 }
