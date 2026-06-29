@@ -34,9 +34,6 @@ github.com/Microsoft/hcsshim/osversion
 # github.com/NVIDIA/go-dcgm v0.0.0-20260622182233-0740c4cbc959
 ## explicit; go 1.23
 github.com/NVIDIA/go-dcgm/pkg/dcgm
-# github.com/aws/amazon-ecs-agent/ecs-agent/gpu/types v0.0.0 => ./gpu/types
-## explicit; go 1.25.0
-github.com/aws/amazon-ecs-agent/ecs-agent/gpu/types
 # github.com/aws/aws-sdk-go v1.55.7
 ## explicit; go 1.19
 github.com/aws/aws-sdk-go/aws
@@ -594,4 +591,3 @@ sigs.k8s.io/json/internal/golang/encoding/json
 ## explicit; go 1.13
 sigs.k8s.io/structured-merge-diff/v4/value
 # github.com/aws/aws-sdk-go-v2/service/ecs => ../aws-sdk-go-v2/service/ecs
-# github.com/aws/amazon-ecs-agent/ecs-agent/gpu/types => ./gpu/types

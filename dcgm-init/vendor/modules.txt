@@ -4,8 +4,6 @@ github.com/NVIDIA/go-dcgm/pkg/dcgm
 # github.com/aws/amazon-ecs-agent/ecs-agent v0.0.0 => ../ecs-agent
 ## explicit; go 1.25.0
 github.com/aws/amazon-ecs-agent/ecs-agent/gpu/dcgm
-# github.com/aws/amazon-ecs-agent/ecs-agent/gpu/types v0.0.0 => ../ecs-agent/gpu/types
-## explicit; go 1.25.0
 github.com/aws/amazon-ecs-agent/ecs-agent/gpu/types
 # github.com/bits-and-blooms/bitset v1.22.0
 ## explicit; go 1.16
@@ -39,4 +37,3 @@ go.uber.org/zap/zapcore
 ## explicit
 gopkg.in/yaml.v3
 # github.com/aws/amazon-ecs-agent/ecs-agent => ../ecs-agent
-# github.com/aws/amazon-ecs-agent/ecs-agent/gpu/types => ../ecs-agent/gpu/types

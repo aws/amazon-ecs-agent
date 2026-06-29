@@ -377,7 +377,7 @@ gocyclo:
 govet:
 	go vet $(shell go list ./agent/... ./ecs-agent/... | grep -v /testutils/ | grep -v _test\.go$ | grep -v /mocks | grep -v /model)
 
-GOFMTFILES:=$(shell find ./agent ./ecs-agent -not -path './agent/vendor/*' -not -path './ecs-agent/vendor/*' -not -path './ecs-agent/daemonimages/csidriver/vendor/*' -not -path './ecs-agent/gpu/dcgm/vendor/*' -type f -iregex '.*\.go')
+GOFMTFILES:=$(shell find ./agent ./ecs-agent -not -path './agent/vendor/*' -not -path './ecs-agent/vendor/*' -not -path './ecs-agent/daemonimages/csidriver/vendor/*' -type f -iregex '.*\.go')
 
 .PHONY: importcheck
 importcheck:
@@ -414,8 +414,8 @@ goimports:
 .PHONY: gomod
 gomod:
 	cd ./ecs-agent/daemonimages/csidriver && go mod tidy && go mod vendor
-	cd ./ecs-agent/gpu/dcgm && go mod tidy && go mod vendor
 	cd ./ecs-agent && go mod tidy && go mod vendor
+	cd ./dcgm-init && go mod tidy && go mod vendor
 	cd ./agent && go mod tidy && go mod vendor
 	cd ./ecs-init && go mod tidy && go mod vendor
 
