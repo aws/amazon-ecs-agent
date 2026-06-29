@@ -36,7 +36,7 @@ require (
 	github.com/fsnotify/fsnotify v1.6.0
 	github.com/golang/mock v1.6.0
 	github.com/gorilla/mux v1.8.1
-	github.com/hectane/go-acl v0.0.0-20190604041725-da78bae5fc95
+	github.com/hectane/go-acl v1.0.0
 	github.com/opencontainers/go-digest v1.0.0
 	github.com/opencontainers/image-spec v1.1.1
 	github.com/opencontainers/runtime-spec v1.2.0
