@@ -713,6 +713,9 @@ func (agent *ecsAgent) newDoctorWithHealthchecks(cluster, containerInstanceARN s
 		runtimeHealthCheck,
 	}
 
+	// append the GPU healthcheck when supported on this platform (Linux + GPU enabled)
+	healthcheckList = agent.appendGPUHealthcheck(healthcheckList)
+
 	// set up the doctor and return it
 	return doctor.NewDoctor(healthcheckList, cluster, containerInstanceARN)
 }

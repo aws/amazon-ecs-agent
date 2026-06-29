@@ -486,6 +486,10 @@ func (c *client) getHostConfig(envVarsFromFiles map[string]string) *godocker.Hos
 			if nvidiaGPUDevicesPresent() {
 				// bind mount gpu info dir
 				binds = append(binds, gpu.GPUInfoDirPath+":"+gpu.GPUInfoDirPath)
+				// Create and bind mount gpu metrics directory (written by dcgm-init, read by ecs-agent).
+				gpuMetricsDir := "/var/run/ecs"
+				os.MkdirAll(gpuMetricsDir, 0755)
+				binds = append(binds, gpuMetricsDir+":"+gpuMetricsDir+readOnly)
 			}
 		}
 

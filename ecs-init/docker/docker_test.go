@@ -19,6 +19,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"strings"
 	"testing"
 
 	"github.com/aws/amazon-ecs-agent/ecs-init/config"
@@ -26,6 +27,7 @@ import (
 	godocker "github.com/fsouza/go-dockerclient"
 	"github.com/golang/mock/gomock"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 const (
@@ -474,6 +476,89 @@ func TestStartAgentWithGPUConfigNoDevices(t *testing.T) {
 		for _, envVar := range cfg.Env {
 			envVariables[envVar] = struct{}{}
 		}
+	}).Return(&godocker.Container{
+		ID: containerID,
+	}, nil)
+	mockDocker.EXPECT().StartContainer(containerID, nil)
+	mockDocker.EXPECT().WaitContainer(containerID)
+
+	client := &client{
+		docker: mockDocker,
+		fs:     mockFS,
+	}
+
+	_, err := client.StartAgent()
+	assert.NoError(t, err)
+}
+
+// TestGPUMetricsDir_MkdirAllWhenAlreadyExists verifies that ecs-init does not
+// fail when the GPU metrics directory (/var/run/ecs) already exists with 0755
+// permissions (e.g., dcgm-init created it first in a race condition).
+func TestGPUMetricsDir_MkdirAllWhenAlreadyExists(t *testing.T) {
+	// Simulate dcgm-init having already created the directory
+	gpuMetricsDir := filepath.Join(t.TempDir(), "ecs")
+	err := os.MkdirAll(gpuMetricsDir, 0755)
+	require.NoError(t, err)
+
+	info, err := os.Stat(gpuMetricsDir)
+	require.NoError(t, err)
+	require.True(t, info.IsDir())
+
+	// Simulate ecs-init calling os.MkdirAll on the same directory (as in getHostConfig)
+	err = os.MkdirAll(gpuMetricsDir, 0755)
+	assert.NoError(t, err, "os.MkdirAll should not fail when directory already exists with 0755")
+
+	// Verify directory is still intact with correct permissions
+	info, err = os.Stat(gpuMetricsDir)
+	require.NoError(t, err)
+	assert.True(t, info.IsDir())
+	assert.Equal(t, os.FileMode(0755), info.Mode().Perm())
+}
+
+// TestGPUMetricsBindMount_PresentWhenGPUEnabled verifies that the /var/run/ecs
+// bind mount is included in the agent container's host config when GPU support is enabled.
+func TestGPUMetricsBindMount_PresentWhenGPUEnabled(t *testing.T) {
+	mockCtrl := gomock.NewController(t)
+	defer mockCtrl.Finish()
+	isPathValid = func(path string, isDir bool) bool {
+		return false
+	}
+	defer func() {
+		isPathValid = defaultIsPathValid
+	}()
+
+	config.OsStat = func(name string) (os.FileInfo, error) {
+		return nil, nil
+	}
+	defer func() {
+		config.OsStat = os.Stat
+	}()
+
+	envFile := "\nECS_ENABLE_GPU_SUPPORT=true\n"
+	containerID := "container id"
+
+	defer func() {
+		MatchFilePatternForGPU = FilePatternMatchForGPU
+	}()
+	MatchFilePatternForGPU = func(pattern string) ([]string, error) {
+		return []string{"/dev/nvidia0"}, nil
+	}
+
+	mockFS := NewMockfileSystem(mockCtrl)
+	mockDocker := NewMockdockerclient(mockCtrl)
+
+	mockFS.EXPECT().ReadFile(config.InstanceConfigFile()).Return([]byte(envFile), nil).AnyTimes()
+	mockFS.EXPECT().ReadFile(config.AgentConfigFile()).Return(nil, errors.New("not found")).AnyTimes()
+	mockDocker.EXPECT().CreateContainer(gomock.Any()).Do(func(opts godocker.CreateContainerOptions) {
+		var foundGPUMetricsBind bool
+		for _, bind := range opts.HostConfig.Binds {
+			if strings.Contains(bind, "/var/run/ecs") && strings.Contains(bind, ":ro") {
+				foundGPUMetricsBind = true
+				break
+			}
+		}
+		assert.True(t, foundGPUMetricsBind,
+			"GPU metrics directory /var/run/ecs should be bind-mounted read-only when GPU enabled")
 	}).Return(&godocker.Container{
 		ID: containerID,
 	}, nil)

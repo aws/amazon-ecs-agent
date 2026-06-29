@@ -1,0 +1,16 @@
+[Unit]
+Description=Amazon Elastic Container Service - DCGM Go bindings
+Wants=nvidia-dcgm.service
+After=nvidia-dcgm.service
+ConditionPathExists=/usr/bin/nv-hostengine
+
+[Service]
+Type=simple
+Restart=on-failure
+RestartPreventExitStatus=5
+RestartSec=10s
+ExecStart=/usr/libexec/dcgm-init start
+ExecStop=/usr/libexec/dcgm-init stop
+
+[Install]
+WantedBy=multi-user.target

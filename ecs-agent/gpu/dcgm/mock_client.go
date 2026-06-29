@@ -95,6 +95,13 @@ func (m *MockClient) SetConnectionLost(lost bool) {
 	m.connectionLost = lost
 }
 
+// SetUnhealthyReason sets the mock client's unhealthy reason.
+func (m *MockClient) SetUnhealthyReason(reason string) {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	m.unhealthyReason = reason
+}
+
 // UnhealthyReason implements Client.UnhealthyReason.
 func (m *MockClient) UnhealthyReason() string {
 	m.mu.RLock()

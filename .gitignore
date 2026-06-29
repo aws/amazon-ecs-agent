@@ -25,6 +25,8 @@ cover.out
 cover.out.tmp
 coverprofile*.out
 /amazon-ecs-init*
+/amazon-dcgm-init*
+/dcgm-init/dcgm-init
 /BUILDROOT/
 /x86_64/
 /sources.tar
