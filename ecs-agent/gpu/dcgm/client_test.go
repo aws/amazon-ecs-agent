@@ -13,7 +13,7 @@
 // express or implied. See the License for the specific language governing
 // permissions and limitations under the License.
 
-package gpu
+package dcgm
 
 import (
 	"context"
@@ -23,6 +23,7 @@ import (
 	"time"
 
 	"github.com/NVIDIA/go-dcgm/pkg/dcgm"
+	gputypes "github.com/aws/amazon-ecs-agent/ecs-agent/gpu/types"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"go.uber.org/zap"
@@ -1933,7 +1934,7 @@ func TestExtractMetricsFromFieldValues(t *testing.T) {
 	testCases := []struct {
 		name            string
 		values          []dcgm.FieldValue_v1
-		expectedMetric  GPUMetric
+		expectedMetric  gputypes.GPUMetric
 		expectedSkipped []string
 	}{
 		{
@@ -1947,7 +1948,7 @@ func TestExtractMetricsFromFieldValues(t *testing.T) {
 				makeFloat64FieldValue(0, 250.5),        // Power: 250.5W
 				makeInt64FieldValue(0, 72),             // Temp: 72°C
 			},
-			expectedMetric: GPUMetric{
+			expectedMetric: gputypes.GPUMetric{
 				GPUUUID:           "GPU-abc-123",
 				MemoryTotal:       ptrUint64(16384 * 1024 * 1024),
 				GPUUtilization:    ptrFloat64(85.0),
@@ -1968,7 +1969,7 @@ func TestExtractMetricsFromFieldValues(t *testing.T) {
 				makeFloat64FieldValue(0, 140737488355328.0), // Power: FP64 BLANK sentinel
 				makeInt64FieldValue(0, 65),                  // Temp: valid (65°C)
 			},
-			expectedMetric: GPUMetric{
+			expectedMetric: gputypes.GPUMetric{
 				GPUUtilization: ptrFloat64(50.0),
 				Temperature:    ptrFloat64(65.0),
 			},
@@ -1982,7 +1983,7 @@ func TestExtractMetricsFromFieldValues(t *testing.T) {
 		{
 			name:           "empty values slice",
 			values:         []dcgm.FieldValue_v1{},
-			expectedMetric: GPUMetric{},
+			expectedMetric: gputypes.GPUMetric{},
 		},
 		{
 			name: "partial values slice",
@@ -1990,7 +1991,7 @@ func TestExtractMetricsFromFieldValues(t *testing.T) {
 				makeStringFieldValue(0, "GPU-partial"), // UUID
 				makeInt64FieldValue(0, 8192),           // FB Total: 8192 MiB
 			},
-			expectedMetric: GPUMetric{
+			expectedMetric: gputypes.GPUMetric{
 				GPUUUID:     "GPU-partial",
 				MemoryTotal: ptrUint64(8192 * 1024 * 1024),
 			},
@@ -2000,7 +2001,7 @@ func TestExtractMetricsFromFieldValues(t *testing.T) {
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
 			t.Parallel()
-			var metric GPUMetric
+			var metric gputypes.GPUMetric
 			skipped := extractMetricsFromFieldValues(&metric, tc.values)
 
 			assert.Equal(t, tc.expectedMetric.GPUUUID, metric.GPUUUID)

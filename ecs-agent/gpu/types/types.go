@@ -13,7 +13,7 @@
 // express or implied. See the License for the specific language governing
 // permissions and limitations under the License.
 
-package gpu
+package types
 
 // GPUMetric holds per-device GPU telemetry. This struct is used by both
 // dcgm-init (for collection) and the agent (for TACS conversion).

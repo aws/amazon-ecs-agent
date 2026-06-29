@@ -13,7 +13,7 @@
 // express or implied. See the License for the specific language governing
 // permissions and limitations under the License.
 
-package gpu
+package dcgm
 
 import (
 	"context"
@@ -23,6 +23,7 @@ import (
 	"time"
 
 	"github.com/NVIDIA/go-dcgm/pkg/dcgm"
+	gputypes "github.com/aws/amazon-ecs-agent/ecs-agent/gpu/types"
 	"go.uber.org/zap"
 )
 
@@ -36,6 +37,25 @@ const (
 
 	// mibToBytes converts MiB to bytes. DCGM reports framebuffer memory in MiB.
 	mibToBytes = 1024 * 1024
+)
+
+// DCGM sentinel values from dcgm_structs.h. Each width (32-bit and 64-bit)
+// defines four consecutive sentinels starting at the BLANK value:
+//
+//	BLANK          — field exists but no sample collected yet.
+//	NOT_FOUND      — field ID not recognised by this DCGM version.
+//	NOT_SUPPORTED  — field not supported on this GPU/driver.
+//	NOT_PERMISSIONED — insufficient permissions to read this field.
+const (
+	int32Blank           = 0x7ffffff0
+	int32NotFound        = 0x7ffffff1
+	int32NotSupported    = 0x7ffffff2
+	int32NotPermissioned = 0x7ffffff3
+
+	int64Blank           = 0x7ffffffffffffff0
+	int64NotFound        = 0x7ffffffffffffff1
+	int64NotSupported    = 0x7ffffffffffffff2
+	int64NotPermissioned = 0x7ffffffffffffff3
 )
 
 // metricsFieldDef pairs a DCGM field ID with its human-readable name.
@@ -144,43 +164,6 @@ var restartAppXIDCodes = map[uint64]bool{
 	131: true, 132: true, 133: true, 134: true, 135: true, 139: true,
 }
 
-// GPUMetric holds per-device GPU telemetry collected from DCGM.
-// All fields use pointers so that a nil value indicates the metric was unavailable
-// (e.g. metrics on older GPUs that don't support certain fields).
-type GPUMetric struct {
-	// GPUUUID is the unique identifier for the GPU device (e.g. "GPU-91b959f7-0011-6abd-bfcb-6cb736c60e84").
-	// Used for container-to-GPU mapping in the metrics pipeline.
-	GPUUUID string
-
-	// GPUUtilization is the GPU compute utilization percentage (0-100).
-	// DCGM field: DCGM_FI_DEV_GPU_UTIL.
-	GPUUtilization *float64
-
-	// MemoryUtilization is the GPU memory utilization percentage (0-100).
-	// DCGM field: DCGM_FI_DEV_FB_USED_PERCENT (framebuffer used ratio 0.0-1.0, scaled ×100).
-	MemoryUtilization *float64
-
-	// MemoryTotal is the total GPU framebuffer memory in bytes.
-	// DCGM field: DCGM_FI_DEV_FB_TOTAL. Converted from MiB to bytes.
-	MemoryTotal *uint64
-
-	// MemoryUsed is the used GPU framebuffer memory in bytes.
-	// DCGM field: DCGM_FI_DEV_FB_USED. Converted from MiB to bytes.
-	MemoryUsed *uint64
-
-	// PowerDraw is the current GPU power consumption in watts.
-	// DCGM field: DCGM_FI_DEV_POWER_USAGE.
-	PowerDraw *float64
-
-	// Temperature is the current GPU temperature in degrees Celsius.
-	// DCGM field: DCGM_FI_DEV_GPU_TEMP.
-	Temperature *float64
-
-	// RestartAppXidCount is the number of RESTART_APP XID errors since the last collection tick.
-	// Populated from DCGM_FI_DEV_XID_ERRORS via GetValuesSince.
-	RestartAppXidCount int64
-}
-
 // Client provides an interface for monitoring Nvidia GPU health through the
 // Nvidia vended Data Center GPU Monitor (DCGM).
 type Client interface {
@@ -206,7 +189,7 @@ type Client interface {
 	// Returns a slice of GPUMetric, one per GPU device, including per-GPU RESTART_APP XID counts.
 	// Individual metric fields may be nil if the metric is unavailable for a device.
 	// Returns an error if the client is not connected or DCGM communication fails.
-	GetMetrics(ctx context.Context) ([]GPUMetric, error)
+	GetMetrics(ctx context.Context) ([]gputypes.GPUMetric, error)
 
 	// Shutdown cleans up DCGM resources and closes connections.
 	Shutdown() error
@@ -710,7 +693,7 @@ func (c *dcgmClient) shutdownLocked() error {
 // GetMetrics collects GPU telemetry metrics from all supported devices.
 // Returns a slice of GPUMetric, one per GPU. Individual metric fields may be nil
 // if the persistent field watch is not active or a field value is unavailable.
-func (c *dcgmClient) GetMetrics(ctx context.Context) ([]GPUMetric, error) {
+func (c *dcgmClient) GetMetrics(ctx context.Context) ([]gputypes.GPUMetric, error) {
 	c.mu.RLock()
 	connected := c.connected
 	metricsWatchActive := c.metricsWatchActive
@@ -731,7 +714,7 @@ func (c *dcgmClient) GetMetrics(ctx context.Context) ([]GPUMetric, error) {
 
 	c.logger.Debug("collecting metrics for GPU devices", zap.Int("deviceCount", len(gpus)))
 
-	metrics := make([]GPUMetric, len(gpus))
+	metrics := make([]gputypes.GPUMetric, len(gpus))
 	for i, gpu := range gpus {
 		// Query all metrics (including UUID and total memory) via the persistent field watch.
 		if metricsWatchActive {
@@ -784,7 +767,7 @@ func (c *dcgmClient) GetMetrics(ctx context.Context) ([]GPUMetric, error) {
 // extractMetricsFromFieldValues populates a GPUMetric from raw DCGM field values.
 // The values slice must correspond to metricsFields in the same order.
 // Returns the names of fields that were skipped due to sentinel or invalid values.
-func extractMetricsFromFieldValues(metric *GPUMetric, values []dcgm.FieldValue_v1) []string {
+func extractMetricsFromFieldValues(metric *gputypes.GPUMetric, values []dcgm.FieldValue_v1) []string {
 	var skipped []string
 
 	if fieldIdxUUID < len(values) && values[fieldIdxUUID].Status == 0 {
@@ -931,23 +914,7 @@ func mapDeviceIndexToUUID(countsByDevice map[uint]int64, deviceToUUID map[uint]s
 // isValidInt64Value checks if a DCGM int64 value is valid (not a sentinel/blank value).
 // DCGM uses specific sentinel values to indicate unavailable or blank data.
 func isValidInt64Value(v int64) bool {
-	// DCGM sentinel values from dcgm_structs.h. Each width (32-bit and 64-bit)
-	// defines four consecutive sentinels starting at the BLANK value:
-	//   BLANK          — field exists but no sample collected yet.
-	//   NOT_FOUND      — field ID not recognised by this DCGM version.
-	//   NOT_SUPPORTED  — field not supported on this GPU/driver.
-	//   NOT_PERMISSIONED — insufficient permissions to read this field.
-	const (
-		int32Blank           = 0x7ffffff0
-		int32NotFound        = 0x7ffffff1
-		int32NotSupported    = 0x7ffffff2
-		int32NotPermissioned = 0x7ffffff3
 
-		int64Blank           = 0x7ffffffffffffff0
-		int64NotFound        = 0x7ffffffffffffff1
-		int64NotSupported    = 0x7ffffffffffffff2
-		int64NotPermissioned = 0x7ffffffffffffff3
-	)
 	return v != int32Blank && v != int32NotFound && v != int32NotSupported && v != int32NotPermissioned &&
 		v != int64Blank && v != int64NotFound && v != int64NotSupported && v != int64NotPermissioned
 }
@@ -1047,32 +1014,33 @@ func (c *dcgmClient) logPolicyViolation(violation dcgm.PolicyViolation) {
 	}
 }
 
+// Map of XID codes to human-readable messages.
+// Based on NVIDIA XID error documentation.
+var messages = map[uint64]string{
+	46:  "GPU stopped processing",
+	48:  "Double Bit ECC Error",
+	54:  "Auxiliary power connector not connected",
+	62:  "Internal micro-controller halt",
+	64:  "GPU memory remapping failure",
+	74:  "NVLink Error",
+	79:  "GPU has fallen off the bus",
+	95:  "Uncontained memory error",
+	109: "Context switch timeout",
+	110: "GPU disappeared from the bus",
+	136: "GPU memory page retirement limit exceeded",
+	140: "Unrecoverable ECC Error",
+	142: "GPU memory page retired due to uncorrectable error",
+	143: "GPU memory page retired due to correctable error threshold",
+	151: "GPU to CPU interconnect error",
+	155: "GPU NVLink flit CRC error",
+	156: "GPU NVLink lane error",
+	158: "GPU InfoROM corrupted",
+}
+
 // getXIDMessage returns a human-readable message for a given XID error code.
 // For well-known XID codes, it returns a descriptive message explaining the error.
 // For unknown codes, it returns a generic message.
 func getXIDMessage(code uint64) string {
-	// Map of XID codes to human-readable messages.
-	// Based on NVIDIA XID error documentation.
-	messages := map[uint64]string{
-		46:  "GPU stopped processing",
-		48:  "Double Bit ECC Error",
-		54:  "Auxiliary power connector not connected",
-		62:  "Internal micro-controller halt",
-		64:  "GPU memory remapping failure",
-		74:  "NVLink Error",
-		79:  "GPU has fallen off the bus",
-		95:  "Uncontained memory error",
-		109: "Context switch timeout",
-		110: "GPU disappeared from the bus",
-		136: "GPU memory page retirement limit exceeded",
-		140: "Unrecoverable ECC Error",
-		142: "GPU memory page retired due to uncorrectable error",
-		143: "GPU memory page retired due to correctable error threshold",
-		151: "GPU to CPU interconnect error",
-		155: "GPU NVLink flit CRC error",
-		156: "GPU NVLink lane error",
-		158: "GPU InfoROM corrupted",
-	}
 
 	if msg, ok := messages[code]; ok {
 		return msg
