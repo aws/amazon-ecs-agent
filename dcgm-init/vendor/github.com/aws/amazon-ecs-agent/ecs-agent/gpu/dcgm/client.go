@@ -24,7 +24,7 @@ import (
 
 	"github.com/NVIDIA/go-dcgm/pkg/dcgm"
 	gputypes "github.com/aws/amazon-ecs-agent/ecs-agent/gpu/types"
-	"go.uber.org/zap"
+	"github.com/aws/amazon-ecs-agent/ecs-agent/logger"
 )
 
 const (
@@ -282,13 +282,10 @@ type dcgmClient struct {
 
 	// Number of pending dcgm.Init attempts to prevent goroutine leaks.
 	pendingInitAttempts atomic.Int32
-
-	// Logger for debugging and error reporting.
-	logger *zap.Logger
 }
 
 // NewClient creates a new DCGM client with the given configuration.
-func NewClient(config Config, logger *zap.Logger) Client {
+func NewClient(config Config) Client {
 	socketPath := config.SocketPath
 	if socketPath == "" {
 		socketPath = DefaultSocketPath
@@ -304,7 +301,6 @@ func NewClient(config Config, logger *zap.Logger) Client {
 		initializationGracePeriod: gracePeriod,
 		lastShutdown:              time.Now(),
 		fieldGroupDestroyFunc:     dcgm.FieldGroupDestroy,
-		logger:                    logger,
 	}
 }
 
@@ -316,21 +312,24 @@ func (c *dcgmClient) Reconcile(ctx context.Context) (bool, error) {
 	c.mu.Lock()
 	defer c.mu.Unlock()
 
-	c.logger.Info("reconciling DCGM connection",
-		zap.Bool("connected", c.connected),
-		zap.Bool("hasViolation", c.hasViolation))
+	logger.Info("reconciling DCGM connection", logger.Fields{
+		"connected":    c.connected,
+		"hasViolation": c.hasViolation,
+	})
 
 	// If connected, perform health check via introspection.
 	if c.connected {
 		_, introspectErr := dcgm.Introspect()
 		if introspectErr == nil {
-			c.logger.Info("DCGM connection healthy, no reconnection needed")
+			logger.Info("DCGM connection healthy, no reconnection needed")
 			return false, nil
 		}
-		c.logger.Warn("DCGM health check failed, will attempt reconnection", zap.Error(introspectErr))
+		logger.Warn("DCGM health check failed, will attempt reconnection", logger.Fields{
+			"error": introspectErr,
+		})
 		c.connected = false // Mark connection as lost.
 	} else {
-		c.logger.Info("DCGM not connected, will attempt to connect")
+		logger.Info("DCGM not connected, will attempt to connect")
 	}
 
 	// Shutdown existing connection before reinitializing.
@@ -343,38 +342,41 @@ func (c *dcgmClient) Reconcile(ctx context.Context) (bool, error) {
 		// Check if we're within grace period after shutdown.
 		timeSinceShutdown := time.Since(c.lastShutdown)
 		if time.Now().Before(c.lastShutdown.Add(c.initializationGracePeriod)) {
-			c.logger.Info("initialization failed within grace period, suppressing error",
-				zap.Duration("gracePeriod", c.initializationGracePeriod),
-				zap.Duration("timeSinceShutdown", timeSinceShutdown),
-				zap.Error(err))
+			logger.Info("initialization failed within grace period, suppressing error", logger.Fields{
+				"gracePeriod":       c.initializationGracePeriod,
+				"timeSinceShutdown": timeSinceShutdown,
+				"error":             err,
+			})
 			return false, nil
 		}
-		c.logger.Error("initialization failed outside grace period",
-			zap.Duration("timeSinceShutdown", timeSinceShutdown),
-			zap.Error(err))
+		logger.Error("initialization failed outside grace period", logger.Fields{
+			"timeSinceShutdown": timeSinceShutdown,
+			"error":             err,
+		})
 		return false, fmt.Errorf("failed to initialize DCGM: %w", err)
 	}
 
-	c.logger.Info("DCGM reinitialized successfully")
+	logger.Info("DCGM reinitialized successfully")
 	return true, nil
 }
 
 // initializeLocked connects to DCGM and sets up monitoring.
 // Caller must hold c.mu lock.
 func (c *dcgmClient) initializeLocked(ctx context.Context) error {
-	c.logger.Info("initializing DCGM client", zap.String("socketPath", c.socketPath))
+	logger.Info("initializing DCGM client", logger.Fields{"socketPath": c.socketPath})
 
 	// Check if there's already a pending initialization attempt to prevent unbounded go routine creation.
 	// We use CompareAndSwap to atomically check and increment, ensuring only one goroutine proceeds.
 	if !c.pendingInitAttempts.CompareAndSwap(0, 1) {
-		c.logger.Warn("initialization already in progress, skipping new attempt",
-			zap.Int32("pendingAttempts", c.pendingInitAttempts.Load()))
+		logger.Warn("initialization already in progress, skipping new attempt", logger.Fields{
+			"pendingAttempts": c.pendingInitAttempts.Load(),
+		})
 		return fmt.Errorf("DCGM initialization already in progress")
 	}
 
 	// Initialize DCGM in standalone mode to connect to nv-hostengine.
 	// Use a timeout to prevent blocking indefinitely when host engine is unavailable.
-	c.logger.Debug("connecting to host engine", zap.String("socketPath", c.socketPath))
+	logger.Debug("connecting to host engine", logger.Fields{"socketPath": c.socketPath})
 
 	// dcgm.Init() is a blocking call that connects to nv-hostengine via Unix domain socket.
 	// The underlying NVIDIA DCGM C library does not support context cancellation or
@@ -417,20 +419,22 @@ func (c *dcgmClient) initializeLocked(ctx context.Context) error {
 	case result = <-resultChan:
 		// Initialization completed.
 		if result.err != nil {
-			c.logger.Error("failed to connect to host engine",
-				zap.String("socketPath", c.socketPath),
-				zap.Error(result.err))
+			logger.Error("failed to connect to host engine", logger.Fields{
+				"socketPath": c.socketPath,
+				"error":      result.err,
+			})
 			return result.err
 		}
 	case <-timeoutCtx.Done():
-		c.logger.Error("timeout connecting to host engine",
-			zap.String("socketPath", c.socketPath),
-			zap.Duration("timeout", initTimeout))
+		logger.Error("timeout connecting to host engine", logger.Fields{
+			"socketPath": c.socketPath,
+			"timeout":    initTimeout,
+		})
 		return fmt.Errorf("timeout connecting to nv-hostengine after %v", initTimeout)
 	}
 
 	c.cleanupFunc = result.cleanup
-	c.logger.Info("successfully connected to host engine")
+	logger.Info("successfully connected to host engine")
 
 	// Create context for policy violation listener.
 	policyCtx, cancelPolicy := context.WithCancel(ctx)
@@ -440,7 +444,7 @@ func (c *dcgmClient) initializeLocked(ctx context.Context) error {
 
 	// Register policy violation listeners for all required policies.
 	// These policies monitor critical GPU health indicators that signal hardware degradation or failure.
-	c.logger.Info("registering policy violation listeners")
+	logger.Info("registering policy violation listeners")
 	policyChan, err := dcgm.ListenForPolicyViolations(policyCtx,
 		// XidPolicy: GPU hardware exceptions (XID errors).
 		// Example: XID 48 indicates a double-bit ECC error, XID 79 means
@@ -448,7 +452,7 @@ func (c *dcgmClient) initializeLocked(ctx context.Context) error {
 		dcgm.XidPolicy,
 	)
 	if err != nil {
-		c.logger.Error("failed to register policy listeners", zap.Error(err))
+		logger.Error("failed to register policy listeners", logger.Fields{"error": err})
 		c.shutdownHandlers = nil
 		cancelPolicy()
 		if c.cleanupFunc != nil {
@@ -456,16 +460,16 @@ func (c *dcgmClient) initializeLocked(ctx context.Context) error {
 		}
 		return err
 	}
-	c.logger.Info("successfully registered policy violation listeners")
+	logger.Info("successfully registered policy violation listeners")
 
 	c.policyViolationChan = policyChan
 
 	// Enable all DCGM health check systems. We consider the instance to be unhealthy even if a GPU
 	// that is not in use is impaired. This prevents a situation where a task is launched and given
 	// an impaired GPU.
-	c.logger.Info("enabling health check systems for all GPUs")
+	logger.Info("enabling health check systems for all GPUs")
 	if err := dcgm.HealthSet(dcgm.GroupAllGPUs(), dcgm.DCGM_HEALTH_WATCH_ALL); err != nil {
-		c.logger.Error("failed to enable health check systems", zap.Error(err))
+		logger.Error("failed to enable health check systems", logger.Fields{"error": err})
 		c.shutdownHandlers = nil
 		cancelPolicy()
 		if c.cleanupFunc != nil {
@@ -473,7 +477,7 @@ func (c *dcgmClient) initializeLocked(ctx context.Context) error {
 		}
 		return err
 	}
-	c.logger.Info("successfully enabled health check systems")
+	logger.Info("successfully enabled health check systems")
 
 	// Start goroutine to listen for policy violations.
 	go c.listenForPolicyViolations()
@@ -492,27 +496,28 @@ func (c *dcgmClient) initializeLocked(ctx context.Context) error {
 	// Set up persistent XID error field watch for per-GPU XID counting.
 	c.setupXidWatch()
 
-	c.logger.Info("DCGM client initialized successfully",
-		zap.String("socketPath", c.socketPath),
-		zap.Bool("metricsWatchActive", c.metricsWatchActive),
-		zap.Bool("xidWatchActive", c.xidWatchActive))
+	logger.Info("DCGM client initialized successfully", logger.Fields{
+		"socketPath":         c.socketPath,
+		"metricsWatchActive": c.metricsWatchActive,
+		"xidWatchActive":     c.xidWatchActive,
+	})
 
 	return nil
 }
 
 // listenForPolicyViolations monitors the policy violation channel and sets hasViolation flag.
 func (c *dcgmClient) listenForPolicyViolations() {
-	c.logger.Info("policy violation listener started")
+	logger.Info("policy violation listener started")
 	for {
 		select {
 		case <-c.ctx.Done():
 			// Context cancelled, exit goroutine.
-			c.logger.Info("policy violation listener stopped")
+			logger.Info("policy violation listener stopped")
 			return
 		case violation, ok := <-c.policyViolationChan:
 			if !ok {
 				// Channel closed, exit goroutine.
-				c.logger.Info("policy violation channel closed")
+				logger.Info("policy violation channel closed")
 				return
 			}
 
@@ -539,13 +544,14 @@ func (c *dcgmClient) IsHealthy() bool {
 	c.mu.RLock()
 	defer c.mu.RUnlock()
 
-	c.logger.Debug("checking GPU health status",
-		zap.Bool("connected", c.connected),
-		zap.Bool("hasViolation", c.hasViolation))
+	logger.Debug("checking GPU health status", logger.Fields{
+		"connected":    c.connected,
+		"hasViolation": c.hasViolation,
+	})
 
 	// Return false if any policy violation has occurred.
 	if c.hasViolation {
-		c.logger.Warn("policy violation detected, reporting unhealthy")
+		logger.Warn("policy violation detected, reporting unhealthy")
 		return false
 	}
 
@@ -565,21 +571,23 @@ func (c *dcgmClient) IsHealthy() bool {
 	// WARN results indicate non-critical issues that don't require instance draining.
 	response, err := dcgm.HealthCheck(dcgm.GroupAllGPUs())
 	if err != nil {
-		c.logger.Error("health check failed", zap.Error(err))
+		logger.Error("health check failed", logger.Fields{"error": err})
 		// Health check failure is a connection/communication issue, not hardware failure.
 		// The caller should check IsConnectionLost() to handle this properly.
 		return true
 	}
 
 	if response.OverallHealth == dcgm.DCGM_HEALTH_RESULT_FAIL {
-		c.logger.Warn("health check returned FAIL status",
-			zap.Uint("overallHealth", uint(response.OverallHealth)))
+		logger.Warn("health check returned FAIL status", logger.Fields{
+			"overallHealth": uint(response.OverallHealth),
+		})
 		return false
 	}
 
 	if response.OverallHealth == dcgm.DCGM_HEALTH_RESULT_WARN {
-		c.logger.Warn("health check returned WARN status (non-critical)",
-			zap.Uint("overallHealth", uint(response.OverallHealth)))
+		logger.Warn("health check returned WARN status (non-critical)", logger.Fields{
+			"overallHealth": uint(response.OverallHealth),
+		})
 	}
 
 	return true
@@ -620,7 +628,7 @@ func (c *dcgmClient) UnhealthyReason() string {
 func (c *dcgmClient) collectXidCounts(sinceTime time.Time, deviceToUUID map[uint]string) map[string]int64 {
 	entries, nextSinceTimestamp, err := dcgm.GetValuesSince(dcgm.GroupAllGPUs(), c.xidFieldGroup, sinceTime)
 	if err != nil {
-		c.logger.Error("failed to get XID values since last query, returning empty counts", zap.Error(err))
+		logger.Error("failed to get XID values since last query, returning empty counts", logger.Fields{"error": err})
 		return make(map[string]int64)
 	}
 
@@ -647,11 +655,11 @@ func (c *dcgmClient) Shutdown() error {
 func (c *dcgmClient) shutdownLocked() error {
 	// If not connected, nothing to clean up.
 	if !c.connected {
-		c.logger.Debug("DCGM client not connected, nothing to shutdown")
+		logger.Debug("DCGM client not connected, nothing to shutdown")
 		return nil
 	}
 
-	c.logger.Info("shutting down DCGM client")
+	logger.Info("shutting down DCGM client")
 
 	// Call all shutdown handlers (e.g., cancel functions).
 	for _, handler := range c.shutdownHandlers {
@@ -662,12 +670,12 @@ func (c *dcgmClient) shutdownLocked() error {
 	// Destroy field groups before disconnecting to free names on nv-hostengine.
 	if c.metricsWatchActive {
 		if err := c.fieldGroupDestroyFunc(c.metricsFieldGroup); err != nil {
-			c.logger.Debug("failed to destroy metrics field group", zap.Error(err))
+			logger.Debug("failed to destroy metrics field group", logger.Fields{"error": err})
 		}
 	}
 	if c.xidWatchActive {
 		if err := c.fieldGroupDestroyFunc(c.xidFieldGroup); err != nil {
-			c.logger.Debug("failed to destroy XID field group", zap.Error(err))
+			logger.Debug("failed to destroy XID field group", logger.Fields{"error": err})
 		}
 	}
 
@@ -675,7 +683,7 @@ func (c *dcgmClient) shutdownLocked() error {
 	if c.cleanupFunc != nil {
 		c.cleanupFunc()
 		c.cleanupFunc = nil
-		c.logger.Debug("DCGM cleanup function called successfully")
+		logger.Debug("DCGM cleanup function called successfully")
 	}
 
 	// Reset state.
@@ -685,7 +693,7 @@ func (c *dcgmClient) shutdownLocked() error {
 	c.lastXidQueryTime = time.Time{}
 	c.deviceIndexToUUID = nil
 	c.lastShutdown = time.Now()
-	c.logger.Info("DCGM client shutdown successfully")
+	logger.Info("DCGM client shutdown successfully")
 
 	return nil
 }
@@ -708,11 +716,11 @@ func (c *dcgmClient) GetMetrics(ctx context.Context) ([]gputypes.GPUMetric, erro
 	// Get list of supported GPU devices.
 	gpus, err := dcgm.GetSupportedDevices()
 	if err != nil {
-		c.logger.Error("failed to get supported devices", zap.Error(err))
+		logger.Error("failed to get supported devices", logger.Fields{"error": err})
 		return nil, fmt.Errorf("failed to get supported devices: %w", err)
 	}
 
-	c.logger.Debug("collecting metrics for GPU devices", zap.Int("deviceCount", len(gpus)))
+	logger.Debug("collecting metrics for GPU devices", logger.Fields{"deviceCount": len(gpus)})
 
 	metrics := make([]gputypes.GPUMetric, len(gpus))
 	for i, gpu := range gpus {
@@ -720,24 +728,27 @@ func (c *dcgmClient) GetMetrics(ctx context.Context) ([]gputypes.GPUMetric, erro
 		if metricsWatchActive {
 			values, err := dcgm.GetLatestValuesForFields(gpu, metricsFieldIDs())
 			if err != nil {
-				c.logger.Warn("failed to get latest field values, skipping device",
-					zap.Uint("deviceIndex", gpu),
-					zap.Error(err))
+				logger.Warn("failed to get latest field values, skipping device", logger.Fields{
+					"deviceIndex": gpu,
+					"error":       err,
+				})
 				continue
 			}
 
 			if skipped := extractMetricsFromFieldValues(&metrics[i], values); len(skipped) > 0 {
-				c.logger.Debug("sentinel values detected for metric fields",
-					zap.Uint("deviceIndex", gpu),
-					zap.String("gpuUUID", metrics[i].GPUUUID),
-					zap.Strings("skippedFields", skipped))
+				logger.Debug("sentinel values detected for metric fields", logger.Fields{
+					"deviceIndex":   gpu,
+					"gpuUUID":       metrics[i].GPUUUID,
+					"skippedFields": skipped,
+				})
 			}
 		}
 	}
 
-	c.logger.Debug("collected GPU metrics",
-		zap.Int("deviceCount", len(metrics)),
-		zap.Bool("metricsWatchActive", metricsWatchActive))
+	logger.Debug("collected GPU metrics", logger.Fields{
+		"deviceCount":        len(metrics),
+		"metricsWatchActive": metricsWatchActive,
+	})
 
 	// Build device index to UUID mapping and collect per-GPU XID counts.
 	deviceToUUID := make(map[uint]string, len(gpus))
@@ -830,46 +841,47 @@ func extractMetricsFromFieldValues(metric *gputypes.GPUMetric, values []dcgm.Fie
 // On each collection tick, GetMetrics() reads values via GetLatestValuesForFields()
 // without creating or destroying any groups.
 func (c *dcgmClient) setupMetricsWatches() {
-	c.logger.Info("setting up persistent metrics field watches")
+	logger.Info("setting up persistent metrics field watches")
 
 	fieldGroup, err := dcgm.FieldGroupCreate("gpu_metrics_basic", metricsFieldIDs())
 	if err != nil {
-		c.logger.Error("failed to create metrics field group", zap.Error(err))
+		logger.Error("failed to create metrics field group", logger.Fields{"error": err})
 		return
 	}
 
 	err = dcgm.WatchFieldsWithGroup(fieldGroup, dcgm.GroupAllGPUs())
 	if err != nil {
-		c.logger.Error("failed to watch metrics fields", zap.Error(err))
+		logger.Error("failed to watch metrics fields", logger.Fields{"error": err})
 		if destroyErr := c.fieldGroupDestroyFunc(fieldGroup); destroyErr != nil {
-			c.logger.Debug("failed to destroy unused metrics field group", zap.Error(destroyErr))
+			logger.Debug("failed to destroy unused metrics field group", logger.Fields{"error": destroyErr})
 		}
 		return
 	}
 
 	c.metricsFieldGroup = fieldGroup
 	c.metricsWatchActive = true
-	c.logger.Info("persistent metrics field watches enabled successfully",
-		zap.Int("fieldCount", len(metricsFields)))
+	logger.Info("persistent metrics field watches enabled successfully", logger.Fields{
+		"fieldCount": len(metricsFields),
+	})
 }
 
 // setupXidWatch creates a persistent field group for DCGM_FI_DEV_XID_ERRORS and
 // watches it on all GPUs. Called once during initialization, after setupMetricsWatches.
 // If setup fails, xidWatchActive remains false and XID counts default to zero.
 func (c *dcgmClient) setupXidWatch() {
-	c.logger.Info("setting up XID error field watch")
+	logger.Info("setting up XID error field watch")
 
 	fieldGroup, err := dcgm.FieldGroupCreate("gpu_xid_errors", []dcgm.Short{dcgm.DCGM_FI_DEV_XID_ERRORS})
 	if err != nil {
-		c.logger.Error("failed to create XID field group, XID counting disabled", zap.Error(err))
+		logger.Error("failed to create XID field group, XID counting disabled", logger.Fields{"error": err})
 		return
 	}
 
 	err = dcgm.WatchFieldsWithGroup(fieldGroup, dcgm.GroupAllGPUs())
 	if err != nil {
-		c.logger.Error("failed to watch XID fields, XID counting disabled", zap.Error(err))
+		logger.Error("failed to watch XID fields, XID counting disabled", logger.Fields{"error": err})
 		if destroyErr := c.fieldGroupDestroyFunc(fieldGroup); destroyErr != nil {
-			c.logger.Debug("failed to destroy unused XID field group", zap.Error(destroyErr))
+			logger.Debug("failed to destroy unused XID field group", logger.Fields{"error": destroyErr})
 		}
 		return
 	}
@@ -877,7 +889,7 @@ func (c *dcgmClient) setupXidWatch() {
 	c.xidFieldGroup = fieldGroup
 	c.xidWatchActive = true
 	c.lastXidQueryTime = time.Now()
-	c.logger.Info("XID error field watch enabled successfully")
+	logger.Info("XID error field watch enabled successfully")
 }
 
 // countRestartAppXidsByDevice takes a slice of FieldValue_v2 entries (from GetValuesSince)
@@ -984,9 +996,9 @@ func (c *dcgmClient) isCriticalViolation(violation dcgm.PolicyViolation) bool {
 // All violations include policy type and timestamp.
 // Additional fields are logged based on the specific policy type from the Data field.
 func (c *dcgmClient) logPolicyViolation(violation dcgm.PolicyViolation) {
-	baseFields := []zap.Field{
-		zap.String("condition", string(violation.Condition)),
-		zap.Time("timestamp", violation.Timestamp),
+	baseFields := logger.Fields{
+		"condition": string(violation.Condition),
+		"timestamp": violation.Timestamp,
 	}
 
 	switch violation.Condition {
@@ -995,22 +1007,23 @@ func (c *dcgmClient) logPolicyViolation(violation dcgm.PolicyViolation) {
 			xidCode := uint64(xidData.ErrNum)
 			isCritical := wellKnownXIDCodes[xidCode]
 
-			fields := baseFields
-			fields = append(fields,
-				zap.Uint64("xidCode", xidCode),
-				zap.Bool("critical", isCritical),
-				zap.String("xidMessage", getXIDMessage(xidCode)),
-			)
+			fields := logger.Fields{
+				"condition":  string(violation.Condition),
+				"timestamp":  violation.Timestamp,
+				"xidCode":    xidCode,
+				"critical":   isCritical,
+				"xidMessage": getXIDMessage(xidCode),
+			}
 
 			if isCritical {
-				c.logger.Error("XID policy violation (critical)", fields...)
+				logger.Error("XID policy violation (critical)", fields)
 			} else {
-				c.logger.Warn("XID policy violation (non-critical)", fields...)
+				logger.Warn("XID policy violation (non-critical)", fields)
 			}
 		}
 
 	default:
-		c.logger.Info("Untracked policy violation", baseFields...)
+		logger.Info("Untracked policy violation", baseFields)
 	}
 }
 
