@@ -22,9 +22,10 @@ import (
 	"sync/atomic"
 	"time"
 
-	"github.com/NVIDIA/go-dcgm/pkg/dcgm"
 	gputypes "github.com/aws/amazon-ecs-agent/ecs-agent/gpu/types"
 	"github.com/aws/amazon-ecs-agent/ecs-agent/logger"
+
+	"github.com/NVIDIA/go-dcgm/pkg/dcgm"
 )
 
 const (
