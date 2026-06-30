@@ -32,7 +32,7 @@ const (
 	rollCount        = 24
 )
 
-// logLevels is the mapping from ECS_INIT_LOGLEVEL to Seelog provided levels.
+// logLevels is the mapping from ECS_LOGLEVEL to Seelog provided levels.
 var logLevels = map[string]string{
 	"debug": "debug",
 	"info":  "info",
