@@ -342,22 +342,6 @@ go.opencensus.io/internal
 go.opencensus.io/trace
 go.opencensus.io/trace/internal
 go.opencensus.io/trace/tracestate
-# go.uber.org/multierr v1.10.0
-## explicit; go 1.19
-go.uber.org/multierr
-# go.uber.org/zap v1.28.0
-## explicit; go 1.19
-go.uber.org/zap
-go.uber.org/zap/buffer
-go.uber.org/zap/internal
-go.uber.org/zap/internal/bufferpool
-go.uber.org/zap/internal/color
-go.uber.org/zap/internal/exit
-go.uber.org/zap/internal/pool
-go.uber.org/zap/internal/stacktrace
-go.uber.org/zap/internal/ztest
-go.uber.org/zap/zapcore
-go.uber.org/zap/zaptest
 # go.yaml.in/yaml/v2 v2.4.2
 ## explicit; go 1.15
 go.yaml.in/yaml/v2
