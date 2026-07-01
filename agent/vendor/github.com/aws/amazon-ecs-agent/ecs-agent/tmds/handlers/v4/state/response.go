@@ -37,6 +37,7 @@ type TaskResponse struct {
 	Group                   string                   `json:"Group,omitempty"`
 	ClockDrift              *ClockDrift              `json:"ClockDrift,omitempty"`
 	EphemeralStorageMetrics *EphemeralStorageMetrics `json:"EphemeralStorageMetrics,omitempty"`
+	InstanceStorageMetrics  *InstanceStorageMetrics  `json:"InstanceStorageMetrics,omitempty"`
 	CredentialsID           string                   `json:"-"`
 	TaskNetworkConfig       *TaskNetworkConfig       `json:"-"`
 	FaultInjectionEnabled   bool                     `json:"FaultInjectionEnabled"`
@@ -89,6 +90,14 @@ type ClockDrift struct {
 type EphemeralStorageMetrics struct {
 	UtilizedMiBs int64 `json:"Utilized"`
 	ReservedMiBs int64 `json:"Reserved"`
+}
+
+// InstanceStorageMetrics represents instance-level storage metrics exposed via TMDS.
+// Both DataFilesystemUtilization and RootFilesystemUtilization are exposed to customers,
+// matching the metrics available via Container Insights.
+type InstanceStorageMetrics struct {
+	DataFilesystemUtilization float64 `json:"DataFilesystemUtilization"`
+	RootFilesystemUtilization float64 `json:"RootFilesystemUtilization"`
 }
 
 // ContainerResponse is the v4 Container response. It augments the v4 Network response
