@@ -1,5 +1,12 @@
 # Changelog
 
+# 1.105.1
+* Enhancement - Populate ImageDigest for Service Connect sidecar containers [#5006](https://github.com/aws/amazon-ecs-agent/pull/5006)
+* Enhancement - Bump github.com/containerd/containerd from 1.7.32 to 1.7.33 in /agent [#5013](https://github.com/aws/amazon-ecs-agent/pull/5013)
+* Enhancement - Bump github.com/containerd/containerd from 1.7.32 to 1.7.33 in /ecs-init [#5014](https://github.com/aws/amazon-ecs-agent/pull/5014)
+* Enhancement - Bump github.com/container-storage-interface/spec from 1.9.0 to 1.12.0 in /agent [#5008](https://github.com/aws/amazon-ecs-agent/pull/5008)
+* Bugfix - Validate environment file S3 keys so they stay within the task resource directory [#5011](https://github.com/aws/amazon-ecs-agent/pull/5011)
+
 # 1.105.0
 * Feature - feat(acs-model): Add LogDriverVolumeConfiguration to ACS Volume shape [#5005](https://github.com/aws/amazon-ecs-agent/pull/5005)
 * Enhancement - Removed cloudwatch from windows agent capabilities [#5002](https://github.com/aws/amazon-ecs-agent/pull/5002)
