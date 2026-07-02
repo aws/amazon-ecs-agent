@@ -18,6 +18,8 @@ package engine
 import (
 	"errors"
 	"fmt"
+
+	_ "github.com/aws/amazon-ecs-agent/ecs-agent/gpu/dcgm"
 )
 
 const (
