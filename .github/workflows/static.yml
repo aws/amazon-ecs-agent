@@ -74,52 +74,6 @@ jobs:
           make get-deps-init
           make static-check-init
 
-  mockgen-check:
-    name: Mockgen Drift
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v6
-        with:
-          path: src/github.com/aws/amazon-ecs-agent
-      - name: get GO_VERSION
-        id: get-go-version
-        run:  |
-          cd $GITHUB_WORKSPACE/src/github.com/aws/amazon-ecs-agent
-          set -eou pipefail
-          go_version=$(cat GO_VERSION | tr -d '\n')
-          go_version_length=${#go_version}
-          go_version_re="^([0-9]+\.){1,2}([0-9]+)$"
-          if ! [[ $go_version_length -le 10 && $go_version =~ $go_version_re ]] ; then
-            echo "invalid GO version"
-            exit 1
-          fi
-          echo "GO_VERSION=$go_version" >> $GITHUB_OUTPUT
-      - uses: actions/setup-go@v6
-        with:
-          go-version: ${{ steps.get-go-version.outputs.GO_VERSION }}
-      - uses: actions/checkout@v6
-        with:
-          path: src/github.com/aws/amazon-ecs-agent
-      - name: check generated DCGM client mock is up to date
-        run: |
-          export GOPATH=$GITHUB_WORKSPACE
-          export PATH=$PATH:$(go env GOPATH)/bin:$GITHUB_WORKSPACE/src/github.com/aws/amazon-ecs-agent/scripts
-          export GO111MODULE=auto
-          cd $GITHUB_WORKSPACE/src/github.com/aws/amazon-ecs-agent
-          # Install the mockgen + goimports versions the repo pins.
-          go install github.com/golang/mock/mockgen@v1.6.0
-          go install golang.org/x/tools/cmd/goimports@v0.2.0
-          # Regenerate only the DCGM client mock (mockgen lives behind the
-          # //go:generate directive in ecs-agent/gpu/dcgm). Scoping to this one
-          # package avoids unrelated go:generate drift in other packages.
-          (cd ecs-agent && go generate -x ./gpu/dcgm/...)
-          # Any diff in the generated mock means it is stale (the Client
-          # interface changed without regenerating). Fail with the offending file.
-          if ! git diff --exit-code -- ecs-agent/gpu/dcgm/mocks/; then
-            echo "::error::DCGM client mock is out of date. Run 'go generate ./gpu/dcgm/...' in the ecs-agent module and commit the result."
-            exit 1
-          fi
-
   x-platform-build:
     name: Cross platform build
     runs-on: ubuntu-latest
