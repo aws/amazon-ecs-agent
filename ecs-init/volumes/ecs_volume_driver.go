@@ -61,11 +61,10 @@ func (e *ECSVolumeDriver) Setup(name string, v *types.Volume) {
 	e.volumeMounts[name] = mnt
 }
 
-// Create implements ECSVolumeDriver's Create volume method
+// Create implements ECSVolumeDriver's Create volume method.
+// The lock is held only for map access and validation; the actual mount I/O
+// proceeds without the driver lock since the caller holds a per-volume lock.
 func (e *ECSVolumeDriver) Create(r *driver.CreateRequest) error {
-	e.lock.Lock()
-	defer e.lock.Unlock()
-
 	mnt := setOptions(r.Options)
 	mnt.Target = r.Path
 
@@ -74,12 +73,26 @@ func (e *ECSVolumeDriver) Create(r *driver.CreateRequest) error {
 		return err
 	}
 
+	// Check for duplicates under read lock
+	e.lock.RLock()
+	if _, exists := e.volumeMounts[r.Name]; exists {
+		e.lock.RUnlock()
+		return fmt.Errorf("volume %s already mounted", r.Name)
+	}
+	e.lock.RUnlock()
+
+	// Perform the mount I/O without holding the driver lock
 	seelog.Infof("Mounting volume %s of type %s at path %s", r.Name, mnt.MountType, mnt.Target)
 	err := mnt.Mount()
 	if err != nil {
 		return fmt.Errorf("mounting volume failed: %v", err)
 	}
+
+	// Register the mount under write lock
+	e.lock.Lock()
 	e.volumeMounts[r.Name] = mnt
+	e.lock.Unlock()
+
 	return nil
 }
 
@@ -98,27 +111,37 @@ func setOptions(options map[string]string) *MountHelper {
 	return mnt
 }
 
-// Remove implements ECSVolumeDriver's Remove volume method
+// Remove implements ECSVolumeDriver's Remove volume method.
+// The unmount I/O proceeds without the driver lock since the caller holds a per-volume lock.
 func (e *ECSVolumeDriver) Remove(req *driver.RemoveRequest) error {
-	e.lock.Lock()
-	defer e.lock.Unlock()
+	e.lock.RLock()
 	mnt, ok := e.volumeMounts[req.Name]
+	e.lock.RUnlock()
+
 	if !ok {
 		return fmt.Errorf("volume not found")
 	}
+
+	// Perform the unmount I/O without holding the driver lock
 	err := mnt.Unmount()
 	if err != nil {
 		if strings.Contains(err.Error(), notMountedErrMsg) ||
 			strings.Contains(err.Error(), noMountPointSpecifiedErrMsg) {
 			seelog.Infof("Unmounting volume %s failed because it's not mounted.", req.Name)
+			e.lock.Lock()
 			delete(e.volumeMounts, req.Name)
+			e.lock.Unlock()
 			return nil
 		}
 		return fmt.Errorf("unmounting volume failed: %v", err)
 	}
+
+	e.lock.Lock()
 	delete(e.volumeMounts, req.Name)
+	e.lock.Unlock()
+
 	seelog.Infof("Unmounted volume %s successfully.", req.Name)
-	return err
+	return nil
 }
 
 // Method to check if a volume is currently mounted.

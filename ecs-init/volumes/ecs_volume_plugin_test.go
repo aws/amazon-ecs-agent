@@ -14,6 +14,8 @@ package volumes
 
 import (
 	"errors"
+	"fmt"
+	"sync"
 	"testing"
 
 	"github.com/aws/amazon-ecs-agent/ecs-init/volumes/driver"
@@ -77,8 +79,9 @@ func TestVolumeCreateHappyPath(t *testing.T) {
 		volumeDrivers: map[string]driver.VolumeDriver{
 			"efs": NewTestVolumeDriver(),
 		},
-		volumes: make(map[string]*types.Volume),
-		state:   NewStateManager(),
+		volumes:  make(map[string]*types.Volume),
+		state:    NewStateManager(),
+		volLocks: make(map[string]*sync.Mutex),
 	}
 	req := &volume.CreateRequest{
 		Name: "vol",
@@ -119,6 +122,7 @@ func TestVolumeCreateTargetSpecified(t *testing.T) {
 		},
 		volumes: make(map[string]*types.Volume),
 		state:   NewStateManager(),
+		volLocks: make(map[string]*sync.Mutex),
 	}
 	req := &volume.CreateRequest{
 		Name: "vol",
@@ -154,6 +158,7 @@ func TestVolumeCreateSaveFailure(t *testing.T) {
 		},
 		volumes: make(map[string]*types.Volume),
 		state:   NewStateManager(),
+		volLocks: make(map[string]*sync.Mutex),
 	}
 	req := &volume.CreateRequest{
 		Name: "vol",
@@ -209,6 +214,7 @@ func TestCreateNoVolumeType(t *testing.T) {
 		},
 		volumes: make(map[string]*types.Volume),
 		state:   NewStateManager(),
+		volLocks: make(map[string]*sync.Mutex),
 	}
 	req := &volume.CreateRequest{
 		Name: "vol",
@@ -340,6 +346,7 @@ func TestVolumeRemoveHappyPath(t *testing.T) {
 			volName: vol,
 		},
 		state: NewStateManager(),
+		volLocks: make(map[string]*sync.Mutex),
 	}
 	req := &volume.RemoveRequest{Name: volName}
 	removeMountPath = func(path string) error {
@@ -378,6 +385,7 @@ func TestVolumeRemoveFailure(t *testing.T) {
 			volName: vol,
 		},
 		state: NewStateManager(),
+		volLocks: make(map[string]*sync.Mutex),
 	}
 	saveStateToDisk = func(b []byte) error {
 		return nil
@@ -397,6 +405,7 @@ func TestRemoveVolumeNotFound(t *testing.T) {
 		},
 		volumes: map[string]*types.Volume{},
 		state:   NewStateManager(),
+		volLocks: make(map[string]*sync.Mutex),
 	}
 	req := &volume.RemoveRequest{Name: "vol"}
 	assert.Error(t, plugin.Remove(req), "expected error when volume to remove is not found")
@@ -417,6 +426,7 @@ func TestRemoveVolumeDriverNotFound(t *testing.T) {
 			volName: vol,
 		},
 		state: NewStateManager(),
+		volLocks: make(map[string]*sync.Mutex),
 	}
 	req := &volume.RemoveRequest{Name: volName}
 	assert.Error(t, plugin.Remove(req), "expected error when corresponding volume driver not found")
@@ -443,6 +453,7 @@ func TestVolumeRemoveNoUnmountIfAlreadyUnmounted(t *testing.T) {
 			volName: vol,
 		},
 		state: NewStateManager(),
+		volLocks: make(map[string]*sync.Mutex),
 	}
 	saveStateToDisk = func(b []byte) error {
 		return nil
@@ -470,6 +481,7 @@ func TestVolumeRemoveMountPathFailure(t *testing.T) {
 			volName: vol,
 		},
 		state: NewStateManager(),
+		volLocks: make(map[string]*sync.Mutex),
 	}
 	req := &volume.RemoveRequest{Name: volName}
 	removeMountPath = func(path string) error {
@@ -502,6 +514,7 @@ func TestVolumeRemoveStateSaveFailure(t *testing.T) {
 			volName: vol,
 		},
 		state: NewStateManager(),
+		volLocks: make(map[string]*sync.Mutex),
 	}
 	req := &volume.RemoveRequest{Name: volName}
 	removeMountPath = func(path string) error {
@@ -686,6 +699,7 @@ func TestPluginLoadState(t *testing.T) {
 				},
 				volumes: make(map[string]*types.Volume),
 				state:   NewStateManager(),
+				volLocks: make(map[string]*sync.Mutex),
 			}
 			fileExists = func(path string) bool {
 				return true
@@ -706,6 +720,7 @@ func TestPluginLoadState(t *testing.T) {
 func TestPluginNoStateFile(t *testing.T) {
 	plugin := &AmazonECSVolumePlugin{
 		state: NewStateManager(),
+		volLocks: make(map[string]*sync.Mutex),
 	}
 	fileExists = func(path string) bool {
 		return false
@@ -719,6 +734,7 @@ func TestPluginNoStateFile(t *testing.T) {
 func TestPluginInvalidState(t *testing.T) {
 	plugin := &AmazonECSVolumePlugin{
 		state: NewStateManager(),
+		volLocks: make(map[string]*sync.Mutex),
 	}
 	fileExists = func(path string) bool {
 		return true
@@ -740,6 +756,7 @@ func TestPluginEmptyState(t *testing.T) {
 		},
 		volumes: make(map[string]*types.Volume),
 		state:   NewStateManager(),
+		volLocks: make(map[string]*sync.Mutex),
 	}
 	fileExists = func(path string) bool {
 		return true
@@ -969,6 +986,7 @@ func TestPluginMount(t *testing.T) {
 				volumes:       tc.pluginVolumes,
 				volumeDrivers: map[string]driver.VolumeDriver{driverTypeEFS: efsDriver},
 				state:         pluginState,
+				volLocks:      make(map[string]*sync.Mutex),
 			}
 			for volName, vol := range tc.pluginVolumes {
 				pluginState.recordVolume(volName, vol)
@@ -1164,6 +1182,7 @@ func TestPluginUnmount(t *testing.T) {
 				volumes:       tc.pluginVolumes,
 				volumeDrivers: map[string]driver.VolumeDriver{driverTypeEFS: efsDriver},
 				state:         pluginState,
+				volLocks:      make(map[string]*sync.Mutex),
 			}
 			for volName, vol := range tc.pluginVolumes {
 				pluginState.recordVolume(volName, vol)
@@ -1202,6 +1221,7 @@ func TestCreate_S3FilesVolume(t *testing.T) {
 		},
 		volumes: make(map[string]*types.Volume),
 		state:   NewStateManager(),
+		volLocks: make(map[string]*sync.Mutex),
 	}
 	req := &volume.CreateRequest{
 		Name: "s3vol",
@@ -1229,4 +1249,128 @@ func TestCreate_S3FilesVolume(t *testing.T) {
 	assert.Equal(t, "s3files", vol.Type)
 	assert.Equal(t, VolumeMountPathPrefix+"s3vol", vol.Path)
 	assert.NotEmpty(t, vol.CreatedAt)
+}
+
+// TestConcurrentMountsDifferentVolumes verifies that mount operations for different
+// volumes can proceed concurrently rather than being serialized behind a single lock.
+// Uses a barrier (sync.WaitGroup) instead of wall-clock timing to prove concurrency.
+func TestConcurrentMountsDifferentVolumes(t *testing.T) {
+	const numVolumes = 5
+
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+
+	saveStateToDisk = func(b []byte) error { return nil }
+	defer func() { saveStateToDisk = saveState }()
+
+	// Barrier: each Create() signals arrival, then waits for all to arrive.
+	// If mounts were serialized, the second goroutine would never enter Create()
+	// until the first returns — so the barrier would deadlock (caught by test timeout).
+	var entered sync.WaitGroup
+	entered.Add(numVolumes)
+
+	mockDriver := mock_driver.NewMockVolumeDriver(ctrl)
+	mockDriver.EXPECT().
+		Create(gomock.Any()).
+		DoAndReturn(func(r *driver.CreateRequest) error {
+			entered.Done()
+			entered.Wait()
+			return nil
+		}).Times(numVolumes)
+
+	volumes := make(map[string]*types.Volume)
+	for i := 0; i < numVolumes; i++ {
+		volumes[fmt.Sprintf("vol%d", i)] = &types.Volume{
+			Path:    fmt.Sprintf("/mnt/vol%d", i),
+			Mounts:  map[string]int{},
+			Options: map[string]string{},
+		}
+	}
+
+	pluginState := NewStateManager()
+	plugin := &AmazonECSVolumePlugin{
+		volumes:       volumes,
+		volumeDrivers: map[string]driver.VolumeDriver{"efs": mockDriver},
+		state:         pluginState,
+		volLocks:      make(map[string]*sync.Mutex),
+	}
+	for volName, vol := range volumes {
+		pluginState.recordVolume(volName, vol)
+	}
+
+	var wg sync.WaitGroup
+	errs := make([]error, numVolumes)
+	for i := 0; i < numVolumes; i++ {
+		wg.Add(1)
+		go func(idx int) {
+			defer wg.Done()
+			_, errs[idx] = plugin.Mount(&volume.MountRequest{
+				Name: fmt.Sprintf("vol%d", idx),
+				ID:   fmt.Sprintf("mount%d", idx),
+			})
+		}(i)
+	}
+	wg.Wait()
+
+	for i, err := range errs {
+		assert.NoError(t, err, "mount vol%d should succeed", i)
+	}
+}
+
+// TestConcurrentMountsSameVolume verifies that concurrent Mount() calls for the
+// same volume result in exactly one driver Create() call.
+func TestConcurrentMountsSameVolume(t *testing.T) {
+	const (
+		volName   = "shared-vol"
+		numMounts = 5
+	)
+
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+
+	saveStateToDisk = func(b []byte) error { return nil }
+	defer func() { saveStateToDisk = saveState }()
+
+	mockDriver := mock_driver.NewMockVolumeDriver(ctrl)
+	mockDriver.EXPECT().
+		Create(&driver.CreateRequest{
+			Name:    volName,
+			Path:    "/mnt/shared",
+			Options: map[string]string{},
+		}).
+		Return(nil).
+		Times(1)
+
+	pluginState := NewStateManager()
+	vol := &types.Volume{
+		Path:    "/mnt/shared",
+		Mounts:  map[string]int{},
+		Options: map[string]string{},
+	}
+	plugin := &AmazonECSVolumePlugin{
+		volumes:       map[string]*types.Volume{volName: vol},
+		volumeDrivers: map[string]driver.VolumeDriver{"efs": mockDriver},
+		state:         pluginState,
+		volLocks:      make(map[string]*sync.Mutex),
+	}
+	pluginState.recordVolume(volName, vol)
+
+	var wg sync.WaitGroup
+	errs := make([]error, numMounts)
+	for i := 0; i < numMounts; i++ {
+		wg.Add(1)
+		go func(idx int) {
+			defer wg.Done()
+			_, errs[idx] = plugin.Mount(&volume.MountRequest{
+				Name: volName,
+				ID:   fmt.Sprintf("mount%d", idx),
+			})
+		}(i)
+	}
+	wg.Wait()
+
+	for i, err := range errs {
+		assert.NoError(t, err, "mount %d should succeed", i)
+	}
+	assert.Equal(t, numMounts, len(vol.Mounts), "all mounts should be recorded")
 }
