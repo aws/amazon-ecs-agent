@@ -60,14 +60,37 @@ func NewAmazonECSVolumePlugin() *AmazonECSVolumePlugin {
 	return plugin
 }
 
-// getOrCreateVolLock returns the per-volume mutex, creating one if it doesn't exist.
-// Caller must hold mapLock (at least RLock for read, Lock for create).
-func (a *AmazonECSVolumePlugin) getOrCreateVolLock(name string) *sync.Mutex {
-	if mu, ok := a.volLocks[name]; ok {
-		return mu
-	}
+// getVolLock returns the per-volume mutex for an existing volume.
+// Caller must hold mapLock (at least RLock).
+// Returns nil if no lock exists for the given volume name.
+func (a *AmazonECSVolumePlugin) getVolLock(name string) *sync.Mutex {
+	return a.volLocks[name]
+}
+
+// createVolLock creates a per-volume mutex for the given volume name.
+// Caller must hold mapLock for writing (Lock, not RLock).
+func (a *AmazonECSVolumePlugin) createVolLock(name string) *sync.Mutex {
 	mu := &sync.Mutex{}
 	a.volLocks[name] = mu
+	return mu
+}
+
+// getOrCreateVolLock returns the per-volume mutex, creating one atomically if needed.
+// Safe to call without holding mapLock — uses double-checked locking internally.
+func (a *AmazonECSVolumePlugin) getOrCreateVolLock(name string) *sync.Mutex {
+	a.mapLock.RLock()
+	mu := a.volLocks[name]
+	a.mapLock.RUnlock()
+	if mu != nil {
+		return mu
+	}
+	a.mapLock.Lock()
+	mu = a.volLocks[name]
+	if mu == nil {
+		mu = &sync.Mutex{}
+		a.volLocks[name] = mu
+	}
+	a.mapLock.Unlock()
 	return mu
 }
 
@@ -113,7 +136,7 @@ func (a *AmazonECSVolumePlugin) LoadState() error {
 			Mounts:    vol.Mounts,
 		}
 		a.volumes[volName] = volume
-		a.getOrCreateVolLock(volName)
+		a.createVolLock(volName)
 		voldriver.Setup(volName, volume)
 	}
 	a.state.VolState = oldState
@@ -181,7 +204,7 @@ func (a *AmazonECSVolumePlugin) Create(r *volume.CreateRequest) error {
 	}
 	// record the volume information
 	a.volumes[r.Name] = vol
-	a.getOrCreateVolLock(r.Name)
+	a.createVolLock(r.Name)
 	seelog.Infof("Saving state of new volume %s", r.Name)
 	// save the state of new volume
 	err = a.state.recordVolume(r.Name, vol)
@@ -231,7 +254,7 @@ func (a *AmazonECSVolumePlugin) Mount(r *volume.MountRequest) (*volume.MountResp
 		return nil, fmt.Errorf("no mount ID in the request")
 	}
 
-	// Phase 1: short global lock to look up volume metadata and per-volume lock
+	// Phase 1: short global lock to look up volume metadata
 	a.mapLock.RLock()
 	vol, ok := a.volumes[r.Name]
 	if !ok {
@@ -249,12 +272,25 @@ func (a *AmazonECSVolumePlugin) Mount(r *volume.MountRequest) (*volume.MountResp
 		a.mapLock.RUnlock()
 		return nil, fmt.Errorf("no volume driver found for type %s", vol.Type)
 	}
-	volMu := a.getOrCreateVolLock(r.Name)
+	volMu := a.getVolLock(r.Name)
 	a.mapLock.RUnlock()
+
+	if volMu == nil {
+		volMu = a.getOrCreateVolLock(r.Name)
+	}
 
 	// Phase 2: per-volume lock — only this volume is blocked, others proceed freely
 	volMu.Lock()
 	defer volMu.Unlock()
+
+	// Re-check that the volume still exists after acquiring the per-volume lock,
+	// as Remove() may have deleted it while we were waiting.
+	a.mapLock.RLock()
+	if _, ok := a.volumes[r.Name]; !ok {
+		a.mapLock.RUnlock()
+		return nil, fmt.Errorf("volume %s was removed", r.Name)
+	}
+	a.mapLock.RUnlock()
 
 	// Mount the volume on the host if there are no active mounts for the volume.
 	if len(vol.Mounts) == 0 {
@@ -301,7 +337,7 @@ func (a *AmazonECSVolumePlugin) Unmount(r *volume.UnmountRequest) error {
 		return fmt.Errorf("no mount ID in the request")
 	}
 
-	// Phase 1: short global lock to look up volume metadata and per-volume lock
+	// Phase 1: short global lock to look up volume metadata
 	a.mapLock.RLock()
 	vol, ok := a.volumes[r.Name]
 	if !ok {
@@ -319,12 +355,24 @@ func (a *AmazonECSVolumePlugin) Unmount(r *volume.UnmountRequest) error {
 		a.mapLock.RUnlock()
 		return fmt.Errorf("no corresponding volume driver found for type %s", vol.Type)
 	}
-	volMu := a.getOrCreateVolLock(r.Name)
+	volMu := a.getVolLock(r.Name)
 	a.mapLock.RUnlock()
+
+	if volMu == nil {
+		volMu = a.getOrCreateVolLock(r.Name)
+	}
 
 	// Phase 2: per-volume lock
 	volMu.Lock()
 	defer volMu.Unlock()
+
+	// Re-check that the volume still exists after acquiring the per-volume lock.
+	a.mapLock.RLock()
+	if _, ok := a.volumes[r.Name]; !ok {
+		a.mapLock.RUnlock()
+		return fmt.Errorf("volume %s was removed", r.Name)
+	}
+	a.mapLock.RUnlock()
 
 	// Remove the mount from the volume
 	seelog.Infof("Removing mount %s from volume %s", r.ID, r.Name)
@@ -345,7 +393,7 @@ func (a *AmazonECSVolumePlugin) Unmount(r *volume.UnmountRequest) error {
 	// Save state
 	if err := a.state.recordVolume(r.Name, vol); err != nil {
 		// State save failed, so roll back the changes made so far to make state consistent
-		seelog.Errorf("Error saving state of volume %s", r.Name, err)
+		seelog.Errorf("Error saving state of volume %s: %v", r.Name, err)
 	}
 
 	// All good
@@ -353,52 +401,73 @@ func (a *AmazonECSVolumePlugin) Unmount(r *volume.UnmountRequest) error {
 }
 
 // Remove implements Docker volume plugin's Remove Method.
-// Uses global write lock since it mutates the volumes map.
+// Acquires the per-volume lock to coordinate with in-flight Mount/Unmount operations,
+// then holds the global write lock to mutate the volumes map.
 func (a *AmazonECSVolumePlugin) Remove(r *volume.RemoveRequest) error {
 	seelog.Infof("Received Remove request %+v", r)
 
-	a.mapLock.Lock()
-	defer a.mapLock.Unlock()
-
-	seelog.Infof("Removing volume %s", r.Name)
+	// Phase 1: look up volume and per-volume lock under read lock
+	a.mapLock.RLock()
 	vol, ok := a.volumes[r.Name]
 	if !ok {
+		a.mapLock.RUnlock()
 		seelog.Errorf("Volume %s to remove is not found", r.Name)
 		return fmt.Errorf("volume %s not found", r.Name)
 	}
-
-	// get corresponding volume driver to unmount
 	volDriver, err := a.getVolumeDriver(vol.Type)
 	if err != nil {
+		a.mapLock.RUnlock()
 		seelog.Errorf("Volume %s removal failure: %s", r.Name, err)
 		return err
 	}
 	if volDriver == nil {
-		// this case should not happen normally
+		a.mapLock.RUnlock()
 		return fmt.Errorf("no corresponding volume driver found for type %s", vol.Type)
 	}
+	volMu := a.getVolLock(r.Name)
+	a.mapLock.RUnlock()
+
+	// Phase 2: acquire per-volume lock to wait for in-flight Mount/Unmount to finish
+	if volMu != nil {
+		volMu.Lock()
+		defer volMu.Unlock()
+	}
+
+	// Phase 3: re-check existence under read lock
+	a.mapLock.RLock()
+	if _, ok := a.volumes[r.Name]; !ok {
+		a.mapLock.RUnlock()
+		seelog.Errorf("Volume %s to remove is not found", r.Name)
+		return fmt.Errorf("volume %s not found", r.Name)
+	}
+	a.mapLock.RUnlock()
+
+	seelog.Infof("Removing volume %s", r.Name)
 
 	// Although unmounts are handled by Unmount method, unmount the volume if it's still
 	// mounted. This is mainly to unmount volumes created by an older version of the
 	// plugin in which unmounts were not handled by Unmount method.
+	// This runs outside mapLock so other volumes are not blocked during slow I/O.
 	if volDriver.IsMounted(r.Name) {
-		seelog.Infof("Volume %s is currently mounted, unmouting it", r.Name)
+		seelog.Infof("Volume %s is currently mounted, unmounting it", r.Name)
 		if err := volDriver.Remove(&driver.RemoveRequest{Name: r.Name}); err != nil {
 			seelog.Errorf("Volume %s removal failure: %v", r.Name, err)
 			return err
 		}
 	}
 
-	// remove the volume information
+	// Phase 4: acquire global write lock only for map mutation
+	a.mapLock.Lock()
 	delete(a.volumes, r.Name)
 	delete(a.volLocks, r.Name)
-	// cleanup the volume's host mount path
+	a.mapLock.Unlock()
+
+	// Cleanup and state save outside global lock
 	err = a.CleanupMountPath(vol.Path)
 	if err != nil {
 		seelog.Errorf("Cleaning mount path failed for volume %s: %v", r.Name, err)
 	}
 	seelog.Infof("Saving state after removing volume %s", r.Name)
-	// remove the state of deleted volume
 	err = a.state.removeVolume(r.Name)
 	if err != nil {
 		seelog.Errorf("Error saving state after removing volume %s: %v", r.Name, err)

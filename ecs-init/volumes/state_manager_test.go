@@ -41,7 +41,10 @@ func TestSaveStateSuccess(t *testing.T) {
 	defer func() {
 		saveStateToDisk = saveState
 	}()
-	assert.NoError(t, s.save())
+	s.lock.Lock()
+	err := s.save()
+	s.lock.Unlock()
+	assert.NoError(t, err)
 }
 
 func TestSaveStateToDisk(t *testing.T) {
@@ -56,7 +59,10 @@ func TestSaveStateToDisk(t *testing.T) {
 	defer func() {
 		saveStateToDisk = saveState
 	}()
-	assert.NoError(t, s.save())
+	s.lock.Lock()
+	err := s.save()
+	s.lock.Unlock()
+	assert.NoError(t, err)
 }
 
 func TestSaveStateToDiskFail(t *testing.T) {
@@ -71,7 +77,10 @@ func TestSaveStateToDiskFail(t *testing.T) {
 	defer func() {
 		saveStateToDisk = saveState
 	}()
-	assert.Error(t, s.save())
+	s.lock.Lock()
+	err := s.save()
+	s.lock.Unlock()
+	assert.Error(t, err)
 }
 
 func TestLoadStateSuccess(t *testing.T) {

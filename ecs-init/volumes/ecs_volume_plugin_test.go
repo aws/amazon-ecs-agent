@@ -17,7 +17,6 @@ import (
 	"fmt"
 	"sync"
 	"testing"
-	"time"
 
 	"github.com/aws/amazon-ecs-agent/ecs-init/volumes/driver"
 	mock_driver "github.com/aws/amazon-ecs-agent/ecs-init/volumes/driver/mock"
@@ -1254,6 +1253,7 @@ func TestCreate_S3FilesVolume(t *testing.T) {
 
 // TestConcurrentMountsDifferentVolumes verifies that mount operations for different
 // volumes can proceed concurrently rather than being serialized behind a single lock.
+// Uses a barrier (sync.WaitGroup) instead of wall-clock timing to prove concurrency.
 func TestConcurrentMountsDifferentVolumes(t *testing.T) {
 	const numVolumes = 5
 
@@ -1263,20 +1263,21 @@ func TestConcurrentMountsDifferentVolumes(t *testing.T) {
 	saveStateToDisk = func(b []byte) error { return nil }
 	defer func() { saveStateToDisk = saveState }()
 
-	// Create a slow mock driver that simulates I/O latency
-	slowDriver := mock_driver.NewMockVolumeDriver(ctrl)
-	for i := 0; i < numVolumes; i++ {
-		volName := fmt.Sprintf("vol%d", i)
-		slowDriver.EXPECT().
-			Create(gomock.Any()).
-			DoAndReturn(func(r *driver.CreateRequest) error {
-				time.Sleep(50 * time.Millisecond)
-				return nil
-			})
-		_ = volName
-	}
+	// Barrier: each Create() signals arrival, then waits for all to arrive.
+	// If mounts were serialized, the second goroutine would never enter Create()
+	// until the first returns — so the barrier would deadlock (caught by test timeout).
+	var entered sync.WaitGroup
+	entered.Add(numVolumes)
 
-	// Set up plugin with pre-created volumes
+	mockDriver := mock_driver.NewMockVolumeDriver(ctrl)
+	mockDriver.EXPECT().
+		Create(gomock.Any()).
+		DoAndReturn(func(r *driver.CreateRequest) error {
+			entered.Done()
+			entered.Wait()
+			return nil
+		}).Times(numVolumes)
+
 	volumes := make(map[string]*types.Volume)
 	for i := 0; i < numVolumes; i++ {
 		volumes[fmt.Sprintf("vol%d", i)] = &types.Volume{
@@ -1289,7 +1290,7 @@ func TestConcurrentMountsDifferentVolumes(t *testing.T) {
 	pluginState := NewStateManager()
 	plugin := &AmazonECSVolumePlugin{
 		volumes:       volumes,
-		volumeDrivers: map[string]driver.VolumeDriver{"efs": slowDriver},
+		volumeDrivers: map[string]driver.VolumeDriver{"efs": mockDriver},
 		state:         pluginState,
 		volLocks:      make(map[string]*sync.Mutex),
 	}
@@ -1297,8 +1298,6 @@ func TestConcurrentMountsDifferentVolumes(t *testing.T) {
 		pluginState.recordVolume(volName, vol)
 	}
 
-	// Launch concurrent mount requests
-	start := time.Now()
 	var wg sync.WaitGroup
 	errs := make([]error, numVolumes)
 	for i := 0; i < numVolumes; i++ {
@@ -1312,14 +1311,66 @@ func TestConcurrentMountsDifferentVolumes(t *testing.T) {
 		}(i)
 	}
 	wg.Wait()
-	elapsed := time.Since(start)
 
 	for i, err := range errs {
 		assert.NoError(t, err, "mount vol%d should succeed", i)
 	}
+}
 
-	// With serial processing, 5 x 50ms = 250ms minimum.
-	// With concurrent processing, all should complete in ~50-100ms.
-	assert.Less(t, elapsed.Milliseconds(), int64(200),
-		"concurrent mounts should complete faster than serial execution")
+// TestConcurrentMountsSameVolume verifies that concurrent Mount() calls for the
+// same volume result in exactly one driver Create() call.
+func TestConcurrentMountsSameVolume(t *testing.T) {
+	const (
+		volName   = "shared-vol"
+		numMounts = 5
+	)
+
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+
+	saveStateToDisk = func(b []byte) error { return nil }
+	defer func() { saveStateToDisk = saveState }()
+
+	mockDriver := mock_driver.NewMockVolumeDriver(ctrl)
+	mockDriver.EXPECT().
+		Create(&driver.CreateRequest{
+			Name:    volName,
+			Path:    "/mnt/shared",
+			Options: map[string]string{},
+		}).
+		Return(nil).
+		Times(1)
+
+	pluginState := NewStateManager()
+	vol := &types.Volume{
+		Path:    "/mnt/shared",
+		Mounts:  map[string]int{},
+		Options: map[string]string{},
+	}
+	plugin := &AmazonECSVolumePlugin{
+		volumes:       map[string]*types.Volume{volName: vol},
+		volumeDrivers: map[string]driver.VolumeDriver{"efs": mockDriver},
+		state:         pluginState,
+		volLocks:      make(map[string]*sync.Mutex),
+	}
+	pluginState.recordVolume(volName, vol)
+
+	var wg sync.WaitGroup
+	errs := make([]error, numMounts)
+	for i := 0; i < numMounts; i++ {
+		wg.Add(1)
+		go func(idx int) {
+			defer wg.Done()
+			_, errs[idx] = plugin.Mount(&volume.MountRequest{
+				Name: volName,
+				ID:   fmt.Sprintf("mount%d", idx),
+			})
+		}(i)
+	}
+	wg.Wait()
+
+	for i, err := range errs {
+		assert.NoError(t, err, "mount %d should succeed", i)
+	}
+	assert.Equal(t, numMounts, len(vol.Mounts), "all mounts should be recorded")
 }
