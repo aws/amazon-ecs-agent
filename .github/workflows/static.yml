@@ -74,6 +74,54 @@ jobs:
           make get-deps-init
           make static-check-init
 
+  mockgen-check:
+    name: Mockgen Drift
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          path: src/github.com/aws/amazon-ecs-agent
+      - name: get GO_VERSION
+        id: get-go-version
+        run:  |
+          cd $GITHUB_WORKSPACE/src/github.com/aws/amazon-ecs-agent
+          set -eou pipefail
+          go_version=$(cat GO_VERSION | tr -d '\n')
+          go_version_length=${#go_version}
+          go_version_re="^([0-9]+\.){1,2}([0-9]+)$"
+          if ! [[ $go_version_length -le 10 && $go_version =~ $go_version_re ]] ; then
+            echo "invalid GO version"
+            exit 1
+          fi
+          echo "GO_VERSION=$go_version" >> $GITHUB_OUTPUT
+      - uses: actions/setup-go@v6
+        with:
+          go-version: ${{ steps.get-go-version.outputs.GO_VERSION }}
+      - uses: actions/checkout@v6
+        with:
+          path: src/github.com/aws/amazon-ecs-agent
+      - name: check generated mocks are up to date
+        run: |
+          export GOPATH=$GITHUB_WORKSPACE
+          export PATH=$PATH:$(go env GOPATH)/bin:$GITHUB_WORKSPACE/src/github.com/aws/amazon-ecs-agent/scripts
+          export GO111MODULE=auto
+          cd $GITHUB_WORKSPACE/src/github.com/aws/amazon-ecs-agent
+          # Install the mockgen + goimports versions the repo pins.
+          go install github.com/golang/mock/mockgen@v1.6.0
+          go install golang.org/x/tools/cmd/goimports@v0.2.0
+          # Regenerate every module's go:generate output (mockgen lives behind
+          # //go:generate directives). dcgm-init is a standalone module and is
+          # not covered by static-check / static-check-init, so run it explicitly.
+          go generate -x ./agent/... ./ecs-agent/...
+          go generate -x ./ecs-init/...
+          (cd dcgm-init && go generate -x ./...)
+          # Any diff means a committed mock is stale (interface changed without
+          # regenerating). Fail with the offending files.
+          if ! git diff --exit-code; then
+            echo "::error::Generated mocks are out of date. Run 'make gogenerate' (and 'go generate ./...' in dcgm-init) and commit the result."
+            exit 1
+          fi
+
   x-platform-build:
     name: Cross platform build
     runs-on: ubuntu-latest
