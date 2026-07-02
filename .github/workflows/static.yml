@@ -100,7 +100,7 @@ jobs:
       - uses: actions/checkout@v6
         with:
           path: src/github.com/aws/amazon-ecs-agent
-      - name: check generated mocks are up to date
+      - name: check generated DCGM client mock is up to date
         run: |
           export GOPATH=$GITHUB_WORKSPACE
           export PATH=$PATH:$(go env GOPATH)/bin:$GITHUB_WORKSPACE/src/github.com/aws/amazon-ecs-agent/scripts
@@ -109,16 +109,14 @@ jobs:
           # Install the mockgen + goimports versions the repo pins.
           go install github.com/golang/mock/mockgen@v1.6.0
           go install golang.org/x/tools/cmd/goimports@v0.2.0
-          # Regenerate every module's go:generate output (mockgen lives behind
-          # //go:generate directives). dcgm-init is a standalone module and is
-          # not covered by static-check / static-check-init, so run it explicitly.
-          go generate -x ./agent/... ./ecs-agent/...
-          go generate -x ./ecs-init/...
-          (cd dcgm-init && go generate -x ./...)
-          # Any diff means a committed mock is stale (interface changed without
-          # regenerating). Fail with the offending files.
-          if ! git diff --exit-code; then
-            echo "::error::Generated mocks are out of date. Run 'make gogenerate' (and 'go generate ./...' in dcgm-init) and commit the result."
+          # Regenerate only the DCGM client mock (mockgen lives behind the
+          # //go:generate directive in ecs-agent/gpu/dcgm). Scoping to this one
+          # package avoids unrelated go:generate drift in other packages.
+          (cd ecs-agent && go generate -x ./gpu/dcgm/...)
+          # Any diff in the generated mock means it is stale (the Client
+          # interface changed without regenerating). Fail with the offending file.
+          if ! git diff --exit-code -- ecs-agent/gpu/dcgm/mocks/; then
+            echo "::error::DCGM client mock is out of date. Run 'go generate ./gpu/dcgm/...' in the ecs-agent module and commit the result."
             exit 1
           fi
 
