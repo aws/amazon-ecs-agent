@@ -2937,6 +2937,8 @@ func (s TaskStopVerificationOutput) GoString() string {
 type TrustedExecutionConfiguration struct {
 	_ struct{} `type:"structure"`
 
+	AttestationPolicy *string `json:"attestationPolicy,omitempty" type:"string"`
+
 	IsolationMode *string `json:"isolationMode,omitempty" type:"string" enum:"IsolationMode"`
 }
 
