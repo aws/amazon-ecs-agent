@@ -34,9 +34,9 @@ import (
 	mock_state "github.com/aws/amazon-ecs-agent/ecs-agent/tmds/handlers/v4/state/mocks"
 
 	"github.com/aws/aws-sdk-go-v2/aws"
-	"github.com/docker/docker/api/types"
 	"github.com/golang/mock/gomock"
 	"github.com/gorilla/mux"
+	"github.com/moby/moby/api/types"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
