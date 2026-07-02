@@ -30,6 +30,7 @@ import (
 
 	"github.com/aws/amazon-ecs-agent/ecs-agent/logger"
 	"github.com/aws/amazon-ecs-agent/ecs-agent/logger/field"
+	"github.com/moby/moby/api/types/container"
 
 	apicontainer "github.com/aws/amazon-ecs-agent/agent/api/container"
 	"github.com/aws/amazon-ecs-agent/agent/config"
@@ -215,7 +216,7 @@ type DockerClient interface {
 
 	// Stats returns a channel of stat data for the specified container. A context should be provided so the request can
 	// be canceled.
-	Stats(context.Context, string, time.Duration) (<-chan *types.StatsJSON, <-chan error)
+	Stats(context.Context, string, time.Duration) (<-chan *container.StatsResponse, <-chan error)
 
 	// Version returns the version of the Docker daemon.
 	Version(context.Context, time.Duration) (string, error)
@@ -1538,12 +1539,12 @@ func (dg *dockerGoClient) APIVersion() (dockerclient.DockerVersion, error) {
 	return dg.sdkClientFactory.FindClientAPIVersion(client), nil
 }
 
-// Stats returns a channel of *types.StatsJSON entries for the container.
-func (dg *dockerGoClient) Stats(ctx context.Context, id string, inactivityTimeout time.Duration) (<-chan *types.StatsJSON, <-chan error) {
+// Stats returns a channel of *container.StatsResponse entries for the container.
+func (dg *dockerGoClient) Stats(ctx context.Context, id string, inactivityTimeout time.Duration) (<-chan *container.StatsResponse, <-chan error) {
 	subCtx, cancelRequest := context.WithCancel(ctx)
 
 	errC := make(chan error, 1)
-	statsC := make(chan *types.StatsJSON)
+	statsC := make(chan *container.StatsResponse)
 	client, err := dg.sdkDockerClient()
 	if err != nil {
 		cancelRequest()
@@ -1579,7 +1580,7 @@ func (dg *dockerGoClient) Stats(ctx context.Context, id string, inactivityTimeou
 			defer close(ch)
 
 			decoder := json.NewDecoder(resp.Body)
-			data := new(types.StatsJSON)
+			data := new(container.StatsResponse)
 			for err := decoder.Decode(data); err != io.EOF; err = decoder.Decode(data) {
 				if err != nil {
 					errC <- fmt.Errorf("DockerGoClient: Unable to decode stats for container %s: %v", id, err)
@@ -1596,7 +1597,7 @@ func (dg *dockerGoClient) Stats(ctx context.Context, id string, inactivityTimeou
 				case statsC <- data:
 				}
 
-				data = new(types.StatsJSON)
+				data = new(container.StatsResponse)
 			}
 		}()
 	} else {
@@ -1642,7 +1643,7 @@ func (dg *dockerGoClient) Stats(ctx context.Context, id string, inactivityTimeou
 	return statsC, errC
 }
 
-func getContainerStatsNotStreamed(client sdkclient.Client, ctx context.Context, id string, timeout time.Duration) (*types.StatsJSON, error) {
+func getContainerStatsNotStreamed(client sdkclient.Client, ctx context.Context, id string, timeout time.Duration) (*container.StatsResponse, error) {
 	ctxWithTimeout, cancel := context.WithTimeout(ctx, timeout)
 	defer cancel()
 	type statsResponse struct {
@@ -1660,7 +1661,7 @@ func getContainerStatsNotStreamed(client sdkclient.Client, ctx context.Context, 
 			return nil, fmt.Errorf("DockerGoClient: Unable to retrieve stats for container %s: %v", id, resp.err)
 		}
 		decoder := json.NewDecoder(resp.stats.Body)
-		stats := &types.StatsJSON{}
+		stats := &container.StatsResponse{}
 		err := decoder.Decode(stats)
 		if err != nil {
 			return nil, fmt.Errorf("DockerGoClient: Unable to decode stats for container %s: %v", id, err)

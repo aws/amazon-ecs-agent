@@ -24,12 +24,11 @@ import (
 	"time"
 
 	resourcestatus "github.com/aws/amazon-ecs-agent/agent/taskresource/status"
+	"github.com/aws/amazon-ecs-agent/agent/utils"
 	"github.com/aws/amazon-ecs-agent/ecs-agent/api/container/restart"
 	apicontainerstatus "github.com/aws/amazon-ecs-agent/ecs-agent/api/container/status"
-	"github.com/docker/docker/api/types"
-
-	"github.com/aws/amazon-ecs-agent/agent/utils"
 	dockercontainer "github.com/docker/docker/api/types/container"
+	mobycontainer "github.com/moby/moby/api/types/container"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -1465,16 +1464,14 @@ func TestGetAndSetStartedAt(t *testing.T) {
 
 func TestGetAndSetRestartAggregationDataForStats(t *testing.T) {
 	testTime := time.Date(1969, 12, 31, 23, 59, 59, 0, time.UTC)
-	testStatsJSON := types.StatsJSON{
-		Stats: types.Stats{
-			CPUStats: types.CPUStats{
-				CPUUsage: types.CPUUsage{
-					TotalUsage: 100,
-				},
+	testStatsJSON := mobycontainer.StatsResponse{
+		CPUStats: mobycontainer.CPUStats{
+			CPUUsage: mobycontainer.CPUUsage{
+				TotalUsage: 100,
 			},
-			MemoryStats: types.MemoryStats{
-				MaxUsage: 200,
-			},
+		},
+		MemoryStats: mobycontainer.MemoryStats{
+			MaxUsage: 200,
 		},
 	}
 	testRestartAggregationDataForStats := ContainerRestartAggregationDataForStats{

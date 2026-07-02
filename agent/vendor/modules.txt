@@ -88,6 +88,7 @@ github.com/aws/amazon-ecs-agent/ecs-agent/utils/execwrapper
 github.com/aws/amazon-ecs-agent/ecs-agent/utils/execwrapper/mocks
 github.com/aws/amazon-ecs-agent/ecs-agent/utils/firelens
 github.com/aws/amazon-ecs-agent/ecs-agent/utils/httpproxy
+github.com/aws/amazon-ecs-agent/ecs-agent/utils/meminfo
 github.com/aws/amazon-ecs-agent/ecs-agent/utils/net
 github.com/aws/amazon-ecs-agent/ecs-agent/utils/netlinkwrapper
 github.com/aws/amazon-ecs-agent/ecs-agent/utils/netlinkwrapper/mocks
@@ -399,7 +400,6 @@ github.com/docker/docker/image/spec/specs-go/v1
 github.com/docker/docker/internal/multierror
 github.com/docker/docker/pkg/homedir
 github.com/docker/docker/pkg/ioutils
-github.com/docker/docker/pkg/meminfo
 github.com/docker/docker/pkg/plugins
 github.com/docker/docker/pkg/plugins/transport
 github.com/docker/docker/pkg/rootless
@@ -457,6 +457,17 @@ github.com/jmespath/go-jmespath
 # github.com/json-iterator/go v1.1.12
 ## explicit; go 1.12
 github.com/json-iterator/go
+# github.com/moby/docker-image-spec v1.3.1
+## explicit; go 1.18
+github.com/moby/docker-image-spec/specs-go/v1
+# github.com/moby/moby/api v1.54.2
+## explicit; go 1.24
+github.com/moby/moby/api/types/blkiodev
+github.com/moby/moby/api/types/common
+github.com/moby/moby/api/types/container
+github.com/moby/moby/api/types/mount
+github.com/moby/moby/api/types/network
+github.com/moby/moby/api/types/storage
 # github.com/moby/sys/userns v0.1.0
 ## explicit; go 1.21
 github.com/moby/sys/userns

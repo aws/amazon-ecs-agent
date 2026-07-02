@@ -22,7 +22,7 @@ import (
 	"github.com/aws/amazon-ecs-agent/agent/api/task"
 	"github.com/aws/amazon-ecs-agent/agent/stats/resolver"
 
-	dockerstats "github.com/docker/docker/api/types"
+	"github.com/moby/moby/api/types/container"
 	"github.com/pkg/errors"
 )
 
@@ -37,6 +37,6 @@ func newStatsTaskContainer(taskARN, taskId, containerPID string, numberOfContain
 	return nil, errors.New("Unsupported platform")
 }
 
-func (taskStat *StatsTask) retrieveNetworkStatistics() (map[string]dockerstats.NetworkStats, error) {
+func (taskStat *StatsTask) retrieveNetworkStatistics() (map[string]container.NetworkStats, error) {
 	return nil, errors.New("Unsupported platform")
 }

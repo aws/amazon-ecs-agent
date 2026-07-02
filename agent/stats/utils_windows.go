@@ -19,11 +19,11 @@ package stats
 import (
 	"fmt"
 
-	"github.com/docker/docker/api/types"
+	"github.com/moby/moby/api/types/container"
 )
 
 // dockerStatsToContainerStats returns a new object of the ContainerStats object from docker stats.
-func dockerStatsToContainerStats(dockerStats *types.StatsJSON) (*ContainerStats, error) {
+func dockerStatsToContainerStats(dockerStats *container.StatsResponse) (*ContainerStats, error) {
 	cpuUsage := (dockerStats.CPUStats.CPUUsage.TotalUsage * 100) / numCores
 	memoryUsage := dockerStats.MemoryStats.PrivateWorkingSet
 	networkStats := getNetworkStats(dockerStats)
@@ -39,7 +39,7 @@ func dockerStatsToContainerStats(dockerStats *types.StatsJSON) (*ContainerStats,
 	}, nil
 }
 
-func validateDockerStats(dockerStats *types.StatsJSON, containerEnabledRestartPolicy bool) error {
+func validateDockerStats(dockerStats *container.StatsResponse, containerEnabledRestartPolicy bool) error {
 	if containerEnabledRestartPolicy && dockerStats.Read.IsZero() {
 		return fmt.Errorf("invalid container statistics reported for container with restart policy enabled, %s",
 			invalidStatZeroValueReadTimeMsg)
