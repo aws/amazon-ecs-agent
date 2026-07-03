@@ -23,7 +23,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/docker/docker/api/types"
+	"github.com/moby/moby/api/types/container"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -35,7 +35,7 @@ func TestDockerStatsToContainerStats(t *testing.T) {
 	numCores = 4
 	inputJsonFile, _ := filepath.Abs("./unix_test_stats.json")
 	jsonBytes, _ := ioutil.ReadFile(inputJsonFile)
-	dockerStat := &types.StatsJSON{}
+	dockerStat := &container.StatsResponse{}
 	json.Unmarshal([]byte(jsonBytes), dockerStat)
 	containerStats, err := dockerStatsToContainerStats(dockerStat)
 	assert.NoError(t, err, "converting container stats failed")
@@ -53,7 +53,7 @@ func TestDockerStatsToContainerStats(t *testing.T) {
 func TestDockerStatsToContainerStatsEmptyCpuUsageGeneratesError(t *testing.T) {
 	inputJsonFile, _ := filepath.Abs("./unix_test_stats.json")
 	jsonBytes, _ := ioutil.ReadFile(inputJsonFile)
-	dockerStat := &types.StatsJSON{}
+	dockerStat := &container.StatsResponse{}
 	json.Unmarshal([]byte(jsonBytes), dockerStat)
 	prevNumCores := numCores
 	numCores = uint64(0)
@@ -65,13 +65,13 @@ func TestDockerStatsToContainerStatsEmptyCpuUsageGeneratesError(t *testing.T) {
 func TestGetStorageStats(t *testing.T) {
 	testCases := []struct {
 		name               string
-		blkioStats         []types.BlkioStatEntry
+		blkioStats         []container.BlkioStatEntry
 		expectedReadBytes  uint64
 		expectedWriteBytes uint64
 	}{
 		{
 			name: "lowercase op values",
-			blkioStats: []types.BlkioStatEntry{
+			blkioStats: []container.BlkioStatEntry{
 				{Op: "read", Value: 100},
 				{Op: "write", Value: 200},
 			},
@@ -80,7 +80,7 @@ func TestGetStorageStats(t *testing.T) {
 		},
 		{
 			name: "capitalized op values",
-			blkioStats: []types.BlkioStatEntry{
+			blkioStats: []container.BlkioStatEntry{
 				{Op: "Read", Value: 300},
 				{Op: "Write", Value: 400},
 			},
@@ -89,7 +89,7 @@ func TestGetStorageStats(t *testing.T) {
 		},
 		{
 			name: "all caps op values",
-			blkioStats: []types.BlkioStatEntry{
+			blkioStats: []container.BlkioStatEntry{
 				{Op: "READ", Value: 500},
 				{Op: "WRITE", Value: 600},
 			},
@@ -98,7 +98,7 @@ func TestGetStorageStats(t *testing.T) {
 		},
 		{
 			name: "unrecognized op values are ignored",
-			blkioStats: []types.BlkioStatEntry{
+			blkioStats: []container.BlkioStatEntry{
 				{Op: "invalid", Value: 700},
 				{Op: "garbage", Value: 800},
 			},
@@ -115,7 +115,7 @@ func TestGetStorageStats(t *testing.T) {
 
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
-			dockerStats := &types.StatsJSON{}
+			dockerStats := &container.StatsResponse{}
 			dockerStats.BlkioStats.IoServiceBytesRecursive = tc.blkioStats
 			readBytes, writeBytes := getStorageStats(dockerStats)
 			assert.Equal(t, tc.expectedReadBytes, readBytes)
@@ -141,7 +141,7 @@ func TestValidateDockerStatsZeroValueReadTime(t *testing.T) {
 	inputJsonFile, _ := filepath.Abs("./unix_test_stats.json")
 	jsonBytes, err := os.ReadFile(inputJsonFile)
 	assert.NoError(t, err)
-	dockerStat := &types.StatsJSON{}
+	dockerStat := &container.StatsResponse{}
 	json.Unmarshal(jsonBytes, dockerStat)
 
 	for _, tc := range testCases {

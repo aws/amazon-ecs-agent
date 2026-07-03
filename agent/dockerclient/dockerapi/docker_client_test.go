@@ -55,6 +55,7 @@ import (
 	"github.com/docker/docker/api/types/volume"
 	"github.com/docker/go-connections/nat"
 	"github.com/golang/mock/gomock"
+	mobycontainer "github.com/moby/moby/api/types/container"
 	"github.com/opencontainers/go-digest"
 	ocispec "github.com/opencontainers/image-spec/specs-go/v1"
 	"github.com/stretchr/testify/assert"
@@ -1479,7 +1480,7 @@ func TestUnavailableVersionError(t *testing.T) {
 	}
 }
 
-func waitForStatsChanClose(statsChan <-chan *types.StatsJSON) (closed bool) {
+func waitForStatsChanClose(statsChan <-chan *mobycontainer.StatsResponse) (closed bool) {
 	i := 0
 	for range statsChan {
 		if i == 10 {
@@ -1591,7 +1592,7 @@ func (ms mockStream) Read(data []byte) (n int, err error) {
 func (ms mockStream) Close() error {
 	return nil
 }
-func waitForStats(t *testing.T, stat *types.StatsJSON) {
+func waitForStats(t *testing.T, stat *mobycontainer.StatsResponse) {
 	ctx, cancel := context.WithTimeout(context.TODO(), 10*time.Second)
 	defer cancel()
 	for {

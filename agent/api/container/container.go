@@ -35,6 +35,7 @@ import (
 	"github.com/docker/docker/api/types"
 	dockercontainer "github.com/docker/docker/api/types/container"
 	"github.com/docker/docker/api/types/registry"
+	"github.com/moby/moby/api/types/container"
 )
 
 const (
@@ -364,8 +365,8 @@ type DependsOn struct {
 }
 
 type ContainerRestartAggregationDataForStats struct {
-	LastRestartDetectedAt     time.Time       `json:"LastRestartDetectedAt,omitempty"`
-	LastStatBeforeLastRestart types.StatsJSON `json:"LastStatBeforeLastRestart,omitempty"`
+	LastRestartDetectedAt     time.Time               `json:"LastRestartDetectedAt,omitempty"`
+	LastStatBeforeLastRestart container.StatsResponse `json:"LastStatBeforeLastRestart,omitempty"`
 }
 
 // DockerContainer is a mapping between containers-as-docker-knows-them and

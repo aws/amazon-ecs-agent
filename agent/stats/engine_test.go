@@ -38,6 +38,7 @@ import (
 	mock_csiclient "github.com/aws/amazon-ecs-agent/ecs-agent/csiclient/mocks"
 	ni "github.com/aws/amazon-ecs-agent/ecs-agent/netlib/model/networkinterface"
 	"github.com/aws/amazon-ecs-agent/ecs-agent/tcs/model/ecstcs"
+	"github.com/moby/moby/api/types/container"
 
 	"github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/docker/docker/api/types"
@@ -79,7 +80,7 @@ func TestStatsEngineAddRemoveContainers(t *testing.T) {
 			NetworkModeUnsafe: networkMode,
 		},
 	}, nil)
-	mockStatsChannel := make(chan *types.StatsJSON)
+	mockStatsChannel := make(chan *container.StatsResponse)
 	defer close(mockStatsChannel)
 	mockDockerClient.EXPECT().Stats(gomock.Any(), gomock.Any(), gomock.Any()).Return(mockStatsChannel, nil).AnyTimes()
 	engine := NewDockerStatsEngine(&cfg, nil, eventStream("TestStatsEngineAddRemoveContainers"), nil, nil, nil)
@@ -285,7 +286,7 @@ func TestStatsEngineMetadataInStatsSets(t *testing.T) {
 	ts1 := parseNanoTime("2015-02-12T21:22:05.131117533Z")
 	ts2 := parseNanoTime("2015-02-12T21:22:05.232291187Z")
 	containerStats := createFakeContainerStats()
-	dockerStats := []*types.StatsJSON{{}, {}}
+	dockerStats := []*container.StatsResponse{{}, {}}
 	dockerStats[0].Read = ts1
 	dockerStats[1].Read = ts2
 	containers, _ := engine.tasksToContainers["t1"]
@@ -477,7 +478,7 @@ func TestStartMetricsPublish(t *testing.T) {
 			ts1 := parseNanoTime("2015-02-12T21:22:05.131117533Z")
 
 			containerStats := createFakeContainerStats()
-			dockerStats := []*types.StatsJSON{{}, {}}
+			dockerStats := []*container.StatsResponse{{}, {}}
 			dockerStats[0].Read = ts1
 			containers, _ := engine.tasksToContainers["t1"]
 
@@ -719,7 +720,7 @@ func TestSynchronizeOnRestart(t *testing.T) {
 	defer ctrl.Finish()
 
 	containerID := "containerID"
-	statsChan := make(chan *types.StatsJSON)
+	statsChan := make(chan *container.StatsResponse)
 	statsStarted := make(chan struct{})
 	client := mock_dockerapi.NewMockDockerClient(ctrl)
 	resolver := mock_resolver.NewMockContainerMetadataResolver(ctrl)
@@ -834,7 +835,7 @@ func testNetworkModeStats(t *testing.T, netMode string, enis []*ni.NetworkInterf
 	engine.addAndStartStatsContainer("c1")
 	ts1 := parseNanoTime("2015-02-12T21:22:05.131117533Z")
 	containerStats := createFakeContainerStats()
-	dockerStats := []*types.StatsJSON{{}, {}}
+	dockerStats := []*container.StatsResponse{{}, {}}
 	dockerStats[0].Read = ts1
 	containers, _ := engine.tasksToContainers["t1"]
 	for _, statsContainer := range containers {

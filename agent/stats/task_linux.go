@@ -28,7 +28,7 @@ import (
 	"github.com/aws/amazon-ecs-agent/ecs-agent/utils/netlinkwrapper"
 
 	"github.com/containernetworking/plugins/pkg/ns"
-	dockerstats "github.com/docker/docker/api/types"
+	"github.com/moby/moby/api/types/container"
 	netlinklib "github.com/vishvananda/netlink"
 )
 
@@ -102,8 +102,8 @@ func (taskStat *StatsTask) populateNIDeviceList(containerPID string) ([]string, 
 	return deviceList, err
 }
 
-func linkStatsToDockerStats(netLinkStats *netlinklib.LinkStatistics) dockerstats.NetworkStats {
-	networkStats := dockerstats.NetworkStats{
+func linkStatsToDockerStats(netLinkStats *netlinklib.LinkStatistics) container.NetworkStats {
+	networkStats := container.NetworkStats{
 		RxBytes:   netLinkStats.RxBytes,
 		RxPackets: netLinkStats.RxPackets,
 		RxErrors:  netLinkStats.RxErrors,
@@ -116,7 +116,7 @@ func linkStatsToDockerStats(netLinkStats *netlinklib.LinkStatistics) dockerstats
 	return networkStats
 }
 
-func (taskStat *StatsTask) retrieveNetworkStatistics() (map[string]dockerstats.NetworkStats, error) {
+func (taskStat *StatsTask) retrieveNetworkStatistics() (map[string]container.NetworkStats, error) {
 	if len(taskStat.TaskMetadata.DeviceName) == 0 {
 		var err error
 		taskStat.TaskMetadata.DeviceName, err = taskStat.populateNIDeviceList(taskStat.TaskMetadata.ContainerPID)
@@ -125,7 +125,7 @@ func (taskStat *StatsTask) retrieveNetworkStatistics() (map[string]dockerstats.N
 		}
 	}
 
-	networkStats := make(map[string]dockerstats.NetworkStats, len(taskStat.TaskMetadata.DeviceName))
+	networkStats := make(map[string]container.NetworkStats, len(taskStat.TaskMetadata.DeviceName))
 	for _, device := range taskStat.TaskMetadata.DeviceName {
 		var link netlinklib.Link
 		err := taskStat.nswrapperinterface.WithNetNSPath(fmt.Sprintf(ecscni.NetnsFormat,
