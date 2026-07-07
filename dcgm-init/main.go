@@ -24,7 +24,7 @@ import (
 	"github.com/aws/amazon-ecs-agent/dcgm-init/version"
 	"github.com/aws/amazon-ecs-agent/ecs-agent/logger"
 
-	log "github.com/cihub/seelog"
+	"github.com/cihub/seelog"
 )
 
 // all supported commands
@@ -43,11 +43,11 @@ func main() {
 	}
 
 	logger.InitSeelog()
-	defer log.Flush()
+	defer seelog.Flush()
 	if args[0] == VERSION {
 		err := version.PrintVersion()
 		if err != nil {
-			log.Errorf("failed print version info, err: %v", err)
+			seelog.Errorf("failed print version info, err: %v", err)
 		}
 		return
 	}
@@ -56,7 +56,7 @@ func main() {
 	if err != nil {
 		die(err, engine.DefaultInitErrorExitCode)
 	}
-	log.Info(args[0])
+	seelog.Info(args[0])
 	actions := actions(init)
 	action, ok := actions[args[0]]
 	if !ok {
@@ -95,7 +95,7 @@ func usage(actions map[string]action) {
 }
 
 func die(err error, exitCode int) {
-	log.Error(err.Error())
-	log.Flush()
+	seelog.Error(err.Error())
+	seelog.Flush()
 	os.Exit(exitCode)
 }
