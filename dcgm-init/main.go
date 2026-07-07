@@ -66,9 +66,6 @@ func main() {
 	err = action.function()
 
 	if err != nil {
-		if err, ok := err.(*engine.TerminalError); ok {
-			die(err, engine.TerminalFailureAgentExitCode)
-		}
 		die(err, engine.DefaultInitErrorExitCode)
 	}
 }

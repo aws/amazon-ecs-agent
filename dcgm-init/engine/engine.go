@@ -17,15 +17,11 @@ package engine
 
 import (
 	"errors"
-	"fmt"
 
 	_ "github.com/aws/amazon-ecs-agent/ecs-agent/gpu/dcgm"
 )
 
 const (
-	// TerminalFailureAgentExitCode is the exit code used when dcgm-init hits a
-	// terminal error and should not be restarted.
-	TerminalFailureAgentExitCode = 5
 	// DefaultInitErrorExitCode is the exit code used for general init errors.
 	DefaultInitErrorExitCode = -1
 )
@@ -36,16 +32,6 @@ var errNotImplemented = errors.New("not implemented")
 
 // Engine drives the dcgm-init metrics collection loop.
 type Engine struct{}
-
-// TerminalError indicates a failure that should not be retried.
-type TerminalError struct {
-	err      string
-	exitCode int
-}
-
-func (e *TerminalError) Error() string {
-	return fmt.Sprintf("%s: %d", e.err, e.exitCode)
-}
 
 // New creates an instance of Engine.
 func New() (*Engine, error) {
