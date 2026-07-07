@@ -31,7 +31,6 @@ import (
 const (
 	VERSION = "version"
 	START   = "start"
-	STOP    = "stop"
 )
 
 func main() {
@@ -84,10 +83,6 @@ func actions(engine *engine.Engine) map[string]action {
 		START: action{
 			function:    engine.Start,
 			description: "Start collecting GPU metrics",
-		},
-		STOP: action{
-			function:    engine.Stop,
-			description: "Stop collecting GPU metrics",
 		},
 	}
 }

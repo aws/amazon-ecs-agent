@@ -56,8 +56,3 @@ func New() (*Engine, error) {
 func (e *Engine) Start() error {
 	return errNotImplemented
 }
-
-// Stop stops collecting GPU metrics.
-func (e *Engine) Stop() error {
-	return errNotImplemented
-}
