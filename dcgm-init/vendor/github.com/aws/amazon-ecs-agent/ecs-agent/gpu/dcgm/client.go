@@ -22,9 +22,10 @@ import (
 	"sync/atomic"
 	"time"
 
-	"github.com/NVIDIA/go-dcgm/pkg/dcgm"
 	gputypes "github.com/aws/amazon-ecs-agent/ecs-agent/gpu/types"
 	"github.com/aws/amazon-ecs-agent/ecs-agent/logger"
+
+	"github.com/NVIDIA/go-dcgm/pkg/dcgm"
 )
 
 const (
@@ -154,14 +155,54 @@ var wellKnownXIDCodes = map[uint64]bool{
 // These are customer-actionable errors reported as GPURestartAppXidCount.
 // Reference: https://docs.nvidia.com/deploy/xid-errors/index.html
 var restartAppXIDCodes = map[uint64]bool{
-	8: true, 11: true, 13: true, 25: true, 31: true, 32: true,
-	39: true, 40: true, 41: true, 60: true, 68: true, 69: true,
-	70: true, 71: true, 72: true, 75: true, 76: true, 77: true,
-	80: true, 82: true, 83: true, 84: true, 85: true, 86: true,
-	88: true, 89: true, 94: true, 96: true, 97: true, 98: true,
-	99: true, 100: true, 101: true, 102: true, 103: true, 104: true,
-	105: true, 126: true, 127: true, 128: true, 129: true, 130: true,
-	131: true, 132: true, 133: true, 134: true, 135: true, 139: true,
+	8:   true,
+	11:  true,
+	13:  true,
+	25:  true,
+	31:  true,
+	32:  true,
+	39:  true,
+	40:  true,
+	41:  true,
+	60:  true,
+	68:  true,
+	69:  true,
+	70:  true,
+	71:  true,
+	72:  true,
+	75:  true,
+	76:  true,
+	77:  true,
+	80:  true,
+	82:  true,
+	83:  true,
+	84:  true,
+	85:  true,
+	86:  true,
+	88:  true,
+	89:  true,
+	94:  true,
+	96:  true,
+	97:  true,
+	98:  true,
+	99:  true,
+	100: true,
+	101: true,
+	102: true,
+	103: true,
+	104: true,
+	105: true,
+	126: true,
+	127: true,
+	128: true,
+	129: true,
+	130: true,
+	131: true,
+	132: true,
+	133: true,
+	134: true,
+	135: true,
+	139: true,
 }
 
 // Client provides an interface for monitoring Nvidia GPU health through the

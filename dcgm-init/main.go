@@ -16,7 +16,86 @@
 package main
 
 import (
-	_ "github.com/aws/amazon-ecs-agent/ecs-agent/gpu/dcgm"
+	"flag"
+	"fmt"
+	"os"
+
+	"github.com/aws/amazon-ecs-agent/dcgm-init/engine"
+	"github.com/aws/amazon-ecs-agent/dcgm-init/version"
+	"github.com/aws/amazon-ecs-agent/ecs-agent/logger"
+
+	"github.com/cihub/seelog"
 )
 
-func main() {}
+// all supported commands
+const (
+	VERSION = "version"
+	START   = "start"
+)
+
+func main() {
+	flag.Parse()
+	args := flag.Args()
+
+	if len(args) == 0 {
+		usage(actions(nil))
+		os.Exit(1)
+	}
+
+	logger.InitSeelog()
+	defer seelog.Flush()
+	if args[0] == VERSION {
+		err := version.PrintVersion()
+		if err != nil {
+			seelog.Errorf("failed print version info, err: %v", err)
+		}
+		return
+	}
+
+	init, err := engine.New()
+	if err != nil {
+		die(err, engine.DefaultInitErrorExitCode)
+	}
+	seelog.Info(args[0])
+	actions := actions(init)
+	action, ok := actions[args[0]]
+	if !ok {
+		usage(actions)
+		os.Exit(1)
+	}
+	err = action.function()
+
+	if err != nil {
+		die(err, engine.DefaultInitErrorExitCode)
+	}
+}
+
+type action struct {
+	function    func() error
+	description string
+}
+
+func actions(engine *engine.Engine) map[string]action {
+	return map[string]action{
+		START: action{
+			function:    engine.Start,
+			description: "Start collecting GPU metrics",
+		},
+	}
+}
+
+func usage(actions map[string]action) {
+	fmt.Printf("Usage: %s ACTION\n", os.Args[0])
+	fmt.Println("")
+	fmt.Println(" Available actions:")
+	for command, action := range actions {
+		fmt.Printf("  %-15s  %s\n", command, action.description)
+	}
+	fmt.Println("")
+}
+
+func die(err error, exitCode int) {
+	seelog.Error(err.Error())
+	seelog.Flush()
+	os.Exit(exitCode)
+}
