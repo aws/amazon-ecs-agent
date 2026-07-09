@@ -21,6 +21,7 @@ import (
 	"fmt"
 	"os"
 	"os/signal"
+	"path/filepath"
 	"syscall"
 	"time"
 
@@ -35,15 +36,30 @@ const (
 )
 
 const (
+	MetricsFileDir = "/var/run/ecs"
+
 	// MetricsFilePath is the shared file dcgm-init writes GPU metrics to and the
-	// agent reads. Its parent directory must already exist (provisioned by the
-	// dcgm-init systemd unit); the file itself is created on demand.
-	MetricsFilePath = "/var/run/ecs/gpu-metrics.json"
+	// agent reads. Its parent directory is created on demand by Start(); the
+	// file itself is created on the first collection tick.
+	MetricsFilePath = MetricsFileDir + "/gpu-metrics.json"
 
 	// metricsFilePermission is the permission for the metrics file and its
 	// staging temp file. 0644 keeps the file world-readable so the agent can
 	// consume it; only dcgm-init (running as root) writes it.
 	metricsFilePermission os.FileMode = 0644
+
+	// metricsDirPermission is the permission for the directory holding the
+	// metrics file. 0755 keeps it world-readable/traversable so the agent can
+	// reach the file; only dcgm-init (running as root) writes into it.
+	metricsDirPermission os.FileMode = 0755
+
+	// metricsFileTempSuffix is appended to outputPath to form the staging file
+	// that reconcileAndCollect writes before atomically renaming it onto
+	// outputPath. It stays a suffix on outputPath (rather than a fully qualified
+	// path) so the temp and final files always share a directory: os.Rename is
+	// only atomic within a single filesystem, and tests redirect outputPath to a
+	// temp directory.
+	metricsFileTempSuffix = ".tmp"
 
 	// metricsCollectionInterval is how often GPU metrics are collected and
 	// written. The agent samples the file at roughly this cadence, so writing
@@ -78,14 +94,21 @@ func New() (*Engine, error) {
 // tempPath is the staging file that reconcileAndCollect writes before atomically
 // renaming it onto outputPath.
 func (e *Engine) tempPath() string {
-	return e.outputPath + ".tmp"
+	return e.outputPath + metricsFileTempSuffix
 }
 
 // Start runs the metrics collection loop until a SIGTERM/SIGINT is received
-// (systemd's default stop sends SIGTERM). The metrics file and its staging temp
-// file are created on demand if missing; Start only fails when a file already
-// exists but cannot be written.
+// (systemd's default stop sends SIGTERM). The parent directory, the metrics
+// file, and its staging temp file are all created on demand if missing; Start
+// only fails when a file already exists but cannot be written.
 func (e *Engine) Start() error {
+	// Create the parent directory on demand: as of recent changes it is no
+	// longer guaranteed to exist before dcgm-init runs. MkdirAll is a no-op if
+	// it already exists.
+	outputDir := filepath.Dir(e.outputPath)
+	if err := os.MkdirAll(outputDir, metricsDirPermission); err != nil {
+		return fmt.Errorf("dcgm-init cannot create directory %s: %w", outputDir, err)
+	}
 	// Fail fast if either file can't be written, rather than spin a loop whose
 	// writes fail every tick. Both are created on demand, so only an existing
 	// unwritable file (or unwritable directory) is fatal.
