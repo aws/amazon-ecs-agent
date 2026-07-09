@@ -4,6 +4,7 @@ github.com/NVIDIA/go-dcgm/pkg/dcgm
 # github.com/aws/amazon-ecs-agent/ecs-agent v0.0.0 => ../ecs-agent
 ## explicit; go 1.25.0
 github.com/aws/amazon-ecs-agent/ecs-agent/gpu/dcgm
+github.com/aws/amazon-ecs-agent/ecs-agent/gpu/dcgm/mocks
 github.com/aws/amazon-ecs-agent/ecs-agent/gpu/types
 github.com/aws/amazon-ecs-agent/ecs-agent/logger
 # github.com/bits-and-blooms/bitset v1.22.0
@@ -19,6 +20,9 @@ github.com/cihub/seelog/archive/zip
 # github.com/davecgh/go-spew v1.1.1
 ## explicit
 github.com/davecgh/go-spew/spew
+# github.com/golang/mock v1.6.0
+## explicit; go 1.11
+github.com/golang/mock/gomock
 # github.com/pmezard/go-difflib v1.0.0
 ## explicit
 github.com/pmezard/go-difflib/difflib
