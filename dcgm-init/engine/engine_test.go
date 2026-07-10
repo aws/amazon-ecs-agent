@@ -116,14 +116,10 @@ func TestEngine_ReconcileAndCollect(t *testing.T) {
 		name             string
 		setupMock        func(*mock_dcgm.MockClient, *atomic.Int64, *atomic.Int64)
 		expectGetMetrics bool
-		// wantFreshWrite is true when reconcileAndCollect is expected to write a
-		// fresh snapshot (advancing the seeded sentinel timestamp), false when it
-		// should leave the pre-existing file untouched.
-		wantFreshWrite bool
-		verify         func(t *testing.T, out dcgmOutput)
+		verify           func(t *testing.T, out dcgmOutput)
 	}{
 		{
-			name: "reconcile failure leaves the existing file untouched",
+			name: "reconcile failure writes a fresh status snapshot",
 			setupMock: func(m *mock_dcgm.MockClient, reconciles, getMetrics *atomic.Int64) {
 				m.EXPECT().Reconcile(gomock.Any()).DoAndReturn(func(context.Context) (bool, error) {
 					reconciles.Add(1)
@@ -133,9 +129,16 @@ func TestEngine_ReconcileAndCollect(t *testing.T) {
 					getMetrics.Add(1)
 					return nil, nil
 				}).AnyTimes()
+				expectStatus(m, true, "", true)
 			},
 			expectGetMetrics: false,
-			wantFreshWrite:   false,
+			// A reconcile failure skips collection but is not fatal: a status-only
+			// snapshot is still written, with connection_lost set so the reader
+			// sees the outage rather than a stale file.
+			verify: func(t *testing.T, out dcgmOutput) {
+				assert.Empty(t, out.GPUs, "no per-GPU metrics should be present when reconciliation fails")
+				assert.True(t, out.ConnectionLost, "connection_lost should be written when reconciliation fails")
+			},
 		},
 		{
 			name: "GetMetrics failure writes a fresh status snapshot",
@@ -152,9 +155,7 @@ func TestEngine_ReconcileAndCollect(t *testing.T) {
 			},
 			expectGetMetrics: true,
 			// A GetMetrics failure is non-fatal: a status snapshot with no per-GPU
-			// metrics is still written. The harness confirms the timestamp advanced;
-			// here we confirm the snapshot has no GPUs.
-			wantFreshWrite: true,
+			// metrics is still written. Here we confirm the snapshot has no GPUs.
 			verify: func(t *testing.T, out dcgmOutput) {
 				assert.Empty(t, out.GPUs, "no per-GPU metrics should be present on collection failure")
 			},
@@ -176,7 +177,6 @@ func TestEngine_ReconcileAndCollect(t *testing.T) {
 				expectStatus(m, true, "", false)
 			},
 			expectGetMetrics: true,
-			wantFreshWrite:   true,
 			verify: func(t *testing.T, out dcgmOutput) {
 				require.Len(t, out.GPUs, 1)
 				assert.Equal(t, "GPU-test-uuid-1", out.GPUs[0].GPUUUID)
@@ -195,9 +195,9 @@ func TestEngine_ReconcileAndCollect(t *testing.T) {
 
 			outputPath := filepath.Join(t.TempDir(), "gpu-metrics.json")
 
-			// Seed a pre-existing snapshot stamped with sentinelTimestamp so we can
-			// tell, by whether that timestamp advances, if reconcileAndCollect wrote
-			// a fresh snapshot or left the file untouched.
+			// Seed a pre-existing snapshot stamped with sentinelTimestamp; a
+			// read-back showing any other timestamp proves reconcileAndCollect wrote
+			// a fresh snapshot.
 			seedOutput(t, outputPath)
 
 			var reconcileCalls, getMetricsCalls atomic.Int64
@@ -227,19 +227,14 @@ func TestEngine_ReconcileAndCollect(t *testing.T) {
 			_, err := os.Stat(eng.tempPath())
 			assert.True(t, os.IsNotExist(err), "temp file should not remain after reconcileAndCollect")
 
+			// reconcileAndCollect always writes a fresh snapshot, so the seeded
+			// sentinel timestamp is always overwritten.
 			out := readOutput(t, outputPath)
-			if tc.wantFreshWrite {
-				// A fresh snapshot overwrote the seed: the sentinel timestamp is gone.
-				assert.NotEqual(t, sentinelTimestamp, out.Timestamp,
-					"reconcileAndCollect should overwrite the seeded snapshot with a fresh timestamp")
-				assert.NotEmpty(t, out.Timestamp, "fresh snapshot should carry a timestamp")
-				if tc.verify != nil {
-					tc.verify(t, out)
-				}
-			} else {
-				// The file was left untouched: the seeded snapshot survives verbatim.
-				assert.Equal(t, sentinelTimestamp, out.Timestamp,
-					"reconcileAndCollect should not rewrite the file when reconciliation fails")
+			assert.NotEqual(t, sentinelTimestamp, out.Timestamp,
+				"reconcileAndCollect should overwrite the seeded snapshot with a fresh timestamp")
+			assert.NotEmpty(t, out.Timestamp, "fresh snapshot should carry a timestamp")
+			if tc.verify != nil {
+				tc.verify(t, out)
 			}
 		})
 	}
@@ -382,6 +377,10 @@ func TestStartFilePreconditions(t *testing.T) {
 
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
+			// Start() gates on GPU support before its file-precondition checks;
+			// enable it so these cases exercise the file logic they target.
+			t.Setenv(gpuSupportEnvVar, "true")
+
 			// Root bypasses permission enforcement, so a read-only file is still
 			// writable; skip cases that expect an error from a write denial.
 			if tc.unwritable != "" && tc.wantErr && os.Geteuid() == 0 {
@@ -477,6 +476,93 @@ func TestStartFilePreconditions(t *testing.T) {
 			assert.Equal(t, "GPU-start-001", out.GPUs[0].GPUUUID)
 			_, err := os.Stat(tempPath)
 			assert.True(t, os.IsNotExist(err), "temp file should not remain after the atomic rename")
+		})
+	}
+}
+
+// TestStartGPUSupportGate verifies Start() gates on ECS_ENABLE_GPU_SUPPORT:
+// unless it is exactly "true", Start() returns a *TerminalError and touches
+// neither the client nor the filesystem.
+func TestStartGPUSupportGate(t *testing.T) {
+	testCases := []struct {
+		name         string
+		envSet       bool
+		envValue     string
+		wantTerminal bool
+	}{
+		{name: "unset returns terminal error", envSet: false, wantTerminal: true},
+		{name: "empty returns terminal error", envSet: true, envValue: "", wantTerminal: true},
+		{name: "false returns terminal error", envSet: true, envValue: "false", wantTerminal: true},
+		{name: "TRUE (wrong case) returns terminal error", envSet: true, envValue: "TRUE", wantTerminal: true},
+		{name: "true proceeds past the gate", envSet: true, envValue: "true", wantTerminal: false},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			if tc.envSet {
+				t.Setenv(gpuSupportEnvVar, tc.envValue)
+			} else {
+				// t.Setenv restores the prior value on cleanup, so clearing here is
+				// safe even if the ambient environment has the var set.
+				t.Setenv(gpuSupportEnvVar, "")
+				require.NoError(t, os.Unsetenv(gpuSupportEnvVar))
+			}
+
+			ctrl := gomock.NewController(t)
+			defer ctrl.Finish()
+
+			mockClient := mock_dcgm.NewMockClient(ctrl)
+
+			if tc.wantTerminal {
+				// No expectations are set: the gate must short-circuit before the
+				// client is touched, so any call fails the test. A non-existent
+				// parent dir also proves the gate fired before MkdirAll ran.
+				outputPath := filepath.Join(t.TempDir(), "nonexistent", "gpu-metrics.json")
+				eng := newTestEngine(mockClient, outputPath, time.Hour)
+
+				err := eng.Start()
+				require.Error(t, err)
+				var terminalErr *TerminalError
+				assert.True(t, errors.As(err, &terminalErr),
+					"Start() should return a *TerminalError when GPU support is not enabled")
+				assert.Contains(t, err.Error(), gpuSupportEnvVar)
+
+				// The gate must run before any filesystem work.
+				_, statErr := os.Stat(filepath.Dir(outputPath))
+				assert.True(t, os.IsNotExist(statErr),
+					"Start() must not create the metrics directory when gated off")
+				return
+			}
+
+			// Gate open: Start() proceeds into the collection loop. Wire the client
+			// and stop the loop with SIGTERM, mirroring TestStartFilePreconditions.
+			outputPath := filepath.Join(t.TempDir(), "gpu-metrics.json")
+			var getMetricsCalls atomic.Int64
+			mockClient.EXPECT().Reconcile(gomock.Any()).Return(true, nil).AnyTimes()
+			mockClient.EXPECT().GetMetrics(gomock.Any()).DoAndReturn(func(context.Context) ([]gputypes.GPUMetric, error) {
+				getMetricsCalls.Add(1)
+				return []gputypes.GPUMetric{{GPUUUID: "GPU-gate-001"}}, nil
+			}).AnyTimes()
+			expectStatus(mockClient, true, "", false)
+			mockClient.EXPECT().Shutdown().Return(nil).Times(1)
+
+			eng := newTestEngine(mockClient, outputPath, 5*time.Millisecond)
+
+			done := make(chan error, 1)
+			go func() { done <- eng.Start() }()
+
+			require.Eventually(t, func() bool {
+				return getMetricsCalls.Load() >= 1
+			}, 2*time.Second, 5*time.Millisecond, "Start() should begin collecting once the gate is open")
+
+			require.NoError(t, syscall.Kill(syscall.Getpid(), syscall.SIGTERM))
+
+			select {
+			case err := <-done:
+				assert.NoError(t, err, "Start() should return nil after SIGTERM cancels the run loop")
+			case <-time.After(2 * time.Second):
+				t.Fatal("Start() did not return after SIGTERM was delivered")
+			}
 		})
 	}
 }

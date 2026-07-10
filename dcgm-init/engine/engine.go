@@ -31,8 +31,20 @@ import (
 )
 
 const (
-	// DefaultInitErrorExitCode is the exit code used for general init errors.
+	// TerminalExitCode signals an unrecoverable failure a restart cannot fix
+	// (e.g. GPU support not enabled). A future systemd unit sets
+	// RestartPreventExitStatus=5 to avoid restart-looping on it. Mirrors
+	// ecs-init's TerminalFailureAgentExitCode.
+	TerminalExitCode = 5
+
+	// DefaultInitErrorExitCode is used for general (recoverable) init errors,
+	// which a future systemd unit's Restart=on-failure retries.
 	DefaultInitErrorExitCode = -1
+
+	// gpuSupportEnvVar gates dcgm-init: metrics are collected only when it is
+	// "true". Mirrors ecs-init's config.GPUSupportEnvVar, read from
+	// /etc/ecs/ecs.config via a future systemd unit's EnvironmentFile.
+	gpuSupportEnvVar = "ECS_ENABLE_GPU_SUPPORT"
 )
 
 const (
@@ -81,6 +93,18 @@ type Engine struct {
 	collectionInterval time.Duration
 }
 
+// TerminalError marks a failure a restart cannot fix (e.g. GPU support not
+// enabled). main() maps it to TerminalExitCode. Mirrors
+// ecs-init/engine.TerminalError.
+type TerminalError struct {
+	err      string
+	exitCode int
+}
+
+func (e *TerminalError) Error() string {
+	return fmt.Sprintf("%s: %d", e.err, e.exitCode)
+}
+
 // New creates an instance of Engine. The DCGM client is created here but does
 // not connect until the first Reconcile inside the collection loop, so New is
 // cheap and does not fail on hosts where nv-hostengine is not yet up.
@@ -98,9 +122,20 @@ func (e *Engine) tempPath() string {
 	return e.outputPath + metricsFileTempSuffix
 }
 
-// Start runs the collection loop until SIGTERM (systemd stop sends SIGTERM).
-// The metrics dir and files are created on demand.
+// Start fails terminally if GPU support is not enabled; otherwise it creates the
+// metrics dir and files on demand and runs the collection loop until SIGTERM
+// (systemd stop sends SIGTERM).
 func (e *Engine) Start() error {
+	// Gate on GPU support: dcgm-init only makes sense on GPU instances. Without
+	// it, fail terminally rather than start the loop. Mirrors ecs-init's
+	// PreStartGPU gate on the same env var.
+	if os.Getenv(gpuSupportEnvVar) != "true" {
+		return &TerminalError{
+			err:      fmt.Sprintf("GPU support is not enabled (%s != \"true\"); not collecting GPU metrics", gpuSupportEnvVar),
+			exitCode: TerminalExitCode,
+		}
+	}
+
 	// Create the parent dir on demand; it is no longer guaranteed to exist
 	// before dcgm-init runs. MkdirAll is a no-op if it already exists.
 	outputDir := filepath.Dir(e.outputPath)
