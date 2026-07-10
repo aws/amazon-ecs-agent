@@ -45,6 +45,13 @@ ecs-agent-*.tar
 *.DS_Store
 .run/
 pkg/
+# ecs-agent/pkg is real source (e.g. pkg/meminfo, vendored from moby v29), not a build artifact
+!ecs-agent/pkg/
+!ecs-agent/pkg/**
+# Vendored pkg/ directories are real source pulled in by `go mod vendor` (e.g. moby v29's
+# client/pkg/versions, api/pkg/authconfig, containerd/errdefs/pkg), not build artifacts
+!**/vendor/**/pkg/
+!**/vendor/**/pkg/**
 .vscode/
 .kiro/
 !.kiro/steering/
