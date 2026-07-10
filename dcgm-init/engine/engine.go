@@ -177,17 +177,16 @@ type dcgmOutput struct {
 // written so the file stays fresh. Only a marshal or write/rename failure is
 // returned as an error.
 func (e *Engine) reconcileAndCollect(ctx context.Context) error {
+	metrics := []gputypes.GPUMetric{}
 	if _, err := e.client.Reconcile(ctx); err != nil {
 		logger.Warn("dcgm-init DCGM reconciliation failed, skipping metrics collection", logger.Fields{"error": err})
-		return nil
-	}
-
-	metrics, err := e.client.GetMetrics(ctx)
-	if err != nil {
-		// Write a status-only snapshot: the health/connection fields still convey
-		// state even with no per-GPU metrics.
-		logger.Warn("dcgm-init failed to collect GPU metrics, writing status only", logger.Fields{"error": err})
-		metrics = []gputypes.GPUMetric{}
+	} else {
+		collected, err := e.client.GetMetrics(ctx)
+		if err != nil {
+			logger.Warn("dcgm-init failed to collect GPU metrics, writing status only", logger.Fields{"error": err})
+		} else {
+			metrics = collected
+		}
 	}
 
 	output := dcgmOutput{
