@@ -97,17 +97,13 @@ func (e *Engine) tempPath() string {
 	return e.outputPath + metricsFileTempSuffix
 }
 
-// Start runs the metrics collection loop until a SIGTERM/SIGINT is received
-// (systemd's default stop sends SIGTERM). The parent directory, the metrics
-// file, and its staging temp file are all created on demand if missing; Start
-// only fails when a file already exists but cannot be written.
+// Start runs the collection loop until SIGTERM (systemd stop sends SIGTERM).
+// The metrics dir and files are created on demand.
 func (e *Engine) Start() error {
-	// Create the parent directory on demand: as of recent changes it is no
-	// longer guaranteed to exist before dcgm-init runs. MkdirAll is a no-op if
-	// it already exists.
+	// Self-provision the tmpfs dir (empty each boot); MkdirAll is a no-op if it exists.
 	outputDir := filepath.Dir(e.outputPath)
 	if err := os.MkdirAll(outputDir, metricsDirPermission); err != nil {
-		return fmt.Errorf("dcgm-init cannot create directory %s: %w", outputDir, err)
+		return fmt.Errorf("dcgm-init cannot create metrics directory %s: %w", outputDir, err)
 	}
 	// Fail fast if either file can't be written, rather than spin a loop whose
 	// writes fail every tick. Both are created on demand, so only an existing
