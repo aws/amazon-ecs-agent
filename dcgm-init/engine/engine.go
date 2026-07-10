@@ -40,7 +40,8 @@ const (
 
 	// MetricsFilePath is the shared file dcgm-init writes GPU metrics to and the
 	// agent reads. Its parent directory is created on demand by Start(); the
-	// file itself is created on the first collection tick.
+	// file itself is created (empty) during Start() and first populated on the
+	// initial collection tick.
 	MetricsFilePath = MetricsFileDir + "/gpu-metrics.json"
 
 	// metricsFilePermission is the permission for the metrics file and its
@@ -100,7 +101,8 @@ func (e *Engine) tempPath() string {
 // Start runs the collection loop until SIGTERM (systemd stop sends SIGTERM).
 // The metrics dir and files are created on demand.
 func (e *Engine) Start() error {
-	// Self-provision the tmpfs dir (empty each boot); MkdirAll is a no-op if it exists.
+	// Create the parent dir on demand; it is no longer guaranteed to exist
+	// before dcgm-init runs. MkdirAll is a no-op if it already exists.
 	outputDir := filepath.Dir(e.outputPath)
 	if err := os.MkdirAll(outputDir, metricsDirPermission); err != nil {
 		return fmt.Errorf("dcgm-init cannot create metrics directory %s: %w", outputDir, err)
