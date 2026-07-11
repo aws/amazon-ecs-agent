@@ -329,16 +329,16 @@ func TestEngine_PeriodicCollection(t *testing.T) {
 			// Short interval so the ticker fires many times within the test window.
 			eng := newTestEngine(mockClient, outputPath, 5*time.Millisecond)
 
-			done := make(chan error, 1)
-			go func() { done <- eng.run(ctx) }()
+			done := make(chan struct{})
+			go func() { eng.run(ctx); close(done) }()
 
 			tc.testFunc(t, eng, mockClient, &reconcileCalls, &getMetricsCalls, cancel)
 
 			// Cancel (idempotent) and confirm the loop returns cleanly.
 			cancel()
 			select {
-			case err := <-done:
-				assert.NoError(t, err, "run() should return nil when the context is cancelled")
+			case <-done:
+				// run() returned cleanly after context cancellation.
 			case <-time.After(2 * time.Second):
 				t.Fatal("run() did not return after context cancellation")
 			}

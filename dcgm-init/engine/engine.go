@@ -166,12 +166,13 @@ func (e *Engine) Start() error {
 		}
 	}()
 
-	return e.run(ctx)
+	e.run(ctx)
+	return nil
 }
 
 // run collects metrics on every tick of collectionInterval until the context
 // is cancelled.
-func (e *Engine) run(ctx context.Context) error {
+func (e *Engine) run(ctx context.Context) {
 	ticker := time.NewTicker(e.collectionInterval)
 	defer ticker.Stop()
 
@@ -179,7 +180,7 @@ func (e *Engine) run(ctx context.Context) error {
 		select {
 		case <-ctx.Done():
 			logger.Info("dcgm-init is shutting down metrics collection")
-			return nil
+			return
 		case <-ticker.C:
 			if err := e.reconcileAndCollect(ctx); err != nil {
 				logger.Warn("dcgm-init metrics collection failed", logger.Fields{"error": err})
