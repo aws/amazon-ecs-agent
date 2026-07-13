@@ -30,6 +30,7 @@ import (
 	"github.com/aws/amazon-ecs-agent/agent/config"
 	cniTypes "github.com/containernetworking/cni/pkg/types"
 	cniTypesCurrent "github.com/containernetworking/cni/pkg/types/100"
+	mobyclient "github.com/moby/moby/client"
 
 	mock_dockerapi "github.com/aws/amazon-ecs-agent/agent/dockerclient/dockerapi/mocks"
 )
