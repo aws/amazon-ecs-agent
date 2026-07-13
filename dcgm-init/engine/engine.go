@@ -28,6 +28,7 @@ import (
 	"github.com/aws/amazon-ecs-agent/ecs-agent/gpu/dcgm"
 	gputypes "github.com/aws/amazon-ecs-agent/ecs-agent/gpu/types"
 	"github.com/aws/amazon-ecs-agent/ecs-agent/logger"
+	"github.com/charmbracelet/log"
 )
 
 const (
@@ -130,8 +131,10 @@ func (e *Engine) Start() error {
 	// it, fail terminally rather than start the loop. Mirrors ecs-init's
 	// PreStartGPU gate on the same env var.
 	if os.Getenv(gpuSupportEnvVar) != "true" {
+		err := fmt.Sprintf("GPU support is not enabled (%s != \"true\"); not collecting GPU metrics", gpuSupportEnvVar)
+		log.Error(err)
 		return &TerminalError{
-			err:      fmt.Sprintf("GPU support is not enabled (%s != \"true\"); not collecting GPU metrics", gpuSupportEnvVar),
+			err:      err,
 			exitCode: TerminalExitCode,
 		}
 	}
