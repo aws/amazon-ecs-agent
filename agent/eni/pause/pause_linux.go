@@ -25,11 +25,11 @@ import (
 	"github.com/aws/amazon-ecs-agent/ecs-agent/logger"
 	"github.com/aws/amazon-ecs-agent/ecs-agent/logger/field"
 
-	"github.com/docker/docker/api/types"
+	"github.com/moby/moby/api/types/image"
 )
 
 // LoadImage helps load the pause container image for the agent
-func (*pauseLoader) LoadImage(ctx context.Context, cfg *config.Config, dockerClient dockerapi.DockerClient) (*types.ImageInspect, error) {
+func (*pauseLoader) LoadImage(ctx context.Context, cfg *config.Config, dockerClient dockerapi.DockerClient) (*image.InspectResponse, error) {
 	logger.Debug("Loading pause container tarball:", logger.Fields{
 		field.Image: cfg.PauseContainerTarballPath,
 	})

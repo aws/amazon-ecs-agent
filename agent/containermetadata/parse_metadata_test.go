@@ -23,8 +23,8 @@ import (
 	"github.com/aws/amazon-ecs-agent/ecs-agent/tmds/handlers/response"
 
 	"github.com/docker/docker/api/types"
-	dockercontainer "github.com/docker/docker/api/types/container"
-	"github.com/docker/docker/api/types/network"
+	dockercontainer "github.com/moby/moby/api/types/container"
+	"github.com/moby/moby/api/types/network"
 	"github.com/docker/go-connections/nat"
 	"github.com/stretchr/testify/assert"
 )

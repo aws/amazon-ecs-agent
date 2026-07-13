@@ -66,7 +66,7 @@ import (
 	smithy "github.com/aws/smithy-go"
 	smithyhttp "github.com/aws/smithy-go/transport/http"
 	"github.com/docker/docker/api/types"
-	"github.com/docker/docker/api/types/network"
+	"github.com/moby/moby/api/types/network"
 	"github.com/golang/mock/gomock"
 	"github.com/gorilla/mux"
 	"github.com/stretchr/testify/assert"

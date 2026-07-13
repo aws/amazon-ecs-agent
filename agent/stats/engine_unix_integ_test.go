@@ -35,7 +35,7 @@ import (
 	"github.com/aws/amazon-ecs-agent/agent/engine/dockerstate"
 	apicontainerstatus "github.com/aws/amazon-ecs-agent/ecs-agent/api/container/status"
 	"github.com/docker/docker/api/types"
-	dockercontainer "github.com/docker/docker/api/types/container"
+	dockercontainer "github.com/moby/moby/api/types/container"
 	"github.com/gorilla/mux"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"

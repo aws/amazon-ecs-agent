@@ -24,11 +24,11 @@ import (
 
 	"github.com/cihub/seelog"
 	cniTypesCurrent "github.com/containernetworking/cni/pkg/types/100"
-	"github.com/docker/docker/api/types"
 	"github.com/pkg/errors"
 
 	"github.com/aws/amazon-ecs-agent/agent/config"
 	"github.com/aws/amazon-ecs-agent/agent/dockerclient"
+	mobyclient "github.com/moby/moby/client"
 	ni "github.com/aws/amazon-ecs-agent/ecs-agent/netlib/model/networkinterface"
 )
 
@@ -115,10 +115,9 @@ func (nsHelper *helper) invokeCommandsInsideContainer(ctx context.Context, conta
 	// Prepare the config command.
 	cfgCommand := []string{"cmd", "/C", execCommands}
 
-	execCfg := types.ExecConfig{
-		Detach: false,
-		Cmd:    cfgCommand,
-		User:   config.ContainerAdminUser,
+	execCfg := mobyclient.ExecCreateOptions{
+		Cmd:  cfgCommand,
+		User: config.ContainerAdminUser,
 	}
 
 	execRes, err := nsHelper.dockerClient.CreateContainerExec(ctx, containerID, execCfg, dockerclient.ContainerExecCreateTimeout)
@@ -127,7 +126,7 @@ func (nsHelper *helper) invokeCommandsInsideContainer(ctx context.Context, conta
 		return err
 	}
 
-	err = nsHelper.dockerClient.StartContainerExec(ctx, execRes.ID, types.ExecStartCheck{Detach: false, Tty: false},
+	err = nsHelper.dockerClient.StartContainerExec(ctx, execRes.ID, mobyclient.ExecStartOptions{Detach: false, TTY: false},
 		dockerclient.ContainerExecStartTimeout)
 	if err != nil {
 		seelog.Errorf("[ECSCNI] Failed to execute command in container %s namespace [pre-start]: %v", containerID, err)
