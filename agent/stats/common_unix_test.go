@@ -24,7 +24,7 @@ import (
 	ecsengine "github.com/aws/amazon-ecs-agent/agent/engine"
 	"github.com/aws/amazon-ecs-agent/agent/utils"
 
-	sdkClient "github.com/docker/docker/client"
+	sdkClient "github.com/moby/moby/client"
 )
 
 var (
