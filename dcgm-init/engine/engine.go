@@ -31,19 +31,17 @@ import (
 )
 
 const (
-	// TerminalExitCode signals an unrecoverable failure a restart cannot fix
-	// (e.g. GPU support not enabled). A future systemd unit sets
-	// RestartPreventExitStatus=5 to avoid restart-looping on it. Mirrors
-	// ecs-init's TerminalFailureAgentExitCode.
+	// TerminalExitCode signals an unrecoverable failure (e.g. GPU support not
+	// enabled); a systemd unit's RestartPreventExitStatus=5 avoids restart-
+	// looping on it. Mirrors ecs-init's TerminalFailureAgentExitCode.
 	TerminalExitCode = 5
 
-	// DefaultInitErrorExitCode is used for general (recoverable) init errors,
-	// which a future systemd unit's Restart=on-failure retries.
+	// DefaultInitErrorExitCode is used for recoverable init errors (retried by
+	// Restart=on-failure).
 	DefaultInitErrorExitCode = -1
 
 	// gpuSupportEnvVar gates dcgm-init: metrics are collected only when it is
-	// "true". Mirrors ecs-init's config.GPUSupportEnvVar, read from
-	// /etc/ecs/ecs.config via a future systemd unit's EnvironmentFile.
+	// "true". Mirrors ecs-init's config.GPUSupportEnvVar.
 	gpuSupportEnvVar = "ECS_ENABLE_GPU_SUPPORT"
 )
 
@@ -51,27 +49,24 @@ const (
 	MetricsFileDir = "/var/run/ecs"
 
 	// MetricsFilePath is the shared file dcgm-init writes GPU metrics to and the
-	// agent reads. Its parent directory is created on demand by Start(); the
-	// file itself is created (empty) during Start() and first populated on the
-	// initial collection tick.
+	// agent reads. Start() creates the parent dir and an empty file on demand;
+	// it is first populated on the initial collection tick.
 	MetricsFilePath = MetricsFileDir + "/gpu-metrics.json"
 
 	// metricsFilePermission is the permission for the metrics file and its
-	// staging temp file. 0644 keeps the file world-readable so the agent can
-	// consume it; only dcgm-init (running as root) writes it.
+	// staging temp file. 0644 keeps it world-readable so the agent can consume
+	// it, while only dcgm-init writes it.
 	metricsFilePermission os.FileMode = 0644
 
-	// metricsDirPermission is the permission for the directory holding the
-	// metrics file. 0755 keeps it world-readable/traversable so the agent can
-	// reach the file; only dcgm-init (running as root) writes into it.
+	// metricsDirPermission is the permission for the metrics file's directory.
+	// 0755 keeps it world-readable/traversable so the agent can reach the file,
+	// while only dcgm-init writes into it.
 	metricsDirPermission os.FileMode = 0755
 
-	// metricsFileTempSuffix is appended to outputPath to form the staging file
-	// that reconcileAndCollect writes before atomically renaming it onto
-	// outputPath. It stays a suffix on outputPath (rather than a fully qualified
-	// path) so the temp and final files always share a directory: os.Rename is
-	// only atomic within a single filesystem, and tests redirect outputPath to a
-	// temp directory.
+	// metricsFileTempSuffix is appended to outputPath to form the staging file.
+	// Suffixing outputPath (rather than a fixed path) keeps the temp and final
+	// files in the same directory, so os.Rename stays atomic (same filesystem)
+	// even when tests redirect outputPath to a temp dir.
 	metricsFileTempSuffix = ".tmp"
 
 	// metricsCollectionInterval is how often GPU metrics are collected and
@@ -80,13 +75,11 @@ const (
 	metricsCollectionInterval = 60 * time.Second
 )
 
-// Engine drives the dcgm-init metrics collection loop: it connects to DCGM via
-// the dcgm.Client, periodically collects GPU metrics, and writes them to a
-// shared JSON file that the agent reads.
+// Engine drives the dcgm-init metrics collection loop: it collects GPU metrics
+// via the dcgm.Client and writes them to a shared JSON file the agent reads.
 //
-// outputPath and collectionInterval default to the package constants in New()
-// and are only overridden in tests, so they can redirect writes to a temp
-// directory and shrink the ticker without waiting a full production interval.
+// outputPath and collectionInterval default to the package constants in New();
+// tests override them to redirect writes to a temp dir and shrink the ticker.
 type Engine struct {
 	client             dcgm.Client
 	outputPath         string
@@ -126,9 +119,8 @@ func (e *Engine) tempPath() string {
 // metrics dir and files on demand and runs the collection loop until SIGTERM
 // (systemd stop sends SIGTERM).
 func (e *Engine) Start() error {
-	// Gate on GPU support: dcgm-init only makes sense on GPU instances. Without
-	// it, fail terminally rather than start the loop. Mirrors ecs-init's
-	// PreStartGPU gate on the same env var.
+	// Gate on GPU support: without it, fail terminally rather than start the
+	// loop. Mirrors ecs-init's PreStartGPU gate on the same env var.
 	if os.Getenv(gpuSupportEnvVar) != "true" {
 		err := fmt.Sprintf("GPU support is not enabled (%s != \"true\"); not collecting GPU metrics", gpuSupportEnvVar)
 		logger.Error(err)
@@ -138,8 +130,7 @@ func (e *Engine) Start() error {
 		}
 	}
 
-	// Create the parent dir on demand; it is no longer guaranteed to exist
-	// before dcgm-init runs. MkdirAll is a no-op if it already exists.
+	// Create the parent dir on demand (MkdirAll is a no-op if it exists).
 	outputDir := filepath.Dir(e.outputPath)
 	if err := os.MkdirAll(outputDir, metricsDirPermission); err != nil {
 		return fmt.Errorf("dcgm-init cannot create metrics directory %s: %w", outputDir, err)
@@ -153,11 +144,9 @@ func (e *Engine) Start() error {
 		}
 	}
 
-	// Cancel the context when a shutdown signal arrives so the run loop unwinds
-	// cleanly. There is no separate "stop" command; shutdown is signal-driven
-	// (systemd's default stop sends SIGTERM). NotifyContext installs the signal
-	// handler and returns a context that is cancelled on SIGTERM; stop removes
-	// the handler when we return.
+	// Shutdown is signal-driven (systemd's default stop sends SIGTERM); there is
+	// no separate "stop" command. NotifyContext cancels ctx on SIGTERM so the
+	// run loop unwinds cleanly, and stop removes the handler on return.
 	ctx, stop := signal.NotifyContext(context.Background(), syscall.SIGTERM)
 	defer stop()
 
@@ -197,23 +186,21 @@ type dcgmOutput struct {
 	Timestamp       string `json:"timestamp"`
 	Healthy         bool   `json:"healthy"`
 	UnhealthyReason string `json:"unhealthy_reason,omitempty"`
-	// ConnectionLost indicates the DCGM/nv-hostengine connection is lost
-	// (outside the grace period). When true, the reader cannot determine GPU
-	// health and should report INSUFFICIENT_DATA rather than trusting Healthy:
-	// IsHealthy() returns true when disconnected (it only flips to false on a
-	// known violation/FAIL), so Healthy alone is not sufficient.
+	// ConnectionLost indicates the DCGM/nv-hostengine connection is lost. When
+	// true the reader should report INSUFFICIENT_DATA rather than trust Healthy:
+	// IsHealthy() only flips to false on a known violation, so it stays true
+	// while disconnected.
 	ConnectionLost bool                 `json:"connection_lost,omitempty"`
 	GPUs           []gputypes.GPUMetric `json:"gpus"`
 }
 
-// reconcileAndCollect reconciles the DCGM connection, collects the latest
-// metrics, and writes them to the output file atomically (staged to the temp
-// file, then renamed) so the agent never observes a partial write.
+// reconcileAndCollect reconciles the DCGM connection, collects metrics, and
+// writes them to the output file atomically (staged to a temp file, then
+// renamed) so the agent never sees a partial write.
 //
-// A reconcile failure skips this cycle. A collect failure is not fatal: a
-// status-only snapshot (health/connection fields, no per-GPU metrics) is still
-// written so the file stays fresh. Only a marshal or write/rename failure is
-// returned as an error.
+// A reconcile or collect failure is non-fatal: a status-only snapshot (no
+// per-GPU metrics) is still written so the file stays fresh. Only a marshal or
+// write/rename failure is returned.
 func (e *Engine) reconcileAndCollect(ctx context.Context) error {
 	metrics := []gputypes.GPUMetric{}
 	if _, err := e.client.Reconcile(ctx); err != nil {
