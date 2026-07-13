@@ -29,8 +29,8 @@ import (
 	"github.com/aws/amazon-ecs-agent/ecs-agent/api/ecs"
 	"github.com/aws/amazon-ecs-agent/ecs-agent/ipcompatibility"
 
-	"github.com/moby/moby/api/types/image"
 	dockercontainer "github.com/moby/moby/api/types/container"
+	"github.com/moby/moby/api/types/image"
 )
 
 type manager struct {

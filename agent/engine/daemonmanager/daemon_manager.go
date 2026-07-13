@@ -34,8 +34,8 @@ import (
 	md "github.com/aws/amazon-ecs-agent/ecs-agent/manageddaemon"
 
 	"github.com/aws/aws-sdk-go-v2/aws"
-	"github.com/moby/moby/api/types/image"
 	dockercontainer "github.com/moby/moby/api/types/container"
+	"github.com/moby/moby/api/types/image"
 	dockermount "github.com/moby/moby/api/types/mount"
 	"github.com/pborman/uuid"
 )

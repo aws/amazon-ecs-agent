@@ -24,8 +24,8 @@ import (
 
 	stats "github.com/aws/amazon-ecs-agent/ecs-agent/stats"
 	ecstcs "github.com/aws/amazon-ecs-agent/ecs-agent/tcs/model/ecstcs"
-	dockercontainer "github.com/moby/moby/api/types/container"
 	gomock "github.com/golang/mock/gomock"
+	container "github.com/moby/moby/api/types/container"
 )
 
 // MockEngine is a mock of Engine interface.
@@ -52,10 +52,10 @@ func (m *MockEngine) EXPECT() *MockEngineMockRecorder {
 }
 
 // ContainerDockerStats mocks base method.
-func (m *MockEngine) ContainerDockerStats(arg0, arg1 string) (*dockercontainer.StatsResponse, *stats.NetworkStatsPerSec, error) {
+func (m *MockEngine) ContainerDockerStats(arg0, arg1 string) (*container.StatsResponse, *stats.NetworkStatsPerSec, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "ContainerDockerStats", arg0, arg1)
-	ret0, _ := ret[0].(*dockercontainer.StatsResponse)
+	ret0, _ := ret[0].(*container.StatsResponse)
 	ret1, _ := ret[1].(*stats.NetworkStatsPerSec)
 	ret2, _ := ret[2].(error)
 	return ret0, ret1, ret2

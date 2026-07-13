@@ -28,8 +28,8 @@ import (
 
 	"github.com/aws/amazon-ecs-agent/agent/config"
 	"github.com/aws/amazon-ecs-agent/agent/dockerclient"
-	mobyclient "github.com/moby/moby/client"
 	ni "github.com/aws/amazon-ecs-agent/ecs-agent/netlib/model/networkinterface"
+	mobyclient "github.com/moby/moby/client"
 )
 
 const (
