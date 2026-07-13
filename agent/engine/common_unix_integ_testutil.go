@@ -46,8 +46,8 @@ import (
 	"github.com/aws/amazon-ecs-agent/ecs-agent/ec2"
 
 	"github.com/docker/docker/api/types"
-	dockercontainer "github.com/moby/moby/api/types/container"
 	sdkClient "github.com/docker/docker/client"
+	dockercontainer "github.com/moby/moby/api/types/container"
 	"github.com/pborman/uuid"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"

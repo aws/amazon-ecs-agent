@@ -382,7 +382,7 @@ type DependsOn struct {
 }
 
 type ContainerRestartAggregationDataForStats struct {
-	LastRestartDetectedAt     time.Time       `json:"LastRestartDetectedAt,omitempty"`
+	LastRestartDetectedAt     time.Time                     `json:"LastRestartDetectedAt,omitempty"`
 	LastStatBeforeLastRestart dockercontainer.StatsResponse `json:"LastStatBeforeLastRestart,omitempty"`
 }
 

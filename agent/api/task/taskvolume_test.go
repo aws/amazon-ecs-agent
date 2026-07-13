@@ -31,8 +31,8 @@ import (
 	apiresource "github.com/aws/amazon-ecs-agent/ecs-agent/api/attachment/resource"
 	apicontainerstatus "github.com/aws/amazon-ecs-agent/ecs-agent/api/container/status"
 
-	"github.com/moby/moby/api/types/volume"
 	"github.com/golang/mock/gomock"
+	"github.com/moby/moby/api/types/volume"
 	"github.com/pkg/errors"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"

@@ -29,8 +29,8 @@ import (
 	resourcestatus "github.com/aws/amazon-ecs-agent/agent/taskresource/status"
 	apicontainerstatus "github.com/aws/amazon-ecs-agent/ecs-agent/api/container/status"
 
-	"github.com/moby/moby/api/types/volume"
 	"github.com/golang/mock/gomock"
+	"github.com/moby/moby/api/types/volume"
 	"github.com/stretchr/testify/assert"
 )
 
