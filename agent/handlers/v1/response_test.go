@@ -23,7 +23,7 @@ import (
 	"github.com/aws/amazon-ecs-agent/ecs-agent/api/container/restart"
 	ni "github.com/aws/amazon-ecs-agent/ecs-agent/netlib/model/networkinterface"
 
-	"github.com/docker/docker/api/types"
+	dockercontainer "github.com/moby/moby/api/types/container"
 	"github.com/stretchr/testify/assert"
 )
 
@@ -105,7 +105,7 @@ func TestPortBindingsResponse(t *testing.T) {
 func TestVolumesResponse(t *testing.T) {
 	container := &apicontainer.Container{
 		Name: containerName,
-		VolumesUnsafe: []types.MountPoint{
+		VolumesUnsafe: []dockercontainer.MountPoint{
 			{
 				Name:        volName,
 				Source:      volSource,
