@@ -26,7 +26,7 @@ import (
 	"github.com/aws/amazon-ecs-agent/agent/dockerclient"
 	"github.com/aws/amazon-ecs-agent/agent/dockerclient/sdkclientfactory"
 	"github.com/aws/amazon-ecs-agent/ecs-agent/utils/retry"
-	"github.com/docker/docker/api/types/registry"
+	"github.com/moby/moby/api/types/registry"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -101,18 +101,12 @@ func TestImageManifestPullInteg(t *testing.T) {
 			dockerClient: supportedClient,
 			imageRef:     "public.ecr.aws/amazonlinux/amazonlinux:2",
 		},
-		{
-			name: "Docker client version too old",
-			dockerClient: func() DockerClient {
-				// Prepare a Docker client with an older API version
-				version := dockerclient.GetSupportedDockerAPIVersion(dockerclient.Version_1_29)
-				unsupportedClient, err := supportedClient.WithVersion(version)
-				require.NoError(t, err)
-				return unsupportedClient
-			}(),
-			imageRef:      "public.ecr.aws/amazonlinux/amazonlinux:2",
-			expectedError: `"distribution inspect" requires API version 1.30`,
-		},
+		// NOTE: A "Docker client version too old" case previously asserted the
+		// client-side error `"distribution inspect" requires API version 1.30`
+		// when pinning the client to API 1.29. The moby v29 client
+		// (github.com/moby/moby/client) dropped that client-side version guard
+		// from DistributionInspect, so the scenario no longer produces a
+		// client-side error and the case has been removed.
 	}
 
 	for _, tc := range tcs {

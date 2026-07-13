@@ -26,8 +26,8 @@ import (
 	"github.com/aws/amazon-ecs-agent/agent/utils/oswrapper"
 
 	"github.com/docker/docker/api/types"
-	dockercontainer "github.com/docker/docker/api/types/container"
-	"github.com/docker/docker/api/types/network"
+	dockercontainer "github.com/moby/moby/api/types/container"
+	"github.com/moby/moby/api/types/network"
 	"github.com/golang/mock/gomock"
 	"github.com/stretchr/testify/assert"
 )

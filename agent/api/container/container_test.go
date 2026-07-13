@@ -29,7 +29,7 @@ import (
 	"github.com/docker/docker/api/types"
 
 	"github.com/aws/amazon-ecs-agent/agent/utils"
-	dockercontainer "github.com/docker/docker/api/types/container"
+	dockercontainer "github.com/moby/moby/api/types/container"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
