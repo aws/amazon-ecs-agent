@@ -34,9 +34,11 @@ import (
 	"github.com/aws/amazon-ecs-agent/agent/engine/image"
 	ec2testutil "github.com/aws/amazon-ecs-agent/agent/utils/test/ec2util"
 
-	"github.com/docker/docker/api/types"
-	dockercontainer "github.com/moby/moby/api/types/container"
 	"github.com/golang/mock/gomock"
+	dockerspec "github.com/moby/docker-image-spec/specs-go/v1"
+	dockercontainer "github.com/moby/moby/api/types/container"
+	dockerimage "github.com/moby/moby/api/types/image"
+	ocispec "github.com/opencontainers/image-spec/specs-go/v1"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -78,7 +80,7 @@ func TestImagePullRemoveDeadlock(t *testing.T) {
 		Name:  "sleep",
 		Image: "busybox",
 	}
-	sleepContainerImageInspected := &types.ImageInspect{
+	sleepContainerImageInspected := &dockerimage.InspectResponse{
 		ID: "sha256:qwerty",
 	}
 	listImagesResponse := dockerapi.ListImagesResponse{
@@ -133,7 +135,7 @@ func TestAddAndRemoveContainerToImageStateReferenceHappyPath(t *testing.T) {
 	}
 	sourceImageState.AddImageName(container.Image)
 	imageManager.(*dockerImageManager).addImageState(sourceImageState)
-	imageInspected := &types.ImageInspect{
+	imageInspected := &dockerimage.InspectResponse{
 		ID: "sha256:qwerty",
 	}
 	client.EXPECT().InspectImage(container.Image).Return(imageInspected, nil)
@@ -197,12 +199,12 @@ func TestRecordContainerReferenceStoresManagedEnvKeysOnImageState(t *testing.T) 
 	envVars := []string{"PATH=/usr/local/bin", "AWS_DEFAULT_REGION=us-east-1"}
 	tests := []struct {
 		name        string
-		config      *dockercontainer.Config
+		config      *dockerspec.DockerOCIImageConfig
 		wantEnvKeys map[string]bool
 	}{
 		{
 			name:        "image config with region env var — key stored on image state",
-			config:      &dockercontainer.Config{Env: envVars},
+			config:      &dockerspec.DockerOCIImageConfig{ImageConfig: ocispec.ImageConfig{Env: envVars}},
 			wantEnvKeys: map[string]bool{"AWS_DEFAULT_REGION": true},
 		},
 		{
@@ -225,7 +227,7 @@ func TestRecordContainerReferenceStoresManagedEnvKeysOnImageState(t *testing.T) 
 				Name:  "testContainer",
 				Image: "testContainerImage",
 			}
-			client.EXPECT().InspectImage(container.Image).Return(&types.ImageInspect{
+			client.EXPECT().InspectImage(container.Image).Return(&dockerimage.InspectResponse{
 				ID:     "sha256:qwerty",
 				Config: tt.config,
 			}, nil)
@@ -304,7 +306,7 @@ func TestRecordContainerReferenceWithNoImageName(t *testing.T) {
 	}
 	imageManager.addImageState(sourceImageState)
 
-	imageInspected := &types.ImageInspect{
+	imageInspected := &dockerimage.InspectResponse{
 		ID: "sha256:qwerty",
 	}
 	client.EXPECT().InspectImage(container.Image).Return(imageInspected, nil).AnyTimes()
@@ -386,7 +388,7 @@ func TestFetchRepoDigest(t *testing.T) {
 
 	testCases := []struct {
 		container      *apicontainer.Container
-		imageInspected *types.ImageInspect
+		imageInspected *dockerimage.InspectResponse
 	}{
 		{
 			container: &apicontainer.Container{
@@ -394,7 +396,7 @@ func TestFetchRepoDigest(t *testing.T) {
 				Image:       "repo1",
 				ImageDigest: "digest1",
 			},
-			imageInspected: &types.ImageInspect{
+			imageInspected: &dockerimage.InspectResponse{
 				RepoDigests: []string{"repo1@digest1", "repo2@digest2", "repo3@digest3"},
 			},
 		},
@@ -404,7 +406,7 @@ func TestFetchRepoDigest(t *testing.T) {
 				Image:       "repo1:latest",
 				ImageDigest: "digest1",
 			},
-			imageInspected: &types.ImageInspect{
+			imageInspected: &dockerimage.InspectResponse{
 				RepoDigests: []string{"repo1@digest1", "repo2@digest2", "repo3@digest3"},
 			},
 		},
@@ -414,7 +416,7 @@ func TestFetchRepoDigest(t *testing.T) {
 				Image:       "repo1@sha256:12345",
 				ImageDigest: "sha256:12345",
 			},
-			imageInspected: &types.ImageInspect{
+			imageInspected: &dockerimage.InspectResponse{
 				RepoDigests: []string{"repo1@sha256:12345", "repo2@digest2", "repo3"},
 			},
 		},
@@ -424,7 +426,7 @@ func TestFetchRepoDigest(t *testing.T) {
 				Image:       "mysql123",
 				ImageDigest: "",
 			},
-			imageInspected: &types.ImageInspect{
+			imageInspected: &dockerimage.InspectResponse{
 				RepoDigests: []string{},
 			},
 		},
@@ -434,7 +436,7 @@ func TestFetchRepoDigest(t *testing.T) {
 				Image:       "mysql",
 				ImageDigest: "",
 			},
-			imageInspected: &types.ImageInspect{
+			imageInspected: &dockerimage.InspectResponse{
 				RepoDigests: []string{"mysql", "repo2@digest2"},
 			},
 		},
@@ -531,7 +533,7 @@ func TestRemoveContainerReferenceFromInvalidImageState(t *testing.T) {
 	container := &apicontainer.Container{
 		Image: "myContainerImage",
 	}
-	imageInspected := &types.ImageInspect{
+	imageInspected := &dockerimage.InspectResponse{
 		ID: "sha256:qwerty",
 	}
 	client.EXPECT().InspectImage(container.Image).Return(imageInspected, nil).AnyTimes()
@@ -602,7 +604,7 @@ func TestRemoveContainerReferenceFromImageStateWithNoReference(t *testing.T) {
 		PulledAt: time.Now(),
 	}
 	imageManager.addImageState(sourceImageState)
-	imageInspected := &types.ImageInspect{
+	imageInspected := &dockerimage.InspectResponse{
 		ID: "sha256:qwerty",
 	}
 	client.EXPECT().InspectImage(container.Image).Return(imageInspected, nil).AnyTimes()
@@ -685,7 +687,7 @@ func TestGetCandidateImagesForDeletionImageHasContainerReference(t *testing.T) {
 		PulledAt: time.Now().AddDate(0, -2, 0),
 	}
 	imageManager.addImageState(sourceImageState)
-	imageInspected := &types.ImageInspect{
+	imageInspected := &dockerimage.InspectResponse{
 		ID: "sha256:qwerty",
 	}
 	client.EXPECT().InspectImage(container.Image).Return(imageInspected, nil).AnyTimes()
@@ -730,7 +732,7 @@ func TestGetCandidateImagesForDeletionImageHasMoreContainerReferences(t *testing
 		PulledAt: time.Now().AddDate(0, -2, 0),
 	}
 	imageManager.addImageState(sourceImageState)
-	imageInspected := &types.ImageInspect{
+	imageInspected := &dockerimage.InspectResponse{
 		ID: "sha256:qwerty",
 	}
 	client.EXPECT().InspectImage(container.Image).Return(imageInspected, nil).AnyTimes()
@@ -958,7 +960,7 @@ func TestRemoveAlreadyExistingImageNameWithDifferentID(t *testing.T) {
 		ImageID: "sha256:qwerty",
 	}
 	sourceImage.Names = append(sourceImage.Names, container.Image)
-	imageInspected := &types.ImageInspect{
+	imageInspected := &dockerimage.InspectResponse{
 		ID: "sha256:qwerty",
 	}
 	client.EXPECT().InspectImage(container.Image).Return(imageInspected, nil)
@@ -970,7 +972,7 @@ func TestRemoveAlreadyExistingImageNameWithDifferentID(t *testing.T) {
 		Name:  "testContainer1",
 		Image: "testContainerImage",
 	}
-	imageInspected1 := &types.ImageInspect{
+	imageInspected1 := &dockerimage.InspectResponse{
 		ID: "sha256:asdfg",
 	}
 	client.EXPECT().InspectImage(container.Image).Return(imageInspected1, nil)
@@ -1005,7 +1007,7 @@ func TestImageCleanupHappyPath(t *testing.T) {
 		Name:  "testContainer",
 		Image: "testContainerImage",
 	}
-	imageInspected := &types.ImageInspect{
+	imageInspected := &dockerimage.InspectResponse{
 		ID: "sha256:qwerty",
 	}
 	listImagesResponse := dockerapi.ListImagesResponse{
@@ -1066,7 +1068,7 @@ func TestImageCleanupCannotRemoveImage(t *testing.T) {
 		ImageID: "sha256:qwerty",
 	}
 	sourceImage.Names = append(sourceImage.Names, container.Image)
-	imageInspected := &types.ImageInspect{
+	imageInspected := &dockerimage.InspectResponse{
 		ID: "sha256:qwerty",
 	}
 	listImagesResponse := dockerapi.ListImagesResponse{
@@ -1124,7 +1126,7 @@ func TestImageCleanupRemoveImageById(t *testing.T) {
 		ImageID: "sha256:qwerty",
 	}
 	sourceImage.Names = append(sourceImage.Names, container.Image)
-	imageInspected := &types.ImageInspect{
+	imageInspected := &dockerimage.InspectResponse{
 		ID: "sha256:qwerty",
 	}
 	listImagesResponse := dockerapi.ListImagesResponse{
@@ -1176,17 +1178,16 @@ func TestNonECSImageAndContainersCleanupRemoveImage(t *testing.T) {
 		DockerIDs: []string{"1"},
 	}
 
-	inspectContainerResponse := &types.ContainerJSON{
-		ContainerJSONBase: &types.ContainerJSONBase{
-			ID: "1",
-			State: &types.ContainerState{
-				Status:     "exited",
-				FinishedAt: time.Now().AddDate(0, -2, 0).Format(time.RFC3339Nano),
-			},
+	inspectContainerResponse := &dockercontainer.InspectResponse{
+
+		ID: "1",
+		State: &dockercontainer.State{
+			Status:     "exited",
+			FinishedAt: time.Now().AddDate(0, -2, 0).Format(time.RFC3339Nano),
 		},
 	}
 
-	inspectImageResponse := &types.ImageInspect{
+	inspectImageResponse := &dockerimage.InspectResponse{
 		Size: 4096,
 	}
 
@@ -1232,17 +1233,16 @@ func TestNonECSImageAndContainersCleanupRemoveImage_OneImageThreeTags(t *testing
 		DockerIDs: []string{"1"},
 	}
 
-	inspectContainerResponse := &types.ContainerJSON{
-		ContainerJSONBase: &types.ContainerJSONBase{
-			ID: "1",
-			State: &types.ContainerState{
-				Status:     "exited",
-				FinishedAt: time.Now().AddDate(0, -2, 0).Format(time.RFC3339Nano),
-			},
+	inspectContainerResponse := &dockercontainer.InspectResponse{
+
+		ID: "1",
+		State: &dockercontainer.State{
+			Status:     "exited",
+			FinishedAt: time.Now().AddDate(0, -2, 0).Format(time.RFC3339Nano),
 		},
 	}
 
-	inspectImageResponse := &types.ImageInspect{
+	inspectImageResponse := &dockerimage.InspectResponse{
 		Size:     4096,
 		RepoTags: []string{"tester", "foo", "bar"},
 	}
@@ -1293,17 +1293,16 @@ func TestNonECSImageAndContainersCleanupRemoveImage_DontDeleteExcludedImage(t *t
 		DockerIDs: []string{"1"},
 	}
 
-	inspectContainerResponse := &types.ContainerJSON{
-		ContainerJSONBase: &types.ContainerJSONBase{
-			ID: "1",
-			State: &types.ContainerState{
-				Status:     "exited",
-				FinishedAt: time.Now().AddDate(0, -2, 0).Format(time.RFC3339Nano),
-			},
+	inspectContainerResponse := &dockercontainer.InspectResponse{
+
+		ID: "1",
+		State: &dockercontainer.State{
+			Status:     "exited",
+			FinishedAt: time.Now().AddDate(0, -2, 0).Format(time.RFC3339Nano),
 		},
 	}
 
-	inspectImageResponse := &types.ImageInspect{
+	inspectImageResponse := &dockerimage.InspectResponse{
 		Size:     4096,
 		RepoTags: []string{"tester"},
 	}
@@ -1351,17 +1350,16 @@ func TestNonECSImageAndContainerCleanupRemoveImage_DontDeleteNotOldEnoughImage(t
 		DockerIDs: []string{"1"},
 	}
 
-	inspectContainerResponse := &types.ContainerJSON{
-		ContainerJSONBase: &types.ContainerJSONBase{
-			ID: "1",
-			State: &types.ContainerState{
-				Status:     "exited",
-				FinishedAt: time.Now().AddDate(0, -2, 0).Format(time.RFC3339Nano),
-			},
+	inspectContainerResponse := &dockercontainer.InspectResponse{
+
+		ID: "1",
+		State: &dockercontainer.State{
+			Status:     "exited",
+			FinishedAt: time.Now().AddDate(0, -2, 0).Format(time.RFC3339Nano),
 		},
 	}
 
-	inspectImageResponse := &types.ImageInspect{
+	inspectImageResponse := &dockerimage.InspectResponse{
 		Size:     4096,
 		RepoTags: []string{"tester"},
 		Created:  time.Now().AddDate(0, 0, -1).Format(time.RFC3339),
@@ -1405,17 +1403,16 @@ func TestNonECSImageAndContainerCleanupRemoveImage_DeleteOldEnoughImage(t *testi
 		DockerIDs: []string{"1"},
 	}
 
-	inspectContainerResponse := &types.ContainerJSON{
-		ContainerJSONBase: &types.ContainerJSONBase{
-			ID: "1",
-			State: &types.ContainerState{
-				Status:     "exited",
-				FinishedAt: time.Now().AddDate(0, -2, 0).Format(time.RFC3339Nano),
-			},
+	inspectContainerResponse := &dockercontainer.InspectResponse{
+
+		ID: "1",
+		State: &dockercontainer.State{
+			Status:     "exited",
+			FinishedAt: time.Now().AddDate(0, -2, 0).Format(time.RFC3339Nano),
 		},
 	}
 
-	inspectImageResponse := &types.ImageInspect{
+	inspectImageResponse := &dockerimage.InspectResponse{
 		Size:     4096,
 		RepoTags: []string{"tester"},
 		Created:  time.Now().AddDate(0, 0, -1).Format(time.RFC3339),
@@ -1464,17 +1461,16 @@ func TestNonECSImageAndContainersCleanupRemoveImage_DontDeleteECSImages(t *testi
 		DockerIDs: []string{"1"},
 	}
 
-	inspectContainerResponse := &types.ContainerJSON{
-		ContainerJSONBase: &types.ContainerJSONBase{
-			ID: "1",
-			State: &types.ContainerState{
-				Status:     "exited",
-				FinishedAt: time.Now().AddDate(0, -2, 0).Format(time.RFC3339Nano),
-			},
+	inspectContainerResponse := &dockercontainer.InspectResponse{
+
+		ID: "1",
+		State: &dockercontainer.State{
+			Status:     "exited",
+			FinishedAt: time.Now().AddDate(0, -2, 0).Format(time.RFC3339Nano),
 		},
 	}
 
-	inspectImageResponse := &types.ImageInspect{
+	inspectImageResponse := &dockerimage.InspectResponse{
 		Size:     4096,
 		RepoTags: []string{"tester"},
 		ID:       "sha256:qwerty1",
@@ -1523,17 +1519,16 @@ func TestNonECSImageAndContainers_RemoveDeadContainer(t *testing.T) {
 		DockerIDs: []string{"1"},
 	}
 
-	inspectContainerResponse := &types.ContainerJSON{
-		ContainerJSONBase: &types.ContainerJSONBase{
-			ID: "1",
-			State: &types.ContainerState{
-				Status:     "dead",
-				FinishedAt: time.Now().AddDate(0, -2, 0).Format(time.RFC3339Nano),
-			},
+	inspectContainerResponse := &dockercontainer.InspectResponse{
+
+		ID: "1",
+		State: &dockercontainer.State{
+			Status:     "dead",
+			FinishedAt: time.Now().AddDate(0, -2, 0).Format(time.RFC3339Nano),
 		},
 	}
 
-	inspectImageResponse := &types.ImageInspect{
+	inspectImageResponse := &dockerimage.InspectResponse{
 		Size: 4096,
 	}
 
@@ -1580,17 +1575,16 @@ func TestNonECSImageAndContainersCleanup_RemoveOldCreatedContainer(t *testing.T)
 		DockerIDs: []string{"1"},
 	}
 
-	inspectContainerResponse := &types.ContainerJSON{
-		ContainerJSONBase: &types.ContainerJSONBase{
-			ID: "1",
-			State: &types.ContainerState{
-				Status:     "created",
-				FinishedAt: time.Now().AddDate(0, -2, 0).Format(time.RFC3339Nano),
-			},
+	inspectContainerResponse := &dockercontainer.InspectResponse{
+
+		ID: "1",
+		State: &dockercontainer.State{
+			Status:     "created",
+			FinishedAt: time.Now().AddDate(0, -2, 0).Format(time.RFC3339Nano),
 		},
 	}
 
-	inspectImageResponse := &types.ImageInspect{
+	inspectImageResponse := &dockerimage.InspectResponse{
 		Size: 4096,
 	}
 
@@ -1636,17 +1630,16 @@ func TestNonECSImageAndContainersCleanup_DontRemoveContainerWithInvalidFinishedT
 		DockerIDs: []string{"1"},
 	}
 
-	inspectContainerResponse := &types.ContainerJSON{
-		ContainerJSONBase: &types.ContainerJSONBase{
-			ID: "1",
-			State: &types.ContainerState{
-				Status:     "created",
-				FinishedAt: "Hello! I am an invalid timestamp!!",
-			},
+	inspectContainerResponse := &dockercontainer.InspectResponse{
+
+		ID: "1",
+		State: &dockercontainer.State{
+			Status:     "created",
+			FinishedAt: "Hello! I am an invalid timestamp!!",
 		},
 	}
 
-	inspectImageResponse := &types.ImageInspect{
+	inspectImageResponse := &dockerimage.InspectResponse{
 		Size: 4096,
 	}
 
@@ -1693,17 +1686,16 @@ func TestNonECSImageAndContainersCleanup_DoNotRemoveNewlyCreatedContainer(t *tes
 		DockerIDs: []string{"1"},
 	}
 
-	inspectContainerResponse := &types.ContainerJSON{
-		ContainerJSONBase: &types.ContainerJSONBase{
-			ID: "1",
-			State: &types.ContainerState{
-				Status:     "created",
-				FinishedAt: time.Now().Format(time.RFC3339Nano),
-			},
+	inspectContainerResponse := &dockercontainer.InspectResponse{
+
+		ID: "1",
+		State: &dockercontainer.State{
+			Status:     "created",
+			FinishedAt: time.Now().Format(time.RFC3339Nano),
 		},
 	}
 
-	inspectImageResponse := &types.ImageInspect{
+	inspectImageResponse := &dockerimage.InspectResponse{
 		Size: 4096,
 	}
 
@@ -1739,7 +1731,7 @@ func TestDeleteImage(t *testing.T) {
 		Name:  "testContainer",
 		Image: "testContainerImage",
 	}
-	imageInspected := &types.ImageInspect{
+	imageInspected := &dockerimage.InspectResponse{
 		ID: "sha256:qwerty",
 	}
 	client.EXPECT().InspectImage(container.Image).Return(imageInspected, nil).AnyTimes()
@@ -1772,7 +1764,7 @@ func TestDeleteImageNotFoundOldDockerMessageError(t *testing.T) {
 		Name:  "testContainer",
 		Image: "testContainerImage",
 	}
-	imageInspected := &types.ImageInspect{
+	imageInspected := &dockerimage.InspectResponse{
 		ID: "sha256:qwerty",
 	}
 	client.EXPECT().InspectImage(container.Image).Return(imageInspected, nil).AnyTimes()
@@ -1804,7 +1796,7 @@ func TestDeleteImageNotFoundError(t *testing.T) {
 		Name:  "testContainer",
 		Image: "testContainerImage",
 	}
-	imageInspected := &types.ImageInspect{
+	imageInspected := &dockerimage.InspectResponse{
 		ID: "sha256:qwerty",
 	}
 	client.EXPECT().InspectImage(container.Image).Return(imageInspected, nil).AnyTimes()
@@ -1836,7 +1828,7 @@ func TestDeleteImageOtherRemoveImageErrors(t *testing.T) {
 		Name:  "testContainer",
 		Image: "testContainerImage",
 	}
-	imageInspected := &types.ImageInspect{
+	imageInspected := &dockerimage.InspectResponse{
 		ID: "sha256:qwerty",
 	}
 	client.EXPECT().InspectImage(container.Image).Return(imageInspected, nil).AnyTimes()
@@ -1904,7 +1896,7 @@ func TestGetImageStateFromImageName(t *testing.T) {
 		Name:  "testContainer",
 		Image: "testContainerImage",
 	}
-	imageInspected := &types.ImageInspect{
+	imageInspected := &dockerimage.InspectResponse{
 		ID: "sha256:qwerty",
 	}
 	client.EXPECT().InspectImage(container.Image).Return(imageInspected, nil).AnyTimes()
@@ -1928,7 +1920,7 @@ func TestGetImageStateFromImageNameNoImageState(t *testing.T) {
 		Name:  "testContainer",
 		Image: "testContainerImage",
 	}
-	imageInspected := &types.ImageInspect{
+	imageInspected := &dockerimage.InspectResponse{
 		ID: "sha256:qwerty",
 	}
 	client.EXPECT().InspectImage(container.Image).Return(imageInspected, nil).AnyTimes()
@@ -1966,7 +1958,7 @@ func TestConcurrentRemoveUnusedImages(t *testing.T) {
 		ImageID: "sha256:qwerty",
 	}
 	sourceImage.Names = append(sourceImage.Names, container.Image)
-	imageInspected := &types.ImageInspect{
+	imageInspected := &dockerimage.InspectResponse{
 		ID: "sha256:qwerty",
 	}
 	listImagesResponse := dockerapi.ListImagesResponse{
