@@ -22,6 +22,7 @@ import (
 	"errors"
 	"fmt"
 	"net"
+	"net/netip"
 	"path/filepath"
 	"strconv"
 	"strings"
@@ -74,11 +75,12 @@ import (
 	"github.com/aws/aws-sdk-go-v2/service/ssm"
 	ssmtypes "github.com/aws/aws-sdk-go-v2/service/ssm/types"
 	cniTypesCurrent "github.com/containernetworking/cni/pkg/types/100"
-	"github.com/docker/docker/api/types"
+	"github.com/golang/mock/gomock"
 	dockercontainer "github.com/moby/moby/api/types/container"
+	dockerimage "github.com/moby/moby/api/types/image"
 	"github.com/moby/moby/api/types/network"
 	"github.com/moby/moby/api/types/registry"
-	"github.com/golang/mock/gomock"
+	"github.com/moby/moby/api/types/system"
 	"github.com/opencontainers/go-digest"
 	ocispec "github.com/opencontainers/image-spec/specs-go/v1"
 	"github.com/pborman/uuid"
@@ -109,7 +111,7 @@ const (
 	egressIgnoredIP             = "169.254.169.254"
 	expectedDelaySeconds        = 10
 	expectedDelay               = expectedDelaySeconds * time.Second
-	networkBridgeIP             = "bridgeIP"
+	networkBridgeIP             = "172.18.0.2"
 	networkModeBridge           = "bridge"
 	networkModeAWSVPC           = "awsvpc"
 	testTaskARN                 = "arn:aws:ecs:region:account-id:task/task-id"
@@ -298,7 +300,7 @@ func TestBatchContainerHappyPath(t *testing.T) {
 			}
 
 			client.EXPECT().Info(gomock.Any(), gomock.Any()).Return(
-				types.Info{}, nil)
+				system.Info{}, nil)
 			addTaskToEngine(t, ctx, taskEngine, sleepTask, mockTime, &containerEventsWG)
 			cleanup := make(chan time.Time, 1)
 			defer close(cleanup)
@@ -667,17 +669,17 @@ func TestCreateContainerSaveDockerIDAndName(t *testing.T) {
 func TestCreateContainerMetadata(t *testing.T) {
 	testcases := []struct {
 		name  string
-		info  types.Info
+		info  system.Info
 		error error
 	}{
 		{
 			name:  "Selinux Security Option",
-			info:  types.Info{SecurityOptions: []string{"selinux"}},
+			info:  system.Info{SecurityOptions: []string{"selinux"}},
 			error: nil,
 		},
 		{
 			name:  "Docker Info Error",
-			info:  types.Info{},
+			info:  system.Info{},
 			error: errors.New("Error getting docker info"),
 		},
 	}
@@ -1090,13 +1092,12 @@ func TestProvisionContainerResourcesAwsvpcSetPausePIDInVolumeResources(t *testin
 	}, testTask)
 
 	gomock.InOrder(
-		dockerClient.EXPECT().InspectContainer(gomock.Any(), containerID, gomock.Any()).Return(&types.ContainerJSON{
-			ContainerJSONBase: &types.ContainerJSONBase{
-				ID:    containerID,
-				State: &types.ContainerState{Pid: containerPid},
-				HostConfig: &dockercontainer.HostConfig{
-					NetworkMode: containerNetworkMode,
-				},
+		dockerClient.EXPECT().InspectContainer(gomock.Any(), containerID, gomock.Any()).Return(&dockercontainer.InspectResponse{
+
+			ID:    containerID,
+			State: &dockercontainer.State{Pid: containerPid},
+			HostConfig: &dockercontainer.HostConfig{
+				NetworkMode: containerNetworkMode,
 			},
 		}, nil),
 		mockCNIClient.EXPECT().SetupNS(gomock.Any(), gomock.Any(), gomock.Any()).Return(nsResult, nil),
@@ -1164,13 +1165,12 @@ func TestProvisionContainerResourcesAwsvpcMissingCNIResponseError(t *testing.T) 
 		Container:  pauseContainer,
 	}, testTask)
 
-	dockerClient.EXPECT().InspectContainer(gomock.Any(), containerID, gomock.Any()).Return(&types.ContainerJSON{
-		ContainerJSONBase: &types.ContainerJSONBase{
-			ID:    containerID,
-			State: &types.ContainerState{Pid: containerPid},
-			HostConfig: &dockercontainer.HostConfig{
-				NetworkMode: containerNetworkMode,
-			},
+	dockerClient.EXPECT().InspectContainer(gomock.Any(), containerID, gomock.Any()).Return(&dockercontainer.InspectResponse{
+
+		ID:    containerID,
+		State: &dockercontainer.State{Pid: containerPid},
+		HostConfig: &dockercontainer.HostConfig{
+			NetworkMode: containerNetworkMode,
 		},
 	}, nil)
 	mockCNIClient.EXPECT().SetupNS(gomock.Any(), gomock.Any(), gomock.Any()).Return(nil, nil)
@@ -1219,13 +1219,12 @@ func TestStopPauseContainerCleanupCalledAwsvpc(t *testing.T) {
 	}, testTask)
 
 	gomock.InOrder(
-		dockerClient.EXPECT().InspectContainer(gomock.Any(), containerID, gomock.Any()).Return(&types.ContainerJSON{
-			ContainerJSONBase: &types.ContainerJSONBase{
-				ID:    containerID,
-				State: &types.ContainerState{Pid: containerPid},
-				HostConfig: &dockercontainer.HostConfig{
-					NetworkMode: containerNetworkMode,
-				},
+		dockerClient.EXPECT().InspectContainer(gomock.Any(), containerID, gomock.Any()).Return(&dockercontainer.InspectResponse{
+
+			ID:    containerID,
+			State: &dockercontainer.State{Pid: containerPid},
+			HostConfig: &dockercontainer.HostConfig{
+				NetworkMode: containerNetworkMode,
 			},
 		}, nil),
 		mockCNIClient.EXPECT().CleanupNS(gomock.Any(), gomock.Any(), gomock.Any()).Return(nil),
@@ -1274,13 +1273,12 @@ func TestStopPauseContainerCleanupDelayAwsvpc(t *testing.T) {
 	}, testTask)
 
 	gomock.InOrder(
-		dockerClient.EXPECT().InspectContainer(gomock.Any(), containerID, gomock.Any()).Return(&types.ContainerJSON{
-			ContainerJSONBase: &types.ContainerJSONBase{
-				ID:    containerID,
-				State: &types.ContainerState{Pid: containerPid},
-				HostConfig: &dockercontainer.HostConfig{
-					NetworkMode: containerNetworkMode,
-				},
+		dockerClient.EXPECT().InspectContainer(gomock.Any(), containerID, gomock.Any()).Return(&dockercontainer.InspectResponse{
+
+			ID:    containerID,
+			State: &dockercontainer.State{Pid: containerPid},
+			HostConfig: &dockercontainer.HostConfig{
+				NetworkMode: containerNetworkMode,
 			},
 		}, nil),
 		mockCNIClient.EXPECT().CleanupNS(gomock.Any(), gomock.Any(), gomock.Any()).Return(nil),
@@ -1338,13 +1336,12 @@ func TestCheckTearDownPauseContainerAwsvpc(t *testing.T) {
 	}, testTask)
 
 	gomock.InOrder(
-		dockerClient.EXPECT().InspectContainer(gomock.Any(), containerID, gomock.Any()).Return(&types.ContainerJSON{
-			ContainerJSONBase: &types.ContainerJSONBase{
-				ID:    containerID,
-				State: &types.ContainerState{Pid: containerPid},
-				HostConfig: &dockercontainer.HostConfig{
-					NetworkMode: containerNetworkMode,
-				},
+		dockerClient.EXPECT().InspectContainer(gomock.Any(), containerID, gomock.Any()).Return(&dockercontainer.InspectResponse{
+
+			ID:    containerID,
+			State: &dockercontainer.State{Pid: containerPid},
+			HostConfig: &dockercontainer.HostConfig{
+				NetworkMode: containerNetworkMode,
 			},
 		}, nil).MaxTimes(1),
 		mockCNIClient.EXPECT().CleanupNS(gomock.Any(), gomock.Any(), gomock.Any()).Return(nil).MaxTimes(1),
@@ -1593,7 +1590,7 @@ func TestPullAndUpdateContainerReference(t *testing.T) {
 		ImagePullUpfront     config.BooleanDefaultFalse
 		ImagePullBehavior    config.ImagePullBehaviorType
 		ImageState           *image.ImageState
-		ImageInspect         *types.ImageInspect
+		ImageInspect         *dockerimage.InspectResponse
 		InspectImage         bool
 		ImageDigest          string
 		NumOfPulledContainer int
@@ -2209,7 +2206,7 @@ func TestSynchronizeContainerStatus(t *testing.T) {
 	testLabels := map[string]string{
 		"name": "metadata",
 	}
-	testVolumes := []types.MountPoint{
+	testVolumes := []dockercontainer.MountPoint{
 		{
 			Name:        "volume",
 			Source:      "/src/vol",
@@ -2405,17 +2402,17 @@ func TestContainerMetadataUpdatedOnRestart(t *testing.T) {
 						Volume: &taskresourcevolume.LocalDockerVolume{},
 					},
 				}
-				client.EXPECT().InspectContainer(gomock.Any(), dockerContainer.DockerName, gomock.Any()).Return(&types.ContainerJSON{
-					ContainerJSONBase: &types.ContainerJSONBase{
-						ID:      dockerID,
-						Created: (tc.created).Format(time.RFC3339),
-						State: &types.ContainerState{
-							Health: &types.Health{},
-						},
-						HostConfig: &dockercontainer.HostConfig{
-							NetworkMode: containerNetworkMode,
-						},
+				client.EXPECT().InspectContainer(gomock.Any(), dockerContainer.DockerName, gomock.Any()).Return(&dockercontainer.InspectResponse{
+
+					ID:      dockerID,
+					Created: (tc.created).Format(time.RFC3339),
+					State: &dockercontainer.State{
+						Health: &dockercontainer.Health{},
 					},
+					HostConfig: &dockercontainer.HostConfig{
+						NetworkMode: containerNetworkMode,
+					},
+
 					Config: &dockercontainer.Config{
 						Labels: labels,
 					},
@@ -3261,8 +3258,8 @@ func TestCreateContainerAddFirelensLogDriverConfig(t *testing.T) {
 	socketPathPrefix := "unix://"
 	networkModeBridge := "bridge"
 	networkModeAWSVPC := "awsvpc"
-	bridgeIPAddr := "bridgeIP"
-	envVarBridgeMode := "FLUENT_HOST=bridgeIP"
+	bridgeIPAddr := "172.18.0.2"
+	envVarBridgeMode := "FLUENT_HOST=172.18.0.2"
 	envVarPort := "FLUENT_PORT=24224"
 	envVarAWSVPCMode := "FLUENT_HOST=127.0.0.1"
 	eniIPv4Address := "10.0.0.2"
@@ -3311,36 +3308,24 @@ func TestCreateContainerAddFirelensLogDriverConfig(t *testing.T) {
 			FirelensConfig: &apicontainer.FirelensConfig{
 				Type: "fluentd",
 			},
-			NetworkModeUnsafe: appContainerNetworkMode,
-			NetworkSettingsUnsafe: &types.NetworkSettings{
-				DefaultNetworkSettings: types.DefaultNetworkSettings{
-					IPAddress: appContainerBridgeIp,
-				},
-			},
+			NetworkModeUnsafe:     appContainerNetworkMode,
+			NetworkSettingsUnsafe: bridgeNetworkSettings(appContainerBridgeIp),
 		}
 		task.Containers = append(task.Containers, firelensContainer)
 
 		if enableServiceConnect {
 			// add pause container for application container
 			applicationPauseContainer := &apicontainer.Container{
-				Name:              fmt.Sprintf("~internal~ecs~pause-%s", taskName),
-				NetworkModeUnsafe: networkMode,
-				NetworkSettingsUnsafe: &types.NetworkSettings{
-					DefaultNetworkSettings: types.DefaultNetworkSettings{
-						IPAddress: bridgeIPAddr,
-					},
-				},
+				Name:                  fmt.Sprintf("~internal~ecs~pause-%s", taskName),
+				NetworkModeUnsafe:     networkMode,
+				NetworkSettingsUnsafe: bridgeNetworkSettings(bridgeIPAddr),
 			}
 
 			// add pause container for firelensContainer
 			firelensPauseContainer := &apicontainer.Container{
-				Name:              fmt.Sprintf("~internal~ecs~pause-%s", firelensContainerName),
-				NetworkModeUnsafe: networkMode,
-				NetworkSettingsUnsafe: &types.NetworkSettings{
-					DefaultNetworkSettings: types.DefaultNetworkSettings{
-						IPAddress: bridgeIPAddr,
-					},
-				},
+				Name:                  fmt.Sprintf("~internal~ecs~pause-%s", firelensContainerName),
+				NetworkModeUnsafe:     networkMode,
+				NetworkSettingsUnsafe: bridgeNetworkSettings(bridgeIPAddr),
 			}
 			task.Containers = append(task.Containers, firelensPauseContainer)
 			task.Containers = append(task.Containers, applicationPauseContainer)
@@ -3399,12 +3384,8 @@ func TestCreateContainerAddFirelensLogDriverConfig(t *testing.T) {
 					FirelensConfig: &apicontainer.FirelensConfig{
 						Type: "fluentd",
 					},
-					NetworkModeUnsafe: networkMode,
-					NetworkSettingsUnsafe: &types.NetworkSettings{
-						DefaultNetworkSettings: types.DefaultNetworkSettings{
-							IPAddress: bridgeIPAddr,
-						},
-					},
+					NetworkModeUnsafe:     networkMode,
+					NetworkSettingsUnsafe: bridgeNetworkSettings(bridgeIPAddr),
 				},
 			},
 		}
@@ -3543,51 +3524,57 @@ func TestCreateFirelensContainerSetFluentdUID(t *testing.T) {
 	assert.NoError(t, ret.Error)
 }
 
+// bridgeNetworkSettings builds moby v29 NetworkSettings for a bridge-mode
+// container. moby removed the legacy top-level DefaultNetworkSettings.IPAddress;
+// per-network addresses now live under Networks as netip.Addr. An empty ip
+// yields a bridge endpoint with a zero (invalid) address.
+func bridgeNetworkSettings(ip string) *dockercontainer.NetworkSettings {
+	ep := &network.EndpointSettings{}
+	if ip != "" {
+		ep.IPAddress = netip.MustParseAddr(ip)
+	}
+	return &dockercontainer.NetworkSettings{
+		Networks: map[string]*network.EndpointSettings{
+			apitask.BridgeNetworkMode: ep,
+		},
+	}
+}
+
 func TestGetBridgeIP(t *testing.T) {
-	networkDefaultIP := "defaultIP"
-	getNetwork := func(defaultIP string, bridgeIP string, networkMode string) *types.NetworkSettings {
-		endPoint := network.EndpointSettings{
-			IPAddress: bridgeIP,
+	// moby v29 removed the legacy top-level NetworkSettings.IPAddress. getContainerHostIP
+	// now reads per-network addresses from Networks, preferring the bridge network and
+	// falling back to any network with a valid address.
+	getNetwork := func(bridgeIP string, networkMode string) *dockercontainer.NetworkSettings {
+		endPoint := &network.EndpointSettings{}
+		if bridgeIP != "" {
+			endPoint.IPAddress = netip.MustParseAddr(bridgeIP)
 		}
-		return &types.NetworkSettings{
-			DefaultNetworkSettings: types.DefaultNetworkSettings{
-				IPAddress: defaultIP,
-			},
+		return &dockercontainer.NetworkSettings{
 			Networks: map[string]*network.EndpointSettings{
-				networkMode: &endPoint,
+				networkMode: endPoint,
 			},
 		}
 	}
 	testCases := []struct {
-		defaultIP         string
 		bridgeIP          string
 		networkMode       string
 		expectedOk        bool
 		expectedIPAddress string
 	}{
 		{
-			defaultIP:         networkDefaultIP,
-			bridgeIP:          networkBridgeIP,
-			networkMode:       networkModeBridge,
-			expectedOk:        true,
-			expectedIPAddress: networkDefaultIP,
-		},
-		{
-			defaultIP:         "",
 			bridgeIP:          networkBridgeIP,
 			networkMode:       networkModeBridge,
 			expectedOk:        true,
 			expectedIPAddress: networkBridgeIP,
 		},
 		{
-			defaultIP:         "",
+			// non-bridge network still resolves via the any-network fallback
 			bridgeIP:          networkBridgeIP,
 			networkMode:       networkModeAWSVPC,
-			expectedOk:        false,
-			expectedIPAddress: "",
+			expectedOk:        true,
+			expectedIPAddress: networkBridgeIP,
 		},
 		{
-			defaultIP:         "",
 			bridgeIP:          "",
 			networkMode:       networkModeBridge,
 			expectedOk:        false,
@@ -3596,7 +3583,7 @@ func TestGetBridgeIP(t *testing.T) {
 	}
 
 	for _, tc := range testCases {
-		IPAddress, ok := getContainerHostIP(getNetwork(tc.defaultIP, tc.bridgeIP, tc.networkMode))
+		IPAddress, ok := getContainerHostIP(getNetwork(tc.bridgeIP, tc.networkMode))
 		assert.Equal(t, tc.expectedOk, ok)
 		assert.Equal(t, tc.expectedIPAddress, IPAddress)
 	}
@@ -3605,7 +3592,7 @@ func TestGetBridgeIP(t *testing.T) {
 func TestStartFirelensContainerRetryForContainerIP(t *testing.T) {
 	applicationContainerName := "logSenderTask"
 	firelensContainerName := "test-firelens"
-	bridgeIPAddr := "bridgeIP"
+	bridgeIPAddr := "172.18.0.2"
 
 	getTask := func(enableServiceConnect bool) *apitask.Task {
 		rawHostConfigInput := dockercontainer.HostConfig{
@@ -3650,24 +3637,16 @@ func TestStartFirelensContainerRetryForContainerIP(t *testing.T) {
 
 			// add pause container for application container
 			applicationPauseContainer := &apicontainer.Container{
-				Name:              fmt.Sprintf("~internal~ecs~pause-%s", applicationContainerName),
-				NetworkModeUnsafe: apitask.BridgeNetworkMode,
-				NetworkSettingsUnsafe: &types.NetworkSettings{
-					DefaultNetworkSettings: types.DefaultNetworkSettings{
-						IPAddress: bridgeIPAddr,
-					},
-				},
+				Name:                  fmt.Sprintf("~internal~ecs~pause-%s", applicationContainerName),
+				NetworkModeUnsafe:     apitask.BridgeNetworkMode,
+				NetworkSettingsUnsafe: bridgeNetworkSettings(bridgeIPAddr),
 			}
 
 			// add pause container for firelensContainer
 			firelensPauseContainer := &apicontainer.Container{
-				Name:              fmt.Sprintf("~internal~ecs~pause-%s", firelensContainerName),
-				NetworkModeUnsafe: apitask.BridgeNetworkMode,
-				NetworkSettingsUnsafe: &types.NetworkSettings{
-					DefaultNetworkSettings: types.DefaultNetworkSettings{
-						IPAddress: bridgeIPAddr,
-					},
-				},
+				Name:                  fmt.Sprintf("~internal~ecs~pause-%s", firelensContainerName),
+				NetworkModeUnsafe:     apitask.BridgeNetworkMode,
+				NetworkSettingsUnsafe: bridgeNetworkSettings(bridgeIPAddr),
 			}
 			task.Containers = append(task.Containers, applicationPauseContainer)
 			task.Containers = append(task.Containers, firelensPauseContainer)
@@ -3704,7 +3683,7 @@ func TestStartFirelensContainerRetryForContainerIP(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			dockerMetaDataWithoutNetworkSettings := dockerapi.DockerContainerMetadata{
 				DockerID: containerID,
-				Volumes: []types.MountPoint{
+				Volumes: []dockercontainer.MountPoint{
 					{
 						Name:        "volume",
 						Source:      "/src/vol",
@@ -3712,31 +3691,27 @@ func TestStartFirelensContainerRetryForContainerIP(t *testing.T) {
 					},
 				},
 			}
-			jsonBaseWithoutNetwork := &types.ContainerJSON{
-				ContainerJSONBase: &types.ContainerJSONBase{
-					ID:    containerID,
-					State: &types.ContainerState{Pid: containerPid},
-					HostConfig: &dockercontainer.HostConfig{
-						NetworkMode: containerNetworkMode,
-					},
+			jsonBaseWithoutNetwork := &dockercontainer.InspectResponse{
+
+				ID:    containerID,
+				State: &dockercontainer.State{Pid: containerPid},
+				HostConfig: &dockercontainer.HostConfig{
+					NetworkMode: containerNetworkMode,
 				},
 			}
 
-			jsonBaseWithNetwork := &types.ContainerJSON{
-				ContainerJSONBase: &types.ContainerJSONBase{
-					ID:    containerID,
-					State: &types.ContainerState{Pid: containerPid},
-					HostConfig: &dockercontainer.HostConfig{
-						NetworkMode: containerNetworkMode,
-					},
+			jsonBaseWithNetwork := &dockercontainer.InspectResponse{
+
+				ID:    containerID,
+				State: &dockercontainer.State{Pid: containerPid},
+				HostConfig: &dockercontainer.HostConfig{
+					NetworkMode: containerNetworkMode,
 				},
-				NetworkSettings: &types.NetworkSettings{
-					DefaultNetworkSettings: types.DefaultNetworkSettings{
-						IPAddress: networkBridgeIP,
-					},
+
+				NetworkSettings: &dockercontainer.NetworkSettings{
 					Networks: map[string]*network.EndpointSettings{
 						apitask.BridgeNetworkMode: &network.EndpointSettings{
-							IPAddress: networkBridgeIP,
+							IPAddress: netip.MustParseAddr(networkBridgeIP),
 						},
 					},
 				},
@@ -4395,7 +4370,7 @@ func TestPullContainerManifest(t *testing.T) {
 			image:             "myimage",
 			imagePullBehavior: config.ImagePullPreferCachedBehavior,
 			setDockerClientExpectations: func(c *gomock.Controller, d *mock_dockerapi.MockDockerClient) {
-				inspectResult := &types.ImageInspect{}
+				inspectResult := &dockerimage.InspectResponse{}
 				d.EXPECT().InspectImage("myimage").Times(2).Return(inspectResult, nil)
 			},
 			expectedResult: dockerapi.DockerContainerMetadata{},
@@ -4405,7 +4380,7 @@ func TestPullContainerManifest(t *testing.T) {
 			image:             "myimage",
 			imagePullBehavior: config.ImagePullPreferCachedBehavior,
 			setDockerClientExpectations: func(c *gomock.Controller, d *mock_dockerapi.MockDockerClient) {
-				inspectResult := &types.ImageInspect{RepoDigests: []string{"invalid"}}
+				inspectResult := &dockerimage.InspectResponse{RepoDigests: []string{"invalid"}}
 				d.EXPECT().InspectImage("myimage").Times(2).Return(inspectResult, nil)
 			},
 			expectedResult: dockerapi.DockerContainerMetadata{
@@ -4419,7 +4394,7 @@ func TestPullContainerManifest(t *testing.T) {
 			image:             "myimage",
 			imagePullBehavior: config.ImagePullPreferCachedBehavior,
 			setDockerClientExpectations: func(c *gomock.Controller, d *mock_dockerapi.MockDockerClient) {
-				inspectResult := &types.ImageInspect{
+				inspectResult := &dockerimage.InspectResponse{
 					RepoDigests: []string{"myimage@" + testDigest.String()},
 				}
 				d.EXPECT().InspectImage("myimage").Times(2).Return(inspectResult, nil)
@@ -4622,7 +4597,7 @@ func TestManifestPullTaskShouldContinue(t *testing.T) {
 			setManifestPulledExpectations: func(
 				ctrl *gomock.Controller, c *mock_dockerapi.MockDockerClient, i *mock_engine.MockImageManager,
 			) []*gomock.Call {
-				inspectResult := &types.ImageInspect{
+				inspectResult := &dockerimage.InspectResponse{
 					RepoDigests: []string{testImage + "@" + testDigest.String()},
 				}
 				return []*gomock.Call{
@@ -4682,7 +4657,7 @@ func TestManifestPullTaskShouldContinue(t *testing.T) {
 			setManifestPulledExpectations: func(
 				ctrl *gomock.Controller, c *mock_dockerapi.MockDockerClient, i *mock_engine.MockImageManager,
 			) []*gomock.Call {
-				inspectResult := &types.ImageInspect{
+				inspectResult := &dockerimage.InspectResponse{
 					RepoDigests: []string{testImage + "@" + testDigest.String()},
 				}
 				return []*gomock.Call{
@@ -4757,7 +4732,7 @@ func TestManifestPullTaskShouldContinue(t *testing.T) {
 					)
 				} else {
 					transitionExpectations = append(transitionExpectations,
-						dockerClient.EXPECT().InspectImage(tc.container.Image).Return(&types.ImageInspect{
+						dockerClient.EXPECT().InspectImage(tc.container.Image).Return(&dockerimage.InspectResponse{
 							RepoDigests: []string{tc.container.Image + testDigest.String()},
 						}, nil),
 					)
@@ -5043,7 +5018,7 @@ func TestImagePullRequired(t *testing.T) {
 			imagePullBehavior: config.ImagePullPreferCachedBehavior,
 			container:         &apicontainer.Container{Image: "myimage"},
 			setDockerClientExpectations: func(d *mock_dockerapi.MockDockerClient) {
-				d.EXPECT().InspectImage("myimage").Return(&types.ImageInspect{}, nil)
+				d.EXPECT().InspectImage("myimage").Return(&dockerimage.InspectResponse{}, nil)
 			},
 			expected: false,
 		},
