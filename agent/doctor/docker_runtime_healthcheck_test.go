@@ -10,8 +10,8 @@ import (
 	"github.com/aws/amazon-ecs-agent/agent/dockerclient/dockerapi"
 	mock_dockerapi "github.com/aws/amazon-ecs-agent/agent/dockerclient/dockerapi/mocks"
 	"github.com/aws/amazon-ecs-agent/ecs-agent/tcs/model/ecstcs"
-	"github.com/docker/docker/api/types"
 	"github.com/golang/mock/gomock"
+	mobyclient "github.com/moby/moby/client"
 	"github.com/stretchr/testify/assert"
 )
 
@@ -48,7 +48,7 @@ func TestRunCheck(t *testing.T) {
 		{
 			name: "empty checks",
 			dockerPingResponse: &dockerapi.PingResponse{
-				Response: &types.Ping{APIVersion: "test_api_version"},
+				Response: &mobyclient.PingResult{APIVersion: "test_api_version"},
 				Error:    nil,
 			},
 			expectedStatus:     ecstcs.InstanceHealthCheckStatusOk,
