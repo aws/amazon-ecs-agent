@@ -28,17 +28,17 @@ import (
 
 	"github.com/aws/amazon-ecs-agent/agent/api/serviceconnect"
 
+	"github.com/gorilla/mux"
+	sdkClient "github.com/moby/moby/client"
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
+
 	apicontainer "github.com/aws/amazon-ecs-agent/agent/api/container"
 	"github.com/aws/amazon-ecs-agent/agent/config"
 	"github.com/aws/amazon-ecs-agent/agent/dockerclient/dockerapi"
 	ecsengine "github.com/aws/amazon-ecs-agent/agent/engine"
 	"github.com/aws/amazon-ecs-agent/agent/engine/dockerstate"
 	apicontainerstatus "github.com/aws/amazon-ecs-agent/ecs-agent/api/container/status"
-	"github.com/docker/docker/api/types"
-	"github.com/gorilla/mux"
-	dockercontainer "github.com/moby/moby/api/types/container"
-	"github.com/stretchr/testify/assert"
-	"github.com/stretchr/testify/require"
 )
 
 const (
@@ -96,19 +96,19 @@ func TestStatsEngineWithServiceConnectMetrics(t *testing.T) {
 
 			// Assign ContainerStop timeout to addressable variable
 			timeout := int(defaultDockerTimeoutSeconds)
-			containerOptions := dockercontainer.StopOptions{
+			containerOptions := sdkClient.ContainerStopOptions{
 				Timeout: &timeout,
 			}
 
 			// Create a container to get the container id.
 			container, err := createGremlin(client, "default")
 			require.NoError(t, err, "creating container failed")
-			defer client.ContainerRemove(ctx, container.ID, types.ContainerRemoveOptions{Force: true})
+			defer client.ContainerRemove(ctx, container.ID, sdkClient.ContainerRemoveOptions{Force: true})
 
 			engine.cluster = defaultCluster
 			engine.containerInstanceArn = defaultContainerInstance
 
-			err = client.ContainerStart(ctx, container.ID, types.ContainerStartOptions{})
+			_, err = client.ContainerStart(ctx, container.ID, sdkClient.ContainerStartOptions{})
 			require.NoError(t, err, "starting container failed")
 			defer client.ContainerStop(ctx, container.ID, containerOptions)
 
@@ -170,7 +170,7 @@ func TestStatsEngineWithServiceConnectMetrics(t *testing.T) {
 			require.True(t, scStats.sent, "expected service connect metrics sent flag to be set")
 			validateEmptyTaskHealthMetrics(t, engine)
 
-			err = client.ContainerStop(ctx, container.ID, containerOptions)
+			_, err = client.ContainerStop(ctx, container.ID, containerOptions)
 			require.NoError(t, err, "stopping container failed")
 
 			err = engine.containerChangeEventStream.WriteToEventStream(dockerapi.DockerContainerChangeEvent{
