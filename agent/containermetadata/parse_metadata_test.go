@@ -17,15 +17,14 @@
 package containermetadata
 
 import (
+	"net/netip"
 	"testing"
 
 	apitask "github.com/aws/amazon-ecs-agent/agent/api/task"
 	"github.com/aws/amazon-ecs-agent/ecs-agent/tmds/handlers/response"
 
-	"github.com/docker/docker/api/types"
 	dockercontainer "github.com/moby/moby/api/types/container"
 	"github.com/moby/moby/api/types/network"
-	"github.com/docker/go-connections/nat"
 	"github.com/stretchr/testify/assert"
 )
 
@@ -35,7 +34,7 @@ const (
 
 type testFixture struct {
 	task           *apitask.Task
-	container      *types.ContainerJSON
+	container      *dockercontainer.InspectResponse
 	manager        *metadataManager
 	expectedStatus string
 }
@@ -61,9 +60,9 @@ func newBasicFixture() *testFixture {
 
 // adds a container with a basic Config and an empty NetworkingSettings
 func (f *testFixture) withContainer() *testFixture {
-	f.container = &types.ContainerJSON{
+	f.container = &dockercontainer.InspectResponse{
 		Config:          &dockercontainer.Config{Image: "image"},
-		NetworkSettings: &types.NetworkSettings{},
+		NetworkSettings: &dockercontainer.NetworkSettings{},
 	}
 	return f
 }
@@ -73,7 +72,7 @@ func (f *testFixture) withHostConfig() *testFixture {
 	if f.container == nil {
 		f.withContainer()
 	}
-	f.container.ContainerJSONBase = &types.ContainerJSONBase{HostConfig: &dockercontainer.HostConfig{NetworkMode: "bridge"}}
+	f.container.HostConfig = &dockercontainer.HostConfig{NetworkMode: "bridge"}
 	return f
 }
 
@@ -83,21 +82,28 @@ func (f *testFixture) initContainerAndHostConfig() *testFixture {
 		f.withContainer()
 	}
 
-	if f.container.ContainerJSONBase == nil {
+	if f.container.HostConfig == nil {
 		f.withHostConfig()
 	}
 
 	return f
 }
 
-// adds default network settings to the container NetworkSettings
+// adds a default (bridge) network to the container NetworkSettings. moby v29
+// removed the legacy top-level DefaultNetworkSettings; per-network addresses
+// now live under NetworkSettings.Networks as netip.Addr values.
 func (f *testFixture) withDefaultNetworkSettings(ipv4 string, ipv6 string) *testFixture {
 	f.initContainerAndHostConfig()
-	f.container.NetworkSettings.DefaultNetworkSettings = types.DefaultNetworkSettings{
-		IPAddress:         ipv4,
-		GlobalIPv6Address: ipv6,
+	endpoint := &network.EndpointSettings{}
+	if ipv4 != "" {
+		endpoint.IPAddress = netip.MustParseAddr(ipv4)
 	}
-
+	if ipv6 != "" {
+		endpoint.GlobalIPv6Address = netip.MustParseAddr(ipv6)
+	}
+	f.container.NetworkSettings.Networks = map[string]*network.EndpointSettings{
+		"bridge": endpoint,
+	}
 	return f
 }
 
@@ -109,7 +115,7 @@ func (f *testFixture) withNetworks(networks map[string]*network.EndpointSettings
 }
 
 // withPorts adds port bindings to the container NetworkSettings
-func (f *testFixture) withPorts(ports nat.PortMap) *testFixture {
+func (f *testFixture) withPorts(ports network.PortMap) *testFixture {
 	f.initContainerAndHostConfig()
 	f.container.NetworkSettings.Ports = ports
 	return f
@@ -170,10 +176,10 @@ func TestParseHasNetworkSettingsPortBindings(t *testing.T) {
 	mockNetworks["bridge"] = &network.EndpointSettings{}
 	mockNetworks["network0"] = &network.EndpointSettings{}
 
-	mockPorts := nat.PortMap{}
-	mockPortBinding := make([]nat.PortBinding, 0)
-	mockPortBinding = append(mockPortBinding, nat.PortBinding{HostIP: "0.0.0.0", HostPort: "8080"})
-	mockPorts["80/tcp"] = mockPortBinding
+	mockPorts := network.PortMap{}
+	mockPortBinding := make([]network.PortBinding, 0)
+	mockPortBinding = append(mockPortBinding, network.PortBinding{HostIP: netip.MustParseAddr("0.0.0.0"), HostPort: "8080"})
+	mockPorts[network.MustParsePort("80/tcp")] = mockPortBinding
 
 	fixture := newBasicFixture().withNetworks(mockNetworks).withPorts(mockPorts)
 	metadata := fixture.manager.parseMetadata(fixture.container, fixture.task, containerName)
@@ -213,7 +219,7 @@ func TestParseHasNetworkSettingsNetworksEmptyWithIPv4Only(t *testing.T) {
 
 func TestParseHasNetworkSettingsNetworksNonEmpty(t *testing.T) {
 	mockNetworks := map[string]*network.EndpointSettings{}
-	mockNetworks["bridge"] = &network.EndpointSettings{IPAddress: "1.2.3.4", GlobalIPv6Address: "5:6:7:8::"}
+	mockNetworks["bridge"] = &network.EndpointSettings{IPAddress: netip.MustParseAddr("1.2.3.4"), GlobalIPv6Address: netip.MustParseAddr("5:6:7:8::")}
 	mockNetworks["network0"] = &network.EndpointSettings{}
 
 	fixture := newBasicFixture().withNetworks(mockNetworks)
@@ -239,7 +245,7 @@ func TestParseHasNetworkSettingsNetworksNonEmpty(t *testing.T) {
 
 func TestParseHasNetworkSettingsNetworksNonEmptyWithIPv4Only(t *testing.T) {
 	mockNetworks := map[string]*network.EndpointSettings{}
-	mockNetworks["bridge"] = &network.EndpointSettings{IPAddress: "1.2.3.4", GlobalIPv6Address: ""}
+	mockNetworks["bridge"] = &network.EndpointSettings{IPAddress: netip.MustParseAddr("1.2.3.4")}
 	mockNetworks["network0"] = &network.EndpointSettings{}
 
 	fixture := newBasicFixture().withNetworks(mockNetworks)
@@ -262,21 +268,17 @@ func TestParseHasNetworkSettingsNetworksNonEmptyWithIPv4Only(t *testing.T) {
 
 func TestParseHasNoContainerJSONBase(t *testing.T) {
 	fixture := newBasicFixture().withDefaultNetworkSettings("0.0.0.0", "")
-	fixture.container.ContainerJSONBase = nil
+	fixture.container.HostConfig = nil
 	metadata := fixture.manager.parseMetadata(fixture.container, fixture.task, containerName)
 
 	validateBasicMetadata(t, &metadata, fixture)
-	// nil ContainerJSONBase means that hostConfig will be nil too; thus expect no networks
+	// nil HostConfig means we expect no networks
 	assert.Equal(t, 0, len(metadata.dockerContainerMetadata.networkInfo.networks), "Expected zero networks")
 	assert.Equal(t, "image", metadata.dockerContainerMetadata.imageName)
 }
 
 func TestParseTaskDefinitionSettings(t *testing.T) {
-	mockNetworkSettings := &types.NetworkSettings{
-		NetworkSettingsBase: types.NetworkSettingsBase{
-			LinkLocalIPv6Address: "0.0.0.0",
-		},
-	}
+	mockNetworkSettings := &dockercontainer.NetworkSettings{}
 
 	fixture := newBasicFixture().withHostConfig()
 	fixture.container.NetworkSettings = mockNetworkSettings

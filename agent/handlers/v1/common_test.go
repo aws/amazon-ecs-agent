@@ -26,7 +26,7 @@ import (
 	ni "github.com/aws/amazon-ecs-agent/ecs-agent/netlib/model/networkinterface"
 	"github.com/aws/amazon-ecs-agent/ecs-agent/tmds/handlers/response"
 
-	"github.com/docker/docker/api/types"
+	dockercontainer "github.com/moby/moby/api/types/container"
 )
 
 const (
@@ -150,7 +150,7 @@ func testContainer() *apicontainer.Container {
 				Protocol:      apicontainer.TransportProtocolTCP,
 			},
 		},
-		VolumesUnsafe: []types.MountPoint{
+		VolumesUnsafe: []dockercontainer.MountPoint{
 			{
 				Name:        volName,
 				Source:      volSource,
