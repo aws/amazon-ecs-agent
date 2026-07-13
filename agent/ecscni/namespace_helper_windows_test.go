@@ -30,7 +30,6 @@ import (
 	"github.com/aws/amazon-ecs-agent/agent/config"
 	cniTypes "github.com/containernetworking/cni/pkg/types"
 	cniTypesCurrent "github.com/containernetworking/cni/pkg/types/100"
-	"github.com/docker/docker/api/types"
 
 	mock_dockerapi "github.com/aws/amazon-ecs-agent/agent/dockerclient/dockerapi/mocks"
 )
@@ -103,19 +102,19 @@ func TestConfigureTaskNamespaceRouting(t *testing.T) {
 
 			gomock.InOrder(
 				dockerClient.EXPECT().CreateContainerExec(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).Do(
-					func(_ context.Context, container string, execConfig types.ExecConfig, _ time.Duration) {
+					func(_ context.Context, container string, execConfig mobyclient.ExecCreateOptions, _ time.Duration) {
 						assert.Equal(t, container, containerID)
 						assert.Len(t, execConfig.Cmd, 3)
 						assert.Equal(t, execConfig.Cmd[2], finalCmd)
 						assert.Equal(t, execConfig.User, config.ContainerAdminUser)
-					}).Return(&types.IDResponse{ID: containerExecID}, nil),
+					}).Return(&mobyclient.ExecCreateResult{ID: containerExecID}, nil),
 				dockerClient.EXPECT().StartContainerExec(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).Do(
-					func(_ context.Context, execID string, execStartCheck types.ExecStartCheck, _ time.Duration) {
+					func(_ context.Context, execID string, execStartCheck mobyclient.ExecStartOptions, _ time.Duration) {
 						assert.Equal(t, execID, containerExecID)
 						assert.False(t, execStartCheck.Detach)
 					}).Return(nil),
 				dockerClient.EXPECT().InspectContainerExec(gomock.Any(), gomock.Any(), gomock.Any()).Return(
-					&types.ContainerExecInspect{
+					&mobyclient.ExecInspectResult{
 						ExitCode: 0,
 						Running:  false,
 					}, nil),
