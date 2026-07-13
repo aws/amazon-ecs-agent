@@ -61,6 +61,7 @@ github.com/aws/amazon-ecs-agent/ecs-agent/modeltransformer
 github.com/aws/amazon-ecs-agent/ecs-agent/netlib/model/appmesh
 github.com/aws/amazon-ecs-agent/ecs-agent/netlib/model/networkinterface
 github.com/aws/amazon-ecs-agent/ecs-agent/netlib/model/status
+github.com/aws/amazon-ecs-agent/ecs-agent/pkg/meminfo
 github.com/aws/amazon-ecs-agent/ecs-agent/secrets
 github.com/aws/amazon-ecs-agent/ecs-agent/stats
 github.com/aws/amazon-ecs-agent/ecs-agent/tcs/client
@@ -342,7 +343,13 @@ github.com/containerd/cgroups/v3/cgroup2
 github.com/containerd/cgroups/v3/cgroup2/stats
 # github.com/containerd/containerd v1.7.33
 ## explicit; go 1.24.0
-github.com/containerd/containerd/pkg/userns
+# github.com/containerd/errdefs v1.0.0
+## explicit; go 1.20
+github.com/containerd/errdefs
+# github.com/containerd/errdefs/pkg v0.3.0
+## explicit; go 1.22
+github.com/containerd/errdefs/pkg/errhttp
+github.com/containerd/errdefs/pkg/internal/cause
 # github.com/containerd/log v0.1.0
 ## explicit; go 1.20
 github.com/containerd/log
@@ -403,14 +410,8 @@ github.com/docker/docker/client
 github.com/docker/docker/errdefs
 github.com/docker/docker/image/spec/specs-go/v1
 github.com/docker/docker/internal/multierror
-github.com/docker/docker/pkg/homedir
-github.com/docker/docker/pkg/ioutils
-github.com/docker/docker/pkg/meminfo
-github.com/docker/docker/pkg/plugins
-github.com/docker/docker/pkg/plugins/transport
-github.com/docker/docker/pkg/rootless
-# github.com/docker/go-connections v0.6.0
-## explicit; go 1.18
+# github.com/docker/go-connections v0.7.0
+## explicit; go 1.23
 github.com/docker/go-connections/nat
 github.com/docker/go-connections/sockets
 github.com/docker/go-connections/tlsconfig
@@ -463,10 +464,40 @@ github.com/jmespath/go-jmespath
 # github.com/json-iterator/go v1.1.12
 ## explicit; go 1.12
 github.com/json-iterator/go
+# github.com/moby/docker-image-spec v1.3.1
+## explicit; go 1.18
+github.com/moby/docker-image-spec/specs-go/v1
+# github.com/moby/moby/api v1.55.0
+## explicit; go 1.24
+github.com/moby/moby/api/pkg/authconfig
+github.com/moby/moby/api/types
+github.com/moby/moby/api/types/blkiodev
+github.com/moby/moby/api/types/build
+github.com/moby/moby/api/types/checkpoint
+github.com/moby/moby/api/types/common
+github.com/moby/moby/api/types/container
+github.com/moby/moby/api/types/events
+github.com/moby/moby/api/types/image
+github.com/moby/moby/api/types/jsonstream
+github.com/moby/moby/api/types/mount
+github.com/moby/moby/api/types/network
+github.com/moby/moby/api/types/plugin
+github.com/moby/moby/api/types/registry
+github.com/moby/moby/api/types/storage
+github.com/moby/moby/api/types/swarm
+github.com/moby/moby/api/types/system
+github.com/moby/moby/api/types/volume
+# github.com/moby/moby/client v0.5.0
+## explicit; go 1.24
+github.com/moby/moby/client
+github.com/moby/moby/client/internal
+github.com/moby/moby/client/internal/mod
+github.com/moby/moby/client/internal/timestamp
+github.com/moby/moby/client/pkg/versions
 # github.com/moby/sys/userns v0.1.0
 ## explicit; go 1.21
 github.com/moby/sys/userns
-# github.com/moby/term v0.0.0-20221205130635-1aeaba878587
+# github.com/moby/term v0.5.2
 ## explicit; go 1.18
 # github.com/modern-go/concurrent v0.0.0-20180306012644-bacd9c7ef1dd
 ## explicit
@@ -534,8 +565,8 @@ go.etcd.io/bbolt/internal/freelist
 ## explicit; go 1.24.0
 go.opentelemetry.io/auto/sdk
 go.opentelemetry.io/auto/sdk/internal/telemetry
-# go.opentelemetry.io/contrib/instrumentation/net/http/otelhttp v0.57.0
-## explicit; go 1.22
+# go.opentelemetry.io/contrib/instrumentation/net/http/otelhttp v0.60.0
+## explicit; go 1.22.0
 go.opentelemetry.io/contrib/instrumentation/net/http/otelhttp
 go.opentelemetry.io/contrib/instrumentation/net/http/otelhttp/internal/request
 go.opentelemetry.io/contrib/instrumentation/net/http/otelhttp/internal/semconv

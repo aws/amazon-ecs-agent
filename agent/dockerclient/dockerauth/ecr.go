@@ -31,7 +31,7 @@ import (
 	"github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/aws/aws-sdk-go-v2/service/ecr/types"
 	log "github.com/cihub/seelog"
-	"github.com/docker/docker/api/types/registry"
+	"github.com/moby/moby/api/types/registry"
 )
 
 type cacheKey struct {

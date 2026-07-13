@@ -30,10 +30,10 @@ import (
 	status "github.com/aws/amazon-ecs-agent/ecs-agent/api/container/status"
 	errors "github.com/aws/amazon-ecs-agent/ecs-agent/api/errors"
 	types "github.com/docker/docker/api/types"
-	container0 "github.com/docker/docker/api/types/container"
+	container0 "github.com/moby/moby/api/types/container"
 	filters "github.com/docker/docker/api/types/filters"
-	registry "github.com/docker/docker/api/types/registry"
-	system "github.com/docker/docker/api/types/system"
+	registry "github.com/moby/moby/api/types/registry"
+	system "github.com/moby/moby/api/types/system"
 	gomock "github.com/golang/mock/gomock"
 )
 

@@ -32,9 +32,8 @@ import (
 	"github.com/aws/amazon-ecs-agent/ecs-agent/logger/field"
 	"github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/cihub/seelog"
-	"github.com/docker/docker/api/types"
-	dockercontainer "github.com/docker/docker/api/types/container"
-	"github.com/docker/docker/api/types/registry"
+	dockercontainer "github.com/moby/moby/api/types/container"
+	"github.com/moby/moby/api/types/registry"
 )
 
 const (
@@ -302,13 +301,13 @@ type Container struct {
 	KnownPortBindingsUnsafe []PortBinding `json:"KnownPortBindings"`
 
 	// VolumesUnsafe is an array of volume mounts in the container.
-	VolumesUnsafe []types.MountPoint `json:"-"`
+	VolumesUnsafe []dockercontainer.MountPoint `json:"-"`
 
 	// NetworkModeUnsafe is the network mode in which the container is started
 	NetworkModeUnsafe string `json:"-"`
 
 	// NetworksUnsafe denotes the Docker Network Settings in the container.
-	NetworkSettingsUnsafe *types.NetworkSettings `json:"-"`
+	NetworkSettingsUnsafe *dockercontainer.NetworkSettings `json:"-"`
 
 	// SteadyStateStatusUnsafe specifies the steady state status for the container
 	// If uninitialized, it's assumed to be set to 'ContainerRunning'. Even though
@@ -365,7 +364,7 @@ type DependsOn struct {
 
 type ContainerRestartAggregationDataForStats struct {
 	LastRestartDetectedAt     time.Time       `json:"LastRestartDetectedAt,omitempty"`
-	LastStatBeforeLastRestart types.StatsJSON `json:"LastStatBeforeLastRestart,omitempty"`
+	LastStatBeforeLastRestart dockercontainer.StatsResponse `json:"LastStatBeforeLastRestart,omitempty"`
 }
 
 // DockerContainer is a mapping between containers-as-docker-knows-them and
@@ -804,7 +803,7 @@ func (c *Container) GetManagedAgents() []ManagedAgent {
 }
 
 // SetVolumes sets the volumes mounted in a container
-func (c *Container) SetVolumes(volumes []types.MountPoint) {
+func (c *Container) SetVolumes(volumes []dockercontainer.MountPoint) {
 	c.lock.Lock()
 	defer c.lock.Unlock()
 
@@ -812,7 +811,7 @@ func (c *Container) SetVolumes(volumes []types.MountPoint) {
 }
 
 // GetVolumes returns the volumes mounted in a container
-func (c *Container) GetVolumes() []types.MountPoint {
+func (c *Container) GetVolumes() []dockercontainer.MountPoint {
 	c.lock.RLock()
 	defer c.lock.RUnlock()
 
@@ -820,7 +819,7 @@ func (c *Container) GetVolumes() []types.MountPoint {
 }
 
 // SetNetworkSettings sets the networks field in a container
-func (c *Container) SetNetworkSettings(networks *types.NetworkSettings) {
+func (c *Container) SetNetworkSettings(networks *dockercontainer.NetworkSettings) {
 	c.lock.Lock()
 	defer c.lock.Unlock()
 
@@ -828,7 +827,7 @@ func (c *Container) SetNetworkSettings(networks *types.NetworkSettings) {
 }
 
 // GetNetworkSettings returns the networks field in a container
-func (c *Container) GetNetworkSettings() *types.NetworkSettings {
+func (c *Container) GetNetworkSettings() *dockercontainer.NetworkSettings {
 	c.lock.RLock()
 	defer c.lock.RUnlock()
 

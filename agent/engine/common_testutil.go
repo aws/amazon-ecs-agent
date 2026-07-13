@@ -47,8 +47,8 @@ import (
 
 	"github.com/aws/aws-sdk-go-v2/service/ecs/types"
 	"github.com/cihub/seelog"
-	dockercontainer "github.com/docker/docker/api/types/container"
-	"github.com/docker/docker/api/types/registry"
+	dockercontainer "github.com/moby/moby/api/types/container"
+	"github.com/moby/moby/api/types/registry"
 	"github.com/golang/mock/gomock"
 	"github.com/opencontainers/go-digest"
 	ocispec "github.com/opencontainers/image-spec/specs-go/v1"

@@ -40,7 +40,7 @@ import (
 
 	"github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/docker/docker/api/types"
-	"github.com/docker/docker/api/types/container"
+	"github.com/moby/moby/api/types/container"
 	sdkClient "github.com/docker/docker/client"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"

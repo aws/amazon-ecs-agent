@@ -29,7 +29,7 @@ import (
 	ecs "github.com/aws/amazon-ecs-agent/ecs-agent/api/ecs"
 	ipcompatibility "github.com/aws/amazon-ecs-agent/ecs-agent/ipcompatibility"
 	types "github.com/docker/docker/api/types"
-	container0 "github.com/docker/docker/api/types/container"
+	container0 "github.com/moby/moby/api/types/container"
 	gomock "github.com/golang/mock/gomock"
 )
 

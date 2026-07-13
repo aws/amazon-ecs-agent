@@ -18,7 +18,7 @@ import (
 
 	"github.com/aws/amazon-ecs-agent/ecs-agent/credentials"
 
-	"github.com/docker/docker/api/types/registry"
+	"github.com/moby/moby/api/types/registry"
 )
 
 // RegistryAuthenticationData is the authentication data sent by the ECS backend.  Currently, the only supported

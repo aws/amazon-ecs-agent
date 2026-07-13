@@ -20,7 +20,7 @@ import (
 	"github.com/aws/amazon-ecs-agent/agent/utils/loader"
 	"github.com/aws/amazon-ecs-agent/ecs-agent/api/ecs"
 	"github.com/aws/amazon-ecs-agent/ecs-agent/ipcompatibility"
-	dockercontainer "github.com/docker/docker/api/types/container"
+	dockercontainer "github.com/moby/moby/api/types/container"
 )
 
 type Manager interface {

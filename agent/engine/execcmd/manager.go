@@ -24,7 +24,7 @@ import (
 	"github.com/aws/amazon-ecs-agent/agent/dockerclient/dockerapi"
 
 	"github.com/aws/aws-sdk-go-v2/service/ecs/types"
-	dockercontainer "github.com/docker/docker/api/types/container"
+	dockercontainer "github.com/moby/moby/api/types/container"
 )
 
 const (

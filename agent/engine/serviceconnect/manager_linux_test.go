@@ -27,7 +27,7 @@ import (
 	"github.com/aws/amazon-ecs-agent/agent/dockerclient/dockerapi"
 	"github.com/aws/amazon-ecs-agent/ecs-agent/ipcompatibility"
 	dockertypes "github.com/docker/docker/api/types"
-	dockercontainer "github.com/docker/docker/api/types/container"
+	dockercontainer "github.com/moby/moby/api/types/container"
 	"github.com/stretchr/testify/assert"
 )
 

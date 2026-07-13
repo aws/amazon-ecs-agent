@@ -25,7 +25,7 @@ import (
 
 	task "github.com/aws/amazon-ecs-agent/agent/api/task"
 	types "github.com/docker/docker/api/types"
-	container "github.com/docker/docker/api/types/container"
+	container "github.com/moby/moby/api/types/container"
 	gomock "github.com/golang/mock/gomock"
 )
 

@@ -24,11 +24,11 @@ import (
 	"github.com/aws/amazon-ecs-agent/agent/config"
 	"github.com/aws/amazon-ecs-agent/agent/dockerclient/dockerapi"
 	"github.com/aws/amazon-ecs-agent/agent/utils/loader"
-	"github.com/docker/docker/api/types"
+	"github.com/moby/moby/api/types/image"
 )
 
 // LoadImage returns UnsupportedPlatformError on the unsupported platform
-func (*pauseLoader) LoadImage(ctx context.Context, cfg *config.Config, dockerClient dockerapi.DockerClient) (*types.ImageInspect, error) {
+func (*pauseLoader) LoadImage(ctx context.Context, cfg *config.Config, dockerClient dockerapi.DockerClient) (*image.InspectResponse, error) {
 	return nil, loader.NewUnsupportedPlatformError(fmt.Errorf(
 		"pause container load: unsupported platform: %s/%s",
 		runtime.GOOS, runtime.GOARCH))
