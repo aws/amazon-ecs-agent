@@ -1,0 +1,2 @@
+/dcgm-init$
+/version$
