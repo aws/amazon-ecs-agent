@@ -377,10 +377,6 @@ func TestStartFilePreconditions(t *testing.T) {
 
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
-			// Start() gates on GPU support before its file-precondition checks;
-			// enable it so these cases exercise the file logic they target.
-			t.Setenv(gpuSupportEnvVar, "true")
-
 			// Root bypasses permission enforcement, so a read-only file is still
 			// writable; skip cases that expect an error from a write denial.
 			if tc.unwritable != "" && tc.wantErr && os.Geteuid() == 0 {
@@ -476,93 +472,6 @@ func TestStartFilePreconditions(t *testing.T) {
 			assert.Equal(t, "GPU-start-001", out.GPUs[0].GPUUUID)
 			_, err := os.Stat(tempPath)
 			assert.True(t, os.IsNotExist(err), "temp file should not remain after the atomic rename")
-		})
-	}
-}
-
-// TestStartGPUSupportGate verifies Start() gates on ECS_ENABLE_GPU_SUPPORT:
-// unless it is exactly "true", Start() returns a *TerminalError and touches
-// neither the client nor the filesystem.
-func TestStartGPUSupportGate(t *testing.T) {
-	testCases := []struct {
-		name         string
-		envSet       bool
-		envValue     string
-		wantTerminal bool
-	}{
-		{name: "unset returns terminal error", envSet: false, wantTerminal: true},
-		{name: "empty returns terminal error", envSet: true, envValue: "", wantTerminal: true},
-		{name: "false returns terminal error", envSet: true, envValue: "false", wantTerminal: true},
-		{name: "TRUE (wrong case) returns terminal error", envSet: true, envValue: "TRUE", wantTerminal: true},
-		{name: "true proceeds past the gate", envSet: true, envValue: "true", wantTerminal: false},
-	}
-
-	for _, tc := range testCases {
-		t.Run(tc.name, func(t *testing.T) {
-			if tc.envSet {
-				t.Setenv(gpuSupportEnvVar, tc.envValue)
-			} else {
-				// t.Setenv restores the prior value on cleanup, so clearing here is
-				// safe even if the ambient environment has the var set.
-				t.Setenv(gpuSupportEnvVar, "")
-				require.NoError(t, os.Unsetenv(gpuSupportEnvVar))
-			}
-
-			ctrl := gomock.NewController(t)
-			defer ctrl.Finish()
-
-			mockClient := mock_dcgm.NewMockClient(ctrl)
-
-			if tc.wantTerminal {
-				// No expectations are set: the gate must short-circuit before the
-				// client is touched, so any call fails the test. A non-existent
-				// parent dir also proves the gate fired before MkdirAll ran.
-				outputPath := filepath.Join(t.TempDir(), "nonexistent", "gpu-metrics.json")
-				eng := newTestEngine(mockClient, outputPath, time.Hour)
-
-				err := eng.Start()
-				require.Error(t, err)
-				var terminalErr *TerminalError
-				assert.True(t, errors.As(err, &terminalErr),
-					"Start() should return a *TerminalError when GPU support is not enabled")
-				assert.Contains(t, err.Error(), gpuSupportEnvVar)
-
-				// The gate must run before any filesystem work.
-				_, statErr := os.Stat(filepath.Dir(outputPath))
-				assert.True(t, os.IsNotExist(statErr),
-					"Start() must not create the metrics directory when gated off")
-				return
-			}
-
-			// Gate open: Start() proceeds into the collection loop. Wire the client
-			// and stop the loop with SIGTERM, mirroring TestStartFilePreconditions.
-			outputPath := filepath.Join(t.TempDir(), "gpu-metrics.json")
-			var getMetricsCalls atomic.Int64
-			mockClient.EXPECT().Reconcile(gomock.Any()).Return(true, nil).AnyTimes()
-			mockClient.EXPECT().GetMetrics(gomock.Any()).DoAndReturn(func(context.Context) ([]gputypes.GPUMetric, error) {
-				getMetricsCalls.Add(1)
-				return []gputypes.GPUMetric{{GPUUUID: "GPU-gate-001"}}, nil
-			}).AnyTimes()
-			expectStatus(mockClient, true, "", false)
-			mockClient.EXPECT().Shutdown().Return(nil).Times(1)
-
-			eng := newTestEngine(mockClient, outputPath, 5*time.Millisecond)
-
-			done := make(chan error, 1)
-			go func() { done <- eng.Start() }()
-
-			require.Eventually(t, func() bool {
-				return getMetricsCalls.Load() >= 1
-			}, 2*time.Second, 5*time.Millisecond, "Start() should begin collecting once the gate is open")
-
-			require.NoError(t, syscall.Kill(syscall.Getpid(), syscall.SIGTERM))
-
-			select {
-			case err := <-done:
-				assert.NoError(t, err, "Start() should return nil after SIGTERM cancels the run loop")
-			case <-time.After(2 * time.Second):
-				t.Fatal("Start() did not return after SIGTERM was delivered")
-			}
 		})
 	}
 }
