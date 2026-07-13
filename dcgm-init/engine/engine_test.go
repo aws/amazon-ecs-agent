@@ -102,9 +102,9 @@ func TestNewEngine(t *testing.T) {
 			require.NoError(t, err)
 			require.NotNil(t, eng)
 			assert.NotNil(t, eng.client)
-			assert.Equal(t, MetricsFilePath, eng.outputPath)
+			assert.Equal(t, gputypes.GPUMetricsFilePath, eng.outputPath)
 			assert.Equal(t, metricsCollectionInterval, eng.collectionInterval)
-			assert.Equal(t, MetricsFilePath+".tmp", eng.tempPath())
+			assert.Equal(t, gputypes.GPUMetricsFilePath+".tmp", eng.tempPath())
 		})
 	}
 }
@@ -264,7 +264,6 @@ func TestEngine_PeriodicCollection(t *testing.T) {
 				getMetricsCalls *atomic.Int64,
 				cancel context.CancelFunc,
 			) {
-				// Wait for at least one collection tick.
 				assert.Eventually(t, func() bool {
 					return getMetricsCalls.Load() >= 1
 				}, 200*time.Millisecond, 5*time.Millisecond,
@@ -281,13 +280,11 @@ func TestEngine_PeriodicCollection(t *testing.T) {
 				getMetricsCalls *atomic.Int64,
 				cancel context.CancelFunc,
 			) {
-				// Wait for at least one tick to confirm the loop is running.
 				assert.Eventually(t, func() bool {
 					return reconcileCalls.Load() >= 1
 				}, 200*time.Millisecond, 5*time.Millisecond,
 					"Expected at least one Reconcile call")
 
-				// Cancel the context to stop the loop.
 				cancel()
 
 				// Record the call count after cancellation.
@@ -326,7 +323,6 @@ func TestEngine_PeriodicCollection(t *testing.T) {
 			}).AnyTimes()
 			expectStatus(mockClient, true, "", false)
 
-			// Short interval so the ticker fires many times within the test window.
 			eng := newTestEngine(mockClient, outputPath, 5*time.Millisecond)
 
 			done := make(chan struct{})
@@ -334,11 +330,11 @@ func TestEngine_PeriodicCollection(t *testing.T) {
 
 			tc.testFunc(t, eng, mockClient, &reconcileCalls, &getMetricsCalls, cancel)
 
-			// Cancel (idempotent) and confirm the loop returns cleanly.
+			// Cancel and confirm the loop returns cleanly.
 			cancel()
 			select {
 			case <-done:
-				// run() returned cleanly after context cancellation.
+				// run() returned after context cancellation.
 			case <-time.After(2 * time.Second):
 				t.Fatal("run() did not return after context cancellation")
 			}

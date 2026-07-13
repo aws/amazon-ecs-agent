@@ -19,12 +19,19 @@ import (
 	"flag"
 	"fmt"
 	"os"
+	"path/filepath"
 
 	"github.com/aws/amazon-ecs-agent/dcgm-init/engine"
 	"github.com/aws/amazon-ecs-agent/dcgm-init/version"
 	"github.com/aws/amazon-ecs-agent/ecs-agent/logger"
 
 	"github.com/cihub/seelog"
+)
+
+// log config
+const (
+	logFile                      = "/var/log/ecs/dcgm-init.log"
+	logDirPermission os.FileMode = 0755
 )
 
 // all supported commands
@@ -42,12 +49,12 @@ func main() {
 		os.Exit(1)
 	}
 
-	logger.InitSeelog()
+	configureLogging()
 	defer seelog.Flush()
+
 	if args[0] == VERSION {
-		err := version.PrintVersion()
-		if err != nil {
-			seelog.Errorf("failed print version info, err: %v", err)
+		if err := version.PrintVersion(); err != nil {
+			seelog.Errorf("failed to print version info: %v", err)
 		}
 		return
 	}
@@ -61,12 +68,36 @@ func main() {
 	action, ok := actions[args[0]]
 	if !ok {
 		usage(actions)
+		seelog.Flush()
 		os.Exit(1)
 	}
 	err = action.function()
 
 	if err != nil {
 		die(err, engine.DefaultInitErrorExitCode)
+	}
+}
+
+// configureLogging sets up dcgm-init's file logging to logFile.
+func configureLogging() {
+	logger.InitSeelog()
+
+	// Set our file first to override any ECS_LOGFILE from the environment.
+	logger.SetConfigLogFile(logFile)
+	logger.SetRolloverType("date")
+
+	// The file level defaults to "off" under ECS_LOG_DRIVER, so force it from
+	// ECS_LOGLEVEL (info when unset/invalid) so the file is always written.
+	logger.SetInstanceLogLevel(logger.DEFAULT_LOGLEVEL)
+	if level := os.Getenv(logger.LOGLEVEL_ENV_VAR); level != "" {
+		logger.SetInstanceLogLevel(level)
+	}
+
+	// Best-effort: seelog also creates the dir lazily; this just warns clearly
+	// on failure and applies our mode.
+	logDir := filepath.Dir(logFile)
+	if err := os.MkdirAll(logDir, logDirPermission); err != nil {
+		seelog.Warnf("dcgm-init could not create log directory %s: %v", logDir, err)
 	}
 }
 

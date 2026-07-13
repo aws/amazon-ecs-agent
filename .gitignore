@@ -25,6 +25,7 @@ cover.out
 cover.out.tmp
 coverprofile*.out
 /amazon-ecs-init*
+/amazon-dcgm-init
 /BUILDROOT/
 /x86_64/
 /sources.tar
@@ -41,6 +42,7 @@ coverprofile*.out
 /sources.tgz
 ecs-agent-*.tar
 /ecs.service
+/dcgm-init.service
 *.log
 *.DS_Store
 .run/
