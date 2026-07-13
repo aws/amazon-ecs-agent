@@ -20,7 +20,7 @@ import (
 	"testing"
 
 	"github.com/aws/amazon-ecs-agent/ecs-init/config"
-	aaprofile "github.com/docker/docker/profiles/apparmor"
+	aaprofile "github.com/moby/profiles/apparmor"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
