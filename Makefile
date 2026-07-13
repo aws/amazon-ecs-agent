@@ -191,6 +191,13 @@ test-init:
 		./... && cd ..
 	cd ecs-init && go tool cover -func ../cover.out > ../coverprofile-init.out && cd ..
 
+test-dcgm-init:
+	cd dcgm-init && GO111MODULE=on ${GOTEST} ${VERBOSE} -tags unit -mod vendor \
+		-coverprofile ../cover.out \
+		-coverpkg=$$(go list -mod vendor -tags unit ./... | grep -v -f ../scripts/coverfilters/dcgm-init-notest-packages.txt | ${COVERPKG_EXCLUDE}) \
+		-timeout=120s ./... && cd ..
+	cd dcgm-init && go tool cover -func ../cover.out > ../coverprofile-dcgm-init.out && cd ..
+
 test-silent: test-ebs-csi
 	cd agent && GO111MODULE=on ${GOTEST} -tags unit -mod vendor \
 		-coverprofile ../cover.out \
@@ -211,6 +218,10 @@ analyze-cover-profile: coverprofile.out coverprofile-ecs-agent.out
 .PHONY: analyze-cover-profile-init
 analyze-cover-profile-init: coverprofile-init.out
 	./scripts/analyze-cover-profile coverprofile-init.out
+
+.PHONY: analyze-cover-profile-dcgm-init
+analyze-cover-profile-dcgm-init: coverprofile-dcgm-init.out
+	./scripts/analyze-cover-profile coverprofile-dcgm-init.out
 
 run-integ-tests: test-registry gremlin start-ebs-csi-driver container-health-check-image run-sudo-tests
 	ECS_LOGLEVEL=debug ${GOTEST} -tags integration -timeout=30m ./agent/... ./ecs-agent/...

@@ -37,3 +37,5 @@ jobs:
           make analyze-cover-profile
           make test-init
           make analyze-cover-profile-init
+          make test-dcgm-init
+          make analyze-cover-profile-dcgm-init
