@@ -20,6 +20,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"net/netip"
 	"reflect"
 	"runtime"
 	"strconv"
@@ -60,16 +61,16 @@ import (
 	ni "github.com/aws/amazon-ecs-agent/ecs-agent/netlib/model/networkinterface"
 	commonutils "github.com/aws/amazon-ecs-agent/ecs-agent/utils"
 	"github.com/aws/amazon-ecs-agent/ecs-agent/utils/mps"
-	dockertypes "github.com/docker/docker/api/types"
 
 	"github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/aws/aws-sdk-go-v2/service/ecs/types"
 	"github.com/aws/aws-sdk-go-v2/service/secretsmanager"
-	dockercontainer "github.com/moby/moby/api/types/container"
-	"github.com/moby/moby/api/types/volume"
 	"github.com/docker/go-connections/nat"
 	"github.com/docker/go-units"
 	"github.com/golang/mock/gomock"
+	dockercontainer "github.com/moby/moby/api/types/container"
+	"github.com/moby/moby/api/types/network"
+	"github.com/moby/moby/api/types/volume"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -129,11 +130,11 @@ func TestDockerConfigPortBinding(t *testing.T) {
 		t.Error(err)
 	}
 
-	_, ok := config.ExposedPorts["10/tcp"]
+	_, ok := config.ExposedPorts[network.MustParsePort("10/tcp")]
 	if !ok {
 		t.Fatal("Could not get exposed ports 10/tcp")
 	}
-	_, ok = config.ExposedPorts["20/udp"]
+	_, ok = config.ExposedPorts[network.MustParsePort("20/udp")]
 	if !ok {
 		t.Fatal("Could not get exposed ports 20/udp")
 	}
@@ -144,7 +145,7 @@ func TestDockerConfigPortBinding(t *testing.T) {
 	}
 
 	for i := startContainerPortTcp; i <= endContainerPortTcp; i++ {
-		portProtocol := nat.Port(fmt.Sprintf("%d/tcp", i))
+		portProtocol := network.MustParsePort(fmt.Sprintf("%d/tcp", i))
 		_, ok := config.ExposedPorts[portProtocol]
 		if !ok {
 			t.Fatalf("Could not get exposed ports %s", portProtocol)
@@ -157,7 +158,7 @@ func TestDockerConfigPortBinding(t *testing.T) {
 	}
 
 	for i := startContainerPortUdp; i <= endContainerPortUdp; i++ {
-		portProtocol := nat.Port(fmt.Sprintf("%d/udp", i))
+		portProtocol := network.MustParsePort(fmt.Sprintf("%d/udp", i))
 		_, ok := config.ExposedPorts[portProtocol]
 		if !ok {
 			t.Fatalf("Could not get exposed ports %s", portProtocol)
@@ -192,9 +193,9 @@ func TestDockerConfigPortBindingContainerPortIsZero(t *testing.T) {
 	assert.Nil(t, err)
 
 	// Ensure that port zero is not included in the set of container ports that are exposed for the container.
-	_, ok := dockerContainerConfig.ExposedPorts["0/tcp"]
+	_, ok := dockerContainerConfig.ExposedPorts[network.MustParsePort("0/tcp")]
 	assert.False(t, ok, "Unexpectedly could get exposed ports 0/tcp")
-	_, ok = dockerContainerConfig.ExposedPorts["0/udp"]
+	_, ok = dockerContainerConfig.ExposedPorts[network.MustParsePort("0/udp")]
 	assert.False(t, ok, "Unexpectedly could get exposed ports 0/udp")
 }
 
@@ -348,7 +349,7 @@ func TestDockerHostConfigPortBinding(t *testing.T) {
 		testTask                      *Task
 		testDynamicHostPortRange      string
 		testContainerPortRange        string
-		expectedPortBinding           nat.PortMap
+		expectedPortBinding           network.PortMap
 		expectedContainerPortSet      map[int]struct{}
 		expectedContainerPortRangeMap map[string]string
 		expectedError                 bool
@@ -357,9 +358,9 @@ func TestDockerHostConfigPortBinding(t *testing.T) {
 			testName:                 "user-specified container ports and host ports",
 			testTask:                 testTask1,
 			testDynamicHostPortRange: "40000-60000",
-			expectedPortBinding: nat.PortMap{
-				nat.Port("10/tcp"): []nat.PortBinding{{HostPort: "20"}},
-				nat.Port("20/udp"): []nat.PortBinding{{HostPort: "30"}},
+			expectedPortBinding: network.PortMap{
+				network.MustParsePort("10/tcp"): []network.PortBinding{{HostPort: "20"}},
+				network.MustParsePort("20/udp"): []network.PortBinding{{HostPort: "30"}},
 			},
 			expectedContainerPortSet: map[int]struct{}{
 				10: {},
@@ -507,8 +508,8 @@ func getTestTaskServiceConnectBridgeMode() *Task {
 	return testTask
 }
 
-func convertSCPort(port uint16) nat.Port {
-	return nat.Port(strconv.Itoa(int(port)) + defaultSCProtocol)
+func convertSCPort(port uint16) network.Port {
+	return network.MustParsePort(strconv.Itoa(int(port)) + defaultSCProtocol)
 }
 
 // TestDockerHostConfigSCBridgeMode verifies port bindings and network mode overrides for each
@@ -709,7 +710,7 @@ func TestDockerHostConfigRawConfig(t *testing.T) {
 	rawHostConfigInput := dockercontainer.HostConfig{
 		Privileged:     true,
 		ReadonlyRootfs: true,
-		DNS:            []string{"dns1, dns2"},
+		DNS:            []netip.Addr{netip.MustParseAddr("1.1.1.1"), netip.MustParseAddr("8.8.8.8")},
 		DNSSearch:      []string{"dns.search"},
 		ExtraHosts:     []string{"extra:hosts"},
 		SecurityOpt:    []string{"foo", "bar"},
@@ -813,7 +814,7 @@ func TestDockerHostConfigPauseContainer(t *testing.T) {
 	cfg, err = testTask.DockerHostConfig(pauseContainer, dockerMap(testTask), defaultDockerClientAPIVersion,
 		&config.Config{})
 	assert.Nil(t, err)
-	assert.Equal(t, []string{"169.254.169.253"}, cfg.DNS)
+	assert.Equal(t, []netip.Addr{netip.MustParseAddr("169.254.169.253")}, cfg.DNS)
 	assert.Equal(t, []string{"us-west-2.compute.internal"}, cfg.DNSSearch)
 
 	// Verify eni ExtraHosts  added to HostConfig for pause container
@@ -6196,9 +6197,9 @@ func TestPopulateServiceConnectContainerMappingEnvVarBridge(t *testing.T) {
 					{
 						Type: apicontainer.ContainerCNIPause,
 						Name: "~internal~ecs~pause-web",
-						NetworkSettingsUnsafe: &dockertypes.NetworkSettings{
-							DefaultNetworkSettings: dockertypes.DefaultNetworkSettings{
-								IPAddress: "1.2.3.4",
+						NetworkSettingsUnsafe: &dockercontainer.NetworkSettings{
+							Networks: map[string]*network.EndpointSettings{
+								"bridge": {IPAddress: netip.MustParseAddr("1.2.3.4")},
 							},
 						},
 					},
@@ -6209,9 +6210,9 @@ func TestPopulateServiceConnectContainerMappingEnvVarBridge(t *testing.T) {
 					{
 						Type: apicontainer.ContainerCNIPause,
 						Name: "~internal~ecs~pause-sc-container",
-						NetworkSettingsUnsafe: &dockertypes.NetworkSettings{
-							DefaultNetworkSettings: dockertypes.DefaultNetworkSettings{
-								IPAddress: "1.2.3.5",
+						NetworkSettingsUnsafe: &dockercontainer.NetworkSettings{
+							Networks: map[string]*network.EndpointSettings{
+								"bridge": {IPAddress: netip.MustParseAddr("1.2.3.5")},
 							},
 						},
 					},
@@ -6233,10 +6234,9 @@ func TestPopulateServiceConnectContainerMappingEnvVarBridge(t *testing.T) {
 					{
 						Type: apicontainer.ContainerCNIPause,
 						Name: "~internal~ecs~pause-web",
-						NetworkSettingsUnsafe: &dockertypes.NetworkSettings{
-							DefaultNetworkSettings: dockertypes.DefaultNetworkSettings{
-								IPAddress:         "1.2.3.4",
-								GlobalIPv6Address: "5:6:7:8::",
+						NetworkSettingsUnsafe: &dockercontainer.NetworkSettings{
+							Networks: map[string]*network.EndpointSettings{
+								"bridge": {IPAddress: netip.MustParseAddr("1.2.3.4"), GlobalIPv6Address: netip.MustParseAddr("5:6:7:8::")},
 							},
 						},
 					},
@@ -6247,10 +6247,9 @@ func TestPopulateServiceConnectContainerMappingEnvVarBridge(t *testing.T) {
 					{
 						Type: apicontainer.ContainerCNIPause,
 						Name: "~internal~ecs~pause-sc-container",
-						NetworkSettingsUnsafe: &dockertypes.NetworkSettings{
-							DefaultNetworkSettings: dockertypes.DefaultNetworkSettings{
-								IPAddress:         "1.2.3.5",
-								GlobalIPv6Address: "5:6:7:9::",
+						NetworkSettingsUnsafe: &dockercontainer.NetworkSettings{
+							Networks: map[string]*network.EndpointSettings{
+								"bridge": {IPAddress: netip.MustParseAddr("1.2.3.5"), GlobalIPv6Address: netip.MustParseAddr("5:6:7:9::")},
 							},
 						},
 					},
@@ -6272,9 +6271,9 @@ func TestPopulateServiceConnectContainerMappingEnvVarBridge(t *testing.T) {
 					{
 						Type: apicontainer.ContainerCNIPause,
 						Name: "~internal~ecs~pause-web",
-						NetworkSettingsUnsafe: &dockertypes.NetworkSettings{
-							DefaultNetworkSettings: dockertypes.DefaultNetworkSettings{
-								IPAddress: "1.2.3.4",
+						NetworkSettingsUnsafe: &dockercontainer.NetworkSettings{
+							Networks: map[string]*network.EndpointSettings{
+								"bridge": {IPAddress: netip.MustParseAddr("1.2.3.4")},
 							},
 						},
 					},
@@ -6295,10 +6294,9 @@ func TestPopulateServiceConnectContainerMappingEnvVarBridge(t *testing.T) {
 					{
 						Type: apicontainer.ContainerCNIPause,
 						Name: "~internal~ecs~pause-web",
-						NetworkSettingsUnsafe: &dockertypes.NetworkSettings{
-							DefaultNetworkSettings: dockertypes.DefaultNetworkSettings{
-								IPAddress:         "1.2.3.4",
-								GlobalIPv6Address: "5:6:7:8::",
+						NetworkSettingsUnsafe: &dockercontainer.NetworkSettings{
+							Networks: map[string]*network.EndpointSettings{
+								"bridge": {IPAddress: netip.MustParseAddr("1.2.3.4"), GlobalIPv6Address: netip.MustParseAddr("5:6:7:8::")},
 							},
 						},
 					},
@@ -6309,10 +6307,9 @@ func TestPopulateServiceConnectContainerMappingEnvVarBridge(t *testing.T) {
 					{
 						Type: apicontainer.ContainerCNIPause,
 						Name: "~internal~ecs~pause-sc-container",
-						NetworkSettingsUnsafe: &dockertypes.NetworkSettings{
-							DefaultNetworkSettings: dockertypes.DefaultNetworkSettings{
-								IPAddress:         "1.2.3.5",
-								GlobalIPv6Address: "5:6:7:9::",
+						NetworkSettingsUnsafe: &dockercontainer.NetworkSettings{
+							Networks: map[string]*network.EndpointSettings{
+								"bridge": {IPAddress: netip.MustParseAddr("1.2.3.5"), GlobalIPv6Address: netip.MustParseAddr("5:6:7:9::")},
 							},
 						},
 					},
@@ -6334,10 +6331,9 @@ func TestPopulateServiceConnectContainerMappingEnvVarBridge(t *testing.T) {
 					{
 						Type: apicontainer.ContainerCNIPause,
 						Name: "~internal~ecs~pause-web",
-						NetworkSettingsUnsafe: &dockertypes.NetworkSettings{
-							DefaultNetworkSettings: dockertypes.DefaultNetworkSettings{
-								IPAddress:         "1.2.3.4",
-								GlobalIPv6Address: "5:6:7:8::",
+						NetworkSettingsUnsafe: &dockercontainer.NetworkSettings{
+							Networks: map[string]*network.EndpointSettings{
+								"bridge": {IPAddress: netip.MustParseAddr("1.2.3.4"), GlobalIPv6Address: netip.MustParseAddr("5:6:7:8::")},
 							},
 						},
 					},
@@ -6348,10 +6344,9 @@ func TestPopulateServiceConnectContainerMappingEnvVarBridge(t *testing.T) {
 					{
 						Type: apicontainer.ContainerCNIPause,
 						Name: "~internal~ecs~pause-client",
-						NetworkSettingsUnsafe: &dockertypes.NetworkSettings{
-							DefaultNetworkSettings: dockertypes.DefaultNetworkSettings{
-								IPAddress:         "8.8.8.8",
-								GlobalIPv6Address: "9:9:9:9::",
+						NetworkSettingsUnsafe: &dockercontainer.NetworkSettings{
+							Networks: map[string]*network.EndpointSettings{
+								"bridge": {IPAddress: netip.MustParseAddr("8.8.8.8"), GlobalIPv6Address: netip.MustParseAddr("9:9:9:9::")},
 							},
 						},
 					},
@@ -6362,10 +6357,9 @@ func TestPopulateServiceConnectContainerMappingEnvVarBridge(t *testing.T) {
 					{
 						Type: apicontainer.ContainerCNIPause,
 						Name: "~internal~ecs~pause-sc-container",
-						NetworkSettingsUnsafe: &dockertypes.NetworkSettings{
-							DefaultNetworkSettings: dockertypes.DefaultNetworkSettings{
-								IPAddress:         "1.2.3.5",
-								GlobalIPv6Address: "5:6:7:9::",
+						NetworkSettingsUnsafe: &dockercontainer.NetworkSettings{
+							Networks: map[string]*network.EndpointSettings{
+								"bridge": {IPAddress: netip.MustParseAddr("1.2.3.5"), GlobalIPv6Address: netip.MustParseAddr("5:6:7:9::")},
 							},
 						},
 					},
