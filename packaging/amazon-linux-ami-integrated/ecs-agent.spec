@@ -61,7 +61,7 @@ Requires:       procps
 # You can use this to generate a list of the appropriate Provides
 # statements by reading out the vendor directory:
 #
-# find ../../ecs-init/vendor -name \*.go -exec dirname {} \; | sort | uniq | sed 's,^.*ecs-init/vendor/,,; s/^/bundled(golang(/; s/$/))/;' | sed 's/^/Provides:\t/' | expand -
+# find ../../ecs-init/vendor ../../dcgm-init/vendor -name \*.go -exec dirname {} \; | sed 's,^.*ecs-init/vendor/,,; s,^.*dcgm-init/vendor/,,' | sort | uniq | sed 's/^/bundled(golang(/; s/$/))/;' | sed 's/^/Provides:\t/' | expand -
 Provides:       bundled(golang(github.com/Azure/go-ansiterm))
 Provides:       bundled(golang(github.com/Azure/go-ansiterm/winterm))
 Provides:       bundled(golang(github.com/Microsoft/go-winio))
@@ -69,9 +69,13 @@ Provides:       bundled(golang(github.com/Microsoft/go-winio/internal/fs))
 Provides:       bundled(golang(github.com/Microsoft/go-winio/internal/socket))
 Provides:       bundled(golang(github.com/Microsoft/go-winio/internal/stringbuffer))
 Provides:       bundled(golang(github.com/Microsoft/go-winio/pkg/guid))
+Provides:       bundled(golang(github.com/NVIDIA/go-dcgm/pkg/dcgm))
 Provides:       bundled(golang(github.com/NVIDIA/go-nvml/pkg/dl))
 Provides:       bundled(golang(github.com/NVIDIA/go-nvml/pkg/nvml))
 Provides:       bundled(golang(github.com/aws/amazon-ecs-agent/ecs-agent/awsrulesfn))
+Provides:       bundled(golang(github.com/aws/amazon-ecs-agent/ecs-agent/gpu/dcgm))
+Provides:       bundled(golang(github.com/aws/amazon-ecs-agent/ecs-agent/gpu/dcgm/mocks))
+Provides:       bundled(golang(github.com/aws/amazon-ecs-agent/ecs-agent/gpu/types))
 Provides:       bundled(golang(github.com/aws/amazon-ecs-agent/ecs-agent/ipcompatibility))
 Provides:       bundled(golang(github.com/aws/amazon-ecs-agent/ecs-agent/logger))
 Provides:       bundled(golang(github.com/aws/amazon-ecs-agent/ecs-agent/utils))
@@ -187,6 +191,7 @@ Provides:       bundled(golang(github.com/aws/smithy-go/tracing))
 Provides:       bundled(golang(github.com/aws/smithy-go/transport/http))
 Provides:       bundled(golang(github.com/aws/smithy-go/transport/http/internal/io))
 Provides:       bundled(golang(github.com/aws/smithy-go/waiter))
+Provides:       bundled(golang(github.com/bits-and-blooms/bitset))
 Provides:       bundled(golang(github.com/cihub/seelog))
 Provides:       bundled(golang(github.com/cihub/seelog/archive))
 Provides:       bundled(golang(github.com/cihub/seelog/archive/gzip))
