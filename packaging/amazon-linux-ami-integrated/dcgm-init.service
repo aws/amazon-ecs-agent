@@ -2,6 +2,7 @@
 Description=Amazon Elastic Container Service - DCGM Go bindings
 Wants=nvidia-dcgm.service
 After=nvidia-dcgm.service
+After=cloud-final.service
 ConditionPathExists=/usr/bin/nv-hostengine
 
 [Service]
