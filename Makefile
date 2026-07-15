@@ -194,14 +194,16 @@ test-init:
 .PHONY: build-dcgm-init test-dcgm-init
 build-dcgm-init:
 	version=$$(cat VERSION); \
-	git_hash=$$(git rev-parse --short=8 HEAD); \
-	git_dirty=false; \
-	if [ -n "$$(git status --porcelain)" ]; then git_dirty=true; fi; \
-	cd dcgm-init && CGO_ENABLED=1 go build -mod=vendor -ldflags "-s \
-		-X github.com/aws/amazon-ecs-agent/dcgm-init/version.Version=$${version} \
-		-X github.com/aws/amazon-ecs-agent/dcgm-init/version.GitShortHash=$${git_hash} \
-		-X github.com/aws/amazon-ecs-agent/dcgm-init/version.GitDirty=$${git_dirty}" \
-		-o ../amazon-dcgm-init .
+	ldflags="-s -X github.com/aws/amazon-ecs-agent/dcgm-init/version.Version=$${version}"; \
+	if [ -d .git ]; then \
+		git_hash=$$(git rev-parse --short=8 HEAD); \
+		git_dirty=false; \
+		if [ -n "$$(git status --porcelain)" ]; then git_dirty=true; fi; \
+		ldflags="$${ldflags} \
+			-X github.com/aws/amazon-ecs-agent/dcgm-init/version.GitShortHash=$${git_hash} \
+			-X github.com/aws/amazon-ecs-agent/dcgm-init/version.GitDirty=$${git_dirty}"; \
+	fi; \
+	cd dcgm-init && CGO_ENABLED=1 go build -mod=vendor -ldflags "$${ldflags}" -o ../amazon-dcgm-init .
 
 test-dcgm-init:
 	cd dcgm-init && GO111MODULE=on ${GOTEST} ${VERBOSE} -tags unit -mod vendor \
