@@ -193,8 +193,15 @@ test-init:
 
 .PHONY: build-dcgm-init test-dcgm-init
 build-dcgm-init:
-	cd dcgm-init && CGO_ENABLED=1 \
-		go build -mod=vendor -ldflags "-s" -o ../amazon-dcgm-init .
+	version=$$(cat VERSION); \
+	git_hash=$$(git rev-parse --short=8 HEAD); \
+	git_dirty=false; \
+	if [ -n "$$(git status --porcelain)" ]; then git_dirty=true; fi; \
+	cd dcgm-init && CGO_ENABLED=1 go build -mod=vendor -ldflags "-s \
+		-X github.com/aws/amazon-ecs-agent/dcgm-init/version.Version=$${version} \
+		-X github.com/aws/amazon-ecs-agent/dcgm-init/version.GitShortHash=$${git_hash} \
+		-X github.com/aws/amazon-ecs-agent/dcgm-init/version.GitDirty=$${git_dirty}" \
+		-o ../amazon-dcgm-init .
 
 test-dcgm-init:
 	cd dcgm-init && GO111MODULE=on ${GOTEST} ${VERBOSE} -tags unit -mod vendor \
@@ -380,7 +387,7 @@ container-health-check-image:
 	$(MAKE) -C misc/container-health $(MFLAGS)
 
 # all .go files in the agent, excluding vendor/, model/ and testutils/ directories, and all *_test.go and *_mocks.go files
-GOFILES:=$(shell go list -f '{{$$p := .}}{{range $$f := .GoFiles}}{{$$p.Dir}}/{{$$f}} {{end}}' ./agent/... ./ecs-agent/... \
+GOFILES:=$(shell go list -f '{{$$p := .}}{{range $$f := .GoFiles}}{{$$p.Dir}}/{{$$f}} {{end}}' ./agent/... ./ecs-agent/... ./dcgm-init/... \
 		| grep -v /testutils/ | grep -v _test\.go$ | grep -v _mocks\.go$ | grep -v /model)
 
 .PHONY: gocyclo
@@ -391,9 +398,9 @@ gocyclo:
 # same as gofiles above, but without the `-f`
 .PHONY: govet
 govet:
-	go vet $(shell go list ./agent/... ./ecs-agent/... | grep -v /testutils/ | grep -v _test\.go$ | grep -v /mocks | grep -v /model)
+	go vet $(shell go list ./agent/... ./ecs-agent/... ./dcgm-init/... | grep -v /testutils/ | grep -v _test\.go$ | grep -v /mocks | grep -v /model)
 
-GOFMTFILES:=$(shell find ./agent ./ecs-agent -not -path './agent/vendor/*' -not -path './ecs-agent/vendor/*' -not -path './ecs-agent/daemonimages/csidriver/vendor/*' -type f -iregex '.*\.go')
+GOFMTFILES:=$(shell find ./agent ./ecs-agent ./dcgm-init -not -path './agent/vendor/*' -not -path './ecs-agent/vendor/*' -not -path './ecs-agent/daemonimages/csidriver/vendor/*' -not -path './dcgm-init/vendor/*' -type f -iregex '.*\.go')
 
 .PHONY: importcheck
 importcheck:
@@ -567,7 +574,7 @@ clean:
 	-rm -rf ./BUILDROOT BUILD RPMS SRPMS SOURCES SPECS
 	-rm -rf ./x86_64
 	-rm -f ./amazon-ecs-init_${VERSION}*
-	-rm -f .srpm-done .rpm-done .generic-rpm-done .generic-deb-integrated-done
+	-rm -f .srpm-done .rpm-done .generic-rpm-done .generic-deb-integrated-done .amazon-linux-rpm-codebuild-done
 	-rm -f .deb-done
 	-rm -f .amazon-linux-rpm-integrated-done
 	-rm -f .generic-rpm-integrated-done

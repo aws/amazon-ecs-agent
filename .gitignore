@@ -7,10 +7,6 @@ _bin/
 *.zip
 *.swp
 *.orig
-/agent/version/_version.go
-/ecs-agent/daemonimages/csidriver/tarfiles
-/ecs-init/version/version.go
-/dcgm-init/version/version.go
 /ecs-agent/daemonimages/csidriver/tarfiles
 .agignore
 *.sublime-*
@@ -26,7 +22,7 @@ cover.out
 cover.out.tmp
 coverprofile*.out
 /amazon-ecs-init*
-/amazon-dcgm-init
+/amazon-dcgm-init*
 /BUILDROOT/
 /x86_64/
 /sources.tar

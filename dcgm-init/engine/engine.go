@@ -31,8 +31,7 @@ import (
 )
 
 const (
-	// DefaultInitErrorExitCode is used for recoverable init errors (retried by
-	// Restart=always).
+	// DefaultInitErrorExitCode is the default error exit code
 	DefaultInitErrorExitCode = -1
 )
 
