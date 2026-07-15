@@ -86,8 +86,9 @@ func configureLogging() {
 	logger.SetConfigLogFile(logFile)
 	logger.SetRolloverType("date")
 
-	// The file level defaults to "off" under ECS_LOG_DRIVER, so force it from
-	// ECS_LOGLEVEL (info when unset/invalid) so the file is always written.
+	// When ECS_LOG_DRIVER is set, the instance (file) log level defaults to
+	// "off", which writes nothing to logFile. Force it from ECS_LOGLEVEL (info
+	// when unset/invalid) so the file is always written.
 	logger.SetInstanceLogLevel(logger.DEFAULT_LOGLEVEL)
 	if level := os.Getenv(logger.LOGLEVEL_ENV_VAR); level != "" {
 		logger.SetInstanceLogLevel(level)
