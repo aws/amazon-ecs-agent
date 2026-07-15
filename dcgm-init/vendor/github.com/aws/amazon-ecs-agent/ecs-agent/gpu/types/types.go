@@ -15,6 +15,12 @@
 
 package types
 
+const (
+	gpuMetricsDirPath  = "/var/run/ecs"
+	gpuMetricsFileName = "gpu-metrics.json"
+	GPUMetricsFilePath = gpuMetricsDirPath + "/" + gpuMetricsFileName
+)
+
 // GPUMetric holds per-device GPU telemetry. This struct is used by both
 // dcgm-init (for collection) and the agent (for TACS conversion).
 type GPUMetric struct {

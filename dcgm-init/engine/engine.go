@@ -32,18 +32,11 @@ import (
 
 const (
 	// DefaultInitErrorExitCode is used for recoverable init errors (retried by
-	// Restart=on-failure).
+	// Restart=always).
 	DefaultInitErrorExitCode = -1
 )
 
 const (
-	MetricsFileDir = "/var/run/ecs"
-
-	// MetricsFilePath is the shared file dcgm-init writes GPU metrics to and the
-	// agent reads. Start() creates the parent dir and an empty file on demand;
-	// it is first populated on the initial collection tick.
-	MetricsFilePath = MetricsFileDir + "/gpu-metrics.json"
-
 	// metricsFilePermission is the permission for the metrics file and its
 	// staging temp file. 0644 keeps it world-readable so the agent can consume
 	// it, while only dcgm-init writes it.
@@ -82,7 +75,7 @@ type Engine struct {
 func New() (*Engine, error) {
 	return &Engine{
 		client:             dcgm.NewClient(dcgm.Config{}),
-		outputPath:         MetricsFilePath,
+		outputPath:         gputypes.GPUMetricsFilePath,
 		collectionInterval: metricsCollectionInterval,
 	}, nil
 }
@@ -101,6 +94,7 @@ func (e *Engine) Start() error {
 	if err := os.MkdirAll(outputDir, metricsDirPermission); err != nil {
 		return fmt.Errorf("dcgm-init cannot create metrics directory %s: %w", outputDir, err)
 	}
+
 	// Fail fast if either file can't be written, rather than spin a loop whose
 	// writes fail every tick. Both are created on demand, so only an existing
 	// unwritable file (or unwritable directory) is fatal.
