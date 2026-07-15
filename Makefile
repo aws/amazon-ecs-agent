@@ -193,7 +193,7 @@ test-init:
 
 .PHONY: build-dcgm-init test-dcgm-init
 build-dcgm-init:
-	cd dcgm-init && CGO_ENABLED=1 CGO_LDFLAGS="-Wl,--unresolved-symbols=ignore-in-object-files" \
+	cd dcgm-init && CGO_ENABLED=1 \
 		go build -mod=vendor -ldflags "-s" -o ../amazon-dcgm-init .
 
 test-dcgm-init:
