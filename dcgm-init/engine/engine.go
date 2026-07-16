@@ -139,20 +139,6 @@ func (e *Engine) run(ctx context.Context) {
 	}
 }
 
-// dcgmOutput is the JSON structure written to the shared metrics file. Its
-// shape and tags must match what the agent reads.
-type dcgmOutput struct {
-	Timestamp       string `json:"timestamp"`
-	Healthy         bool   `json:"healthy"`
-	UnhealthyReason string `json:"unhealthy_reason,omitempty"`
-	// ConnectionLost indicates the DCGM/nv-hostengine connection is lost. When
-	// true the reader should report INSUFFICIENT_DATA rather than trust Healthy:
-	// IsHealthy() only flips to false on a known violation, so it stays true
-	// while disconnected.
-	ConnectionLost bool                 `json:"connection_lost,omitempty"`
-	GPUs           []gputypes.GPUMetric `json:"gpus"`
-}
-
 // reconcileAndCollect reconciles the DCGM connection, collects metrics, and
 // writes them to the output file atomically (staged to a temp file, then
 // renamed) so the agent never sees a partial write.
@@ -173,7 +159,7 @@ func (e *Engine) reconcileAndCollect(ctx context.Context) error {
 		}
 	}
 
-	output := dcgmOutput{
+	output := gputypes.GPUMetricsFileData{
 		Timestamp:       time.Now().UTC().Format(time.RFC3339),
 		Healthy:         e.client.IsHealthy(),
 		UnhealthyReason: e.client.UnhealthyReason(),
