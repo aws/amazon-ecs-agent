@@ -14,7 +14,7 @@
 package types
 
 const (
-	GPUMetricsDirPath  = "/var/run/ecs"
+	GPUMetricsDirPath  = "/var/run/ecs/gpu"
 	GPUMetricsFileName = "gpu-metrics.json"
 	GPUMetricsFilePath = GPUMetricsDirPath + "/" + GPUMetricsFileName
 )
