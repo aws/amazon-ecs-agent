@@ -1,5 +1,3 @@
-//go:build linux
-
 // Copyright Amazon.com Inc. or its affiliates. All Rights Reserved.
 //
 // Licensed under the Apache License, Version 2.0 (the "License"). You may
@@ -15,6 +13,8 @@
 
 package types
 
+// GPUMetricsFilePath is the shared file dcgm-init writes and the agent reads.
+// dcgm-init runs only on linux, so it is a linux runtime path.
 const (
 	gpuMetricsDirPath  = "/var/run/ecs"
 	gpuMetricsFileName = "gpu-metrics.json"
@@ -32,4 +32,18 @@ type GPUMetric struct {
 	PowerDraw          *float64 `json:"power_draw_watts,omitempty"`
 	Temperature        *float64 `json:"temperature_celsius,omitempty"`
 	RestartAppXidCount int64    `json:"restart_app_xid_count"`
+}
+
+// GPUMetricsFileData is the JSON structure dcgm-init writes to the shared
+// metrics file and the agent reads. It is the wire contract between the two.
+// Callers use the timestamp to detect stale data.
+type GPUMetricsFileData struct {
+	Timestamp       string `json:"timestamp"`
+	Healthy         bool   `json:"healthy"`
+	UnhealthyReason string `json:"unhealthy_reason,omitempty"`
+	// ConnectionLost means dcgm-init lost its DCGM connection (past the grace
+	// period). Healthy stays true while disconnected, so callers must treat this
+	// as unknown (INSUFFICIENT_DATA), not OK.
+	ConnectionLost bool        `json:"connection_lost,omitempty"`
+	GPUs           []GPUMetric `json:"gpus"`
 }

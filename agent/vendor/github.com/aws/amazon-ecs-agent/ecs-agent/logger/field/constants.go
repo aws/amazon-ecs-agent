@@ -76,4 +76,5 @@ const (
 	DockerVersion           = "dockerVersion"
 	NetworkInterface        = "networkInterface"
 	MetricName              = "metricName"
+	Path                    = "path"
 )
