@@ -24,6 +24,7 @@ import (
 	"github.com/aws/amazon-ecs-agent/ecs-agent/netlib/model/ecscni"
 	"github.com/aws/amazon-ecs-agent/ecs-agent/netlib/model/networkinterface"
 	"github.com/aws/amazon-ecs-agent/ecs-agent/netlib/model/status"
+	"github.com/aws/amazon-ecs-agent/ecs-agent/netlib/model/tasknetworkconfig"
 
 	cnins "github.com/containernetworking/plugins/pkg/ns"
 	"github.com/pkg/errors"
@@ -212,4 +213,27 @@ func (il *isolatedLinux) resolveHostNeighbor(ip net.IP) (net.HardwareAddr, error
 	}
 
 	return nil, fmt.Errorf("no neighbor entry for %s in host ARP table", ip)
+}
+
+// CreateDNSConfig creates the task DNS config files and backfills the
+// interface DNS fields from the host's resolv.conf.
+func (il *isolatedLinux) CreateDNSConfig(taskID string, netNS *tasknetworkconfig.NetworkNamespace) error {
+	if err := il.managedLinux.CreateDNSConfig(taskID, netNS); err != nil {
+		return err
+	}
+
+	primaryIF := netNS.GetPrimaryInterface()
+	if primaryIF == nil || len(primaryIF.DomainNameServers) > 0 {
+		return nil
+	}
+
+	src := filepath.Join(il.resolvConfPath, ResolveConfFileName)
+	contents, err := il.ioutil.ReadFile(src)
+	if err != nil {
+		return errors.Wrapf(err, "unable to read %s", src)
+	}
+	servers, searches := parseResolvConf(contents)
+	primaryIF.DomainNameServers = servers
+	primaryIF.DomainNameSearchList = searches
+	return nil
 }
