@@ -55,11 +55,11 @@ func expectStatus(m *mock_dcgm.MockClient, healthy bool, reason string, connLost
 }
 
 // readOutput reads and unmarshals the metrics file written by the engine.
-func readOutput(t *testing.T, path string) dcgmOutput {
+func readOutput(t *testing.T, path string) gputypes.GPUMetricsFileData {
 	t.Helper()
 	data, err := os.ReadFile(path)
 	require.NoError(t, err)
-	var out dcgmOutput
+	var out gputypes.GPUMetricsFileData
 	require.NoError(t, json.Unmarshal(data, &out))
 	return out
 }
@@ -75,7 +75,7 @@ const sentinelTimestamp = "2000-01-01T00:00:00Z"
 // overwrote it.
 func seedOutput(t *testing.T, path string) {
 	t.Helper()
-	data, err := json.MarshalIndent(dcgmOutput{
+	data, err := json.MarshalIndent(gputypes.GPUMetricsFileData{
 		Timestamp: sentinelTimestamp,
 		Healthy:   true,
 		GPUs:      []gputypes.GPUMetric{{GPUUUID: "GPU-preexisting"}},
@@ -116,7 +116,7 @@ func TestEngine_ReconcileAndCollect(t *testing.T) {
 		name             string
 		setupMock        func(*mock_dcgm.MockClient, *atomic.Int64, *atomic.Int64)
 		expectGetMetrics bool
-		verify           func(t *testing.T, out dcgmOutput)
+		verify           func(t *testing.T, out gputypes.GPUMetricsFileData)
 	}{
 		{
 			name: "reconcile failure writes a fresh status snapshot",
@@ -135,7 +135,7 @@ func TestEngine_ReconcileAndCollect(t *testing.T) {
 			// A reconcile failure skips collection but is not fatal: a status-only
 			// snapshot is still written, with connection_lost set so the reader
 			// sees the outage rather than a stale file.
-			verify: func(t *testing.T, out dcgmOutput) {
+			verify: func(t *testing.T, out gputypes.GPUMetricsFileData) {
 				assert.Empty(t, out.GPUs, "no per-GPU metrics should be present when reconciliation fails")
 				assert.True(t, out.ConnectionLost, "connection_lost should be written when reconciliation fails")
 			},
@@ -156,7 +156,7 @@ func TestEngine_ReconcileAndCollect(t *testing.T) {
 			expectGetMetrics: true,
 			// A GetMetrics failure is non-fatal: a status snapshot with no per-GPU
 			// metrics is still written. Here we confirm the snapshot has no GPUs.
-			verify: func(t *testing.T, out dcgmOutput) {
+			verify: func(t *testing.T, out gputypes.GPUMetricsFileData) {
 				assert.Empty(t, out.GPUs, "no per-GPU metrics should be present on collection failure")
 			},
 		},
@@ -177,7 +177,7 @@ func TestEngine_ReconcileAndCollect(t *testing.T) {
 				expectStatus(m, true, "", false)
 			},
 			expectGetMetrics: true,
-			verify: func(t *testing.T, out dcgmOutput) {
+			verify: func(t *testing.T, out gputypes.GPUMetricsFileData) {
 				require.Len(t, out.GPUs, 1)
 				assert.Equal(t, "GPU-test-uuid-1", out.GPUs[0].GPUUUID)
 				require.NotNil(t, out.GPUs[0].GPUUtilization)
