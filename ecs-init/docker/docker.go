@@ -496,7 +496,7 @@ func (c *client) getHostConfig(envVarsFromFiles map[string]string) *godocker.Hos
 					log.Errorf("Failed to create gpu metrics directory %s, skipping bind mount: %v", gputypes.GPUMetricsDirPath, err)
 				} else {
 					// bind mount gpu metrics dir
-					binds = append(binds, gputypes.GPUMetricsDirPath+":"+gputypes.GPUMetricsDirPath)
+					binds = append(binds, gputypes.GPUMetricsDirPath+":"+gputypes.GPUMetricsDirPath+readOnly)
 				}
 			}
 		}

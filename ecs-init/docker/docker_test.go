@@ -443,7 +443,7 @@ func TestStartAgentWithGPUConfig(t *testing.T) {
 			mockDocker.EXPECT().CreateContainer(gomock.Any()).Do(func(opts godocker.CreateContainerOptions) {
 				validateCommonCreateContainerOptions(t, opts)
 				infoBind := gpu.GPUInfoDirPath + ":" + gpu.GPUInfoDirPath
-				metricsBind := gputypes.GPUMetricsDirPath + ":" + gputypes.GPUMetricsDirPath
+				metricsBind := gputypes.GPUMetricsDirPath + ":" + gputypes.GPUMetricsDirPath + readOnly
 				if expectInfoBind {
 					assert.Contains(t, opts.HostConfig.Binds, infoBind)
 				} else {
