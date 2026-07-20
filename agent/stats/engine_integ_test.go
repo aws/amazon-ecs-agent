@@ -594,7 +594,7 @@ func TestStatsEngineWithDockerTaskEngineMissingRemoveEvent(t *testing.T) {
 
 	time.Sleep(checkPointSleep)
 
-	_, _, _, err = statsEngine.GetInstanceMetrics(false)
+	_, _, _, err = statsEngine.GetInstanceMetrics(false, false)
 	assert.Error(t, err, "expect error 'no task metrics to report' when getting instance metrics")
 
 	// Should not contain any metrics after cleanup.
