@@ -13,12 +13,10 @@
 
 package types
 
-// GPUMetricsFilePath is the shared file dcgm-init writes and the agent reads.
-// dcgm-init runs only on linux, so it is a linux runtime path.
 const (
-	gpuMetricsDirPath  = "/var/run/ecs"
-	gpuMetricsFileName = "gpu-metrics.json"
-	GPUMetricsFilePath = gpuMetricsDirPath + "/" + gpuMetricsFileName
+	GPUMetricsDirPath  = "/var/run/ecs/gpu"
+	GPUMetricsFileName = "gpu-metrics.json"
+	GPUMetricsFilePath = GPUMetricsDirPath + "/" + GPUMetricsFileName
 )
 
 // GPUMetric holds per-device GPU telemetry. This struct is used by both
@@ -35,8 +33,7 @@ type GPUMetric struct {
 }
 
 // GPUMetricsFileData is the JSON structure dcgm-init writes to the shared
-// metrics file and the agent reads. It is the wire contract between the two.
-// Callers use the timestamp to detect stale data.
+// metrics file and the agent reads. Callers use the timestamp to detect stale data.
 type GPUMetricsFileData struct {
 	Timestamp       string `json:"timestamp"`
 	Healthy         bool   `json:"healthy"`

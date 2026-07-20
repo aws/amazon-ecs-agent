@@ -16,6 +16,7 @@ github.com/NVIDIA/go-nvml/pkg/nvml
 # github.com/aws/amazon-ecs-agent/ecs-agent v0.0.0 => ../ecs-agent
 ## explicit; go 1.25.0
 github.com/aws/amazon-ecs-agent/ecs-agent/awsrulesfn
+github.com/aws/amazon-ecs-agent/ecs-agent/gpu/types
 github.com/aws/amazon-ecs-agent/ecs-agent/ipcompatibility
 github.com/aws/amazon-ecs-agent/ecs-agent/logger
 github.com/aws/amazon-ecs-agent/ecs-agent/utils
