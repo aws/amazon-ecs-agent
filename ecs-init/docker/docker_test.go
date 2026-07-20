@@ -21,6 +21,7 @@ import (
 	"path/filepath"
 	"testing"
 
+	gputypes "github.com/aws/amazon-ecs-agent/ecs-agent/gpu/types"
 	"github.com/aws/amazon-ecs-agent/ecs-init/config"
 	"github.com/aws/amazon-ecs-agent/ecs-init/gpu"
 	godocker "github.com/fsouza/go-dockerclient"
@@ -370,73 +371,116 @@ func TestStartAgentEnvFile(t *testing.T) {
 	}
 }
 func TestStartAgentWithGPUConfig(t *testing.T) {
-	mockCtrl := gomock.NewController(t)
-	defer mockCtrl.Finish()
-	isPathValid = func(path string, isDir bool) bool {
-		return false
+	testCases := []struct {
+		name           string
+		devicesPresent bool
+		mkdirErr       error
+	}{
+		{
+			name:           "metrics dir created",
+			devicesPresent: true,
+			mkdirErr:       nil,
+		},
+		{
+			name:           "metrics dir creation fails",
+			devicesPresent: true,
+			mkdirErr:       errors.New("permission denied"),
+		},
+		{
+			name:           "no gpu devices",
+			devicesPresent: false,
+		},
 	}
-	defer func() {
-		isPathValid = defaultIsPathValid
-	}()
-
-	config.OsStat = func(name string) (os.FileInfo, error) {
-		return nil, nil
-	}
-	defer func() {
-		config.OsStat = os.Stat
-	}()
-
-	envFile := "\nECS_ENABLE_GPU_SUPPORT=true\n"
-	containerID := "container id"
-
-	defer func() {
-		MatchFilePatternForGPU = FilePatternMatchForGPU
-	}()
-	MatchFilePatternForGPU = func(pattern string) ([]string, error) {
-		return []string{"/dev/nvidia0", "/dev/nvidia1"}, nil
-	}
-
-	mockFS := NewMockfileSystem(mockCtrl)
-	mockDocker := NewMockdockerclient(mockCtrl)
-
-	mockFS.EXPECT().ReadFile(config.InstanceConfigFile()).Return([]byte(envFile), nil).AnyTimes()
-	mockFS.EXPECT().ReadFile(config.AgentConfigFile()).Return(nil, errors.New("not found")).AnyTimes()
-	mockDocker.EXPECT().CreateContainer(gomock.Any()).Do(func(opts godocker.CreateContainerOptions) {
-		validateCommonCreateContainerOptions(t, opts)
-		var found bool
-		for _, bind := range opts.HostConfig.Binds {
-			if bind == gpu.GPUInfoDirPath+":"+gpu.GPUInfoDirPath {
-				found = true
-				break
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			mockCtrl := gomock.NewController(t)
+			defer mockCtrl.Finish()
+			isPathValid = func(path string, isDir bool) bool {
+				return false
 			}
-		}
-		assert.True(t, found)
+			defer func() {
+				isPathValid = defaultIsPathValid
+			}()
 
-		cfg := opts.Config
+			config.OsStat = func(name string) (os.FileInfo, error) {
+				return nil, nil
+			}
+			defer func() {
+				config.OsStat = os.Stat
+			}()
 
-		envVariables := make(map[string]struct{})
-		for _, envVar := range cfg.Env {
-			envVariables[envVar] = struct{}{}
-		}
-	}).Return(&godocker.Container{
-		ID: containerID,
-	}, nil)
-	mockDocker.EXPECT().StartContainer(containerID, nil)
-	mockDocker.EXPECT().WaitContainer(containerID)
+			MatchFilePatternForGPU = func(pattern string) ([]string, error) {
+				if !tc.devicesPresent {
+					return nil, nil
+				}
+				return []string{"/dev/nvidia0", "/dev/nvidia1"}, nil
+			}
+			defer func() {
+				MatchFilePatternForGPU = FilePatternMatchForGPU
+			}()
 
-	client := &client{
-		docker: mockDocker,
-		fs:     mockFS,
+			var gotMkdirPath string
+			var gotMkdirPerm os.FileMode
+			mkdirAll = func(path string, perm os.FileMode) error {
+				gotMkdirPath = path
+				gotMkdirPerm = perm
+				return tc.mkdirErr
+			}
+			defer func() {
+				mkdirAll = os.MkdirAll
+			}()
+
+			envFile := "\nECS_ENABLE_GPU_SUPPORT=true\n"
+			containerID := "container id"
+
+			mockFS := NewMockfileSystem(mockCtrl)
+			mockDocker := NewMockdockerclient(mockCtrl)
+
+			mockFS.EXPECT().ReadFile(config.InstanceConfigFile()).Return([]byte(envFile), nil).AnyTimes()
+			mockFS.EXPECT().ReadFile(config.AgentConfigFile()).Return(nil, errors.New("not found")).AnyTimes()
+			expectInfoBind := tc.devicesPresent
+			expectMetricsBind := tc.devicesPresent && tc.mkdirErr == nil
+			mockDocker.EXPECT().CreateContainer(gomock.Any()).Do(func(opts godocker.CreateContainerOptions) {
+				validateCommonCreateContainerOptions(t, opts)
+				infoBind := gpu.GPUInfoDirPath + ":" + gpu.GPUInfoDirPath
+				metricsBind := gputypes.GPUMetricsDirPath + ":" + gputypes.GPUMetricsDirPath + readOnly
+				if expectInfoBind {
+					assert.Contains(t, opts.HostConfig.Binds, infoBind)
+				} else {
+					assert.NotContains(t, opts.HostConfig.Binds, infoBind)
+				}
+				if expectMetricsBind {
+					assert.Contains(t, opts.HostConfig.Binds, metricsBind)
+					assert.Equal(t, gputypes.GPUMetricsDirPath, gotMkdirPath)
+					assert.Equal(t, gpuMetricsDirPerm, gotMkdirPerm)
+				} else {
+					assert.NotContains(t, opts.HostConfig.Binds, metricsBind)
+				}
+			}).Return(&godocker.Container{
+				ID: containerID,
+			}, nil)
+			mockDocker.EXPECT().StartContainer(containerID, nil)
+			mockDocker.EXPECT().WaitContainer(containerID)
+
+			client := &client{
+				docker: mockDocker,
+				fs:     mockFS,
+			}
+
+			_, err := client.StartAgent()
+			assert.NoError(t, err)
+		})
 	}
-
-	_, err := client.StartAgent()
-	assert.NoError(t, err)
 }
 
 // TestStartAgentWithGPUConfigMPSMounts verifies that on a GPU instance where the
 // MPS control binary and pipe directory exist, both are bind mounted into the
 // agent container so the agent can health-check the MPS control daemon.
 func TestStartAgentWithGPUConfigMPSMounts(t *testing.T) {
+	// The GPU metrics dir is created on GPU hosts; don't touch the real filesystem.
+	mkdirAll = func(string, os.FileMode) error { return nil }
+	defer func() { mkdirAll = os.MkdirAll }()
+
 	mockCtrl := gomock.NewController(t)
 	defer mockCtrl.Finish()
 
@@ -495,6 +539,10 @@ func TestStartAgentWithGPUConfigMPSMounts(t *testing.T) {
 // not present on the host (isPathValid returns false for it), only that mount is
 // skipped while the other MPS mount is still added.
 func TestStartAgentWithGPUConfigMPSMountSkipped(t *testing.T) {
+	// The GPU metrics dir is created on GPU hosts; don't touch the real filesystem.
+	mkdirAll = func(string, os.FileMode) error { return nil }
+	defer func() { mkdirAll = os.MkdirAll }()
+
 	cases := []struct {
 		name         string
 		absentPath   string
@@ -573,6 +621,10 @@ func TestStartAgentWithGPUConfigMPSMountSkipped(t *testing.T) {
 }
 
 func TestStartAgentWithGPUConfigNoDevices(t *testing.T) {
+	// The GPU metrics dir is created on GPU hosts; don't touch the real filesystem.
+	mkdirAll = func(string, os.FileMode) error { return nil }
+	defer func() { mkdirAll = os.MkdirAll }()
+
 	mockCtrl := gomock.NewController(t)
 	defer mockCtrl.Finish()
 	isPathValid = func(path string, isDir bool) bool {
