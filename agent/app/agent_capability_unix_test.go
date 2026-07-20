@@ -41,6 +41,7 @@ import (
 	"github.com/aws/amazon-ecs-agent/agent/utils"
 	mock_loader "github.com/aws/amazon-ecs-agent/agent/utils/loader/mocks"
 	mock_mobypkgwrapper "github.com/aws/amazon-ecs-agent/agent/utils/mobypkgwrapper/mocks"
+	"github.com/aws/amazon-ecs-agent/ecs-agent/capability"
 	"github.com/aws/amazon-ecs-agent/ecs-agent/ipcompatibility"
 	md "github.com/aws/amazon-ecs-agent/ecs-agent/manageddaemon"
 	"github.com/aws/amazon-ecs-agent/ecs-agent/tmds/utils/netconfig"
@@ -339,6 +340,61 @@ func TestEmptyNvidiaDriverCapabilitiesUnix(t *testing.T) {
 			Value: expected.Value,
 		})
 	}
+}
+
+func TestAppendGpuSharingMpsCapability(t *testing.T) {
+	mpsCap := types.Attribute{Name: aws.String(capability.GPUSharingMps)}
+
+	// newManager returns a GPU manager with the given MPS facts and one device
+	// present unless gpuPresent is false.
+	newManager := func(gpuPresent, binary, service, vgpu bool) *gpu.NvidiaGPUManager {
+		m := &gpu.NvidiaGPUManager{
+			MpsControlBinaryPresent: binary,
+			MpsServiceEnabled:       service,
+			HasVGPU:                 vgpu,
+		}
+		if gpuPresent {
+			m.SetGPUIDs([]string{"gpu-0"})
+			m.SetDevices()
+		}
+		return m
+	}
+
+	cases := []struct {
+		name          string
+		mgr           *gpu.NvidiaGPUManager
+		wantAdvertise bool
+	}{
+		// Advertisement of gpu-sharing-mps is intentionally disabled until the MPS runtime
+		// integration lands, so the capability must NOT appear in any case.
+		// TODO: flip to true once capability advertisement is enabled
+		{"all conditions met", newManager(true, true, true, false), false},
+		{"no gpu present", newManager(false, true, true, false), false},
+		{"mps binary absent", newManager(true, false, true, false), false},
+		{"mps service disabled", newManager(true, true, false, false), false},
+		{"is vgpu", newManager(true, true, true, true), false},
+	}
+
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			agent := &ecsAgent{
+				resourceFields: &taskresource.ResourceFields{NvidiaGPUManager: tc.mgr},
+			}
+			capabilities := agent.appendGpuSharingMpsCapability(nil)
+			if tc.wantAdvertise {
+				assert.Contains(t, capabilities, mpsCap)
+			} else {
+				assert.NotContains(t, capabilities, mpsCap)
+			}
+		})
+	}
+}
+
+// A nil NvidiaGPUManager must not panic and must not advertise.
+func TestAppendGpuSharingMpsCapabilityNilManager(t *testing.T) {
+	agent := &ecsAgent{resourceFields: &taskresource.ResourceFields{}}
+	capabilities := agent.appendGpuSharingMpsCapability(nil)
+	assert.NotContains(t, capabilities, types.Attribute{Name: aws.String(capability.GPUSharingMps)})
 }
 
 func TestENITrunkingCapabilitiesUnix(t *testing.T) {

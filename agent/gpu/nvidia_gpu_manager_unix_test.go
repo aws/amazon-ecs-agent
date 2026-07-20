@@ -47,7 +47,8 @@ func TestNvidiaGPUManagerInitialize(t *testing.T) {
 		return true
 	}
 	GetGPUInfoJSON = func() ([]byte, error) {
-		return []byte(`{"DriverVersion":"396.44","GPUIDs":["id1","id2","id3"]}`), nil
+		return []byte(`{"DriverVersion":"396.44","GPUIDs":["id1","id2","id3"],` +
+			`"MpsControlBinaryPresent":true,"MpsServiceEnabled":true,"HasVGPU":false}`), nil
 	}
 	defer func() {
 		GPUInfoFileExists = CheckForGPUInfoFile
@@ -58,6 +59,10 @@ func TestNvidiaGPUManagerInitialize(t *testing.T) {
 	assert.Equal(t, []string{"id1", "id2", "id3"}, nvidiaGPUManager.GetGPUIDsUnsafe())
 	assert.Equal(t, "396.44", nvidiaGPUManager.GetDriverVersion())
 	assert.True(t, reflect.DeepEqual(devices, nvidiaGPUManager.GetDevices()))
+	// The MPS gating facts written by ecs-init must round-trip through Initialize.
+	assert.True(t, nvidiaGPUManager.GetMpsControlBinaryPresent())
+	assert.True(t, nvidiaGPUManager.GetMpsServiceEnabled())
+	assert.False(t, nvidiaGPUManager.GetHasVGPU())
 }
 
 func TestNvidiaGPUManagerError(t *testing.T) {
