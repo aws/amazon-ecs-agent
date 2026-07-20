@@ -90,6 +90,48 @@ func (mr *MockGPUManagerMockRecorder) GetGPUIDsUnsafe() *gomock.Call {
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetGPUIDsUnsafe", reflect.TypeOf((*MockGPUManager)(nil).GetGPUIDsUnsafe))
 }
 
+// GetHasVGPU mocks base method.
+func (m *MockGPUManager) GetHasVGPU() bool {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "GetHasVGPU")
+	ret0, _ := ret[0].(bool)
+	return ret0
+}
+
+// GetHasVGPU indicates an expected call of GetHasVGPU.
+func (mr *MockGPUManagerMockRecorder) GetHasVGPU() *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetHasVGPU", reflect.TypeOf((*MockGPUManager)(nil).GetHasVGPU))
+}
+
+// GetMpsControlBinaryPresent mocks base method.
+func (m *MockGPUManager) GetMpsControlBinaryPresent() bool {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "GetMpsControlBinaryPresent")
+	ret0, _ := ret[0].(bool)
+	return ret0
+}
+
+// GetMpsControlBinaryPresent indicates an expected call of GetMpsControlBinaryPresent.
+func (mr *MockGPUManagerMockRecorder) GetMpsControlBinaryPresent() *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetMpsControlBinaryPresent", reflect.TypeOf((*MockGPUManager)(nil).GetMpsControlBinaryPresent))
+}
+
+// GetMpsServiceEnabled mocks base method.
+func (m *MockGPUManager) GetMpsServiceEnabled() bool {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "GetMpsServiceEnabled")
+	ret0, _ := ret[0].(bool)
+	return ret0
+}
+
+// GetMpsServiceEnabled indicates an expected call of GetMpsServiceEnabled.
+func (mr *MockGPUManagerMockRecorder) GetMpsServiceEnabled() *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetMpsServiceEnabled", reflect.TypeOf((*MockGPUManager)(nil).GetMpsServiceEnabled))
+}
+
 // Initialize mocks base method.
 func (m *MockGPUManager) Initialize() error {
 	m.ctrl.T.Helper()

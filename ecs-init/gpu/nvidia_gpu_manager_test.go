@@ -15,7 +15,9 @@ package gpu
 
 import (
 	"errors"
+	"fmt"
 	"os"
+	"os/exec"
 	"testing"
 
 	mock_gpu "github.com/aws/amazon-ecs-agent/ecs-init/gpu/mocks"
@@ -104,6 +106,9 @@ func TestGetGPUDeviceIDs(t *testing.T) {
 
 	mockDevice1.EXPECT().GetUUID().Return("gpu-0123", nvml.SUCCESS)
 	mockDevice2.EXPECT().GetUUID().Return("gpu-1234", nvml.SUCCESS)
+	// The device loop now probes virtualization mode to gate MPS; these are not vGPUs.
+	mockDevice1.EXPECT().GetVirtualizationMode().Return(nvml.GPU_VIRTUALIZATION_MODE_NONE, nvml.SUCCESS)
+	mockDevice2.EXPECT().GetVirtualizationMode().Return(nvml.GPU_VIRTUALIZATION_MODE_NONE, nvml.SUCCESS)
 
 	defer func() {
 		nvml.DeviceGetHandleByIndex = oldDeviceGetHandleByIndex
@@ -318,6 +323,9 @@ func TestGPUSetupSuccessful(t *testing.T) {
 	mockDevice2 := mock_gpu.NewMockGPUDevice(ctrl)
 	mockDevice1.EXPECT().GetUUID().Return("gpu-0123", nvml.SUCCESS)
 	mockDevice2.EXPECT().GetUUID().Return("gpu-1234", nvml.SUCCESS)
+	// The device loop now probes virtualization mode to gate MPS; these are not vGPUs.
+	mockDevice1.EXPECT().GetVirtualizationMode().Return(nvml.GPU_VIRTUALIZATION_MODE_NONE, nvml.SUCCESS)
+	mockDevice2.EXPECT().GetVirtualizationMode().Return(nvml.GPU_VIRTUALIZATION_MODE_NONE, nvml.SUCCESS)
 
 	// Mock DeviceGetHandleByIndex
 	oldDeviceGetHandleByIndex := nvml.DeviceGetHandleByIndex
@@ -336,6 +344,11 @@ func TestGPUSetupSuccessful(t *testing.T) {
 		return nil
 	}
 
+	// Stub the host probes so Setup records deterministic MPS facts.
+	oldStatFile := statFile
+	statFile = func(string) (os.FileInfo, error) { return nil, nil } // binary present
+	restoreExec := stubExec("enabled\n")                             // service enabled
+
 	defer func() {
 		MatchFilePattern = FilePatternMatch
 		InitializeNVML = InitNVML
@@ -344,12 +357,18 @@ func TestGPUSetupSuccessful(t *testing.T) {
 		nvml.DeviceGetHandleByIndex = oldDeviceGetHandleByIndex
 		WriteContentToFile = WriteToFile
 		ShutdownNVML = ShutdownNVMLib
+		statFile = oldStatFile
+		restoreExec()
 	}()
 
 	err := nvidiaGPUManager.Setup()
 	assert.NoError(t, err)
 	assert.Equal(t, driverVersion, nvidiaGPUManager.(*NvidiaGPUManager).DriverVersion)
 	assert.Equal(t, []string{"gpu-0123", "gpu-1234"}, nvidiaGPUManager.(*NvidiaGPUManager).GPUIDs)
+	// Setup must persist the MPS gating facts gathered from the host and devices.
+	assert.True(t, nvidiaGPUManager.(*NvidiaGPUManager).MpsControlBinaryPresent)
+	assert.True(t, nvidiaGPUManager.(*NvidiaGPUManager).MpsServiceEnabled)
+	assert.False(t, nvidiaGPUManager.(*NvidiaGPUManager).HasVGPU)
 }
 
 func TestSetupNVMLError(t *testing.T) {
@@ -370,4 +389,80 @@ func TestSetupNVMLError(t *testing.T) {
 	}()
 	err := nvidiaGPUManager.Setup()
 	assert.Error(t, err)
+}
+
+// stubExec makes execCommand return a process whose stdout is the given text.
+// It re-execs the test binary running TestHelperProcess, the standard Go idiom
+// for faking exec.Command output without a real systemctl.
+func stubExec(output string) func() {
+	orig := execCommand
+	execCommand = func(name string, args ...string) *exec.Cmd {
+		cs := []string{"-test.run=TestHelperProcess", "--", output}
+		cmd := exec.Command(os.Args[0], cs...)
+		cmd.Env = []string{"GO_WANT_HELPER_PROCESS=1"}
+		return cmd
+	}
+	return func() { execCommand = orig }
+}
+
+// TestHelperProcess is not a real test; it is the fake subprocess stubExec spawns.
+func TestHelperProcess(t *testing.T) {
+	if os.Getenv("GO_WANT_HELPER_PROCESS") != "1" {
+		return
+	}
+	// Last arg is the stdout to emit.
+	args := os.Args
+	fmt.Fprint(os.Stdout, args[len(args)-1])
+	os.Exit(0)
+}
+
+func TestDetectMPSControlBinary(t *testing.T) {
+	orig := statFile
+	defer func() { statFile = orig }()
+
+	statFile = func(string) (os.FileInfo, error) { return nil, nil }
+	assert.True(t, detectMpsControlBinary(), "binary present -> true")
+
+	statFile = func(string) (os.FileInfo, error) { return nil, os.ErrNotExist }
+	assert.False(t, detectMpsControlBinary(), "binary absent -> false")
+}
+
+func TestDetectMpsServiceEnabled(t *testing.T) {
+	cases := []struct {
+		out  string
+		want bool
+	}{
+		{"enabled\n", true},
+		{"enabled-runtime\n", true},
+		{"disabled\n", false},
+		{"static\n", false},
+		{"", false}, // unit not found: no output
+	}
+	for _, tc := range cases {
+		t.Run(tc.out, func(t *testing.T) {
+			restore := stubExec(tc.out)
+			defer restore()
+			assert.Equal(t, tc.want, detectMpsServiceEnabled())
+		})
+	}
+}
+
+func TestDetectVGPU(t *testing.T) {
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+
+	// A regular passthrough/bare-metal GPU is not a vGPU.
+	notVGPU := mock_gpu.NewMockGPUDevice(ctrl)
+	notVGPU.EXPECT().GetVirtualizationMode().Return(nvml.GPU_VIRTUALIZATION_MODE_NONE, nvml.SUCCESS)
+	assert.False(t, detectVGPU(notVGPU))
+
+	// A vGPU slice must be detected so MPS is gated off.
+	isVGPU := mock_gpu.NewMockGPUDevice(ctrl)
+	isVGPU.EXPECT().GetVirtualizationMode().Return(nvml.GPU_VIRTUALIZATION_MODE_VGPU, nvml.SUCCESS)
+	assert.True(t, detectVGPU(isVGPU))
+
+	// An NVML error must fail open (false) so a flaky probe never strips MPS.
+	errDevice := mock_gpu.NewMockGPUDevice(ctrl)
+	errDevice.EXPECT().GetVirtualizationMode().Return(nvml.GPU_VIRTUALIZATION_MODE_NONE, nvml.ERROR_UNKNOWN)
+	assert.False(t, detectVGPU(errDevice))
 }

@@ -656,6 +656,10 @@ func TestDoStartGPUManagerHappyPath(t *testing.T) {
 	imageManager.EXPECT().AddImageToCleanUpExclusionList(gomock.Eq("service_connect_agent:v1")).Times(1)
 	client.EXPECT().GetHostResources().Return(testHostResource, nil).Times(1)
 	mockGPUManager.EXPECT().GetDevices().Return(devices).AnyTimes()
+	// The gpu-sharing-mps capability check reads these MPS facts during registration.
+	mockGPUManager.EXPECT().GetMpsControlBinaryPresent().Return(false).AnyTimes()
+	mockGPUManager.EXPECT().GetMpsServiceEnabled().Return(false).AnyTimes()
+	mockGPUManager.EXPECT().GetHasVGPU().Return(false).AnyTimes()
 
 	gomock.InOrder(
 		mockGPUManager.EXPECT().Initialize().Return(nil),

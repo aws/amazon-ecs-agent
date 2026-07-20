@@ -37,15 +37,21 @@ type GPUManager interface {
 	GetDevices() []types.PlatformDevice
 	SetDriverVersion(string)
 	GetDriverVersion() string
+	GetMpsControlBinaryPresent() bool
+	GetMpsServiceEnabled() bool
+	GetHasVGPU() bool
 }
 
 // NvidiaGPUManager is used as a wrapper for NVML APIs and implements GPUManager
 // interface
 type NvidiaGPUManager struct {
-	DriverVersion string                 `json:"DriverVersion"`
-	GPUIDs        []string               `json:"GPUIDs"`
-	GPUDevices    []types.PlatformDevice `json:"-"`
-	lock          sync.RWMutex
+	DriverVersion           string                 `json:"DriverVersion"`
+	GPUIDs                  []string               `json:"GPUIDs"`
+	GPUDevices              []types.PlatformDevice `json:"-"`
+	MpsControlBinaryPresent bool                   `json:"MpsControlBinaryPresent"`
+	MpsServiceEnabled       bool                   `json:"MpsServiceEnabled"`
+	HasVGPU                 bool                   `json:"HasVGPU"`
+	lock                    sync.RWMutex
 }
 
 const (
@@ -79,6 +85,9 @@ func (n *NvidiaGPUManager) Initialize() error {
 		nvidiaGPUInfo.lock.RUnlock()
 		n.SetGPUIDs(gpuIDs)
 		n.SetDevices()
+		n.MpsControlBinaryPresent = nvidiaGPUInfo.GetMpsControlBinaryPresent()
+		n.MpsServiceEnabled = nvidiaGPUInfo.GetMpsServiceEnabled()
+		n.HasVGPU = nvidiaGPUInfo.GetHasVGPU()
 	} else {
 		seelog.Error("Config for GPU support is enabled, but GPU information is not found; continuing without it")
 	}
@@ -153,4 +162,25 @@ func (n *NvidiaGPUManager) GetDevices() []types.PlatformDevice {
 	n.lock.RLock()
 	defer n.lock.RUnlock()
 	return n.GPUDevices
+}
+
+// GetMpsControlBinaryPresent reports whether ecs-init found the MPS control binary on the host.
+func (n *NvidiaGPUManager) GetMpsControlBinaryPresent() bool {
+	n.lock.RLock()
+	defer n.lock.RUnlock()
+	return n.MpsControlBinaryPresent
+}
+
+// GetMpsServiceEnabled reports whether ecs-init found nvidia-mps.service enabled on the host.
+func (n *NvidiaGPUManager) GetMpsServiceEnabled() bool {
+	n.lock.RLock()
+	defer n.lock.RUnlock()
+	return n.MpsServiceEnabled
+}
+
+// GetHasVGPU reports whether any device on the instance is an NVIDIA vGPU slice.
+func (n *NvidiaGPUManager) GetHasVGPU() bool {
+	n.lock.RLock()
+	defer n.lock.RUnlock()
+	return n.HasVGPU
 }

@@ -30,8 +30,10 @@ import (
 	"github.com/aws/amazon-ecs-agent/agent/ecscni"
 	"github.com/aws/amazon-ecs-agent/agent/taskresource/volume"
 	"github.com/aws/amazon-ecs-agent/agent/utils"
+	"github.com/aws/amazon-ecs-agent/ecs-agent/capability"
 	"github.com/aws/amazon-ecs-agent/ecs-agent/tmds/utils/netconfig"
 	"github.com/aws/amazon-ecs-agent/ecs-agent/utils/execwrapper"
+	"github.com/aws/amazon-ecs-agent/ecs-agent/utils/gpu"
 
 	"github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/aws/aws-sdk-go-v2/service/ecs/types"
@@ -121,6 +123,34 @@ func (agent *ecsAgent) appendNvidiaDriverVersionAttribute(capabilities []types.A
 			})
 		}
 	}
+	return capabilities
+}
+
+// appendGpuSharingMpsCapability advertises ecs.capability.gpu-sharing-mps when the
+// instance can run MPS: a GPU is present, the MPS control binary and its systemd unit
+// are installed and enabled, and the GPU is not a vGPU slice. The facts are gathered by
+// ecs-init and read from the NvidiaGPUManager; the decision itself lives in the shared
+// gpu package so the MI agent reaches the same verdict from the same inputs.
+func (agent *ecsAgent) appendGpuSharingMpsCapability(capabilities []types.Attribute) []types.Attribute {
+	if agent.resourceFields == nil || agent.resourceFields.NvidiaGPUManager == nil {
+		return capabilities
+	}
+	mgr := agent.resourceFields.NvidiaGPUManager
+	inputs := gpu.MpsCapabilityInputs{
+		GPUPresent:        len(mgr.GetDevices()) > 0,
+		MpsBinaryPresent:  mgr.GetMpsControlBinaryPresent(),
+		MpsServiceEnabled: mgr.GetMpsServiceEnabled(),
+		IsVGPU:            mgr.GetHasVGPU(),
+	}
+	advertise, conditions := gpu.ShouldAdvertiseMpsCapability(inputs)
+	if !advertise {
+		for _, c := range gpu.UnmetMpsConditions(conditions) {
+			seelog.Warnf("Not advertising %s: %s", capability.GPUSharingMps, c.UnmetReason())
+		}
+		return capabilities
+	}
+	// TODO: re-enable once the MPS runtime integration is in place:
+	// return appendNameOnlyAttribute(capabilities, capability.GPUSharingMps)
 	return capabilities
 }
 
