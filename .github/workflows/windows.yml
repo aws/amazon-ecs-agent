@@ -24,7 +24,7 @@ jobs:
             exit 1
           }
           "GO_VERSION_WINDOWS=$go_version_win" | Out-File -FilePath $env:GITHUB_OUTPUT -Append -Encoding utf8
-      - uses: actions/setup-go@v6
+      - uses: actions/setup-go@v7
         with:
           go-version: ${{ steps.get-go-version.outputs.GO_VERSION_WINDOWS }}
       - uses: actions/checkout@v7
