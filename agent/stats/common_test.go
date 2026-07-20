@@ -29,6 +29,7 @@ import (
 	dm "github.com/aws/amazon-ecs-agent/agent/engine/daemonmanager"
 	"github.com/aws/amazon-ecs-agent/agent/statechange"
 	"github.com/aws/amazon-ecs-agent/ecs-agent/eventstream"
+	gputypes "github.com/aws/amazon-ecs-agent/ecs-agent/gpu/types"
 	"github.com/aws/amazon-ecs-agent/ecs-agent/ipcompatibility"
 	"github.com/aws/amazon-ecs-agent/ecs-agent/tcs/model/ecstcs"
 
@@ -152,7 +153,7 @@ func (resolver *IntegContainerMetadataResolver) ResolveContainer(containerID str
 }
 
 func validateInstanceMetrics(t *testing.T, engine *DockerStatsEngine, includeServiceConnectStats bool) {
-	metadata, taskMetrics, err := engine.GetInstanceMetrics(includeServiceConnectStats)
+	metadata, taskMetrics, _, err := engine.GetInstanceMetrics(includeServiceConnectStats, false)
 	assert.NoError(t, err, "gettting instance metrics failed")
 	assert.NoError(t, validateMetricsMetadata(metadata), "validating metadata failed")
 	assert.Len(t, taskMetrics, 1, "incorrect number of tasks")
@@ -167,7 +168,7 @@ func validateInstanceMetrics(t *testing.T, engine *DockerStatsEngine, includeSer
 }
 
 func validateInstanceMetricsWithDisabledMetrics(t *testing.T, engine *DockerStatsEngine, includeServiceConnectStats bool) {
-	metadata, taskMetrics, err := engine.GetInstanceMetrics(includeServiceConnectStats)
+	metadata, taskMetrics, _, err := engine.GetInstanceMetrics(includeServiceConnectStats, false)
 	assert.NoError(t, err, "gettting instance metrics failed")
 	assert.NoError(t, validateMetricsMetadata(metadata), "validating metadata failed")
 	assert.Len(t, taskMetrics, 1, "incorrect number of tasks")
@@ -221,7 +222,7 @@ func validateServiceConnectMetrics(serviceConnectMetrics []*ecstcs.GeneralMetric
 }
 
 func validateIdleContainerMetrics(t *testing.T, engine *DockerStatsEngine) {
-	metadata, taskMetrics, err := engine.GetInstanceMetrics(false)
+	metadata, taskMetrics, _, err := engine.GetInstanceMetrics(false, false)
 	assert.NoError(t, err, "getting instance metrics failed")
 	assert.NoError(t, validateMetricsMetadata(metadata), "validating metadata failed")
 
@@ -413,4 +414,19 @@ func (engine *MockTaskEngine) GetDaemonTask(string) *apitask.Task {
 }
 
 func (engine *MockTaskEngine) SetDaemonTask(string, *apitask.Task) {
+}
+
+// fakeGPUReader is a controllable GPU metrics reader for tests.
+// Each call to GetGPUMetrics increments readCount, which is used as the
+// Timestamp suffix — simulating dcgm-init writing a fresh snapshot each
+// collection cycle so the staleness cursor never suppresses a re-fire.
+type fakeGPUReader struct {
+	data      *gputypes.GPUMetricsFileData
+	readCount int
+}
+
+func (f *fakeGPUReader) GetGPUMetrics() *gputypes.GPUMetricsFileData {
+	f.readCount++
+	f.data.Timestamp = fmt.Sprintf("2026-07-20T00:00:%02dZ", f.readCount)
+	return f.data
 }
