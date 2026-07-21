@@ -54,6 +54,7 @@ const (
 	testTelemetryChannelDefaultBufferSize                     = 10
 	testIncludeScStats                                        = true
 	testNotIncludeScStats                                     = false
+	testNotIncludeGPUStats                                    = false
 )
 
 type trueHealthcheck struct{}
@@ -416,7 +417,7 @@ func TestPublishMetricsRequest(t *testing.T) {
 func TestMetricsToPublishMetricRequestsIdleStatsSource(t *testing.T) {
 	cs := tcsClientServer{}
 	statsSource := idleStatsSource{}
-	metadata, taskMetrics, _, _ := statsSource.GetInstanceMetrics(testNotIncludeScStats, false)
+	metadata, taskMetrics, _, _ := statsSource.GetInstanceMetrics(testNotIncludeScStats, testNotIncludeGPUStats)
 	requests, err := cs.metricsToPublishMetricRequests(ecstcs.TelemetryMessage{
 		Metadata:    metadata,
 		TaskMetrics: taskMetrics,
@@ -444,7 +445,7 @@ func TestMetricsToPublishMetricRequestsNonIdleStatsSourcePaginationWithTaskNumbe
 	statsSource := nonIdleStatsSource{
 		numTasks: numTasks,
 	}
-	metadata, taskMetrics, _, err := statsSource.GetInstanceMetrics(testNotIncludeScStats, false)
+	metadata, taskMetrics, _, err := statsSource.GetInstanceMetrics(testNotIncludeScStats, testNotIncludeGPUStats)
 	requests, err := cs.metricsToPublishMetricRequests(ecstcs.TelemetryMessage{
 		Metadata:    metadata,
 		TaskMetrics: taskMetrics,
@@ -494,7 +495,7 @@ func TestMetricsToPublishMetricRequestsNonIdleStatsSourcePaginationWithMetricsSi
 	statsSource := nonIdleStatsSource{
 		numTasks: numTasks,
 	}
-	metadata, taskMetrics, _, err := statsSource.GetInstanceMetrics(testNotIncludeScStats, false)
+	metadata, taskMetrics, _, err := statsSource.GetInstanceMetrics(testNotIncludeScStats, testNotIncludeGPUStats)
 	requests, err := cs.metricsToPublishMetricRequests(ecstcs.TelemetryMessage{
 		Metadata:    metadata,
 		TaskMetrics: taskMetrics,
@@ -542,7 +543,7 @@ func TestMetricsToPublishMetricRequestsNonIdleInstanceMetricsStatsSource(t *test
 	numTasks := 3
 	cs := tcsClientServer{}
 	statsSource := newNonIdleInstanceMetricsStatsSource(numTasks)
-	metadata, taskMetrics, instanceMetrics, err := statsSource.GetInstanceMetrics(testNotIncludeScStats, false)
+	metadata, taskMetrics, instanceMetrics, err := statsSource.GetInstanceMetrics(testNotIncludeScStats, testNotIncludeGPUStats)
 	if err != nil {
 		t.Errorf("Error getting Instance Metrics")
 	}
@@ -612,7 +613,7 @@ func TestMetricsToPublishMetricRequestsServiceConnectStatsSource(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			cs := tcsClientServer{}
 			statsSource := newServiceConnectStatsSource(tc.numTasks)
-			metadata, taskMetrics, _, _ := statsSource.GetInstanceMetrics(testIncludeScStats, false)
+			metadata, taskMetrics, _, _ := statsSource.GetInstanceMetrics(testIncludeScStats, testNotIncludeGPUStats)
 			requests, err := cs.metricsToPublishMetricRequests(ecstcs.TelemetryMessage{
 				Metadata:    metadata,
 				TaskMetrics: taskMetrics,

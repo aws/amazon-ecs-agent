@@ -663,6 +663,11 @@ func (engine *DockerStatsEngine) GetInstanceMetrics(includeServiceConnectStats b
 					for dockerID := range engine.tasksToContainers[*taskMetric.TaskArn] {
 						dockerContainer, err := engine.resolver.ResolveContainer(dockerID)
 						if err != nil {
+							logger.Warn("Could not resolve container for GPU metrics attachment", logger.Fields{
+								field.TaskARN:  *taskMetric.TaskArn,
+								field.DockerId: dockerID,
+								field.Error:    err,
+							})
 							continue
 						}
 						if dockerContainer.Container.Name == *cm.ContainerName {
@@ -1229,6 +1234,11 @@ func (engine *DockerStatsEngine) computeGPUUsageTotalUnsafe() int64 {
 		for dockerID := range engine.tasksToContainers[taskArn] {
 			dockerContainer, err := engine.resolver.ResolveContainer(dockerID)
 			if err != nil {
+				logger.Warn("Could not resolve container for GPU usage count", logger.Fields{
+					field.TaskARN:  taskArn,
+					field.DockerId: dockerID,
+					field.Error:    err,
+				})
 				continue
 			}
 			for _, id := range dockerContainer.Container.GPUIDs {
