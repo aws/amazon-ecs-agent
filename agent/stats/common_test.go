@@ -416,10 +416,8 @@ func (engine *MockTaskEngine) GetDaemonTask(string) *apitask.Task {
 func (engine *MockTaskEngine) SetDaemonTask(string, *apitask.Task) {
 }
 
-// fakeGPUReader is a controllable GPU metrics reader for tests.
-// Each call to GetGPUMetrics increments readCount, which is used as the
-// Timestamp suffix — simulating dcgm-init writing a fresh snapshot each
-// collection cycle so the staleness cursor never suppresses a re-fire.
+// fakeGPUReader auto-advances Timestamp on each read, preventing staleness
+// suppression from filtering repeated calls in integration tests.
 type fakeGPUReader struct {
 	data      *gputypes.GPUMetricsFileData
 	readCount int

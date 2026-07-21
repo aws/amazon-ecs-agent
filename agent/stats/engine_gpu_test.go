@@ -16,27 +16,13 @@
 
 package stats
 
-// TDD specification for GPU metrics emission. The tests target engine API
-// that does not exist yet; this file will not compile until the stats
-// package gains:
+// GPU metrics emission tests. Exercises GetInstanceMetrics GPU contract:
 //
-//  1. A reader seam: gpuMetricsReader interface{ GetGPUMetrics()
-//     *gputypes.GPUMetricsFileData }, injected via SetGPUMetricsReader
-//     (satisfied by agent/gpu.DCGMMetricsReader).
-//  2. A 3-tick cadence gate (defaultPublishGPUMetricsTicker = 3,
-//     Get/SetPublishGPUMetricsTickerInterval): the counter advances in StartMetricsPublish (like SC) and
-//     includeGPUMetrics=true is passed to GetInstanceMetrics only when it hits
-//     the limit, at both scopes.
-//  3. Staleness suppression: an unchanged reader Timestamp on an emitting
-//     tick means no new dcgm-init snapshot — suppress GPU emission at both
-//     scopes; CPU/memory metrics keep flowing.
-//  4. Instance payload: one dimensionless wrapper with InstanceGPULimit
-//     (= GPUs the reader reports) and InstanceGPUUsageTotal (= unique GPU
-//     IDs assigned to running task containers), MetricValueLong, unit Count.
-//  5. Container payload: one wrapper per assigned device, dimensioned
-//     AcceleratedDevice=<GPUUUID> (GPUUtilization as MetricValueDouble,
-//     unit Percent). Unassigned host GPUs must not appear; containers with
-//     no GPUIDs carry no payload.
+//  1. Reader seam: gpuMetricsReader injected via SetGPUMetricsReader.
+//  2. 3-tick cadence: includeGPUMetrics=true every 3rd tick.
+//  3. Staleness suppression: unchanged Timestamp suppresses GPU; CPU/memory flow.
+//  4. Instance payload: dimensionless InstanceGPULimit + InstanceGPUUsageTotal.
+//  5. Container payload: per-device AcceleratedDevice wrapper; unassigned GPUs excluded.
 
 import (
 	"context"
@@ -55,8 +41,8 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-// fakeDCGMMetricsReader stands in for the agent/gpu reader; tests mutate
-// data between GetInstanceMetrics calls.
+// fakeDCGMMetricsReader is a test double. Mutate data.Timestamp between calls
+// to simulate fresh vs stale snapshots; reads tracks query count.
 type fakeDCGMMetricsReader struct {
 	data  *gputypes.GPUMetricsFileData
 	reads int
@@ -67,8 +53,8 @@ func (f *fakeDCGMMetricsReader) GetGPUMetrics() *gputypes.GPUMetricsFileData {
 	return f.data
 }
 
-// setupGPUStatsEngine builds an engine watching one bridge-mode container
-// ("c1" in task "t1") whose live container carries the given GPU IDs.
+// setupGPUStatsEngine builds an engine watching container "c1" (task "t1",
+// bridge mode) with the given GPU IDs. t.Cleanup handles goroutine shutdown.
 func setupGPUStatsEngine(t *testing.T, mockCtrl *gomock.Controller, gpuIDs []string) (*DockerStatsEngine, context.CancelFunc) {
 	t.Helper()
 	resolver := mock_resolver.NewMockContainerMetadataResolver(mockCtrl)
@@ -98,9 +84,8 @@ func setupGPUStatsEngine(t *testing.T, mockCtrl *gomock.Controller, gpuIDs []str
 	return engine, cancel
 }
 
-// feedFakeStats loads two utilization samples into every watched container's
-// queue. Re-invoke after each GetInstanceMetrics call — resetStatsUnsafe
-// marks buffered samples as sent.
+// feedFakeStats loads two CPU/memory samples into every watched container's
+// queue. Call before each GetInstanceMetrics (resetStatsUnsafe drains them).
 func feedFakeStats(engine *DockerStatsEngine) {
 	containerStats := createFakeContainerStats()
 	for _, containers := range engine.tasksToContainers {
