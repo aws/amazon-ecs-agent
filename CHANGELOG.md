@@ -1,5 +1,21 @@
 # Changelog
 
+# 1.106.0
+* Feature - Feature - Add FIS-driven DNS refresh add-sources endpoint for network-latency and network-packet-loss faults [#5029](https://github.com/aws/amazon-ecs-agent/pull/5029)
+* Enhancement - Enhancement: Update SSM Agent version to 3.3.4624.0 for ECS exec [#5054](https://github.com/aws/amazon-ecs-agent/pull/5054)
+* Enhancement - Backfill host DNS config on isolated platform [#5047](https://github.com/aws/amazon-ecs-agent/pull/5047)
+* Enhancement - Bump github.com/aws/smithy-go from 1.27.3 to 1.27.4 in /agent [#5051](https://github.com/aws/amazon-ecs-agent/pull/5051)
+* Enhancement - Bump github.com/aws/aws-sdk-go-v2/credentials in /ecs-agent, /agent and /ecs-init to 1.19.29 [#5050](https://github.com/aws/amazon-ecs-agent/pull/5050)
+* Enhancement - Bump actions/setup-go from 6 to 7 in /.github/workflows [#5049](https://github.com/aws/amazon-ecs-agent/pull/5049)
+* Enhancement - Update Go version to 1.25.12 [#5048](https://github.com/aws/amazon-ecs-agent/pull/5048)
+* Enhancement - Bump github.com/vishvananda/netlink from 1.2.1-beta.2 to 1.3.1 in /ecs-agent, /agent and /ecs-init [#5037](https://github.com/aws/amazon-ecs-agent/pull/5037)
+* Enhancement - Bump github.com/aws/aws-sdk-go-v2/credentials from 1.19.22 to 1.19.28 in /agent [#5038](https://github.com/aws/amazon-ecs-agent/pull/5038)
+* Enhancement - Bump github.com/hectane/go-acl from 0.0.0-20190604041725-da78bae5fc95 to 1.0.0 in /agent [#5022](https://github.com/aws/amazon-ecs-agent/pull/5022)
+* Enhancement - chore(deps): bump github.com/cilium/ebpf from v0.16.0 to v0.22.0 in /agent [#5034](https://github.com/aws/amazon-ecs-agent/pull/5034)
+* Enhancement - Bump golang.org/x/net from 0.48.0 to 0.55.0 in /ecs-agent/daemonimages/csidriver [#5031](https://github.com/aws/amazon-ecs-agent/pull/5031)
+* Enhancement - api-2.json: Add CONFIDENTIAL_PARTITION and attestationPolicy to api m… [#5033](https://github.com/aws/amazon-ecs-agent/pull/5033)
+* Bugfix - Fix flaky TestHostResourceManagerTrickleQueue integration test [#5026](https://github.com/aws/amazon-ecs-agent/pull/5026)
+
 # 1.105.1
 * Enhancement - Populate ImageDigest for Service Connect sidecar containers [#5006](https://github.com/aws/amazon-ecs-agent/pull/5006)
 * Enhancement - Bump github.com/containerd/containerd from 1.7.32 to 1.7.33 in /agent [#5013](https://github.com/aws/amazon-ecs-agent/pull/5013)
