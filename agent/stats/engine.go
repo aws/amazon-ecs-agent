@@ -573,7 +573,7 @@ func (engine *DockerStatsEngine) GetInstanceMetrics(includeServiceConnectStats b
 	// Read the GPU snapshot after the idle check but before engine.lock
 	// (file I/O). Mirrors SC's getServiceConnectStats placement: no work
 	// is done on idle instances.
-	gpuMetrics, gpuTimestamp := engine.snapshotGPUMetrics(includeGPUMetrics)
+	gpuMetrics, gpuTimestamp := engine.readGPUMetricsSnapshot(includeGPUMetrics)
 
 	engine.lock.Lock()
 	defer engine.lock.Unlock()
@@ -1188,11 +1188,11 @@ func (engine *DockerStatsEngine) SetPublishGPUMetricsTickerInterval(counter int3
 	engine.publishGPUMetricsTickerInterval = counter
 }
 
-// snapshotGPUMetrics returns fresh GPU readings and their timestamp, or nil if
+// readGPUMetricsSnapshot returns fresh GPU readings and their timestamp, or nil if
 // unavailable (flag off, no reader, empty data, connection lost, or stale).
 // The caller commits the staleness cursor after attaching metrics. Callers
 // must not hold engine.lock (the reader does file I/O).
-func (engine *DockerStatsEngine) snapshotGPUMetrics(includeGPUMetrics bool) ([]gputypes.GPUMetric, string) {
+func (engine *DockerStatsEngine) readGPUMetricsSnapshot(includeGPUMetrics bool) ([]gputypes.GPUMetric, string) {
 	if !includeGPUMetrics {
 		return nil, ""
 	}
