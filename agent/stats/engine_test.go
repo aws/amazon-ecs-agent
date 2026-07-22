@@ -126,7 +126,7 @@ func TestStatsEngineAddRemoveContainers(t *testing.T) {
 	}
 
 	// Ensure task shows up in metrics.
-	containerMetrics, err := engine.taskContainerMetricsUnsafe("t1")
+	containerMetrics, err := engine.taskContainerMetricsUnsafe("t1", nil)
 	if err != nil {
 		t.Errorf("Error getting container metrics: %v", err)
 	}
@@ -156,7 +156,7 @@ func TestStatsEngineAddRemoveContainers(t *testing.T) {
 	}
 
 	// Ensure task shows up in metrics.
-	containerMetrics, err = engine.taskContainerMetricsUnsafe("t1")
+	containerMetrics, err = engine.taskContainerMetricsUnsafe("t1", nil)
 	if err != nil {
 		t.Errorf("Error getting container metrics: %v", err)
 	}
@@ -178,7 +178,7 @@ func TestStatsEngineAddRemoveContainers(t *testing.T) {
 	require.Equal(t, "t1", *taskMetrics[0].TaskArn)
 
 	// Ensure that only valid task shows up in metrics.
-	_, err = engine.taskContainerMetricsUnsafe("t2")
+	_, err = engine.taskContainerMetricsUnsafe("t2", nil)
 	if err == nil {
 		t.Error("Expected non-empty error for non existent task")
 	}
