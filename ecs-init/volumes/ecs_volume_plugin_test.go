@@ -990,6 +990,7 @@ func TestPluginMount(t *testing.T) {
 			}
 			for volName, vol := range tc.pluginVolumes {
 				pluginState.recordVolume(volName, vol)
+				plugin.createVolLock(volName)
 			}
 
 			// Mock saveState function for the test case
@@ -1186,6 +1187,7 @@ func TestPluginUnmount(t *testing.T) {
 			}
 			for volName, vol := range tc.pluginVolumes {
 				pluginState.recordVolume(volName, vol)
+				plugin.createVolLock(volName)
 			}
 
 			// Mock saveState function from the test case
@@ -1296,6 +1298,7 @@ func TestConcurrentMountsDifferentVolumes(t *testing.T) {
 	}
 	for volName, vol := range volumes {
 		pluginState.recordVolume(volName, vol)
+		plugin.createVolLock(volName)
 	}
 
 	var wg sync.WaitGroup
@@ -1353,6 +1356,7 @@ func TestConcurrentMountsSameVolume(t *testing.T) {
 		state:         pluginState,
 		volLocks:      make(map[string]*sync.Mutex),
 	}
+	plugin.createVolLock(volName)
 	pluginState.recordVolume(volName, vol)
 
 	var wg sync.WaitGroup

@@ -62,8 +62,8 @@ func (e *ECSVolumeDriver) Setup(name string, v *types.Volume) {
 }
 
 // Create implements ECSVolumeDriver's Create volume method.
-// The lock is held only for map access and validation; the actual mount I/O
-// proceeds without the driver lock since the caller holds a per-volume lock.
+// Mount I/O runs without the driver lock; the plugin layer already serializes
+// Create per volume, so the driver only needs to guard the volumeMounts map.
 func (e *ECSVolumeDriver) Create(r *driver.CreateRequest) error {
 	mnt := setOptions(r.Options)
 	mnt.Target = r.Path
@@ -73,22 +73,11 @@ func (e *ECSVolumeDriver) Create(r *driver.CreateRequest) error {
 		return err
 	}
 
-	// Check for duplicates under read lock
-	e.lock.RLock()
-	if _, exists := e.volumeMounts[r.Name]; exists {
-		e.lock.RUnlock()
-		return fmt.Errorf("volume %s already mounted", r.Name)
-	}
-	e.lock.RUnlock()
-
-	// Perform the mount I/O without holding the driver lock
 	seelog.Infof("Mounting volume %s of type %s at path %s", r.Name, mnt.MountType, mnt.Target)
-	err := mnt.Mount()
-	if err != nil {
+	if err := mnt.Mount(); err != nil {
 		return fmt.Errorf("mounting volume failed: %v", err)
 	}
 
-	// Register the mount under write lock
 	e.lock.Lock()
 	e.volumeMounts[r.Name] = mnt
 	e.lock.Unlock()

@@ -61,36 +61,19 @@ func NewAmazonECSVolumePlugin() *AmazonECSVolumePlugin {
 }
 
 // getVolLock returns the per-volume mutex for an existing volume.
-// Caller must hold mapLock (at least RLock).
-// Returns nil if no lock exists for the given volume name.
+// Caller must hold mapLock (at least RLock). The lock is guaranteed to exist
+// for any volume present in the volumes map — see createVolLock.
 func (a *AmazonECSVolumePlugin) getVolLock(name string) *sync.Mutex {
 	return a.volLocks[name]
 }
 
-// createVolLock creates a per-volume mutex for the given volume name.
-// Caller must hold mapLock for writing (Lock, not RLock).
+// createVolLock creates a per-volume mutex alongside a volumes map entry.
+// Caller must hold mapLock for writing and must call this in the same
+// critical section as inserting into the volumes map, so that
+// volumes[k] and volLocks[k] are always both present or both absent.
 func (a *AmazonECSVolumePlugin) createVolLock(name string) *sync.Mutex {
 	mu := &sync.Mutex{}
 	a.volLocks[name] = mu
-	return mu
-}
-
-// getOrCreateVolLock returns the per-volume mutex, creating one atomically if needed.
-// Safe to call without holding mapLock — uses double-checked locking internally.
-func (a *AmazonECSVolumePlugin) getOrCreateVolLock(name string) *sync.Mutex {
-	a.mapLock.RLock()
-	mu := a.volLocks[name]
-	a.mapLock.RUnlock()
-	if mu != nil {
-		return mu
-	}
-	a.mapLock.Lock()
-	mu = a.volLocks[name]
-	if mu == nil {
-		mu = &sync.Mutex{}
-		a.volLocks[name] = mu
-	}
-	a.mapLock.Unlock()
 	return mu
 }
 
@@ -275,10 +258,6 @@ func (a *AmazonECSVolumePlugin) Mount(r *volume.MountRequest) (*volume.MountResp
 	volMu := a.getVolLock(r.Name)
 	a.mapLock.RUnlock()
 
-	if volMu == nil {
-		volMu = a.getOrCreateVolLock(r.Name)
-	}
-
 	// Phase 2: per-volume lock — only this volume is blocked, others proceed freely
 	volMu.Lock()
 	defer volMu.Unlock()
@@ -357,10 +336,6 @@ func (a *AmazonECSVolumePlugin) Unmount(r *volume.UnmountRequest) error {
 	}
 	volMu := a.getVolLock(r.Name)
 	a.mapLock.RUnlock()
-
-	if volMu == nil {
-		volMu = a.getOrCreateVolLock(r.Name)
-	}
 
 	// Phase 2: per-volume lock
 	volMu.Lock()
