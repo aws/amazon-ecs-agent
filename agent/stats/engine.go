@@ -125,8 +125,8 @@ type DockerStatsEngine struct {
 	publishGPUMetricsTickerInterval     int32
 	// nil when GPU support disabled (i.e. non-Linux builds)
 	gpuReader gpuMetricsReader
-	// reader Timestamp of the last emitted GPU snapshot
-	lastEmittedGPUTimestamp string
+	// parsed reader Timestamp of the last emitted GPU snapshot
+	lastEmittedGPUTimestamp time.Time
 	publishMetricsTicker    *time.Ticker
 	// channels to send metrics to TACS Client
 	metricsChannel chan<- ecstcs.TelemetryMessage
@@ -589,6 +589,7 @@ func (engine *DockerStatsEngine) GetInstanceMetrics(includeServiceConnectStats b
 
 		// Emit the instance-level payload, guarding on the snapshot timestamp
 		// so overlapping publishes never emit the same snapshot twice.
+		// Update gpuMetrics only when we know we haven't emitted gpuMetricsSnapshot already.
 		if len(gpuMetricsSnapshot) > 0 && engine.attemptCommitGPUTimestampUnsafe(gpuTimestamp) {
 			gpuMetrics = gpuMetricsSnapshot
 			if payload := gpu.GPUMetricsToInstancePayload(gpuMetricsSnapshot, engine.computeGPUUsageTotalUnsafe()); payload != nil {
@@ -1176,36 +1177,47 @@ func (engine *DockerStatsEngine) SetPublishGPUMetricsTickerInterval(counter int3
 //   - data.ConnectionLost: dcgm-init lost its DCGM connection past the grace
 //     period, so readings are unreliable and treated as unknown.
 //
-// It also returns nil when the flag is off, no reader is wired up, or the
-// snapshot is stale (timestamp not newer than the last emission). The caller
-// commits the staleness cursor after attaching metrics. Caller must hold
-// engine.lock; the reader performs file I/O while the lock is held.
-func (engine *DockerStatsEngine) readGPUMetricsUnsafe(includeGPUMetrics bool) ([]gputypes.GPUMetric, string) {
+// It also returns nil when the flag is off, no reader is wired up, the
+// timestamp fails to parse, or the snapshot is stale (timestamp not newer than
+// the last emission). The caller commits the staleness cursor after attaching
+// metrics. Caller must hold engine.lock; the reader performs file I/O while the
+// lock is held.
+func (engine *DockerStatsEngine) readGPUMetricsUnsafe(includeGPUMetrics bool) ([]gputypes.GPUMetric, time.Time) {
 	if !includeGPUMetrics {
-		return nil, ""
+		return nil, time.Time{}
 	}
 
 	reader := engine.gpuReader
 	lastEmitted := engine.lastEmittedGPUTimestamp
 
 	if reader == nil {
-		return nil, ""
+		return nil, time.Time{}
 	}
 	data := reader.GetGPUMetrics()
 	if data == nil || len(data.GPUs) == 0 || data.ConnectionLost {
-		return nil, ""
+		return nil, time.Time{}
 	}
-	if data.Timestamp <= lastEmitted {
+	timestamp, err := time.Parse(time.RFC3339, data.Timestamp)
+	if err != nil {
+		// The reader validates the timestamp on read, so this is unexpected;
+		// treat an unparseable timestamp as no usable snapshot.
+		logger.Warn("Failed to parse GPU metrics timestamp", logger.Fields{
+			"timestamp": data.Timestamp,
+			field.Error: err,
+		})
+		return nil, time.Time{}
+	}
+	if !timestamp.After(lastEmitted) {
 		// dcgm-init has not written a new snapshot since the last emission.
-		return nil, ""
+		return nil, time.Time{}
 	}
-	return data.GPUs, data.Timestamp
+	return data.GPUs, timestamp
 }
 
 // attemptCommitGPUTimestampUnsafe advances the staleness cursor. Returns false
 // if the timestamp was already emitted. Caller must hold engine.lock.
-func (engine *DockerStatsEngine) attemptCommitGPUTimestampUnsafe(timestamp string) bool {
-	if engine.lastEmittedGPUTimestamp >= timestamp {
+func (engine *DockerStatsEngine) attemptCommitGPUTimestampUnsafe(timestamp time.Time) bool {
+	if !timestamp.After(engine.lastEmittedGPUTimestamp) {
 		return false
 	}
 	engine.lastEmittedGPUTimestamp = timestamp
