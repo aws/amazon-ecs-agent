@@ -62,7 +62,7 @@ func (ghc *gpuHealthcheck) GetHealthcheckType() string {
 //     within gpuBootGracePeriod.
 //  2. Timestamp older than gpuStalenessThreshold → INSUFFICIENT_DATA.
 //  3. ConnectionLost → INSUFFICIENT_DATA (health unknown).
-//  4. Healthy → OK, else IMPAIRED.
+//  4. Healthy → OK, else IMPAIRED. IMPAIRED is only reported when dcgm-init explicitly signals unhealthy.
 func (ghc *gpuHealthcheck) RunCheck() ecstcs.InstanceHealthCheckStatus {
 	healthStatus := ghc.reader.GetGPUMetrics()
 	if healthStatus == nil {
@@ -86,6 +86,8 @@ func (ghc *gpuHealthcheck) RunCheck() ecstcs.InstanceHealthCheckStatus {
 			ghc.SetHealthcheckStatus(ecstcs.InstanceHealthCheckStatusInsufficientData)
 			return ecstcs.InstanceHealthCheckStatusInsufficientData
 		}
+	} else {
+		return ecstcs.InstanceHealthCheckStatusInsufficientData
 	}
 
 	if healthStatus.ConnectionLost {
