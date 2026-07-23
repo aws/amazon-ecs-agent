@@ -126,7 +126,7 @@ github.com/aws/aws-sdk-go/private/protocol
 github.com/aws/aws-sdk-go/private/protocol/rest
 github.com/aws/aws-sdk-go/private/protocol/xml/xmlutil
 github.com/aws/aws-sdk-go/private/util
-# github.com/aws/aws-sdk-go-v2 v1.42.1
+# github.com/aws/aws-sdk-go-v2 v1.43.0
 ## explicit; go 1.24
 github.com/aws/aws-sdk-go-v2/aws
 github.com/aws/aws-sdk-go-v2/aws/arn
@@ -180,10 +180,10 @@ github.com/aws/aws-sdk-go-v2/feature/ec2/imds/internal/config
 # github.com/aws/aws-sdk-go-v2/feature/s3/manager v1.17.72
 ## explicit; go 1.22
 github.com/aws/aws-sdk-go-v2/feature/s3/manager
-# github.com/aws/aws-sdk-go-v2/internal/configsources v1.4.30
+# github.com/aws/aws-sdk-go-v2/internal/configsources v1.4.31
 ## explicit; go 1.24
 github.com/aws/aws-sdk-go-v2/internal/configsources
-# github.com/aws/aws-sdk-go-v2/internal/endpoints/v2 v2.7.30
+# github.com/aws/aws-sdk-go-v2/internal/endpoints/v2 v2.7.31
 ## explicit; go 1.24
 github.com/aws/aws-sdk-go-v2/internal/endpoints/v2
 # github.com/aws/aws-sdk-go-v2/internal/v4a v1.4.31
@@ -207,7 +207,7 @@ github.com/aws/aws-sdk-go-v2/service/ecr
 github.com/aws/aws-sdk-go-v2/service/ecr/internal/endpoints
 github.com/aws/aws-sdk-go-v2/service/ecr/types
 # github.com/aws/aws-sdk-go-v2/service/ecs v1.47.3 => ../aws-sdk-go-v2/service/ecs
-## explicit; go 1.21
+## explicit; go 1.24
 github.com/aws/aws-sdk-go-v2/service/ecs
 github.com/aws/aws-sdk-go-v2/service/ecs/internal/endpoints
 github.com/aws/aws-sdk-go-v2/service/ecs/types
