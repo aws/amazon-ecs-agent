@@ -581,17 +581,17 @@ func (engine *DockerStatsEngine) GetInstanceMetrics(includeServiceConnectStats b
 	}
 
 	gpuMetrics := []gputypes.GPUMetric{}
-	gpuTimestamp := ""
 
 	if includeGPUMetrics {
 		// Read this tick's snapshot once. It feeds both the instance-level
 		// payload below and the per-container payloads in the task loop.
-		gpuMetrics, gpuTimestamp = engine.readGPUMetricsUnsafe(includeGPUMetrics)
+		gpuMetricsSnapshot, gpuTimestamp := engine.readGPUMetricsUnsafe(includeGPUMetrics)
 
 		// Emit the instance-level payload, guarding on the snapshot timestamp
 		// so overlapping publishes never emit the same snapshot twice.
-		if len(gpuMetrics) > 0 && engine.attemptCommitGPUTimestampUnsafe(gpuTimestamp) {
-			if payload := gpu.GPUMetricsToInstancePayload(gpuMetrics, engine.computeGPUUsageTotalUnsafe()); payload != nil {
+		if len(gpuMetricsSnapshot) > 0 && engine.attemptCommitGPUTimestampUnsafe(gpuTimestamp) {
+			gpuMetrics = gpuMetricsSnapshot
+			if payload := gpu.GPUMetricsToInstancePayload(gpuMetricsSnapshot, engine.computeGPUUsageTotalUnsafe()); payload != nil {
 				instanceMetrics = &ecstcs.InstanceMetrics{GeneralMetricsPayload: payload}
 			}
 		}
