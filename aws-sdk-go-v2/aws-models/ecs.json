@@ -8449,6 +8449,20 @@
                 }
             }
         },
+        "com.amazonaws.ecs#GpuPlatformDeviceInfo": {
+            "type": "structure",
+            "members": {
+                "memoryInMiB": {
+                    "target": "com.amazonaws.ecs#BoxedInteger",
+                    "traits": {
+                        "smithy.api#documentation": "<p>Usable per-GPU VRAM (MiB) reported by the agent, used by GPU-sharing (MPS) memory-based placement.</p>"
+                    }
+                }
+            },
+            "traits": {
+                "smithy.api#documentation": "<p>GPU-specific platform-device attributes reported by the agent, used by GPU-sharing (MPS).</p>"
+            }
+        },
         "com.amazonaws.ecs#PlatformDevice": {
             "type": "structure",
             "members": {
@@ -8464,6 +8478,12 @@
                     "traits": {
                         "smithy.api#documentation": "<p>The type of device that's available on the container instance. The only supported\n\t\t\tvalue is <code>GPU</code>.</p>",
                         "smithy.api#required": {}
+                    }
+                },
+                "gpuInfo": {
+                    "target": "com.amazonaws.ecs#GpuPlatformDeviceInfo",
+                    "traits": {
+                        "smithy.api#documentation": "<p>GPU-specific attributes the agent reports for a GPU platform device at RegisterContainerInstance; present only when type is GPU. Absent on legacy agents that do not report it.</p>"
                     }
                 }
             },

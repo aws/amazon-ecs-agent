@@ -4627,6 +4627,18 @@ func awsAwsjson11_serializeDocumentFSxWindowsFileServerVolumeConfiguration(v *ty
 	return nil
 }
 
+func awsAwsjson11_serializeDocumentGpuPlatformDeviceInfo(v *types.GpuPlatformDeviceInfo, value smithyjson.Value) error {
+	object := value.Object()
+	defer object.Close()
+
+	if v.MemoryInMiB != nil {
+		ok := object.Key("memoryInMiB")
+		ok.Integer(*v.MemoryInMiB)
+	}
+
+	return nil
+}
+
 func awsAwsjson11_serializeDocumentHealthCheck(v *types.HealthCheck, value smithyjson.Value) error {
 	object := value.Object()
 	defer object.Close()
@@ -5188,6 +5200,13 @@ func awsAwsjson11_serializeDocumentPlacementStrategy(v *types.PlacementStrategy,
 func awsAwsjson11_serializeDocumentPlatformDevice(v *types.PlatformDevice, value smithyjson.Value) error {
 	object := value.Object()
 	defer object.Close()
+
+	if v.GpuInfo != nil {
+		ok := object.Key("gpuInfo")
+		if err := awsAwsjson11_serializeDocumentGpuPlatformDeviceInfo(v.GpuInfo, ok); err != nil {
+			return err
+		}
+	}
 
 	if v.Id != nil {
 		ok := object.Key("id")
