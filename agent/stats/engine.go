@@ -585,7 +585,7 @@ func (engine *DockerStatsEngine) GetInstanceMetrics(includeServiceConnectStats b
 	if includeGPUMetrics {
 		// Read this tick's snapshot once. It feeds both the instance-level
 		// payload below and the per-container payloads in the task loop.
-		gpuMetricsSnapshot, gpuTimestamp := engine.readGPUMetricsUnsafe(includeGPUMetrics)
+		gpuMetricsSnapshot, gpuTimestamp := engine.readGPUMetricsUnsafe()
 
 		// Emit the instance-level payload, guarding on the snapshot timestamp
 		// so overlapping publishes never emit the same snapshot twice.
@@ -1170,23 +1170,19 @@ func (engine *DockerStatsEngine) SetPublishGPUMetricsTickerInterval(counter int3
 
 // readGPUMetricsUnsafe returns fresh GPU readings and their timestamp, or nil
 // when unavailable:
+//   - no reader is wired up (GPU support disabled).
 //   - data == nil: the metrics file is missing (expected before dcgm-init's
 //     first write), unreadable, or corrupt.
 //   - len(data.GPUs) == 0: a status-only snapshot from dcgm-init (reconciliation
 //     or collection failed, or the host has no GPUs).
 //   - data.ConnectionLost: dcgm-init lost its DCGM connection past the grace
 //     period, so readings are unreliable and treated as unknown.
+//   - the timestamp fails to parse, or the snapshot is stale (not newer than the
+//     last emission).
 //
-// It also returns nil when the flag is off, no reader is wired up, the
-// timestamp fails to parse, or the snapshot is stale (timestamp not newer than
-// the last emission). The caller commits the staleness cursor after attaching
-// metrics. Caller must hold engine.lock; the reader performs file I/O while the
-// lock is held.
-func (engine *DockerStatsEngine) readGPUMetricsUnsafe(includeGPUMetrics bool) ([]gputypes.GPUMetric, time.Time) {
-	if !includeGPUMetrics {
-		return nil, time.Time{}
-	}
-
+// The caller commits the staleness cursor after attaching metrics. Caller must
+// hold engine.lock; the reader performs file I/O while the lock is held.
+func (engine *DockerStatsEngine) readGPUMetricsUnsafe() ([]gputypes.GPUMetric, time.Time) {
 	reader := engine.gpuReader
 	lastEmitted := engine.lastEmittedGPUTimestamp
 
