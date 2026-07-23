@@ -27,7 +27,7 @@
 %global ebs_csi_driver_dir /var/lib/ecs/deps/daemons/ebs-csi-driver
 
 Name:           ecs-init
-Version:        1.105.1
+Version:        1.106.0
 Release:        1%{?dist}
 License:        Apache 2.0
 Summary:        Amazon Elastic Container Service initialization application
@@ -111,7 +111,6 @@ Provides:       bundled(golang(github.com/aws/aws-sdk-go-v2/internal/endpoints))
 Provides:       bundled(golang(github.com/aws/aws-sdk-go-v2/internal/endpoints/awsrulesfn))
 Provides:       bundled(golang(github.com/aws/aws-sdk-go-v2/internal/endpoints/v2))
 Provides:       bundled(golang(github.com/aws/aws-sdk-go-v2/internal/ini))
-Provides:       bundled(golang(github.com/aws/aws-sdk-go-v2/internal/middleware))
 Provides:       bundled(golang(github.com/aws/aws-sdk-go-v2/internal/rand))
 Provides:       bundled(golang(github.com/aws/aws-sdk-go-v2/internal/sdk))
 Provides:       bundled(golang(github.com/aws/aws-sdk-go-v2/internal/sdkio))
@@ -171,7 +170,9 @@ Provides:       bundled(golang(github.com/aws/smithy-go/encoding/httpbinding))
 Provides:       bundled(golang(github.com/aws/smithy-go/encoding/json))
 Provides:       bundled(golang(github.com/aws/smithy-go/encoding/xml))
 Provides:       bundled(golang(github.com/aws/smithy-go/endpoints))
+Provides:       bundled(golang(github.com/aws/smithy-go/endpoints/private/bdd))
 Provides:       bundled(golang(github.com/aws/smithy-go/endpoints/private/rulesfn))
+Provides:       bundled(golang(github.com/aws/smithy-go/eventstream))
 Provides:       bundled(golang(github.com/aws/smithy-go/internal/sync/singleflight))
 Provides:       bundled(golang(github.com/aws/smithy-go/io))
 Provides:       bundled(golang(github.com/aws/smithy-go/logging))
@@ -183,6 +184,7 @@ Provides:       bundled(golang(github.com/aws/smithy-go/rand))
 Provides:       bundled(golang(github.com/aws/smithy-go/sync))
 Provides:       bundled(golang(github.com/aws/smithy-go/time))
 Provides:       bundled(golang(github.com/aws/smithy-go/tracing))
+Provides:       bundled(golang(github.com/aws/smithy-go/traits))
 Provides:       bundled(golang(github.com/aws/smithy-go/transport/http))
 Provides:       bundled(golang(github.com/aws/smithy-go/transport/http/internal/io))
 Provides:       bundled(golang(github.com/aws/smithy-go/waiter))
@@ -393,6 +395,9 @@ fi
 %endif
 
 %changelog
+* Wed Jul 22 2026 amazon-ecs-bot <amazon-ecs-bot@amazon.com> - 1.106.0-1
+- Cache Agent version 1.106.0
+
 * Mon Jun 29 2026 amazon-ecs-bot <amazon-ecs-bot@amazon.com> - 1.105.1-1
 - Cache Agent version 1.105.1
 
