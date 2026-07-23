@@ -2294,6 +2294,17 @@ type FSxWindowsFileServerVolumeConfiguration struct {
 	noSmithyDocumentSerde
 }
 
+// GPU-specific platform-device attributes reported by the agent, used by
+// GPU-sharing (MPS).
+type GpuPlatformDeviceInfo struct {
+
+	// Usable per-GPU VRAM (MiB) reported by the agent, used by GPU-sharing (MPS)
+	// memory-based placement.
+	MemoryInMiB *int32
+
+	noSmithyDocumentSerde
+}
+
 // An object representing a container health check. Health check parameters that
 // are specified in a container definition override any Docker health checks that
 // exist in the container image (such as those specified in a parent image or from
@@ -3259,6 +3270,11 @@ type PlatformDevice struct {
 	//
 	// This member is required.
 	Type PlatformDeviceType
+
+	// GPU-specific attributes the agent reports for a GPU platform device at
+	// RegisterContainerInstance; present only when type is GPU. Absent on legacy
+	// agents that do not report it.
+	GpuInfo *GpuPlatformDeviceInfo
 
 	noSmithyDocumentSerde
 }

@@ -1821,10 +1821,16 @@ func TestCheckRequestSnapshot_RegisterContainerInstance(t *testing.T) {
 			types.PlatformDevice{
 				Id:   ptr.String("__Id__"),
 				Type: types.PlatformDeviceType("GPU"),
+				GpuInfo: &types.GpuPlatformDeviceInfo{
+					MemoryInMiB: ptr.Int32(1),
+				},
 			},
 			types.PlatformDevice{
 				Id:   ptr.String("__Id__"),
 				Type: types.PlatformDeviceType("GPU"),
+				GpuInfo: &types.GpuPlatformDeviceInfo{
+					MemoryInMiB: ptr.Int32(1),
+				},
 			},
 		},
 		Tags: []types.Tag{
@@ -5616,10 +5622,16 @@ func TestUpdateRequestSnapshot_RegisterContainerInstance(t *testing.T) {
 			types.PlatformDevice{
 				Id:   ptr.String("__Id__"),
 				Type: types.PlatformDeviceType("GPU"),
+				GpuInfo: &types.GpuPlatformDeviceInfo{
+					MemoryInMiB: ptr.Int32(1),
+				},
 			},
 			types.PlatformDevice{
 				Id:   ptr.String("__Id__"),
 				Type: types.PlatformDeviceType("GPU"),
+				GpuInfo: &types.GpuPlatformDeviceInfo{
+					MemoryInMiB: ptr.Int32(1),
+				},
 			},
 		},
 		Tags: []types.Tag{
