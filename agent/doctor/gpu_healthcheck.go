@@ -18,6 +18,7 @@ import (
 
 	"github.com/aws/amazon-ecs-agent/agent/doctor/statustracker"
 	"github.com/aws/amazon-ecs-agent/agent/gpu"
+	"github.com/aws/amazon-ecs-agent/ecs-agent/doctor"
 	"github.com/aws/amazon-ecs-agent/ecs-agent/tcs/model/ecstcs"
 	"github.com/cihub/seelog"
 )
@@ -40,7 +41,7 @@ type gpuHealthcheck struct {
 
 // NewGPUHealthcheck creates a GPU health check backed by the shared metrics
 // file. It starts INITIALIZING and derives status on the first successful read.
-func NewGPUHealthcheck(reader *gpu.DCGMMetricsReader) *gpuHealthcheck {
+func NewGPUHealthcheck(reader *gpu.DCGMMetricsReader) doctor.Healthcheck {
 	return &gpuHealthcheck{
 		reader:                   reader,
 		createdAt:                timeNow(),
