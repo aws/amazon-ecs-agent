@@ -40,6 +40,7 @@ import (
 	"github.com/aws/amazon-ecs-agent/agent/eni/pause"
 	"github.com/aws/amazon-ecs-agent/agent/eni/watcher"
 	"github.com/aws/amazon-ecs-agent/agent/eventhandler"
+	"github.com/aws/amazon-ecs-agent/agent/gpu"
 	"github.com/aws/amazon-ecs-agent/agent/handlers"
 	"github.com/aws/amazon-ecs-agent/agent/imdscreds"
 	"github.com/aws/amazon-ecs-agent/agent/sighandlers"
@@ -711,6 +712,13 @@ func (agent *ecsAgent) newDoctorWithHealthchecks(cluster, containerInstanceARN s
 	// put the healthechecks in a list
 	healthcheckList := []doctor.Healthcheck{
 		runtimeHealthCheck,
+	}
+
+	// On GPU-enabled instances, add the ACCELERATED_COMPUTE healthcheck backed by
+	// the shared metrics file written by dcgm-init.
+	if agent.cfg.GPUSupportEnabled {
+		gpuHealthCheck := dockerdoctor.NewGPUHealthcheck(gpu.NewDCGMMetricsReader(""))
+		healthcheckList = append(healthcheckList, gpuHealthCheck)
 	}
 
 	// set up the doctor and return it
