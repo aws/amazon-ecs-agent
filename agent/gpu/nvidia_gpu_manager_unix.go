@@ -48,6 +48,7 @@ type NvidiaGPUManager struct {
 	DriverVersion           string                 `json:"DriverVersion"`
 	GPUIDs                  []string               `json:"GPUIDs"`
 	GPUDevices              []types.PlatformDevice `json:"-"`
+	GPUMemoryMiB            map[string]uint64      `json:"GPUMemoryMiB,omitempty"`
 	MpsControlBinaryPresent bool                   `json:"MpsControlBinaryPresent"`
 	MpsServiceEnabled       bool                   `json:"MpsServiceEnabled"`
 	HasVGPU                 bool                   `json:"HasVGPU"`
@@ -82,8 +83,10 @@ func (n *NvidiaGPUManager) Initialize() error {
 		n.SetDriverVersion(nvidiaGPUInfo.GetDriverVersion())
 		nvidiaGPUInfo.lock.RLock()
 		gpuIDs := nvidiaGPUInfo.GetGPUIDsUnsafe()
+		gpuMemoryMiB := nvidiaGPUInfo.GetGPUMemoryMiBUnsafe()
 		nvidiaGPUInfo.lock.RUnlock()
 		n.SetGPUIDs(gpuIDs)
+		n.SetGPUMemoryMiB(gpuMemoryMiB)
 		n.SetDevices()
 		n.MpsControlBinaryPresent = nvidiaGPUInfo.GetMpsControlBinaryPresent()
 		n.MpsServiceEnabled = nvidiaGPUInfo.GetMpsServiceEnabled()
@@ -129,6 +132,18 @@ func (n *NvidiaGPUManager) GetGPUIDsUnsafe() []string {
 	return n.GPUIDs
 }
 
+// SetGPUMemoryMiB sets the per-GPU usable memory map
+func (n *NvidiaGPUManager) SetGPUMemoryMiB(gpuMemoryMiB map[string]uint64) {
+	n.lock.Lock()
+	defer n.lock.Unlock()
+	n.GPUMemoryMiB = gpuMemoryMiB
+}
+
+// GetGPUMemoryMiBUnsafe returns the per-GPU usable memory map
+func (n *NvidiaGPUManager) GetGPUMemoryMiBUnsafe() map[string]uint64 {
+	return n.GPUMemoryMiB
+}
+
 // SetDriverVersion is a setter for nvidia driver version
 func (n *NvidiaGPUManager) SetDriverVersion(version string) {
 	n.lock.Lock()
@@ -149,10 +164,16 @@ func (n *NvidiaGPUManager) SetDevices() {
 	gpuIDs := n.GetGPUIDsUnsafe()
 	devices := make([]types.PlatformDevice, 0)
 	for _, gpuID := range gpuIDs {
-		devices = append(devices, types.PlatformDevice{
+		device := types.PlatformDevice{
 			Id:   aws.String(gpuID),
 			Type: types.PlatformDeviceTypeGpu,
-		})
+		}
+		if memMiB, ok := n.GPUMemoryMiB[gpuID]; ok {
+			device.GpuInfo = &types.GpuPlatformDeviceInfo{
+				MemoryInMiB: aws.Int32(int32(memMiB)),
+			}
+		}
+		devices = append(devices, device)
 	}
 	n.GPUDevices = devices
 }
