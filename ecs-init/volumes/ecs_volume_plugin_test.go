@@ -15,6 +15,7 @@ package volumes
 import (
 	"errors"
 	"fmt"
+	"strings"
 	"sync"
 	"testing"
 
@@ -120,8 +121,8 @@ func TestVolumeCreateTargetSpecified(t *testing.T) {
 		volumeDrivers: map[string]driver.VolumeDriver{
 			"efs": NewTestVolumeDriver(),
 		},
-		volumes: make(map[string]*types.Volume),
-		state:   NewStateManager(),
+		volumes:  make(map[string]*types.Volume),
+		state:    NewStateManager(),
 		volLocks: make(map[string]*sync.Mutex),
 	}
 	req := &volume.CreateRequest{
@@ -156,8 +157,8 @@ func TestVolumeCreateSaveFailure(t *testing.T) {
 		volumeDrivers: map[string]driver.VolumeDriver{
 			"efs": NewTestVolumeDriver(),
 		},
-		volumes: make(map[string]*types.Volume),
-		state:   NewStateManager(),
+		volumes:  make(map[string]*types.Volume),
+		state:    NewStateManager(),
 		volLocks: make(map[string]*sync.Mutex),
 	}
 	req := &volume.CreateRequest{
@@ -212,8 +213,8 @@ func TestCreateNoVolumeType(t *testing.T) {
 		volumeDrivers: map[string]driver.VolumeDriver{
 			"efs": NewTestVolumeDriver(),
 		},
-		volumes: make(map[string]*types.Volume),
-		state:   NewStateManager(),
+		volumes:  make(map[string]*types.Volume),
+		state:    NewStateManager(),
 		volLocks: make(map[string]*sync.Mutex),
 	}
 	req := &volume.CreateRequest{
@@ -345,9 +346,10 @@ func TestVolumeRemoveHappyPath(t *testing.T) {
 		volumes: map[string]*types.Volume{
 			volName: vol,
 		},
-		state: NewStateManager(),
+		state:    NewStateManager(),
 		volLocks: make(map[string]*sync.Mutex),
 	}
+	plugin.createVolLock(volName)
 	req := &volume.RemoveRequest{Name: volName}
 	removeMountPath = func(path string) error {
 		return nil
@@ -384,9 +386,10 @@ func TestVolumeRemoveFailure(t *testing.T) {
 		volumes: map[string]*types.Volume{
 			volName: vol,
 		},
-		state: NewStateManager(),
+		state:    NewStateManager(),
 		volLocks: make(map[string]*sync.Mutex),
 	}
+	plugin.createVolLock(volName)
 	saveStateToDisk = func(b []byte) error {
 		return nil
 	}
@@ -403,8 +406,8 @@ func TestRemoveVolumeNotFound(t *testing.T) {
 		volumeDrivers: map[string]driver.VolumeDriver{
 			"efs": NewTestVolumeDriver(),
 		},
-		volumes: map[string]*types.Volume{},
-		state:   NewStateManager(),
+		volumes:  map[string]*types.Volume{},
+		state:    NewStateManager(),
 		volLocks: make(map[string]*sync.Mutex),
 	}
 	req := &volume.RemoveRequest{Name: "vol"}
@@ -425,7 +428,7 @@ func TestRemoveVolumeDriverNotFound(t *testing.T) {
 		volumes: map[string]*types.Volume{
 			volName: vol,
 		},
-		state: NewStateManager(),
+		state:    NewStateManager(),
 		volLocks: make(map[string]*sync.Mutex),
 	}
 	req := &volume.RemoveRequest{Name: volName}
@@ -452,9 +455,10 @@ func TestVolumeRemoveNoUnmountIfAlreadyUnmounted(t *testing.T) {
 		volumes: map[string]*types.Volume{
 			volName: vol,
 		},
-		state: NewStateManager(),
+		state:    NewStateManager(),
 		volLocks: make(map[string]*sync.Mutex),
 	}
+	plugin.createVolLock(volName)
 	saveStateToDisk = func(b []byte) error {
 		return nil
 	}
@@ -480,9 +484,10 @@ func TestVolumeRemoveMountPathFailure(t *testing.T) {
 		volumes: map[string]*types.Volume{
 			volName: vol,
 		},
-		state: NewStateManager(),
+		state:    NewStateManager(),
 		volLocks: make(map[string]*sync.Mutex),
 	}
+	plugin.createVolLock(volName)
 	req := &volume.RemoveRequest{Name: volName}
 	removeMountPath = func(path string) error {
 		return errors.New("removing path failed")
@@ -513,9 +518,10 @@ func TestVolumeRemoveStateSaveFailure(t *testing.T) {
 		volumes: map[string]*types.Volume{
 			volName: vol,
 		},
-		state: NewStateManager(),
+		state:    NewStateManager(),
 		volLocks: make(map[string]*sync.Mutex),
 	}
+	plugin.createVolLock(volName)
 	req := &volume.RemoveRequest{Name: volName}
 	removeMountPath = func(path string) error {
 		return nil
@@ -697,8 +703,8 @@ func TestPluginLoadState(t *testing.T) {
 				volumeDrivers: map[string]driver.VolumeDriver{
 					"efs": NewECSVolumeDriver(),
 				},
-				volumes: make(map[string]*types.Volume),
-				state:   NewStateManager(),
+				volumes:  make(map[string]*types.Volume),
+				state:    NewStateManager(),
 				volLocks: make(map[string]*sync.Mutex),
 			}
 			fileExists = func(path string) bool {
@@ -719,7 +725,7 @@ func TestPluginLoadState(t *testing.T) {
 
 func TestPluginNoStateFile(t *testing.T) {
 	plugin := &AmazonECSVolumePlugin{
-		state: NewStateManager(),
+		state:    NewStateManager(),
 		volLocks: make(map[string]*sync.Mutex),
 	}
 	fileExists = func(path string) bool {
@@ -733,7 +739,7 @@ func TestPluginNoStateFile(t *testing.T) {
 
 func TestPluginInvalidState(t *testing.T) {
 	plugin := &AmazonECSVolumePlugin{
-		state: NewStateManager(),
+		state:    NewStateManager(),
 		volLocks: make(map[string]*sync.Mutex),
 	}
 	fileExists = func(path string) bool {
@@ -754,8 +760,8 @@ func TestPluginEmptyState(t *testing.T) {
 		volumeDrivers: map[string]driver.VolumeDriver{
 			"efs": NewTestVolumeDriver(),
 		},
-		volumes: make(map[string]*types.Volume),
-		state:   NewStateManager(),
+		volumes:  make(map[string]*types.Volume),
+		state:    NewStateManager(),
 		volLocks: make(map[string]*sync.Mutex),
 	}
 	fileExists = func(path string) bool {
@@ -1221,8 +1227,8 @@ func TestCreate_S3FilesVolume(t *testing.T) {
 		volumeDrivers: map[string]driver.VolumeDriver{
 			"s3files": NewTestVolumeDriver(),
 		},
-		volumes: make(map[string]*types.Volume),
-		state:   NewStateManager(),
+		volumes:  make(map[string]*types.Volume),
+		state:    NewStateManager(),
 		volLocks: make(map[string]*sync.Mutex),
 	}
 	req := &volume.CreateRequest{
@@ -1377,4 +1383,98 @@ func TestConcurrentMountsSameVolume(t *testing.T) {
 		assert.NoError(t, err, "mount %d should succeed", i)
 	}
 	assert.Equal(t, numMounts, len(vol.Mounts), "all mounts should be recorded")
+}
+
+// TestRemoveRecreateMountRace exercises the window where a Mount goroutine
+// captures vol/volMu under mapLock.RLock, releases the read lock, then a
+// concurrent Remove+Create replaces both before Mount reaches volMu.Lock().
+// Without the phase-2 identity re-check, Mount would mutate the *types.Volume
+// that Remove has already dropped and call driver.Create with the wrong
+// Path/Options. The driver mock below fails the test if it ever sees a
+// CreateRequest whose Path or Options don't match the volume currently in the
+// plugin's map at the moment of the call — that's the observable footprint of
+// a stale-pointer write.
+func TestRemoveRecreateMountRace(t *testing.T) {
+	const (
+		volName    = "recycle-vol"
+		iterations = 500
+	)
+
+	saveStateToDisk = func(b []byte) error { return nil }
+	defer func() { saveStateToDisk = saveState }()
+	createMountPath = func(path string) error { return nil }
+	defer func() { createMountPath = createMountDir }()
+	removeMountPath = func(path string) error { return nil }
+	defer func() { removeMountPath = deleteMountPath }()
+
+	optsA := map[string]string{"type": "efs", "device": "fs-A", "o": "tls"}
+	optsB := map[string]string{"type": "efs", "device": "fs-B", "o": "tls"}
+
+	for i := 0; i < iterations; i++ {
+		plugin := &AmazonECSVolumePlugin{
+			volumes:  map[string]*types.Volume{},
+			state:    NewStateManager(),
+			volLocks: map[string]*sync.Mutex{},
+		}
+		checker := &raceCheckDriver{plugin: plugin, volName: volName, t: t, iter: i}
+		plugin.volumeDrivers = map[string]driver.VolumeDriver{"efs": checker}
+
+		require.NoError(t, plugin.Create(&volume.CreateRequest{Name: volName, Options: optsA}))
+
+		var wg sync.WaitGroup
+		wg.Add(2)
+		go func() {
+			defer wg.Done()
+			_, err := plugin.Mount(&volume.MountRequest{Name: volName, ID: "m1"})
+			if err != nil {
+				msg := err.Error()
+				if !strings.Contains(msg, "was removed") && !strings.Contains(msg, "not found") {
+					t.Errorf("iter %d: unexpected Mount error: %v", i, err)
+				}
+			}
+		}()
+		go func() {
+			defer wg.Done()
+			_ = plugin.Remove(&volume.RemoveRequest{Name: volName})
+			_ = plugin.Create(&volume.CreateRequest{Name: volName, Options: optsB})
+		}()
+		wg.Wait()
+	}
+}
+
+// raceCheckDriver fails the test if driver.Create is called with a request
+// that disagrees with the plugin's current view of the volume — the signature
+// of a Mount goroutine that captured a stale *types.Volume.
+type raceCheckDriver struct {
+	plugin  *AmazonECSVolumePlugin
+	volName string
+	t       *testing.T
+	iter    int
+}
+
+func (d *raceCheckDriver) Create(r *driver.CreateRequest) error {
+	d.plugin.mapLock.RLock()
+	live, ok := d.plugin.volumes[d.volName]
+	d.plugin.mapLock.RUnlock()
+	if ok && (live.Path != r.Path || !stringMapEqual(live.Options, r.Options)) {
+		d.t.Errorf("iter %d: driver.Create called with stale request %+v; live vol path=%s options=%v",
+			d.iter, r, live.Path, live.Options)
+	}
+	return nil
+}
+
+func (d *raceCheckDriver) Remove(r *driver.RemoveRequest) error { return nil }
+func (d *raceCheckDriver) Setup(name string, v *types.Volume)   {}
+func (d *raceCheckDriver) IsMounted(name string) bool           { return false }
+
+func stringMapEqual(a, b map[string]string) bool {
+	if len(a) != len(b) {
+		return false
+	}
+	for k, v := range a {
+		if b[k] != v {
+			return false
+		}
+	}
+	return true
 }

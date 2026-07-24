@@ -262,14 +262,22 @@ func (a *AmazonECSVolumePlugin) Mount(r *volume.MountRequest) (*volume.MountResp
 	volMu.Lock()
 	defer volMu.Unlock()
 
-	// Re-check that the volume still exists after acquiring the per-volume lock,
-	// as Remove() may have deleted it while we were waiting.
+	// Re-fetch the live volume under the map lock and verify the per-volume mutex
+	// we are holding is still the one guarding it. A concurrent Remove()+Create()
+	// of the same name replaces both the *types.Volume and its per-volume lock,
+	// so a bare name-existence check would let us mutate the removed instance.
 	a.mapLock.RLock()
-	if _, ok := a.volumes[r.Name]; !ok {
+	current, ok := a.volumes[r.Name]
+	if !ok || a.getVolLock(r.Name) != volMu {
 		a.mapLock.RUnlock()
 		return nil, fmt.Errorf("volume %s was removed", r.Name)
 	}
+	vol = current
+	volDriver, err = a.getVolumeDriver(vol.Type)
 	a.mapLock.RUnlock()
+	if err != nil {
+		return nil, fmt.Errorf("volume %s's driver type %s not supported: %w", r.Name, vol.Type, err)
+	}
 
 	// Mount the volume on the host if there are no active mounts for the volume.
 	if len(vol.Mounts) == 0 {
@@ -341,13 +349,19 @@ func (a *AmazonECSVolumePlugin) Unmount(r *volume.UnmountRequest) error {
 	volMu.Lock()
 	defer volMu.Unlock()
 
-	// Re-check that the volume still exists after acquiring the per-volume lock.
+	// Re-fetch and verify lock identity, same reasoning as Mount().
 	a.mapLock.RLock()
-	if _, ok := a.volumes[r.Name]; !ok {
+	current, ok := a.volumes[r.Name]
+	if !ok || a.getVolLock(r.Name) != volMu {
 		a.mapLock.RUnlock()
 		return fmt.Errorf("volume %s was removed", r.Name)
 	}
+	vol = current
+	volDriver, err = a.getVolumeDriver(vol.Type)
 	a.mapLock.RUnlock()
+	if err != nil {
+		return fmt.Errorf("volume %v of type %s is unsupported: %w", r.Name, vol.Type, err)
+	}
 
 	// Remove the mount from the volume
 	seelog.Infof("Removing mount %s from volume %s", r.ID, r.Name)
@@ -403,18 +417,21 @@ func (a *AmazonECSVolumePlugin) Remove(r *volume.RemoveRequest) error {
 	a.mapLock.RUnlock()
 
 	// Phase 2: acquire per-volume lock to wait for in-flight Mount/Unmount to finish
-	if volMu != nil {
-		volMu.Lock()
-		defer volMu.Unlock()
-	}
+	volMu.Lock()
+	defer volMu.Unlock()
 
-	// Phase 3: re-check existence under read lock
+	// Phase 3: re-fetch and verify lock identity. A concurrent Remove()+Create()
+	// of the same name replaces both the *types.Volume and its per-volume lock,
+	// and this Remove must not proceed to CleanupMountPath / removeVolume on the
+	// newly-created instance.
 	a.mapLock.RLock()
-	if _, ok := a.volumes[r.Name]; !ok {
+	current, ok := a.volumes[r.Name]
+	if !ok || a.getVolLock(r.Name) != volMu {
 		a.mapLock.RUnlock()
 		seelog.Errorf("Volume %s to remove is not found", r.Name)
 		return fmt.Errorf("volume %s not found", r.Name)
 	}
+	vol = current
 	a.mapLock.RUnlock()
 
 	seelog.Infof("Removing volume %s", r.Name)
