@@ -87,6 +87,7 @@ func (ghc *gpuHealthcheck) RunCheck() ecstcs.InstanceHealthCheckStatus {
 			return ecstcs.InstanceHealthCheckStatusInsufficientData
 		}
 	} else {
+		ghc.SetHealthcheckStatus(ecstcs.InstanceHealthCheckStatusInsufficientData)
 		return ecstcs.InstanceHealthCheckStatusInsufficientData
 	}
 
