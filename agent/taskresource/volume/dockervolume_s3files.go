@@ -123,6 +123,9 @@ func (cfg *S3FilesVolumeConfig) GetVolumePluginDriverOptions(credsRelativeURI st
 	if cfg.S3FilesAccessPointId != "" {
 		mntOpt.AddOption("accesspoint", cfg.S3FilesAccessPointId)
 	}
+	// nos3readcache prevents efs-utils from using application memory as an in-memory
+	// read cache, so that customer requested task memory won't be taken away by the cache.
+	mntOpt.AddOption("nos3readcache", "")
 
 	return map[string]string{
 		"type":   s3filesVolumePluginDriverType,
