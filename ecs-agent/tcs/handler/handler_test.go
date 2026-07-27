@@ -82,9 +82,9 @@ var testCfg = &wsclient.WSClientMinAgentConfig{
 
 var emptyDoctor, _ = doctor.NewDoctor([]doctor.Healthcheck{}, "test-cluster", "this:is:an:instance:arn")
 
-func (*mockStatsSource) GetInstanceMetrics(includeServiceConnectStats bool) (*ecstcs.MetricsMetadata, []*ecstcs.TaskMetric, error) {
+func (*mockStatsSource) GetInstanceMetrics(includeServiceConnectStats bool, includeGPUMetrics bool) (*ecstcs.MetricsMetadata, []*ecstcs.TaskMetric, *ecstcs.InstanceMetrics, error) {
 	req := createPublishMetricsRequest()
-	return req.Metadata, req.TaskMetrics, nil
+	return req.Metadata, req.TaskMetrics, nil, nil
 }
 
 func (*mockStatsSource) GetTaskHealthMetrics() (*ecstcs.HealthMetadata, []*ecstcs.TaskHealth, error) {

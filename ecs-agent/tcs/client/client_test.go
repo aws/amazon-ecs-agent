@@ -54,6 +54,7 @@ const (
 	testTelemetryChannelDefaultBufferSize                     = 10
 	testIncludeScStats                                        = true
 	testNotIncludeScStats                                     = false
+	testNotIncludeGPUStats                                    = false
 )
 
 type trueHealthcheck struct{}
@@ -120,8 +121,8 @@ var emptyDoctor, _ = doctor.NewDoctor([]doctor.Healthcheck{}, "test-cluster", "t
 
 type mockStatsSource struct{}
 
-func (*mockStatsSource) GetInstanceMetrics(includeServiceConnectStats bool) (*ecstcs.MetricsMetadata, []*ecstcs.TaskMetric, error) {
-	return nil, nil, fmt.Errorf("uninitialized")
+func (*mockStatsSource) GetInstanceMetrics(includeServiceConnectStats bool, includeGPUMetrics bool) (*ecstcs.MetricsMetadata, []*ecstcs.TaskMetric, *ecstcs.InstanceMetrics, error) {
+	return nil, nil, nil, fmt.Errorf("uninitialized")
 }
 
 func (*mockStatsSource) GetTaskHealthMetrics() (*ecstcs.HealthMetadata, []*ecstcs.TaskHealth, error) {
@@ -142,8 +143,8 @@ func (*mockStatsSource) GetPublishMetricsTicker() *time.Ticker {
 
 type emptyStatsSource struct{}
 
-func (*emptyStatsSource) GetInstanceMetrics(includeServiceConnectStats bool) (*ecstcs.MetricsMetadata, []*ecstcs.TaskMetric, error) {
-	return nil, nil, fmt.Errorf("empty stats")
+func (*emptyStatsSource) GetInstanceMetrics(includeServiceConnectStats bool, includeGPUMetrics bool) (*ecstcs.MetricsMetadata, []*ecstcs.TaskMetric, *ecstcs.InstanceMetrics, error) {
+	return nil, nil, nil, fmt.Errorf("empty stats")
 }
 
 func (*emptyStatsSource) GetTaskHealthMetrics() (*ecstcs.HealthMetadata, []*ecstcs.TaskHealth, error) {
@@ -164,14 +165,14 @@ func (*emptyStatsSource) GetPublishMetricsTicker() *time.Ticker {
 
 type idleStatsSource struct{}
 
-func (*idleStatsSource) GetInstanceMetrics(includeServiceConnectStats bool) (*ecstcs.MetricsMetadata, []*ecstcs.TaskMetric, error) {
+func (*idleStatsSource) GetInstanceMetrics(includeServiceConnectStats bool, includeGPUMetrics bool) (*ecstcs.MetricsMetadata, []*ecstcs.TaskMetric, *ecstcs.InstanceMetrics, error) {
 	metadata := &ecstcs.MetricsMetadata{
 		Cluster:           aws.String(testCluster),
 		ContainerInstance: aws.String(testContainerInstance),
 		Idle:              aws.Bool(true),
 		MessageId:         aws.String(testMessageId),
 	}
-	return metadata, []*ecstcs.TaskMetric{}, nil
+	return metadata, []*ecstcs.TaskMetric{}, nil, nil
 }
 
 func (*idleStatsSource) GetTaskHealthMetrics() (*ecstcs.HealthMetadata, []*ecstcs.TaskHealth, error) {
@@ -194,7 +195,7 @@ type nonIdleStatsSource struct {
 	numTasks int
 }
 
-func (engine *nonIdleStatsSource) GetInstanceMetrics(includeServiceConnectStats bool) (*ecstcs.MetricsMetadata, []*ecstcs.TaskMetric, error) {
+func (engine *nonIdleStatsSource) GetInstanceMetrics(includeServiceConnectStats bool, includeGPUMetrics bool) (*ecstcs.MetricsMetadata, []*ecstcs.TaskMetric, *ecstcs.InstanceMetrics, error) {
 	metadata := &ecstcs.MetricsMetadata{
 		Cluster:           aws.String(testCluster),
 		ContainerInstance: aws.String(testContainerInstance),
@@ -207,7 +208,7 @@ func (engine *nonIdleStatsSource) GetInstanceMetrics(includeServiceConnectStats 
 		taskArn := "task/" + strconv.FormatInt(i, 10)
 		taskMetrics = append(taskMetrics, &ecstcs.TaskMetric{TaskArn: &taskArn})
 	}
-	return metadata, taskMetrics, nil
+	return metadata, taskMetrics, nil, nil
 }
 
 func (*nonIdleStatsSource) GetTaskHealthMetrics() (*ecstcs.HealthMetadata, []*ecstcs.TaskHealth, error) {
@@ -234,7 +235,7 @@ type serviceConnectStatsSource struct {
 	numTasks int
 }
 
-func (engine *serviceConnectStatsSource) GetInstanceMetrics(includeServiceConnectStats bool) (*ecstcs.MetricsMetadata, []*ecstcs.TaskMetric, error) {
+func (engine *serviceConnectStatsSource) GetInstanceMetrics(includeServiceConnectStats bool, includeGPUMetrics bool) (*ecstcs.MetricsMetadata, []*ecstcs.TaskMetric, *ecstcs.InstanceMetrics, error) {
 	metadata := &ecstcs.MetricsMetadata{
 		Cluster:           aws.String(testCluster),
 		ContainerInstance: aws.String(testContainerInstance),
@@ -304,7 +305,7 @@ func (engine *serviceConnectStatsSource) GetInstanceMetrics(includeServiceConnec
 		}
 		taskMetrics = append(taskMetrics, &taskMetric)
 	}
-	return metadata, taskMetrics, nil
+	return metadata, taskMetrics, nil, nil
 }
 
 func (*serviceConnectStatsSource) GetTaskHealthMetrics() (*ecstcs.HealthMetadata, []*ecstcs.TaskHealth, error) {
@@ -327,11 +328,26 @@ func newServiceConnectStatsSource(numTasks int) *serviceConnectStatsSource {
 	return &serviceConnectStatsSource{numTasks: numTasks}
 }
 
+// testInstanceGPUPayload returns an instance-level GPU GeneralMetricsPayload
+// shaped like the one the stats engine produces (InstanceGPULimit and
+// InstanceGPUUsageTotal), so batching tests can assert it rides on the first
+// request only.
+func testInstanceGPUPayload() []*ecstcs.GeneralMetricsWrapper {
+	return []*ecstcs.GeneralMetricsWrapper{
+		{
+			GeneralMetrics: []*ecstcs.GeneralMetric{
+				{MetricName: aws.String("InstanceGPULimit"), MetricValueLong: aws.Int64(2), Unit: aws.String("Count")},
+				{MetricName: aws.String("InstanceGPUUsageTotal"), MetricValueLong: aws.Int64(1), Unit: aws.String("Count")},
+			},
+		},
+	}
+}
+
 type nonIdleInstanceMetricsStatsSource struct {
 	numTasks int
 }
 
-func (engine *nonIdleInstanceMetricsStatsSource) GetInstanceMetrics(includeServiceConnectStats bool) (*ecstcs.InstanceMetrics, *ecstcs.MetricsMetadata, []*ecstcs.TaskMetric, error) {
+func (engine *nonIdleInstanceMetricsStatsSource) GetInstanceMetrics(includeServiceConnectStats bool, includeGPUMetrics bool) (*ecstcs.MetricsMetadata, []*ecstcs.TaskMetric, *ecstcs.InstanceMetrics, error) {
 	metadata := &ecstcs.MetricsMetadata{
 		Cluster:           aws.String(testCluster),
 		ContainerInstance: aws.String(testContainerInstance),
@@ -347,8 +363,11 @@ func (engine *nonIdleInstanceMetricsStatsSource) GetInstanceMetrics(includeServi
 		taskMetrics = append(taskMetrics, &ecstcs.TaskMetric{TaskArn: &taskArn})
 	}
 	storageMetrics = &ecstcs.InstanceStorageMetrics{DataFilesystem: aws.Float64(25), RootFilesystem: aws.Float64(50)}
-	instanceMetrics = &ecstcs.InstanceMetrics{Storage: storageMetrics}
-	return instanceMetrics, metadata, taskMetrics, nil
+	instanceMetrics = &ecstcs.InstanceMetrics{
+		Storage:               storageMetrics,
+		GeneralMetricsPayload: testInstanceGPUPayload(),
+	}
+	return metadata, taskMetrics, instanceMetrics, nil
 }
 
 func (*nonIdleInstanceMetricsStatsSource) GetTaskHealthMetrics() (*ecstcs.HealthMetadata, []*ecstcs.TaskHealth, error) {
@@ -424,7 +443,7 @@ func TestPublishMetricsRequest(t *testing.T) {
 func TestMetricsToPublishMetricRequestsIdleStatsSource(t *testing.T) {
 	cs := tcsClientServer{}
 	statsSource := idleStatsSource{}
-	metadata, taskMetrics, _ := statsSource.GetInstanceMetrics(testNotIncludeScStats)
+	metadata, taskMetrics, _, _ := statsSource.GetInstanceMetrics(testNotIncludeScStats, testNotIncludeGPUStats)
 	requests, err := cs.metricsToPublishMetricRequests(ecstcs.TelemetryMessage{
 		Metadata:    metadata,
 		TaskMetrics: taskMetrics,
@@ -452,7 +471,7 @@ func TestMetricsToPublishMetricRequestsNonIdleStatsSourcePaginationWithTaskNumbe
 	statsSource := nonIdleStatsSource{
 		numTasks: numTasks,
 	}
-	metadata, taskMetrics, err := statsSource.GetInstanceMetrics(testNotIncludeScStats)
+	metadata, taskMetrics, _, err := statsSource.GetInstanceMetrics(testNotIncludeScStats, testNotIncludeGPUStats)
 	requests, err := cs.metricsToPublishMetricRequests(ecstcs.TelemetryMessage{
 		Metadata:    metadata,
 		TaskMetrics: taskMetrics,
@@ -502,7 +521,7 @@ func TestMetricsToPublishMetricRequestsNonIdleStatsSourcePaginationWithMetricsSi
 	statsSource := nonIdleStatsSource{
 		numTasks: numTasks,
 	}
-	metadata, taskMetrics, err := statsSource.GetInstanceMetrics(testNotIncludeScStats)
+	metadata, taskMetrics, _, err := statsSource.GetInstanceMetrics(testNotIncludeScStats, testNotIncludeGPUStats)
 	requests, err := cs.metricsToPublishMetricRequests(ecstcs.TelemetryMessage{
 		Metadata:    metadata,
 		TaskMetrics: taskMetrics,
@@ -550,7 +569,7 @@ func TestMetricsToPublishMetricRequestsNonIdleInstanceMetricsStatsSource(t *test
 	numTasks := 3
 	cs := tcsClientServer{}
 	statsSource := newNonIdleInstanceMetricsStatsSource(numTasks)
-	instanceMetrics, metadata, taskMetrics, err := statsSource.GetInstanceMetrics(testNotIncludeScStats)
+	metadata, taskMetrics, instanceMetrics, err := statsSource.GetInstanceMetrics(testNotIncludeScStats, testNotIncludeGPUStats)
 	if err != nil {
 		t.Errorf("Error getting Instance Metrics")
 	}
@@ -583,8 +602,17 @@ func TestMetricsToPublishMetricRequestsNonIdleInstanceMetricsStatsSource(t *test
 		}
 	}
 	for i, req := range requests {
-		if i == 0 && req.InstanceMetrics == nil {
-			t.Error("Instance Metrics not included in the first request")
+		if i == 0 {
+			if req.InstanceMetrics == nil {
+				t.Error("Instance Metrics not included in the first request")
+				continue
+			}
+			if req.InstanceMetrics.GeneralMetricsPayload == nil {
+				t.Error("GPU GeneralMetricsPayload not included in the first request's Instance Metrics")
+			} else {
+				assert.Equal(t, testInstanceGPUPayload(), req.InstanceMetrics.GeneralMetricsPayload,
+					"first request should carry the instance GPU GeneralMetricsPayload unchanged")
+			}
 		}
 		if i != 0 && req.InstanceMetrics != nil {
 			t.Error("Instance Metrics included in the requests other than the first request")
@@ -620,7 +648,7 @@ func TestMetricsToPublishMetricRequestsServiceConnectStatsSource(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			cs := tcsClientServer{}
 			statsSource := newServiceConnectStatsSource(tc.numTasks)
-			metadata, taskMetrics, _ := statsSource.GetInstanceMetrics(testIncludeScStats)
+			metadata, taskMetrics, _, _ := statsSource.GetInstanceMetrics(testIncludeScStats, testNotIncludeGPUStats)
 			requests, err := cs.metricsToPublishMetricRequests(ecstcs.TelemetryMessage{
 				Metadata:    metadata,
 				TaskMetrics: taskMetrics,
