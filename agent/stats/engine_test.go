@@ -36,6 +36,7 @@ import (
 	apitaskstatus "github.com/aws/amazon-ecs-agent/ecs-agent/api/task/status"
 	"github.com/aws/amazon-ecs-agent/ecs-agent/csiclient"
 	mock_csiclient "github.com/aws/amazon-ecs-agent/ecs-agent/csiclient/mocks"
+	gputypes "github.com/aws/amazon-ecs-agent/ecs-agent/gpu/types"
 	ni "github.com/aws/amazon-ecs-agent/ecs-agent/netlib/model/networkinterface"
 	"github.com/aws/amazon-ecs-agent/ecs-agent/tcs/model/ecstcs"
 
@@ -125,7 +126,7 @@ func TestStatsEngineAddRemoveContainers(t *testing.T) {
 	}
 
 	// Ensure task shows up in metrics.
-	containerMetrics, err := engine.taskContainerMetricsUnsafe("t1")
+	containerMetrics, err := engine.taskContainerMetricsUnsafe("t1", nil)
 	if err != nil {
 		t.Errorf("Error getting container metrics: %v", err)
 	}
@@ -134,7 +135,7 @@ func TestStatsEngineAddRemoveContainers(t *testing.T) {
 		t.Errorf("Error validating container metrics: %v", err)
 	}
 
-	metadata, taskMetrics, err := engine.GetInstanceMetrics(false)
+	metadata, taskMetrics, _, err := engine.GetInstanceMetrics(false, false)
 	if err != nil {
 		t.Errorf("Error gettting instance metrics: %v", err)
 	}
@@ -155,7 +156,7 @@ func TestStatsEngineAddRemoveContainers(t *testing.T) {
 	}
 
 	// Ensure task shows up in metrics.
-	containerMetrics, err = engine.taskContainerMetricsUnsafe("t1")
+	containerMetrics, err = engine.taskContainerMetricsUnsafe("t1", nil)
 	if err != nil {
 		t.Errorf("Error getting container metrics: %v", err)
 	}
@@ -164,7 +165,7 @@ func TestStatsEngineAddRemoveContainers(t *testing.T) {
 		t.Errorf("Error validating container metrics: %v", err)
 	}
 
-	metadata, taskMetrics, err = engine.GetInstanceMetrics(true)
+	metadata, taskMetrics, _, err = engine.GetInstanceMetrics(true, false)
 	if err != nil {
 		t.Errorf("Error gettting instance metrics: %v", err)
 	}
@@ -177,7 +178,7 @@ func TestStatsEngineAddRemoveContainers(t *testing.T) {
 	require.Equal(t, "t1", *taskMetrics[0].TaskArn)
 
 	// Ensure that only valid task shows up in metrics.
-	_, err = engine.taskContainerMetricsUnsafe("t2")
+	_, err = engine.taskContainerMetricsUnsafe("t2", nil)
 	if err == nil {
 		t.Error("Expected non-empty error for non existent task")
 	}
@@ -201,7 +202,7 @@ func TestStatsEngineAddRemoveContainers(t *testing.T) {
 		t.Error("Container c3 not found in engine")
 	}
 
-	_, _, err = engine.GetInstanceMetrics(false)
+	_, _, _, err = engine.GetInstanceMetrics(false, false)
 	if err == nil {
 		t.Error("Expected non-empty error for empty stats.")
 	}
@@ -295,7 +296,7 @@ func TestStatsEngineMetadataInStatsSets(t *testing.T) {
 			statsContainer.statsQueue.setLastStat(dockerStats[i])
 		}
 	}
-	metadata, taskMetrics, err := engine.GetInstanceMetrics(false)
+	metadata, taskMetrics, _, err := engine.GetInstanceMetrics(false, false)
 	if err != nil {
 		t.Errorf("Error gettting instance metrics: %v", err)
 	}
@@ -376,6 +377,7 @@ func TestStartMetricsPublish(t *testing.T) {
 		expectedHealthMessageNum   int
 		expectedNonEmptyMetricsMsg bool
 		serviceConnectEnabled      bool
+		gpuEnabled                 bool
 		disableMetrics             bool
 		channelSize                int
 	}{
@@ -407,6 +409,17 @@ func TestStartMetricsPublish(t *testing.T) {
 			expectedNonEmptyMetricsMsg: false,
 			serviceConnectEnabled:      false,
 			disableMetrics:             true,
+			channelSize:                testTelemetryChannelDefaultBufferSize,
+		},
+		{
+			name:                       "GPUEnabled",
+			hasPublishTicker:           true,
+			expectedInstanceMessageNum: 7, // immediate + 6 ticker-fired; GPU emits on ticks 3 and 6
+			expectedHealthMessageNum:   7,
+			expectedNonEmptyMetricsMsg: true,
+			serviceConnectEnabled:      false,
+			gpuEnabled:                 true,
+			disableMetrics:             false,
 			channelSize:                testTelemetryChannelDefaultBufferSize,
 		},
 	}
@@ -474,6 +487,18 @@ func TestStartMetricsPublish(t *testing.T) {
 			engine.publishMetricsTicker = ticker
 
 			engine.addAndStartStatsContainer(containerID)
+
+			if tc.gpuEnabled {
+				engine.SetGPUMetricsReader(&fakeGPUReader{data: &gputypes.GPUMetricsFileData{
+					Timestamp: "2026-07-20T00:00:00Z",
+					Healthy:   true,
+					GPUs: []gputypes.GPUMetric{
+						{GPUUUID: "GPU-1", GPUUtilization: aws.Float64(50.0)},
+					},
+				}})
+				// Counter starts at 0 (natural); emit on ticks 3 and 6.
+			}
+
 			ts1 := parseNanoTime("2015-02-12T21:22:05.131117533Z")
 
 			containerStats := createFakeContainerStats()
@@ -491,16 +516,26 @@ func TestStartMetricsPublish(t *testing.T) {
 
 			go engine.StartMetricsPublish()
 
-			// wait 1s for first set of metrics sent (immediately), and then add a second set of stats
-			time.Sleep(time.Second)
-			for _, statsContainer := range containers {
-				for i := 0; i < 2; i++ {
-					statsContainer.statsQueue.add(containerStats[i])
-					statsContainer.statsQueue.setLastStat(dockerStats[i])
-				}
+			// Observe one message per ticker fire. expectedInstanceMessageNum
+			// counts the immediate pre-loop publish plus one message per fire,
+			// so the number of fires to wait for is expectedInstanceMessageNum-1
+			// (0 when there is no publish ticker).
+			tickerFiresToObserve := 0
+			if tc.hasPublishTicker {
+				tickerFiresToObserve = tc.expectedInstanceMessageNum - 1
 			}
 
-			time.Sleep(testPublishMetricsInterval + time.Second)
+			// Wait for the immediate publish, then feed stats before each tick.
+			time.Sleep(time.Second)
+			for tick := 0; tick < tickerFiresToObserve; tick++ {
+				for _, statsContainer := range containers {
+					for i := 0; i < 2; i++ {
+						statsContainer.statsQueue.add(containerStats[i])
+						statsContainer.statsQueue.setLastStat(dockerStats[i])
+					}
+				}
+				time.Sleep(testPublishMetricsInterval + 500*time.Millisecond)
+			}
 
 			assert.Len(t, telemetryMessages, tc.expectedInstanceMessageNum)
 			assert.Len(t, healthMessages, tc.expectedHealthMessageNum)
@@ -512,6 +547,21 @@ func TestStartMetricsPublish(t *testing.T) {
 					assert.NotZero(t, *telemetryMessage.TaskMetrics[0].ContainerMetrics[0].StorageStatsSet.ReadSizeBytes.Sum)
 				} else {
 					assert.Empty(t, telemetryMessage.TaskMetrics)
+				}
+				// First message is the immediate pre-loop publish (no GPU).
+				assert.Nil(t, telemetryMessage.InstanceMetrics, "immediate publish must not carry GPU")
+			}
+			// Drain remaining ticker-fired messages and verify GPU cadence.
+			for i := 2; i <= tc.expectedInstanceMessageNum; i++ {
+				telemetryMessage := <-telemetryMessages
+				tickNum := i - 1 // tick 1=first ticker fire, etc.
+				if tc.gpuEnabled && tickNum%defaultPublishGPUMetricsTicker == 0 {
+					require.NotNil(t, telemetryMessage.InstanceMetrics,
+						"tick %d should carry GPU InstanceMetrics (every %d ticks)", tickNum, defaultPublishGPUMetricsTicker)
+					require.NotEmpty(t, telemetryMessage.InstanceMetrics.GeneralMetricsPayload,
+						"tick %d GPU InstanceMetrics should carry GeneralMetricsPayload", tickNum)
+				} else {
+					assert.Nil(t, telemetryMessage.InstanceMetrics, "tick %d should not carry GPU InstanceMetrics", tickNum)
 				}
 			}
 			if tc.expectedHealthMessageNum > 0 {
@@ -569,7 +619,7 @@ func TestGetInstanceMetricsNonIdleEmptyError(t *testing.T) {
 	}
 
 	engine.resolver = resolver
-	_, taskMetric, err := engine.GetInstanceMetrics(false)
+	_, taskMetric, _, err := engine.GetInstanceMetrics(false, false)
 	assert.Len(t, taskMetric, 0)
 	assert.Equal(t, err, EmptyMetricsError)
 }
@@ -843,7 +893,7 @@ func testNetworkModeStats(t *testing.T, netMode string, enis []*ni.NetworkInterf
 			statsContainer.statsQueue.setLastStat(dockerStats[i])
 		}
 	}
-	_, taskMetrics, err := engine.GetInstanceMetrics(false)
+	_, taskMetrics, _, err := engine.GetInstanceMetrics(false, false)
 	assert.NoError(t, err)
 	assert.Len(t, taskMetrics, 1)
 	for _, containerMetric := range taskMetrics[0].ContainerMetrics {

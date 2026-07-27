@@ -1,4 +1,4 @@
-//go:build unit && linux
+//go:build unit
 
 // Copyright Amazon.com Inc. or its affiliates. All Rights Reserved.
 //
