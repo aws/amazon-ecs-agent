@@ -139,11 +139,18 @@ func (il *isolatedLinux) configureBranchENI(ctx context.Context, netNSPath strin
 // addGatewayNeighbor installs a permanent ARP entry and /32 link-scope route
 // for the gateway in the task netns.
 func (il *isolatedLinux) addGatewayNeighbor(netNSPath string, eni *networkinterface.NetworkInterface) error {
+	// IPv6-only interfaces have no IPv4 gateway to pre-resolve, even when the
+	// payload carries a subnet gateway IPv4 address. The guest resolves the
+	// IPv6 gateway via NDP, which the TAP egress filters permit, so no
+	// neighbor entry is needed for IPv6.
+	if eni.IPv6Only() {
+		return nil
+	}
+
 	gwIPStr := eni.GetSubnetGatewayIPv4Address()
 	if gwIPStr == "" {
 		return nil
 	}
-	// TODO: Install equivalent neighbor entry for IPv6 gateway.
 
 	gwIP := net.ParseIP(gwIPStr)
 	if gwIP == nil {
