@@ -320,6 +320,21 @@ func newServiceConnectStatsSource(numTasks int) *serviceConnectStatsSource {
 	return &serviceConnectStatsSource{numTasks: numTasks}
 }
 
+// testInstanceGPUPayload returns an instance-level GPU GeneralMetricsPayload
+// shaped like the one the stats engine produces (InstanceGPULimit and
+// InstanceGPUUsageTotal), so batching tests can assert it rides on the first
+// request only.
+func testInstanceGPUPayload() []*ecstcs.GeneralMetricsWrapper {
+	return []*ecstcs.GeneralMetricsWrapper{
+		{
+			GeneralMetrics: []*ecstcs.GeneralMetric{
+				{MetricName: aws.String("InstanceGPULimit"), MetricValueLong: aws.Int64(2), Unit: aws.String("Count")},
+				{MetricName: aws.String("InstanceGPUUsageTotal"), MetricValueLong: aws.Int64(1), Unit: aws.String("Count")},
+			},
+		},
+	}
+}
+
 type nonIdleInstanceMetricsStatsSource struct {
 	numTasks int
 }
@@ -340,7 +355,10 @@ func (engine *nonIdleInstanceMetricsStatsSource) GetInstanceMetrics(includeServi
 		taskMetrics = append(taskMetrics, &ecstcs.TaskMetric{TaskArn: &taskArn})
 	}
 	storageMetrics = &ecstcs.InstanceStorageMetrics{DataFilesystem: aws.Float64(25), RootFilesystem: aws.Float64(50)}
-	instanceMetrics = &ecstcs.InstanceMetrics{Storage: storageMetrics}
+	instanceMetrics = &ecstcs.InstanceMetrics{
+		Storage:               storageMetrics,
+		GeneralMetricsPayload: testInstanceGPUPayload(),
+	}
 	return metadata, taskMetrics, instanceMetrics, nil
 }
 
@@ -576,8 +594,17 @@ func TestMetricsToPublishMetricRequestsNonIdleInstanceMetricsStatsSource(t *test
 		}
 	}
 	for i, req := range requests {
-		if i == 0 && req.InstanceMetrics == nil {
-			t.Error("Instance Metrics not included in the first request")
+		if i == 0 {
+			if req.InstanceMetrics == nil {
+				t.Error("Instance Metrics not included in the first request")
+				continue
+			}
+			if req.InstanceMetrics.GeneralMetricsPayload == nil {
+				t.Error("GPU GeneralMetricsPayload not included in the first request's Instance Metrics")
+			} else {
+				assert.Equal(t, testInstanceGPUPayload(), req.InstanceMetrics.GeneralMetricsPayload,
+					"first request should carry the instance GPU GeneralMetricsPayload unchanged")
+			}
 		}
 		if i != 0 && req.InstanceMetrics != nil {
 			t.Error("Instance Metrics included in the requests other than the first request")
