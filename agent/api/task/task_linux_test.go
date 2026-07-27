@@ -44,7 +44,7 @@ import (
 	"github.com/golang/mock/gomock"
 
 	"github.com/aws/aws-sdk-go-v2/aws"
-	dockercontainer "github.com/docker/docker/api/types/container"
+	dockercontainer "github.com/moby/moby/api/types/container"
 	specs "github.com/opencontainers/runtime-spec/specs-go"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"

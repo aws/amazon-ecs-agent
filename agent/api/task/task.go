@@ -18,6 +18,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"maps"
+	"net/netip"
 	"os"
 	"path/filepath"
 	"reflect"
@@ -60,9 +61,9 @@ import (
 	ecstypes "github.com/aws/aws-sdk-go-v2/service/ecs/types"
 
 	"github.com/aws/aws-sdk-go-v2/aws"
-	"github.com/docker/docker/api/types"
-	dockercontainer "github.com/docker/docker/api/types/container"
 	"github.com/docker/go-connections/nat"
+	dockercontainer "github.com/moby/moby/api/types/container"
+	"github.com/moby/moby/api/types/network"
 	"github.com/pkg/errors"
 )
 
@@ -1757,7 +1758,7 @@ func (task *Task) HostVolumeByName(name string) (taskresourcevolume.Volume, bool
 // UpdateMountPoints updates the mount points of volumes that were created
 // without specifying a host path.  This is used as part of the empty host
 // volume feature.
-func (task *Task) UpdateMountPoints(cont *apicontainer.Container, vols []types.MountPoint) {
+func (task *Task) UpdateMountPoints(cont *apicontainer.Container, vols []dockercontainer.MountPoint) {
 	for _, mountPoint := range cont.MountPoints {
 		containerPath := utils.GetCanonicalPath(mountPoint.ContainerPath)
 		for _, vol := range vols {
@@ -1885,7 +1886,7 @@ func (task *Task) dockerConfig(container *apicontainer.Container, apiVersion doc
 		Image:        container.Image,
 		Cmd:          container.Command,
 		Entrypoint:   entryPoint,
-		ExposedPorts: exposedPorts,
+		ExposedPorts: natPortSetToMoby(exposedPorts),
 		Env:          dockerEnv,
 	}
 
@@ -1941,6 +1942,80 @@ func setLabelsFromJSONString(config *dockercontainer.Config, labelsString string
 			maps.Copy(config.Labels, labels)
 		}
 	}
+}
+
+// natPortSetToMoby converts a go-connections nat.PortSet (used internally for
+// port parsing) into the moby v29 network.PortSet expected by container.Config.
+func natPortSetToMoby(ports nat.PortSet) network.PortSet {
+	out := make(network.PortSet, len(ports))
+	for p := range ports {
+		out[network.MustParsePort(string(p))] = struct{}{}
+	}
+	return out
+}
+
+// natPortMapToMoby converts a go-connections nat.PortMap into the moby v29
+// network.PortMap expected by container.HostConfig.
+func natPortMapToMoby(pm nat.PortMap) network.PortMap {
+	out := make(network.PortMap, len(pm))
+	for p, bindings := range pm {
+		port := network.MustParsePort(string(p))
+		for _, b := range bindings {
+			nb := network.PortBinding{HostPort: b.HostPort}
+			if b.HostIP != "" {
+				if addr, err := netip.ParseAddr(b.HostIP); err == nil {
+					nb.HostIP = addr
+				}
+			}
+			out[port] = append(out[port], nb)
+		}
+	}
+	return out
+}
+
+// firstContainerIPv4 returns the first valid IPv4 address across the container's
+// networks. moby v29 removed the legacy top-level NetworkSettings.IPAddress
+// field; per-network addresses now live under NetworkSettings.Networks.
+func firstContainerIPv4(ns *dockercontainer.NetworkSettings) string {
+	if ns == nil {
+		return ""
+	}
+	for _, n := range ns.Networks {
+		if n != nil && n.IPAddress.IsValid() {
+			return n.IPAddress.String()
+		}
+	}
+	return ""
+}
+
+// firstContainerIPv6 returns the first valid global IPv6 address across the
+// container's networks (see firstContainerIPv4 for context).
+func firstContainerIPv6(ns *dockercontainer.NetworkSettings) string {
+	if ns == nil {
+		return ""
+	}
+	for _, n := range ns.Networks {
+		if n != nil && n.GlobalIPv6Address.IsValid() {
+			return n.GlobalIPv6Address.String()
+		}
+	}
+	return ""
+}
+
+// stringsToAddrs parses a slice of IP strings into netip.Addr values, matching
+// the moby v29 container.HostConfig.DNS field type. Unparseable entries are
+// skipped.
+func stringsToAddrs(ss []string) []netip.Addr {
+	if len(ss) == 0 {
+		return nil
+	}
+	addrs := make([]netip.Addr, 0, len(ss))
+	for _, s := range ss {
+		if addr, err := netip.ParseAddr(s); err == nil {
+			addrs = append(addrs, addr)
+		}
+	}
+	return addrs
 }
 
 // dockerExposedPorts returns the container ports that need to be exposed for a container
@@ -2073,7 +2148,7 @@ func (task *Task) dockerHostConfig(container *apicontainer.Container, dockerCont
 	hostConfig := &dockercontainer.HostConfig{
 		Links:        dockerLinkArr,
 		Binds:        binds,
-		PortBindings: dockerPortMap,
+		PortBindings: natPortMapToMoby(dockerPortMap),
 		VolumesFrom:  volumesFrom,
 		Resources:    resources,
 		GroupAdd:     supplementaryGroups,
@@ -2297,7 +2372,7 @@ func (task *Task) overrideDNS(hostConfig *dockercontainer.HostConfig) *dockercon
 		return hostConfig
 	}
 
-	hostConfig.DNS = eni.DomainNameServers
+	hostConfig.DNS = stringsToAddrs(eni.DomainNameServers)
 	hostConfig.DNSSearch = eni.DomainNameSearchList
 
 	return hostConfig
@@ -3708,14 +3783,15 @@ func (task *Task) PopulateServiceConnectContainerMappingEnvVarBridge(
 			return fmt.Errorf("error retrieving task container for pause container %s: %+v", c.Name, err)
 		}
 		if instanceIPCompatibility.IsIPv6Only() {
-			if c.GetNetworkSettings().GlobalIPv6Address == "" {
+			ipv6 := firstContainerIPv6(c.GetNetworkSettings())
+			if ipv6 == "" {
 				return fmt.Errorf(
 					"instance is IPv6-only but no IPv6 address found for container '%s'",
 					taskContainer.Name)
 			}
-			containerMapping[taskContainer.Name] = c.GetNetworkSettings().GlobalIPv6Address
+			containerMapping[taskContainer.Name] = ipv6
 		} else {
-			containerMapping[taskContainer.Name] = c.GetNetworkSettings().IPAddress
+			containerMapping[taskContainer.Name] = firstContainerIPv4(c.GetNetworkSettings())
 		}
 	}
 	return task.setContainerMappingForServiceConnectContainer(containerMapping)

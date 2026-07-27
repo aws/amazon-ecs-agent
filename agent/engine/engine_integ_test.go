@@ -39,9 +39,8 @@ import (
 	"github.com/aws/amazon-ecs-agent/ecs-agent/credentials"
 
 	"github.com/aws/aws-sdk-go-v2/aws"
-	"github.com/docker/docker/api/types"
-	"github.com/docker/docker/api/types/container"
-	sdkClient "github.com/docker/docker/client"
+	"github.com/moby/moby/api/types/container"
+	sdkClient "github.com/moby/moby/client"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -115,7 +114,7 @@ func dialWithRetries(proto string, address string, tries int, timeout time.Durat
 func removeImage(t *testing.T, img string) {
 	client, err := sdkClient.NewClientWithOpts(sdkClient.WithHost(endpoint), sdkClient.WithVersion(sdkclientfactory.GetDefaultVersion().String()))
 	require.NoError(t, err, "create docker client failed")
-	client.ImageRemove(context.TODO(), img, types.ImageRemoveOptions{})
+	client.ImageRemove(context.TODO(), img, sdkClient.ImageRemoveOptions{})
 }
 
 func cleanVolumes(testTask *apitask.Task, dockerClient dockerapi.DockerClient) {
@@ -148,18 +147,18 @@ func TestDockerStateToContainerState(t *testing.T) {
 
 	containerMetadata = taskEngine.(*DockerTaskEngine).createContainer(testTask, container)
 	assert.NoError(t, containerMetadata.Error)
-	state, _ := client.ContainerInspect(ctx, containerMetadata.DockerID)
-	assert.Equal(t, apicontainerstatus.ContainerCreated, dockerapi.DockerStateToState(state.ContainerJSONBase.State))
+	state, _ := client.ContainerInspect(ctx, containerMetadata.DockerID, sdkClient.ContainerInspectOptions{})
+	assert.Equal(t, apicontainerstatus.ContainerCreated, dockerapi.DockerStateToState(state.Container.State))
 
 	containerMetadata = taskEngine.(*DockerTaskEngine).startContainer(testTask, container)
 	assert.NoError(t, containerMetadata.Error)
-	state, _ = client.ContainerInspect(ctx, containerMetadata.DockerID)
-	assert.Equal(t, apicontainerstatus.ContainerRunning, dockerapi.DockerStateToState(state.ContainerJSONBase.State))
+	state, _ = client.ContainerInspect(ctx, containerMetadata.DockerID, sdkClient.ContainerInspectOptions{})
+	assert.Equal(t, apicontainerstatus.ContainerRunning, dockerapi.DockerStateToState(state.Container.State))
 
 	containerMetadata = taskEngine.(*DockerTaskEngine).stopContainer(testTask, container)
 	assert.NoError(t, containerMetadata.Error)
-	state, _ = client.ContainerInspect(ctx, containerMetadata.DockerID)
-	assert.Equal(t, apicontainerstatus.ContainerStopped, dockerapi.DockerStateToState(state.ContainerJSONBase.State))
+	state, _ = client.ContainerInspect(ctx, containerMetadata.DockerID, sdkClient.ContainerInspectOptions{})
+	assert.Equal(t, apicontainerstatus.ContainerStopped, dockerapi.DockerStateToState(state.Container.State))
 
 	// clean up the container
 	err = taskEngine.(*DockerTaskEngine).removeContainer(testTask, container)
@@ -173,8 +172,8 @@ func TestDockerStateToContainerState(t *testing.T) {
 	assert.NoError(t, containerMetadata.Error)
 	containerMetadata = taskEngine.(*DockerTaskEngine).startContainer(testTask, container)
 	assert.Error(t, containerMetadata.Error)
-	state, _ = client.ContainerInspect(ctx, containerMetadata.DockerID)
-	assert.Equal(t, apicontainerstatus.ContainerStopped, dockerapi.DockerStateToState(state.ContainerJSONBase.State))
+	state, _ = client.ContainerInspect(ctx, containerMetadata.DockerID, sdkClient.ContainerInspectOptions{})
+	assert.Equal(t, apicontainerstatus.ContainerStopped, dockerapi.DockerStateToState(state.Container.State))
 
 	// clean up the container
 	err = taskEngine.(*DockerTaskEngine).removeContainer(testTask, container)
@@ -443,9 +442,9 @@ func TestLabels(t *testing.T) {
 
 	containerMap, _ := taskEngine.(*DockerTaskEngine).state.ContainerMapByArn(testTask.Arn)
 	cid := containerMap[testTask.Containers[0].Name].DockerID
-	state, _ := client.ContainerInspect(ctx, cid)
-	assert.EqualValues(t, "value", state.Config.Labels["com.foo.label2"])
-	assert.EqualValues(t, "", state.Config.Labels["label1"])
+	state, _ := client.ContainerInspect(ctx, cid, sdkClient.ContainerInspectOptions{})
+	assert.EqualValues(t, "value", state.Container.Config.Labels["com.foo.label2"])
+	assert.EqualValues(t, "", state.Container.Config.Labels["label1"])
 
 	// Kill the existing container now
 	// Create instead of copying the testTask, to avoid race condition.
@@ -487,14 +486,14 @@ func TestLogDriverOptions(t *testing.T) {
 
 	containerMap, _ := taskEngine.(*DockerTaskEngine).state.ContainerMapByArn(testTask.Arn)
 	cid := containerMap[testTask.Containers[0].Name].DockerID
-	state, _ := client.ContainerInspect(ctx, cid)
+	state, _ := client.ContainerInspect(ctx, cid, sdkClient.ContainerInspectOptions{})
 
 	containerExpected := container.LogConfig{
 		Type:   "json-file",
 		Config: map[string]string{"max-file": "50", "max-size": "50k"},
 	}
 
-	assert.EqualValues(t, containerExpected, state.HostConfig.LogConfig)
+	assert.EqualValues(t, containerExpected, state.Container.HostConfig.LogConfig)
 
 	// Kill the existing container now
 	// Create instead of copying the testTask, to avoid race condition.
@@ -538,11 +537,11 @@ func testNetworkMode(t *testing.T, networkMode string) {
 	containerMap, _ := taskEngine.(*DockerTaskEngine).state.ContainerMapByArn(testTask.Arn)
 	cid := containerMap[testTask.Containers[0].Name].DockerID
 
-	state, _ := client.ContainerInspect(ctx, cid)
-	assert.NotNil(t, state.NetworkSettings, "Couldn't find the container network setting info")
+	state, _ := client.ContainerInspect(ctx, cid, sdkClient.ContainerInspectOptions{})
+	assert.NotNil(t, state.Container.NetworkSettings, "Couldn't find the container network setting info")
 
 	var networks []string
-	for key := range state.NetworkSettings.Networks {
+	for key := range state.Container.NetworkSettings.Networks {
 		networks = append(networks, key)
 	}
 	assert.Equal(t, 1, len(networks), "found multiple networks in container config")
@@ -583,7 +582,7 @@ func TestTaskCleanup(t *testing.T) {
 
 	containerMap, _ := taskEngine.(*DockerTaskEngine).state.ContainerMapByArn(testTask.Arn)
 	cid := containerMap[testTask.Containers[0].Name].DockerID
-	_, err = client.ContainerInspect(ctx, cid)
+	_, err = client.ContainerInspect(ctx, cid, sdkClient.ContainerInspectOptions{})
 	assert.NoError(t, err, "Inspect should work")
 
 	// Create instead of copying the testTask, to avoid race condition.
@@ -598,6 +597,6 @@ func TestTaskCleanup(t *testing.T) {
 	task.SetSentStatus(apitaskstatus.TaskStopped)   // cleanupTask waits for TaskStopped to be sent before cleaning
 	waitForTaskCleanup(t, taskEngine, testArn, 120) // 120 seconds
 
-	_, err = client.ContainerInspect(ctx, cid)
+	_, err = client.ContainerInspect(ctx, cid, sdkClient.ContainerInspectOptions{})
 	assert.Error(t, err, "Inspect should not work")
 }

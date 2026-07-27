@@ -61,8 +61,8 @@ import (
 	ecstypes "github.com/aws/aws-sdk-go-v2/service/ecs/types"
 	"github.com/aws/smithy-go"
 	smithyhttp "github.com/aws/smithy-go/transport/http"
-	"github.com/docker/docker/api/types"
 	"github.com/golang/mock/gomock"
+	"github.com/moby/moby/api/types/image"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -2092,7 +2092,7 @@ func TestLoadManagedDaemonImage(t *testing.T) {
 				mdm.EXPECT().GetManagedDaemon().Return(md.NewManagedDaemon("name", "tag")).Times(3)
 				mdm.EXPECT().
 					LoadImage(gomock.Any(), gomock.Any()).
-					Return(&types.ImageInspect{ID: "image-id"}, nil)
+					Return(&image.InspectResponse{ID: "image-id"}, nil)
 			},
 			setImageManagerExpectations: func(mim *mock_engine.MockImageManager) {
 				mim.EXPECT().AddImageToCleanUpExclusionList("name:tag")

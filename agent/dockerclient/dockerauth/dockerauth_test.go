@@ -22,7 +22,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/docker/docker/api/types/registry"
+	"github.com/moby/moby/api/types/registry"
 )
 
 type authTestPair struct {

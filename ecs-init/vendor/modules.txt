@@ -216,7 +216,6 @@ github.com/docker/docker/pkg/longpath
 github.com/docker/docker/pkg/pools
 github.com/docker/docker/pkg/stdcopy
 github.com/docker/docker/pkg/system
-github.com/docker/docker/profiles/apparmor
 # github.com/docker/go-connections v0.4.0
 ## explicit
 github.com/docker/go-connections/nat
@@ -257,6 +256,9 @@ github.com/klauspost/compress/zstd/internal/xxhash
 # github.com/moby/patternmatcher v0.6.0
 ## explicit; go 1.19
 github.com/moby/patternmatcher
+# github.com/moby/profiles/apparmor v0.2.1
+## explicit; go 1.23.0
+github.com/moby/profiles/apparmor
 # github.com/moby/sys/sequential v0.5.0
 ## explicit; go 1.17
 github.com/moby/sys/sequential
@@ -276,7 +278,7 @@ github.com/morikuni/aec
 # github.com/opencontainers/go-digest v1.0.0
 ## explicit; go 1.13
 github.com/opencontainers/go-digest
-# github.com/opencontainers/image-spec v1.1.0
+# github.com/opencontainers/image-spec v1.1.1
 ## explicit; go 1.18
 github.com/opencontainers/image-spec/specs-go
 github.com/opencontainers/image-spec/specs-go/v1
