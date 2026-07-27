@@ -62,7 +62,7 @@ const (
 	// Task metrics are published at 20s interval, thus task's service metrics will be published 60s.
 	defaultPublishServiceConnectTicker = 3
 	// defaultPublishGPUMetricsTicker is every 3rd time GPU metrics will be sent
-	// to the backend, matching dcgm-init's 60s write cadence.
+	// to the backend.
 	defaultPublishGPUMetricsTicker = 3
 )
 

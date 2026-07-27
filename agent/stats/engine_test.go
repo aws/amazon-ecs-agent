@@ -516,18 +516,18 @@ func TestStartMetricsPublish(t *testing.T) {
 
 			go engine.StartMetricsPublish()
 
-			// Feed stats across multiple ticks. For GPUEnabled we need 3
-			// ticker fires (counter: 1,2,3=emit on tick 3) to observe the
-			// first emit, then 3 more (4=1,5=2,6=3=emit) for the re-fire.
-			// Non-GPU subtests only wait for 1 ticker fire.
-			ticksToWait := 1
-			if tc.gpuEnabled {
-				ticksToWait = 6 // observe two full GPU cycles: emit on tick 3, reset, re-emit on tick 6
+			// Observe one message per ticker fire. expectedInstanceMessageNum
+			// counts the immediate pre-loop publish plus one message per fire,
+			// so the number of fires to wait for is expectedInstanceMessageNum-1
+			// (0 when there is no publish ticker).
+			tickerFiresToObserve := 0
+			if tc.hasPublishTicker {
+				tickerFiresToObserve = tc.expectedInstanceMessageNum - 1
 			}
 
 			// Wait for the immediate publish, then feed stats before each tick.
 			time.Sleep(time.Second)
-			for tick := 0; tick < ticksToWait; tick++ {
+			for tick := 0; tick < tickerFiresToObserve; tick++ {
 				for _, statsContainer := range containers {
 					for i := 0; i < 2; i++ {
 						statsContainer.statsQueue.add(containerStats[i])
@@ -556,11 +556,10 @@ func TestStartMetricsPublish(t *testing.T) {
 				telemetryMessage := <-telemetryMessages
 				tickNum := i - 1 // tick 1=first ticker fire, etc.
 				if tc.gpuEnabled && tickNum%defaultPublishGPUMetricsTicker == 0 {
-					assert.NotNil(t, telemetryMessage.InstanceMetrics, "tick %d should carry GPU InstanceMetrics (every %d ticks)", tickNum, defaultPublishGPUMetricsTicker)
-					if telemetryMessage.InstanceMetrics != nil {
-						assert.NotEmpty(t, telemetryMessage.InstanceMetrics.GeneralMetricsPayload,
-							"tick %d GPU InstanceMetrics should carry GeneralMetricsPayload", tickNum)
-					}
+					require.NotNil(t, telemetryMessage.InstanceMetrics,
+						"tick %d should carry GPU InstanceMetrics (every %d ticks)", tickNum, defaultPublishGPUMetricsTicker)
+					require.NotEmpty(t, telemetryMessage.InstanceMetrics.GeneralMetricsPayload,
+						"tick %d GPU InstanceMetrics should carry GeneralMetricsPayload", tickNum)
 				} else {
 					assert.Nil(t, telemetryMessage.InstanceMetrics, "tick %d should not carry GPU InstanceMetrics", tickNum)
 				}

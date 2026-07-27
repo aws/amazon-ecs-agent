@@ -394,24 +394,54 @@ func TestGetInstanceMetricsNoContainerGPUPayloadWithoutAssignment(t *testing.T) 
 	requireNoContainerGPUPayload(t, taskMetrics)
 }
 
-// TestGetInstanceMetricsConnectionLost verifies GPU emission behavior when
-// the DCGM metrics reader reports ConnectionLost. Both subtests are emitting
-// ticks — ConnectionLost is toggled to verify suppression vs emission.
-func TestGetInstanceMetricsConnectionLost(t *testing.T) {
+// TestGetInstanceMetricsSuppressesGPUForUnusableSnapshot verifies that GPU
+// metrics are suppressed at both scopes when the reader's snapshot is unusable
+// (connection lost, nil, or no GPU entries) and emitted normally when it is
+// healthy. Every subtest is an emitting tick, so the reader's snapshot is the
+// only variable.
+func TestGetInstanceMetricsSuppressesGPUForUnusableSnapshot(t *testing.T) {
 	testCases := []struct {
-		name           string
-		connectionLost bool
-		expectGPUEmit  bool
+		name          string
+		reader        gpuMetricsReader
+		expectGPUEmit bool
 	}{
 		{
-			name:           "connection lost suppresses GPU at both scopes",
-			connectionLost: true,
-			expectGPUEmit:  false,
+			name:          "no reader wired up suppresses GPU",
+			reader:        nil,
+			expectGPUEmit: false,
 		},
 		{
-			name:           "connection healthy emits GPU normally",
-			connectionLost: false,
-			expectGPUEmit:  true,
+			name: "connection lost suppresses GPU at both scopes",
+			reader: &fakeDCGMMetricsReader{data: &gputypes.GPUMetricsFileData{
+				Timestamp:      "2026-07-19T00:00:00Z",
+				Healthy:        true,
+				ConnectionLost: true,
+				GPUs:           []gputypes.GPUMetric{{GPUUUID: "GPU-1", GPUUtilization: aws.Float64(50.0)}},
+			}},
+			expectGPUEmit: false,
+		},
+		{
+			name:          "nil snapshot from reader suppresses GPU",
+			reader:        &fakeDCGMMetricsReader{data: nil},
+			expectGPUEmit: false,
+		},
+		{
+			name: "snapshot with no GPU entries suppresses GPU",
+			reader: &fakeDCGMMetricsReader{data: &gputypes.GPUMetricsFileData{
+				Timestamp: "2026-07-19T00:00:00Z",
+				Healthy:   true,
+				GPUs:      nil,
+			}},
+			expectGPUEmit: false,
+		},
+		{
+			name: "connection healthy emits GPU normally",
+			reader: &fakeDCGMMetricsReader{data: &gputypes.GPUMetricsFileData{
+				Timestamp: "2026-07-19T00:00:00Z",
+				Healthy:   true,
+				GPUs:      []gputypes.GPUMetric{{GPUUUID: "GPU-1", GPUUtilization: aws.Float64(50.0)}},
+			}},
+			expectGPUEmit: true,
 		},
 	}
 
@@ -423,13 +453,7 @@ func TestGetInstanceMetricsConnectionLost(t *testing.T) {
 			engine, cancel := setupGPUStatsEngine(t, mockCtrl, []string{"GPU-1"})
 			defer cancel()
 
-			fake := &fakeDCGMMetricsReader{data: &gputypes.GPUMetricsFileData{
-				Timestamp:      "2026-07-19T00:00:00Z",
-				Healthy:        true,
-				ConnectionLost: tc.connectionLost,
-				GPUs:           []gputypes.GPUMetric{{GPUUUID: "GPU-1", GPUUtilization: aws.Float64(50.0)}},
-			}}
-			engine.SetGPUMetricsReader(fake)
+			engine.SetGPUMetricsReader(tc.reader)
 
 			feedFakeStats(engine)
 			_, taskMetrics, instanceMetrics, err := engine.GetInstanceMetrics(false, true)
@@ -441,11 +465,11 @@ func TestGetInstanceMetricsConnectionLost(t *testing.T) {
 				require.Len(t, taskMetrics[0].ContainerMetrics, 1)
 				requireContainerGPUPayload(t, taskMetrics[0].ContainerMetrics[0], []string{"GPU-1"})
 			} else {
-				assert.Nil(t, instanceMetrics, "instance GPU must not be emitted when ConnectionLost=true")
+				assert.Nil(t, instanceMetrics, "instance GPU must not be emitted for an unusable snapshot")
 				requireNoContainerGPUPayload(t, taskMetrics)
 			}
 
-			// CPU/memory must keep flowing regardless of ConnectionLost.
+			// CPU/memory must keep flowing regardless of GPU suppression.
 			require.NotEmpty(t, taskMetrics)
 			require.NotEmpty(t, taskMetrics[0].ContainerMetrics)
 			assert.NotNil(t, taskMetrics[0].ContainerMetrics[0].CpuStatsSet,
