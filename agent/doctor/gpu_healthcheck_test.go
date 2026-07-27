@@ -186,8 +186,7 @@ func TestGPUHealthcheckRunCheck(t *testing.T) {
 				if s.remove {
 					require.NoError(t, os.Remove(filePath), "step %d remove", i)
 				}
-				stepNow := s.now
-				timeNow = func() time.Time { return stepNow }
+				timeNow = func() time.Time { return s.now }
 
 				assert.Equal(t, s.want, hc.RunCheck(), "step %d status", i)
 				if s.wantLast != nil {
