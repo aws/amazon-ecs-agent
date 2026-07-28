@@ -135,7 +135,7 @@ func TestStatsEngineAddRemoveContainers(t *testing.T) {
 		t.Errorf("Error validating container metrics: %v", err)
 	}
 
-	metadata, taskMetrics, _, err := engine.GetInstanceMetrics(false, false)
+	metadata, taskMetrics, _, err := engine.GetPublishMetrics(false, false)
 	if err != nil {
 		t.Errorf("Error gettting instance metrics: %v", err)
 	}
@@ -165,7 +165,7 @@ func TestStatsEngineAddRemoveContainers(t *testing.T) {
 		t.Errorf("Error validating container metrics: %v", err)
 	}
 
-	metadata, taskMetrics, _, err = engine.GetInstanceMetrics(true, false)
+	metadata, taskMetrics, _, err = engine.GetPublishMetrics(true, false)
 	if err != nil {
 		t.Errorf("Error gettting instance metrics: %v", err)
 	}
@@ -202,7 +202,7 @@ func TestStatsEngineAddRemoveContainers(t *testing.T) {
 		t.Error("Container c3 not found in engine")
 	}
 
-	_, _, _, err = engine.GetInstanceMetrics(false, false)
+	_, _, _, err = engine.GetPublishMetrics(false, false)
 	if err == nil {
 		t.Error("Expected non-empty error for empty stats.")
 	}
@@ -296,7 +296,7 @@ func TestStatsEngineMetadataInStatsSets(t *testing.T) {
 			statsContainer.statsQueue.setLastStat(dockerStats[i])
 		}
 	}
-	metadata, taskMetrics, _, err := engine.GetInstanceMetrics(false, false)
+	metadata, taskMetrics, _, err := engine.GetPublishMetrics(false, false)
 	if err != nil {
 		t.Errorf("Error gettting instance metrics: %v", err)
 	}
@@ -600,12 +600,12 @@ func TestStartMetricsPublish(t *testing.T) {
 	}
 }
 
-func TestGetInstanceMetricsNonIdleEmptyError(t *testing.T) {
+func TestGetPublishMetricsNonIdleEmptyError(t *testing.T) {
 	mockCtrl := gomock.NewController(t)
 	defer mockCtrl.Finish()
 
 	resolver := mock_resolver.NewMockContainerMetadataResolver(mockCtrl)
-	engine := NewDockerStatsEngine(&cfg, nil, eventStream("TestGetInstanceMetrics"), nil, nil, nil)
+	engine := NewDockerStatsEngine(&cfg, nil, eventStream("TestGetPublishMetrics"), nil, nil, nil)
 	ctx, cancel := context.WithCancel(context.TODO())
 	defer cancel()
 	engine.ctx = ctx
@@ -619,7 +619,7 @@ func TestGetInstanceMetricsNonIdleEmptyError(t *testing.T) {
 	}
 
 	engine.resolver = resolver
-	_, taskMetric, _, err := engine.GetInstanceMetrics(false, false)
+	_, taskMetric, _, err := engine.GetPublishMetrics(false, false)
 	assert.Len(t, taskMetric, 0)
 	assert.Equal(t, err, EmptyMetricsError)
 }
@@ -893,7 +893,7 @@ func testNetworkModeStats(t *testing.T, netMode string, enis []*ni.NetworkInterf
 			statsContainer.statsQueue.setLastStat(dockerStats[i])
 		}
 	}
-	_, taskMetrics, _, err := engine.GetInstanceMetrics(false, false)
+	_, taskMetrics, _, err := engine.GetPublishMetrics(false, false)
 	assert.NoError(t, err)
 	assert.Len(t, taskMetrics, 1)
 	for _, containerMetric := range taskMetrics[0].ContainerMetrics {
