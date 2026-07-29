@@ -3,7 +3,9 @@ package platform
 import (
 	"fmt"
 	"os/exec"
+	"strconv"
 
+	"github.com/aws/amazon-ecs-agent/ecs-agent/introspection"
 	"github.com/aws/amazon-ecs-agent/ecs-agent/ipcompatibility"
 	"github.com/aws/amazon-ecs-agent/ecs-agent/logger"
 	loggerfield "github.com/aws/amazon-ecs-agent/ecs-agent/logger/field"
@@ -13,14 +15,24 @@ import (
 type iptablesAction string
 
 const (
-	iptablesExecutable = "iptables"
-	ipv6Tables         = "ip6tables"
-	iptablesTableNat   = "nat"
-	sysctlExecutable   = "sysctl"
+	iptablesExecutable  = "iptables"
+	ipv6Tables          = "ip6tables"
+	iptablesTableNat    = "nat"
+	iptablesTableFilter = "filter"
+	sysctlExecutable    = "sysctl"
 	// iptablesAppend enumerates the 'append' action.
 	iptablesAppend iptablesAction = "-A"
+	// iptablesInsert enumerates the 'insert' action (inserts at the top of the
+	// chain, i.e. before already-appended rules).
+	iptablesInsert iptablesAction = "-I"
 	// iptablesCheck enumerates the 'check' action.
 	iptablesCheck iptablesAction = "-C"
+	// iptablesDelete enumerates the 'delete' action.
+	iptablesDelete iptablesAction = "-D"
+
+	// iptablesWaitFlag makes iptables acquire the xtables lock (waiting rather
+	// than failing) so concurrent iptables invocations don't spuriously error.
+	iptablesWaitFlag = "-w"
 
 	// sysctl configuration keys.
 	ipv4ForwardingKey          = "net.ipv4.ip_forward"
@@ -29,9 +41,27 @@ const (
 	bridgeNetfilterCallIPv6Key = "net.bridge.bridge-nf-call-ip6tables"
 )
 
+// introspectionServerPort is the introspection server's TCP port as a string for
+// iptables --dport args, derived from the canonical introspection.Port so the
+// filter rules always target the same port the server binds.
+var introspectionServerPort = strconv.Itoa(introspection.Port)
+
 // getNetfilterChainArgsFunc defines a function pointer type that returns
 // a slice of arguments for modifying a netfilter chain.
 type getNetfilterChainArgsFunc func() []string
+
+// runIptablesCommand executes the iptables/ip6tables binary with the given args
+// and returns its combined output. It is a package-level var so unit tests can
+// stub iptables execution to exercise error paths without invoking real
+// iptables; production code never reassigns it.
+var runIptablesCommand = func(executable string, args ...string) ([]byte, error) {
+	// executable is a fixed iptables/ip6tables constant and args are built from
+	// internal constants (chain, port, fixed bridge addresses); none are
+	// user-controlled. exec.Command runs the binary directly (no shell), so there
+	// is no shell-injection surface.
+	// nosemgrep: command-injection-exec-variable
+	return exec.Command(executable, args...).CombinedOutput()
+}
 
 // modifyNetfilterEntry modifies an entry in the netfilter table based on
 // the action and the function pointer to get arguments for modifying the chain.
@@ -41,9 +71,7 @@ func modifyNetfilterEntry(table string, action iptablesAction, getNetfilterChain
 		executable = ipv6Tables
 	}
 
-	args := append(getTableArgs(table), string(action))
-	args = append(args, getNetfilterChainArgs()...)
-	cmd := exec.Command(executable, args...)
+	args := buildIptablesArgs(table, action, getNetfilterChainArgs())
 
 	logger.Info("Executing iptables command", logger.Fields{
 		"executable": executable,
@@ -53,7 +81,7 @@ func modifyNetfilterEntry(table string, action iptablesAction, getNetfilterChain
 		"ipv6":       useIPv6,
 	})
 
-	output, err := cmd.CombinedOutput()
+	output, err := runIptablesCommand(executable, args...)
 	if err != nil {
 		logger.Error("iptables command failed", logger.Fields{
 			"executable":      executable,
@@ -77,6 +105,17 @@ func getTableArgs(table string) []string {
 	return []string{"-t", table}
 }
 
+// buildIptablesArgs assembles the full iptables argument list for a command:
+// the -w wait flag, the table selector, the action, then the chain args. -w
+// makes iptables wait for the xtables lock instead of failing when another
+// iptables invocation holds it (this code runs concurrently with NAT setup).
+func buildIptablesArgs(table string, action iptablesAction, chainArgs []string) []string {
+	args := append([]string{iptablesWaitFlag}, getTableArgs(table)...)
+	args = append(args, string(action))
+	args = append(args, chainArgs...)
+	return args
+}
+
 // getDaemonBridgeNATArgs returns arguments for daemon-bridge MASQUERADE rule.
 // The subnet parameter specifies the source network for NAT (e.g., ECSSubNet for IPv4 or ECSSubNetIPv6 for IPv6).
 func getDaemonBridgeNATArgs(subnet string) []string {
@@ -95,6 +134,32 @@ func getSimpleIPv6NATArgs() []string {
 		"POSTROUTING",
 		"-o", "eth0", // Output interface.
 		"-j", "MASQUERADE",
+	}
+}
+
+// getIntrospectionAllowDaemonArgs returns a filter-table INPUT rule that accepts
+// introspection traffic on the daemon bridge from the given source address
+// (daemonAddr, e.g. DaemonBridgeIP for IPv4).
+func getIntrospectionAllowDaemonArgs(daemonAddr string) []string {
+	return []string{
+		"INPUT",
+		"-i", BridgeInterfaceName,
+		"-p", "tcp",
+		"--dport", introspectionServerPort,
+		"-s", daemonAddr,
+		"-j", "ACCEPT",
+	}
+}
+
+// getIntrospectionBridgeDropArgs returns a filter-table INPUT rule that drops
+// introspection traffic on the daemon bridge from any source.
+func getIntrospectionBridgeDropArgs() []string {
+	return []string{
+		"INPUT",
+		"-i", BridgeInterfaceName,
+		"-p", "tcp",
+		"--dport", introspectionServerPort,
+		"-j", "DROP",
 	}
 }
 
@@ -174,6 +239,95 @@ func setupNATRule(getArgs getNetfilterChainArgsFunc, useIPv6 bool, ruleDescripti
 	}
 
 	return nil
+}
+
+// setupFilterRule sets up a filter-table rule using the provided arguments
+// function, using the given action (append or insert). It checks for existence
+// first so it is idempotent, mirroring setupNATRule.
+func setupFilterRule(action iptablesAction, getArgs getNetfilterChainArgsFunc, useIPv6 bool, ruleDescription string) error {
+	if err := modifyNetfilterEntry(iptablesTableFilter, iptablesCheck, getArgs, useIPv6); err != nil {
+		if err := modifyNetfilterEntry(iptablesTableFilter, action, getArgs, useIPv6); err != nil {
+			return fmt.Errorf("failed to add %s: %w", ruleDescription, err)
+		}
+		logger.Info(fmt.Sprintf("%s added successfully", ruleDescription))
+	} else {
+		logger.Info(fmt.Sprintf("%s already exists", ruleDescription))
+	}
+	return nil
+}
+
+// SetupIntrospectionFirewall appends a filter-table INPUT rule that drops all
+// introspection traffic arriving on the daemon bridge. The rule is appended for
+// IPv4, and additionally for IPv6 when ipv6Enabled is true — gating on
+// ipv6Enabled both scopes the rule to hosts that use IPv6 and avoids invoking
+// ip6tables on hosts without an IPv6 stack.
+//
+// The rule matches the bridge interface by name even before that interface
+// exists (iptables allows this); it simply matches no traffic until the bridge
+// is created. Idempotent: the rule is added only if not already present.
+func SetupIntrospectionFirewall(ipv6Enabled bool) error {
+	if err := setupFilterRule(iptablesAppend, getIntrospectionBridgeDropArgs, false, "IPv4 introspection bridge-drop rule"); err != nil {
+		return err
+	}
+	if ipv6Enabled {
+		if err := setupFilterRule(iptablesAppend, getIntrospectionBridgeDropArgs, true, "IPv6 introspection bridge-drop rule"); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+// allowDaemonIntrospection inserts a filter-table INPUT rule that accepts
+// introspection traffic on the daemon bridge from the daemon namespace's fixed
+// source address. It is inserted at the top of the chain so it takes precedence
+// over lower-priority rules. The rule is added for IPv4, and additionally for
+// IPv6 when ipv6Enabled is true.
+//
+// Idempotent: the rule is added only if not already present.
+func allowDaemonIntrospection(ipv6Enabled bool) error {
+	allowV4 := func() []string { return getIntrospectionAllowDaemonArgs(DaemonBridgeIP) }
+	if err := setupFilterRule(iptablesInsert, allowV4, false, "IPv4 introspection allow-daemon rule"); err != nil {
+		return err
+	}
+	if ipv6Enabled {
+		allowV6 := func() []string { return getIntrospectionAllowDaemonArgs(DaemonBridgeIPv6) }
+		if err := setupFilterRule(iptablesInsert, allowV6, true, "IPv6 introspection allow-daemon rule"); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+// deleteFilterRule removes a filter-table rule if present, checking existence
+// first so it is idempotent (a -D on a missing rule would error). It is the
+// inverse of setupFilterRule.
+func deleteFilterRule(getArgs getNetfilterChainArgsFunc, useIPv6 bool, ruleDescription string) error {
+	if err := modifyNetfilterEntry(iptablesTableFilter, iptablesCheck, getArgs, useIPv6); err != nil {
+		// Rule not present; nothing to delete.
+		logger.Info(fmt.Sprintf("%s not present, nothing to remove", ruleDescription))
+		return nil
+	}
+	if err := modifyNetfilterEntry(iptablesTableFilter, iptablesDelete, getArgs, useIPv6); err != nil {
+		return fmt.Errorf("failed to remove %s: %w", ruleDescription, err)
+	}
+	logger.Info(fmt.Sprintf("%s removed successfully", ruleDescription))
+	return nil
+}
+
+// disallowDaemonIntrospection removes the filter-table INPUT rule that accepts
+// introspection traffic from the daemon namespace's fixed source address, for a
+// single address family (IPv6 when useIPv6 is true, else IPv4). The caller
+// invokes it once per family so a failure on one family does not prevent the
+// other from being cleaned up.
+//
+// Idempotent: removing an absent rule is a no-op, not an error.
+func disallowDaemonIntrospection(useIPv6 bool) error {
+	addr, description := DaemonBridgeIP, "IPv4 introspection allow-daemon rule"
+	if useIPv6 {
+		addr, description = DaemonBridgeIPv6, "IPv6 introspection allow-daemon rule"
+	}
+	allow := func() []string { return getIntrospectionAllowDaemonArgs(addr) }
+	return deleteFilterRule(allow, useIPv6, description)
 }
 
 // SetupIPv6NAT sets up IPv6 NAT rules for the daemon bridge.
