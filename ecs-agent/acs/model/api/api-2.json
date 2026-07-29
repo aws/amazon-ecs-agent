@@ -310,7 +310,34 @@
         "startTimeout":{"shape":"Integer"},
         "stopTimeout":{"shape":"Integer"},
         "firelensConfiguration":{"shape":"FirelensConfiguration"},
-        "containerArn":{"shape":"String"}
+        "containerArn":{"shape":"String"},
+        "resourceRequirements":{"shape":"ResourceRequirementList"}
+      }
+    },
+    "ResourceRequirementList":{
+      "type":"list",
+      "member":{"shape":"ResourceRequirement"}
+    },
+    "ResourceRequirement":{
+      "type":"structure",
+      "members":{
+        "value":{"shape":"String"},
+        "type":{"shape":"String"},
+        "sharingStrategy":{"shape":"SharingStrategy"}
+      }
+    },
+    "SharingStrategy":{
+      "type":"structure",
+      "members":{
+        "nvidiaMps":{"shape":"NvidiaMpsAllocation"}
+      }
+    },
+    "NvidiaMpsAllocation":{
+      "type":"structure",
+      "required":["memory"],
+      "members":{
+        "memory":{"shape":"Integer"},
+        "maxComputePercent":{"shape":"Integer"}
       }
     },
     "RestartPolicy":{

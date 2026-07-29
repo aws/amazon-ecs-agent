@@ -4446,6 +4446,112 @@ func containerFromACS(name string, containerPort int64, hostPort int64, networkM
 	return container
 }
 
+// TestValidateResourceRequirements covers the ACS sharingStrategy union guarantee
+// re-imposed at TaskFromACS: exactly one known strategy with its required fields,
+// or the task is rejected. A whole-GPU / non-GPU requirement (no sharingStrategy)
+// is always allowed.
+func TestValidateResourceRequirements(t *testing.T) {
+	gpuContainer := func(rr *ecsacs.ResourceRequirement) *ecsacs.Container {
+		return &ecsacs.Container{
+			Name:                 aws.String("gpu-container"),
+			ResourceRequirements: []*ecsacs.ResourceRequirement{rr},
+		}
+	}
+
+	testCases := []struct {
+		name    string
+		task    *ecsacs.Task
+		wantErr bool
+	}{
+		{
+			name:    "no containers",
+			task:    &ecsacs.Task{},
+			wantErr: false,
+		},
+		{
+			name: "no resource requirements",
+			task: &ecsacs.Task{Containers: []*ecsacs.Container{
+				{Name: aws.String("c1")},
+			}},
+			wantErr: false,
+		},
+		{
+			name: "whole-GPU requirement without sharing strategy",
+			task: &ecsacs.Task{Containers: []*ecsacs.Container{
+				gpuContainer(&ecsacs.ResourceRequirement{
+					Type:  aws.String("GPU"),
+					Value: aws.String("1"),
+				}),
+			}},
+			wantErr: false,
+		},
+		{
+			name: "valid nvidiaMps strategy",
+			task: &ecsacs.Task{Containers: []*ecsacs.Container{
+				gpuContainer(&ecsacs.ResourceRequirement{
+					Type: aws.String("GPU"),
+					SharingStrategy: &ecsacs.SharingStrategy{
+						NvidiaMps: &ecsacs.NvidiaMpsAllocation{
+							Memory:            aws.Int64(8192),
+							MaxComputePercent: aws.Int64(50),
+						},
+					},
+				}),
+			}},
+			wantErr: false,
+		},
+		{
+			name: "valid nvidiaMps strategy without optional maxComputePercent",
+			task: &ecsacs.Task{Containers: []*ecsacs.Container{
+				gpuContainer(&ecsacs.ResourceRequirement{
+					Type: aws.String("GPU"),
+					SharingStrategy: &ecsacs.SharingStrategy{
+						NvidiaMps: &ecsacs.NvidiaMpsAllocation{
+							Memory: aws.Int64(8192),
+						},
+					},
+				}),
+			}},
+			wantErr: false,
+		},
+		{
+			name: "empty sharing strategy - no known member",
+			task: &ecsacs.Task{Containers: []*ecsacs.Container{
+				gpuContainer(&ecsacs.ResourceRequirement{
+					Type:            aws.String("GPU"),
+					SharingStrategy: &ecsacs.SharingStrategy{},
+				}),
+			}},
+			wantErr: true,
+		},
+		{
+			name: "nvidiaMps missing required memory",
+			task: &ecsacs.Task{Containers: []*ecsacs.Container{
+				gpuContainer(&ecsacs.ResourceRequirement{
+					Type: aws.String("GPU"),
+					SharingStrategy: &ecsacs.SharingStrategy{
+						NvidiaMps: &ecsacs.NvidiaMpsAllocation{
+							MaxComputePercent: aws.Int64(50),
+						},
+					},
+				}),
+			}},
+			wantErr: true,
+		},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			err := validateResourceRequirements(tc.task)
+			if tc.wantErr {
+				assert.Error(t, err)
+			} else {
+				assert.NoError(t, err)
+			}
+		})
+	}
+}
+
 func cloneSCConfig(scConfig serviceconnect.Config) serviceconnect.Config {
 	clone := scConfig
 	clone.IngressConfig = nil
