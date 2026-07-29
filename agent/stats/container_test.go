@@ -103,7 +103,7 @@ func TestContainerStatsCollection(t *testing.T) {
 	container.StopStatsCollection()
 	cpuStatsSet, err := container.statsQueue.GetCPUStatsSet()
 	if err != nil {
-		t.Fatal("Error gettting cpu stats set:", err)
+		t.Fatal("Error getting cpu stats set:", err)
 	}
 	if *cpuStatsSet.Min == math.MaxFloat64 || math.IsNaN(*cpuStatsSet.Min) {
 		t.Error("Min value incorrectly set: ", *cpuStatsSet.Min)
@@ -120,7 +120,7 @@ func TestContainerStatsCollection(t *testing.T) {
 
 	memStatsSet, err := container.statsQueue.GetMemoryStatsSet()
 	if err != nil {
-		t.Error("Error gettting cpu stats set:", err)
+		t.Error("Error getting cpu stats set:", err)
 	}
 	if *memStatsSet.Min == math.MaxFloat64 {
 		t.Error("Min value incorrectly set: ", *memStatsSet.Min)

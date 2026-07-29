@@ -16,7 +16,7 @@
 
 package stats
 
-// GPU metrics emission tests. Exercises GetInstanceMetrics GPU contract:
+// GPU metrics emission tests. Exercises GetPublishMetrics GPU contract:
 //
 //  1. Reader seam: gpuMetricsReader injected via SetGPUMetricsReader.
 //  2. 3-tick cadence: includeGPUMetrics=true every 3rd tick.
@@ -85,7 +85,7 @@ func setupGPUStatsEngine(t *testing.T, mockCtrl *gomock.Controller, gpuIDs []str
 }
 
 // feedFakeStats loads two CPU/memory samples into every watched container's
-// queue. Call before each GetInstanceMetrics (resetStatsUnsafe drains them).
+// queue. Call before each GetPublishMetrics (resetStatsUnsafe drains them).
 func feedFakeStats(engine *DockerStatsEngine) {
 	containerStats := createFakeContainerStats()
 	for _, containers := range engine.tasksToContainers {
@@ -189,11 +189,11 @@ func requireNoContainerGPUPayload(t *testing.T, taskMetrics []*ecstcs.TaskMetric
 	}
 }
 
-// TestGetInstanceMetricsEmitsInstanceGPUMetrics: an emitting tick with fresh
+// TestGetPublishMetricsEmitsInstanceGPUMetrics: an emitting tick with fresh
 // data emits both scopes — the instance payload (limit = GPUs on host,
 // usage = unique assigned GPU IDs) and a container payload restricted to the
 // container's assigned devices.
-func TestGetInstanceMetricsEmitsInstanceGPUMetrics(t *testing.T) {
+func TestGetPublishMetricsEmitsInstanceGPUMetrics(t *testing.T) {
 	mockCtrl := gomock.NewController(t)
 	defer mockCtrl.Finish()
 
@@ -213,7 +213,7 @@ func TestGetInstanceMetricsEmitsInstanceGPUMetrics(t *testing.T) {
 
 	feedFakeStats(engine)
 
-	metadata, taskMetrics, instanceMetrics, err := engine.GetInstanceMetrics(false, true)
+	metadata, taskMetrics, instanceMetrics, err := engine.GetPublishMetrics(false, true)
 	require.NoError(t, err)
 	require.NotNil(t, metadata)
 	require.Len(t, taskMetrics, 1)
@@ -233,12 +233,12 @@ func TestGetInstanceMetricsEmitsInstanceGPUMetrics(t *testing.T) {
 	assert.GreaterOrEqual(t, fake.reads, 1, "engine should have queried the DCGM metrics reader")
 }
 
-// TestGetInstanceMetricsSkipsStaleGPUMetrics: an unchanged reader Timestamp
+// TestGetPublishMetricsSkipsStaleGPUMetrics: an unchanged reader Timestamp
 // means stale data — suppressed at both scopes, resuming once the Timestamp
 // changes. The stale tick asserts on containers too: checking only
 // instanceMetrics would miss leaked container wrappers or a dropped
 // container.
-func TestGetInstanceMetricsSkipsStaleGPUMetrics(t *testing.T) {
+func TestGetPublishMetricsSkipsStaleGPUMetrics(t *testing.T) {
 	mockCtrl := gomock.NewController(t)
 	defer mockCtrl.Finish()
 
@@ -255,7 +255,7 @@ func TestGetInstanceMetricsSkipsStaleGPUMetrics(t *testing.T) {
 
 	// Emitting tick #1: fresh data -> emitted at both scopes.
 	feedFakeStats(engine)
-	_, taskMetrics, instanceMetrics, err := engine.GetInstanceMetrics(false, true)
+	_, taskMetrics, instanceMetrics, err := engine.GetPublishMetrics(false, true)
 	require.NoError(t, err)
 	requireInstanceGPUPayload(t, instanceMetrics, 1, 1)
 	require.Len(t, taskMetrics, 1)
@@ -265,7 +265,7 @@ func TestGetInstanceMetricsSkipsStaleGPUMetrics(t *testing.T) {
 	// Emitting tick #2: same timestamp -> stale. Both scopes suppressed
 	// (tick #1's GPU-1 wrapper must not reappear); CPU/memory keep flowing.
 	feedFakeStats(engine)
-	_, taskMetrics, instanceMetrics, err = engine.GetInstanceMetrics(false, true)
+	_, taskMetrics, instanceMetrics, err = engine.GetPublishMetrics(false, true)
 	require.NoError(t, err)
 	assert.Nil(t, instanceMetrics, "stale GPU data (unchanged timestamp) must not be re-emitted")
 	requireNoContainerGPUPayload(t, taskMetrics)
@@ -273,7 +273,7 @@ func TestGetInstanceMetricsSkipsStaleGPUMetrics(t *testing.T) {
 	// Emitting tick #3: new snapshot -> emission resumes at both scopes.
 	fake.data.Timestamp = "2026-07-19T00:01:00Z"
 	feedFakeStats(engine)
-	_, taskMetrics, instanceMetrics, err = engine.GetInstanceMetrics(false, true)
+	_, taskMetrics, instanceMetrics, err = engine.GetPublishMetrics(false, true)
 	require.NoError(t, err)
 	requireInstanceGPUPayload(t, instanceMetrics, 1, 1)
 	require.Len(t, taskMetrics, 1)
@@ -305,7 +305,7 @@ func TestGPUMetricsEmittedOnlyWhenFlagSet(t *testing.T) {
 
 		// Simulate StartMetricsPublish: pass true on every 3rd tick.
 		includeGPU := tick%defaultPublishGPUMetricsTicker == 0
-		_, taskMetrics, instanceMetrics, err := engine.GetInstanceMetrics(false, includeGPU)
+		_, taskMetrics, instanceMetrics, err := engine.GetPublishMetrics(false, includeGPU)
 		require.NoError(t, err, "tick %d", tick)
 
 		if includeGPU {
@@ -321,10 +321,10 @@ func TestGPUMetricsEmittedOnlyWhenFlagSet(t *testing.T) {
 	}
 }
 
-// TestGetInstanceMetricsContainerGPUMetricsFiltering pins the container-scope
+// TestGetPublishMetricsContainerGPUMetricsFiltering pins the container-scope
 // filtering: one wrapper per assigned device in reader order; assigned
 // devices absent from the snapshot are skipped silently (no empty wrapper).
-func TestGetInstanceMetricsContainerGPUMetricsFiltering(t *testing.T) {
+func TestGetPublishMetricsContainerGPUMetricsFiltering(t *testing.T) {
 	mockCtrl := gomock.NewController(t)
 	defer mockCtrl.Finish()
 
@@ -345,7 +345,7 @@ func TestGetInstanceMetricsContainerGPUMetricsFiltering(t *testing.T) {
 
 	feedFakeStats(engine)
 
-	_, taskMetrics, instanceMetrics, err := engine.GetInstanceMetrics(false, true)
+	_, taskMetrics, instanceMetrics, err := engine.GetPublishMetrics(false, true)
 	require.NoError(t, err)
 	require.Len(t, taskMetrics, 1)
 	require.Len(t, taskMetrics[0].ContainerMetrics, 1)
@@ -367,9 +367,9 @@ func TestGetInstanceMetricsContainerGPUMetricsFiltering(t *testing.T) {
 	requireInstanceGPUPayload(t, instanceMetrics, 3, 3)
 }
 
-// TestGetInstanceMetricsNoContainerGPUPayloadWithoutAssignment: a container
+// TestGetPublishMetricsNoContainerGPUPayloadWithoutAssignment: a container
 // with no assigned GPUs carries no payload even when the host has GPUs.
-func TestGetInstanceMetricsNoContainerGPUPayloadWithoutAssignment(t *testing.T) {
+func TestGetPublishMetricsNoContainerGPUPayloadWithoutAssignment(t *testing.T) {
 	mockCtrl := gomock.NewController(t)
 	defer mockCtrl.Finish()
 
@@ -385,7 +385,7 @@ func TestGetInstanceMetricsNoContainerGPUPayloadWithoutAssignment(t *testing.T) 
 
 	feedFakeStats(engine)
 
-	_, taskMetrics, instanceMetrics, err := engine.GetInstanceMetrics(false, true)
+	_, taskMetrics, instanceMetrics, err := engine.GetPublishMetrics(false, true)
 	require.NoError(t, err)
 
 	// Instance scope still emits: the host has a GPU, none assigned.
@@ -394,12 +394,12 @@ func TestGetInstanceMetricsNoContainerGPUPayloadWithoutAssignment(t *testing.T) 
 	requireNoContainerGPUPayload(t, taskMetrics)
 }
 
-// TestGetInstanceMetricsSuppressesGPUForUnusableSnapshot verifies that GPU
+// TestGetPublishMetricsSuppressesGPUForUnusableSnapshot verifies that GPU
 // metrics are suppressed at both scopes when the reader's snapshot is unusable
 // (connection lost, nil, or no GPU entries) and emitted normally when it is
 // healthy. Every subtest is an emitting tick, so the reader's snapshot is the
 // only variable.
-func TestGetInstanceMetricsSuppressesGPUForUnusableSnapshot(t *testing.T) {
+func TestGetPublishMetricsSuppressesGPUForUnusableSnapshot(t *testing.T) {
 	testCases := []struct {
 		name          string
 		reader        gpuMetricsReader
@@ -456,7 +456,7 @@ func TestGetInstanceMetricsSuppressesGPUForUnusableSnapshot(t *testing.T) {
 			engine.SetGPUMetricsReader(tc.reader)
 
 			feedFakeStats(engine)
-			_, taskMetrics, instanceMetrics, err := engine.GetInstanceMetrics(false, true)
+			_, taskMetrics, instanceMetrics, err := engine.GetPublishMetrics(false, true)
 			require.NoError(t, err)
 
 			if tc.expectGPUEmit {
