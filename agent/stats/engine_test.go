@@ -137,7 +137,7 @@ func TestStatsEngineAddRemoveContainers(t *testing.T) {
 
 	metadata, taskMetrics, _, err := engine.GetPublishMetrics(false, false)
 	if err != nil {
-		t.Errorf("Error gettting instance metrics: %v", err)
+		t.Errorf("Error getting instance metrics: %v", err)
 	}
 
 	err = validateMetricsMetadata(metadata)
@@ -167,7 +167,7 @@ func TestStatsEngineAddRemoveContainers(t *testing.T) {
 
 	metadata, taskMetrics, _, err = engine.GetPublishMetrics(true, false)
 	if err != nil {
-		t.Errorf("Error gettting instance metrics: %v", err)
+		t.Errorf("Error getting instance metrics: %v", err)
 	}
 
 	err = validateMetricsMetadata(metadata)
@@ -298,7 +298,7 @@ func TestStatsEngineMetadataInStatsSets(t *testing.T) {
 	}
 	metadata, taskMetrics, _, err := engine.GetPublishMetrics(false, false)
 	if err != nil {
-		t.Errorf("Error gettting instance metrics: %v", err)
+		t.Errorf("Error getting instance metrics: %v", err)
 	}
 	if len(taskMetrics) != 1 {
 		t.Fatalf("Incorrect number of tasks. Expected: 1, got: %d", len(taskMetrics))
