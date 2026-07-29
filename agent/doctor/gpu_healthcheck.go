@@ -88,8 +88,7 @@ func (ghc *gpuHealthcheck) RunCheck() ecstcs.InstanceHealthCheckStatus {
 		}
 	} else {
 		logger.Info("[GPUHealthcheck] Failed to parse GPU metrics file timestamp", logger.Fields{
-			"age":       timeNow().Sub(ts),
-			"threshold": gpuStalenessThreshold,
+			"timestamp": healthStatus.Timestamp,
 		})
 		ghc.SetHealthcheckStatus(ecstcs.InstanceHealthCheckStatusInsufficientData)
 		return ecstcs.InstanceHealthCheckStatusInsufficientData
