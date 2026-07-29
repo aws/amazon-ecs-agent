@@ -168,10 +168,8 @@ func (n *NvidiaGPUManager) SetDevices() {
 			Id:   aws.String(gpuID),
 			Type: types.PlatformDeviceTypeGpu,
 		}
-		if memMiB, ok := n.GPUMemoryMiB[gpuID]; ok {
-			device.GpuInfo = &types.GpuPlatformDeviceInfo{
-				MemoryInMiB: aws.Int32(int32(memMiB)),
-			}
+		device.GpuInfo = &types.GpuPlatformDeviceInfo{
+			MemoryInMiB: aws.Int32(int32(n.GPUMemoryMiB[gpuID])),
 		}
 		devices = append(devices, device)
 	}

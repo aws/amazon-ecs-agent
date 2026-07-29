@@ -30,14 +30,23 @@ var devices = []types.PlatformDevice{
 	{
 		Id:   aws.String("id1"),
 		Type: types.PlatformDeviceTypeGpu,
+		GpuInfo: &types.GpuPlatformDeviceInfo{
+			MemoryInMiB: aws.Int32(15872),
+		},
 	},
 	{
 		Id:   aws.String("id2"),
 		Type: types.PlatformDeviceTypeGpu,
+		GpuInfo: &types.GpuPlatformDeviceInfo{
+			MemoryInMiB: aws.Int32(15872),
+		},
 	},
 	{
 		Id:   aws.String("id3"),
 		Type: types.PlatformDeviceTypeGpu,
+		GpuInfo: &types.GpuPlatformDeviceInfo{
+			MemoryInMiB: aws.Int32(15872),
+		},
 	},
 }
 
@@ -47,7 +56,10 @@ func TestNvidiaGPUManagerInitialize(t *testing.T) {
 		return true
 	}
 	GetGPUInfoJSON = func() ([]byte, error) {
+		// ecs-init writes memory for every GPU (all-or-none), so the saved state
+		// always carries a full GPUMemoryMiB map alongside the GPU IDs.
 		return []byte(`{"DriverVersion":"396.44","GPUIDs":["id1","id2","id3"],` +
+			`"GPUMemoryMiB":{"id1":15872,"id2":15872,"id3":15872},` +
 			`"MpsControlBinaryPresent":true,"MpsServiceEnabled":true,"HasVGPU":false}`), nil
 	}
 	defer func() {
@@ -84,20 +96,20 @@ func TestNvidiaGPUManagerError(t *testing.T) {
 }
 
 func TestSetGPUDevices(t *testing.T) {
-	nvidiaGPUManager := NewNvidiaGPUManager()
+	nvidiaGPUManager := NewNvidiaGPUManager().(*NvidiaGPUManager)
 	nvidiaGPUManager.SetGPUIDs([]string{"id1", "id2", "id3"})
+	nvidiaGPUManager.SetGPUMemoryMiB(map[string]uint64{"id1": 15872, "id2": 15872, "id3": 15872})
 	nvidiaGPUManager.SetDevices()
 	assert.True(t, reflect.DeepEqual(devices, nvidiaGPUManager.GetDevices()))
 }
 
-// TestSetDevicesWithGPUMemory verifies SetDevices attaches GpuInfo.MemoryInMiB
-// for UUIDs with known usable memory, and leaves GpuInfo nil for UUIDs without
-// it (legacy hosts / partial NVML discovery), so the field is omitted from RCI.
+// TestSetDevicesWithGPUMemory verifies SetDevices attaches GpuInfo.MemoryInMiB for
+// every discovered GPU UUID. ecs-init detects memory all-or-none and fails setup
+// otherwise, so by the time the agent reads the state every GPU has a memory entry.
 func TestSetDevicesWithGPUMemory(t *testing.T) {
 	nvidiaGPUManager := NewNvidiaGPUManager().(*NvidiaGPUManager)
 	nvidiaGPUManager.SetGPUIDs([]string{"id1", "id2"})
-	// id1 has known memory; id2 does not.
-	nvidiaGPUManager.SetGPUMemoryMiB(map[string]uint64{"id1": 15872})
+	nvidiaGPUManager.SetGPUMemoryMiB(map[string]uint64{"id1": 15872, "id2": 23808})
 	nvidiaGPUManager.SetDevices()
 
 	got := nvidiaGPUManager.GetDevices()
@@ -112,10 +124,12 @@ func TestSetDevicesWithGPUMemory(t *testing.T) {
 		{
 			Id:   aws.String("id2"),
 			Type: types.PlatformDeviceTypeGpu,
+			GpuInfo: &types.GpuPlatformDeviceInfo{
+				MemoryInMiB: aws.Int32(23808),
+			},
 		},
 	}
 	assert.True(t, reflect.DeepEqual(expected, got), "expected %+v, got %+v", expected, got)
-	assert.Nil(t, got[1].GpuInfo, "GpuInfo must be nil for a UUID without known memory")
 }
 
 // TestInitializeWithGPUMemory verifies GPUMemoryMiB round-trips through the GPU

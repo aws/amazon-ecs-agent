@@ -111,8 +111,12 @@ func (n *NvidiaGPUManager) Setup() error {
 	}
 	n.GPUIDs = gpuIDs
 	// Discover per-GPU usable memory so the agent can report it at
-	// registration for the MPS GPU-sharing feature. 
-	n.GPUMemoryMiB = n.DetectGPUMemory()
+	// registration for the MPS GPU-sharing feature. All-or-none: if any GPU's
+	// memory cannot be read we fail setup rather than register with partial data.
+	n.GPUMemoryMiB, err = n.DetectGPUMemory()
+	if err != nil {
+		return errors.Wrapf(err, "setup failed")
+	}
 	// Gather the MPS facts once, after devices are known and before we persist state.
 	// HasVGPU is set per-device inside GetGPUDeviceIDs above.
 	n.MpsControlBinaryPresent = detectMpsControlBinary()
@@ -231,38 +235,26 @@ func (n *NvidiaGPUManager) GetGPUDeviceIDs() ([]string, error) {
 
 // DetectGPUMemory returns a map of GPU UUID to usable memory in MiB. It uses
 // NVML v2 memory (usable = Total - Reserved) so the reported value matches what
-// a workload can actually allocate under MPS.
-func (n *NvidiaGPUManager) DetectGPUMemory() map[string]uint64 {
+// a workload can actually allocate under MPS. It iterates the GPU UUIDs already
+// discovered by GetGPUDeviceIDs (n.GPUIDs).
+func (n *NvidiaGPUManager) DetectGPUMemory() (map[string]uint64, error) {
 	memory := make(map[string]uint64)
-	count, err := NvmlGetDeviceCount()
-	if err != nil {
-		seelog.Errorf("Error getting GPU device count for memory detection: %v", err)
-		return memory
-	}
-	for i := 0; i < count; i++ {
-		device, ret := nvml.DeviceGetHandleByIndex(i)
+	for _, uuid := range n.GPUIDs {
+		device, ret := nvml.DeviceGetHandleByUUID(uuid)
 		if ret != nvml.SUCCESS {
-			seelog.Errorf("Error initializing device of index %d for memory detection: %v", i, nvml.ErrorString(ret))
-			continue
-		}
-		uuid, ret := nvml.DeviceGetUUID(device)
-		if ret != nvml.SUCCESS {
-			seelog.Errorf("Failed to get UUID for device at index %d during memory detection: %v", i, nvml.ErrorString(ret))
-			continue
+			return nil, errors.Errorf("memory detection: failed to get device handle for UUID %s: %v", uuid, nvml.ErrorString(ret))
 		}
 		// NVML v2 memory: usable = Total - Reserved.
 		mem, ret := nvml.DeviceGetMemoryInfo_v2(device)
 		if ret != nvml.SUCCESS {
-			seelog.Errorf("Failed to get v2 memory info for device %s: %v", uuid, nvml.ErrorString(ret))
-			continue
+			return nil, errors.Errorf("memory detection: failed to get v2 memory info for device %s: %v", uuid, nvml.ErrorString(ret))
 		}
 		if mem.Total < mem.Reserved {
-			seelog.Errorf("Unexpected v2 memory for device %s: total %d < reserved %d; skipping", uuid, mem.Total, mem.Reserved)
-			continue
+			return nil, errors.Errorf("memory detection: unexpected v2 memory for device %s: total %d < reserved %d", uuid, mem.Total, mem.Reserved)
 		}
 		memory[uuid] = (mem.Total - mem.Reserved) / bytesPerMiB
 	}
-	return memory
+	return memory, nil
 }
 
 var NvmlGetDeviceCount = GetDeviceCount
