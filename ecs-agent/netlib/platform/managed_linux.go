@@ -617,13 +617,9 @@ func (m *managedLinux) addDaemonBridgeNATRule(ipComp ipcompatibility.IPCompatibi
 	// Grant the daemon namespace access to the introspection server. The baseline
 	// DROP is installed at agent startup (SetupIntrospectionFirewall); the ACCEPT
 	// is added here, only now that a daemon bridge exists and the daemon owns
-	// DaemonBridgeIP, so an awsvpc task can never satisfy it. Best-effort: a
-	// failure here only means the daemon cannot reach introspection, so log and
-	// continue rather than failing daemon-bridge setup.
+	// DaemonBridgeIP, so an awsvpc task can never satisfy it.
 	if err := allowDaemonIntrospection(ipComp.IsIPv6Compatible()); err != nil {
-		logger.Warn("Failed to allow daemon introspection access", logger.Fields{
-			loggerfield.Error: err,
-		})
+		return fmt.Errorf("failed to allow daemon introspection access: %w", err)
 	}
 
 	return nil
@@ -678,9 +674,10 @@ func (m *managedLinux) StopDaemonNetNS(ctx context.Context, netNS *tasknetworkco
 	// than failing teardown.
 	//
 	// This runs BEFORE the CNI DEL below: the DEL releases the daemon's fixed
-	// address (169.254.172.2) back to the shared bridge IPAM, where a subsequent
-	// awsvpc task could be assigned it. Removing the ACCEPT first ensures that
-	// address is never simultaneously reallocatable and still allowed.
+	// addresses (DaemonBridgeIP / DaemonBridgeIPv6) back to the shared bridge
+	// IPAM, where a subsequent awsvpc task could be assigned one. Removing the
+	// ACCEPT rules first ensures those addresses are never simultaneously
+	// reallocatable and still allowed.
 	removeIntrospectionAllow := func(useIPv6 bool) {
 		if err := disallowDaemonIntrospection(useIPv6); err != nil {
 			logger.Warn("Failed to remove daemon introspection access rule", logger.Fields{
