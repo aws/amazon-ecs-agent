@@ -153,8 +153,8 @@ func (resolver *IntegContainerMetadataResolver) ResolveContainer(containerID str
 }
 
 func validateInstanceMetrics(t *testing.T, engine *DockerStatsEngine, includeServiceConnectStats bool) {
-	metadata, taskMetrics, _, err := engine.GetInstanceMetrics(includeServiceConnectStats, false)
-	assert.NoError(t, err, "gettting instance metrics failed")
+	metadata, taskMetrics, _, err := engine.GetPublishMetrics(includeServiceConnectStats, false)
+	assert.NoError(t, err, "getting instance metrics failed")
 	assert.NoError(t, validateMetricsMetadata(metadata), "validating metadata failed")
 	assert.Len(t, taskMetrics, 1, "incorrect number of tasks")
 
@@ -168,8 +168,8 @@ func validateInstanceMetrics(t *testing.T, engine *DockerStatsEngine, includeSer
 }
 
 func validateInstanceMetricsWithDisabledMetrics(t *testing.T, engine *DockerStatsEngine, includeServiceConnectStats bool) {
-	metadata, taskMetrics, _, err := engine.GetInstanceMetrics(includeServiceConnectStats, false)
-	assert.NoError(t, err, "gettting instance metrics failed")
+	metadata, taskMetrics, _, err := engine.GetPublishMetrics(includeServiceConnectStats, false)
+	assert.NoError(t, err, "getting instance metrics failed")
 	assert.NoError(t, validateMetricsMetadata(metadata), "validating metadata failed")
 	assert.Len(t, taskMetrics, 1, "incorrect number of tasks")
 
@@ -222,7 +222,7 @@ func validateServiceConnectMetrics(serviceConnectMetrics []*ecstcs.GeneralMetric
 }
 
 func validateIdleContainerMetrics(t *testing.T, engine *DockerStatsEngine) {
-	metadata, taskMetrics, _, err := engine.GetInstanceMetrics(false, false)
+	metadata, taskMetrics, _, err := engine.GetPublishMetrics(false, false)
 	assert.NoError(t, err, "getting instance metrics failed")
 	assert.NoError(t, validateMetricsMetadata(metadata), "validating metadata failed")
 

@@ -20,7 +20,6 @@ import (
 	"os"
 	"path/filepath"
 	"testing"
-	"time"
 
 	gputypes "github.com/aws/amazon-ecs-agent/ecs-agent/gpu/types"
 	"github.com/aws/aws-sdk-go-v2/aws"
@@ -73,7 +72,7 @@ const (
 	testFractionalUtil    = 0.0
 	testFractionalMemUtil = 7.5
 
-	testStaleTimestamp  = "2026-01-01T00:00:00Z"
+	testTimestamp       = "2026-07-19T00:00:00Z"
 	testUnhealthyReason = "XID_48" // mirrors dcgm/client's fmt.Sprintf("XID_%d")
 
 	testT4GPUUUID   = "GPU-2a95d2f5-c87a-9cb4-52d4-393d7059e8f5"
@@ -87,263 +86,224 @@ const (
 	testT4Xid       = int64(2)
 )
 
-// TestDCGMMetricsReaderValidFile parses a healthy single-GPU snapshot and checks every
-// field round-trips.
+// TestDCGMMetricsReaderValidFile verifies healthy snapshots round-trip through
+// the file: one deep-equal per case asserts the reader returns exactly what was
+// written. Covers a fully populated GPU, four GPUs, a fractional vGPU with absent
+// optional fields, connection-lost, and unhealthy.
 func TestDCGMMetricsReaderValidFile(t *testing.T) {
-	tmpDir := t.TempDir()
-	filePath := filepath.Join(tmpDir, "gpu-metrics.json")
-
-	writeMetricsFile(t, filePath, gputypes.GPUMetricsFileData{
-		Timestamp: testT4Timestamp,
-		Healthy:   true,
-		GPUs: []gputypes.GPUMetric{
-			{
-				GPUUUID:            testT4GPUUUID,
-				GPUUtilization:     aws.Float64(testT4Util),
-				MemoryUtilization:  aws.Float64(testT4MemUtil),
-				MemoryTotal:        aws.Uint64(testT4MemTotal),
-				MemoryUsed:         aws.Uint64(testT4MemUsed),
-				PowerDraw:          aws.Float64(testT4PowerDraw),
-				Temperature:        aws.Float64(testT4Temp),
-				RestartAppXidCount: testT4Xid,
+	for _, tc := range []struct {
+		name string
+		data gputypes.GPUMetricsFileData
+	}{
+		{
+			name: "single GPU with all fields populated",
+			data: gputypes.GPUMetricsFileData{
+				Timestamp: testT4Timestamp,
+				Healthy:   true,
+				GPUs: []gputypes.GPUMetric{{
+					GPUUUID:            testT4GPUUUID,
+					GPUUtilization:     aws.Float64(testT4Util),
+					MemoryUtilization:  aws.Float64(testT4MemUtil),
+					MemoryTotal:        aws.Uint64(testT4MemTotal),
+					MemoryUsed:         aws.Uint64(testT4MemUsed),
+					PowerDraw:          aws.Float64(testT4PowerDraw),
+					Temperature:        aws.Float64(testT4Temp),
+					RestartAppXidCount: testT4Xid,
+				}},
 			},
 		},
-	})
-
-	reader := NewDCGMMetricsReader(filePath)
-	result := reader.GetGPUMetrics()
-
-	require.NotNil(t, result)
-	assert.Equal(t, testT4Timestamp, result.Timestamp)
-	assert.True(t, result.Healthy)
-	require.Len(t, result.GPUs, 1)
-	assert.Equal(t, testT4GPUUUID, result.GPUs[0].GPUUUID)
-	assert.Equal(t, testT4Util, *result.GPUs[0].GPUUtilization)
-	assert.Equal(t, testT4MemUtil, *result.GPUs[0].MemoryUtilization)
-	assert.Equal(t, testT4MemTotal, *result.GPUs[0].MemoryTotal)
-	assert.Equal(t, testT4MemUsed, *result.GPUs[0].MemoryUsed)
-	assert.Equal(t, testT4PowerDraw, *result.GPUs[0].PowerDraw)
-	assert.Equal(t, testT4Temp, *result.GPUs[0].Temperature)
-	assert.Equal(t, testT4Xid, result.GPUs[0].RestartAppXidCount)
-}
-
-func TestDCGMMetricsReaderMultipleGPUs(t *testing.T) {
-	tmpDir := t.TempDir()
-	filePath := filepath.Join(tmpDir, "gpu-metrics.json")
-
-	expectedGPUs := []gputypes.GPUMetric{
 		{
-			GPUUUID:            testGPUUUID1,
-			GPUUtilization:     aws.Float64(testUtilization1),
-			MemoryUtilization:  aws.Float64(testMemUtil1),
-			MemoryTotal:        aws.Uint64(testMemTotal1),
-			MemoryUsed:         aws.Uint64(testMemUsed1),
-			PowerDraw:          aws.Float64(testPowerDraw1),
-			Temperature:        aws.Float64(testTemp1),
-			RestartAppXidCount: 0,
+			name: "four GPUs",
+			data: gputypes.GPUMetricsFileData{
+				Timestamp: testTimestamp,
+				GPUs: []gputypes.GPUMetric{
+					{
+						GPUUUID:            testGPUUUID1,
+						GPUUtilization:     aws.Float64(testUtilization1),
+						MemoryUtilization:  aws.Float64(testMemUtil1),
+						MemoryTotal:        aws.Uint64(testMemTotal1),
+						MemoryUsed:         aws.Uint64(testMemUsed1),
+						PowerDraw:          aws.Float64(testPowerDraw1),
+						Temperature:        aws.Float64(testTemp1),
+						RestartAppXidCount: 0,
+					},
+					{
+						GPUUUID:            testGPUUUID2,
+						GPUUtilization:     aws.Float64(testUtilization2),
+						MemoryUtilization:  aws.Float64(testMemUtil2),
+						MemoryTotal:        aws.Uint64(testMemTotal2),
+						MemoryUsed:         aws.Uint64(testMemUsed2),
+						PowerDraw:          aws.Float64(testPowerDraw2),
+						Temperature:        aws.Float64(testTemp2),
+						RestartAppXidCount: testRestartXidCount,
+					},
+					{
+						GPUUUID:            testGPUUUID3,
+						GPUUtilization:     aws.Float64(testUtilization3),
+						MemoryUtilization:  aws.Float64(testMemUtil3),
+						MemoryTotal:        aws.Uint64(testMemTotal3),
+						MemoryUsed:         aws.Uint64(testMemUsed3),
+						PowerDraw:          aws.Float64(testPowerDraw3),
+						Temperature:        aws.Float64(testTemp3),
+						RestartAppXidCount: 0,
+					},
+					{
+						GPUUUID:            testGPUUUID4,
+						GPUUtilization:     aws.Float64(testUtilization4),
+						MemoryUtilization:  aws.Float64(testMemUtil4),
+						MemoryTotal:        aws.Uint64(testMemTotal4),
+						MemoryUsed:         aws.Uint64(testMemUsed4),
+						PowerDraw:          aws.Float64(testPowerDraw4),
+						Temperature:        aws.Float64(testTemp4),
+						RestartAppXidCount: 0,
+					},
+				},
+			},
 		},
 		{
-			GPUUUID:            testGPUUUID2,
-			GPUUtilization:     aws.Float64(testUtilization2),
-			MemoryUtilization:  aws.Float64(testMemUtil2),
-			MemoryTotal:        aws.Uint64(testMemTotal2),
-			MemoryUsed:         aws.Uint64(testMemUsed2),
-			PowerDraw:          aws.Float64(testPowerDraw2),
-			Temperature:        aws.Float64(testTemp2),
-			RestartAppXidCount: testRestartXidCount,
+			// PowerDraw and Temperature are left nil: their omitempty tags drop
+			// them from the JSON, exactly as dcgm-init emits on a g6f fractional
+			// vGPU instance. They must parse back as nil, not zero.
+			name: "fractional vGPU with absent power and temperature",
+			data: gputypes.GPUMetricsFileData{
+				Timestamp: testTimestamp,
+				GPUs: []gputypes.GPUMetric{{
+					GPUUUID:           testGPUUUIDFractional,
+					GPUUtilization:    aws.Float64(testFractionalUtil),
+					MemoryUtilization: aws.Float64(testFractionalMemUtil),
+					MemoryTotal:       aws.Uint64(testFractionalMem),
+					MemoryUsed:        aws.Uint64(0),
+				}},
+			},
 		},
 		{
-			GPUUUID:            testGPUUUID3,
-			GPUUtilization:     aws.Float64(testUtilization3),
-			MemoryUtilization:  aws.Float64(testMemUtil3),
-			MemoryTotal:        aws.Uint64(testMemTotal3),
-			MemoryUsed:         aws.Uint64(testMemUsed3),
-			PowerDraw:          aws.Float64(testPowerDraw3),
-			Temperature:        aws.Float64(testTemp3),
-			RestartAppXidCount: 0,
+			// Healthy stays true while disconnected; callers rely on
+			// ConnectionLost, not Healthy, to detect the dropped connection.
+			name: "connection lost",
+			data: gputypes.GPUMetricsFileData{
+				Timestamp:      testTimestamp,
+				Healthy:        true,
+				ConnectionLost: true,
+				GPUs:           []gputypes.GPUMetric{},
+			},
 		},
 		{
-			GPUUUID:            testGPUUUID4,
-			GPUUtilization:     aws.Float64(testUtilization4),
-			MemoryUtilization:  aws.Float64(testMemUtil4),
-			MemoryTotal:        aws.Uint64(testMemTotal4),
-			MemoryUsed:         aws.Uint64(testMemUsed4),
-			PowerDraw:          aws.Float64(testPowerDraw4),
-			Temperature:        aws.Float64(testTemp4),
-			RestartAppXidCount: 0,
+			// Unhealthy GPU: healthy=false with a fault code. "XID_48" mirrors
+			// dcgm/client's fmt.Sprintf("XID_%d").
+			name: "unhealthy with fault reason",
+			data: gputypes.GPUMetricsFileData{
+				Timestamp:       testTimestamp,
+				Healthy:         false,
+				UnhealthyReason: testUnhealthyReason,
+				GPUs:            []gputypes.GPUMetric{},
+			},
 		},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			filePath := filepath.Join(t.TempDir(), "gpu-metrics.json")
+			writeMetricsFile(t, filePath, tc.data)
+
+			result := NewDCGMMetricsReader(filePath).GetGPUMetrics()
+			require.NotNil(t, result)
+			assert.Equal(t, &tc.data, result, "parsed struct should match the written file")
+		})
 	}
+}
 
-	data := gputypes.GPUMetricsFileData{
-		Timestamp: time.Now().UTC().Format(time.RFC3339),
-		GPUs:      expectedGPUs,
+// TestDCGMMetricsReaderRejectsAbsentFile covers cases where os.ReadFile fails, so
+// the reader returns nil before parsing: missing parent dir, missing file in an
+// existing dir (the common pre-first-write transient), path is a dir (EISDIR),
+// non-dir parent (ENOTDIR), and an unreadable file. Each setup returns the path.
+func TestDCGMMetricsReaderRejectsAbsentFile(t *testing.T) {
+	for _, tc := range []struct {
+		name  string
+		setup func(t *testing.T) string
+	}{
+		{
+			name: "parent directory missing",
+			setup: func(t *testing.T) string {
+				return "/nonexistent/path/gpu-metrics.json"
+			},
+		},
+		{
+			name: "file missing in existing directory",
+			setup: func(t *testing.T) string {
+				return filepath.Join(t.TempDir(), "gpu-metrics.json")
+			},
+		},
+		{
+			name: "path is a directory",
+			setup: func(t *testing.T) string {
+				filePath := filepath.Join(t.TempDir(), "gpu-metrics.json")
+				require.NoError(t, os.Mkdir(filePath, 0755))
+				return filePath
+			},
+		},
+		{
+			name: "parent path is not a directory",
+			setup: func(t *testing.T) string {
+				notADir := filepath.Join(t.TempDir(), "not-a-dir")
+				require.NoError(t, os.WriteFile(notADir, []byte("x"), 0644))
+				return filepath.Join(notADir, "gpu-metrics.json")
+			},
+		},
+		{
+			// Root bypasses Unix permission checks, so this case cannot be
+			// exercised as root and skips itself.
+			name: "unreadable file",
+			setup: func(t *testing.T) string {
+				if os.Geteuid() == 0 {
+					t.Skip("root bypasses file permission checks; cannot exercise unreadable path")
+				}
+				filePath := filepath.Join(t.TempDir(), "gpu-metrics.json")
+				require.NoError(t, os.WriteFile(filePath, []byte(`{"timestamp":"2026-01-01T00:00:00Z","gpus":[]}`), 0000))
+				return filePath
+			},
+		},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			result := NewDCGMMetricsReader(tc.setup(t)).GetGPUMetrics()
+			assert.Nil(t, result, "an unreadable/absent file should return nil")
+		})
 	}
-
-	writeMetricsFile(t, filePath, data)
-
-	reader := NewDCGMMetricsReader(filePath)
-	result := reader.GetGPUMetrics()
-
-	require.NotNil(t, result)
-	require.Len(t, result.GPUs, len(expectedGPUs))
-
-	for i, expected := range expectedGPUs {
-		actual := result.GPUs[i]
-		assert.Equal(t, expected.GPUUUID, actual.GPUUUID, "GPU %d UUID mismatch", i)
-		assert.Equal(t, *expected.GPUUtilization, *actual.GPUUtilization, "GPU %d utilization mismatch", i)
-		assert.Equal(t, *expected.MemoryUtilization, *actual.MemoryUtilization, "GPU %d memory utilization mismatch", i)
-		assert.Equal(t, *expected.MemoryTotal, *actual.MemoryTotal, "GPU %d memory total mismatch", i)
-		assert.Equal(t, *expected.MemoryUsed, *actual.MemoryUsed, "GPU %d memory used mismatch", i)
-		assert.Equal(t, *expected.PowerDraw, *actual.PowerDraw, "GPU %d power draw mismatch", i)
-		assert.Equal(t, *expected.Temperature, *actual.Temperature, "GPU %d temperature mismatch", i)
-		assert.Equal(t, expected.RestartAppXidCount, actual.RestartAppXidCount, "GPU %d XID count mismatch", i)
-	}
 }
 
-// TestDCGMMetricsReaderParentDirMissing covers a missing containing directory: the
-// read fails with os.IsNotExist, so the reader returns nil. The
-// dir-exists/file-missing case is covered by TestDCGMMetricsReaderFileMissingInExistingDir.
-func TestDCGMMetricsReaderParentDirMissing(t *testing.T) {
-	reader := NewDCGMMetricsReader("/nonexistent/path/gpu-metrics.json")
-	result := reader.GetGPUMetrics()
-	assert.Nil(t, result, "a missing parent directory should return nil")
-}
-
-func TestDCGMMetricsReaderInvalidJSON(t *testing.T) {
-	tmpDir := t.TempDir()
-	filePath := filepath.Join(tmpDir, "gpu-metrics.json")
-	require.NoError(t, os.WriteFile(filePath, []byte("not valid json{{{"), 0644))
-
-	reader := NewDCGMMetricsReader(filePath)
-	result := reader.GetGPUMetrics()
-	assert.Nil(t, result)
-}
-
-// TestDCGMMetricsReaderEmptyFile covers an empty or whitespace-only file, which
-// dcgm-init creates before its first write. json.Unmarshal rejects it with
-// "unexpected end of JSON input", so it returns nil via the parse-error branch.
-func TestDCGMMetricsReaderEmptyFile(t *testing.T) {
+// TestDCGMMetricsReaderRejectsCorruptFile covers files that read but whose
+// contents are rejected: non-JSON bytes, empty/whitespace (dcgm-init's
+// pre-first-write state), a wrong-typed field, a top-level array, literal null,
+// and an unparseable timestamp. All must return nil, not a partial result.
+func TestDCGMMetricsReaderRejectsCorruptFile(t *testing.T) {
 	for _, tc := range []struct {
 		name    string
 		content string
 	}{
+		{"invalid json", "not valid json{{{"},
 		{"zero bytes", ""},
 		{"whitespace only", "   \n\t  \n"},
+		{"wrong field type", `{"timestamp":"2026-01-01T00:00:00Z","gpus":[{"gpu_utilization_percent":"not-a-number"}]}`},
+		{"top-level array", "[]"},
+		{"json null", "null"},
+		{"unparseable timestamp", `{"timestamp":"not-a-timestamp","healthy":true,"gpus":[]}`},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			filePath := filepath.Join(t.TempDir(), "gpu-metrics.json")
 			require.NoError(t, os.WriteFile(filePath, []byte(tc.content), 0644))
 
 			result := NewDCGMMetricsReader(filePath).GetGPUMetrics()
-			assert.Nil(t, result, "empty/whitespace file should return nil (pre-first-write state)")
+			assert.Nil(t, result, "corrupt file contents should return nil")
 		})
 	}
 }
 
-// TestDCGMMetricsReaderUnreadableFile verifies that when the metrics file exists but
-// the agent process cannot read it (no read permission), the reader treats it
-// as no metrics yet and returns nil rather than erroring. Root bypasses Unix
-// permission checks, so the test is skipped when running as root.
-func TestDCGMMetricsReaderUnreadableFile(t *testing.T) {
-	if os.Geteuid() == 0 {
-		t.Skip("root bypasses file permission checks; cannot exercise unreadable path")
-	}
-
-	tmpDir := t.TempDir()
-	filePath := filepath.Join(tmpDir, "gpu-metrics.json")
-	require.NoError(t, os.WriteFile(filePath, []byte(`{"timestamp":"2026-01-01T00:00:00Z","gpus":[]}`), 0000))
-
-	reader := NewDCGMMetricsReader(filePath)
-	result := reader.GetGPUMetrics()
-	assert.Nil(t, result, "Unreadable file should return nil (no read permission)")
-}
-
-func TestDCGMMetricsReaderConnectionLost(t *testing.T) {
-	tmpDir := t.TempDir()
-	filePath := filepath.Join(tmpDir, "gpu-metrics.json")
-	writeMetricsFile(t, filePath, gputypes.GPUMetricsFileData{
-		Timestamp:      testStaleTimestamp,
-		Healthy:        true,
-		ConnectionLost: true,
-		GPUs:           []gputypes.GPUMetric{},
-	})
-
-	reader := NewDCGMMetricsReader(filePath)
-	result := reader.GetGPUMetrics()
-	require.NotNil(t, result)
-	assert.True(t, result.ConnectionLost, "connection_lost should be parsed and propagated")
-	assert.True(t, result.Healthy, "healthy stays true when disconnected; caller uses ConnectionLost")
-}
-
-// TestDCGMMetricsReaderUnhealthyReason covers an unhealthy GPU: healthy=false with a
-// fault code. "XID_48" mirrors dcgm/client's fmt.Sprintf("XID_%d").
-func TestDCGMMetricsReaderUnhealthyReason(t *testing.T) {
-	tmpDir := t.TempDir()
-	filePath := filepath.Join(tmpDir, "gpu-metrics.json")
-	writeMetricsFile(t, filePath, gputypes.GPUMetricsFileData{
-		Timestamp:       testStaleTimestamp,
-		Healthy:         false,
-		UnhealthyReason: testUnhealthyReason,
-		GPUs:            []gputypes.GPUMetric{},
-	})
-
-	reader := NewDCGMMetricsReader(filePath)
-	result := reader.GetGPUMetrics()
-	require.NotNil(t, result)
-	assert.False(t, result.Healthy, "healthy should be parsed as false")
-	assert.Equal(t, testUnhealthyReason, result.UnhealthyReason, "unhealthy_reason should be parsed and propagated")
-	assert.False(t, result.ConnectionLost, "connection_lost absent -> false")
-}
-
-// TestDCGMMetricsReaderFractionalGPUMissingFields verifies that absent power_draw_watts
-// and temperature_celsius fields (as on g6f fractional vGPU instances) parse as
-// nil, not zero values.
-func TestDCGMMetricsReaderFractionalGPUMissingFields(t *testing.T) {
-	tmpDir := t.TempDir()
-	filePath := filepath.Join(tmpDir, "gpu-metrics.json")
-
-	// Leave PowerDraw and Temperature nil: their omitempty tags drop them from the
-	// marshaled JSON, exactly as dcgm-init emits on a g6f instance (fields absent).
-	writeMetricsFile(t, filePath, gputypes.GPUMetricsFileData{
-		Timestamp: testStaleTimestamp,
-		GPUs: []gputypes.GPUMetric{
-			{
-				GPUUUID:           testGPUUUIDFractional,
-				GPUUtilization:    aws.Float64(testFractionalUtil),
-				MemoryUtilization: aws.Float64(testFractionalMemUtil),
-				MemoryTotal:       aws.Uint64(testFractionalMem),
-				MemoryUsed:        aws.Uint64(0),
-			},
-		},
-	})
-
-	reader := NewDCGMMetricsReader(filePath)
-	result := reader.GetGPUMetrics()
-
-	require.NotNil(t, result)
-	require.Len(t, result.GPUs, 1)
-	assert.Equal(t, testGPUUUIDFractional, result.GPUs[0].GPUUUID)
-	assert.NotNil(t, result.GPUs[0].GPUUtilization)
-	assert.Equal(t, testFractionalUtil, *result.GPUs[0].GPUUtilization)
-	assert.NotNil(t, result.GPUs[0].MemoryUtilization)
-	assert.Equal(t, testFractionalMemUtil, *result.GPUs[0].MemoryUtilization)
-	assert.NotNil(t, result.GPUs[0].MemoryTotal)
-	assert.Equal(t, testFractionalMem, *result.GPUs[0].MemoryTotal)
-	assert.Nil(t, result.GPUs[0].PowerDraw,
-		"PowerDraw should be nil when field is absent from JSON (not zero)")
-	assert.Nil(t, result.GPUs[0].Temperature,
-		"Temperature should be nil when field is absent from JSON (not zero)")
-	assert.Equal(t, int64(0), result.GPUs[0].RestartAppXidCount)
-}
-
-// TestDCGMMetricsReaderReturnsTimestamp verifies that the reader returns the timestamp
-// from the file so callers can detect stale data.
+// TestDCGMMetricsReaderReturnsTimestamp verifies the reader returns the file's
+// timestamp (so callers can detect stale data) and that repeated calls return
+// the same data (the reader tracks no staleness itself).
 func TestDCGMMetricsReaderReturnsTimestamp(t *testing.T) {
 	tmpDir := t.TempDir()
 	filePath := filepath.Join(tmpDir, "gpu-metrics.json")
 
 	data := gputypes.GPUMetricsFileData{
-		Timestamp: testStaleTimestamp,
+		Timestamp: testTimestamp,
 		GPUs: []gputypes.GPUMetric{
 			{GPUUUID: testGPUUUID0, GPUUtilization: aws.Float64(testUtilization0)},
 		},
@@ -355,7 +315,7 @@ func TestDCGMMetricsReaderReturnsTimestamp(t *testing.T) {
 	// Reader always returns data with the timestamp — no staleness logic
 	result1 := reader.GetGPUMetrics()
 	require.NotNil(t, result1)
-	assert.Equal(t, testStaleTimestamp, result1.Timestamp)
+	assert.Equal(t, testTimestamp, result1.Timestamp)
 	require.Len(t, result1.GPUs, 1)
 
 	// Second call returns the same data (reader doesn't track staleness)
@@ -368,102 +328,6 @@ func TestDCGMMetricsReaderReturnsTimestamp(t *testing.T) {
 func TestDCGMMetricsReaderDefaultFilePath(t *testing.T) {
 	reader := NewDCGMMetricsReader("")
 	assert.Equal(t, gputypes.GPUMetricsFilePath, reader.filePath)
-}
-
-// TestDCGMMetricsReaderFileMissingInExistingDir covers the common runtime transient:
-// the /var/run/ecs directory exists (bind mount present) but dcgm-init has not
-// written the metrics file yet. The reader must return nil.
-func TestDCGMMetricsReaderFileMissingInExistingDir(t *testing.T) {
-	tmpDir := t.TempDir()
-	// Point at a file that does not exist inside a directory that does.
-	filePath := filepath.Join(tmpDir, "gpu-metrics.json")
-
-	reader := NewDCGMMetricsReader(filePath)
-	result := reader.GetGPUMetrics()
-	assert.Nil(t, result, "Missing file in an existing directory should return nil")
-}
-
-// TestDCGMMetricsReaderPathIsDirectory covers the case where the metrics file path is
-// itself a directory: os.ReadFile fails (EISDIR), so the reader returns nil.
-func TestDCGMMetricsReaderPathIsDirectory(t *testing.T) {
-	tmpDir := t.TempDir()
-	// Create a directory where the metrics file is expected.
-	filePath := filepath.Join(tmpDir, "gpu-metrics.json")
-	require.NoError(t, os.Mkdir(filePath, 0755))
-
-	reader := NewDCGMMetricsReader(filePath)
-	result := reader.GetGPUMetrics()
-	assert.Nil(t, result, "A directory in place of the metrics file should return nil")
-}
-
-// TestDCGMMetricsReaderDirPathNotADirectory covers a non-directory path component: the
-// parent path exists but is a regular file, so os.ReadFile fails (ENOTDIR) and
-// the reader returns nil.
-func TestDCGMMetricsReaderDirPathNotADirectory(t *testing.T) {
-	tmpDir := t.TempDir()
-	// Create a regular file, then treat it as the containing directory by
-	// requesting a metrics file "inside" it.
-	notADir := filepath.Join(tmpDir, "not-a-dir")
-	require.NoError(t, os.WriteFile(notADir, []byte("x"), 0644))
-	filePath := filepath.Join(notADir, "gpu-metrics.json")
-
-	reader := NewDCGMMetricsReader(filePath)
-	result := reader.GetGPUMetrics()
-	assert.Nil(t, result, "A non-directory parent path should return nil")
-}
-
-// TestDCGMMetricsReaderInvalidTimestamp covers the timestamp-validation branch: valid
-// JSON but a timestamp that is not RFC3339 is rejected as corrupt.
-func TestDCGMMetricsReaderInvalidTimestamp(t *testing.T) {
-	tmpDir := t.TempDir()
-	filePath := filepath.Join(tmpDir, "gpu-metrics.json")
-	writeMetricsFile(t, filePath, gputypes.GPUMetricsFileData{
-		Timestamp: "not-a-timestamp",
-		Healthy:   true,
-		GPUs:      []gputypes.GPUMetric{},
-	})
-
-	reader := NewDCGMMetricsReader(filePath)
-	result := reader.GetGPUMetrics()
-	assert.Nil(t, result, "Unparseable timestamp should return nil (treated as corrupt)")
-}
-
-// TestDCGMMetricsReaderJSONTypeMismatch verifies that structurally valid JSON with a
-// wrong field type (string where a number is expected) is rejected as corrupt
-// (unmarshal error), returning nil rather than panicking.
-func TestDCGMMetricsReaderJSONTypeMismatch(t *testing.T) {
-	tmpDir := t.TempDir()
-	filePath := filepath.Join(tmpDir, "gpu-metrics.json")
-	require.NoError(t, os.WriteFile(filePath, []byte(`{
-		"timestamp": "2026-01-01T00:00:00Z",
-		"gpus": [{"gpu_utilization_percent": "not-a-number"}]
-	}`), 0644))
-
-	reader := NewDCGMMetricsReader(filePath)
-	assert.Nil(t, reader.GetGPUMetrics(), "wrong-typed field should return nil (parse error)")
-}
-
-// TestDCGMMetricsReaderTopLevelArray verifies a JSON array where an object is expected
-// is rejected as corrupt, returning nil.
-func TestDCGMMetricsReaderTopLevelArray(t *testing.T) {
-	tmpDir := t.TempDir()
-	filePath := filepath.Join(tmpDir, "gpu-metrics.json")
-	require.NoError(t, os.WriteFile(filePath, []byte(`[]`), 0644))
-
-	reader := NewDCGMMetricsReader(filePath)
-	assert.Nil(t, reader.GetGPUMetrics(), "top-level array should return nil (parse error)")
-}
-
-// TestDCGMMetricsReaderJSONNull verifies a literal JSON null (which unmarshals without
-// error into a zero-value struct) is rejected via the empty-timestamp path,
-// returning nil rather than a zero-value result.
-func TestDCGMMetricsReaderJSONNull(t *testing.T) {
-	tmpDir := t.TempDir()
-	filePath := filepath.Join(tmpDir, "gpu-metrics.json")
-	require.NoError(t, os.WriteFile(filePath, []byte(`null`), 0644))
-
-	reader := NewDCGMMetricsReader(filePath)
-	assert.Nil(t, reader.GetGPUMetrics(), "JSON null should return nil (empty timestamp)")
 }
 
 func writeMetricsFile(t *testing.T, path string, data gputypes.GPUMetricsFileData) {
