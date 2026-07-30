@@ -222,8 +222,7 @@ func (resolver *DockerContainerMetadataResolver) ResolveContainer(dockerID strin
 func NewDockerStatsEngine(cfg *config.Config, client dockerapi.DockerClient, containerChangeEventStream *eventstream.EventStream, metricsChannel chan<- ecstcs.TelemetryMessage, healthChannel chan<- ecstcs.HealthMessage, dataClient data.Client) *DockerStatsEngine {
 	// GPU utilization is a task utilization metric, so it follows
 	// ECS_DISABLE_METRICS. Leaving the reader nil suppresses GPU at both scopes
-	// without a per-tick check. The GPU healthcheck must keep its own reader: it
-	// is gated by ECS_DISABLE_DOCKER_HEALTH_CHECK instead.
+	// without a per-tick check. The GPU healthcheck must keep its own reader
 	var reader gpuMetricsReader
 	if cfg.GPUSupportEnabled && !cfg.DisableMetrics.Enabled() {
 		reader = agentgpu.NewDCGMMetricsReader("")
