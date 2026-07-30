@@ -4450,103 +4450,160 @@ func containerFromACS(name string, containerPort int64, hostPort int64, networkM
 // re-imposed at TaskFromACS: exactly one known strategy with its required fields,
 // or the task is rejected. A whole-GPU / non-GPU requirement (no sharingStrategy)
 // is always allowed.
-func TestValidateResourceRequirements(t *testing.T) {
-	gpuContainer := func(rr *ecsacs.ResourceRequirement) *ecsacs.Container {
-		return &ecsacs.Container{
-			Name:                 aws.String("gpu-container"),
-			ResourceRequirements: []*ecsacs.ResourceRequirement{rr},
-		}
+func TestApplyGPUResourceRequirements(t *testing.T) {
+	const cName = "gpu-container"
+	// wireTask builds an ACS task with a single GPU container carrying rr.
+	wireTask := func(rr *ecsacs.ResourceRequirement) *ecsacs.Task {
+		return &ecsacs.Task{Containers: []*ecsacs.Container{
+			{Name: aws.String(cName), ResourceRequirements: []*ecsacs.ResourceRequirement{rr}},
+		}}
+	}
+	// internalTask builds the matching internal task (same container name) so the
+	// mapping step can find a container to write MPSConfig onto.
+	internalTask := func() *Task {
+		return &Task{Containers: []*apicontainer.Container{{Name: cName}}}
 	}
 
 	testCases := []struct {
 		name    string
-		task    *ecsacs.Task
+		wireTsk *ecsacs.Task
+		intTsk  *Task
 		wantErr bool
+		// wantMPS is checked only when wantErr is false; nil means the container
+		// must have no MPSConfig.
+		wantMPS *apicontainer.MPSConfig
 	}{
 		{
 			name:    "no containers",
-			task:    &ecsacs.Task{},
+			wireTsk: &ecsacs.Task{},
+			intTsk:  &Task{},
 			wantErr: false,
 		},
 		{
-			name: "no resource requirements",
-			task: &ecsacs.Task{Containers: []*ecsacs.Container{
-				{Name: aws.String("c1")},
-			}},
+			name:    "no resource requirements",
+			wireTsk: &ecsacs.Task{Containers: []*ecsacs.Container{{Name: aws.String(cName)}}},
+			intTsk:  internalTask(),
 			wantErr: false,
+			wantMPS: nil,
 		},
 		{
-			name: "whole-GPU requirement without sharing strategy",
-			task: &ecsacs.Task{Containers: []*ecsacs.Container{
-				gpuContainer(&ecsacs.ResourceRequirement{
-					Type:  aws.String("GPU"),
-					Value: aws.String("1"),
-				}),
-			}},
+			name:    "whole-GPU requirement without sharing strategy",
+			wireTsk: wireTask(&ecsacs.ResourceRequirement{Type: aws.String("GPU"), Value: aws.String("1")}),
+			intTsk:  internalTask(),
 			wantErr: false,
+			wantMPS: nil,
 		},
 		{
 			name: "valid nvidiaMps strategy",
-			task: &ecsacs.Task{Containers: []*ecsacs.Container{
-				gpuContainer(&ecsacs.ResourceRequirement{
-					Type: aws.String("GPU"),
-					SharingStrategy: &ecsacs.SharingStrategy{
-						NvidiaMps: &ecsacs.NvidiaMpsAllocation{
-							Memory:            aws.Int64(8192),
-							MaxComputePercent: aws.Int64(50),
-						},
-					},
-				}),
-			}},
+			wireTsk: wireTask(&ecsacs.ResourceRequirement{
+				Type: aws.String("GPU"),
+				SharingStrategy: &ecsacs.SharingStrategy{
+					NvidiaMps: &ecsacs.NvidiaMpsAllocation{Memory: aws.Int64(8192), MaxComputePercent: aws.Int64(50)},
+				},
+			}),
+			intTsk:  internalTask(),
 			wantErr: false,
+			wantMPS: &apicontainer.MPSConfig{Memory: uint(8192), MaxComputePercent: aws.Uint(50)},
 		},
 		{
 			name: "valid nvidiaMps strategy without optional maxComputePercent",
-			task: &ecsacs.Task{Containers: []*ecsacs.Container{
-				gpuContainer(&ecsacs.ResourceRequirement{
-					Type: aws.String("GPU"),
-					SharingStrategy: &ecsacs.SharingStrategy{
-						NvidiaMps: &ecsacs.NvidiaMpsAllocation{
-							Memory: aws.Int64(8192),
-						},
-					},
-				}),
-			}},
+			wireTsk: wireTask(&ecsacs.ResourceRequirement{
+				Type: aws.String("GPU"),
+				SharingStrategy: &ecsacs.SharingStrategy{
+					NvidiaMps: &ecsacs.NvidiaMpsAllocation{Memory: aws.Int64(8192)},
+				},
+			}),
+			intTsk:  internalTask(),
 			wantErr: false,
+			wantMPS: &apicontainer.MPSConfig{Memory: uint(8192), MaxComputePercent: nil},
 		},
 		{
 			name: "empty sharing strategy - no known member",
-			task: &ecsacs.Task{Containers: []*ecsacs.Container{
-				gpuContainer(&ecsacs.ResourceRequirement{
-					Type:            aws.String("GPU"),
-					SharingStrategy: &ecsacs.SharingStrategy{},
-				}),
-			}},
+			wireTsk: wireTask(&ecsacs.ResourceRequirement{
+				Type:            aws.String("GPU"),
+				SharingStrategy: &ecsacs.SharingStrategy{},
+			}),
+			intTsk:  internalTask(),
 			wantErr: true,
 		},
 		{
 			name: "nvidiaMps missing required memory",
-			task: &ecsacs.Task{Containers: []*ecsacs.Container{
-				gpuContainer(&ecsacs.ResourceRequirement{
-					Type: aws.String("GPU"),
-					SharingStrategy: &ecsacs.SharingStrategy{
-						NvidiaMps: &ecsacs.NvidiaMpsAllocation{
-							MaxComputePercent: aws.Int64(50),
-						},
-					},
-				}),
-			}},
+			wireTsk: wireTask(&ecsacs.ResourceRequirement{
+				Type: aws.String("GPU"),
+				SharingStrategy: &ecsacs.SharingStrategy{
+					NvidiaMps: &ecsacs.NvidiaMpsAllocation{MaxComputePercent: aws.Int64(50)},
+				},
+			}),
+			intTsk:  internalTask(),
+			wantErr: true,
+		},
+		{
+			name: "nvidiaMps memory below the minimum of 1",
+			wireTsk: wireTask(&ecsacs.ResourceRequirement{
+				Type: aws.String("GPU"),
+				SharingStrategy: &ecsacs.SharingStrategy{
+					NvidiaMps: &ecsacs.NvidiaMpsAllocation{Memory: aws.Int64(0)},
+				},
+			}),
+			intTsk:  internalTask(),
+			wantErr: true,
+		},
+		{
+			name: "nvidiaMps maxComputePercent above 100",
+			wireTsk: wireTask(&ecsacs.ResourceRequirement{
+				Type: aws.String("GPU"),
+				SharingStrategy: &ecsacs.SharingStrategy{
+					NvidiaMps: &ecsacs.NvidiaMpsAllocation{Memory: aws.Int64(8192), MaxComputePercent: aws.Int64(101)},
+				},
+			}),
+			intTsk:  internalTask(),
+			wantErr: true,
+		},
+		{
+			name: "nvidiaMps maxComputePercent below 1",
+			wireTsk: wireTask(&ecsacs.ResourceRequirement{
+				Type: aws.String("GPU"),
+				SharingStrategy: &ecsacs.SharingStrategy{
+					NvidiaMps: &ecsacs.NvidiaMpsAllocation{Memory: aws.Int64(8192), MaxComputePercent: aws.Int64(0)},
+				},
+			}),
+			intTsk:  internalTask(),
+			wantErr: true,
+		},
+		{
+			name: "sharing strategy on a non-GPU resource requirement",
+			wireTsk: wireTask(&ecsacs.ResourceRequirement{
+				Type: aws.String("InferenceAccelerator"),
+				SharingStrategy: &ecsacs.SharingStrategy{
+					NvidiaMps: &ecsacs.NvidiaMpsAllocation{Memory: aws.Int64(8192)},
+				},
+			}),
+			intTsk:  internalTask(),
+			wantErr: true,
+		},
+		{
+			name: "MPS requirement with no matching internal container",
+			wireTsk: wireTask(&ecsacs.ResourceRequirement{
+				Type: aws.String("GPU"),
+				SharingStrategy: &ecsacs.SharingStrategy{
+					NvidiaMps: &ecsacs.NvidiaMpsAllocation{Memory: aws.Int64(8192)},
+				},
+			}),
+			intTsk:  &Task{Containers: []*apicontainer.Container{{Name: "different-container"}}},
 			wantErr: true,
 		},
 	}
 
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
-			err := validateResourceRequirements(tc.task)
+			err := applyGPUResourceRequirements(tc.wireTsk, tc.intTsk)
 			if tc.wantErr {
 				assert.Error(t, err)
-			} else {
-				assert.NoError(t, err)
+				return
+			}
+			assert.NoError(t, err)
+			if c, ok := tc.intTsk.ContainerByName(cName); ok {
+				assert.Equal(t, tc.wantMPS, c.MPSConfig)
 			}
 		})
 	}

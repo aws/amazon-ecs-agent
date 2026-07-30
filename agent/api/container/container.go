@@ -181,6 +181,9 @@ type Container struct {
 	CPU uint `json:"Cpu"`
 	// GPUIDs is the list of GPU ids for a container
 	GPUIDs []string
+	// MPSConfig holds the NVIDIA MPS GPU-sharing limits for the container It is nil for
+	// whole-GPU and non-GPU containers.
+	MPSConfig *MPSConfig `json:"mpsConfig,omitempty"`
 	// Memory is the memory limitation of the container which is specified in the task definition
 	Memory uint
 	// Links contains a list of containers to link, corresponding to docker option: --link
@@ -356,6 +359,22 @@ type Container struct {
 	// NOTE: Do not access RestartAggregationDataForStatsUnsafe directly. Instead, use
 	// `GetRestartAggregationDataForStats` and `SetRestartAggregationDataForStats`.
 	RestartAggregationDataForStatsUnsafe ContainerRestartAggregationDataForStats `json:"RestartAggregationDataForStats,omitempty"`
+}
+
+// MPSConfig holds the per-container NVIDIA MPS GPU-sharing limits.
+type MPSConfig struct {
+	// Memory is the pinned per-device memory limit in MiB
+	// (CUDA_MPS_PINNED_DEVICE_MEM_LIMIT).
+	Memory uint
+	// MaxComputePercent is the active-thread percentage
+	// (CUDA_MPS_ACTIVE_THREAD_PERCENTAGE). A nil pointer means the customer omitted
+	// it: the MPS daemon default (100%) applies and the env var is omitted rather than set.
+	MaxComputePercent *uint
+}
+
+// UsesMPS reports whether this container was configured for NVIDIA MPS GPU sharing.
+func (c *Container) UsesMPS() bool {
+	return c.MPSConfig != nil
 }
 
 type DependsOn struct {
