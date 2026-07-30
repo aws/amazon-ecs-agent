@@ -79,23 +79,17 @@ func (ghc *gpuHealthcheck) RunCheck() ecstcs.InstanceHealthCheckStatus {
 	// A stale timestamp means dcgm-init stopped writing; the verdict is unreliable.
 	if ts, err := time.Parse(time.RFC3339, healthStatus.Timestamp); err == nil {
 		if timeNow().Sub(ts) > gpuStalenessThreshold {
-			logger.Info("[GPUHealthcheck] GPU metrics file is stale", logger.Fields{
+			logger.Warn("[GPUHealthcheck] GPU metrics file is stale", logger.Fields{
 				"age":       timeNow().Sub(ts),
 				"threshold": gpuStalenessThreshold,
 			})
 			ghc.SetHealthcheckStatus(ecstcs.InstanceHealthCheckStatusInsufficientData)
 			return ecstcs.InstanceHealthCheckStatusInsufficientData
 		}
-	} else {
-		logger.Info("[GPUHealthcheck] Failed to parse GPU metrics file timestamp", logger.Fields{
-			"timestamp": healthStatus.Timestamp,
-		})
-		ghc.SetHealthcheckStatus(ecstcs.InstanceHealthCheckStatusInsufficientData)
-		return ecstcs.InstanceHealthCheckStatusInsufficientData
 	}
 
 	if healthStatus.ConnectionLost {
-		logger.Info("[GPUHealthcheck] DCGM connection lost, reporting insufficient data")
+		logger.Warn("[GPUHealthcheck] DCGM connection lost, reporting insufficient data")
 		ghc.SetHealthcheckStatus(ecstcs.InstanceHealthCheckStatusInsufficientData)
 		return ecstcs.InstanceHealthCheckStatusInsufficientData
 	}
@@ -104,7 +98,7 @@ func (ghc *gpuHealthcheck) RunCheck() ecstcs.InstanceHealthCheckStatus {
 	if healthStatus.Healthy {
 		resultStatus = ecstcs.InstanceHealthCheckStatusOk
 	} else {
-		logger.Info("[GPUHealthcheck] GPU reported unhealthy", logger.Fields{
+		logger.Warn("[GPUHealthcheck] GPU reported unhealthy", logger.Fields{
 			field.Reason: healthStatus.UnhealthyReason,
 		})
 		resultStatus = ecstcs.InstanceHealthCheckStatusImpaired
