@@ -191,6 +191,19 @@ func containerGPUPayloadDeviceIDs(cm *ecstcs.ContainerMetric) []string {
 	return ids
 }
 
+// assertNoGPUPayloads asserts no container carries a GPU payload, making no
+// claim about the other metrics. Safe whether the surrounding container
+// metrics are present (GPU-only suppression) or absent (metrics disabled).
+func assertNoGPUPayloads(t *testing.T, taskMetrics []*ecstcs.TaskMetric) {
+	t.Helper()
+	for _, tm := range taskMetrics {
+		for _, cm := range tm.ContainerMetrics {
+			assert.Empty(t, cm.GeneralMetricsPayload,
+				"container %s must carry no GPU payload", aws.ToString(cm.ContainerName))
+		}
+	}
+}
+
 // requireNoContainerGPUPayload asserts the shape of a suppressed (stale or
 // off-cadence) tick: no GPU payload on any container, while CPU/memory
 // metrics still flow — GPU suppression must not drop the container itself.
@@ -200,12 +213,11 @@ func requireNoContainerGPUPayload(t *testing.T, taskMetrics []*ecstcs.TaskMetric
 	for _, tm := range taskMetrics {
 		require.NotEmpty(t, tm.ContainerMetrics)
 		for _, cm := range tm.ContainerMetrics {
-			assert.Empty(t, cm.GeneralMetricsPayload,
-				"container %s must carry no GPU payload on a suppressed tick", aws.ToString(cm.ContainerName))
 			assert.NotNil(t, cm.CpuStatsSet, "CPU metrics must keep flowing when GPU is suppressed")
 			assert.NotNil(t, cm.MemoryStatsSet, "memory metrics must keep flowing when GPU is suppressed")
 		}
 	}
+	assertNoGPUPayloads(t, taskMetrics)
 }
 
 // TestGetPublishMetricsEmitsInstanceGPUMetrics: an emitting tick with fresh
@@ -520,8 +532,9 @@ func TestGPUMetricsReaderFollowsDisableMetrics(t *testing.T) {
 			disableMetrics:    true,
 		},
 		{
-			name:           "GPU support off leaves the reader nil",
-			disableMetrics: false,
+			name:              "GPU support off leaves the reader nil",
+			gpuSupportEnabled: false,
+			disableMetrics:    false,
 		},
 	}
 
@@ -582,13 +595,7 @@ func TestGetPublishMetricsSuppressesGPUWhenMetricsDisabled(t *testing.T) {
 				"instance GPU payload must not be emitted when metrics are disabled")
 			// Not requireNoContainerGPUPayload: that helper also asserts
 			// CPU/memory keep flowing, which disabled metrics deliberately stop.
-			for _, tm := range taskMetrics {
-				for _, cm := range tm.ContainerMetrics {
-					assert.Empty(t, cm.GeneralMetricsPayload,
-						"container %s must carry no GPU payload when metrics are disabled",
-						aws.ToString(cm.ContainerName))
-				}
-			}
+			assertNoGPUPayloads(t, taskMetrics)
 		})
 	}
 }
