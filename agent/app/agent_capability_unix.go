@@ -128,9 +128,9 @@ func (agent *ecsAgent) appendNvidiaDriverVersionAttribute(capabilities []types.A
 
 // appendGpuSharingMpsCapability advertises ecs.capability.gpu-sharing-mps when the
 // instance can run MPS: a GPU is present, the MPS control binary and its systemd unit
-// are installed and enabled, and the GPU is not a vGPU slice. The facts are gathered by
-// ecs-init and read from the NvidiaGPUManager; the decision itself lives in the shared
-// gpu package so the MI agent reaches the same verdict from the same inputs.
+// are installed and enabled, the GPU is not a vGPU slice, and every discovered GPU has
+// a usable-memory value. The facts are gathered by ecs-init and read from the NvidiaGPUManager;
+// the decision itself lives in the shared gpu package so the MI agent reaches the same verdict from the same inputs.
 func (agent *ecsAgent) appendGpuSharingMpsCapability(capabilities []types.Attribute) []types.Attribute {
 	if agent.resourceFields == nil || agent.resourceFields.NvidiaGPUManager == nil {
 		return capabilities
@@ -141,6 +141,7 @@ func (agent *ecsAgent) appendGpuSharingMpsCapability(capabilities []types.Attrib
 		MpsBinaryPresent:  mgr.GetMpsControlBinaryPresent(),
 		MpsServiceEnabled: mgr.GetMpsServiceEnabled(),
 		IsVGPU:            mgr.GetHasVGPU(),
+		AllGPUsHaveMemory: gpu.AllGPUMemoryReported(mgr.GetGPUIDsUnsafe(), mgr.GetGPUMemoryMiBUnsafe()),
 	}
 	advertise, conditions := gpu.ShouldAdvertiseMpsCapability(inputs)
 	if !advertise {

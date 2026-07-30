@@ -321,10 +321,10 @@ func TestGPUSetupSuccessful(t *testing.T) {
 
 	mockDevice1 := mock_gpu.NewMockGPUDevice(ctrl)
 	mockDevice2 := mock_gpu.NewMockGPUDevice(ctrl)
-	// Setup walks the devices twice: once in GetGPUDeviceIDs (UUID +
-	// virtualization mode) and once in DetectGPUMemory (UUID + v2 memory).
-	mockDevice1.EXPECT().GetUUID().Return("gpu-0123", nvml.SUCCESS).Times(2)
-	mockDevice2.EXPECT().GetUUID().Return("gpu-1234", nvml.SUCCESS).Times(2)
+	// GetGPUDeviceIDs derives each UUID (once) and probes virtualization mode;
+	// DetectGPUMemory then resolves handles by that UUID.
+	mockDevice1.EXPECT().GetUUID().Return("gpu-0123", nvml.SUCCESS)
+	mockDevice2.EXPECT().GetUUID().Return("gpu-1234", nvml.SUCCESS)
 	// The device loop now probes virtualization mode to gate MPS; these are not vGPUs.
 	mockDevice1.EXPECT().GetVirtualizationMode().Return(nvml.GPU_VIRTUALIZATION_MODE_NONE, nvml.SUCCESS)
 	mockDevice2.EXPECT().GetVirtualizationMode().Return(nvml.GPU_VIRTUALIZATION_MODE_NONE, nvml.SUCCESS)
@@ -339,10 +339,17 @@ func TestGPUSetupSuccessful(t *testing.T) {
 		Reserved: 512 * bytesPerMiB,
 	}, nvml.SUCCESS)
 
-	// Mock DeviceGetHandleByIndex
+	// GetGPUDeviceIDs enumerates by index; DetectGPUMemory resolves handles by UUID.
 	oldDeviceGetHandleByIndex := nvml.DeviceGetHandleByIndex
 	nvml.DeviceGetHandleByIndex = func(idx int) (nvml.Device, nvml.Return) {
 		if idx == 0 {
+			return mockDevice1, nvml.SUCCESS
+		}
+		return mockDevice2, nvml.SUCCESS
+	}
+	oldDeviceGetHandleByUUID := nvml.DeviceGetHandleByUUID
+	nvml.DeviceGetHandleByUUID = func(uuid string) (nvml.Device, nvml.Return) {
+		if uuid == "gpu-0123" {
 			return mockDevice1, nvml.SUCCESS
 		}
 		return mockDevice2, nvml.SUCCESS
@@ -367,6 +374,7 @@ func TestGPUSetupSuccessful(t *testing.T) {
 		NvmlGetDriverVersion = GetNvidiaDriverVersion
 		NvmlGetDeviceCount = GetDeviceCount
 		nvml.DeviceGetHandleByIndex = oldDeviceGetHandleByIndex
+		nvml.DeviceGetHandleByUUID = oldDeviceGetHandleByUUID
 		WriteContentToFile = WriteToFile
 		ShutdownNVML = ShutdownNVMLib
 		statFile = oldStatFile
@@ -393,43 +401,37 @@ func TestDetectGPUMemory(t *testing.T) {
 	defer ctrl.Finish()
 
 	nvidiaGPUManager := NewNvidiaGPUManager().(*NvidiaGPUManager)
-
-	NvmlGetDeviceCount = func() (int, error) {
-		return 3, nil
-	}
+	// Memory detection iterates the UUIDs already discovered by GetGPUDeviceIDs.
+	nvidiaGPUManager.GPUIDs = []string{"gpu-good", "gpu-memerr", "gpu-baddata"}
 
 	good := mock_gpu.NewMockGPUDevice(ctrl)
-	good.EXPECT().GetUUID().Return("gpu-good", nvml.SUCCESS)
 	good.EXPECT().GetMemoryInfo_v2().Return(nvml.Memory_v2{
 		Total:    24576 * bytesPerMiB,
 		Reserved: 768 * bytesPerMiB,
 	}, nvml.SUCCESS)
 
 	memErr := mock_gpu.NewMockGPUDevice(ctrl)
-	memErr.EXPECT().GetUUID().Return("gpu-memerr", nvml.SUCCESS)
 	memErr.EXPECT().GetMemoryInfo_v2().Return(nvml.Memory_v2{}, nvml.ERROR_UNKNOWN)
 
 	badData := mock_gpu.NewMockGPUDevice(ctrl)
-	badData.EXPECT().GetUUID().Return("gpu-baddata", nvml.SUCCESS)
 	badData.EXPECT().GetMemoryInfo_v2().Return(nvml.Memory_v2{
 		Total:    512 * bytesPerMiB,
 		Reserved: 1024 * bytesPerMiB,
 	}, nvml.SUCCESS)
 
-	oldDeviceGetHandleByIndex := nvml.DeviceGetHandleByIndex
-	nvml.DeviceGetHandleByIndex = func(idx int) (nvml.Device, nvml.Return) {
-		switch idx {
-		case 0:
+	oldDeviceGetHandleByUUID := nvml.DeviceGetHandleByUUID
+	nvml.DeviceGetHandleByUUID = func(uuid string) (nvml.Device, nvml.Return) {
+		switch uuid {
+		case "gpu-good":
 			return good, nvml.SUCCESS
-		case 1:
+		case "gpu-memerr":
 			return memErr, nvml.SUCCESS
 		default:
 			return badData, nvml.SUCCESS
 		}
 	}
 	defer func() {
-		NvmlGetDeviceCount = GetDeviceCount
-		nvml.DeviceGetHandleByIndex = oldDeviceGetHandleByIndex
+		nvml.DeviceGetHandleByUUID = oldDeviceGetHandleByUUID
 	}()
 
 	memory := nvidiaGPUManager.DetectGPUMemory()
@@ -437,18 +439,34 @@ func TestDetectGPUMemory(t *testing.T) {
 	assert.Equal(t, map[string]uint64{"gpu-good": 23808}, memory)
 }
 
-// TestDetectGPUMemoryCountError verifies a device-count failure yields an empty
-// map (not nil-panic) and never fails discovery.
-func TestDetectGPUMemoryCountError(t *testing.T) {
+// TestDetectGPUMemoryHandleError verifies a device whose handle cannot be resolved
+// by UUID is skipped, while other devices are still reported.
+func TestDetectGPUMemoryHandleError(t *testing.T) {
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+
 	nvidiaGPUManager := NewNvidiaGPUManager().(*NvidiaGPUManager)
-	NvmlGetDeviceCount = func() (int, error) {
-		return 0, errors.New("device count error")
+	nvidiaGPUManager.GPUIDs = []string{"gpu-good", "gpu-nohandle"}
+
+	good := mock_gpu.NewMockGPUDevice(ctrl)
+	good.EXPECT().GetMemoryInfo_v2().Return(nvml.Memory_v2{
+		Total:    24576 * bytesPerMiB,
+		Reserved: 768 * bytesPerMiB,
+	}, nvml.SUCCESS)
+
+	oldDeviceGetHandleByUUID := nvml.DeviceGetHandleByUUID
+	nvml.DeviceGetHandleByUUID = func(uuid string) (nvml.Device, nvml.Return) {
+		if uuid == "gpu-good" {
+			return good, nvml.SUCCESS
+		}
+		return nil, nvml.ERROR_NOT_FOUND
 	}
 	defer func() {
-		NvmlGetDeviceCount = GetDeviceCount
+		nvml.DeviceGetHandleByUUID = oldDeviceGetHandleByUUID
 	}()
+
 	memory := nvidiaGPUManager.DetectGPUMemory()
-	assert.Empty(t, memory)
+	assert.Equal(t, map[string]uint64{"gpu-good": 23808}, memory)
 }
 
 func TestSetupNVMLError(t *testing.T) {

@@ -33,6 +33,7 @@ type GPUManager interface {
 	Initialize() error
 	SetGPUIDs([]string)
 	GetGPUIDsUnsafe() []string
+	GetGPUMemoryMiBUnsafe() map[string]uint64
 	SetDevices()
 	GetDevices() []types.PlatformDevice
 	SetDriverVersion(string)

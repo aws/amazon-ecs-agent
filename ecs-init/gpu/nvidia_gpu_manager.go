@@ -111,7 +111,7 @@ func (n *NvidiaGPUManager) Setup() error {
 	}
 	n.GPUIDs = gpuIDs
 	// Discover per-GPU usable memory so the agent can report it at
-	// registration for the MPS GPU-sharing feature. 
+	// registration for the MPS GPU-sharing feature.
 	n.GPUMemoryMiB = n.DetectGPUMemory()
 	// Gather the MPS facts once, after devices are known and before we persist state.
 	// HasVGPU is set per-device inside GetGPUDeviceIDs above.
@@ -234,20 +234,10 @@ func (n *NvidiaGPUManager) GetGPUDeviceIDs() ([]string, error) {
 // a workload can actually allocate under MPS.
 func (n *NvidiaGPUManager) DetectGPUMemory() map[string]uint64 {
 	memory := make(map[string]uint64)
-	count, err := NvmlGetDeviceCount()
-	if err != nil {
-		seelog.Errorf("Error getting GPU device count for memory detection: %v", err)
-		return memory
-	}
-	for i := 0; i < count; i++ {
-		device, ret := nvml.DeviceGetHandleByIndex(i)
+	for _, uuid := range n.GPUIDs {
+		device, ret := nvml.DeviceGetHandleByUUID(uuid)
 		if ret != nvml.SUCCESS {
-			seelog.Errorf("Error initializing device of index %d for memory detection: %v", i, nvml.ErrorString(ret))
-			continue
-		}
-		uuid, ret := nvml.DeviceGetUUID(device)
-		if ret != nvml.SUCCESS {
-			seelog.Errorf("Failed to get UUID for device at index %d during memory detection: %v", i, nvml.ErrorString(ret))
+			seelog.Errorf("Failed to get device handle for UUID %s during memory detection: %v", uuid, nvml.ErrorString(ret))
 			continue
 		}
 		// NVML v2 memory: usable = Total - Reserved.

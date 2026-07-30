@@ -657,9 +657,14 @@ func TestDoStartGPUManagerHappyPath(t *testing.T) {
 	client.EXPECT().GetHostResources().Return(testHostResource, nil).Times(1)
 	mockGPUManager.EXPECT().GetDevices().Return(devices).AnyTimes()
 	// The gpu-sharing-mps capability check reads these MPS facts during registration.
+	// GetGPUIDsUnsafe and GetGPUMemoryMiBUnsafe feed the AllGPUsHaveMemory gate
+	// condition and are evaluated eagerly wherever capabilities are built, so they
+	// must be mocked even when the other MPS gates are false.
 	mockGPUManager.EXPECT().GetMpsControlBinaryPresent().Return(false).AnyTimes()
 	mockGPUManager.EXPECT().GetMpsServiceEnabled().Return(false).AnyTimes()
 	mockGPUManager.EXPECT().GetHasVGPU().Return(false).AnyTimes()
+	mockGPUManager.EXPECT().GetGPUIDsUnsafe().Return([]string{}).AnyTimes()
+	mockGPUManager.EXPECT().GetGPUMemoryMiBUnsafe().Return(map[string]uint64{}).AnyTimes()
 
 	gomock.InOrder(
 		mockGPUManager.EXPECT().Initialize().Return(nil),
