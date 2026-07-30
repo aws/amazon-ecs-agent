@@ -593,8 +593,6 @@ func TestGetPublishMetricsSuppressesGPUWhenMetricsDisabled(t *testing.T) {
 
 			assert.Nil(t, instanceMetrics,
 				"instance GPU payload must not be emitted when metrics are disabled")
-			// Not requireNoContainerGPUPayload: that helper also asserts
-			// CPU/memory keep flowing, which disabled metrics deliberately stop.
 			assertNoGPUPayloads(t, taskMetrics)
 		})
 	}

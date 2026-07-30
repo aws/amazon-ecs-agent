@@ -168,7 +168,7 @@ type DockerStatsEngine struct {
 	publishServiceConnectTickerInterval int32
 	publishGPUMetricsTickerInterval     int32
 	// gpuCollector reads GPU snapshots and suppresses already-emitted ones. Its
-	// reader is nil when GPU support is off or ECS_DISABLE_METRICS is set.
+	// reader is nil when GPU support is off (i.e. non-Linux builds) or ECS_DISABLE_METRICS is set.
 	gpuCollector         *gpuMetricsCollector
 	publishMetricsTicker *time.Ticker
 	// channels to send metrics to TACS Client
