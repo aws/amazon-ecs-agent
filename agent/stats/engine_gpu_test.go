@@ -30,7 +30,9 @@ import (
 	"testing"
 
 	apicontainer "github.com/aws/amazon-ecs-agent/agent/api/container"
+	"github.com/aws/amazon-ecs-agent/agent/api/serviceconnect"
 	apitask "github.com/aws/amazon-ecs-agent/agent/api/task"
+	"github.com/aws/amazon-ecs-agent/agent/config"
 	mock_dockerapi "github.com/aws/amazon-ecs-agent/agent/dockerclient/dockerapi/mocks"
 	mock_resolver "github.com/aws/amazon-ecs-agent/agent/stats/resolver/mock"
 	gputypes "github.com/aws/amazon-ecs-agent/ecs-agent/gpu/types"
@@ -57,20 +59,37 @@ func (f *fakeDCGMMetricsReader) GetGPUMetrics() *gputypes.GPUMetricsFileData {
 // bridge mode) with the given GPU IDs. t.Cleanup handles goroutine shutdown.
 func setupGPUStatsEngine(t *testing.T, mockCtrl *gomock.Controller, gpuIDs []string) (*DockerStatsEngine, context.CancelFunc) {
 	t.Helper()
+	return setupGPUStatsEngineWithConfig(t, mockCtrl, gpuIDs, &cfg, false)
+}
+
+// setupGPUStatsEngineWithConfig is setupGPUStatsEngine with an explicit config
+// and an optional Service Connect container, so tests can vary the config the
+// engine is constructed with.
+func setupGPUStatsEngineWithConfig(t *testing.T, mockCtrl *gomock.Controller, gpuIDs []string,
+	engineCfg *config.Config, serviceConnectEnabled bool) (*DockerStatsEngine, context.CancelFunc) {
+	t.Helper()
 	resolver := mock_resolver.NewMockContainerMetadataResolver(mockCtrl)
 	mockDockerClient := mock_dockerapi.NewMockDockerClient(mockCtrl)
+	container := &apicontainer.Container{
+		Name:   "test",
+		GPUIDs: gpuIDs,
+	}
 	t1 := &apitask.Task{Arn: "t1", Family: "f1", NetworkMode: "bridge"}
+	if serviceConnectEnabled {
+		// addContainerUnsafe registers the SC task by comparing
+		// GetServiceConnectContainer() against the resolved container, so the
+		// task must carry the same pointer the resolver returns.
+		t1.Containers = []*apicontainer.Container{container}
+		t1.ServiceConnectConfig = &serviceconnect.Config{ContainerName: container.Name}
+	}
 	resolver.EXPECT().ResolveTask("c1").AnyTimes().Return(t1, nil)
 	resolver.EXPECT().ResolveContainer(gomock.Any()).AnyTimes().Return(&apicontainer.DockerContainer{
-		Container: &apicontainer.Container{
-			Name:   "test",
-			GPUIDs: gpuIDs,
-		},
+		Container: container,
 	}, nil)
 	mockDockerClient.EXPECT().Stats(gomock.Any(), gomock.Any(), gomock.Any()).Return(nil, nil).AnyTimes()
 	resolver.EXPECT().ResolveTaskByARN(gomock.Any()).Return(t1, nil).AnyTimes()
 
-	engine := NewDockerStatsEngine(&cfg, nil, eventStream(t.Name()), nil, nil, nil)
+	engine := NewDockerStatsEngine(engineCfg, nil, eventStream(t.Name()), nil, nil, nil)
 	ctx, cancel := context.WithCancel(context.TODO())
 	engine.ctx = ctx
 	engine.resolver = resolver
@@ -476,6 +495,100 @@ func TestGetPublishMetricsSuppressesGPUForUnusableSnapshot(t *testing.T) {
 				"CPU metrics must keep flowing")
 			assert.NotNil(t, taskMetrics[0].ContainerMetrics[0].MemoryStatsSet,
 				"memory metrics must keep flowing")
+		})
+	}
+}
+
+// TestGPUMetricsReaderFollowsDisableMetrics pins the construction-time gate:
+// the reader is wired up only when GPU support is on and ECS_DISABLE_METRICS is
+// off, so the disabled path costs nothing per tick.
+func TestGPUMetricsReaderFollowsDisableMetrics(t *testing.T) {
+	testCases := []struct {
+		name              string
+		gpuSupportEnabled bool
+		disableMetrics    bool
+		expectReader      bool
+	}{
+		{
+			name:              "GPU support on and metrics enabled wires up the reader",
+			gpuSupportEnabled: true,
+			expectReader:      true,
+		},
+		{
+			name:              "metrics disabled leaves the reader nil",
+			gpuSupportEnabled: true,
+			disableMetrics:    true,
+		},
+		{
+			name:           "GPU support off leaves the reader nil",
+			disableMetrics: false,
+		},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			engineCfg := cfg
+			engineCfg.GPUSupportEnabled = tc.gpuSupportEnabled
+			if tc.disableMetrics {
+				engineCfg.DisableMetrics = config.BooleanDefaultFalse{Value: config.ExplicitlyEnabled}
+			}
+
+			engine := NewDockerStatsEngine(&engineCfg, nil, eventStream(t.Name()), nil, nil, nil)
+
+			if tc.expectReader {
+				assert.NotNil(t, engine.gpuCollector.reader)
+			} else {
+				assert.Nil(t, engine.gpuCollector.reader)
+			}
+		})
+	}
+}
+
+// TestGetPublishMetricsSuppressesGPUWhenMetricsDisabled: with
+// ECS_DISABLE_METRICS set, no GPU payload reaches TACS at either scope. The
+// Service Connect case is the one that matters — an SC task keeps the engine
+// non-idle and forces includeServiceConnectStats, so GetPublishMetrics reaches
+// the GPU block that a nil reader now shuts down.
+func TestGetPublishMetricsSuppressesGPUWhenMetricsDisabled(t *testing.T) {
+	for _, serviceConnectEnabled := range []bool{false, true} {
+		t.Run(fmt.Sprintf("serviceConnectEnabled=%v", serviceConnectEnabled), func(t *testing.T) {
+			mockCtrl := gomock.NewController(t)
+			defer mockCtrl.Finish()
+
+			engineCfg := cfg
+			engineCfg.GPUSupportEnabled = true
+			engineCfg.DisableMetrics = config.BooleanDefaultFalse{Value: config.ExplicitlyEnabled}
+
+			engine, cancel := setupGPUStatsEngineWithConfig(t, mockCtrl, []string{"GPU-1"},
+				&engineCfg, serviceConnectEnabled)
+			defer cancel()
+
+			// No SetGPUMetricsReader: the construction-time gate is what is under
+			// test, and injecting a reader would route around it.
+			require.Nil(t, engine.gpuCollector.reader,
+				"reader must stay nil when metrics are disabled")
+
+			feedFakeStats(engine)
+
+			// Both flags true: the counters advance in lockstep, so every 3rd
+			// tick sets both.
+			_, taskMetrics, instanceMetrics, err := engine.GetPublishMetrics(
+				serviceConnectEnabled, true)
+			if err != nil {
+				require.ErrorIs(t, err, EmptyMetricsError)
+			}
+
+			assert.Nil(t, instanceMetrics,
+				"instance GPU payload must not be emitted when metrics are disabled")
+			// Not requireNoContainerGPUPayload: that helper also asserts
+			// CPU/memory keep flowing, which disabled metrics deliberately stop.
+			for _, tm := range taskMetrics {
+				for _, cm := range tm.ContainerMetrics {
+					assert.Empty(t, cm.GeneralMetricsPayload,
+						"container %s must carry no GPU payload when metrics are disabled",
+						aws.ToString(cm.ContainerName))
+				}
+			}
 		})
 	}
 }
