@@ -20,6 +20,13 @@
 %global running_semaphore %{_localstatedir}/run/ecs-init.was-running
 %global gobuild_tag %{nil}
 %endif
+
+# dcgm-init is only built and packaged on AL2023.
+%if 0%{?amzn} == 2023
+%bcond_without dcgm # with
+%else
+%bcond_with dcgm # without
+%endif
 %global _cachedir %{_localstatedir}/cache
 %global no_exec_perm 644
 %global debug_package %{nil}
@@ -281,12 +288,16 @@ required routes among its preparation steps.
 # each of these should build for arm and amd arch
 make release-agent-internal
 ./scripts/gobuild.sh %{gobuild_tag}
+%if %{with dcgm}
 make build-dcgm-init
+%endif
 
 %install
 install -D amazon-ecs-init %{buildroot}%{_libexecdir}/amazon-ecs-init
 install -D amazon-ecs-volume-plugin %{buildroot}%{_libexecdir}/amazon-ecs-volume-plugin
+%if %{with dcgm}
 install -D amazon-dcgm-init %{buildroot}%{_libexecdir}/dcgm-init
+%endif
 install -m %{no_exec_perm} -D scripts/amazon-ecs-init.1 %{buildroot}%{_mandir}/man1/amazon-ecs-init.1
 
 mkdir -p %{buildroot}%{_sysconfdir}/ecs
@@ -311,7 +322,9 @@ mkdir -p %{buildroot}%{_sharedstatedir}/ecs/data
 install -m %{no_exec_perm} -D %{SOURCE2} $RPM_BUILD_ROOT/%{_unitdir}/ecs.service
 install -m %{no_exec_perm} -D %{SOURCE3} $RPM_BUILD_ROOT/%{_unitdir}/amazon-ecs-volume-plugin.service
 install -m %{no_exec_perm} -D %{SOURCE4} $RPM_BUILD_ROOT/%{_unitdir}/amazon-ecs-volume-plugin.socket
+%if %{with dcgm}
 install -m %{no_exec_perm} -D %{SOURCE8} $RPM_BUILD_ROOT/%{_unitdir}/dcgm-init.service
+%endif
 %else
 install -m %{no_exec_perm} -D %{SOURCE1} %{buildroot}%{_sysconfdir}/init/ecs.conf
 install -m %{no_exec_perm} -D %{SOURCE5} %{buildroot}%{_sysconfdir}/init/amazon-ecs-volume-plugin.conf
@@ -321,7 +334,9 @@ install -m %{no_exec_perm} -D %{SOURCE5} %{buildroot}%{_sysconfdir}/init/amazon-
 %{_libexecdir}/amazon-ecs-init
 %{_mandir}/man1/amazon-ecs-init.1*
 %{_libexecdir}/amazon-ecs-volume-plugin
+%if %{with dcgm}
 %{_libexecdir}/dcgm-init
+%endif
 %dir %{_sysconfdir}/ecs
 %config(noreplace) %ghost %{_sysconfdir}/ecs/ecs.config
 %config(noreplace) %ghost %{_sysconfdir}/ecs/ecs.config.json
@@ -336,7 +351,9 @@ install -m %{no_exec_perm} -D %{SOURCE5} %{buildroot}%{_sysconfdir}/init/amazon-
 %{_unitdir}/ecs.service
 %{_unitdir}/amazon-ecs-volume-plugin.service
 %{_unitdir}/amazon-ecs-volume-plugin.socket
+%if %{with dcgm}
 %{_unitdir}/dcgm-init.service
+%endif
 %else
 %{_sysconfdir}/init/ecs.conf
 %{_sysconfdir}/init/amazon-ecs-volume-plugin.conf
@@ -348,12 +365,16 @@ ln -sf %{basename:%{agent_image}} %{_cachedir}/ecs/ecs-agent.tar
 %if %{with systemd}
 %systemd_post ecs
 %systemd_post amazon-ecs-volume-plugin.service
+%if %{with dcgm}
 %systemd_post dcgm-init.service
+%endif
 
 %postun
 %systemd_postun ecs
 %systemd_postun_with_restart amazon-ecs-volume-plugin
+%if %{with dcgm}
 %systemd_postun_with_restart dcgm-init
+%endif
 
 %else
 %triggerun -- docker
