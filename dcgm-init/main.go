@@ -63,7 +63,6 @@ func main() {
 	if err != nil {
 		die(err, engine.DefaultInitErrorExitCode)
 	}
-	seelog.Info(args[0])
 	actions := actions(init)
 	action, ok := actions[args[0]]
 	if !ok {
@@ -71,6 +70,9 @@ func main() {
 		seelog.Flush()
 		os.Exit(1)
 	}
+	// Log the resolved action's own name rather than the raw argument so that
+	// unvalidated input never reaches the log.
+	seelog.Infof("dcgm-init action: %s", action.name)
 	err = action.function()
 
 	if err != nil {
@@ -103,6 +105,7 @@ func configureLogging() {
 }
 
 type action struct {
+	name        string
 	function    func() error
 	description string
 }
@@ -110,6 +113,7 @@ type action struct {
 func actions(engine *engine.Engine) map[string]action {
 	return map[string]action{
 		START: action{
+			name:        START,
 			function:    engine.Start,
 			description: "Start collecting GPU metrics",
 		},
