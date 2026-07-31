@@ -98,7 +98,7 @@ type gpuMetricsCollector struct {
 }
 
 // readFreshMetricsUnsafe returns the reader's GPU readings and advances the
-// staleness cursor, or nil if unavailable: no reader (GPU support disabled),
+// staleness cursor, or nil if unavailable: no reader (GPU or metrics disabled),
 // unusable snapshot (nil, no GPUs, or connection lost), unparseable timestamp,
 // or stale (not newer than the last one returned). Caller must hold engine.lock.
 func (c *gpuMetricsCollector) readFreshMetricsUnsafe() []gputypes.GPUMetric {
@@ -168,7 +168,7 @@ type DockerStatsEngine struct {
 	publishServiceConnectTickerInterval int32
 	publishGPUMetricsTickerInterval     int32
 	// gpuCollector reads GPU snapshots and suppresses already-emitted ones. Its
-	// reader is nil when GPU support is disabled (i.e. non-Linux builds).
+	// reader is nil when GPU support is off (i.e. non-Linux builds) or ECS_DISABLE_METRICS is set.
 	gpuCollector         *gpuMetricsCollector
 	publishMetricsTicker *time.Ticker
 	// channels to send metrics to TACS Client
@@ -221,7 +221,7 @@ func (resolver *DockerContainerMetadataResolver) ResolveContainer(dockerID strin
 // MustInit() must be called to initialize the fields of the new event listener.
 func NewDockerStatsEngine(cfg *config.Config, client dockerapi.DockerClient, containerChangeEventStream *eventstream.EventStream, metricsChannel chan<- ecstcs.TelemetryMessage, healthChannel chan<- ecstcs.HealthMessage, dataClient data.Client) *DockerStatsEngine {
 	var reader gpuMetricsReader
-	if cfg.GPUSupportEnabled {
+	if cfg.GPUSupportEnabled && !cfg.DisableMetrics.Enabled() {
 		reader = agentgpu.NewDCGMMetricsReader("")
 	}
 	return &DockerStatsEngine{
