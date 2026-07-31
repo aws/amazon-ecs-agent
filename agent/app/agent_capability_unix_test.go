@@ -346,8 +346,9 @@ func TestAppendGpuSharingMpsCapability(t *testing.T) {
 	mpsCap := types.Attribute{Name: aws.String(capability.GPUSharingMps)}
 
 	// newManager returns a GPU manager with the given MPS facts and one device
-	// present unless gpuPresent is false.
-	newManager := func(gpuPresent, binary, service, vgpu bool) *gpu.NvidiaGPUManager {
+	// present (with usable memory) unless gpuPresent is false. haveMemory controls
+	// whether that device has a memory value, exercising the AllGPUsHaveMemory gate.
+	newManager := func(gpuPresent, binary, service, vgpu, haveMemory bool) *gpu.NvidiaGPUManager {
 		m := &gpu.NvidiaGPUManager{
 			MpsControlBinaryPresent: binary,
 			MpsServiceEnabled:       service,
@@ -355,6 +356,9 @@ func TestAppendGpuSharingMpsCapability(t *testing.T) {
 		}
 		if gpuPresent {
 			m.SetGPUIDs([]string{"gpu-0"})
+			if haveMemory {
+				m.SetGPUMemoryMiB(map[string]uint64{"gpu-0": 22563})
+			}
 			m.SetDevices()
 		}
 		return m
@@ -368,11 +372,12 @@ func TestAppendGpuSharingMpsCapability(t *testing.T) {
 		// Advertisement of gpu-sharing-mps is intentionally disabled until the MPS runtime
 		// integration lands, so the capability must NOT appear in any case.
 		// TODO: flip to true once capability advertisement is enabled
-		{"all conditions met", newManager(true, true, true, false), false},
-		{"no gpu present", newManager(false, true, true, false), false},
-		{"mps binary absent", newManager(true, false, true, false), false},
-		{"mps service disabled", newManager(true, true, false, false), false},
-		{"is vgpu", newManager(true, true, true, true), false},
+		{"all conditions met", newManager(true, true, true, false, true), false},
+		{"no gpu present", newManager(false, true, true, false, true), false},
+		{"mps binary absent", newManager(true, false, true, false, true), false},
+		{"mps service disabled", newManager(true, true, false, false, true), false},
+		{"is vgpu", newManager(true, true, true, true, true), false},
+		{"gpu present but no memory reported", newManager(true, true, true, false, false), false},
 	}
 
 	for _, tc := range cases {

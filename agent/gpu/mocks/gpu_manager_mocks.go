@@ -90,6 +90,20 @@ func (mr *MockGPUManagerMockRecorder) GetGPUIDsUnsafe() *gomock.Call {
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetGPUIDsUnsafe", reflect.TypeOf((*MockGPUManager)(nil).GetGPUIDsUnsafe))
 }
 
+// GetGPUMemoryMiBUnsafe mocks base method.
+func (m *MockGPUManager) GetGPUMemoryMiBUnsafe() map[string]uint64 {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "GetGPUMemoryMiBUnsafe")
+	ret0, _ := ret[0].(map[string]uint64)
+	return ret0
+}
+
+// GetGPUMemoryMiBUnsafe indicates an expected call of GetGPUMemoryMiBUnsafe.
+func (mr *MockGPUManagerMockRecorder) GetGPUMemoryMiBUnsafe() *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetGPUMemoryMiBUnsafe", reflect.TypeOf((*MockGPUManager)(nil).GetGPUMemoryMiBUnsafe))
+}
+
 // GetHasVGPU mocks base method.
 func (m *MockGPUManager) GetHasVGPU() bool {
 	m.ctrl.T.Helper()

@@ -27,6 +27,7 @@ func allMet() MpsCapabilityInputs {
 		MpsBinaryPresent:  true,
 		MpsServiceEnabled: true,
 		IsVGPU:            false, // not a vGPU -> the NotVGPU condition is satisfied
+		AllGPUsHaveMemory: true,
 	}
 }
 
@@ -36,18 +37,19 @@ func TestAllConditionsMetAdvertises(t *testing.T) {
 	assert.Empty(t, UnmetMpsConditions(conditions))
 }
 
-// TestShouldAdvertiseTruthTable exercises all 16 combinations of the four
+// TestShouldAdvertiseTruthTable exercises all 32 combinations of the five
 // boolean inputs and checks that the capability is advertised only when every
 // condition holds.
 func TestShouldAdvertiseTruthTable(t *testing.T) {
-	for i := 0; i < 16; i++ {
+	for i := 0; i < 32; i++ {
 		in := MpsCapabilityInputs{
 			GPUPresent:        i&1 != 0,
 			MpsBinaryPresent:  i&2 != 0,
 			MpsServiceEnabled: i&4 != 0,
 			IsVGPU:            i&8 != 0,
+			AllGPUsHaveMemory: i&16 != 0,
 		}
-		want := in.GPUPresent && in.MpsBinaryPresent && in.MpsServiceEnabled && !in.IsVGPU
+		want := in.GPUPresent && in.MpsBinaryPresent && in.MpsServiceEnabled && !in.IsVGPU && in.AllGPUsHaveMemory
 		advertise, _ := ShouldAdvertiseMpsCapability(in)
 		assert.Equalf(t, want, advertise, "inputs=%+v", in)
 	}
@@ -66,6 +68,7 @@ func TestSingleFailingConditionWithholds(t *testing.T) {
 		{"no binary", func(in *MpsCapabilityInputs) { in.MpsBinaryPresent = false }, MpsBinaryPresent},
 		{"service disabled", func(in *MpsCapabilityInputs) { in.MpsServiceEnabled = false }, MpsServiceEnabled},
 		{"is vgpu", func(in *MpsCapabilityInputs) { in.IsVGPU = true }, NotVGPU},
+		{"missing gpu memory", func(in *MpsCapabilityInputs) { in.AllGPUsHaveMemory = false }, AllGPUsHaveMemory},
 	}
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
@@ -85,7 +88,7 @@ func TestUnmetConditionsStableOrder(t *testing.T) {
 	advertise, conditions := ShouldAdvertiseMpsCapability(in)
 	assert.False(t, advertise)
 	assert.Equal(t,
-		[]MpsGateCondition{GPUPresent, MpsBinaryPresent, MpsServiceEnabled},
+		[]MpsGateCondition{GPUPresent, MpsBinaryPresent, MpsServiceEnabled, AllGPUsHaveMemory},
 		UnmetMpsConditions(conditions))
 }
 
@@ -108,6 +111,55 @@ func TestUnmetReason(t *testing.T) {
 	assert.Equal(t, "MPS control binary not present on host", MpsBinaryPresent.UnmetReason())
 	assert.Equal(t, "nvidia-mps systemd service is not enabled on host", MpsServiceEnabled.UnmetReason())
 	assert.Equal(t, "instance has an NVIDIA vGPU slice, where we do not support MPS", NotVGPU.UnmetReason())
+	assert.Equal(t, "not every discovered GPU reported usable memory", AllGPUsHaveMemory.UnmetReason())
 	// Unknown condition falls back to its raw string.
 	assert.Equal(t, "some-unknown", MpsGateCondition("some-unknown").UnmetReason())
+}
+
+// TestAllGPUMemoryReported covers the completeness helper: every discovered GPU
+// UUID must have a usable-memory value greater than zero, or the capability is
+// withheld.
+func TestAllGPUMemoryReported(t *testing.T) {
+	cases := []struct {
+		name   string
+		gpuIDs []string
+		memory map[string]uint64
+		want   bool
+	}{
+		{
+			name:   "all gpus have memory",
+			gpuIDs: []string{"gpu-0", "gpu-1"},
+			memory: map[string]uint64{"gpu-0": 22563, "gpu-1": 22563},
+			want:   true,
+		},
+		{
+			name:   "one gpu missing from map",
+			gpuIDs: []string{"gpu-0", "gpu-1"},
+			memory: map[string]uint64{"gpu-0": 22563},
+			want:   false,
+		},
+		{
+			name:   "one gpu present but zero",
+			gpuIDs: []string{"gpu-0", "gpu-1"},
+			memory: map[string]uint64{"gpu-0": 22563, "gpu-1": 0},
+			want:   false,
+		},
+		{
+			name:   "no gpus discovered",
+			gpuIDs: nil,
+			memory: map[string]uint64{},
+			want:   false,
+		},
+		{
+			name:   "empty memory map",
+			gpuIDs: []string{"gpu-0"},
+			memory: map[string]uint64{},
+			want:   false,
+		},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			assert.Equal(t, tc.want, AllGPUMemoryReported(tc.gpuIDs, tc.memory))
+		})
+	}
 }
