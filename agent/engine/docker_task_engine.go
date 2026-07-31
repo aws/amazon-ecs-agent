@@ -124,6 +124,12 @@ const (
 	stopContainerBackoffMultiplier = 1.3
 	stopContainerMaxRetryCount     = 5
 
+	startContainerBackoffMin        = 5 * time.Second
+	startContainerBackoffMax        = 30 * time.Second
+	startContainerBackoffJitter     = 0.2
+	startContainerBackoffMultiplier = 2.0
+	maxVolumeMountRetries           = 10
+
 	// mediaTypeManifestV1 specifies the media type for v1 manifest
 	mediaTypeManifestV1 = "application/vnd.docker.distribution.manifest.v1+json"
 	// mediaTypeSignedManifestV1 specifies the media type for signed v1 manifest
@@ -2235,7 +2241,24 @@ func (engine *DockerTaskEngine) startContainer(task *apitask.Task, container *ap
 	}
 
 	startContainerBegin := time.Now()
-	dockerContainerMD := client.StartContainer(engine.ctx, dockerID, engine.cfg.ContainerStartTimeout)
+	startCtx, startCancel := context.WithTimeout(engine.ctx, engine.cfg.ContainerStartTimeout)
+	defer startCancel()
+
+	var dockerContainerMD dockerapi.DockerContainerMetadata
+	backoff := retry.NewExponentialBackoff(startContainerBackoffMin, startContainerBackoffMax, startContainerBackoffJitter, startContainerBackoffMultiplier)
+	retry.RetryNWithBackoffCtx(startCtx, backoff, maxVolumeMountRetries, func() error {
+		dockerContainerMD = client.StartContainer(startCtx, dockerID, engine.cfg.ContainerStartTimeout)
+		// Retry when StartContainer times out due to volume plugin mount operation timeout
+		if dockerContainerMD.Error != nil && isVolumePluginMountTimeout(dockerContainerMD.Error) {
+			logger.Warn("Container start failed due to volume plugin mount timeout, will retry", logger.Fields{
+				field.TaskID:    task.GetID(),
+				field.Container: container.Name,
+				field.Error:     dockerContainerMD.Error,
+			})
+			return dockerContainerMD.Error
+		}
+		return nil
+	})
 	if dockerContainerMD.Error != nil {
 		return dockerContainerMD
 	}
@@ -2908,6 +2931,18 @@ func (engine *DockerTaskEngine) updateMetadataFile(task *apitask.Task, cont *api
 			field.Container: cont.Container.Name,
 		})
 	}
+}
+
+// isVolumePluginMountTimeout returns true if the error from StartContainer indicates
+// that the Docker volume plugin's Mount RPC timed out. This happens when the ECS
+// volume plugin's global lock is held for too long due to concurrent mounts.
+func isVolumePluginMountTimeout(err apierrors.NamedError) bool {
+	if err == nil {
+		return false
+	}
+	errStr := err.Error()
+	return strings.Contains(errStr, "VolumeDriver.Mount") &&
+		strings.Contains(errStr, "context deadline exceeded")
 }
 
 func getContainerHostIP(networkSettings *types.NetworkSettings) (string, bool) {
