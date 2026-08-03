@@ -57,6 +57,7 @@ import (
 	"github.com/aws/amazon-ecs-agent/ecs-agent/ipcompatibility"
 	ni "github.com/aws/amazon-ecs-agent/ecs-agent/netlib/model/networkinterface"
 	commonutils "github.com/aws/amazon-ecs-agent/ecs-agent/utils"
+	"github.com/aws/amazon-ecs-agent/ecs-agent/utils/mps"
 	dockertypes "github.com/docker/docker/api/types"
 
 	"github.com/aws/aws-sdk-go-v2/aws"
@@ -3628,6 +3629,99 @@ func TestPopulateGPUEnvironmentVariables(t *testing.T) {
 
 	assert.Equal(t, environment, container.Environment)
 	assert.Equal(t, map[string]string(nil), container1.Environment)
+}
+
+// TestPopulateGPUEnvironmentVariablesMPS verifies that an MPS container gets the
+// NVIDIA_VISIBLE_DEVICES var plus the per-client MPS env vars, that the compute
+// percentage is omitted when the customer did not declare it, and that a
+// whole-GPU container in the same task gets no MPS env vars.
+func TestPopulateGPUEnvironmentVariablesMPS(t *testing.T) {
+	computePercent := uint(50)
+	mpsWithCompute := &apicontainer.Container{
+		Name:      "mpsWithCompute",
+		Image:     "image:tag",
+		GPUIDs:    []string{"gpu1"},
+		MPSConfig: &apicontainer.MPSConfig{Memory: 4096, MaxComputePercent: &computePercent},
+	}
+	mpsNoCompute := &apicontainer.Container{
+		Name:      "mpsNoCompute",
+		Image:     "image:tag",
+		GPUIDs:    []string{"gpu1"},
+		MPSConfig: &apicontainer.MPSConfig{Memory: 2048},
+	}
+	wholeGPU := &apicontainer.Container{
+		Name:   "wholeGPU",
+		Image:  "image:tag",
+		GPUIDs: []string{"gpu2"},
+	}
+
+	task := &Task{
+		Arn:                "test",
+		ResourcesMapUnsafe: make(map[string][]taskresource.TaskResource),
+		Containers:         []*apicontainer.Container{mpsWithCompute, mpsNoCompute, wholeGPU},
+	}
+
+	task.populateGPUEnvironmentVariables()
+
+	assert.Equal(t, map[string]string{
+		NvidiaVisibleDevicesEnvVar:       "gpu1",
+		mps.PipeDirectoryEnvVar:          mps.PipeDirectory,
+		mps.PinnedDeviceMemLimitEnvVar:   "0=4096M",
+		mps.ActiveThreadPercentageEnvVar: "50",
+	}, mpsWithCompute.Environment)
+
+	// Compute percent omitted -> active-thread env var must be absent.
+	assert.Equal(t, map[string]string{
+		NvidiaVisibleDevicesEnvVar:     "gpu1",
+		mps.PipeDirectoryEnvVar:        mps.PipeDirectory,
+		mps.PinnedDeviceMemLimitEnvVar: "0=2048M",
+	}, mpsNoCompute.Environment)
+	_, ok := mpsNoCompute.Environment[mps.ActiveThreadPercentageEnvVar]
+	assert.False(t, ok, "compute percent env var must be omitted when not declared")
+
+	// Whole-GPU container: only NVIDIA_VISIBLE_DEVICES, no MPS env vars.
+	assert.Equal(t, map[string]string{
+		NvidiaVisibleDevicesEnvVar: "gpu2",
+	}, wholeGPU.Environment)
+}
+
+// TestDockerHostConfigMPSPipeMount verifies the MPS control-pipe directory is
+// bind-mounted into an MPS container and left out of a non-MPS container.
+func TestDockerHostConfigMPSPipeMount(t *testing.T) {
+	expectedBind := mps.PipeDirectory + ":" + mps.PipeDirectory
+
+	t.Run("MPS container gets the pipe mount", func(t *testing.T) {
+		testTask := &Task{
+			Arn: "test",
+			Containers: []*apicontainer.Container{
+				{
+					Name:      "mpsContainer",
+					Image:     "image:tag",
+					MPSConfig: &apicontainer.MPSConfig{Memory: 4096},
+				},
+			},
+		}
+		hostConfig, err := testTask.DockerHostConfig(testTask.Containers[0], dockerMap(testTask),
+			defaultDockerClientAPIVersion, &config.Config{})
+		assert.Nil(t, err)
+		assert.Contains(t, hostConfig.Binds, expectedBind)
+	})
+
+	t.Run("non-MPS container does not get the pipe mount", func(t *testing.T) {
+		testTask := &Task{
+			Arn: "test",
+			Containers: []*apicontainer.Container{
+				{
+					Name:  "plainContainer",
+					Image: "image:tag",
+				},
+			},
+		}
+		hostConfig, err := testTask.DockerHostConfig(testTask.Containers[0], dockerMap(testTask),
+			defaultDockerClientAPIVersion, &config.Config{})
+		assert.Nil(t, err)
+		assert.NotContains(t, hostConfig.Binds, expectedBind)
+	})
 }
 
 func TestDockerHostConfigNvidiaRuntime(t *testing.T) {

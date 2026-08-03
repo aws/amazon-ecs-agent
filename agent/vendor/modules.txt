@@ -89,6 +89,7 @@ github.com/aws/amazon-ecs-agent/ecs-agent/utils/execwrapper/mocks
 github.com/aws/amazon-ecs-agent/ecs-agent/utils/firelens
 github.com/aws/amazon-ecs-agent/ecs-agent/utils/gpu
 github.com/aws/amazon-ecs-agent/ecs-agent/utils/httpproxy
+github.com/aws/amazon-ecs-agent/ecs-agent/utils/mps
 github.com/aws/amazon-ecs-agent/ecs-agent/utils/net
 github.com/aws/amazon-ecs-agent/ecs-agent/utils/netlinkwrapper
 github.com/aws/amazon-ecs-agent/ecs-agent/utils/netlinkwrapper/mocks
