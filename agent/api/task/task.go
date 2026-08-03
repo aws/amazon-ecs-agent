@@ -56,6 +56,7 @@ import (
 	ni "github.com/aws/amazon-ecs-agent/ecs-agent/netlib/model/networkinterface"
 	commonutils "github.com/aws/amazon-ecs-agent/ecs-agent/utils"
 	"github.com/aws/amazon-ecs-agent/ecs-agent/utils/arn"
+	"github.com/aws/amazon-ecs-agent/ecs-agent/utils/mps"
 	"github.com/aws/amazon-ecs-agent/ecs-agent/utils/ttime"
 	ecstypes "github.com/aws/aws-sdk-go-v2/service/ecs/types"
 
@@ -814,6 +815,11 @@ func (task *Task) populateGPUEnvironmentVariables() {
 			gpuList := strings.Join(container.GPUIDs, ",")
 			envVars := make(map[string]string)
 			envVars[NvidiaVisibleDevicesEnvVar] = gpuList
+			if container.UsesMPS() {
+				for k, v := range mps.BuildEnv(container.MPSConfig.Memory, container.MPSConfig.MaxComputePercent) {
+					envVars[k] = v
+				}
+			}
 			container.MergeEnvironmentVariables(envVars)
 		}
 	}
@@ -2139,6 +2145,10 @@ func (task *Task) dockerHostConfig(container *apicontainer.Container, dockerCont
 	binds, err := task.dockerHostBinds(container)
 	if err != nil {
 		return nil, &apierrors.HostConfigError{Msg: err.Error()}
+	}
+
+	if container.UsesMPS() {
+		binds = append(binds, mps.PipeDirectory+":"+mps.PipeDirectory)
 	}
 
 	resources := task.getDockerResources(container, cfg)
