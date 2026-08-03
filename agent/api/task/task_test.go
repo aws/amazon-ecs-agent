@@ -3603,6 +3603,142 @@ func TestAddGPUResourceWithInvalidContainer(t *testing.T) {
 	assert.Error(t, err)
 }
 
+// TestAddGPUResourceMPSColocation verifies that multiple MPS containers sharing
+// one GPU association are allowed (the relaxed one-container-per-GPU rule) and
+// that each container is assigned the single shared GPU UUID.
+func TestAddGPUResourceMPSColocation(t *testing.T) {
+	containerA := &apicontainer.Container{
+		Name:      "model-a",
+		Image:     "image:tag",
+		MPSConfig: &apicontainer.MPSConfig{Memory: 12288},
+	}
+	containerB := &apicontainer.Container{
+		Name:      "model-b",
+		Image:     "image:tag",
+		MPSConfig: &apicontainer.MPSConfig{Memory: 6144},
+	}
+
+	task := &Task{
+		Arn:                "test",
+		ResourcesMapUnsafe: make(map[string][]taskresource.TaskResource),
+		Containers:         []*apicontainer.Container{containerA, containerB},
+		Associations: []Association{
+			{
+				Containers: []string{"model-a", "model-b"},
+				Name:       "gpu1",
+				Type:       "gpu",
+			},
+		},
+	}
+
+	cfg := &config.Config{GPUSupportEnabled: true, NvidiaRuntime: config.DefaultNvidiaRuntime}
+	err := task.addGPUResource(cfg)
+	assert.NoError(t, err, "two MPS containers colocated on one GPU must be allowed")
+	// Both containers pinned to the same single UUID; neither gets a second GPU.
+	assert.Equal(t, []string{"gpu1"}, containerA.GPUIDs)
+	assert.Equal(t, []string{"gpu1"}, containerB.GPUIDs)
+}
+
+// TestAddGPUResourceNonMPSMultiContainerRejected verifies the whole-GPU
+// one-container-per-GPU pin is preserved: a GPU association naming multiple
+// non-MPS containers is still rejected.
+func TestAddGPUResourceNonMPSMultiContainerRejected(t *testing.T) {
+	task := &Task{
+		Arn:                "test",
+		ResourcesMapUnsafe: make(map[string][]taskresource.TaskResource),
+		Containers: []*apicontainer.Container{
+			{Name: "c1", Image: "image:tag"},
+			{Name: "c2", Image: "image:tag"},
+		},
+		Associations: []Association{
+			{
+				Containers: []string{"c1", "c2"},
+				Name:       "gpu1",
+				Type:       "gpu",
+			},
+		},
+	}
+
+	cfg := &config.Config{GPUSupportEnabled: true}
+	err := task.addGPUResource(cfg)
+	assert.Error(t, err, "non-MPS GPU association must still reject multiple containers")
+}
+
+// TestAddGPUResourceMixedMPSMultiContainerRejected verifies that if even one
+// container in a multi-container GPU association is not an MPS container, the
+// whole association keeps the one-container-per-GPU pin and is rejected.
+func TestAddGPUResourceMixedMPSMultiContainerRejected(t *testing.T) {
+	task := &Task{
+		Arn:                "test",
+		ResourcesMapUnsafe: make(map[string][]taskresource.TaskResource),
+		Containers: []*apicontainer.Container{
+			{Name: "mps", Image: "image:tag", MPSConfig: &apicontainer.MPSConfig{Memory: 4096}},
+			{Name: "whole", Image: "image:tag"},
+		},
+		Associations: []Association{
+			{
+				Containers: []string{"mps", "whole"},
+				Name:       "gpu1",
+				Type:       "gpu",
+			},
+		},
+	}
+
+	cfg := &config.Config{GPUSupportEnabled: true}
+	err := task.addGPUResource(cfg)
+	assert.Error(t, err, "a mixed MPS/non-MPS GPU association must be rejected")
+}
+
+// TestAddGPUResourceMalformedAssociationSurfacesDistinctError verifies that a
+// GPU association naming a container not present in the task fails with the
+// "could not find container" error (a malformed payload) rather than the generic
+// "could not associate multiple containers" error.
+func TestAddGPUResourceMalformedAssociationSurfacesDistinctError(t *testing.T) {
+	task := &Task{
+		Arn:                "test",
+		ResourcesMapUnsafe: make(map[string][]taskresource.TaskResource),
+		Containers: []*apicontainer.Container{
+			{Name: "mps", Image: "image:tag", MPSConfig: &apicontainer.MPSConfig{Memory: 4096}},
+		},
+		Associations: []Association{
+			{
+				Containers: []string{"mps", "ghost"}, // "ghost" is not in the task
+				Name:       "gpu1",
+				Type:       "gpu",
+			},
+		},
+	}
+
+	cfg := &config.Config{GPUSupportEnabled: true}
+	err := task.addGPUResource(cfg)
+	assert.Error(t, err)
+	assert.Contains(t, err.Error(), "could not find container with name ghost",
+		"a missing container must surface as a malformed-association error, not the generic reject")
+}
+
+// TestAddGPUResourceSingleMPSContainer verifies the single-container path is
+// unchanged for an MPS container (regression guard for the relaxed loop).
+func TestAddGPUResourceSingleMPSContainer(t *testing.T) {
+	container := &apicontainer.Container{
+		Name:      "solo",
+		Image:     "image:tag",
+		MPSConfig: &apicontainer.MPSConfig{Memory: 4096},
+	}
+	task := &Task{
+		Arn:                "test",
+		ResourcesMapUnsafe: make(map[string][]taskresource.TaskResource),
+		Containers:         []*apicontainer.Container{container},
+		Associations: []Association{
+			{Containers: []string{"solo"}, Name: "gpu1", Type: "gpu"},
+		},
+	}
+
+	cfg := &config.Config{GPUSupportEnabled: true}
+	err := task.addGPUResource(cfg)
+	assert.NoError(t, err)
+	assert.Equal(t, []string{"gpu1"}, container.GPUIDs)
+}
+
 func TestPopulateGPUEnvironmentVariables(t *testing.T) {
 	container := &apicontainer.Container{
 		Name:   "myName",
