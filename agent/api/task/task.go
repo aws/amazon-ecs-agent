@@ -785,19 +785,26 @@ func (task *Task) applyFirelensSetup(cfg *config.Config, resourceFields *taskres
 func (task *Task) addGPUResource(cfg *config.Config) error {
 	if cfg.GPUSupportEnabled {
 		for _, association := range task.Associations {
-			// One GPU can be associated with only one container
-			// That is why validating if association.Containers is of length 1
 			if association.Type == GPUAssociationType {
-				if len(association.Containers) != 1 {
+				// Multiple containers may share a GPU only when all of them use MPS;
+				// otherwise a GPU is exclusive to a single container. All containers in the
+				// association receive the same device.
+				allMPS, err := task.allAssociationContainersMPS(association)
+				if err != nil {
+					return err
+				}
+				if len(association.Containers) != 1 && !allMPS {
 					return fmt.Errorf("could not associate multiple containers to GPU %s", association.Name)
 				}
 
-				container, ok := task.ContainerByName(association.Containers[0])
-				if !ok {
-					return fmt.Errorf("could not find container with name %s for associating GPU %s",
-						association.Containers[0], association.Name)
+				for _, containerName := range association.Containers {
+					container, ok := task.ContainerByName(containerName)
+					if !ok {
+						return fmt.Errorf("could not find container with name %s for associating GPU %s",
+							containerName, association.Name)
+					}
+					container.GPUIDs = append(container.GPUIDs, association.Name)
 				}
-				container.GPUIDs = append(container.GPUIDs, association.Name)
 			}
 		}
 		// For external instances, GPU IDs are handled by resources struct
@@ -817,6 +824,26 @@ func (task *Task) isGPUEnabled() bool {
 		}
 	}
 	return false
+}
+
+// allAssociationContainersMPS reports whether every container in the association
+// uses MPS. It errors if a named container isn't in the task (a malformed
+// association); a non-MPS container just returns false.
+func (task *Task) allAssociationContainersMPS(association Association) (bool, error) {
+	if len(association.Containers) == 0 {
+		return false, nil
+	}
+	for _, containerName := range association.Containers {
+		container, ok := task.ContainerByName(containerName)
+		if !ok {
+			return false, fmt.Errorf("could not find container with name %s for associating GPU %s",
+				containerName, association.Name)
+		}
+		if !container.UsesMPS() {
+			return false, nil
+		}
+	}
+	return true, nil
 }
 
 func (task *Task) populateGPUEnvironmentVariables() {
