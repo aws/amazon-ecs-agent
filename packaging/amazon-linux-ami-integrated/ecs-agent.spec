@@ -21,8 +21,8 @@
 %global gobuild_tag %{nil}
 %endif
 
-# dcgm-init is only built and packaged on AL2023.
-%if 0%{?amzn} == 2023
+# dcgm-init is only built and packaged on AL2023 and above.
+%if 0%{?amzn} >= 2023
 %bcond_without dcgm # with
 %else
 %bcond_with dcgm # without
