@@ -30,13 +30,26 @@ const (
 	StartNetworkFaultPostfix = "start"
 	StopNetworkFaultPostfix  = "stop"
 	CheckNetworkFaultPostfix = "status"
-	TrafficTypeIngress       = "ingress"
-	TrafficTypeEgress        = "egress"
+	AddNetworkFaultPostfix   = "add-sources"
+	// AddSourcesMaxIPs caps the total number of entries (Sources + SourcesToFilter)
+	// accepted by a single add-sources request. The cap keeps a well-formed call
+	// inside the shared requestTimeoutSeconds budget and forces callers to keep
+	// one refresh call per domain. Route53 returns at most 8 IPs per answer, so
+	// 16 leaves headroom for two-domain bundles without requiring a split.
+	AddSourcesMaxIPs   = 16
+	TrafficTypeIngress = "ingress"
+	TrafficTypeEgress  = "egress"
 	// Request Payload Errors
 	MissingRequiredFieldError = "required parameter %s is missing"
 	MissingRequestBodyError   = "required request body is missing"
 	ZeroDelayAndJitterError   = "required either DelayMilliseconds or JitterMilliseconds to be non-zero"
 	InvalidValueError         = "invalid value %s for parameter %s"
+	// AddSources-specific errors. "Sources" and "SourcesToFilter" are JSON
+	// field names on NetworkFaultAddSourcesRequest, not English nouns; the
+	// capitalization lets callers grep from error back to field.
+	AddSourcesTooManyIPsError = "Sources and SourcesToFilter together have %d entries, maximum allowed is %d"
+	AddSourcesEmptyError      = "at least one of Sources or SourcesToFilter must be non-empty"
+	AddSourcesOverlapError    = "%s is present in both Sources and SourcesToFilter"
 )
 
 type NetworkFaultRequest interface {
@@ -243,4 +256,61 @@ func requireIPInRequestSource(source string, sourceType string) error {
 	}
 
 	return fmt.Errorf(InvalidValueError, source, sourceType)
+}
+
+// NetworkFaultAddSourcesRequest is the request body for the add-sources endpoint
+// used to push additional IPs into an already-running tc fault. It carries only
+// the IP lists because the fault parameters (delay, jitter, loss percent, flows
+// percent) are locked in at start time and cannot be changed mid-fault.
+type NetworkFaultAddSourcesRequest struct {
+	// Sources is a list of IPv4/IPv6 addresses or IPv4/IPv6 CIDR blocks to add
+	// as tc filters for the impaired flow.
+	Sources []*string `json:"Sources"`
+	// SourcesToFilter is a list of IPv4/IPv6 addresses or IPv4/IPv6 CIDR blocks
+	// to add as allowlist filters that bypass the impairment.
+	SourcesToFilter []*string `json:"SourcesToFilter,omitempty"`
+}
+
+// ValidateRequest enforces the add-sources contract: at least one IP across the
+// two lists, every entry is a valid IPv4/IPv6 address or CIDR block, the two
+// lists are disjoint within this request, and the combined size fits under
+// AddSourcesMaxIPs. Cross-request overlap is the SSM script's responsibility;
+// tracking it here would require per-namespace state and additional tc queries.
+func (request NetworkFaultAddSourcesRequest) ValidateRequest() error {
+	if len(request.Sources) == 0 && len(request.SourcesToFilter) == 0 {
+		return errors.New(AddSourcesEmptyError)
+	}
+	total := len(request.Sources) + len(request.SourcesToFilter)
+	if total > AddSourcesMaxIPs {
+		return fmt.Errorf(AddSourcesTooManyIPsError, total, AddSourcesMaxIPs)
+	}
+	if err := requireIPInRequestSources(request.Sources, "Sources"); err != nil {
+		return err
+	}
+	if err := requireIPInRequestSources(request.SourcesToFilter, "SourcesToFilter"); err != nil {
+		return err
+	}
+	// Reject within-request overlap. Any IP that appears in both lists is
+	// ambiguous: the caller cannot want the same address on both flowid 1:1
+	// (impaired) and flowid 1:3 (allowlist). 400 surfaces the mistake instead
+	// of installing conflicting filters.
+	filterSet := make(map[string]struct{}, len(request.SourcesToFilter))
+	for _, ipPtr := range request.SourcesToFilter {
+		filterSet[aws.ToString(ipPtr)] = struct{}{}
+	}
+	for _, ipPtr := range request.Sources {
+		ip := aws.ToString(ipPtr)
+		if _, found := filterSet[ip]; found {
+			return fmt.Errorf(AddSourcesOverlapError, ip)
+		}
+	}
+	return nil
+}
+
+func (request NetworkFaultAddSourcesRequest) ToString() string {
+	data, err := json.Marshal(request)
+	if err != nil {
+		return fmt.Sprintf("Error: Unable to parse add-sources request with error %v.", err)
+	}
+	return string(data)
 }

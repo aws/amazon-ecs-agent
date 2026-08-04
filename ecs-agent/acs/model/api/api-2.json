@@ -605,7 +605,8 @@
       "enum":[
         "SHARED",
         "EXCLUSIVE",
-        "ISOLATED_PARTITION"
+        "ISOLATED_PARTITION",
+        "CONFIDENTIAL_PARTITION"
       ]
     },
     "InvalidClusterException":{
@@ -976,7 +977,8 @@
     "TrustedExecutionConfiguration":{
       "type":"structure",
       "members":{
-        "isolationMode":{"shape":"IsolationMode"}
+        "isolationMode":{"shape":"IsolationMode"},
+        "attestationPolicy":{"shape":"String"}
       }
     },
     "UpdateInfo":{

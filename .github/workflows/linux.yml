@@ -25,7 +25,7 @@ jobs:
             exit 1
           fi
           echo "GO_VERSION=$go_version" >> $GITHUB_OUTPUT
-      - uses: actions/setup-go@v6
+      - uses: actions/setup-go@v7
         with:
           go-version: ${{ steps.get-go-version.outputs.GO_VERSION }}
       - name: make test
