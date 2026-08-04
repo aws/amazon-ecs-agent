@@ -126,7 +126,7 @@ github.com/aws/aws-sdk-go/private/protocol
 github.com/aws/aws-sdk-go/private/protocol/rest
 github.com/aws/aws-sdk-go/private/protocol/xml/xmlutil
 github.com/aws/aws-sdk-go/private/util
-# github.com/aws/aws-sdk-go-v2 v1.43.0
+# github.com/aws/aws-sdk-go-v2 v1.43.2
 ## explicit; go 1.24
 github.com/aws/aws-sdk-go-v2/aws
 github.com/aws/aws-sdk-go-v2/aws/arn
@@ -163,7 +163,7 @@ github.com/aws/aws-sdk-go-v2/aws/protocol/eventstream/eventstreamapi
 ## explicit; go 1.24
 github.com/aws/aws-sdk-go-v2/config
 github.com/aws/aws-sdk-go-v2/config/internal/ini
-# github.com/aws/aws-sdk-go-v2/credentials v1.19.30
+# github.com/aws/aws-sdk-go-v2/credentials v1.19.32
 ## explicit; go 1.24
 github.com/aws/aws-sdk-go-v2/credentials
 github.com/aws/aws-sdk-go-v2/credentials/ec2rolecreds
@@ -173,20 +173,20 @@ github.com/aws/aws-sdk-go-v2/credentials/logincreds
 github.com/aws/aws-sdk-go-v2/credentials/processcreds
 github.com/aws/aws-sdk-go-v2/credentials/ssocreds
 github.com/aws/aws-sdk-go-v2/credentials/stscreds
-# github.com/aws/aws-sdk-go-v2/feature/ec2/imds v1.18.31
+# github.com/aws/aws-sdk-go-v2/feature/ec2/imds v1.18.33
 ## explicit; go 1.24
 github.com/aws/aws-sdk-go-v2/feature/ec2/imds
 github.com/aws/aws-sdk-go-v2/feature/ec2/imds/internal/config
 # github.com/aws/aws-sdk-go-v2/feature/s3/manager v1.17.72
 ## explicit; go 1.22
 github.com/aws/aws-sdk-go-v2/feature/s3/manager
-# github.com/aws/aws-sdk-go-v2/internal/configsources v1.4.31
+# github.com/aws/aws-sdk-go-v2/internal/configsources v1.4.33
 ## explicit; go 1.24
 github.com/aws/aws-sdk-go-v2/internal/configsources
-# github.com/aws/aws-sdk-go-v2/internal/endpoints/v2 v2.7.31
+# github.com/aws/aws-sdk-go-v2/internal/endpoints/v2 v2.7.33
 ## explicit; go 1.24
 github.com/aws/aws-sdk-go-v2/internal/endpoints/v2
-# github.com/aws/aws-sdk-go-v2/internal/v4a v1.4.32
+# github.com/aws/aws-sdk-go-v2/internal/v4a v1.4.34
 ## explicit; go 1.24
 github.com/aws/aws-sdk-go-v2/internal/v4a
 github.com/aws/aws-sdk-go-v2/internal/v4a/internal/crypto
@@ -216,13 +216,13 @@ github.com/aws/aws-sdk-go-v2/service/ecs/types
 github.com/aws/aws-sdk-go-v2/service/fsx
 github.com/aws/aws-sdk-go-v2/service/fsx/internal/endpoints
 github.com/aws/aws-sdk-go-v2/service/fsx/types
-# github.com/aws/aws-sdk-go-v2/service/internal/accept-encoding v1.13.13
+# github.com/aws/aws-sdk-go-v2/service/internal/accept-encoding v1.13.14
 ## explicit; go 1.24
 github.com/aws/aws-sdk-go-v2/service/internal/accept-encoding
 # github.com/aws/aws-sdk-go-v2/service/internal/checksum v1.9.13
 ## explicit; go 1.24
 github.com/aws/aws-sdk-go-v2/service/internal/checksum
-# github.com/aws/aws-sdk-go-v2/service/internal/presigned-url v1.13.31
+# github.com/aws/aws-sdk-go-v2/service/internal/presigned-url v1.13.33
 ## explicit; go 1.24
 github.com/aws/aws-sdk-go-v2/service/internal/presigned-url
 # github.com/aws/aws-sdk-go-v2/service/internal/s3shared v1.19.21
@@ -242,7 +242,7 @@ github.com/aws/aws-sdk-go-v2/service/s3/types
 github.com/aws/aws-sdk-go-v2/service/secretsmanager
 github.com/aws/aws-sdk-go-v2/service/secretsmanager/internal/endpoints
 github.com/aws/aws-sdk-go-v2/service/secretsmanager/types
-# github.com/aws/aws-sdk-go-v2/service/signin v1.5.0
+# github.com/aws/aws-sdk-go-v2/service/signin v1.5.2
 ## explicit; go 1.24
 github.com/aws/aws-sdk-go-v2/service/signin
 github.com/aws/aws-sdk-go-v2/service/signin/internal/endpoints
@@ -252,22 +252,22 @@ github.com/aws/aws-sdk-go-v2/service/signin/types
 github.com/aws/aws-sdk-go-v2/service/ssm
 github.com/aws/aws-sdk-go-v2/service/ssm/internal/endpoints
 github.com/aws/aws-sdk-go-v2/service/ssm/types
-# github.com/aws/aws-sdk-go-v2/service/sso v1.33.0
+# github.com/aws/aws-sdk-go-v2/service/sso v1.33.2
 ## explicit; go 1.24
 github.com/aws/aws-sdk-go-v2/service/sso
 github.com/aws/aws-sdk-go-v2/service/sso/internal/endpoints
 github.com/aws/aws-sdk-go-v2/service/sso/types
-# github.com/aws/aws-sdk-go-v2/service/ssooidc v1.38.0
+# github.com/aws/aws-sdk-go-v2/service/ssooidc v1.38.2
 ## explicit; go 1.24
 github.com/aws/aws-sdk-go-v2/service/ssooidc
 github.com/aws/aws-sdk-go-v2/service/ssooidc/internal/endpoints
 github.com/aws/aws-sdk-go-v2/service/ssooidc/types
-# github.com/aws/aws-sdk-go-v2/service/sts v1.45.0
+# github.com/aws/aws-sdk-go-v2/service/sts v1.45.2
 ## explicit; go 1.24
 github.com/aws/aws-sdk-go-v2/service/sts
 github.com/aws/aws-sdk-go-v2/service/sts/internal/endpoints
 github.com/aws/aws-sdk-go-v2/service/sts/types
-# github.com/aws/smithy-go v1.27.4
+# github.com/aws/smithy-go v1.27.5
 ## explicit; go 1.24
 github.com/aws/smithy-go
 github.com/aws/smithy-go/auth
