@@ -1,7 +1,21 @@
 # Changelog
 
+# 1.106.1
+* Feature - Add ecs.capability.gpu-sharing-mps capability for NVIDIA MPS GPU sharing [#5029](https://github.com/aws/amazon-ecs-agent/pull/5053)
+* Enhancement - Bump github.com/gorilla/mux from 1.8.0 to 1.8.1 in /ecs-agent [#5063](https://github.com/aws/amazon-ecs-agent/pull/5063)
+* Enhancement - Report per-GPU memory at container instance registration for GPU sharing [#5061](https://github.com/aws/amazon-ecs-agent/pull/5061)
+* Enhancement - Bump google.golang.org/grpc from 1.79.3 to 1.82.1 in /ecs-agent/daemonimages/csidriver [#5056](https://github.com/aws/amazon-ecs-agent/pull/5056)
+* Enhancement - Bump github.com/aws/aws-sdk-go-v2/config from 1.32.23 to 1.32.31 in /agent [#5064](https://github.com/aws/amazon-ecs-agent/pull/5064)
+* Enhancement - Restrict daemon-bridge introspection to the daemon namespace [#5068](https://github.com/aws/amazon-ecs-agent/pull/5068)
+* Enhancement - Gate gpu-sharing-mps on complete per-GPU memory [#5075](https://github.com/aws/amazon-ecs-agent/pull/5075)
+* Enhancement - Add nos3readcache mount option to S3 Files volumes [#5062](https://github.com/aws/amazon-ecs-agent/pull/5062)
+* Enhancement - Map ACS GPU sharingStrategy onto the internal container model for MPS [#5076](https://github.com/aws/amazon-ecs-agent/pull/5076)
+* Enhancement - Inject NVIDIA MPS env vars and pipe mount into MPS containers [#5082](https://github.com/aws/amazon-ecs-agent/pull/5082)
+* Enhancement - Add retry for EFS volume creation to handle plugin timeout errors caused by concurrent mount operation [#5077](https://github.com/aws/amazon-ecs-agent/pull/5077)
+* Bugfix - Skip IPv4 gateway neighbor installation for IPv6-only ENIs on the isolated platform [#5065](https://github.com/aws/amazon-ecs-agent/pull/5065)
+
 # 1.106.0
-* Feature - Feature - Add FIS-driven DNS refresh add-sources endpoint for network-latency and network-packet-loss faults [#5029](https://github.com/aws/amazon-ecs-agent/pull/5029)
+* Feature - Add FIS-driven DNS refresh add-sources endpoint for network-latency and network-packet-loss faults [#5029](https://github.com/aws/amazon-ecs-agent/pull/5029)
 * Enhancement - Enhancement: Update SSM Agent version to 3.3.4624.0 for ECS exec [#5054](https://github.com/aws/amazon-ecs-agent/pull/5054)
 * Enhancement - Backfill host DNS config on isolated platform [#5047](https://github.com/aws/amazon-ecs-agent/pull/5047)
 * Enhancement - Bump github.com/aws/smithy-go from 1.27.3 to 1.27.4 in /agent [#5051](https://github.com/aws/amazon-ecs-agent/pull/5051)
