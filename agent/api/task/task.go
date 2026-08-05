@@ -3910,9 +3910,10 @@ func (task *Task) IsLaunchTypeFargate() bool {
 //   - Only account for hostPort
 //   - Don't need to account for awsvpc mode, each task gets its own namespace
 //
-// * GPU
-//   - Concatenate each container's gpu ids
-func (task *Task) ToHostResources() map[string]ecstypes.Resource {
+// The second return value is the per-GPU-UUID memory demand: each MPS container
+// contributes its memory cap (summed across the task's MPS containers on that
+// UUID), and a non-MPS container claims the whole GPU.
+func (task *Task) ToHostResources() (map[string]ecstypes.Resource, map[string]GPUMemoryDemand) {
 	resources := make(map[string]ecstypes.Resource)
 	// CPU
 	if task.CPU > 0 {
@@ -4005,25 +4006,36 @@ func (task *Task) ToHostResources() map[string]ecstypes.Resource {
 		StringSetValue: commonutils.Uint16SliceToStringSlice(udpPortSet),
 	}
 
-	// GPU
-	var gpus []string
+	// GPU_MEMORY: per GPU UUID, an MPS container contributes its per-container
+	// memory cap (summed across the task's MPS containers on that GPU); a non-MPS
+	// container claims the whole GPU.
+	gpuMemoryDemand := make(map[string]GPUMemoryDemand)
 	for _, c := range task.Containers {
-		gpus = append(gpus, c.GPUIDs...)
-	}
-	resources["GPU"] = ecstypes.Resource{
-		Name:           utils.Strptr("GPU"),
-		Type:           utils.Strptr("STRINGSET"),
-		StringSetValue: gpus,
+		for _, uuid := range c.GPUIDs {
+			if gpuMemoryDemand[uuid].WholeGPU {
+				// A whole-GPU UUID reached from a second container should never
+				// happen: addGPUResource binds each GPU association to exactly one
+				// container. Skip defensively.
+				continue
+			}
+			if c.UsesMPS() {
+				d := gpuMemoryDemand[uuid]
+				d.MiB += int64(c.MPSConfig.Memory)
+				gpuMemoryDemand[uuid] = d
+			} else {
+				gpuMemoryDemand[uuid] = GPUMemoryDemand{WholeGPU: true}
+			}
+		}
 	}
 	logger.Debug("Task host resources to account for", logger.Fields{
-		"taskArn":   task.Arn,
-		"CPU":       resources["CPU"].IntegerValue,
-		"MEMORY":    resources["MEMORY"].IntegerValue,
-		"PORTS_TCP": resources["PORTS_TCP"].StringSetValue,
-		"PORTS_UDP": resources["PORTS_UDP"].StringSetValue,
-		"GPU":       resources["GPU"].StringSetValue,
+		"taskArn":    task.Arn,
+		"CPU":        resources["CPU"].IntegerValue,
+		"MEMORY":     resources["MEMORY"].IntegerValue,
+		"PORTS_TCP":  resources["PORTS_TCP"].StringSetValue,
+		"PORTS_UDP":  resources["PORTS_UDP"].StringSetValue,
+		"GPU_MEMORY": gpuMemoryDemand,
 	})
-	return resources
+	return resources, gpuMemoryDemand
 }
 
 func (task *Task) HasActiveContainers() bool {

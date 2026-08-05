@@ -386,7 +386,6 @@ func (agent *ecsAgent) doStart(containerChangeEventStream *eventstream.EventStre
 		seelog.Critical("Unable to fetch host resources")
 		return exitcodes.ExitError
 	}
-	gpuIDs := []string{}
 	if agent.cfg.GPUSupportEnabled {
 		err := agent.initializeGPUManager()
 		if err != nil {
@@ -394,18 +393,7 @@ func (agent *ecsAgent) doStart(containerChangeEventStream *eventstream.EventStre
 			return exitcodes.ExitError
 		}
 		// Find GPUs (if any) on the instance
-		platformDevices := agent.getPlatformDevices()
-		for _, device := range platformDevices {
-			if device.Type == types.PlatformDeviceTypeGpu {
-				gpuIDs = append(gpuIDs, *device.Id)
-			}
-		}
-	}
-
-	hostResources["GPU"] = types.Resource{
-		Name:           utils.Strptr("GPU"),
-		Type:           utils.Strptr("STRINGSET"),
-		StringSetValue: gpuIDs,
+		seedGPUMemoryCapacity(hostResources, agent.getPlatformDevices())
 	}
 
 	// Create the task engine
@@ -566,6 +554,30 @@ func (agent *ecsAgent) doStart(containerChangeEventStream *eventstream.EventStre
 	// Start the acs session, which should block doStart
 	return agent.startACSSession(credentialsManager, taskEngine,
 		deregisterInstanceEventStream, client, state, taskHandler, doctor)
+}
+
+// seedGPUMemoryCapacity adds a GPU_MEMORY:<uuid> capacity entry to hostResources
+// for every GPU device. A device that reports no usable memory seeds 0, which
+// still admits whole-GPU tasks but refuses MPS sharing.
+func seedGPUMemoryCapacity(hostResources map[string]types.Resource, platformDevices []types.PlatformDevice) {
+	for _, device := range platformDevices {
+		if device.Type != types.PlatformDeviceTypeGpu {
+			continue
+		}
+		memoryMiB := int32(0)
+		if device.GpuInfo != nil && device.GpuInfo.MemoryInMiB != nil {
+			memoryMiB = *device.GpuInfo.MemoryInMiB
+		} else {
+			seelog.Warnf("GPU %s reported no usable memory; seeding capacity 0 "+
+				"(whole-GPU tasks allowed, MPS sharing refused); check ecs-init/NVML version", *device.Id)
+		}
+		key := engine.GPUMemoryCapacityPrefix + *device.Id
+		hostResources[key] = types.Resource{
+			Name:         utils.Strptr(key),
+			Type:         utils.Strptr("INTEGER"),
+			IntegerValue: memoryMiB,
+		}
+	}
 }
 
 // waitUntilInstanceInService Polls IMDS until the target lifecycle state indicates that the instance is going in

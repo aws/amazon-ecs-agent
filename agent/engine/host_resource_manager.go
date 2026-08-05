@@ -19,6 +19,7 @@ import (
 	"fmt"
 	"sync"
 
+	apitask "github.com/aws/amazon-ecs-agent/agent/api/task"
 	"github.com/aws/amazon-ecs-agent/agent/utils"
 	"github.com/aws/amazon-ecs-agent/ecs-agent/logger"
 	"github.com/aws/amazon-ecs-agent/ecs-agent/logger/field"
@@ -27,7 +28,6 @@ import (
 
 const (
 	CPU      = "CPU"
-	GPU      = "GPU"
 	MEMORY   = "MEMORY"
 	PORTSTCP = "PORTS_TCP"
 	PORTSUDP = "PORTS_UDP"
@@ -41,6 +41,11 @@ type HostResourceManager struct {
 
 	//task.arn to boolean whether host resources consumed or not
 	taskConsumed map[string]bool
+
+	// gpuMemoryTotalMiB is the per-UUID GPU memory capacity, fixed at init
+	gpuMemoryTotalMiB map[string]int64
+	// gpuMemoryConsumed is the per-UUID GPU memory consumed by running tasks
+	gpuMemoryConsumed map[string]apitask.GPUMemoryDemand
 }
 
 type InvalidHostResource struct {
@@ -58,8 +63,8 @@ func (h *HostResourceManager) logResources(msg string, taskArn string) {
 		"MEMORY":    h.consumedResource[MEMORY].IntegerValue,
 		"PORTS_TCP": h.consumedResource[PORTSTCP].StringSetValue,
 		"PORTS_UDP": h.consumedResource[PORTSUDP].StringSetValue,
-		"GPU":       h.consumedResource[GPU].StringSetValue,
 	})
+	h.logGPUMemoryPool(msg, taskArn)
 }
 
 func (h *HostResourceManager) consumeIntType(resourceType string, resources map[string]types.Resource) {
@@ -88,7 +93,7 @@ func (h *HostResourceManager) checkTaskConsumed(taskArn string) bool {
 // false, nil -> did not consume, task should stay pending
 // false, err -> resources map has errors, task should fail as cannot schedule with 'wrong' resource map (this basically never happens)
 // true, nil -> successfully consumed, task should progress with task creation
-func (h *HostResourceManager) consume(taskArn string, resources map[string]types.Resource) (bool, error) {
+func (h *HostResourceManager) consume(taskArn string, resources map[string]types.Resource, gpuMemory map[string]apitask.GPUMemoryDemand) (bool, error) {
 	h.hostResourceManagerRWLock.Lock()
 	defer h.hostResourceManagerRWLock.Unlock()
 	defer h.logResources("Consumed resources after task consume call", taskArn)
@@ -101,7 +106,7 @@ func (h *HostResourceManager) consume(taskArn string, resources map[string]types
 		return true, nil
 	}
 
-	ok, failedResourceKeys, err := h.consumable(resources)
+	ok, failedResourceKeys, err := h.consumable(resources, gpuMemory)
 	if err != nil {
 		logger.Error("Resources failing to consume, error in task resources", logger.Fields{
 			"taskArn":   taskArn,
@@ -115,9 +120,12 @@ func (h *HostResourceManager) consume(taskArn string, resources map[string]types
 				// CPU, MEMORY
 				h.consumeIntType(resourceKey, resources)
 			} else if *resources[resourceKey].Type == "STRINGSET" {
-				// PORTS_TCP, PORTS_UDP, GPU
+				// PORTS_TCP, PORTS_UDP
 				h.consumeStringSetType(resourceKey, resources)
 			}
+		}
+		for uuid, demand := range gpuMemory {
+			h.consumeGPUMemory(uuid, demand)
 		}
 
 		// Set consumed status
@@ -160,7 +168,7 @@ func (h *HostResourceManager) checkConsumableStringSetType(resourceName string, 
 }
 
 // Checks all resources exists and their values are not nil
-func (h *HostResourceManager) checkResourcesHealth(resources map[string]types.Resource) error {
+func (h *HostResourceManager) checkResourcesHealth(resources map[string]types.Resource, gpuMemory map[string]apitask.GPUMemoryDemand) error {
 	for resourceKey, resourceVal := range resources {
 		_, ok := h.initialHostResource[resourceKey]
 		if !ok {
@@ -169,25 +177,18 @@ func (h *HostResourceManager) checkResourcesHealth(resources map[string]types.Re
 		}
 
 		// CPU, MEMORY are INTEGER;
-		// PORTS_TCP, PORTS_UDP, GPU are STRINGSET
+		// PORTS_TCP, PORTS_UDP are STRINGSET
 		// Check if either of these data types exist
 		if resourceVal.Type == nil || !(*resourceVal.Type == "INTEGER" || *resourceVal.Type == "STRINGSET") {
 			logger.Error(fmt.Sprintf("type not assigned for resource %s", resourceKey))
 			return fmt.Errorf("invalid resource type for %s", resourceKey)
 		}
+	}
 
-		// Verify resource comes from an existing pool of values - for valid gpu ids
-		if *resourceVal.Type == "STRINGSET" && resourceKey == GPU {
-			hostGpuMap := make(map[string]struct{}, len(h.initialHostResource[GPU].StringSetValue))
-			for _, v := range h.initialHostResource[GPU].StringSetValue {
-				hostGpuMap[v] = struct{}{}
-			}
-			for _, obj1 := range resourceVal.StringSetValue {
-				_, ok := hostGpuMap[obj1]
-				if !ok {
-					return fmt.Errorf("task gpu %s not found in host gpus", obj1)
-				}
-			}
+	// Each GPU-memory demand must target a GPU UUID present in the pool.
+	for uuid := range gpuMemory {
+		if _, ok := h.gpuMemoryTotalMiB[uuid]; !ok {
+			return fmt.Errorf("task gpu %s not found in host gpus", uuid)
 		}
 	}
 	return nil
@@ -197,8 +198,8 @@ func (h *HostResourceManager) checkResourcesHealth(resources map[string]types.Re
 // we have for the host resources. Should not call host resource manager lock in this func return values
 // This function returns a bool (indicating whether ALL requested resources are consumable), a list of non-consumable
 // resource keys, and error, if any.
-func (h *HostResourceManager) consumable(resources map[string]types.Resource) (bool, []string, error) {
-	err := h.checkResourcesHealth(resources)
+func (h *HostResourceManager) consumable(resources map[string]types.Resource, gpuMemory map[string]apitask.GPUMemoryDemand) (bool, []string, error) {
+	err := h.checkResourcesHealth(resources, gpuMemory)
 	if err != nil {
 		return false, nil, err
 	}
@@ -217,6 +218,12 @@ func (h *HostResourceManager) consumable(resources map[string]types.Resource) (b
 			if !consumable {
 				resourcesNotConsumable = append(resourcesNotConsumable, resourceKey)
 			}
+		}
+	}
+
+	for uuid, demand := range gpuMemory {
+		if !h.checkConsumableGPUMemory(uuid, demand) {
+			resourcesNotConsumable = append(resourcesNotConsumable, gpuMemoryResourceKey(uuid))
 		}
 	}
 
@@ -268,13 +275,13 @@ func (h *HostResourceManager) releaseStringSetType(resourceType string, resource
 // Task resource map should never have errors as it is made by task ToHostResources method
 // In cases releases fails due to errors, those resources will be failed to be released
 // by HostResourceManager
-func (h *HostResourceManager) release(taskArn string, resources map[string]types.Resource) error {
+func (h *HostResourceManager) release(taskArn string, resources map[string]types.Resource, gpuMemory map[string]apitask.GPUMemoryDemand) error {
 	h.hostResourceManagerRWLock.Lock()
 	defer h.hostResourceManagerRWLock.Unlock()
 	defer h.logResources("Consumed resources after task release call", taskArn)
 
 	if h.taskConsumed[taskArn] {
-		err := h.checkResourcesHealth(resources)
+		err := h.checkResourcesHealth(resources, gpuMemory)
 		if err != nil {
 			return err
 		}
@@ -286,6 +293,9 @@ func (h *HostResourceManager) release(taskArn string, resources map[string]types
 			if *resources[resourceKey].Type == "STRINGSET" {
 				h.releaseStringSetType(resourceKey, resources)
 			}
+		}
+		for uuid, demand := range gpuMemory {
+			h.releaseGPUMemory(uuid, demand)
 		}
 
 		// Set consumed status
@@ -342,19 +352,24 @@ func NewHostResourceManager(resourceMap map[string]types.Resource) HostResourceM
 		StringSetValue: portsUdp,
 	}
 
-	// GPUs
-	gpuIDs := []string{}
-	consumedResourceMap[GPU] = types.Resource{
-		Name:           utils.Strptr(GPU),
-		Type:           utils.Strptr("STRINGSET"),
-		StringSetValue: gpuIDs,
+	// Build the per-UUID GPU memory capacity map from the GPU_MEMORY:<uuid>
+	// capacity entries (INTEGER MiB) in the host resource map; consumed starts empty.
+	gpuMemoryTotalMiB := make(map[string]int64)
+	for key, res := range resourceMap {
+		if uuid, ok := gpuUUIDFromCapacityKey(key); ok && res.Type != nil && *res.Type == "INTEGER" {
+			gpuMemoryTotalMiB[uuid] = int64(res.IntegerValue)
+		}
 	}
+	gpuMemoryConsumed := make(map[string]apitask.GPUMemoryDemand)
 
 	logger.Info("Initializing host resource manager, initialHostResource", logger.Fields{"initialHostResource": resourceMap})
 	logger.Info("Initializing host resource manager, consumed resource", logger.Fields{"consumedResource": consumedResourceMap})
+	logger.Info("Initializing host resource manager, GPU memory pool", logger.Fields{"gpuMemoryTotalMiB": gpuMemoryTotalMiB})
 	return HostResourceManager{
 		initialHostResource: resourceMap,
 		consumedResource:    consumedResourceMap,
 		taskConsumed:        taskConsumed,
+		gpuMemoryTotalMiB:   gpuMemoryTotalMiB,
+		gpuMemoryConsumed:   gpuMemoryConsumed,
 	}
 }
