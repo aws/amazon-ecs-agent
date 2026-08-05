@@ -5779,9 +5779,9 @@ func TestToHostResources(t *testing.T) {
 	}
 
 	for _, tc := range testCases {
-		calcResources := tc.task.ToHostResources()
+		calcResources, calcGPUMemory := tc.task.ToHostResources()
 
-		for _, resource := range []string{"CPU", "MEMORY", "GPU", "PORTS_TCP", "PORTS_UDP"} {
+		for _, resource := range []string{"CPU", "MEMORY", "PORTS_TCP", "PORTS_UDP"} {
 			assert.NotNil(t, calcResources[resource], fmt.Sprintf("Error converting resource %s - got nil", resource))
 		}
 
@@ -5791,18 +5791,14 @@ func TestToHostResources(t *testing.T) {
 		//MEMORY
 		assert.Equal(t, tc.expectedResources["MEMORY"].IntegerValue, calcResources["MEMORY"].IntegerValue, "Error converting task Memory resources")
 
-		//GPU
+		//GPU: emitted as per-UUID GPUMemoryDemand. The test containers are
+		// non-MPS, so each expected GPU UUID gets a whole-GPU demand.
 		for _, expectedGpu := range tc.expectedResources["GPU"].StringSetValue {
-			found := false
-			for _, calcGpu := range calcResources["GPU"].StringSetValue {
-				if expectedGpu == calcGpu {
-					found = true
-					break
-				}
-			}
-			assert.True(t, found, "Could not convert GPU port resources")
+			demand, ok := calcGPUMemory[expectedGpu]
+			assert.True(t, ok, "Could not find GPU memory demand for "+expectedGpu)
+			assert.True(t, demand.WholeGPU, "non-MPS container should claim the whole GPU")
 		}
-		assert.Equal(t, len(tc.expectedResources["GPU"].StringSetValue), len(calcResources["GPU"].StringSetValue), "Error converting task GPU resources")
+		assert.Equal(t, len(tc.expectedResources["GPU"].StringSetValue), len(calcGPUMemory), "Error converting task GPU resources")
 
 		//PORTS
 		for _, expectedPort := range tc.expectedResources["PORTS_TCP"].StringSetValue {
@@ -5830,6 +5826,120 @@ func TestToHostResources(t *testing.T) {
 		}
 		assert.Equal(t, len(tc.expectedResources["PORTS_UDP"].StringSetValue), len(calcResources["PORTS_UDP"].StringSetValue), "Error converting task UDP port resources")
 	}
+}
+
+// TestToHostResourcesGPUMemory covers the per-UUID GPU_MEMORY demand emitted by
+// ToHostResources: MPS caps are summed per UUID, a non-MPS container claims the
+// whole GPU, and separate UUIDs get separate entries.
+func TestToHostResourcesGPUMemory(t *testing.T) {
+	computePercent := uint(50)
+	cases := []struct {
+		name       string
+		containers []*apicontainer.Container
+		expected   map[string]GPUMemoryDemand // uuid -> demand
+	}{
+		{
+			name: "single MPS container",
+			containers: []*apicontainer.Container{
+				{Name: "a", GPUIDs: []string{"gpu1"}, MPSConfig: &apicontainer.MPSConfig{Memory: 4096}},
+			},
+			expected: map[string]GPUMemoryDemand{"gpu1": {MiB: 4096}},
+		},
+		{
+			name: "two MPS containers on the same GPU are summed",
+			containers: []*apicontainer.Container{
+				{Name: "a", GPUIDs: []string{"gpu1"}, MPSConfig: &apicontainer.MPSConfig{Memory: 4096, MaxComputePercent: &computePercent}},
+				{Name: "b", GPUIDs: []string{"gpu1"}, MPSConfig: &apicontainer.MPSConfig{Memory: 2048}},
+			},
+			expected: map[string]GPUMemoryDemand{"gpu1": {MiB: 6144}},
+		},
+		{
+			name: "whole-GPU container claims the whole GPU",
+			containers: []*apicontainer.Container{
+				{Name: "a", GPUIDs: []string{"gpu1"}},
+			},
+			expected: map[string]GPUMemoryDemand{"gpu1": {WholeGPU: true}},
+		},
+		{
+			name: "MPS containers on different GPUs get separate entries",
+			containers: []*apicontainer.Container{
+				{Name: "a", GPUIDs: []string{"gpu1"}, MPSConfig: &apicontainer.MPSConfig{Memory: 4096}},
+				{Name: "b", GPUIDs: []string{"gpu2"}, MPSConfig: &apicontainer.MPSConfig{Memory: 2048}},
+			},
+			expected: map[string]GPUMemoryDemand{"gpu1": {MiB: 4096}, "gpu2": {MiB: 2048}},
+		},
+		{
+			name: "whole-GPU and MPS on different GPUs in one task",
+			containers: []*apicontainer.Container{
+				{Name: "a", GPUIDs: []string{"gpu1"}},
+				{Name: "b", GPUIDs: []string{"gpu2"}, MPSConfig: &apicontainer.MPSConfig{Memory: 4096}},
+			},
+			expected: map[string]GPUMemoryDemand{"gpu1": {WholeGPU: true}, "gpu2": {MiB: 4096}},
+		},
+		{
+			name: "same GPU, MPS container then whole-GPU container",
+			containers: []*apicontainer.Container{
+				{Name: "a", GPUIDs: []string{"gpu1"}, MPSConfig: &apicontainer.MPSConfig{Memory: 4096}},
+				{Name: "b", GPUIDs: []string{"gpu1"}},
+			},
+			expected: map[string]GPUMemoryDemand{"gpu1": {WholeGPU: true}},
+		},
+		{
+			name: "same GPU, whole-GPU container then MPS container",
+			containers: []*apicontainer.Container{
+				{Name: "a", GPUIDs: []string{"gpu1"}},
+				{Name: "b", GPUIDs: []string{"gpu1"}, MPSConfig: &apicontainer.MPSConfig{Memory: 4096}},
+			},
+			expected: map[string]GPUMemoryDemand{"gpu1": {WholeGPU: true}},
+		},
+		{
+			name: "non-GPU task emits no GPU memory demand",
+			containers: []*apicontainer.Container{
+				{Name: "a"},
+			},
+			expected: map[string]GPUMemoryDemand{},
+		},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			task := &Task{
+				Arn:                "test",
+				ResourcesMapUnsafe: make(map[string][]taskresource.TaskResource),
+				Containers:         tc.containers,
+			}
+			_, gpuMemory := task.ToHostResources()
+			assert.Equal(t, tc.expected, gpuMemory)
+		})
+	}
+}
+
+func TestToHostResourcesGPUMemorySurvivesRestart(t *testing.T) {
+	computePercent := uint(50)
+	task := &Task{
+		Arn:                "test",
+		ResourcesMapUnsafe: make(map[string][]taskresource.TaskResource),
+		Containers: []*apicontainer.Container{
+			{Name: "mps", GPUIDs: []string{"gpu1"}, MPSConfig: &apicontainer.MPSConfig{Memory: 4096, MaxComputePercent: &computePercent}},
+			{Name: "whole", GPUIDs: []string{"gpu2"}},
+		},
+	}
+	want := map[string]GPUMemoryDemand{"gpu1": {MiB: 4096}, "gpu2": {WholeGPU: true}}
+
+	// Round-trip the task through JSON the way agent restart persists and reloads it.
+	data, err := json.Marshal(task)
+	require.NoError(t, err)
+	var reloaded Task
+	require.NoError(t, json.Unmarshal(data, &reloaded))
+
+	// The fields the recompute depends on must survive the round trip.
+	require.Equal(t, []string{"gpu1"}, reloaded.Containers[0].GPUIDs)
+	require.NotNil(t, reloaded.Containers[0].MPSConfig, "MPSConfig must persist across restart")
+	assert.Equal(t, uint(4096), reloaded.Containers[0].MPSConfig.Memory)
+	require.Equal(t, []string{"gpu2"}, reloaded.Containers[1].GPUIDs)
+
+	// ToHostResources on the reloaded task must reproduce the same demand.
+	_, gpuMemory := reloaded.ToHostResources()
+	assert.Equal(t, want, gpuMemory, "GPU memory demand must be identical after restart")
 }
 
 func TestRemoveVolumes(t *testing.T) {

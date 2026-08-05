@@ -302,13 +302,13 @@ func (engine *DockerTaskEngine) reconcileHostResources() {
 	logger.Info("Reconciling host resources")
 	for _, task := range engine.state.AllTasks() {
 		taskStatus := task.GetKnownStatus()
-		resources := task.ToHostResources()
+		resources, gpuMemory := task.ToHostResources()
 
 		// Release stopped tasks host resources
 		// Call to release here for stopped tasks should always succeed
 		// Idempotent release call
 		if taskStatus.Terminal() {
-			err := engine.hostResourceManager.release(task.Arn, resources)
+			err := engine.hostResourceManager.release(task.Arn, resources, gpuMemory)
 			if err != nil {
 				logger.Critical("Failed to release resources during reconciliation", logger.Fields{field.TaskARN: task.Arn})
 			}
@@ -319,9 +319,19 @@ func (engine *DockerTaskEngine) reconcileHostResources() {
 		// Call to consume here should always succeed
 		// Idempotent consume call
 		if !task.IsInternal && task.HasActiveContainers() {
-			consumed, err := engine.hostResourceManager.consume(task.Arn, resources)
+			consumed, err := engine.hostResourceManager.consume(task.Arn, resources, gpuMemory)
 			if err != nil || !consumed {
-				logger.Critical("Failed to consume resources for created/running tasks during reconciliation", logger.Fields{field.TaskARN: task.Arn})
+				fields := logger.Fields{field.TaskARN: task.Arn}
+				msg := "Failed to consume resources for created/running tasks during reconciliation"
+				if len(gpuMemory) > 0 {
+					// A running GPU task failing to re-consume usually means its
+					// GPU memory was not rediscovered at the same capacity after
+					// restart. The pool then under-counts usage and can over-admit
+					// new tasks onto a full GPU.
+					fields["GPU_MEMORY"] = gpuMemory
+					msg = "Failed to re-consume GPU memory for a running task during reconciliation, pool may under-count usage and over-admit new tasks"
+				}
+				logger.Critical(msg, fields)
 			}
 		}
 	}
@@ -471,8 +481,8 @@ func (engine *DockerTaskEngine) tryDequeueWaitingTasks(task *managedTask) bool {
 		engine.returnWaitingTask()
 		return true
 	}
-	taskHostResources := task.ToHostResources()
-	consumed, err := task.engine.hostResourceManager.consume(task.Arn, taskHostResources)
+	taskHostResources, taskGPUMemory := task.ToHostResources()
+	consumed, err := task.engine.hostResourceManager.consume(task.Arn, taskHostResources, taskGPUMemory)
 	if err != nil {
 		engine.failWaitingTask(err)
 		return true
@@ -1006,8 +1016,8 @@ func (engine *DockerTaskEngine) EmitTaskEvent(task *apitask.Task, reason string)
 	if task.GetKnownStatus().Terminal() {
 		// Always do (idempotent) release host resources whenever state change with
 		// known status == STOPPED is done to ensure sync between tasks and host resource manager
-		resourcesToRelease := task.ToHostResources()
-		err := engine.hostResourceManager.release(task.Arn, resourcesToRelease)
+		resourcesToRelease, gpuMemoryToRelease := task.ToHostResources()
+		err := engine.hostResourceManager.release(task.Arn, resourcesToRelease, gpuMemoryToRelease)
 		if err != nil {
 			logger.Critical("Failed to release resources after test stopped", logger.Fields{field.TaskARN: task.Arn})
 		}
