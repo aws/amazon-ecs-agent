@@ -5544,3 +5544,106 @@ func TestSetAWSLogsDualStackEndpoint(t *testing.T) {
 		})
 	}
 }
+
+func TestIsVolumePluginMountTimeout(t *testing.T) {
+	tests := []struct {
+		name     string
+		err      apierrors.NamedError
+		expected bool
+	}{
+		{
+			name:     "nil error",
+			err:      nil,
+			expected: false,
+		},
+		{
+			name:     "volume plugin mount timeout",
+			err:      dockerapi.CannotStartContainerError{FromError: fmt.Errorf("error waiting for VolumeDriver.Mount: context deadline exceeded")},
+			expected: true,
+		},
+		{
+			name:     "unrelated start error",
+			err:      dockerapi.CannotStartContainerError{FromError: fmt.Errorf("OCI runtime create failed")},
+			expected: false,
+		},
+		{
+			name:     "only VolumeDriver.Mount without deadline",
+			err:      dockerapi.CannotStartContainerError{FromError: fmt.Errorf("VolumeDriver.Mount returned error")},
+			expected: false,
+		},
+		{
+			name:     "only context deadline without VolumeDriver.Mount",
+			err:      dockerapi.CannotStartContainerError{FromError: fmt.Errorf("context deadline exceeded")},
+			expected: false,
+		},
+	}
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			assert.Equal(t, tc.expected, isVolumePluginMountTimeout(tc.err))
+		})
+	}
+}
+
+func TestStartContainerRetriesOnVolumePluginMountTimeout(t *testing.T) {
+	ctx, cancel := context.WithCancel(context.TODO())
+	defer cancel()
+	ctrl, client, _, taskEngine, _, _, _, _ := mocks(t, ctx, &defaultConfig)
+	defer ctrl.Finish()
+
+	sleepTask := testdata.LoadTask("sleep5")
+	container := sleepTask.Containers[0]
+	container.SetRuntimeID(containerID)
+
+	// Add container to state so getDockerID works
+	taskEngine.(*DockerTaskEngine).state.AddTask(sleepTask)
+	taskEngine.(*DockerTaskEngine).state.AddContainer(&apicontainer.DockerContainer{
+		DockerID:   containerID,
+		DockerName: "test-container",
+		Container:  container,
+	}, sleepTask)
+
+	mountTimeoutErr := dockerapi.CannotStartContainerError{
+		FromError: fmt.Errorf("error waiting for VolumeDriver.Mount: context deadline exceeded"),
+	}
+
+	// First call fails with volume plugin mount timeout, second call succeeds
+	gomock.InOrder(
+		client.EXPECT().StartContainer(gomock.Any(), containerID, gomock.Any()).Return(
+			dockerapi.DockerContainerMetadata{Error: mountTimeoutErr}),
+		client.EXPECT().StartContainer(gomock.Any(), containerID, gomock.Any()).Return(
+			dockerapi.DockerContainerMetadata{DockerID: containerID}),
+	)
+
+	metadata := taskEngine.(*DockerTaskEngine).startContainer(sleepTask, container)
+	assert.NoError(t, metadata.Error)
+	assert.Equal(t, containerID, metadata.DockerID)
+}
+
+func TestStartContainerNoRetryOnNonVolumeError(t *testing.T) {
+	ctx, cancel := context.WithCancel(context.TODO())
+	defer cancel()
+	ctrl, client, _, taskEngine, _, _, _, _ := mocks(t, ctx, &defaultConfig)
+	defer ctrl.Finish()
+
+	sleepTask := testdata.LoadTask("sleep5")
+	container := sleepTask.Containers[0]
+	container.SetRuntimeID(containerID)
+
+	taskEngine.(*DockerTaskEngine).state.AddTask(sleepTask)
+	taskEngine.(*DockerTaskEngine).state.AddContainer(&apicontainer.DockerContainer{
+		DockerID:   containerID,
+		DockerName: "test-container",
+		Container:  container,
+	}, sleepTask)
+
+	nonVolumeErr := dockerapi.CannotStartContainerError{
+		FromError: fmt.Errorf("OCI runtime create failed"),
+	}
+
+	// Only one call - no retry for non-volume errors
+	client.EXPECT().StartContainer(gomock.Any(), containerID, gomock.Any()).Return(
+		dockerapi.DockerContainerMetadata{Error: nonVolumeErr}).Times(1)
+
+	metadata := taskEngine.(*DockerTaskEngine).startContainer(sleepTask, container)
+	assert.Error(t, metadata.Error)
+}
