@@ -29,9 +29,5 @@ type Healthcheck interface {
 	GetLastHealthcheckTime() time.Time
 	RunCheck() ecstcs.InstanceHealthCheckStatus
 	SetHealthcheckStatus(status ecstcs.InstanceHealthCheckStatus)
-	// GetStatusReason returns a human-readable reason for the current status
-	// (for example the XID error code behind an IMPAIRED GPU), or the empty
-	// string when there is none. It is surfaced as StatusReason on the
-	// published InstanceStatus.
 	GetStatusReason() string
 }
