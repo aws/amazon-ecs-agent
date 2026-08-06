@@ -35,11 +35,12 @@ const (
 )
 
 type step struct {
-	write    *string // rewrite the metrics file before the check
-	remove   bool    // remove the metrics file before the check
-	now      time.Time
-	want     ecstcs.InstanceHealthCheckStatus
-	wantLast *ecstcs.InstanceHealthCheckStatus // optional GetLastHealthcheckStatus assertion
+	write      *string // rewrite the metrics file before the check
+	remove     bool    // remove the metrics file before the check
+	now        time.Time
+	want       ecstcs.InstanceHealthCheckStatus
+	wantLast   *ecstcs.InstanceHealthCheckStatus // optional GetLastHealthcheckStatus assertion
+	wantReason string                            // expected GetStatusReason after the check
 }
 
 func TestGPUHealthcheckType(t *testing.T) {
@@ -85,7 +86,7 @@ func TestGPUHealthcheckRunCheck(t *testing.T) {
 			createdAt: fresh,
 			steps: []step{{
 				write: str(`{"timestamp":"` + freshTS + `","healthy":false,"unhealthy_reason":"XID_48","gpus":[{"gpu_uuid":"GPU-001"}]}`),
-				now:   fresh, want: impaired,
+				now:   fresh, want: impaired, wantReason: "XID_48",
 			}},
 		},
 		{
@@ -157,7 +158,39 @@ func TestGPUHealthcheckRunCheck(t *testing.T) {
 			createdAt: base,
 			steps: []step{
 				{write: str(`{"timestamp":"2026-01-01T00:00:00Z","healthy":true,"gpus":[]}`), now: base, want: ok},
-				{write: str(`{"timestamp":"2026-01-01T00:00:30Z","healthy":false,"unhealthy_reason":"XID_79","gpus":[]}`), now: base.Add(30 * time.Second), want: impaired, wantLast: last(ok)},
+				{write: str(`{"timestamp":"2026-01-01T00:00:30Z","healthy":false,"unhealthy_reason":"XID_79","gpus":[]}`), now: base.Add(30 * time.Second), want: impaired, wantLast: last(ok), wantReason: "XID_79"},
+			},
+		},
+		{
+			name:      "status reason clears when IMPAIRED gives way to OK",
+			createdAt: base,
+			steps: []step{
+				{write: str(`{"timestamp":"2026-01-01T00:00:00Z","healthy":false,"unhealthy_reason":"XID_48","gpus":[]}`), now: base, want: impaired, wantReason: "XID_48"},
+				{write: str(`{"timestamp":"2026-01-01T00:00:30Z","healthy":true,"gpus":[]}`), now: base.Add(30 * time.Second), want: ok, wantReason: ""},
+			},
+		},
+		{
+			name:      "status reason clears when IMPAIRED gives way to INSUFFICIENT_DATA (connection lost)",
+			createdAt: base,
+			steps: []step{
+				{write: str(`{"timestamp":"2026-01-01T00:00:00Z","healthy":false,"unhealthy_reason":"XID_48","gpus":[]}`), now: base, want: impaired, wantReason: "XID_48"},
+				{write: str(`{"timestamp":"2026-01-01T00:00:30Z","healthy":true,"connection_lost":true,"gpus":[]}`), now: base.Add(30 * time.Second), want: insufficient, wantReason: ""},
+			},
+		},
+		{
+			name:      "status reason clears when IMPAIRED gives way to INSUFFICIENT_DATA (missing file)",
+			createdAt: base,
+			steps: []step{
+				{write: str(`{"timestamp":"2026-01-01T00:00:00Z","healthy":false,"unhealthy_reason":"XID_48","gpus":[]}`), now: base, want: impaired, wantReason: "XID_48"},
+				{remove: true, now: base.Add(30 * time.Second), want: insufficient, wantReason: ""},
+			},
+		},
+		{
+			name:      "status reason clears when IMPAIRED gives way to INSUFFICIENT_DATA (stale timestamp)",
+			createdAt: base,
+			steps: []step{
+				{write: str(`{"timestamp":"2026-01-01T00:05:00Z","healthy":false,"unhealthy_reason":"XID_48","gpus":[]}`), now: base.Add(5 * time.Minute), want: impaired, wantReason: "XID_48"},
+				{write: str(`{"timestamp":"2026-01-01T00:00:00Z","healthy":false,"unhealthy_reason":"XID_79","gpus":[]}`), now: base.Add(10 * time.Minute), want: insufficient, wantReason: ""}, // 10m old > 120s
 			},
 		},
 		{
@@ -192,6 +225,7 @@ func TestGPUHealthcheckRunCheck(t *testing.T) {
 				if s.wantLast != nil {
 					assert.Equal(t, *s.wantLast, hc.GetLastHealthcheckStatus(), "step %d last status", i)
 				}
+				assert.Equal(t, s.wantReason, hc.GetStatusReason(), "step %d status reason", i)
 			}
 		})
 	}

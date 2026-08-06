@@ -65,6 +65,13 @@ func (e *HealthCheckStatusTracker) GetLastHealthcheckTime() time.Time {
 	return e.lastTimeStamp
 }
 
+// GetStatusReason returns a human-readable reason for the current status.
+// The base tracker has no reason; healthchecks that carry one embed this
+// tracker and override GetStatusReason.
+func (e *HealthCheckStatusTracker) GetStatusReason() string {
+	return ""
+}
+
 // SetHealthcheckStatus updates the health check status and timestamps.
 func (e *HealthCheckStatusTracker) SetHealthcheckStatus(healthStatus ecstcs.InstanceHealthCheckStatus) {
 	e.lock.Lock()

@@ -14,6 +14,7 @@
 package doctor
 
 import (
+	"sync"
 	"time"
 
 	"github.com/aws/amazon-ecs-agent/agent/doctor/statustracker"
@@ -38,6 +39,11 @@ type gpuHealthcheck struct {
 	reader    *gpu.DCGMMetricsReader
 	createdAt time.Time
 	*statustracker.HealthCheckStatusTracker
+
+	// statusReason holds the reason for the current status (the XID error code,
+	// e.g. "XID_48") when the GPU is IMPAIRED; empty otherwise.
+	statusReason string
+	reasonLock   sync.RWMutex
 }
 
 // NewGPUHealthcheck creates a GPU health check backed by the shared metrics
@@ -72,6 +78,7 @@ func (ghc *gpuHealthcheck) RunCheck() ecstcs.InstanceHealthCheckStatus {
 			return ecstcs.InstanceHealthCheckStatusInitializing
 		}
 		logger.Debug("[GPUHealthcheck] GPU health status not available")
+		ghc.setStatusReason("")
 		ghc.SetHealthcheckStatus(ecstcs.InstanceHealthCheckStatusInsufficientData)
 		return ecstcs.InstanceHealthCheckStatusInsufficientData
 	}
@@ -83,6 +90,7 @@ func (ghc *gpuHealthcheck) RunCheck() ecstcs.InstanceHealthCheckStatus {
 				"age":       timeNow().Sub(ts),
 				"threshold": gpuStalenessThreshold,
 			})
+			ghc.setStatusReason("")
 			ghc.SetHealthcheckStatus(ecstcs.InstanceHealthCheckStatusInsufficientData)
 			return ecstcs.InstanceHealthCheckStatusInsufficientData
 		}
@@ -90,6 +98,7 @@ func (ghc *gpuHealthcheck) RunCheck() ecstcs.InstanceHealthCheckStatus {
 
 	if healthStatus.ConnectionLost {
 		logger.Warn("[GPUHealthcheck] DCGM connection lost, reporting insufficient data")
+		ghc.setStatusReason("")
 		ghc.SetHealthcheckStatus(ecstcs.InstanceHealthCheckStatusInsufficientData)
 		return ecstcs.InstanceHealthCheckStatusInsufficientData
 	}
@@ -97,13 +106,32 @@ func (ghc *gpuHealthcheck) RunCheck() ecstcs.InstanceHealthCheckStatus {
 	var resultStatus ecstcs.InstanceHealthCheckStatus
 	if healthStatus.Healthy {
 		resultStatus = ecstcs.InstanceHealthCheckStatusOk
+		ghc.setStatusReason("")
 	} else {
 		logger.Warn("[GPUHealthcheck] GPU reported unhealthy", logger.Fields{
 			field.Reason: healthStatus.UnhealthyReason,
 		})
 		resultStatus = ecstcs.InstanceHealthCheckStatusImpaired
+		// dcgm-init already reports the reason as the XID error code
+		// (e.g. "XID_48"); surface it verbatim as the status reason.
+		ghc.setStatusReason(healthStatus.UnhealthyReason)
 	}
 
 	ghc.SetHealthcheckStatus(resultStatus)
 	return resultStatus
+}
+
+// setStatusReason records the reason for the current status.
+func (ghc *gpuHealthcheck) setStatusReason(reason string) {
+	ghc.reasonLock.Lock()
+	defer ghc.reasonLock.Unlock()
+	ghc.statusReason = reason
+}
+
+// GetStatusReason returns the XID error code behind an IMPAIRED GPU status
+// (e.g. "XID_48"), or the empty string when the GPU is not impaired.
+func (ghc *gpuHealthcheck) GetStatusReason() string {
+	ghc.reasonLock.RLock()
+	defer ghc.reasonLock.RUnlock()
+	return ghc.statusReason
 }

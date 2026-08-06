@@ -90,6 +90,12 @@ func (dhc *dockerRuntimeHealthcheck) SetHealthcheckStatus(healthStatus ecstcs.In
 	dhc.TimeStamp = nowTime
 }
 
+// GetStatusReason returns a human-readable reason for the current status. The
+// Docker runtime health check does not carry one.
+func (dhc *dockerRuntimeHealthcheck) GetStatusReason() string {
+	return ""
+}
+
 // GetHealthcheckType returns the type of this health check.
 func (dhc *dockerRuntimeHealthcheck) GetHealthcheckType() string {
 	dhc.lock.RLock()

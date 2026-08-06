@@ -53,6 +53,9 @@ func (tc *trueHealthcheck) GetStatusChangeTime() time.Time {
 func (tc *trueHealthcheck) GetLastHealthcheckTime() time.Time {
 	return time.Date(1974, time.May, 19, 1, 2, 3, 4, time.UTC)
 }
+func (tc *trueHealthcheck) GetStatusReason() string {
+	return ""
+}
 
 type falseHealthcheck struct{}
 
@@ -77,6 +80,9 @@ func (fc *falseHealthcheck) GetStatusChangeTime() time.Time {
 }
 func (fc *falseHealthcheck) GetLastHealthcheckTime() time.Time {
 	return time.Date(1974, time.May, 19, 1, 2, 3, 4, time.UTC)
+}
+func (fc *falseHealthcheck) GetStatusReason() string {
+	return ""
 }
 
 func TestNewDoctor(t *testing.T) {
