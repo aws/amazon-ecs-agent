@@ -531,6 +531,13 @@ func (cs *tcsClientServer) getInstanceStatuses() []*ecstcs.InstanceStatus {
 			Status:           aws.String(healthcheck.GetHealthcheckStatus().String()),
 			Type:             aws.String(healthcheck.GetHealthcheckType()),
 		}
+		// Only surface a status reason (e.g. the XID error code behind an
+		// IMPAIRED GPU) when the healthcheck provides one. Leaving StatusReason
+		// as a nil pointer lets omitempty drop it from the payload, matching the
+		// backend contract of null (not "") when there is no reason.
+		if reason := healthcheck.GetStatusReason(); reason != "" {
+			instanceStatus.StatusReason = aws.String(reason)
+		}
 		instanceStatuses = append(instanceStatuses, instanceStatus)
 	}
 	return instanceStatuses

@@ -72,7 +72,7 @@ func (ghc *gpuHealthcheck) RunCheck() ecstcs.InstanceHealthCheckStatus {
 			return ecstcs.InstanceHealthCheckStatusInitializing
 		}
 		logger.Debug("[GPUHealthcheck] GPU health status not available")
-		ghc.SetHealthcheckStatus(ecstcs.InstanceHealthCheckStatusInsufficientData)
+		ghc.SetHealthcheckStatus(ecstcs.InstanceHealthCheckStatusInsufficientData, "")
 		return ecstcs.InstanceHealthCheckStatusInsufficientData
 	}
 
@@ -83,18 +83,23 @@ func (ghc *gpuHealthcheck) RunCheck() ecstcs.InstanceHealthCheckStatus {
 				"age":       timeNow().Sub(ts),
 				"threshold": gpuStalenessThreshold,
 			})
-			ghc.SetHealthcheckStatus(ecstcs.InstanceHealthCheckStatusInsufficientData)
+			ghc.SetHealthcheckStatus(ecstcs.InstanceHealthCheckStatusInsufficientData, "")
 			return ecstcs.InstanceHealthCheckStatusInsufficientData
 		}
 	}
 
 	if healthStatus.ConnectionLost {
 		logger.Warn("[GPUHealthcheck] DCGM connection lost, reporting insufficient data")
-		ghc.SetHealthcheckStatus(ecstcs.InstanceHealthCheckStatusInsufficientData)
+		ghc.SetHealthcheckStatus(ecstcs.InstanceHealthCheckStatusInsufficientData, "")
 		return ecstcs.InstanceHealthCheckStatusInsufficientData
 	}
 
 	var resultStatus ecstcs.InstanceHealthCheckStatus
+	// reason accompanies an IMPAIRED status. dcgm-init reports it as the XID
+	// error code (e.g. "XID_48"), surfaced verbatim. Note an instance can be
+	// IMPAIRED with an empty reason: dcgm-init also reports unhealthy on a
+	// DCGM_HEALTH_RESULT_FAIL health check, which never sets unhealthy_reason.
+	var reason string
 	if healthStatus.Healthy {
 		resultStatus = ecstcs.InstanceHealthCheckStatusOk
 	} else {
@@ -102,8 +107,11 @@ func (ghc *gpuHealthcheck) RunCheck() ecstcs.InstanceHealthCheckStatus {
 			field.Reason: healthStatus.UnhealthyReason,
 		})
 		resultStatus = ecstcs.InstanceHealthCheckStatusImpaired
+		reason = healthStatus.UnhealthyReason
 	}
 
-	ghc.SetHealthcheckStatus(resultStatus)
+	// Set status and reason together so concurrent readers never observe a
+	// mismatched pair.
+	ghc.SetHealthcheckStatus(resultStatus, reason)
 	return resultStatus
 }
