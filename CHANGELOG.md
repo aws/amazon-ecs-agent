@@ -1,5 +1,20 @@
 # Changelog
 
+# 1.106.1
+* Enhancement - Add retry for EFS volume creation to handle plugin timeout errors caused by concurrent mount operation [#5077](https://github.com/aws/amazon-ecs-agent/pull/5077)
+* Enhancement - Bump github.com/aws/aws-sdk-go-v2/config from 1.32.23 to 1.32.31 in /agent [#5064](https://github.com/aws/amazon-ecs-agent/pull/5064)
+* Enhancement - Bump google.golang.org/grpc from 1.79.3 to 1.82.1 in /ecs-agent/daemonimages/csidriver [#5056](https://github.com/aws/amazon-ecs-agent/pull/5056)
+* Enhancement - Bump github.com/gorilla/mux from 1.8.0 to 1.8.1 in /ecs-agent [#5063](https://github.com/aws/amazon-ecs-agent/pull/5063)
+* Enhancement - add nos3readcache S3 Files mount option [#5062](https://github.com/aws/amazon-ecs-agent/pull/5062)
+* Feature - Nvidia MPS GPU sharing (not yet enabled)
+  * Add ecs.capability.gpu-sharing-mps capability for NVIDIA MPS GPU sharing [#5053](https://github.com/aws/amazon-ecs-agent/pull/5053)
+  * Inject NVIDIA MPS env vars and pipe mount into MPS containers [#5082](https://github.com/aws/amazon-ecs-agent/pull/5082)
+  * Map ACS GPU sharingStrategy onto the internal container model for MPS [#5076](https://github.com/aws/amazon-ecs-agent/pull/5076)
+  * Gate gpu-sharing-mps on complete per-GPU memory- #5075 [#5075](https://github.com/aws/amazon-ecs-agent/pull/5075)
+  * Regenerate ACS model for GPU sharingStrategy and validate it [#5071](https://github.com/aws/amazon-ecs-agent/pull/5071)
+  * Report per-GPU memory at container instance registration for GPU sharing [#5061](https://github.com/aws/amazon-ecs-agent/pull/5061)
+  * Regenerate ECS SDK with gpuInfo on PlatformDevice [#5060](https://github.com/aws/amazon-ecs-agent/pull/5060)
+
 # 1.106.0
 * Feature - Feature - Add FIS-driven DNS refresh add-sources endpoint for network-latency and network-packet-loss faults [#5029](https://github.com/aws/amazon-ecs-agent/pull/5029)
 * Enhancement - Enhancement: Update SSM Agent version to 3.3.4624.0 for ECS exec [#5054](https://github.com/aws/amazon-ecs-agent/pull/5054)
