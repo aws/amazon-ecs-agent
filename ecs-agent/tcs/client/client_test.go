@@ -62,7 +62,8 @@ type trueHealthcheck struct{}
 func (tc *trueHealthcheck) RunCheck() ecstcs.InstanceHealthCheckStatus {
 	return ecstcs.InstanceHealthCheckStatusOk
 }
-func (tc *trueHealthcheck) SetHealthcheckStatus(status ecstcs.InstanceHealthCheckStatus) {}
+func (tc *trueHealthcheck) SetHealthcheckStatus(status ecstcs.InstanceHealthCheckStatus, reason string) {
+}
 func (tc *trueHealthcheck) GetHealthcheckType() string {
 	return ecstcs.InstanceHealthCheckTypeAgent
 }
@@ -90,7 +91,8 @@ type falseHealthcheck struct{}
 func (fc *falseHealthcheck) RunCheck() ecstcs.InstanceHealthCheckStatus {
 	return ecstcs.InstanceHealthCheckStatusImpaired
 }
-func (fc *falseHealthcheck) SetHealthcheckStatus(status ecstcs.InstanceHealthCheckStatus) {}
+func (fc *falseHealthcheck) SetHealthcheckStatus(status ecstcs.InstanceHealthCheckStatus, reason string) {
+}
 func (fc *falseHealthcheck) GetHealthcheckType() string {
 	return ecstcs.InstanceHealthCheckTypeAgent
 }

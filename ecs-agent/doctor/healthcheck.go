@@ -28,6 +28,8 @@ type Healthcheck interface {
 	GetLastHealthcheckStatus() ecstcs.InstanceHealthCheckStatus
 	GetLastHealthcheckTime() time.Time
 	RunCheck() ecstcs.InstanceHealthCheckStatus
-	SetHealthcheckStatus(status ecstcs.InstanceHealthCheckStatus)
+	// SetHealthcheckStatus updates the status and its accompanying reason
+	// atomically. Pass an empty reason when there is none.
+	SetHealthcheckStatus(status ecstcs.InstanceHealthCheckStatus, reason string)
 	GetStatusReason() string
 }

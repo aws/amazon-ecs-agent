@@ -33,7 +33,7 @@ func TestHealthCheckStatusTracker(t *testing.T) {
 	})
 	t.Run("last status and timestamp is captured", func(t *testing.T) {
 		tracker := newHealthCheckStatusTrackerWithTimeFn(incrementalTime())
-		tracker.SetHealthcheckStatus(ecstcs.InstanceHealthCheckStatusOk)
+		tracker.SetHealthcheckStatus(ecstcs.InstanceHealthCheckStatusOk, "")
 
 		assert.Equal(t, ecstcs.InstanceHealthCheckStatusOk, tracker.GetHealthcheckStatus())
 		assert.Equal(t, ecstcs.InstanceHealthCheckStatusInitializing, tracker.GetLastHealthcheckStatus())
@@ -45,7 +45,7 @@ func TestHealthCheckStatusTracker(t *testing.T) {
 		tracker := newHealthCheckStatusTrackerWithTimeFn(incrementalTime())
 		// Update (but not change) status a bunch of times.
 		for i := 0; i < 10; i++ {
-			tracker.SetHealthcheckStatus(ecstcs.InstanceHealthCheckStatusOk)
+			tracker.SetHealthcheckStatus(ecstcs.InstanceHealthCheckStatusOk, "")
 		}
 
 		assert.Equal(t, ecstcs.InstanceHealthCheckStatusOk, tracker.GetHealthcheckStatus())
@@ -56,14 +56,29 @@ func TestHealthCheckStatusTracker(t *testing.T) {
 	})
 	t.Run("multiple updates", func(t *testing.T) {
 		tracker := newHealthCheckStatusTrackerWithTimeFn(incrementalTime())
-		tracker.SetHealthcheckStatus(ecstcs.InstanceHealthCheckStatusOk)
-		tracker.SetHealthcheckStatus(ecstcs.InstanceHealthCheckStatusImpaired)
+		tracker.SetHealthcheckStatus(ecstcs.InstanceHealthCheckStatusOk, "")
+		tracker.SetHealthcheckStatus(ecstcs.InstanceHealthCheckStatusImpaired, "XID_48")
 
 		assert.Equal(t, ecstcs.InstanceHealthCheckStatusImpaired, tracker.GetHealthcheckStatus())
 		assert.Equal(t, ecstcs.InstanceHealthCheckStatusOk, tracker.GetLastHealthcheckStatus())
 		assert.Equal(t, int64(2), tracker.GetLastHealthcheckTime().Unix())
 		assert.Equal(t, int64(3), tracker.GetHealthcheckTime().Unix())
 		assert.Equal(t, int64(3), tracker.GetStatusChangeTime().Unix())
+	})
+	t.Run("status reason is set and cleared with status", func(t *testing.T) {
+		tracker := newHealthCheckStatusTrackerWithTimeFn(incrementalTime())
+		// Default: no reason.
+		assert.Equal(t, "", tracker.GetStatusReason())
+
+		// IMPAIRED with a reason.
+		tracker.SetHealthcheckStatus(ecstcs.InstanceHealthCheckStatusImpaired, "XID_48")
+		assert.Equal(t, ecstcs.InstanceHealthCheckStatusImpaired, tracker.GetHealthcheckStatus())
+		assert.Equal(t, "XID_48", tracker.GetStatusReason())
+
+		// Recovering to OK clears the reason.
+		tracker.SetHealthcheckStatus(ecstcs.InstanceHealthCheckStatusOk, "")
+		assert.Equal(t, ecstcs.InstanceHealthCheckStatusOk, tracker.GetHealthcheckStatus())
+		assert.Equal(t, "", tracker.GetStatusReason())
 	})
 }
 

@@ -86,7 +86,7 @@ func TestSetHealthCheckStatus(t *testing.T) {
 	dockerClient := mock_dockerapi.NewMockDockerClient(ctrl)
 	dockerRuntimeHealthCheck := NewDockerRuntimeHealthcheck(dockerClient)
 	healthCheckStatus := ecstcs.InstanceHealthCheckStatusOk
-	dockerRuntimeHealthCheck.SetHealthcheckStatus(healthCheckStatus)
+	dockerRuntimeHealthCheck.SetHealthcheckStatus(healthCheckStatus, "")
 	assert.Equal(t, ecstcs.InstanceHealthCheckStatusOk, dockerRuntimeHealthCheck.Status)
 }
 
@@ -101,7 +101,7 @@ func TestSetHealthcheckStatusChange(t *testing.T) {
 	initializationChangeTime := dockerRuntimeHealthcheck.GetStatusChangeTime()
 
 	// We update to initializing again; our StatusChangeTime remains the same.
-	dockerRuntimeHealthcheck.SetHealthcheckStatus(ecstcs.InstanceHealthCheckStatusInitializing)
+	dockerRuntimeHealthcheck.SetHealthcheckStatus(ecstcs.InstanceHealthCheckStatusInitializing, "")
 	updateChangeTime := dockerRuntimeHealthcheck.GetStatusChangeTime()
 	assert.Equal(t, ecstcs.InstanceHealthCheckStatusInitializing, dockerRuntimeHealthcheck.Status)
 	assert.Equal(t, initializationChangeTime, updateChangeTime)
@@ -110,7 +110,7 @@ func TestSetHealthcheckStatusChange(t *testing.T) {
 	time.Sleep(1 * time.Millisecond)
 
 	// Change status. This should change the update time too.
-	dockerRuntimeHealthcheck.SetHealthcheckStatus(ecstcs.InstanceHealthCheckStatusOk)
+	dockerRuntimeHealthcheck.SetHealthcheckStatus(ecstcs.InstanceHealthCheckStatusOk, "")
 	assert.Equal(t, ecstcs.InstanceHealthCheckStatusOk, dockerRuntimeHealthcheck.Status)
 	okChangeTime := dockerRuntimeHealthcheck.GetStatusChangeTime()
 	// Have we updated our change time?

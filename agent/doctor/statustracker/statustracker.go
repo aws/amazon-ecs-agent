@@ -22,6 +22,7 @@ import (
 // HealthCheckStatusTracker is a helper for keeping track of current and last health check status.
 type HealthCheckStatusTracker struct {
 	status           ecstcs.InstanceHealthCheckStatus
+	statusReason     string
 	timeStamp        time.Time
 	statusChangeTime time.Time
 	lastStatus       ecstcs.InstanceHealthCheckStatus
@@ -65,15 +66,20 @@ func (e *HealthCheckStatusTracker) GetLastHealthcheckTime() time.Time {
 	return e.lastTimeStamp
 }
 
-// GetStatusReason returns a human-readable reason for the current status.
-// The base tracker has no reason; healthchecks that carry one embed this
-// tracker and override GetStatusReason.
+// GetStatusReason returns the human-readable reason accompanying the current
+// status (for example the XID error code behind an IMPAIRED GPU), or the empty
+// string when there is none. It is read under the same lock as the status so a
+// caller always observes a status and reason that were set together.
 func (e *HealthCheckStatusTracker) GetStatusReason() string {
-	return ""
+	e.lock.RLock()
+	defer e.lock.RUnlock()
+	return e.statusReason
 }
 
-// SetHealthcheckStatus updates the health check status and timestamps.
-func (e *HealthCheckStatusTracker) SetHealthcheckStatus(healthStatus ecstcs.InstanceHealthCheckStatus) {
+// SetHealthcheckStatus updates the health check status, its accompanying reason,
+// and timestamps atomically under a single lock, so status and reason never
+// desync for concurrent readers. Pass an empty reason when there is none.
+func (e *HealthCheckStatusTracker) SetHealthcheckStatus(healthStatus ecstcs.InstanceHealthCheckStatus, reason string) {
 	e.lock.Lock()
 	defer e.lock.Unlock()
 	nowTime := e.now()
@@ -87,8 +93,9 @@ func (e *HealthCheckStatusTracker) SetHealthcheckStatus(healthStatus ecstcs.Inst
 	e.lastStatus = e.status
 	e.lastTimeStamp = e.timeStamp
 
-	// Update latest status.
+	// Update latest status and its reason.
 	e.status = healthStatus
+	e.statusReason = reason
 	e.timeStamp = nowTime
 }
 
