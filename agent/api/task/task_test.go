@@ -6452,6 +6452,69 @@ func TestGetCredentialsIDForRoleType(t *testing.T) {
 	}
 }
 
+func TestSetAndGetTaskRoleArn(t *testing.T) {
+	task := &Task{Arn: "arn:aws:ecs:us-west-2:123:task/cluster/abc"}
+	assert.Empty(t, task.GetTaskRoleArn())
+
+	task.SetTaskRoleArn("arn:aws:iam::123:role/TaskRole")
+	assert.Equal(t, "arn:aws:iam::123:role/TaskRole", task.GetTaskRoleArn())
+}
+
+func TestSetAndGetExecutionRoleArn(t *testing.T) {
+	task := &Task{Arn: "arn:aws:ecs:us-west-2:123:task/cluster/abc"}
+	assert.Empty(t, task.GetExecutionRoleArn())
+
+	task.SetExecutionRoleArn("arn:aws:iam::123:role/ExecRole")
+	assert.Equal(t, "arn:aws:iam::123:role/ExecRole", task.GetExecutionRoleArn())
+}
+
+func TestGetRoleArnForRoleType(t *testing.T) {
+	tests := []struct {
+		name            string
+		roleArn         string
+		execRoleArn     string
+		roleType        string
+		expectedRoleArn string
+	}{
+		{
+			name:            "application role type",
+			roleArn:         "arn:aws:iam::123:role/TaskRole",
+			execRoleArn:     "arn:aws:iam::123:role/ExecRole",
+			roleType:        credentials.ApplicationRoleType,
+			expectedRoleArn: "arn:aws:iam::123:role/TaskRole",
+		},
+		{
+			name:            "execution role type",
+			roleArn:         "arn:aws:iam::123:role/TaskRole",
+			execRoleArn:     "arn:aws:iam::123:role/ExecRole",
+			roleType:        credentials.ExecutionRoleType,
+			expectedRoleArn: "arn:aws:iam::123:role/ExecRole",
+		},
+		{
+			name:            "unknown role type",
+			roleArn:         "arn:aws:iam::123:role/TaskRole",
+			execRoleArn:     "arn:aws:iam::123:role/ExecRole",
+			roleType:        "UnknownType",
+			expectedRoleArn: "",
+		},
+		{
+			name:            "role ARN not set",
+			roleType:        credentials.ApplicationRoleType,
+			expectedRoleArn: "",
+		},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			task := &Task{Arn: "arn:aws:ecs:us-west-2:123:task/cluster/abc"}
+			task.SetTaskRoleArn(tc.roleArn)
+			task.SetExecutionRoleArn(tc.execRoleArn)
+
+			assert.Equal(t, tc.expectedRoleArn, task.GetRoleArnForRoleType(tc.roleType))
+		})
+	}
+}
+
 func TestGetDockerResourcesPropagateTaskMemoryLimitCgroupV2(t *testing.T) {
 	origCgroupV2 := config.CgroupV2
 	defer func() { config.CgroupV2 = origCgroupV2 }()

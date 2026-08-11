@@ -267,6 +267,16 @@ type Task struct {
 	CredentialsID                string `json:"credentialsID"`
 	credentialsRelativeURIUnsafe string
 
+	// TaskRoleArn is the ARN of the task IAM role delivered by ACS alongside
+	// the task role credentials. It is persisted so that credentials retrieved
+	// from other sources, such as IMDS, can be verified against the role they
+	// are expected to belong to.
+	TaskRoleArn string `json:"taskRoleArn,omitempty"`
+
+	// ExecutionRoleArn is the ARN of the task execution IAM role. See
+	// TaskRoleArn for why it is persisted.
+	ExecutionRoleArn string `json:"executionRoleArn,omitempty"`
+
 	// ENIs is the list of Elastic Network Interfaces assigned to this task. The
 	// TaskENIs type is helpful when decoding state files which might have stored
 	// ENIs as a single ENI object instead of a list.
@@ -3049,6 +3059,51 @@ func (task *Task) GetCredentialsIDForRoleType(roleType string) string {
 		return task.GetCredentialsID()
 	case credentials.ExecutionRoleType:
 		return task.GetExecutionCredentialsID()
+	default:
+		return ""
+	}
+}
+
+// SetTaskRoleArn sets the ARN of the task IAM role.
+func (task *Task) SetTaskRoleArn(arn string) {
+	task.lock.Lock()
+	defer task.lock.Unlock()
+
+	task.TaskRoleArn = arn
+}
+
+// GetTaskRoleArn gets the ARN of the task IAM role.
+func (task *Task) GetTaskRoleArn() string {
+	task.lock.RLock()
+	defer task.lock.RUnlock()
+
+	return task.TaskRoleArn
+}
+
+// SetExecutionRoleArn sets the ARN of the task execution IAM role.
+func (task *Task) SetExecutionRoleArn(arn string) {
+	task.lock.Lock()
+	defer task.lock.Unlock()
+
+	task.ExecutionRoleArn = arn
+}
+
+// GetExecutionRoleArn gets the ARN of the task execution IAM role.
+func (task *Task) GetExecutionRoleArn() string {
+	task.lock.RLock()
+	defer task.lock.RUnlock()
+
+	return task.ExecutionRoleArn
+}
+
+// GetRoleArnForRoleType returns the IAM role ARN for the given role type on
+// the task.
+func (task *Task) GetRoleArnForRoleType(roleType string) string {
+	switch roleType {
+	case credentials.ApplicationRoleType:
+		return task.GetTaskRoleArn()
+	case credentials.ExecutionRoleType:
+		return task.GetExecutionRoleArn()
 	default:
 		return ""
 	}

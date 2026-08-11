@@ -260,6 +260,24 @@ func (s *scanner) scanNamespace(ctx context.Context, namespace string) ([]TaskCr
 			continue
 		}
 
+		if err := validateCredential(imdsCred); err != nil {
+			logger.Error("IMDS credentials scan: invalid credential", logger.Fields{
+				field.TaskID: taskID,
+				"roleType":   roleType,
+				"namespace":  namespace,
+				field.Error:  err,
+			})
+			s.metricsFactory.New(metrics.IMDSCredentialsScannerCredentialFailureMetricName).
+				WithFields(map[string]any{
+					metricFieldNamespace: namespace,
+					metricFieldTaskID:    taskID,
+					metricFieldRoleType:  roleType,
+				}).Done(err)
+			// Invalid credential; try remaining credentials in this namespace.
+			hasErrors = true
+			continue
+		}
+
 		logger.Debug("IMDS credentials scan: fetched credential", logger.Fields{
 			field.TaskID: taskID,
 			"roleType":   roleType,
@@ -306,6 +324,29 @@ func parseCredentialKey(key string) (string, string, error) {
 		return "", "", fmt.Errorf("unexpected credential key format: %s", key)
 	}
 	return taskID, roleType, nil
+}
+
+// validateCredential reports an error when a required credential field is absent.
+// json.Unmarshal leaves fields missing from the document zero-valued, so an
+// empty value means the field was not published.
+func validateCredential(c imdsCredential) error {
+	var missing []string
+	if c.AccessKeyId == "" {
+		missing = append(missing, "AccessKeyId")
+	}
+	if c.SecretAccessKey == "" {
+		missing = append(missing, "SecretAccessKey")
+	}
+	if c.Token == "" {
+		missing = append(missing, "Token")
+	}
+	if c.Expiration == "" {
+		missing = append(missing, "Expiration")
+	}
+	if len(missing) > 0 {
+		return fmt.Errorf("missing required fields: %s", strings.Join(missing, ", "))
+	}
+	return nil
 }
 
 // getMetadata is a rate-limited wrapper around the EC2 metadata client.
