@@ -331,11 +331,12 @@ func TestRefresh(t *testing.T) {
 
 func TestUpsertCredential(t *testing.T) {
 	tests := []struct {
-		name           string
-		task           *apitask.Task
-		cred           imds.TaskCredential
-		expectedUpsert *credentials.TaskIAMRoleCredentials
-		upsertErr      error
+		name                 string
+		task                 *apitask.Task
+		cred                 imds.TaskCredential
+		expectedUpsert       *credentials.TaskIAMRoleCredentials
+		upsertErr            error
+		expectedErrSubstring string
 	}{
 		{
 			name: "upserts with correct credentials",
@@ -363,7 +364,7 @@ func TestUpsertCredential(t *testing.T) {
 			},
 		},
 		{
-			name: "SetTaskCredentials error is handled gracefully",
+			name: "SetTaskCredentials error is returned",
 			task: newTestTask(testTaskARN1, status.TaskRunning, testCredID1, ""),
 			cred: imds.TaskCredential{
 				TaskID:          testTaskID1,
@@ -386,7 +387,8 @@ func TestUpsertCredential(t *testing.T) {
 					RoleType:        credentials.ApplicationRoleType,
 				},
 			},
-			upsertErr: errors.New("write failed"),
+			upsertErr:            errors.New("write failed"),
+			expectedErrSubstring: "set task credentials: write failed",
 		},
 		{
 			name: "no credentials ID for role type, does not upsert",
@@ -396,7 +398,8 @@ func TestUpsertCredential(t *testing.T) {
 				RoleType: credentials.ApplicationRoleType,
 				RoleArn:  testRoleARN1,
 			},
-			expectedUpsert: nil,
+			expectedUpsert:       nil,
+			expectedErrSubstring: "no credentials ID on task for role type",
 		},
 		{
 			name: "unknown role type, does not upsert",
@@ -406,7 +409,8 @@ func TestUpsertCredential(t *testing.T) {
 				RoleType: "UnknownType",
 				RoleArn:  testRoleARN1,
 			},
-			expectedUpsert: nil,
+			expectedUpsert:       nil,
+			expectedErrSubstring: "no credentials ID on task for role type",
 		},
 	}
 
@@ -430,7 +434,12 @@ func TestUpsertCredential(t *testing.T) {
 				ctx:         context.Background(),
 				credManager: mockCredManager,
 			}
-			refresher.upsertCredential(tc.task, tc.cred)
+			err := refresher.upsertCredential(tc.task, tc.cred)
+			if tc.expectedErrSubstring == "" {
+				assert.NoError(t, err)
+				return
+			}
+			assert.ErrorContains(t, err, tc.expectedErrSubstring)
 		})
 	}
 }
