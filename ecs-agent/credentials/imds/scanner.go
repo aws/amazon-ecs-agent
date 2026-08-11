@@ -110,7 +110,7 @@ func (s *scanner) Scan(ctx context.Context) ([]TaskCredential, error) {
 
 	// No namespaces is expected when IMDS does not have ECS task credentials yet.
 	if len(namespaces) == 0 {
-		logger.Debug("No iam-ecs namespace found in IMDS")
+		logger.Debug("IMDS credentials scan: no iam-ecs namespace found")
 		return nil, nil
 	}
 
@@ -119,7 +119,7 @@ func (s *scanner) Scan(ctx context.Context) ([]TaskCredential, error) {
 	for _, ns := range namespaces {
 		nsCreds, err := s.scanNamespace(ctx, ns)
 		if err != nil {
-			logger.Error("Failed to scan IMDS namespace", logger.Fields{
+			logger.Error("IMDS credentials scan: failed to scan namespace", logger.Fields{
 				"namespace": ns,
 				field.Error: err,
 			})
@@ -197,7 +197,7 @@ func (s *scanner) scanNamespace(ctx context.Context, namespace string) ([]TaskCr
 		return nil, fmt.Errorf("parse LastUpdated for %s: %w", namespace, err)
 	}
 	if cached, ok := s.lastUpdated[namespace]; ok && lastUpdated.Equal(cached) {
-		logger.Debug("Skipping namespace with unchanged LastUpdated", logger.Fields{
+		logger.Debug("IMDS credentials scan: skipping namespace with unchanged LastUpdated", logger.Fields{
 			"namespace": namespace,
 		})
 		return nil, nil
@@ -208,7 +208,7 @@ func (s *scanner) scanNamespace(ctx context.Context, namespace string) ([]TaskCr
 	for key, entry := range info.TaskCredentials {
 		taskID, roleType, err := parseCredentialKey(key)
 		if err != nil {
-			logger.Error("Failed to parse credential key from IMDS", logger.Fields{
+			logger.Error("IMDS credentials scan: failed to parse credential key", logger.Fields{
 				"namespace": namespace,
 				field.Error: err,
 			})
@@ -224,7 +224,7 @@ func (s *scanner) scanNamespace(ctx context.Context, namespace string) ([]TaskCr
 		credPath := fmt.Sprintf(credentialPathFormat, namespace, key)
 		credResp, err := s.getMetadata(ctx, credPath)
 		if err != nil {
-			logger.Error("Failed to fetch credential from IMDS", logger.Fields{
+			logger.Error("IMDS credentials scan: failed to fetch credential", logger.Fields{
 				field.TaskID: taskID,
 				"roleType":   roleType,
 				"namespace":  namespace,
@@ -243,7 +243,7 @@ func (s *scanner) scanNamespace(ctx context.Context, namespace string) ([]TaskCr
 
 		var imdsCred imdsCredential
 		if err := json.Unmarshal([]byte(credResp), &imdsCred); err != nil {
-			logger.Error("Failed to parse credential from IMDS", logger.Fields{
+			logger.Error("IMDS credentials scan: failed to parse credential", logger.Fields{
 				field.TaskID: taskID,
 				"roleType":   roleType,
 				"namespace":  namespace,
@@ -260,6 +260,12 @@ func (s *scanner) scanNamespace(ctx context.Context, namespace string) ([]TaskCr
 			continue
 		}
 
+		logger.Debug("IMDS credentials scan: fetched credential", logger.Fields{
+			field.TaskID: taskID,
+			"roleType":   roleType,
+			"namespace":  namespace,
+			"expiration": imdsCred.Expiration,
+		})
 		creds = append(creds, TaskCredential{
 			TaskID:          taskID,
 			RoleType:        roleType,
@@ -280,8 +286,14 @@ func (s *scanner) scanNamespace(ctx context.Context, namespace string) ([]TaskCr
 	// Surface an error when the namespace yielded no credentials and also had
 	// failures, so callers don't mistake it for "no credentials yet".
 	if len(creds) == 0 && hasErrors {
-		return nil, fmt.Errorf("namespace %s: all credential processing failed", namespace)
+		return nil, fmt.Errorf("all credential processing failed for %s", namespace)
 	}
+
+	logger.Info("IMDS credentials scan: namespace scan complete", logger.Fields{
+		"namespace":                namespace,
+		"retrievedCredentialCount": len(creds),
+		"lastUpdated":              info.LastUpdated,
+	})
 
 	return creds, nil
 }
