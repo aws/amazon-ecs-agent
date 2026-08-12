@@ -4434,3 +4434,12 @@ func testRegisterFaultHandler(t *testing.T, tcs []networkFaultTestCase, tmdsEndp
 		})
 	}
 }
+
+func TestCreateRateLimiter(t *testing.T) {
+	lmt := createRateLimiter()
+	require.NotNil(t, lmt)
+
+	assert.Equal(t, 1.0, lmt.GetMax(),
+		"fault handler rate limit should be 1 request per second")
+	assert.Equal(t, "You have reached maximum request limit", lmt.GetMessage())
+}
