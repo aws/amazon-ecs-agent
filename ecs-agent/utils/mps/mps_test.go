@@ -67,7 +67,7 @@ func TestBuildEnvComputePercentBoundaries(t *testing.T) {
 // newProbeMocks wires a MockExec+MockCmd so ProbeControlDaemon can run against a
 // canned CombinedOutput result. It captures the stdin reader passed to
 // SetIOStreams into gotStdin so a test can assert the command is fed on stdin.
-func newProbeMocks(t *testing.T, gotStdin *string) (*mock_execwrapper.MockExec, *mock_execwrapper.MockCmd, *gomock.Controller) {
+func newProbeMocks(t *testing.T, gotStdin *string, gotEnv *[]string) (*mock_execwrapper.MockExec, *mock_execwrapper.MockCmd, *gomock.Controller) {
 	ctrl := gomock.NewController(t)
 	mockExec := mock_execwrapper.NewMockExec(ctrl)
 	mockCmd := mock_execwrapper.NewMockCmd(ctrl)
@@ -76,6 +76,12 @@ func newProbeMocks(t *testing.T, gotStdin *string) (*mock_execwrapper.MockExec, 
 			return context.WithTimeout(parent, d)
 		})
 	mockExec.EXPECT().CommandContext(gomock.Any(), ControlBinary).Return(mockCmd)
+	mockCmd.EXPECT().SetEnv(gomock.Any()).
+		Do(func(env []string) {
+			if gotEnv != nil {
+				*gotEnv = env
+			}
+		})
 	mockCmd.EXPECT().SetIOStreams(gomock.Any(), gomock.Any(), gomock.Any()).
 		Do(func(stdin io.Reader, stdout, stderr io.Writer) {
 			if gotStdin != nil && stdin != nil {
@@ -88,7 +94,8 @@ func newProbeMocks(t *testing.T, gotStdin *string) (*mock_execwrapper.MockExec, 
 
 func TestProbeControlDaemonServing(t *testing.T) {
 	var gotStdin string
-	mockExec, mockCmd, ctrl := newProbeMocks(t, &gotStdin)
+	var gotEnv []string
+	mockExec, mockCmd, ctrl := newProbeMocks(t, &gotStdin, &gotEnv)
 	defer ctrl.Finish()
 	// Control utility exits 0 and prints the default active-thread percentage.
 	mockCmd.EXPECT().CombinedOutput().Return([]byte("100.0\n"), nil)
@@ -99,10 +106,12 @@ func TestProbeControlDaemonServing(t *testing.T) {
 	assert.False(t, res.TimedOut)
 	assert.Equal(t, "100.0", res.Stdout)
 	assert.Equal(t, ProbeCommand+"\n", gotStdin, "the probe command must be fed on stdin")
+	assert.Contains(t, gotEnv, PipeDirectoryEnvVar+"="+PipeDirectory,
+		"the probe must tell the control utility where the daemon listens")
 }
 
 func TestProbeControlDaemonNotServing(t *testing.T) {
-	mockExec, mockCmd, ctrl := newProbeMocks(t, nil)
+	mockExec, mockCmd, ctrl := newProbeMocks(t, nil, nil)
 	defer ctrl.Finish()
 	// Control utility exits nonzero: daemon not found or connection broken.
 	exitErr := &exec.ExitError{}
@@ -127,6 +136,7 @@ func TestProbeControlDaemonWedged(t *testing.T) {
 			return context.WithTimeout(parent, 0)
 		})
 	mockExec.EXPECT().CommandContext(gomock.Any(), ControlBinary).Return(mockCmd)
+	mockCmd.EXPECT().SetEnv(gomock.Any())
 	mockCmd.EXPECT().SetIOStreams(gomock.Any(), gomock.Any(), gomock.Any())
 	killErr := errors.New("signal: killed")
 	mockCmd.EXPECT().CombinedOutput().Return([]byte{}, killErr)

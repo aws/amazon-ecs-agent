@@ -138,7 +138,7 @@ const (
 
 	// mpsPipeDirectory is the MPS control daemon's socket directory. The ECS agent
 	// checks for it and reaches the daemon through it for the MPS health check.
-	mpsPipeDirectory = "/tmp/nvidia-mps"
+	mpsPipeDirectory = "/run/mps-ecs"
 
 	// Docker Network options to filter for the default bridge network interface of docker
 	dockerDefaultBridgeInterfaceOption = "com.docker.network.bridge.default_bridge"

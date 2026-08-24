@@ -16,6 +16,7 @@ package mps
 import (
 	"context"
 	"fmt"
+	"os"
 	"strings"
 	"time"
 
@@ -25,9 +26,8 @@ import (
 const (
 	// PipeDirectory is the MPS control daemon's Unix domain socket directory. It
 	// must match what the systemd nvidia-mps.service exposes on the host and is
-	// bind mounted into each MPS container so the CUDA runtime can reach the
-	// daemon.
-	PipeDirectory = "/tmp/nvidia-mps"
+	// bind mounted into each MPS container so the CUDA runtime can reach the daemon.
+	PipeDirectory = "/run/mps-ecs"
 
 	// PipeDirectoryEnvVar tells the CUDA runtime where to find the MPS pipes.
 	PipeDirectoryEnvVar = "CUDA_MPS_PIPE_DIRECTORY"
@@ -88,6 +88,10 @@ func ProbeControlDaemon(exec execwrapper.Exec, command string) ProbeResult {
 	// shell), so there is no shell-injection surface.
 	// nosemgrep: command-injection-exec-variable
 	cmd := exec.CommandContext(ctx, ControlBinary)
+	// The control utility locates the daemon through CUDA_MPS_PIPE_DIRECTORY in its
+	// own environment. Without this it looks in CUDA's default directory and reports
+	// the daemon as missing.
+	cmd.SetEnv(append(os.Environ(), PipeDirectoryEnvVar+"="+PipeDirectory))
 	cmd.SetIOStreams(strings.NewReader(command+"\n"), nil, nil)
 
 	start := time.Now()
