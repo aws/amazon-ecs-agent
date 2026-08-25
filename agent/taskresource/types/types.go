@@ -25,6 +25,7 @@ import (
 	"github.com/aws/amazon-ecs-agent/agent/taskresource/envFiles"
 	"github.com/aws/amazon-ecs-agent/agent/taskresource/firelens"
 	"github.com/aws/amazon-ecs-agent/agent/taskresource/fsxwindowsfileserver"
+	"github.com/aws/amazon-ecs-agent/agent/taskresource/mpsdaemon"
 	ssmsecretres "github.com/aws/amazon-ecs-agent/agent/taskresource/ssmsecret"
 	"github.com/aws/amazon-ecs-agent/agent/taskresource/volume"
 )
@@ -48,6 +49,8 @@ const (
 	EnvironmentFilesKey = envFiles.ResourceName
 	// FSxWindowsFileServerKey is the string used in resources map to represent fsxwindowsfileserver resource
 	FSxWindowsFileServerKey = fsxwindowsfileserver.ResourceName
+	// MPSDaemonKey is the string used in resources map to represent the MPS control daemon health gate
+	MPSDaemonKey = mpsdaemon.ResourceName
 )
 
 // ResourcesMap represents the map of resource type to the corresponding resource
@@ -91,6 +94,8 @@ func unmarshalResource(key string, value json.RawMessage, result map[string][]ta
 		return unmarshalEnvironmentFilesKey(key, value, result)
 	case FSxWindowsFileServerKey:
 		return unmarshalFSxWindowsFileServerKey(key, value, result)
+	case MPSDaemonKey:
+		return unmarshalMPSDaemonKey(key, value, result)
 	default:
 		return errors.New("Unsupported resource type")
 	}
@@ -253,6 +258,24 @@ func unmarshalFSxWindowsFileServerKey(key string, value json.RawMessage, result 
 			return err
 		}
 		result[key] = append(result[key], res)
+	}
+	return nil
+}
+
+func unmarshalMPSDaemonKey(key string, value json.RawMessage, result map[string][]taskresource.TaskResource) error {
+	var resources []json.RawMessage
+	err := json.Unmarshal(value, &resources)
+	if err != nil {
+		return err
+	}
+
+	for _, r := range resources {
+		mpsResource := &mpsdaemon.MPSDaemonResource{}
+		err := mpsResource.UnmarshalJSON(r)
+		if err != nil {
+			return err
+		}
+		result[key] = append(result[key], mpsResource)
 	}
 	return nil
 }
