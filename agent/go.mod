@@ -8,7 +8,7 @@ require (
 	github.com/aws/amazon-ecs-agent/ecs-agent v0.0.0
 	github.com/aws/amazon-ecs-agent/ecs-agent/daemonimages/csidriver v0.0.0-20250814231752-7d5ec06fbcec
 	github.com/aws/aws-sdk-go v1.55.7
-	github.com/aws/aws-sdk-go-v2 v1.43.2
+	github.com/aws/aws-sdk-go-v2 v1.43.7
 	github.com/aws/aws-sdk-go-v2/config v1.32.31
 	github.com/aws/aws-sdk-go-v2/credentials v1.19.32
 	github.com/aws/aws-sdk-go-v2/feature/ec2/imds v1.18.33
@@ -18,9 +18,9 @@ require (
 	github.com/aws/aws-sdk-go-v2/service/ecs v1.47.3
 	github.com/aws/aws-sdk-go-v2/service/fsx v1.65.10
 	github.com/aws/aws-sdk-go-v2/service/s3 v1.97.3
-	github.com/aws/aws-sdk-go-v2/service/secretsmanager v1.35.2
+	github.com/aws/aws-sdk-go-v2/service/secretsmanager v1.44.7
 	github.com/aws/aws-sdk-go-v2/service/ssm v1.60.0
-	github.com/aws/smithy-go v1.27.5
+	github.com/aws/smithy-go v1.27.8
 	github.com/awslabs/go-config-generator-for-fluentd-and-fluentbit v0.0.0-20210308162251-8959c62cb8f9
 	github.com/cihub/seelog v0.0.0-20170130134532-f561c5e57575
 	github.com/container-storage-interface/spec v1.12.0
@@ -54,8 +54,8 @@ require (
 require (
 	github.com/Microsoft/go-winio v0.6.2 // indirect
 	github.com/aws/aws-sdk-go-v2/aws/protocol/eventstream v1.7.8 // indirect
-	github.com/aws/aws-sdk-go-v2/internal/configsources v1.4.33 // indirect
-	github.com/aws/aws-sdk-go-v2/internal/endpoints/v2 v2.7.33 // indirect
+	github.com/aws/aws-sdk-go-v2/internal/configsources v1.4.38 // indirect
+	github.com/aws/aws-sdk-go-v2/internal/endpoints/v2 v2.7.38 // indirect
 	github.com/aws/aws-sdk-go-v2/internal/v4a v1.4.34 // indirect
 	github.com/aws/aws-sdk-go-v2/service/ec2 v1.195.0 // indirect
 	github.com/aws/aws-sdk-go-v2/service/internal/accept-encoding v1.13.14 // indirect
