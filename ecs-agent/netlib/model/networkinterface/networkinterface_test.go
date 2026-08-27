@@ -213,3 +213,85 @@ func TestSetDeviceNameDefaultInterfaceNotFound(t *testing.T) {
 	assert.Error(t, err)
 	assert.Contains(t, err.Error(), "unable to find device name")
 }
+
+// getTestACSInterface returns a minimal ACS ENI that passes ValidateENI, for tests that only
+// care about how InterfaceFromACS handles the DNS fields.
+func getTestACSInterface() *ecsacs.ElasticNetworkInterface {
+	return &ecsacs.ElasticNetworkInterface{
+		Ec2Id:      aws.String("eni-1"),
+		MacAddress: aws.String(testconst.RandomMAC),
+		Ipv4Addresses: []*ecsacs.IPv4AddressAssignment{
+			{Primary: aws.Bool(true), PrivateAddress: aws.String("1.2.3.4")},
+		},
+		SubnetGatewayIpv4Address: aws.String("1.2.3.1/20"),
+	}
+}
+
+// TestInterfaceFromACSTrimsWhitespaceFromDomainNameServers tests that surrounding whitespace on a
+// nameserver from ACS is stripped. The VPC DHCP option set stores nameservers as typed, so an
+// option set configured as "domain-name-servers  10.0.0.2, 10.0.0.3" yields a padded second value.
+func TestInterfaceFromACSTrimsWhitespaceFromDomainNameServers(t *testing.T) {
+	acsENI := getTestACSInterface()
+	acsENI.DomainNameServers = []*string{aws.String("10.0.0.2"), aws.String(" 10.0.0.3 ")}
+
+	ni, err := InterfaceFromACS(acsENI)
+
+	assert.NoError(t, err)
+	assert.Equal(t, []string{"10.0.0.2", "10.0.0.3"}, ni.DomainNameServers)
+}
+
+// TestInterfaceFromACSTrimsWhitespaceFromDomainNameSearchList tests that surrounding whitespace on
+// a search domain from ACS is stripped. Search domains come from the same DHCP option set as the
+// nameservers and are stored just as literally.
+func TestInterfaceFromACSTrimsWhitespaceFromDomainNameSearchList(t *testing.T) {
+	acsENI := getTestACSInterface()
+	acsENI.DomainName = []*string{aws.String(" us-west-2.compute.internal ")}
+
+	ni, err := InterfaceFromACS(acsENI)
+
+	assert.NoError(t, err)
+	assert.Equal(t, []string{"us-west-2.compute.internal"}, ni.DomainNameSearchList)
+}
+
+// TestV2NTunnelFromACSTrimsWhitespaceFromDNSFields tests that a V2N tunnel interface gets the same
+// whitespace trimming as a regular interface, since its DNS data comes from the same ACS payload.
+func TestV2NTunnelFromACSTrimsWhitespaceFromDNSFields(t *testing.T) {
+	acsENI := &ecsacs.ElasticNetworkInterface{
+		Ec2Id:             aws.String("eni-1"),
+		DomainNameServers: []*string{aws.String(" 10.0.0.2")},
+		DomainName:        []*string{aws.String(" us-west-2.compute.internal")},
+		InterfaceTunnelProperties: &ecsacs.NetworkInterfaceTunnelProperties{
+			TunnelId:           aws.String("42"),
+			InterfaceIpAddress: aws.String("10.1.2.3"),
+		},
+	}
+
+	ni, err := v2nTunnelFromACS(acsENI)
+
+	assert.NoError(t, err)
+	assert.Equal(t, []string{"10.0.0.2"}, ni.DomainNameServers)
+	assert.Equal(t, []string{"us-west-2.compute.internal"}, ni.DomainNameSearchList)
+}
+
+// TestVETHPairFromACSTrimsWhitespaceFromDNSFields tests that a VETH interface gets the same
+// whitespace trimming as its peer, whose DNS data it copies from the same ACS payload.
+func TestVETHPairFromACSTrimsWhitespaceFromDNSFields(t *testing.T) {
+	peer := &ecsacs.ElasticNetworkInterface{
+		Ec2Id:             aws.String("eni-1"),
+		Name:              aws.String("peer"),
+		DomainNameServers: []*string{aws.String(" 10.0.0.2")},
+		DomainName:        []*string{aws.String(" us-west-2.compute.internal")},
+	}
+	acsENI := &ecsacs.ElasticNetworkInterface{
+		Ec2Id: aws.String("eni-2"),
+		InterfaceVethProperties: &ecsacs.NetworkInterfaceVethProperties{
+			PeerInterface: aws.String("peer"),
+		},
+	}
+
+	ni, err := vethPairFromACS(acsENI, []*ecsacs.ElasticNetworkInterface{peer})
+
+	assert.NoError(t, err)
+	assert.Equal(t, []string{"10.0.0.2"}, ni.DomainNameServers)
+	assert.Equal(t, []string{"us-west-2.compute.internal"}, ni.DomainNameSearchList)
+}
