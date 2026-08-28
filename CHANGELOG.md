@@ -1,5 +1,24 @@
 # Changelog
 
+# 1.106.2
+* Enhancement - Bump golang.org/x/text and related dependencies [#5100](https://github.com/aws/amazon-ecs-agent/pull/5100)
+* Enhancement - Bump github.com/aws/aws-sdk-go-v2/feature/ec2/imds from 1.18.33 to 1.18.38 in /ecs-agent [#5093](https://github.com/aws/amazon-ecs-agent/pull/5093)
+* Enhancement - Bump github.com/aws/aws-sdk-go-v2/service/secretsmanager from 1.35.2 to 1.44.7 in /agent [#5094](https://github.com/aws/amazon-ecs-agent/pull/5094)
+* Enhancement - Bump github.com/gorilla/websocket from 1.5.0 to 1.5.3 [#5108](https://github.com/aws/amazon-ecs-agent/pull/5108)
+* Enhancement - Update Go version to 1.26.7 [#5105](https://github.com/aws/amazon-ecs-agent/pull/5105)
+* Enhancement - Add amazon-ecs-agent.gpg and amazon-ssm-agent.gpg to the CodePipeline release artifacts [#5101](https://github.com/aws/amazon-ecs-agent/pull/5101)
+* Enhancement - IMDS credentials scanner/refresher: Add logging and validations [#5091](https://github.com/aws/amazon-ecs-agent/pull/5091)
+* Enhancement - Bump github.com/containerd/cgroups/v3 from 3.0.4 to 3.1.3 in /agent [#5081](https://github.com/aws/amazon-ecs-agent/pull/5081)
+* Enhancement - Bump google.golang.org/grpc from 1.81.1 to 1.82.1 in /ecs-agent and /agent [#5085](https://github.com/aws/amazon-ecs-agent/pull/5085)
+* Enhancement - Bump github.com/aws/aws-sdk-go-v2/credentials from 1.19.29 to 1.19.32 in /ecs-agent, /agent and /ecs-init [#5080](https://github.com/aws/amazon-ecs-agent/pull/5080)
+* Bugfix - fix(handlers): raise fault rate limit to 1 rps [#5092](https://github.com/aws/amazon-ecs-agent/pull/5092)
+* Feature - Nvidia MPS GPU sharing (not yet enabled)
+  * Add MPS control-daemon health probe [#5095](https://github.com/aws/amazon-ecs-agent/pull/5095)
+  * Add per-GPU memory accounting to host resource manager [#5090](https://github.com/aws/amazon-ecs-agent/pull/5090)
+  * Allow MPS containers to colocate on a shared GPU [#5083](https://github.com/aws/amazon-ecs-agent/pull/5083)
+  * Mount MPS control binary and pipe dir into the agent container [#5086](https://github.com/aws/amazon-ecs-agent/pull/5086)
+  * Move MPS pipe directory to /run/mps-ecs [#5102](https://github.com/aws/amazon-ecs-agent/pull/5102)
+
 # 1.106.1
 * Enhancement - Add retry for EFS volume creation to handle plugin timeout errors caused by concurrent mount operation [#5077](https://github.com/aws/amazon-ecs-agent/pull/5077)
 * Enhancement - Bump github.com/aws/aws-sdk-go-v2/config from 1.32.23 to 1.32.31 in /agent [#5064](https://github.com/aws/amazon-ecs-agent/pull/5064)
