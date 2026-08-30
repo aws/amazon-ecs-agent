@@ -590,10 +590,54 @@ func (c *common) createResolvConf(netNSDir string,
 		return err
 	}
 
-	// Copy Host's resolv.conf file.
-	return c.copyFile(filepath.Join(netNSDir, ResolveConfFileName),
-		filepath.Join(c.resolvConfPath, ResolveConfFileName),
-		taskDNSConfigFileMode)
+	// Copy Host's resolv.conf file and backfill DNS fields on the interface
+	// so downstream consumers can read DNS config from the model.
+	src := filepath.Join(c.resolvConfPath, ResolveConfFileName)
+	contents, err := c.ioutil.ReadFile(src)
+	if err != nil {
+		return errors.Wrapf(err, "unable to read %s", src)
+	}
+	dst := filepath.Join(netNSDir, ResolveConfFileName)
+	if err := c.ioutil.WriteFile(dst, contents, taskDNSConfigFileMode); err != nil {
+		return errors.Wrapf(err, "unable to write to %s", dst)
+	}
+	servers, searches := parseResolvConf(contents)
+	iface.DomainNameServers = servers
+	iface.DomainNameSearchList = searches
+	return nil
+}
+
+// parseResolvConf extracts nameserver addresses and search domains from content
+// in the resolv.conf(5) format.
+//
+// Parsing rules (matching the behavior of Go's net.dnsReadConfig in
+// src/net/dnsconfig_unix.go and glibc's res_init):
+//   - Lines starting with ';' or '#' are treated as comments and skipped.
+//   - Fields are separated by any combination of spaces and tabs.
+//   - A "nameserver" line contributes one IP address (the second field).
+//   - A "search" line contributes all subsequent fields as search domains;
+//     if multiple search lines appear, only the last is used.
+//   - All other directives are ignored.
+func parseResolvConf(content []byte) (servers, searches []string) {
+	for _, line := range bytes.Split(content, []byte("\n")) {
+		if len(line) == 0 || line[0] == ';' || line[0] == '#' {
+			continue
+		}
+		fields := bytes.Fields(line)
+		if len(fields) < 2 {
+			continue
+		}
+		switch string(fields[0]) {
+		case "nameserver":
+			servers = append(servers, string(fields[1]))
+		case "search":
+			searches = nil
+			for _, f := range fields[1:] {
+				searches = append(searches, string(f))
+			}
+		}
+	}
+	return servers, searches
 }
 
 // parseResolvConf extracts nameserver addresses and search domains from content
