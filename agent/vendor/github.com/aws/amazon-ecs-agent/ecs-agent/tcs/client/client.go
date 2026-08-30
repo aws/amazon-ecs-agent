@@ -152,7 +152,18 @@ func (cs *tcsClientServer) Serve(ctx context.Context) error {
 // Errors during publishing are logged but do not terminate the processing loop,
 // ensuring that failures with one message type do not affect others.
 func (cs *tcsClientServer) publishMessages(ctx context.Context) {
+	var memory []ecstcs.TelemetryMessage
+	const maxBuffersize = 100
+
 	for {
+		// Try to publish buffered metrics
+		for len(memory) > 0 {
+			if cs.publishMetricsOnce(memory[0]) != nil {
+				break
+			}
+			memory = memory[1:]
+		}
+
 		select {
 		case <-ctx.Done():
 			return
@@ -164,6 +175,9 @@ func (cs *tcsClientServer) publishMessages(ctx context.Context) {
 					field.Error: err,
 				})
 				cs.MetricsFactory.New(metrics.TACSPublishMetricFailure).Done(err)
+				if len(memory) < maxBuffersize {
+					memory = append(memory, metric)
+				}
 			}
 		case health := <-cs.health:
 			logger.Debug("received health message in healthChannel")
