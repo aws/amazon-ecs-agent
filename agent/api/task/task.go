@@ -37,6 +37,7 @@ import (
 	"github.com/aws/amazon-ecs-agent/agent/taskresource/credentialspec"
 	"github.com/aws/amazon-ecs-agent/agent/taskresource/envFiles"
 	"github.com/aws/amazon-ecs-agent/agent/taskresource/firelens"
+	"github.com/aws/amazon-ecs-agent/agent/taskresource/mpsdaemon"
 	"github.com/aws/amazon-ecs-agent/agent/taskresource/ssmsecret"
 	resourcestatus "github.com/aws/amazon-ecs-agent/agent/taskresource/status"
 	resourcetype "github.com/aws/amazon-ecs-agent/agent/taskresource/types"
@@ -56,6 +57,7 @@ import (
 	ni "github.com/aws/amazon-ecs-agent/ecs-agent/netlib/model/networkinterface"
 	commonutils "github.com/aws/amazon-ecs-agent/ecs-agent/utils"
 	"github.com/aws/amazon-ecs-agent/ecs-agent/utils/arn"
+	"github.com/aws/amazon-ecs-agent/ecs-agent/utils/execwrapper"
 	"github.com/aws/amazon-ecs-agent/ecs-agent/utils/mps"
 	"github.com/aws/amazon-ecs-agent/ecs-agent/utils/ttime"
 	ecstypes "github.com/aws/aws-sdk-go-v2/service/ecs/types"
@@ -535,6 +537,8 @@ func (task *Task) PostUnmarshalTask(cfg *config.Config,
 		return apierrors.NewResourceInitError(task.Arn, err)
 	}
 
+	task.initializeMPSDaemonResource(ctx)
+
 	task.initializeContainersV3MetadataEndpoint(utils.NewDynamicUUIDProvider())
 	task.initializeContainersV4MetadataEndpoint(utils.NewDynamicUUIDProvider())
 	task.initializeContainersV1AgentAPIEndpoint(utils.NewDynamicUUIDProvider())
@@ -815,6 +819,33 @@ func (task *Task) addGPUResource(cfg *config.Config) error {
 		}
 	}
 	return nil
+}
+
+// initializeMPSDaemonResource adds the MPS control-daemon health gate when any
+// container uses MPS, and makes each MPS container depend on the gate reaching
+// CREATED so those containers do not start until the daemon is verified serving.
+func (task *Task) initializeMPSDaemonResource(ctx context.Context) {
+	usesMPS := false
+	for _, container := range task.Containers {
+		if container.UsesMPS() {
+			usesMPS = true
+			break
+		}
+	}
+	if !usesMPS {
+		return
+	}
+
+	mpsResource := mpsdaemon.NewMPSDaemonResource(ctx, task.Arn, execwrapper.NewExec(), mps.ProbeCommand)
+	task.AddResource(mpsdaemon.ResourceName, mpsResource)
+
+	for _, container := range task.Containers {
+		if container.UsesMPS() {
+			container.BuildResourceDependency(mpsResource.GetName(),
+				resourcestatus.ResourceStatus(mpsdaemon.MPSDaemonCreated),
+				apicontainerstatus.ContainerCreated)
+		}
+	}
 }
 
 func (task *Task) isGPUEnabled() bool {

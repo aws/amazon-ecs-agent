@@ -17,6 +17,7 @@
 package mpsdaemon
 
 import (
+	"context"
 	"errors"
 	"time"
 
@@ -26,10 +27,18 @@ import (
 	resourcestatus "github.com/aws/amazon-ecs-agent/agent/taskresource/status"
 	apicontainerstatus "github.com/aws/amazon-ecs-agent/ecs-agent/api/container/status"
 	"github.com/aws/amazon-ecs-agent/ecs-agent/api/task/status"
+	"github.com/aws/amazon-ecs-agent/ecs-agent/utils/execwrapper"
 )
 
 // MPSDaemonResource is a stub on non-Linux platforms.
 type MPSDaemonResource struct{}
+
+// NewMPSDaemonResource is a stub on non-Linux platforms; MPS is never wired there
+// (no container sets MPSConfig), so this only satisfies the cross-platform build.
+func NewMPSDaemonResource(ctx context.Context, taskARN string, exec execwrapper.Exec,
+	probeCommand string) *MPSDaemonResource {
+	return &MPSDaemonResource{}
+}
 
 func (r *MPSDaemonResource) SetDesiredStatus(status resourcestatus.ResourceStatus) {}
 func (r *MPSDaemonResource) GetDesiredStatus() resourcestatus.ResourceStatus {

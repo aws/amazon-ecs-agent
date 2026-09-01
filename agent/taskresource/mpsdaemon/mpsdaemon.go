@@ -157,12 +157,13 @@ func (r *MPSDaemonResource) snapshotDeps() probeDeps {
 	}
 }
 
-// Create runs the health check with a bounded retry, returning nil as soon as an
-// attempt finds the daemon serving. Any other outcome stops the task with a
-// static reason; the evidence goes to the log.
+// Create is the resource's CREATED-transition function and nothing is created. For this
+// health gate, reaching CREATED means an attempt confirmed the MPS daemon is serving.
+// It runs a bounded retry, returning nil as soon as an attempt finds the daemon serving.
+// Any other outcome stops the task with a static reason and logs the evidence.
 func (r *MPSDaemonResource) Create() error {
-	// Initialize normally supplies these, but fill any gaps rather than panicking
-	// if Create is reached first.
+	// Only tests build the resource directly; otherwise the constructor or
+	// Initialize already set these.
 	r.lock.Lock()
 	r.applyDefaults()
 	r.lock.Unlock()
@@ -336,7 +337,7 @@ func (r *MPSDaemonResource) DesiredTerminal() bool {
 	return r.desiredStatusUnsafe == resourcestatus.ResourceStatus(MPSDaemonRemoved)
 }
 
-// KnownCreated returns true when the daemon has been verified.
+// KnownCreated returns true if the daemon resource's known status is CREATED
 func (r *MPSDaemonResource) KnownCreated() bool {
 	r.lock.RLock()
 	defer r.lock.RUnlock()

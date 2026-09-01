@@ -17,6 +17,7 @@
 package task
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"reflect"
@@ -43,6 +44,7 @@ import (
 	"github.com/aws/amazon-ecs-agent/agent/taskresource/asmsecret"
 	"github.com/aws/amazon-ecs-agent/agent/taskresource/credentialspec"
 	"github.com/aws/amazon-ecs-agent/agent/taskresource/envFiles"
+	"github.com/aws/amazon-ecs-agent/agent/taskresource/mpsdaemon"
 	"github.com/aws/amazon-ecs-agent/agent/taskresource/ssmsecret"
 	resourcestatus "github.com/aws/amazon-ecs-agent/agent/taskresource/status"
 	taskresourcevolume "github.com/aws/amazon-ecs-agent/agent/taskresource/volume"
@@ -3738,6 +3740,71 @@ func TestAddGPUResourceSingleMPSContainer(t *testing.T) {
 	err := task.addGPUResource(cfg)
 	assert.NoError(t, err)
 	assert.Equal(t, []string{"gpu1"}, container.GPUIDs)
+}
+
+// TestInitializeMPSDaemonResource verifies that the MPS health gate is added only
+// when a task has an MPS container, and that the gate dependency is attached to each
+// MPS container and to no other container.
+func TestInitializeMPSDaemonResource(t *testing.T) {
+	mpsContainer := func(name string, mem uint) *apicontainer.Container {
+		return &apicontainer.Container{
+			Name:                      name,
+			Image:                     "image:tag",
+			MPSConfig:                 &apicontainer.MPSConfig{Memory: mem},
+			TransitionDependenciesMap: make(map[apicontainerstatus.ContainerStatus]apicontainer.TransitionDependencySet),
+		}
+	}
+	plainContainer := func(name string) *apicontainer.Container {
+		return &apicontainer.Container{
+			Name:                      name,
+			Image:                     "image:tag",
+			TransitionDependenciesMap: make(map[apicontainerstatus.ContainerStatus]apicontainer.TransitionDependencySet),
+		}
+	}
+	cases := []struct {
+		name        string
+		containers  []*apicontainer.Container
+		wantGate    bool
+		wantGatedOn []string
+	}{
+		{"multiple mps containers", []*apicontainer.Container{mpsContainer("mpsA", 4096), mpsContainer("mpsB", 2048)}, true, []string{"mpsA", "mpsB"}},
+		{"no mps containers", []*apicontainer.Container{plainContainer("whole")}, false, nil},
+		{"mixed mps and non-mps", []*apicontainer.Container{mpsContainer("mps", 4096), plainContainer("plain")}, true, []string{"mps"}},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			task := &Task{
+				Arn:                "test",
+				ResourcesMapUnsafe: make(map[string][]taskresource.TaskResource),
+				Containers:         tc.containers,
+			}
+
+			task.initializeMPSDaemonResource(context.Background())
+
+			res := task.ResourcesMapUnsafe[mpsdaemon.ResourceName]
+			if tc.wantGate {
+				require.Len(t, res, 1, "the MPS health-gate resource must be added once")
+				assert.Equal(t, mpsdaemon.ResourceName, res[0].GetName())
+			} else {
+				assert.Empty(t, res, "no gate resource without an MPS container")
+			}
+
+			gated := make(map[string]bool, len(tc.wantGatedOn))
+			for _, n := range tc.wantGatedOn {
+				gated[n] = true
+			}
+			for _, c := range tc.containers {
+				deps := c.TransitionDependenciesMap[apicontainerstatus.ContainerCreated].ResourceDependencies
+				if gated[c.Name] {
+					require.Len(t, deps, 1, "container %s must depend on the gate", c.Name)
+					assert.Equal(t, mpsdaemon.ResourceName, deps[0].Name)
+					assert.Equal(t, resourcestatus.ResourceStatus(mpsdaemon.MPSDaemonCreated), deps[0].RequiredStatus)
+				} else {
+					assert.Empty(t, deps, "container %s must not depend on the gate", c.Name)
+				}
+			}
+		})
+	}
 }
 
 func TestPopulateGPUEnvironmentVariables(t *testing.T) {
