@@ -45,6 +45,7 @@ ecs-agent-*.tar
 *.DS_Store
 .run/
 pkg/
+!**/vendor/k8s.io/**/pkg/
 .vscode/
 .kiro/
 !.kiro/steering/
