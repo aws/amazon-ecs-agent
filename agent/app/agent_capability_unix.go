@@ -126,22 +126,33 @@ func (agent *ecsAgent) appendNvidiaDriverVersionAttribute(capabilities []types.A
 	return capabilities
 }
 
+// mpsCapabilityInputs gathers the host facts the MPS gate decision is made from,
+// reading them off the NvidiaGPUManager. ok is false when there is no GPU manager, in
+// which case MPS cannot be evaluated on this instance. It is the single source of truth
+// shared by the gpu-sharing-mps capability and the MPS daemon health check.
+func (agent *ecsAgent) mpsCapabilityInputs() (gpu.MpsCapabilityInputs, bool) {
+	if agent.resourceFields == nil || agent.resourceFields.NvidiaGPUManager == nil {
+		return gpu.MpsCapabilityInputs{}, false
+	}
+	mgr := agent.resourceFields.NvidiaGPUManager
+	return gpu.MpsCapabilityInputs{
+		GPUPresent:        len(mgr.GetDevices()) > 0,
+		MpsBinaryPresent:  mgr.GetMpsControlBinaryPresent(),
+		MpsServiceEnabled: mgr.GetMpsServiceEnabled(),
+		IsVGPU:            mgr.GetHasVGPU(),
+		AllGPUsHaveMemory: gpu.AllGPUMemoryReported(mgr.GetGPUIDsUnsafe(), mgr.GetGPUMemoryMiBUnsafe()),
+	}, true
+}
+
 // appendGpuSharingMpsCapability advertises ecs.capability.gpu-sharing-mps when the
 // instance can run MPS: a GPU is present, the MPS control binary and its systemd unit
 // are installed and enabled, the GPU is not a vGPU slice, and every discovered GPU has
 // a usable-memory value. The facts are gathered by ecs-init and read from the NvidiaGPUManager;
 // the decision itself lives in the shared gpu package so the MI agent reaches the same verdict from the same inputs.
 func (agent *ecsAgent) appendGpuSharingMpsCapability(capabilities []types.Attribute) []types.Attribute {
-	if agent.resourceFields == nil || agent.resourceFields.NvidiaGPUManager == nil {
+	inputs, ok := agent.mpsCapabilityInputs()
+	if !ok {
 		return capabilities
-	}
-	mgr := agent.resourceFields.NvidiaGPUManager
-	inputs := gpu.MpsCapabilityInputs{
-		GPUPresent:        len(mgr.GetDevices()) > 0,
-		MpsBinaryPresent:  mgr.GetMpsControlBinaryPresent(),
-		MpsServiceEnabled: mgr.GetMpsServiceEnabled(),
-		IsVGPU:            mgr.GetHasVGPU(),
-		AllGPUsHaveMemory: gpu.AllGPUMemoryReported(mgr.GetGPUIDsUnsafe(), mgr.GetGPUMemoryMiBUnsafe()),
 	}
 	advertise, conditions := gpu.ShouldAdvertiseMpsCapability(inputs)
 	if !advertise {
