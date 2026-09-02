@@ -725,6 +725,9 @@ func (agent *ecsAgent) newDoctorWithHealthchecks(cluster, containerInstanceARN s
 		runtimeHealthCheck,
 	}
 
+	// register the MPS control daemon health check on MPS-capable instances
+	healthcheckList = agent.appendMpsDaemonHealthcheck(healthcheckList)
+
 	// set up the doctor and return it
 	return doctor.NewDoctor(healthcheckList, cluster, containerInstanceARN)
 }
