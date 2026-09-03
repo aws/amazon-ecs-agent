@@ -21,8 +21,10 @@ import (
 	"errors"
 	"os"
 	"os/exec"
+	"strings"
 	"testing"
 	"time"
+	"unicode/utf8"
 
 	"github.com/aws/amazon-ecs-agent/ecs-agent/tcs/model/ecstcs"
 	mock_execwrapper "github.com/aws/amazon-ecs-agent/ecs-agent/utils/execwrapper/mocks"
@@ -101,17 +103,22 @@ const (
 	tickPipeMissing                 // pipe directory absent; the exec is skipped
 )
 
-// tick pairs a probe outcome with the instance status the check must report after it.
+// tick pairs a probe outcome with the instance status the check must report after it,
+// and the substring the impaired reason must contain (empty while Ok, since the reason
+// is set only on IMPAIRED and cleared on recovery).
 type tick struct {
-	kind tickKind
-	want ecstcs.InstanceHealthCheckStatus
+	kind       tickKind
+	want       ecstcs.InstanceHealthCheckStatus
+	wantReason string
 }
 
 // TestMpsRunCheckSequences drives RunCheck through sequences of probe outcomes and
-// asserts the reported status after every tick. Because a serving tick zeroes the
-// counter, a status-only assertion still proves the reset semantics: a failure that
-// follows a success reports Ok where an unbroken streak of the same length would be
-// Impaired.
+// asserts the reported status and status reason after every tick. Because a serving
+// tick zeroes the counter, a status-only assertion still proves the reset semantics: a
+// failure that follows a success reports Ok where an unbroken streak of the same length
+// would be Impaired. The reason is populated from the probe error only while Impaired
+// and clears on recovery, mirroring the wire StatusReason (set on IMPAIRED, null
+// otherwise).
 func TestMpsRunCheckSequences(t *testing.T) {
 	const (
 		ok       = ecstcs.InstanceHealthCheckStatusOk
@@ -125,43 +132,45 @@ func TestMpsRunCheckSequences(t *testing.T) {
 			// Anti-flap: below the threshold a failing probe must not report IMPAIRED,
 			// so a short restart that lands on a tick is absorbed.
 			name:  "below threshold stays ok",
-			ticks: []tick{{tickFailure, ok}, {tickFailure, ok}},
+			ticks: []tick{{tickFailure, ok, ""}, {tickFailure, ok, ""}},
 		},
 		{
 			name:  "third consecutive failure impaired",
-			ticks: []tick{{tickFailure, ok}, {tickFailure, ok}, {tickFailure, impaired}},
+			ticks: []tick{{tickFailure, ok, ""}, {tickFailure, ok, ""}, {tickFailure, impaired, "probe failed"}},
 		},
 		{
 			// The fourth tick is Ok only because the success zeroed the counter; an
 			// unbroken streak of four failures would have been Impaired by tick three.
 			name:  "success resets counter",
-			ticks: []tick{{tickFailure, ok}, {tickFailure, ok}, {tickServing, ok}, {tickFailure, ok}},
+			ticks: []tick{{tickFailure, ok, ""}, {tickFailure, ok, ""}, {tickServing, ok, ""}, {tickFailure, ok, ""}},
 		},
 		{
 			// A single success mid-streak keeps the count from ever reaching the
 			// threshold, so the instance never reports Impaired.
 			name: "single success mid streak resets",
-			ticks: []tick{{tickFailure, ok}, {tickFailure, ok}, {tickServing, ok},
-				{tickFailure, ok}, {tickFailure, ok}},
+			ticks: []tick{{tickFailure, ok, ""}, {tickFailure, ok, ""}, {tickServing, ok, ""},
+				{tickFailure, ok, ""}, {tickFailure, ok, ""}},
 		},
 		{
-			// A timeout is a failure like any other, and three in a row cross the threshold.
+			// A timeout is a failure like any other, and three in a row cross the
+			// threshold; the impaired reason reports the wedged daemon.
 			name:  "timeout counts as failure",
-			ticks: []tick{{tickTimeout, ok}, {tickTimeout, ok}, {tickTimeout, impaired}},
+			ticks: []tick{{tickTimeout, ok, ""}, {tickTimeout, ok, ""}, {tickTimeout, impaired, "timed out"}},
 		},
 		{
 			// A missing pipe directory skips the exec and counts as one failure. Unlike
 			// the task gate this is not fail-closed, so three such ticks report Impaired
-			// and a later serving probe resets to Ok.
+			// (with the stat error as the reason) and a later serving probe resets to Ok.
 			name: "pipe directory missing counts as failure then recovers",
-			ticks: []tick{{tickPipeMissing, ok}, {tickPipeMissing, ok},
-				{tickPipeMissing, impaired}, {tickServing, ok}},
+			ticks: []tick{{tickPipeMissing, ok, ""}, {tickPipeMissing, ok, ""},
+				{tickPipeMissing, impaired, "no such file"}, {tickServing, ok, ""}},
 		},
 		{
-			// Recovery: once past the threshold a serving probe returns the instance to Ok.
+			// Recovery: once past the threshold a serving probe returns the instance to
+			// Ok and clears the reason.
 			name: "recovery returns to ok",
-			ticks: []tick{{tickFailure, ok}, {tickFailure, ok}, {tickFailure, impaired},
-				{tickServing, ok}},
+			ticks: []tick{{tickFailure, ok, ""}, {tickFailure, ok, ""}, {tickFailure, impaired, "probe failed"},
+				{tickServing, ok, ""}},
 		},
 	}
 
@@ -193,7 +202,16 @@ func TestMpsRunCheckSequences(t *testing.T) {
 				case tickPipeMissing:
 					// probe short-circuits on the stat error; no exec is expected.
 				}
-				assert.Equalf(t, tk.want, hc.RunCheck(), "tick %d", i)
+				assert.Equalf(t, tk.want, hc.RunCheck(), "tick %d status", i)
+				if tk.want == impaired {
+					// The impaired reason carries the probe error and stays within the MHS limit.
+					reason := hc.GetStatusReason()
+					assert.Containsf(t, reason, tk.wantReason, "tick %d reason", i)
+					assert.LessOrEqualf(t, len(reason), maxStatusReasonLen, "tick %d reason bounded", i)
+				} else {
+					// Below the threshold, and on recovery, no reason is reported.
+					assert.Emptyf(t, hc.GetStatusReason(), "tick %d reason cleared while ok", i)
+				}
 			}
 		})
 	}
@@ -225,4 +243,19 @@ func TestMpsRecoveryTransitionAdvancesStatusChangeTime(t *testing.T) {
 	assert.True(t, hc.GetStatusChangeTime().After(impairedAt),
 		"recovery is a status change and must advance GetStatusChangeTime")
 	assert.Equal(t, ecstcs.InstanceHealthCheckStatusImpaired, hc.GetLastHealthcheckStatus())
+}
+
+// A reason longer than the MHS limit is truncated on a rune boundary.
+func TestBoundStatusReason(t *testing.T) {
+	assert.Equal(t, "short", boundStatusReason("short"))
+
+	long := strings.Repeat("a", maxStatusReasonLen+50)
+	assert.Equal(t, maxStatusReasonLen, len(boundStatusReason(long)))
+
+	// Multibyte runes must not be split, so the byte length can exceed the limit
+	// while the rune count does not.
+	multibyte := strings.Repeat("é", maxStatusReasonLen+50)
+	bounded := boundStatusReason(multibyte)
+	assert.Equal(t, maxStatusReasonLen, len([]rune(bounded)))
+	assert.True(t, utf8.ValidString(bounded), "truncation keeps the string valid UTF-8")
 }

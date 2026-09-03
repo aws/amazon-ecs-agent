@@ -61,7 +61,8 @@ type trueHealthcheck struct{}
 func (tc *trueHealthcheck) RunCheck() ecstcs.InstanceHealthCheckStatus {
 	return ecstcs.InstanceHealthCheckStatusOk
 }
-func (tc *trueHealthcheck) SetHealthcheckStatus(status ecstcs.InstanceHealthCheckStatus) {}
+func (tc *trueHealthcheck) SetHealthcheckStatus(status ecstcs.InstanceHealthCheckStatus, reason string) {
+}
 func (tc *trueHealthcheck) GetHealthcheckType() string {
 	return ecstcs.InstanceHealthCheckTypeAgent
 }
@@ -80,13 +81,17 @@ func (tc *trueHealthcheck) GetStatusChangeTime() time.Time {
 func (tc *trueHealthcheck) GetLastHealthcheckTime() time.Time {
 	return time.Date(1974, time.May, 19, 1, 2, 3, 4, time.UTC)
 }
+func (tc *trueHealthcheck) GetStatusReason() string {
+	return ""
+}
 
 type falseHealthcheck struct{}
 
 func (fc *falseHealthcheck) RunCheck() ecstcs.InstanceHealthCheckStatus {
 	return ecstcs.InstanceHealthCheckStatusImpaired
 }
-func (fc *falseHealthcheck) SetHealthcheckStatus(status ecstcs.InstanceHealthCheckStatus) {}
+func (fc *falseHealthcheck) SetHealthcheckStatus(status ecstcs.InstanceHealthCheckStatus, reason string) {
+}
 func (fc *falseHealthcheck) GetHealthcheckType() string {
 	return ecstcs.InstanceHealthCheckTypeAgent
 }
@@ -104,6 +109,9 @@ func (fc *falseHealthcheck) GetStatusChangeTime() time.Time {
 }
 func (fc *falseHealthcheck) GetLastHealthcheckTime() time.Time {
 	return time.Date(1974, time.May, 19, 1, 2, 3, 4, time.UTC)
+}
+func (fc *falseHealthcheck) GetStatusReason() string {
+	return "probe failed"
 }
 
 var testCreds = credentials.NewStaticCredentialsProvider("test-id", "test-secret", "test-token")
@@ -818,6 +826,7 @@ func TestGetInstanceStatuses(t *testing.T) {
 		LastUpdated:      (*utils.Timestamp)(aws.Time(falseCheck.GetLastHealthcheckTime())),
 		Status:           aws.String(falseCheck.GetHealthcheckStatus().String()),
 		Type:             aws.String(falseCheck.GetHealthcheckType()),
+		StatusReason:     aws.String(falseCheck.GetStatusReason()),
 	}
 
 	testcases := []struct {
@@ -875,6 +884,7 @@ func TestGetPublishInstanceStatusRequest(t *testing.T) {
 		LastUpdated:      (*utils.Timestamp)(aws.Time(falseCheck.GetLastHealthcheckTime())),
 		Status:           aws.String(falseCheck.GetHealthcheckStatus().String()),
 		Type:             aws.String(falseCheck.GetHealthcheckType()),
+		StatusReason:     aws.String(falseCheck.GetStatusReason()),
 	}
 
 	testcases := []struct {

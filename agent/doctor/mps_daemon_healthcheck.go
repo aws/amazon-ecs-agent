@@ -33,6 +33,8 @@ import (
 // instance is reported ACCELERATED_COMPUTE=IMPAIRED
 const mpsDaemonImpairedThreshold = 3
 
+const maxStatusReasonLen = 1024
+
 type mpsDaemonHealthcheck struct {
 	*statustracker.HealthCheckStatusTracker
 
@@ -95,8 +97,26 @@ func (m *mpsDaemonHealthcheck) RunCheck() ecstcs.InstanceHealthCheckStatus {
 		logger.Debug("MPS control daemon is serving")
 	}
 
-	m.SetHealthcheckStatus(status)
+	// Surface the probe error as the status reason only on IMPAIRED, so the
+	// reason clears on recovery.
+	reason := ""
+	if status == ecstcs.InstanceHealthCheckStatusImpaired && res.Err != nil {
+		reason = boundStatusReason(res.Err.Error())
+	}
+
+	m.SetHealthcheckStatus(status, reason)
 	return m.GetHealthcheckStatus()
+}
+
+func boundStatusReason(reason string) string {
+	if len(reason) <= maxStatusReasonLen {
+		return reason
+	}
+	r := []rune(reason)
+	if len(r) <= maxStatusReasonLen {
+		return reason
+	}
+	return string(r[:maxStatusReasonLen])
 }
 
 // probe runs the pipe-directory pre-check and, if it passes, a single control-daemon
