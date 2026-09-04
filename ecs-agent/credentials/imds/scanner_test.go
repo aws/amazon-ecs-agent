@@ -53,26 +53,37 @@ func testCredentialJSON(accessKeyID string) string {
 // testInfoJSONWithTimestamp returns a mock IMDS info file JSON
 // with the given LastUpdated value.
 func testInfoJSONWithTimestamp(
-	lastUpdated string, entries map[string]string,
+	lastUpdated string, entries map[string]TaskCredentialInfo,
 ) string {
-	entriesJSON := ""
-	for key, roleARN := range entries {
-		if entriesJSON != "" {
-			entriesJSON += ","
-		}
-		entriesJSON += fmt.Sprintf(
-			`"%s": {"RoleARN": "%s"}`, key, roleARN,
-		)
+	encoded := make([]string, 0, len(entries))
+	for key, entry := range entries {
+		encoded = append(encoded, fmt.Sprintf(
+			`"%s": {"Code": "%s", "RoleARN": "%s"}`, key, entry.Code, entry.RoleArn))
 	}
 	return fmt.Sprintf(
 		`{"LastUpdated": "%s", "TaskCredentials": {%s}}`,
-		lastUpdated, entriesJSON,
+		lastUpdated, strings.Join(encoded, ","),
 	)
 }
 
 // testInfoJSON returns a mock IMDS info file JSON with a default timestamp.
-func testInfoJSON(entries map[string]string) string {
+func testInfoJSON(entries map[string]TaskCredentialInfo) string {
 	return testInfoJSONWithTimestamp("2026-04-28T00:00:00Z", entries)
+}
+
+// testEntryWithCode returns an info file entry with the given role ARN and Code.
+func testEntryWithCode(roleARN, code string) TaskCredentialInfo {
+	return TaskCredentialInfo{Code: code, RoleArn: roleARN}
+}
+
+// testAssumeRoleUnauthorizedAccess is a helper func that returns an
+// AssumeRoleUnauthorizedAccessIAMRole with the given fields.
+func testAssumeRoleUnauthorizedAccess(taskID, roleType, roleArn string) AssumeRoleUnauthorizedAccessIAMRole {
+	return AssumeRoleUnauthorizedAccessIAMRole{
+		TaskID:   taskID,
+		RoleType: roleType,
+		RoleArn:  roleArn,
+	}
 }
 
 // testCred is a helper func that returns a TaskCredential with the given fields.
@@ -201,12 +212,13 @@ func TestScanNamespace(t *testing.T) {
 	key2 := testTaskID2 + "-" + credentials.ExecutionRoleType
 
 	tests := []struct {
-		name                 string
-		setupMock            func(*mockec2.MockEC2MetadataClient)
-		lastUpdated          map[string]time.Time
-		expectedCreds        []TaskCredential
-		expectedErrSubstring string
-		expectedMetrics      []metricExpectation
+		name                                      string
+		setupMock                                 func(*mockec2.MockEC2MetadataClient)
+		lastUpdated                               map[string]time.Time
+		expectedCreds                             []TaskCredential
+		expectedAssumeRoleUnauthorizedAccessRoles []AssumeRoleUnauthorizedAccessIAMRole
+		expectedErrSubstring                      string
+		expectedMetrics                           []metricExpectation
 		// expectLastUpdatedCached is a pointer to distinguish "don't check" (nil)
 		// from "assert not cached" (false).
 		expectLastUpdatedCached *bool
@@ -215,7 +227,9 @@ func TestScanNamespace(t *testing.T) {
 			name: "single credential",
 			setupMock: func(m *mockec2.MockEC2MetadataClient) {
 				m.EXPECT().GetMetadata("iam-ecs-1/info").Return(
-					testInfoJSON(map[string]string{key1: testRoleARN}), nil)
+					testInfoJSON(map[string]TaskCredentialInfo{
+						key1: testEntryWithCode(testRoleARN, CredentialCodeSuccess),
+					}), nil)
 				m.EXPECT().GetMetadata("iam-ecs-1/security-credentials/"+key1).Return(
 					testCredentialJSON("AKID1"), nil)
 			},
@@ -228,9 +242,9 @@ func TestScanNamespace(t *testing.T) {
 			name: "multiple credentials",
 			setupMock: func(m *mockec2.MockEC2MetadataClient) {
 				m.EXPECT().GetMetadata("iam-ecs-1/info").Return(
-					testInfoJSON(map[string]string{
-						key1: testRoleARN,
-						key2: testRoleARN,
+					testInfoJSON(map[string]TaskCredentialInfo{
+						key1: testEntryWithCode(testRoleARN, CredentialCodeSuccess),
+						key2: testEntryWithCode(testRoleARN, CredentialCodeSuccess),
 					}), nil)
 				m.EXPECT().GetMetadata("iam-ecs-1/security-credentials/"+key1).Return(
 					testCredentialJSON("AKID1"), nil)
@@ -241,6 +255,112 @@ func TestScanNamespace(t *testing.T) {
 				testCred(testTaskID1, credentials.ApplicationRoleType, testRoleARN, "AKID1"),
 				testCred(testTaskID2, credentials.ExecutionRoleType, testRoleARN, "AKID2"),
 			},
+		},
+		{
+			name: "absent Code is treated as delivered",
+			setupMock: func(m *mockec2.MockEC2MetadataClient) {
+				m.EXPECT().GetMetadata("iam-ecs-1/info").Return(
+					testInfoJSON(map[string]TaskCredentialInfo{
+						key1: {RoleArn: testRoleARN},
+					}), nil)
+				m.EXPECT().GetMetadata("iam-ecs-1/security-credentials/"+key1).Return(
+					testCredentialJSON("AKID1"), nil)
+			},
+			expectedCreds: []TaskCredential{
+				testCred(testTaskID1, credentials.ApplicationRoleType, testRoleARN, "AKID1"),
+			},
+		},
+		{
+			name: "lowercase Code is treated as delivered",
+			setupMock: func(m *mockec2.MockEC2MetadataClient) {
+				m.EXPECT().GetMetadata("iam-ecs-1/info").Return(
+					testInfoJSON(map[string]TaskCredentialInfo{
+						key1: {Code: "success", RoleArn: testRoleARN},
+					}), nil)
+				m.EXPECT().GetMetadata("iam-ecs-1/security-credentials/"+key1).Return(
+					testCredentialJSON("AKID1"), nil)
+			},
+			expectedCreds: []TaskCredential{
+				testCred(testTaskID1, credentials.ApplicationRoleType, testRoleARN, "AKID1"),
+			},
+		},
+		{
+			name: "unauthorized credential is reported without a fetch",
+			setupMock: func(m *mockec2.MockEC2MetadataClient) {
+				m.EXPECT().GetMetadata("iam-ecs-1/info").Return(
+					testInfoJSON(map[string]TaskCredentialInfo{
+						key1: testEntryWithCode(testRoleARN, CredentialCodeAssumeRoleUnauthorizedAccess),
+					}), nil)
+			},
+			expectedAssumeRoleUnauthorizedAccessRoles: []AssumeRoleUnauthorizedAccessIAMRole{
+				testAssumeRoleUnauthorizedAccess(testTaskID1, credentials.ApplicationRoleType,
+					testRoleARN),
+			},
+			// An unauthorized entry is a delivery outcome, not a scan failure,
+			// so the namespace stays eligible for LastUpdated caching.
+			expectLastUpdatedCached: aws.Bool(true),
+		},
+		{
+			name: "delivered and unauthorized credentials in one namespace",
+			setupMock: func(m *mockec2.MockEC2MetadataClient) {
+				m.EXPECT().GetMetadata("iam-ecs-1/info").Return(
+					testInfoJSON(map[string]TaskCredentialInfo{
+						key1: testEntryWithCode(testRoleARN, CredentialCodeSuccess),
+						key2: testEntryWithCode(testRoleARN, CredentialCodeAssumeRoleUnauthorizedAccess),
+					}), nil)
+				m.EXPECT().GetMetadata("iam-ecs-1/security-credentials/"+key1).Return(
+					testCredentialJSON("AKID1"), nil)
+			},
+			expectedCreds: []TaskCredential{
+				testCred(testTaskID1, credentials.ApplicationRoleType, testRoleARN, "AKID1"),
+			},
+			expectedAssumeRoleUnauthorizedAccessRoles: []AssumeRoleUnauthorizedAccessIAMRole{
+				testAssumeRoleUnauthorizedAccess(testTaskID2, credentials.ExecutionRoleType,
+					testRoleARN),
+			},
+			expectLastUpdatedCached: aws.Bool(true),
+		},
+		{
+			name: "unrecognized code is fetched anyway",
+			setupMock: func(m *mockec2.MockEC2MetadataClient) {
+				m.EXPECT().GetMetadata("iam-ecs-1/info").Return(
+					testInfoJSON(map[string]TaskCredentialInfo{
+						key1: testEntryWithCode(testRoleARN, "SomethingElse"),
+					}), nil)
+				m.EXPECT().GetMetadata("iam-ecs-1/security-credentials/"+key1).Return(
+					testCredentialJSON("AKID1"), nil)
+			},
+			// A credential file may exist for a code the agent does not
+			// interpret, and discarding a usable credential is worse than a
+			// wasted fetch.
+			expectedCreds: []TaskCredential{
+				testCred(testTaskID1, credentials.ApplicationRoleType, testRoleARN, "AKID1"),
+			},
+			expectLastUpdatedCached: aws.Bool(true),
+		},
+		{
+			name: "unrecognized code with no credential file fails the fetch",
+			setupMock: func(m *mockec2.MockEC2MetadataClient) {
+				m.EXPECT().GetMetadata("iam-ecs-1/info").Return(
+					testInfoJSON(map[string]TaskCredentialInfo{
+						key1: testEntryWithCode(testRoleARN, "SomethingElse"),
+					}), nil)
+				m.EXPECT().GetMetadata("iam-ecs-1/security-credentials/"+key1).Return(
+					"", errors.New("not found"))
+			},
+			expectedErrSubstring: "all credential processing failed",
+			expectedMetrics: []metricExpectation{
+				{
+					name: metrics.IMDSCredentialsScannerCredentialFailureMetricName,
+					fields: map[string]any{
+						metricFieldNamespace: "iam-ecs-1",
+						metricFieldTaskID:    testTaskID1,
+						metricFieldRoleType:  credentials.ApplicationRoleType,
+					},
+					doneErr: errMessageContains("not found"),
+				},
+			},
+			expectLastUpdatedCached: aws.Bool(false),
 		},
 		{
 			name: "info file fetch fails",
@@ -277,7 +397,9 @@ func TestScanNamespace(t *testing.T) {
 			setupMock: func(m *mockec2.MockEC2MetadataClient) {
 				m.EXPECT().GetMetadata("iam-ecs-1/info").Return(
 					testInfoJSONWithTimestamp("not-a-timestamp",
-						map[string]string{key1: testRoleARN}), nil)
+						map[string]TaskCredentialInfo{
+							key1: testEntryWithCode(testRoleARN, CredentialCodeSuccess),
+						}), nil)
 			},
 			expectedErrSubstring: "parse LastUpdated for",
 			expectedMetrics: []metricExpectation{
@@ -292,9 +414,9 @@ func TestScanNamespace(t *testing.T) {
 			name: "fetch for one credential fails, other succeeds",
 			setupMock: func(m *mockec2.MockEC2MetadataClient) {
 				m.EXPECT().GetMetadata("iam-ecs-1/info").Return(
-					testInfoJSON(map[string]string{
-						key1: testRoleARN,
-						key2: testRoleARN,
+					testInfoJSON(map[string]TaskCredentialInfo{
+						key1: testEntryWithCode(testRoleARN, CredentialCodeSuccess),
+						key2: testEntryWithCode(testRoleARN, CredentialCodeSuccess),
 					}), nil)
 				m.EXPECT().GetMetadata("iam-ecs-1/security-credentials/"+key1).Return(
 					"", errors.New("timeout"))
@@ -321,7 +443,9 @@ func TestScanNamespace(t *testing.T) {
 			name: "credential response invalid JSON",
 			setupMock: func(m *mockec2.MockEC2MetadataClient) {
 				m.EXPECT().GetMetadata("iam-ecs-1/info").Return(
-					testInfoJSON(map[string]string{key1: testRoleARN}), nil)
+					testInfoJSON(map[string]TaskCredentialInfo{
+						key1: testEntryWithCode(testRoleARN, CredentialCodeSuccess),
+					}), nil)
 				m.EXPECT().GetMetadata("iam-ecs-1/security-credentials/"+key1).Return(
 					"not json", nil)
 			},
@@ -343,7 +467,9 @@ func TestScanNamespace(t *testing.T) {
 			name: "credential missing required fields",
 			setupMock: func(m *mockec2.MockEC2MetadataClient) {
 				m.EXPECT().GetMetadata("iam-ecs-1/info").Return(
-					testInfoJSON(map[string]string{key1: testRoleARN}), nil)
+					testInfoJSON(map[string]TaskCredentialInfo{
+						key1: testEntryWithCode(testRoleARN, CredentialCodeSuccess),
+					}), nil)
 				m.EXPECT().GetMetadata("iam-ecs-1/security-credentials/"+key1).Return(
 					`{"AccessKeyId": "AKID1"}`, nil)
 			},
@@ -366,8 +492,8 @@ func TestScanNamespace(t *testing.T) {
 			name: "invalid credential key format",
 			setupMock: func(m *mockec2.MockEC2MetadataClient) {
 				m.EXPECT().GetMetadata("iam-ecs-1/info").Return(
-					testInfoJSON(map[string]string{
-						"nodelimiterkey": testRoleARN,
+					testInfoJSON(map[string]TaskCredentialInfo{
+						"nodelimiterkey": testEntryWithCode(testRoleARN, CredentialCodeSuccess),
 					}), nil)
 			},
 			expectedErrSubstring: "all credential processing failed",
@@ -381,21 +507,62 @@ func TestScanNamespace(t *testing.T) {
 			expectLastUpdatedCached: aws.Bool(false),
 		},
 		{
+			name: "malformed key alongside an unauthorized entry still reports the entry",
+			setupMock: func(m *mockec2.MockEC2MetadataClient) {
+				m.EXPECT().GetMetadata("iam-ecs-1/info").Return(
+					testInfoJSON(map[string]TaskCredentialInfo{
+						"nodelimiterkey": testEntryWithCode(testRoleARN, CredentialCodeSuccess),
+						key1:             testEntryWithCode(testRoleARN, CredentialCodeAssumeRoleUnauthorizedAccess),
+					}), nil)
+			},
+			expectedAssumeRoleUnauthorizedAccessRoles: []AssumeRoleUnauthorizedAccessIAMRole{
+				testAssumeRoleUnauthorizedAccess(testTaskID1, credentials.ApplicationRoleType,
+					testRoleARN),
+			},
+			expectedMetrics: []metricExpectation{
+				{
+					name:    metrics.IMDSCredentialsScannerCredentialFailureMetricName,
+					fields:  map[string]any{metricFieldNamespace: "iam-ecs-1"},
+					doneErr: errMessageContains("unexpected credential key format"),
+				},
+			},
+			expectLastUpdatedCached: aws.Bool(false),
+		},
+		{
 			name: "unchanged LastUpdated skips credential fetches",
 			setupMock: func(m *mockec2.MockEC2MetadataClient) {
 				m.EXPECT().GetMetadata("iam-ecs-1/info").Return(
-					testInfoJSON(map[string]string{key1: testRoleARN}), nil)
+					testInfoJSON(map[string]TaskCredentialInfo{
+						key1: testEntryWithCode(testRoleARN, CredentialCodeSuccess),
+					}), nil)
 			},
 			lastUpdated: map[string]time.Time{
 				"iam-ecs-1": time.Date(2026, 4, 28, 0, 0, 0, 0, time.UTC),
 			},
 		},
 		{
+			name: "unchanged LastUpdated skips an unauthorized entry too",
+			setupMock: func(m *mockec2.MockEC2MetadataClient) {
+				m.EXPECT().GetMetadata("iam-ecs-1/info").Return(
+					testInfoJSON(map[string]TaskCredentialInfo{
+						key1: testEntryWithCode(testRoleARN, CredentialCodeAssumeRoleUnauthorizedAccess),
+					}), nil)
+			},
+			lastUpdated: map[string]time.Time{
+				"iam-ecs-1": time.Date(2026, 4, 28, 0, 0, 0, 0, time.UTC),
+			},
+			// A Code change rewrites the info file and moves LastUpdated, so an
+			// unchanged LastUpdated means this denial was already reported on an
+			// earlier scan and the caller still holds it.
+		},
+		{
 			name: "changed LastUpdated re-fetches credentials",
 			setupMock: func(m *mockec2.MockEC2MetadataClient) {
 				m.EXPECT().GetMetadata("iam-ecs-1/info").Return(
 					testInfoJSONWithTimestamp("2026-04-28T01:00:00Z",
-						map[string]string{key1: testRoleARN}), nil)
+						map[string]TaskCredentialInfo{
+							key1: testEntryWithCode(testRoleARN, CredentialCodeSuccess),
+						}), nil)
 				m.EXPECT().GetMetadata("iam-ecs-1/security-credentials/"+key1).Return(
 					testCredentialJSON("AKID_NEW"), nil)
 			},
@@ -428,14 +595,16 @@ func TestScanNamespace(t *testing.T) {
 				s.lastUpdated = tc.lastUpdated
 			}
 
-			creds, err := s.scanNamespace(context.Background(), "iam-ecs-1")
+			result, err := s.scanNamespace(context.Background(), "iam-ecs-1")
 
 			if tc.expectedErrSubstring != "" {
 				assert.ErrorContains(t, err, tc.expectedErrSubstring)
-				assert.Nil(t, creds)
+				assert.Empty(t, result.Credentials)
+				assert.Empty(t, result.AssumeRoleUnauthorizedAccessRoles)
 			} else {
 				assert.NoError(t, err)
-				assert.ElementsMatch(t, tc.expectedCreds, creds)
+				assert.ElementsMatch(t, tc.expectedCreds, result.Credentials)
+				assert.ElementsMatch(t, tc.expectedAssumeRoleUnauthorizedAccessRoles, result.AssumeRoleUnauthorizedAccessRoles)
 			}
 			if tc.expectLastUpdatedCached != nil {
 				if *tc.expectLastUpdatedCached {
@@ -444,6 +613,86 @@ func TestScanNamespace(t *testing.T) {
 					assert.NotContains(t, s.lastUpdated, "iam-ecs-1")
 				}
 			}
+		})
+	}
+}
+
+func TestIsCredentialDelivered(t *testing.T) {
+	tests := []struct {
+		name     string
+		code     string
+		expected bool
+	}{
+		{
+			name:     "success",
+			code:     CredentialCodeSuccess,
+			expected: true,
+		},
+		{
+			name:     "lowercase success",
+			code:     "success",
+			expected: true,
+		},
+		{
+			name:     "assume role unauthorized access",
+			code:     CredentialCodeAssumeRoleUnauthorizedAccess,
+			expected: false,
+		},
+		{
+			name:     "unrecognized code",
+			code:     "SomethingElse",
+			expected: false,
+		},
+		{
+			name:     "absent code",
+			code:     "",
+			expected: false,
+		},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			assert.Equal(t, tc.expected, isCredentialDelivered(tc.code))
+		})
+	}
+}
+
+func TestIsCredentialAssumeRoleUnauthorizedAccess(t *testing.T) {
+	tests := []struct {
+		name     string
+		code     string
+		expected bool
+	}{
+		{
+			name:     "assume role unauthorized access",
+			code:     CredentialCodeAssumeRoleUnauthorizedAccess,
+			expected: true,
+		},
+		{
+			name:     "lowercase assume role unauthorized access",
+			code:     "assumeroleunauthorizedaccess",
+			expected: true,
+		},
+		{
+			name:     "success",
+			code:     CredentialCodeSuccess,
+			expected: false,
+		},
+		{
+			name:     "absent code",
+			code:     "",
+			expected: false,
+		},
+		{
+			name:     "unrecognized code",
+			code:     "SomethingElse",
+			expected: false,
+		},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			assert.Equal(t, tc.expected, isCredentialAssumeRoleUnauthorizedAccess(tc.code))
 		})
 	}
 }
@@ -571,12 +820,13 @@ func TestValidateCredential(t *testing.T) {
 
 func TestScan(t *testing.T) {
 	tests := []struct {
-		name                 string
-		setupMock            func(*mockec2.MockEC2MetadataClient)
-		ctx                  context.Context
-		expectedCreds        []TaskCredential
-		expectedErrSubstring string
-		expectedMetrics      []metricExpectation
+		name                                      string
+		setupMock                                 func(*mockec2.MockEC2MetadataClient)
+		ctx                                       context.Context
+		expectedCreds                             []TaskCredential
+		expectedAssumeRoleUnauthorizedAccessRoles []AssumeRoleUnauthorizedAccessIAMRole
+		expectedErrSubstring                      string
+		expectedMetrics                           []metricExpectation
 	}{
 		{
 			name: "no namespaces",
@@ -591,17 +841,70 @@ func TestScan(t *testing.T) {
 				key2 := testTaskID2 + "-" + credentials.ExecutionRoleType
 				m.EXPECT().GetMetadata("").Return("iam-ecs-1\niam-ecs-2", nil)
 				m.EXPECT().GetMetadata("iam-ecs-1/info").Return(
-					testInfoJSON(map[string]string{key1: testRoleARN}), nil)
+					testInfoJSON(map[string]TaskCredentialInfo{
+						key1: testEntryWithCode(testRoleARN, CredentialCodeSuccess),
+					}), nil)
 				m.EXPECT().GetMetadata("iam-ecs-1/security-credentials/"+key1).Return(
 					testCredentialJSON("AKID1"), nil)
 				m.EXPECT().GetMetadata("iam-ecs-2/info").Return(
-					testInfoJSON(map[string]string{key2: testRoleARN}), nil)
+					testInfoJSON(map[string]TaskCredentialInfo{
+						key2: testEntryWithCode(testRoleARN, CredentialCodeSuccess),
+					}), nil)
 				m.EXPECT().GetMetadata("iam-ecs-2/security-credentials/"+key2).Return(
 					testCredentialJSON("AKID2"), nil)
 			},
 			expectedCreds: []TaskCredential{
 				testCred(testTaskID1, credentials.ApplicationRoleType, testRoleARN, "AKID1"),
 				testCred(testTaskID2, credentials.ExecutionRoleType, testRoleARN, "AKID2"),
+			},
+		},
+		{
+			name: "unauthorized entries are aggregated across namespaces",
+			setupMock: func(m *mockec2.MockEC2MetadataClient) {
+				key1 := testTaskID1 + "-" + credentials.ApplicationRoleType
+				key2 := testTaskID2 + "-" + credentials.ExecutionRoleType
+				m.EXPECT().GetMetadata("").Return("iam-ecs-1\niam-ecs-2", nil)
+				m.EXPECT().GetMetadata("iam-ecs-1/info").Return(
+					testInfoJSON(map[string]TaskCredentialInfo{
+						key1: testEntryWithCode(testRoleARN, CredentialCodeAssumeRoleUnauthorizedAccess),
+					}), nil)
+				m.EXPECT().GetMetadata("iam-ecs-2/info").Return(
+					testInfoJSON(map[string]TaskCredentialInfo{
+						key2: testEntryWithCode(testRoleARN, CredentialCodeSuccess),
+					}), nil)
+				m.EXPECT().GetMetadata("iam-ecs-2/security-credentials/"+key2).Return(
+					testCredentialJSON("AKID2"), nil)
+			},
+			expectedCreds: []TaskCredential{
+				testCred(testTaskID2, credentials.ExecutionRoleType, testRoleARN, "AKID2"),
+			},
+			expectedAssumeRoleUnauthorizedAccessRoles: []AssumeRoleUnauthorizedAccessIAMRole{
+				testAssumeRoleUnauthorizedAccess(testTaskID1, credentials.ApplicationRoleType,
+					testRoleARN),
+			},
+		},
+		{
+			name: "unauthorized entries survive a failing namespace",
+			setupMock: func(m *mockec2.MockEC2MetadataClient) {
+				key1 := testTaskID1 + "-" + credentials.ApplicationRoleType
+				m.EXPECT().GetMetadata("").Return("iam-ecs-1\niam-ecs-2", nil)
+				m.EXPECT().GetMetadata("iam-ecs-1/info").Return(
+					testInfoJSON(map[string]TaskCredentialInfo{
+						key1: testEntryWithCode(testRoleARN, CredentialCodeAssumeRoleUnauthorizedAccess),
+					}), nil)
+				m.EXPECT().GetMetadata("iam-ecs-2/info").Return(
+					"", errors.New("timeout"))
+			},
+			expectedAssumeRoleUnauthorizedAccessRoles: []AssumeRoleUnauthorizedAccessIAMRole{
+				testAssumeRoleUnauthorizedAccess(testTaskID1, credentials.ApplicationRoleType,
+					testRoleARN),
+			},
+			expectedMetrics: []metricExpectation{
+				{
+					name:    metrics.IMDSCredentialsScannerNamespaceInfoFailureMetricName,
+					fields:  map[string]any{metricFieldNamespace: "iam-ecs-2"},
+					doneErr: errMessageContains("timeout"),
+				},
 			},
 		},
 		{
@@ -667,14 +970,16 @@ func TestScan(t *testing.T) {
 			}
 
 			s := NewScanner(mock, mockMetricsFactory)
-			creds, err := s.Scan(ctx)
+			result, err := s.Scan(ctx)
 
 			if tc.expectedErrSubstring != "" {
 				assert.ErrorContains(t, err, tc.expectedErrSubstring)
-				assert.Nil(t, creds)
+				assert.Empty(t, result.Credentials)
+				assert.Empty(t, result.AssumeRoleUnauthorizedAccessRoles)
 			} else {
 				assert.NoError(t, err)
-				assert.ElementsMatch(t, tc.expectedCreds, creds)
+				assert.ElementsMatch(t, tc.expectedCreds, result.Credentials)
+				assert.ElementsMatch(t, tc.expectedAssumeRoleUnauthorizedAccessRoles, result.AssumeRoleUnauthorizedAccessRoles)
 			}
 		})
 	}

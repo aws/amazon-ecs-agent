@@ -96,7 +96,7 @@ func (r *IMDSCredentialsRefresher) refresh() {
 		return
 	}
 
-	creds, err := r.scanner.Scan(r.ctx)
+	result, err := r.scanner.Scan(r.ctx)
 	if err != nil {
 		logger.Error("IMDS credentials refresh: scan failed", logger.Fields{
 			field.Error: err,
@@ -106,7 +106,7 @@ func (r *IMDSCredentialsRefresher) refresh() {
 
 	// upsertedCredCount tallies credentials written to the credentials manager.
 	upsertedCredCount := 0
-	for _, cred := range creds {
+	for _, cred := range result.Credentials {
 		task, ok := nonTerminalTasks[cred.TaskID]
 		if !ok {
 			// Credential for a task that's either terminal or unknown
@@ -128,10 +128,11 @@ func (r *IMDSCredentialsRefresher) refresh() {
 		upsertedCredCount++
 	}
 
-	if len(creds) > 0 {
+	if len(result.Credentials) > 0 || len(result.AssumeRoleUnauthorizedAccessRoles) > 0 {
 		logger.Info("IMDS credentials refresh: scan complete", logger.Fields{
-			"retrievedCredentialCount": len(creds),
-			"upsertedCredentialCount":  upsertedCredCount,
+			"retrievedCredentialCount":              len(result.Credentials),
+			"upsertedCredentialCount":               upsertedCredCount,
+			"assumeRoleUnauthorizedAccessRoleCount": len(result.AssumeRoleUnauthorizedAccessRoles),
 		})
 	}
 }

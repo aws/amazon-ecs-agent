@@ -75,6 +75,20 @@ func (mr *MockManagerMockRecorder) GetTaskCredentials(arg0 interface{}) *gomock.
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetTaskCredentials", reflect.TypeOf((*MockManager)(nil).GetTaskCredentials), arg0)
 }
 
+// IsCredentialsAssumeRoleUnauthorizedAccess mocks base method.
+func (m *MockManager) IsCredentialsAssumeRoleUnauthorizedAccess(arg0 string) bool {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "IsCredentialsAssumeRoleUnauthorizedAccess", arg0)
+	ret0, _ := ret[0].(bool)
+	return ret0
+}
+
+// IsCredentialsAssumeRoleUnauthorizedAccess indicates an expected call of IsCredentialsAssumeRoleUnauthorizedAccess.
+func (mr *MockManagerMockRecorder) IsCredentialsAssumeRoleUnauthorizedAccess(arg0 interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "IsCredentialsAssumeRoleUnauthorizedAccess", reflect.TypeOf((*MockManager)(nil).IsCredentialsAssumeRoleUnauthorizedAccess), arg0)
+}
+
 // IsCredentialsPending mocks base method.
 func (m *MockManager) IsCredentialsPending(arg0 string) bool {
 	m.ctrl.T.Helper()
@@ -99,6 +113,18 @@ func (m *MockManager) RemoveCredentials(arg0 string) {
 func (mr *MockManagerMockRecorder) RemoveCredentials(arg0 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "RemoveCredentials", reflect.TypeOf((*MockManager)(nil).RemoveCredentials), arg0)
+}
+
+// SetAssumeRoleUnauthorizedAccessCredentials mocks base method.
+func (m *MockManager) SetAssumeRoleUnauthorizedAccessCredentials(arg0 string) {
+	m.ctrl.T.Helper()
+	m.ctrl.Call(m, "SetAssumeRoleUnauthorizedAccessCredentials", arg0)
+}
+
+// SetAssumeRoleUnauthorizedAccessCredentials indicates an expected call of SetAssumeRoleUnauthorizedAccessCredentials.
+func (mr *MockManagerMockRecorder) SetAssumeRoleUnauthorizedAccessCredentials(arg0 interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SetAssumeRoleUnauthorizedAccessCredentials", reflect.TypeOf((*MockManager)(nil).SetAssumeRoleUnauthorizedAccessCredentials), arg0)
 }
 
 // SetTaskCredentials mocks base method.

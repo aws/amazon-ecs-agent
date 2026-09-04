@@ -120,15 +120,18 @@ func TestIMDSCredentialsRefresh(t *testing.T) {
 	mockIMDS.AddCredential(
 		"iam-ecs-1", taskID1,
 		credentials.ApplicationRoleType, roleARN1, "AKID_IMDS_A_APP",
+		ecsagentimds.CredentialCodeSuccess,
 	)
 	// Namespace 2: taskB with application + execution roles.
 	mockIMDS.AddCredential(
 		"iam-ecs-2", taskID2,
 		credentials.ApplicationRoleType, roleARN2, "AKID_IMDS_B_APP",
+		ecsagentimds.CredentialCodeSuccess,
 	)
 	mockIMDS.AddCredential(
 		"iam-ecs-2", taskID2,
 		credentials.ExecutionRoleType, roleARN2, "AKID_IMDS_B_EXEC",
+		ecsagentimds.CredentialCodeSuccess,
 	)
 
 	// Wait for the refresher to pick up the new credentials from IMDS

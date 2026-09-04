@@ -27,6 +27,8 @@ import (
 	"sync"
 	"testing"
 	"time"
+
+	"github.com/aws/amazon-ecs-agent/ecs-agent/credentials/imds"
 )
 
 // MockIMDSServer is an HTTP server that mimics the EC2 IMDS
@@ -43,6 +45,7 @@ type mockNamespace struct {
 }
 
 type mockCredential struct {
+	Code            string
 	RoleArn         string
 	AccessKeyID     string
 	SecretAccessKey string
@@ -69,23 +72,33 @@ func (s *MockIMDSServer) Close() {
 	s.server.Close()
 }
 
-// AddCredential registers a credential in the mock IMDS server.
-// The namespace is auto-created if it doesn't exist.
+// AddCredential registers an entry with the given info file Code in the mock
+// IMDS server. The namespace is auto-created if it doesn't exist. accessKeyID is
+// ignored unless the Code is Success, since no credential file is served for any
+// other Code.
 func (s *MockIMDSServer) AddCredential(
-	namespace, taskID, roleType, roleArn, accessKeyID string,
+	namespace, taskID, roleType, roleArn, accessKeyID, code string,
 ) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
 	ns := s.getOrCreateNamespace(namespace)
 	key := taskID + "-" + roleType
-	ns.credentials[key] = &mockCredential{
-		RoleArn:         roleArn,
-		AccessKeyID:     accessKeyID,
-		SecretAccessKey: "secret-" + accessKeyID,
-		SessionToken:    "token-" + accessKeyID,
-		Expiration:      time.Now().Add(1 * time.Hour).UTC().Format(time.RFC3339),
+	cred := &mockCredential{
+		Code:    code,
+		RoleArn: roleArn,
 	}
+
+	// A non-Success entry is advertised in the info file with no credential file
+	// behind it, so it carries no credential material.
+	if code == imds.CredentialCodeSuccess {
+		cred.AccessKeyID = accessKeyID
+		cred.SecretAccessKey = "secret-" + accessKeyID
+		cred.SessionToken = "token-" + accessKeyID
+		cred.Expiration = time.Now().Add(1 * time.Hour).UTC().Format(time.RFC3339)
+	}
+
+	ns.credentials[key] = cred
 	ns.lastUpdated = time.Now().UTC()
 }
 
@@ -110,6 +123,7 @@ func (s *MockIMDSServer) RotateCredential(
 		t.Fatalf("mock IMDS: credential %q not found in namespace %q",
 			key, namespace)
 	}
+	cred.Code = imds.CredentialCodeSuccess
 	cred.AccessKeyID = newAccessKeyID
 	cred.SecretAccessKey = "secret-" + newAccessKeyID
 	cred.SessionToken = "token-" + newAccessKeyID
@@ -193,6 +207,7 @@ func (s *MockIMDSServer) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 // LastUpdated and the TaskCredentials map.
 func (s *MockIMDSServer) serveInfo(w http.ResponseWriter, ns *mockNamespace) {
 	type taskCredInfo struct {
+		Code    string `json:"Code"`
 		RoleARN string `json:"RoleARN"`
 	}
 	info := struct {
@@ -203,7 +218,10 @@ func (s *MockIMDSServer) serveInfo(w http.ResponseWriter, ns *mockNamespace) {
 		TaskCredentials: make(map[string]taskCredInfo),
 	}
 	for key, cred := range ns.credentials {
-		info.TaskCredentials[key] = taskCredInfo{RoleARN: cred.RoleArn}
+		info.TaskCredentials[key] = taskCredInfo{
+			Code:    cred.Code,
+			RoleARN: cred.RoleArn,
+		}
 	}
 	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(info)
@@ -220,6 +238,13 @@ func (s *MockIMDSServer) serveCredential(
 		http.NotFound(w, r)
 		return
 	}
+	// An undelivered entry has no credential file, matching a provider that
+	// could not assume the role.
+	if cred.Code != imds.CredentialCodeSuccess {
+		http.NotFound(w, r)
+		return
+	}
+
 	resp := struct {
 		AccessKeyId     string `json:"AccessKeyId"`
 		SecretAccessKey string `json:"SecretAccessKey"`

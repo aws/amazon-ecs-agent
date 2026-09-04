@@ -90,7 +90,10 @@ type credentialsManager struct {
 	idToTaskCredentials map[string]TaskIAMRoleCredentials
 	// knownCredentialsIDs tracks all credentials IDs we know about
 	knownCredentialsIDs map[string]bool
-	taskCredentialsLock sync.RWMutex
+	// assumeRoleUnauthorizedAccessCredentialsIDs holds the credentials ids the provider reported
+	// being denied to assume the role for.
+	assumeRoleUnauthorizedAccessCredentialsIDs map[string]bool
+	taskCredentialsLock                        sync.RWMutex
 }
 
 // IAMRoleCredentialsFromACS translates ecsacs.IAMRoleCredentials object to
@@ -110,8 +113,9 @@ func IAMRoleCredentialsFromACS(roleCredentials *ecsacs.IAMRoleCredentials, roleT
 // NewManager creates a new credentials manager object
 func NewManager() Manager {
 	return &credentialsManager{
-		idToTaskCredentials: make(map[string]TaskIAMRoleCredentials),
-		knownCredentialsIDs: make(map[string]bool),
+		idToTaskCredentials:                        make(map[string]TaskIAMRoleCredentials),
+		knownCredentialsIDs:                        make(map[string]bool),
+		assumeRoleUnauthorizedAccessCredentialsIDs: make(map[string]bool),
 	}
 }
 
@@ -137,6 +141,10 @@ func (manager *credentialsManager) SetTaskCredentials(taskCredentials *TaskIAMRo
 	}
 
 	manager.knownCredentialsIDs[credentials.CredentialsID] = true
+
+	// Credentials arriving for this id mean the provider was able to assume the role.
+	// This could happen, for instance, when a previously misconfigured IAM role is now rectified.
+	delete(manager.assumeRoleUnauthorizedAccessCredentialsIDs, credentials.CredentialsID)
 
 	return nil
 }
@@ -164,6 +172,28 @@ func (manager *credentialsManager) RemoveCredentials(id string) {
 
 	delete(manager.idToTaskCredentials, id)
 	delete(manager.knownCredentialsIDs, id)
+	delete(manager.assumeRoleUnauthorizedAccessCredentialsIDs, id)
+}
+
+// SetAssumeRoleUnauthorizedAccessCredentials records that the credentials
+// provider was not authorized to assume the role for the given credentials id.
+// Any credentials already held for the id are left in place; they stay
+// serviceable until they expire.
+func (manager *credentialsManager) SetAssumeRoleUnauthorizedAccessCredentials(id string) {
+	manager.taskCredentialsLock.Lock()
+	defer manager.taskCredentialsLock.Unlock()
+
+	manager.assumeRoleUnauthorizedAccessCredentialsIDs[id] = true
+}
+
+// IsCredentialsAssumeRoleUnauthorizedAccess returns true if the provider
+// reported that it was not authorized to assume the role for the given
+// credentials id, and has not since delivered credentials for it.
+func (manager *credentialsManager) IsCredentialsAssumeRoleUnauthorizedAccess(id string) bool {
+	manager.taskCredentialsLock.RLock()
+	defer manager.taskCredentialsLock.RUnlock()
+
+	return manager.assumeRoleUnauthorizedAccessCredentialsIDs[id]
 }
 
 // IsCredentialsPending returns true if credentials ID is known but has not yet arrived from ACS.

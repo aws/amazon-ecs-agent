@@ -13,6 +13,17 @@
 
 package imds
 
+const (
+	// CredentialCodeSuccess is the info file Code for a credential the provider
+	// successfully assumed the role for and wrote to IMDS.
+	CredentialCodeSuccess = "Success"
+
+	// CredentialCodeAssumeRoleUnauthorizedAccess is the info file Code for a credential the
+	// provider was not authorized to assume the role for, for example because
+	// the role's trust policy rejects it.
+	CredentialCodeAssumeRoleUnauthorizedAccess = "AssumeRoleUnauthorizedAccess"
+)
+
 // NamespaceInfo represents the parsed info file from an iam-ecs-* namespace.
 // JSON tags match the IMDS response format.
 type NamespaceInfo struct {
@@ -22,6 +33,7 @@ type NamespaceInfo struct {
 
 // TaskCredentialInfo represents a single entry in the namespace info file.
 type TaskCredentialInfo struct {
+	Code    string `json:"Code"`
 	RoleArn string `json:"RoleARN"`
 }
 
@@ -34,6 +46,26 @@ type TaskCredential struct {
 	SecretAccessKey string
 	SessionToken    string
 	Expiration      string
+}
+
+// AssumeRoleUnauthorizedAccessIAMRole identifies a task's IAM role that the
+// provider was not authorized to assume, as reported by a namespace info file
+// entry with Code AssumeRoleUnauthorizedAccess. It carries no credential
+// material because the provider wrote none.
+type AssumeRoleUnauthorizedAccessIAMRole struct {
+	TaskID   string
+	RoleType string
+	RoleArn  string
+}
+
+// ScanResult holds the outcome of a single IMDS credentials scan.
+type ScanResult struct {
+	// Credentials are the task credentials retrieved from IMDS.
+	Credentials []TaskCredential
+	// AssumeRoleUnauthorizedAccessRoles are the roles the provider was not
+	// authorized to assume. A consumer uses them to attribute a stale credential
+	// to that, as opposed to a broken delivery path.
+	AssumeRoleUnauthorizedAccessRoles []AssumeRoleUnauthorizedAccessIAMRole
 }
 
 // imdsCredential is used internally by the scanner to deserialize IMDS
