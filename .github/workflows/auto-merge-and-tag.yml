@@ -1,0 +1,122 @@
+name: Auto Merge and Tag
+
+# Github workflow to auto merge release PRs to master
+# - Fires when any PR merges into dev.
+# - classify (validation gate, verifies this merge came from a release branch): runs only for a merged v*-stage branch with a valid X.Y.Z semver; otherwise promote is skipped.
+# - promote (release step): only for a real release branch; fast-forwards master to the release commit, tags v<X.Y.Z>, and drafts the GitHub release.
+
+on:
+  pull_request:
+    types: [closed]
+    branches: [dev]
+
+permissions:
+  contents: read
+
+jobs:
+  classify:
+    if: >-
+      github.event.pull_request.merged == true &&
+      startsWith(github.event.pull_request.head.ref, 'v') &&
+      endsWith(github.event.pull_request.head.ref, '-stage')
+    runs-on: ubuntu-latest
+    outputs:
+      is_release: ${{ steps.check.outputs.is_release }}
+      agent_version: ${{ steps.check.outputs.agent_version }}
+    steps:
+      - name: Classify the merged branch
+        id: check
+        env:
+          HEAD_REF: ${{ github.event.pull_request.head.ref }}
+        run: |
+          set -euo pipefail
+          AGENT_VERSION="${HEAD_REF#v}"
+          AGENT_VERSION="${AGENT_VERSION%-stage}"
+          if ! [[ "$AGENT_VERSION" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+            echo "::notice::Branch '${HEAD_REF}' does not name an X.Y.Z release. Nothing to promote."
+            echo "is_release=false" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          echo "Recognised release version ${AGENT_VERSION}"
+          echo "is_release=true" >> "$GITHUB_OUTPUT"
+          echo "agent_version=${AGENT_VERSION}" >> "$GITHUB_OUTPUT"
+
+  promote:
+    needs: classify
+    if: needs.classify.outputs.is_release == 'true'
+    runs-on: ubuntu-latest
+    env:
+      AGENT_VERSION: ${{ needs.classify.outputs.agent_version }}
+      RELEASE_SHA: ${{ github.event.pull_request.head.sha }}
+    steps:
+      # Generate GH App token : must precede actions/checkout, so that we can provide necessary GH App token for checkout and merge to master later
+      - name: Generate App Token
+        id: app-token
+        uses: actions/create-github-app-token@v3
+        with:
+          app-id: ${{ secrets.APP_ID }}
+          private-key: ${{ secrets.APP_PRIVATE_KEY }}
+          # We only ever push and tag; no need for the app's pull-requests permission too.
+          permission-contents: write
+
+      - uses: actions/checkout@v7
+        with:
+          # Full history so `git show RELEASE_SHA:...` below can find that commit's tree.
+          fetch-depth: 0
+          # token: is checkout's own input; it sets the git credential every later `git` command uses (git push below).
+          token: ${{ steps.app-token.outputs.token }}
+
+      - name: Check that this version has not already been released
+        env:
+          # gh reads GH_TOKEN from the environment; it does not use checkout's git credential.
+          GH_TOKEN: ${{ steps.app-token.outputs.token }}
+        run: |
+          set -euo pipefail
+          # gh release view only finds a Release object; check the tag itself too, since a tag can survive a deleted release.
+          if gh release view "v${AGENT_VERSION}" --repo "${{ github.repository }}" >/dev/null 2>&1 || \
+             gh api "repos/${{ github.repository }}/git/refs/tags/v${AGENT_VERSION}" >/dev/null 2>&1; then
+            echo "::error::Version ${AGENT_VERSION} already has a GitHub release or a v${AGENT_VERSION} tag. Delete whichever exists (a draft release has no tag yet) and re-run this workflow."
+            exit 1
+          fi
+
+      # Fast-forward only, no --force: a rejection means dev/master diverged and the release commit isn't a master descendant.
+      - name: Fast-forward master to the release commit
+        run: |
+          set -euo pipefail
+          # A squash/rebase merge orphans the release commit from dev, so master would point off dev's history. Only a merge commit keeps it reachable.
+          git fetch origin dev
+          if ! git merge-base --is-ancestor "${RELEASE_SHA}" origin/dev; then
+            echo "::error::${RELEASE_SHA} is not on dev's history, so pushing it would diverge master from dev. The release PR must be merged as a merge commit, not squashed or rebased."
+            exit 1
+          fi
+          echo "Pushing ${RELEASE_SHA} to master..."
+          git push origin "${RELEASE_SHA}:refs/heads/master"
+
+      - name: Extract the changelog section for this version
+        run: |
+          set -euo pipefail
+          git show "${RELEASE_SHA}:CHANGELOG.md" > /tmp/full-changelog.md
+          awk -v ver="# ${AGENT_VERSION}" '
+            $0 == ver { found = 1; next }
+            found && /^# / { exit }
+            found { print }
+          ' /tmp/full-changelog.md > /tmp/release-notes.md
+          # Test for real content, not file size: an empty section yields a blank line, which -s counts as non-empty.
+          if [[ -z "$(tr -d '[:space:]' < /tmp/release-notes.md)" ]]; then
+            echo "::error::CHANGELOG.md has no release notes under '# ${AGENT_VERSION}'"
+            exit 1
+          fi
+
+      # Tags v<version> and drafts the release together, same pairing the manual runbook does; publishing the draft stays a separate later step.
+      - name: Create the release tag and draft the release
+        env:
+          GH_TOKEN: ${{ steps.app-token.outputs.token }}
+        run: |
+          set -euo pipefail
+          gh release create "v${AGENT_VERSION}" \
+            --repo "${{ github.repository }}" \
+            --target "${RELEASE_SHA}" \
+            --title "Amazon ECS Agent - v${AGENT_VERSION}" \
+            --notes-file /tmp/release-notes.md \
+            --draft
+          echo "Drafted release v${AGENT_VERSION} at ${RELEASE_SHA}"
