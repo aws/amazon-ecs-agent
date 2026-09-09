@@ -10,7 +10,7 @@ require (
 	github.com/kubernetes-csi/csi-proxy/client v1.1.3
 	github.com/stretchr/testify v1.9.0
 	golang.org/x/sys v0.47.0
-	google.golang.org/grpc v1.82.1
+	google.golang.org/grpc v1.83.2
 	k8s.io/apimachinery v0.30.1
 	k8s.io/klog/v2 v2.120.1
 	k8s.io/mount-utils v0.30.1
