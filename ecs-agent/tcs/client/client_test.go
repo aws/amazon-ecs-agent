@@ -24,6 +24,7 @@ package tcsclient
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"math/rand"
 	"strconv"
@@ -411,6 +412,25 @@ func TestPublishMetricsRequest(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
+}
+
+func TestMakeRequestWithRetry(t *testing.T) {
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+
+	conn := mock_wsconn.NewMockWebsocketConn(ctrl)
+	conn.EXPECT().SetWriteDeadline(gomock.Any()).Return(nil).Times(3)
+	conn.EXPECT().WriteMessage(gomock.Any(), gomock.Any()).
+		Return(errors.New("transient websocket write failure")).
+		Times(1)
+	conn.EXPECT().WriteMessage(gomock.Any(), gomock.Any()).Return(nil).Times(1)
+	conn.EXPECT().Close()
+
+	cs := testCS(conn, nil, nil).(*tcsClientServer)
+	defer cs.Close()
+
+	err := cs.makeRequestWithRetry(context.Background(), &ecstcs.PublishMetricsRequest{})
+	assert.NoError(t, err)
 }
 
 func TestMetricsToPublishMetricRequestsIdleStatsSource(t *testing.T) {

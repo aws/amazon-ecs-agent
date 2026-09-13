@@ -28,6 +28,7 @@ import (
 	"github.com/aws/amazon-ecs-agent/ecs-agent/metrics"
 	"github.com/aws/amazon-ecs-agent/ecs-agent/tcs/model/ecstcs"
 	"github.com/aws/amazon-ecs-agent/ecs-agent/utils"
+	"github.com/aws/amazon-ecs-agent/ecs-agent/utils/retry"
 	"github.com/aws/amazon-ecs-agent/ecs-agent/wsclient"
 
 	"github.com/aws/aws-sdk-go-v2/aws"
@@ -45,6 +46,10 @@ const (
 	// DefaultContainerMetricsPublishInterval is the default interval that we publish
 	// metrics to the ECS telemetry backend (TACS)
 	DefaultContainerMetricsPublishInterval = 20 * time.Second
+	// publishRequestMaxAttempts limits retries for a request while the websocket
+	// session is recovering from a transient write failure.
+	publishRequestMaxAttempts = 3
+	publishRequestRetryDelay  = time.Second
 )
 
 var (
@@ -158,7 +163,7 @@ func (cs *tcsClientServer) publishMessages(ctx context.Context) {
 			return
 		case metric := <-cs.metrics:
 			logger.Debug("received telemetry message in metricsChannel")
-			err := cs.publishMetricsOnce(metric)
+			err := cs.publishMetricsOnce(ctx, metric)
 			if err != nil {
 				logger.Warn("Error publishing metrics", logger.Fields{
 					field.Error: err,
@@ -167,7 +172,7 @@ func (cs *tcsClientServer) publishMessages(ctx context.Context) {
 			}
 		case health := <-cs.health:
 			logger.Debug("received health message in healthChannel")
-			err := cs.publishHealthOnce(health)
+			err := cs.publishHealthOnce(ctx, health)
 			if err != nil {
 				logger.Warn("Error publishing health", logger.Fields{
 					field.Error: err,
@@ -175,7 +180,7 @@ func (cs *tcsClientServer) publishMessages(ctx context.Context) {
 			}
 		case instanceStatus := <-cs.instanceStatus:
 			logger.Debug(fmt.Sprintf("received instance status message in instanceStatusChannel %+v", instanceStatus))
-			err := cs.publishInstanceStatusOnce(instanceStatus)
+			err := cs.publishInstanceStatusOnce(ctx, instanceStatus)
 			if err != nil {
 				logger.Warn("Error publishing instance status", logger.Fields{
 					field.Error: err,
@@ -186,7 +191,7 @@ func (cs *tcsClientServer) publishMessages(ctx context.Context) {
 }
 
 // publishMetricsOnce is invoked by the ticker to periodically publish metrics to backend.
-func (cs *tcsClientServer) publishMetricsOnce(message ecstcs.TelemetryMessage) error {
+func (cs *tcsClientServer) publishMetricsOnce(ctx context.Context, message ecstcs.TelemetryMessage) error {
 	// Get the list of objects to send to backend.
 	requests, err := cs.metricsToPublishMetricRequests(message)
 	if err != nil {
@@ -196,7 +201,7 @@ func (cs *tcsClientServer) publishMetricsOnce(message ecstcs.TelemetryMessage) e
 	// Make the publish metrics request to the backend.
 	for _, request := range requests {
 		logger.Debug("making publish metrics request")
-		err = cs.MakeRequest(request)
+		err = cs.makeRequestWithRetry(ctx, request)
 		if err != nil {
 			return err
 		}
@@ -205,7 +210,7 @@ func (cs *tcsClientServer) publishMetricsOnce(message ecstcs.TelemetryMessage) e
 }
 
 // publishHealthOnce is invoked by the ticker to periodically publish metrics to backend.
-func (cs *tcsClientServer) publishHealthOnce(health ecstcs.HealthMessage) error {
+func (cs *tcsClientServer) publishHealthOnce(ctx context.Context, health ecstcs.HealthMessage) error {
 	// Get the list of health request to send to backend.
 	requests, err := cs.healthToPublishHealthRequests(health)
 	if err != nil {
@@ -214,7 +219,7 @@ func (cs *tcsClientServer) publishHealthOnce(health ecstcs.HealthMessage) error 
 	// Make the publish metrics request to the backend.
 	for _, request := range requests {
 		logger.Debug("making publish health metrics request")
-		err = cs.MakeRequest(request)
+		err = cs.makeRequestWithRetry(ctx, request)
 		if err != nil {
 			return err
 		}
@@ -454,7 +459,7 @@ func (cs *tcsClientServer) publishInstanceStatus(ctx context.Context) {
 					continue
 				}
 
-				err = cs.publishInstanceStatusOnce(message)
+				err = cs.publishInstanceStatusOnce(ctx, message)
 				if err != nil {
 					logger.Warn("Unable to publish instance status", logger.Fields{
 						field.Error: err,
@@ -479,14 +484,14 @@ func (cs *tcsClientServer) publishInstanceStatus(ctx context.Context) {
 // This method enables external components to publish instance status updates
 // through the instanceStatus channel, providing an alternative to the doctor
 // module's periodic health check publishing mechanism.
-func (cs *tcsClientServer) publishInstanceStatusOnce(message ecstcs.InstanceStatusMessage) error {
+func (cs *tcsClientServer) publishInstanceStatusOnce(ctx context.Context, message ecstcs.InstanceStatusMessage) error {
 	request := &ecstcs.PublishInstanceStatusRequest{
 		Metadata:  message.Metadata,
 		Statuses:  message.Statuses,
 		Timestamp: (*utils.Timestamp)(aws.Time(time.Now())),
 	}
 
-	err := cs.MakeRequest(request)
+	err := cs.makeRequestWithRetry(ctx, request)
 	if err != nil {
 		return err
 	}
@@ -498,6 +503,13 @@ func (cs *tcsClientServer) publishInstanceStatusOnce(message ecstcs.InstanceStat
 	}
 	logger.Info(fmt.Sprintf("Successfully published instance status message to TCS with request ID: %s", requestID))
 	return nil
+}
+
+func (cs *tcsClientServer) makeRequestWithRetry(ctx context.Context, request interface{}) error {
+	backoff := retry.NewExponentialBackoff(publishRequestRetryDelay, publishRequestRetryDelay, 0, 1)
+	return retry.RetryNWithBackoffCtx(ctx, backoff, publishRequestMaxAttempts, func() error {
+		return cs.MakeRequest(request)
+	})
 }
 
 // createInstanceStatusMessageFromDoctor creates an InstanceStatusMessage from doctor data
