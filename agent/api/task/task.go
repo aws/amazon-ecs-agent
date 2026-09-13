@@ -56,6 +56,7 @@ import (
 	ni "github.com/aws/amazon-ecs-agent/ecs-agent/netlib/model/networkinterface"
 	commonutils "github.com/aws/amazon-ecs-agent/ecs-agent/utils"
 	"github.com/aws/amazon-ecs-agent/ecs-agent/utils/arn"
+	"github.com/aws/amazon-ecs-agent/ecs-agent/utils/mps"
 	"github.com/aws/amazon-ecs-agent/ecs-agent/utils/ttime"
 	ecstypes "github.com/aws/aws-sdk-go-v2/service/ecs/types"
 
@@ -89,6 +90,14 @@ const (
 
 	NvidiaVisibleDevicesEnvVar = "NVIDIA_VISIBLE_DEVICES"
 	GPUAssociationType         = "gpu"
+	// resourceTypeGPU is the ACS ResourceRequirement.type value for a GPU. Compared
+	// as a constant so this code is unaffected if the ACS model promotes `type` from a
+	// bare String to a ResourceType enum, the wire value stays "GPU" and the v1
+	// generator still renders the field as *string (see AssociationType).
+	// TODO: when the ResourceType enum lands upstream, re-regen the ACS
+	// model (api-2.json -> ecsacs/api.go) to add the enum shape and point type at it.
+	// This is a mechanical re-regen only; no change needed here.
+	resourceTypeGPU = "GPU"
 
 	// neuronRuntime is the name of the neuron docker runtime.
 	neuronRuntime = "neuron"
@@ -258,6 +267,16 @@ type Task struct {
 	CredentialsID                string `json:"credentialsID"`
 	credentialsRelativeURIUnsafe string
 
+	// TaskRoleArn is the ARN of the task IAM role delivered by ACS alongside
+	// the task role credentials. It is persisted so that credentials retrieved
+	// from other sources, such as IMDS, can be verified against the role they
+	// are expected to belong to.
+	TaskRoleArn string `json:"taskRoleArn,omitempty"`
+
+	// ExecutionRoleArn is the ARN of the task execution IAM role. See
+	// TaskRoleArn for why it is persisted.
+	ExecutionRoleArn string `json:"executionRoleArn,omitempty"`
+
 	// ENIs is the list of Elastic Network Interfaces assigned to this task. The
 	// TaskENIs type is helpful when decoding state files which might have stored
 	// ENIs as a single ENI object instead of a list.
@@ -355,7 +374,74 @@ func TaskFromACS(acsTask *ecsacs.Task, envelope *ecsacs.PayloadMessage) (*Task, 
 		return nil, err
 	}
 
+	// validate the GPU sharing strategy on resource requirements and map it onto
+	// the internal containers before the task is acted on
+	if err := applyGPUResourceRequirements(acsTask, task); err != nil {
+		return nil, err
+	}
+
 	return task, nil
+}
+
+// applyGPUResourceRequirements validates each container's ACS GPU sharingStrategy and
+// maps it onto the matching internal container as its MPSConfig. It reads the wire
+// acsTask directly because the internal container has no resourceRequirements field.
+//
+// sharingStrategy is a union (exactly one known member) but the v1-generated model
+// emits it as a struct with optional members, so an empty, unknown, or incomplete
+// strategy would deserialize silently and be misread as a whole-GPU request. This
+// rejects those, exactly one known strategy with its required fields, or the task fails.
+//
+// Values are range-checked to mirror the upstream ACS/MTS model bounds
+// (memory >= 1, maxComputePercent in 1..100): the v1-generated Validate() only
+// null-checks memory and is not invoked on the consume path, so a malformed
+// payload would otherwise be accepted here.
+func applyGPUResourceRequirements(acsTask *ecsacs.Task, task *Task) error {
+	for _, wireContainer := range acsTask.Containers {
+		if wireContainer == nil {
+			continue
+		}
+		name := aws.ToString(wireContainer.Name)
+		for _, rr := range wireContainer.ResourceRequirements {
+			if rr == nil || rr.SharingStrategy == nil {
+				// No sharing strategy: a whole-GPU or non-GPU requirement.
+				continue
+			}
+			if aws.ToString(rr.Type) != resourceTypeGPU {
+				return fmt.Errorf("container %q: sharingStrategy is set on a non-GPU resource requirement", name)
+			}
+			if rr.SharingStrategy.NvidiaMps == nil {
+				return fmt.Errorf("container %q: GPU sharingStrategy is set with no known strategy", name)
+			}
+			if rr.SharingStrategy.NvidiaMps.Memory == nil {
+				return fmt.Errorf("container %q: nvidiaMps.memory is required for the MPS GPU sharing strategy", name)
+			}
+			memory := aws.ToInt64(rr.SharingStrategy.NvidiaMps.Memory)
+			if memory < 1 {
+				return fmt.Errorf("container %q: nvidiaMps.memory must be at least 1 MiB, got %d", name, memory)
+			}
+			// maxComputePercent is optional; a nil pointer means the customer omitted
+			// it and the MPS daemon default (100%) applies. Preserve that nil while
+			// narrowing from the ACS *int64 to the internal *uint.
+			var maxComputePercent *uint
+			if compute := rr.SharingStrategy.NvidiaMps.MaxComputePercent; compute != nil {
+				if *compute < 1 || *compute > 100 {
+					return fmt.Errorf("container %q: nvidiaMps.maxComputePercent must be between 1 and 100, got %d", name, *compute)
+				}
+				v := uint(*compute)
+				maxComputePercent = &v
+			}
+			container, ok := task.ContainerByName(name)
+			if !ok {
+				return fmt.Errorf("container %q: has an MPS resource requirement but no matching container in the task", name)
+			}
+			container.MPSConfig = &apicontainer.MPSConfig{
+				Memory:            uint(memory),
+				MaxComputePercent: maxComputePercent,
+			}
+		}
+	}
+	return nil
 }
 
 func (task *Task) RemoveVolume(index int) {
@@ -699,19 +785,26 @@ func (task *Task) applyFirelensSetup(cfg *config.Config, resourceFields *taskres
 func (task *Task) addGPUResource(cfg *config.Config) error {
 	if cfg.GPUSupportEnabled {
 		for _, association := range task.Associations {
-			// One GPU can be associated with only one container
-			// That is why validating if association.Containers is of length 1
 			if association.Type == GPUAssociationType {
-				if len(association.Containers) != 1 {
+				// Multiple containers may share a GPU only when all of them use MPS;
+				// otherwise a GPU is exclusive to a single container. All containers in the
+				// association receive the same device.
+				allMPS, err := task.allAssociationContainersMPS(association)
+				if err != nil {
+					return err
+				}
+				if len(association.Containers) != 1 && !allMPS {
 					return fmt.Errorf("could not associate multiple containers to GPU %s", association.Name)
 				}
 
-				container, ok := task.ContainerByName(association.Containers[0])
-				if !ok {
-					return fmt.Errorf("could not find container with name %s for associating GPU %s",
-						association.Containers[0], association.Name)
+				for _, containerName := range association.Containers {
+					container, ok := task.ContainerByName(containerName)
+					if !ok {
+						return fmt.Errorf("could not find container with name %s for associating GPU %s",
+							containerName, association.Name)
+					}
+					container.GPUIDs = append(container.GPUIDs, association.Name)
 				}
-				container.GPUIDs = append(container.GPUIDs, association.Name)
 			}
 		}
 		// For external instances, GPU IDs are handled by resources struct
@@ -733,12 +826,37 @@ func (task *Task) isGPUEnabled() bool {
 	return false
 }
 
+// allAssociationContainersMPS reports whether every container in the association
+// uses MPS. It errors if a named container isn't in the task (a malformed
+// association); a non-MPS container just returns false.
+func (task *Task) allAssociationContainersMPS(association Association) (bool, error) {
+	if len(association.Containers) == 0 {
+		return false, nil
+	}
+	for _, containerName := range association.Containers {
+		container, ok := task.ContainerByName(containerName)
+		if !ok {
+			return false, fmt.Errorf("could not find container with name %s for associating GPU %s",
+				containerName, association.Name)
+		}
+		if !container.UsesMPS() {
+			return false, nil
+		}
+	}
+	return true, nil
+}
+
 func (task *Task) populateGPUEnvironmentVariables() {
 	for _, container := range task.Containers {
 		if len(container.GPUIDs) > 0 {
 			gpuList := strings.Join(container.GPUIDs, ",")
 			envVars := make(map[string]string)
 			envVars[NvidiaVisibleDevicesEnvVar] = gpuList
+			if container.UsesMPS() {
+				for k, v := range mps.BuildEnv(container.MPSConfig.Memory, container.MPSConfig.MaxComputePercent) {
+					envVars[k] = v
+				}
+			}
 			container.MergeEnvironmentVariables(envVars)
 		}
 	}
@@ -2066,6 +2184,10 @@ func (task *Task) dockerHostConfig(container *apicontainer.Container, dockerCont
 		return nil, &apierrors.HostConfigError{Msg: err.Error()}
 	}
 
+	if container.UsesMPS() {
+		binds = append(binds, mps.PipeDirectory+":"+mps.PipeDirectory)
+	}
+
 	resources := task.getDockerResources(container, cfg)
 
 	supplementaryGroups := task.getSupplementaryGroups(container)
@@ -2969,6 +3091,51 @@ func (task *Task) GetCredentialsIDForRoleType(roleType string) string {
 	}
 }
 
+// SetTaskRoleArn sets the ARN of the task IAM role.
+func (task *Task) SetTaskRoleArn(arn string) {
+	task.lock.Lock()
+	defer task.lock.Unlock()
+
+	task.TaskRoleArn = arn
+}
+
+// GetTaskRoleArn gets the ARN of the task IAM role.
+func (task *Task) GetTaskRoleArn() string {
+	task.lock.RLock()
+	defer task.lock.RUnlock()
+
+	return task.TaskRoleArn
+}
+
+// SetExecutionRoleArn sets the ARN of the task execution IAM role.
+func (task *Task) SetExecutionRoleArn(arn string) {
+	task.lock.Lock()
+	defer task.lock.Unlock()
+
+	task.ExecutionRoleArn = arn
+}
+
+// GetExecutionRoleArn gets the ARN of the task execution IAM role.
+func (task *Task) GetExecutionRoleArn() string {
+	task.lock.RLock()
+	defer task.lock.RUnlock()
+
+	return task.ExecutionRoleArn
+}
+
+// GetRoleArnForRoleType returns the IAM role ARN for the given role type on
+// the task.
+func (task *Task) GetRoleArnForRoleType(roleType string) string {
+	switch roleType {
+	case credentials.ApplicationRoleType:
+		return task.GetTaskRoleArn()
+	case credentials.ExecutionRoleType:
+		return task.GetExecutionRoleArn()
+	default:
+		return ""
+	}
+}
+
 // GetDesiredStatus gets the desired status of the task
 func (task *Task) GetDesiredStatus() apitaskstatus.TaskStatus {
 	task.lock.RLock()
@@ -3825,9 +3992,10 @@ func (task *Task) IsLaunchTypeFargate() bool {
 //   - Only account for hostPort
 //   - Don't need to account for awsvpc mode, each task gets its own namespace
 //
-// * GPU
-//   - Concatenate each container's gpu ids
-func (task *Task) ToHostResources() map[string]ecstypes.Resource {
+// The second return value is the per-GPU-UUID memory demand: each MPS container
+// contributes its memory cap (summed across the task's MPS containers on that
+// UUID), and a non-MPS container claims the whole GPU.
+func (task *Task) ToHostResources() (map[string]ecstypes.Resource, map[string]GPUMemoryDemand) {
 	resources := make(map[string]ecstypes.Resource)
 	// CPU
 	if task.CPU > 0 {
@@ -3920,25 +4088,36 @@ func (task *Task) ToHostResources() map[string]ecstypes.Resource {
 		StringSetValue: commonutils.Uint16SliceToStringSlice(udpPortSet),
 	}
 
-	// GPU
-	var gpus []string
+	// GPU_MEMORY: per GPU UUID, an MPS container contributes its per-container
+	// memory cap (summed across the task's MPS containers on that GPU); a non-MPS
+	// container claims the whole GPU.
+	gpuMemoryDemand := make(map[string]GPUMemoryDemand)
 	for _, c := range task.Containers {
-		gpus = append(gpus, c.GPUIDs...)
-	}
-	resources["GPU"] = ecstypes.Resource{
-		Name:           utils.Strptr("GPU"),
-		Type:           utils.Strptr("STRINGSET"),
-		StringSetValue: gpus,
+		for _, uuid := range c.GPUIDs {
+			if gpuMemoryDemand[uuid].WholeGPU {
+				// A whole-GPU UUID reached from a second container should never
+				// happen: addGPUResource binds each GPU association to exactly one
+				// container. Skip defensively.
+				continue
+			}
+			if c.UsesMPS() {
+				d := gpuMemoryDemand[uuid]
+				d.MiB += int64(c.MPSConfig.Memory)
+				gpuMemoryDemand[uuid] = d
+			} else {
+				gpuMemoryDemand[uuid] = GPUMemoryDemand{WholeGPU: true}
+			}
+		}
 	}
 	logger.Debug("Task host resources to account for", logger.Fields{
-		"taskArn":   task.Arn,
-		"CPU":       resources["CPU"].IntegerValue,
-		"MEMORY":    resources["MEMORY"].IntegerValue,
-		"PORTS_TCP": resources["PORTS_TCP"].StringSetValue,
-		"PORTS_UDP": resources["PORTS_UDP"].StringSetValue,
-		"GPU":       resources["GPU"].StringSetValue,
+		"taskArn":    task.Arn,
+		"CPU":        resources["CPU"].IntegerValue,
+		"MEMORY":     resources["MEMORY"].IntegerValue,
+		"PORTS_TCP":  resources["PORTS_TCP"].StringSetValue,
+		"PORTS_UDP":  resources["PORTS_UDP"].StringSetValue,
+		"GPU_MEMORY": gpuMemoryDemand,
 	})
-	return resources
+	return resources, gpuMemoryDemand
 }
 
 func (task *Task) HasActiveContainers() bool {

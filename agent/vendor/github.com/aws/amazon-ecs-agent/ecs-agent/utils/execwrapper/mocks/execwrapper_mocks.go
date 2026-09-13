@@ -141,6 +141,18 @@ func (mr *MockCmdMockRecorder) Run() *gomock.Call {
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Run", reflect.TypeOf((*MockCmd)(nil).Run))
 }
 
+// SetEnv mocks base method.
+func (m *MockCmd) SetEnv(arg0 []string) {
+	m.ctrl.T.Helper()
+	m.ctrl.Call(m, "SetEnv", arg0)
+}
+
+// SetEnv indicates an expected call of SetEnv.
+func (mr *MockCmdMockRecorder) SetEnv(arg0 interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SetEnv", reflect.TypeOf((*MockCmd)(nil).SetEnv), arg0)
+}
+
 // SetIOStreams mocks base method.
 func (m *MockCmd) SetIOStreams(arg0 io.Reader, arg1, arg2 io.Writer) {
 	m.ctrl.T.Helper()

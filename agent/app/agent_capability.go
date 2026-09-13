@@ -275,6 +275,7 @@ func (agent *ecsAgent) capabilities() ([]types.Attribute, error) {
 
 	if agent.cfg.GPUSupportEnabled {
 		capabilities = agent.appendNvidiaDriverVersionAttribute(capabilities)
+		capabilities = agent.appendGpuSharingMpsCapability(capabilities)
 	}
 
 	// ecs agent version 1.22.0 supports sharing PID namespaces and IPC resource namespaces

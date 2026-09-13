@@ -57,6 +57,7 @@ import (
 	"github.com/aws/amazon-ecs-agent/ecs-agent/ipcompatibility"
 	ni "github.com/aws/amazon-ecs-agent/ecs-agent/netlib/model/networkinterface"
 	commonutils "github.com/aws/amazon-ecs-agent/ecs-agent/utils"
+	"github.com/aws/amazon-ecs-agent/ecs-agent/utils/mps"
 	dockertypes "github.com/docker/docker/api/types"
 
 	"github.com/aws/aws-sdk-go-v2/aws"
@@ -3603,6 +3604,142 @@ func TestAddGPUResourceWithInvalidContainer(t *testing.T) {
 	assert.Error(t, err)
 }
 
+// TestAddGPUResourceMPSColocation verifies that multiple MPS containers sharing
+// one GPU association are allowed (the relaxed one-container-per-GPU rule) and
+// that each container is assigned the single shared GPU UUID.
+func TestAddGPUResourceMPSColocation(t *testing.T) {
+	containerA := &apicontainer.Container{
+		Name:      "model-a",
+		Image:     "image:tag",
+		MPSConfig: &apicontainer.MPSConfig{Memory: 12288},
+	}
+	containerB := &apicontainer.Container{
+		Name:      "model-b",
+		Image:     "image:tag",
+		MPSConfig: &apicontainer.MPSConfig{Memory: 6144},
+	}
+
+	task := &Task{
+		Arn:                "test",
+		ResourcesMapUnsafe: make(map[string][]taskresource.TaskResource),
+		Containers:         []*apicontainer.Container{containerA, containerB},
+		Associations: []Association{
+			{
+				Containers: []string{"model-a", "model-b"},
+				Name:       "gpu1",
+				Type:       "gpu",
+			},
+		},
+	}
+
+	cfg := &config.Config{GPUSupportEnabled: true, NvidiaRuntime: config.DefaultNvidiaRuntime}
+	err := task.addGPUResource(cfg)
+	assert.NoError(t, err, "two MPS containers colocated on one GPU must be allowed")
+	// Both containers pinned to the same single UUID; neither gets a second GPU.
+	assert.Equal(t, []string{"gpu1"}, containerA.GPUIDs)
+	assert.Equal(t, []string{"gpu1"}, containerB.GPUIDs)
+}
+
+// TestAddGPUResourceNonMPSMultiContainerRejected verifies the whole-GPU
+// one-container-per-GPU pin is preserved: a GPU association naming multiple
+// non-MPS containers is still rejected.
+func TestAddGPUResourceNonMPSMultiContainerRejected(t *testing.T) {
+	task := &Task{
+		Arn:                "test",
+		ResourcesMapUnsafe: make(map[string][]taskresource.TaskResource),
+		Containers: []*apicontainer.Container{
+			{Name: "c1", Image: "image:tag"},
+			{Name: "c2", Image: "image:tag"},
+		},
+		Associations: []Association{
+			{
+				Containers: []string{"c1", "c2"},
+				Name:       "gpu1",
+				Type:       "gpu",
+			},
+		},
+	}
+
+	cfg := &config.Config{GPUSupportEnabled: true}
+	err := task.addGPUResource(cfg)
+	assert.Error(t, err, "non-MPS GPU association must still reject multiple containers")
+}
+
+// TestAddGPUResourceMixedMPSMultiContainerRejected verifies that if even one
+// container in a multi-container GPU association is not an MPS container, the
+// whole association keeps the one-container-per-GPU pin and is rejected.
+func TestAddGPUResourceMixedMPSMultiContainerRejected(t *testing.T) {
+	task := &Task{
+		Arn:                "test",
+		ResourcesMapUnsafe: make(map[string][]taskresource.TaskResource),
+		Containers: []*apicontainer.Container{
+			{Name: "mps", Image: "image:tag", MPSConfig: &apicontainer.MPSConfig{Memory: 4096}},
+			{Name: "whole", Image: "image:tag"},
+		},
+		Associations: []Association{
+			{
+				Containers: []string{"mps", "whole"},
+				Name:       "gpu1",
+				Type:       "gpu",
+			},
+		},
+	}
+
+	cfg := &config.Config{GPUSupportEnabled: true}
+	err := task.addGPUResource(cfg)
+	assert.Error(t, err, "a mixed MPS/non-MPS GPU association must be rejected")
+}
+
+// TestAddGPUResourceMalformedAssociationSurfacesDistinctError verifies that a
+// GPU association naming a container not present in the task fails with the
+// "could not find container" error (a malformed payload) rather than the generic
+// "could not associate multiple containers" error.
+func TestAddGPUResourceMalformedAssociationSurfacesDistinctError(t *testing.T) {
+	task := &Task{
+		Arn:                "test",
+		ResourcesMapUnsafe: make(map[string][]taskresource.TaskResource),
+		Containers: []*apicontainer.Container{
+			{Name: "mps", Image: "image:tag", MPSConfig: &apicontainer.MPSConfig{Memory: 4096}},
+		},
+		Associations: []Association{
+			{
+				Containers: []string{"mps", "ghost"}, // "ghost" is not in the task
+				Name:       "gpu1",
+				Type:       "gpu",
+			},
+		},
+	}
+
+	cfg := &config.Config{GPUSupportEnabled: true}
+	err := task.addGPUResource(cfg)
+	assert.Error(t, err)
+	assert.Contains(t, err.Error(), "could not find container with name ghost",
+		"a missing container must surface as a malformed-association error, not the generic reject")
+}
+
+// TestAddGPUResourceSingleMPSContainer verifies the single-container path is
+// unchanged for an MPS container (regression guard for the relaxed loop).
+func TestAddGPUResourceSingleMPSContainer(t *testing.T) {
+	container := &apicontainer.Container{
+		Name:      "solo",
+		Image:     "image:tag",
+		MPSConfig: &apicontainer.MPSConfig{Memory: 4096},
+	}
+	task := &Task{
+		Arn:                "test",
+		ResourcesMapUnsafe: make(map[string][]taskresource.TaskResource),
+		Containers:         []*apicontainer.Container{container},
+		Associations: []Association{
+			{Containers: []string{"solo"}, Name: "gpu1", Type: "gpu"},
+		},
+	}
+
+	cfg := &config.Config{GPUSupportEnabled: true}
+	err := task.addGPUResource(cfg)
+	assert.NoError(t, err)
+	assert.Equal(t, []string{"gpu1"}, container.GPUIDs)
+}
+
 func TestPopulateGPUEnvironmentVariables(t *testing.T) {
 	container := &apicontainer.Container{
 		Name:   "myName",
@@ -3628,6 +3765,99 @@ func TestPopulateGPUEnvironmentVariables(t *testing.T) {
 
 	assert.Equal(t, environment, container.Environment)
 	assert.Equal(t, map[string]string(nil), container1.Environment)
+}
+
+// TestPopulateGPUEnvironmentVariablesMPS verifies that an MPS container gets the
+// NVIDIA_VISIBLE_DEVICES var plus the per-client MPS env vars, that the compute
+// percentage is omitted when the customer did not declare it, and that a
+// whole-GPU container in the same task gets no MPS env vars.
+func TestPopulateGPUEnvironmentVariablesMPS(t *testing.T) {
+	computePercent := uint(50)
+	mpsWithCompute := &apicontainer.Container{
+		Name:      "mpsWithCompute",
+		Image:     "image:tag",
+		GPUIDs:    []string{"gpu1"},
+		MPSConfig: &apicontainer.MPSConfig{Memory: 4096, MaxComputePercent: &computePercent},
+	}
+	mpsNoCompute := &apicontainer.Container{
+		Name:      "mpsNoCompute",
+		Image:     "image:tag",
+		GPUIDs:    []string{"gpu1"},
+		MPSConfig: &apicontainer.MPSConfig{Memory: 2048},
+	}
+	wholeGPU := &apicontainer.Container{
+		Name:   "wholeGPU",
+		Image:  "image:tag",
+		GPUIDs: []string{"gpu2"},
+	}
+
+	task := &Task{
+		Arn:                "test",
+		ResourcesMapUnsafe: make(map[string][]taskresource.TaskResource),
+		Containers:         []*apicontainer.Container{mpsWithCompute, mpsNoCompute, wholeGPU},
+	}
+
+	task.populateGPUEnvironmentVariables()
+
+	assert.Equal(t, map[string]string{
+		NvidiaVisibleDevicesEnvVar:       "gpu1",
+		mps.PipeDirectoryEnvVar:          mps.PipeDirectory,
+		mps.PinnedDeviceMemLimitEnvVar:   "0=4096M",
+		mps.ActiveThreadPercentageEnvVar: "50",
+	}, mpsWithCompute.Environment)
+
+	// Compute percent omitted -> active-thread env var must be absent.
+	assert.Equal(t, map[string]string{
+		NvidiaVisibleDevicesEnvVar:     "gpu1",
+		mps.PipeDirectoryEnvVar:        mps.PipeDirectory,
+		mps.PinnedDeviceMemLimitEnvVar: "0=2048M",
+	}, mpsNoCompute.Environment)
+	_, ok := mpsNoCompute.Environment[mps.ActiveThreadPercentageEnvVar]
+	assert.False(t, ok, "compute percent env var must be omitted when not declared")
+
+	// Whole-GPU container: only NVIDIA_VISIBLE_DEVICES, no MPS env vars.
+	assert.Equal(t, map[string]string{
+		NvidiaVisibleDevicesEnvVar: "gpu2",
+	}, wholeGPU.Environment)
+}
+
+// TestDockerHostConfigMPSPipeMount verifies the MPS control-pipe directory is
+// bind-mounted into an MPS container and left out of a non-MPS container.
+func TestDockerHostConfigMPSPipeMount(t *testing.T) {
+	expectedBind := mps.PipeDirectory + ":" + mps.PipeDirectory
+
+	t.Run("MPS container gets the pipe mount", func(t *testing.T) {
+		testTask := &Task{
+			Arn: "test",
+			Containers: []*apicontainer.Container{
+				{
+					Name:      "mpsContainer",
+					Image:     "image:tag",
+					MPSConfig: &apicontainer.MPSConfig{Memory: 4096},
+				},
+			},
+		}
+		hostConfig, err := testTask.DockerHostConfig(testTask.Containers[0], dockerMap(testTask),
+			defaultDockerClientAPIVersion, &config.Config{})
+		assert.Nil(t, err)
+		assert.Contains(t, hostConfig.Binds, expectedBind)
+	})
+
+	t.Run("non-MPS container does not get the pipe mount", func(t *testing.T) {
+		testTask := &Task{
+			Arn: "test",
+			Containers: []*apicontainer.Container{
+				{
+					Name:  "plainContainer",
+					Image: "image:tag",
+				},
+			},
+		}
+		hostConfig, err := testTask.DockerHostConfig(testTask.Containers[0], dockerMap(testTask),
+			defaultDockerClientAPIVersion, &config.Config{})
+		assert.Nil(t, err)
+		assert.NotContains(t, hostConfig.Binds, expectedBind)
+	})
 }
 
 func TestDockerHostConfigNvidiaRuntime(t *testing.T) {
@@ -4444,6 +4674,169 @@ func containerFromACS(name string, containerPort int64, hostPort int64, networkM
 		}
 	}
 	return container
+}
+
+// TestValidateResourceRequirements covers the ACS sharingStrategy union guarantee
+// re-imposed at TaskFromACS: exactly one known strategy with its required fields,
+// or the task is rejected. A whole-GPU / non-GPU requirement (no sharingStrategy)
+// is always allowed.
+func TestApplyGPUResourceRequirements(t *testing.T) {
+	const cName = "gpu-container"
+	// wireTask builds an ACS task with a single GPU container carrying rr.
+	wireTask := func(rr *ecsacs.ResourceRequirement) *ecsacs.Task {
+		return &ecsacs.Task{Containers: []*ecsacs.Container{
+			{Name: aws.String(cName), ResourceRequirements: []*ecsacs.ResourceRequirement{rr}},
+		}}
+	}
+	// internalTask builds the matching internal task (same container name) so the
+	// mapping step can find a container to write MPSConfig onto.
+	internalTask := func() *Task {
+		return &Task{Containers: []*apicontainer.Container{{Name: cName}}}
+	}
+
+	testCases := []struct {
+		name    string
+		wireTsk *ecsacs.Task
+		intTsk  *Task
+		wantErr bool
+		// wantMPS is checked only when wantErr is false; nil means the container
+		// must have no MPSConfig.
+		wantMPS *apicontainer.MPSConfig
+	}{
+		{
+			name:    "no containers",
+			wireTsk: &ecsacs.Task{},
+			intTsk:  &Task{},
+			wantErr: false,
+		},
+		{
+			name:    "no resource requirements",
+			wireTsk: &ecsacs.Task{Containers: []*ecsacs.Container{{Name: aws.String(cName)}}},
+			intTsk:  internalTask(),
+			wantErr: false,
+			wantMPS: nil,
+		},
+		{
+			name:    "whole-GPU requirement without sharing strategy",
+			wireTsk: wireTask(&ecsacs.ResourceRequirement{Type: aws.String("GPU"), Value: aws.String("1")}),
+			intTsk:  internalTask(),
+			wantErr: false,
+			wantMPS: nil,
+		},
+		{
+			name: "valid nvidiaMps strategy",
+			wireTsk: wireTask(&ecsacs.ResourceRequirement{
+				Type: aws.String("GPU"),
+				SharingStrategy: &ecsacs.SharingStrategy{
+					NvidiaMps: &ecsacs.NvidiaMpsAllocation{Memory: aws.Int64(8192), MaxComputePercent: aws.Int64(50)},
+				},
+			}),
+			intTsk:  internalTask(),
+			wantErr: false,
+			wantMPS: &apicontainer.MPSConfig{Memory: uint(8192), MaxComputePercent: aws.Uint(50)},
+		},
+		{
+			name: "valid nvidiaMps strategy without optional maxComputePercent",
+			wireTsk: wireTask(&ecsacs.ResourceRequirement{
+				Type: aws.String("GPU"),
+				SharingStrategy: &ecsacs.SharingStrategy{
+					NvidiaMps: &ecsacs.NvidiaMpsAllocation{Memory: aws.Int64(8192)},
+				},
+			}),
+			intTsk:  internalTask(),
+			wantErr: false,
+			wantMPS: &apicontainer.MPSConfig{Memory: uint(8192), MaxComputePercent: nil},
+		},
+		{
+			name: "empty sharing strategy - no known member",
+			wireTsk: wireTask(&ecsacs.ResourceRequirement{
+				Type:            aws.String("GPU"),
+				SharingStrategy: &ecsacs.SharingStrategy{},
+			}),
+			intTsk:  internalTask(),
+			wantErr: true,
+		},
+		{
+			name: "nvidiaMps missing required memory",
+			wireTsk: wireTask(&ecsacs.ResourceRequirement{
+				Type: aws.String("GPU"),
+				SharingStrategy: &ecsacs.SharingStrategy{
+					NvidiaMps: &ecsacs.NvidiaMpsAllocation{MaxComputePercent: aws.Int64(50)},
+				},
+			}),
+			intTsk:  internalTask(),
+			wantErr: true,
+		},
+		{
+			name: "nvidiaMps memory below the minimum of 1",
+			wireTsk: wireTask(&ecsacs.ResourceRequirement{
+				Type: aws.String("GPU"),
+				SharingStrategy: &ecsacs.SharingStrategy{
+					NvidiaMps: &ecsacs.NvidiaMpsAllocation{Memory: aws.Int64(0)},
+				},
+			}),
+			intTsk:  internalTask(),
+			wantErr: true,
+		},
+		{
+			name: "nvidiaMps maxComputePercent above 100",
+			wireTsk: wireTask(&ecsacs.ResourceRequirement{
+				Type: aws.String("GPU"),
+				SharingStrategy: &ecsacs.SharingStrategy{
+					NvidiaMps: &ecsacs.NvidiaMpsAllocation{Memory: aws.Int64(8192), MaxComputePercent: aws.Int64(101)},
+				},
+			}),
+			intTsk:  internalTask(),
+			wantErr: true,
+		},
+		{
+			name: "nvidiaMps maxComputePercent below 1",
+			wireTsk: wireTask(&ecsacs.ResourceRequirement{
+				Type: aws.String("GPU"),
+				SharingStrategy: &ecsacs.SharingStrategy{
+					NvidiaMps: &ecsacs.NvidiaMpsAllocation{Memory: aws.Int64(8192), MaxComputePercent: aws.Int64(0)},
+				},
+			}),
+			intTsk:  internalTask(),
+			wantErr: true,
+		},
+		{
+			name: "sharing strategy on a non-GPU resource requirement",
+			wireTsk: wireTask(&ecsacs.ResourceRequirement{
+				Type: aws.String("InferenceAccelerator"),
+				SharingStrategy: &ecsacs.SharingStrategy{
+					NvidiaMps: &ecsacs.NvidiaMpsAllocation{Memory: aws.Int64(8192)},
+				},
+			}),
+			intTsk:  internalTask(),
+			wantErr: true,
+		},
+		{
+			name: "MPS requirement with no matching internal container",
+			wireTsk: wireTask(&ecsacs.ResourceRequirement{
+				Type: aws.String("GPU"),
+				SharingStrategy: &ecsacs.SharingStrategy{
+					NvidiaMps: &ecsacs.NvidiaMpsAllocation{Memory: aws.Int64(8192)},
+				},
+			}),
+			intTsk:  &Task{Containers: []*apicontainer.Container{{Name: "different-container"}}},
+			wantErr: true,
+		},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			err := applyGPUResourceRequirements(tc.wireTsk, tc.intTsk)
+			if tc.wantErr {
+				assert.Error(t, err)
+				return
+			}
+			assert.NoError(t, err)
+			if c, ok := tc.intTsk.ContainerByName(cName); ok {
+				assert.Equal(t, tc.wantMPS, c.MPSConfig)
+			}
+		})
+	}
 }
 
 func cloneSCConfig(scConfig serviceconnect.Config) serviceconnect.Config {
@@ -5386,9 +5779,9 @@ func TestToHostResources(t *testing.T) {
 	}
 
 	for _, tc := range testCases {
-		calcResources := tc.task.ToHostResources()
+		calcResources, calcGPUMemory := tc.task.ToHostResources()
 
-		for _, resource := range []string{"CPU", "MEMORY", "GPU", "PORTS_TCP", "PORTS_UDP"} {
+		for _, resource := range []string{"CPU", "MEMORY", "PORTS_TCP", "PORTS_UDP"} {
 			assert.NotNil(t, calcResources[resource], fmt.Sprintf("Error converting resource %s - got nil", resource))
 		}
 
@@ -5398,18 +5791,14 @@ func TestToHostResources(t *testing.T) {
 		//MEMORY
 		assert.Equal(t, tc.expectedResources["MEMORY"].IntegerValue, calcResources["MEMORY"].IntegerValue, "Error converting task Memory resources")
 
-		//GPU
+		//GPU: emitted as per-UUID GPUMemoryDemand. The test containers are
+		// non-MPS, so each expected GPU UUID gets a whole-GPU demand.
 		for _, expectedGpu := range tc.expectedResources["GPU"].StringSetValue {
-			found := false
-			for _, calcGpu := range calcResources["GPU"].StringSetValue {
-				if expectedGpu == calcGpu {
-					found = true
-					break
-				}
-			}
-			assert.True(t, found, "Could not convert GPU port resources")
+			demand, ok := calcGPUMemory[expectedGpu]
+			assert.True(t, ok, "Could not find GPU memory demand for "+expectedGpu)
+			assert.True(t, demand.WholeGPU, "non-MPS container should claim the whole GPU")
 		}
-		assert.Equal(t, len(tc.expectedResources["GPU"].StringSetValue), len(calcResources["GPU"].StringSetValue), "Error converting task GPU resources")
+		assert.Equal(t, len(tc.expectedResources["GPU"].StringSetValue), len(calcGPUMemory), "Error converting task GPU resources")
 
 		//PORTS
 		for _, expectedPort := range tc.expectedResources["PORTS_TCP"].StringSetValue {
@@ -5437,6 +5826,120 @@ func TestToHostResources(t *testing.T) {
 		}
 		assert.Equal(t, len(tc.expectedResources["PORTS_UDP"].StringSetValue), len(calcResources["PORTS_UDP"].StringSetValue), "Error converting task UDP port resources")
 	}
+}
+
+// TestToHostResourcesGPUMemory covers the per-UUID GPU_MEMORY demand emitted by
+// ToHostResources: MPS caps are summed per UUID, a non-MPS container claims the
+// whole GPU, and separate UUIDs get separate entries.
+func TestToHostResourcesGPUMemory(t *testing.T) {
+	computePercent := uint(50)
+	cases := []struct {
+		name       string
+		containers []*apicontainer.Container
+		expected   map[string]GPUMemoryDemand // uuid -> demand
+	}{
+		{
+			name: "single MPS container",
+			containers: []*apicontainer.Container{
+				{Name: "a", GPUIDs: []string{"gpu1"}, MPSConfig: &apicontainer.MPSConfig{Memory: 4096}},
+			},
+			expected: map[string]GPUMemoryDemand{"gpu1": {MiB: 4096}},
+		},
+		{
+			name: "two MPS containers on the same GPU are summed",
+			containers: []*apicontainer.Container{
+				{Name: "a", GPUIDs: []string{"gpu1"}, MPSConfig: &apicontainer.MPSConfig{Memory: 4096, MaxComputePercent: &computePercent}},
+				{Name: "b", GPUIDs: []string{"gpu1"}, MPSConfig: &apicontainer.MPSConfig{Memory: 2048}},
+			},
+			expected: map[string]GPUMemoryDemand{"gpu1": {MiB: 6144}},
+		},
+		{
+			name: "whole-GPU container claims the whole GPU",
+			containers: []*apicontainer.Container{
+				{Name: "a", GPUIDs: []string{"gpu1"}},
+			},
+			expected: map[string]GPUMemoryDemand{"gpu1": {WholeGPU: true}},
+		},
+		{
+			name: "MPS containers on different GPUs get separate entries",
+			containers: []*apicontainer.Container{
+				{Name: "a", GPUIDs: []string{"gpu1"}, MPSConfig: &apicontainer.MPSConfig{Memory: 4096}},
+				{Name: "b", GPUIDs: []string{"gpu2"}, MPSConfig: &apicontainer.MPSConfig{Memory: 2048}},
+			},
+			expected: map[string]GPUMemoryDemand{"gpu1": {MiB: 4096}, "gpu2": {MiB: 2048}},
+		},
+		{
+			name: "whole-GPU and MPS on different GPUs in one task",
+			containers: []*apicontainer.Container{
+				{Name: "a", GPUIDs: []string{"gpu1"}},
+				{Name: "b", GPUIDs: []string{"gpu2"}, MPSConfig: &apicontainer.MPSConfig{Memory: 4096}},
+			},
+			expected: map[string]GPUMemoryDemand{"gpu1": {WholeGPU: true}, "gpu2": {MiB: 4096}},
+		},
+		{
+			name: "same GPU, MPS container then whole-GPU container",
+			containers: []*apicontainer.Container{
+				{Name: "a", GPUIDs: []string{"gpu1"}, MPSConfig: &apicontainer.MPSConfig{Memory: 4096}},
+				{Name: "b", GPUIDs: []string{"gpu1"}},
+			},
+			expected: map[string]GPUMemoryDemand{"gpu1": {WholeGPU: true}},
+		},
+		{
+			name: "same GPU, whole-GPU container then MPS container",
+			containers: []*apicontainer.Container{
+				{Name: "a", GPUIDs: []string{"gpu1"}},
+				{Name: "b", GPUIDs: []string{"gpu1"}, MPSConfig: &apicontainer.MPSConfig{Memory: 4096}},
+			},
+			expected: map[string]GPUMemoryDemand{"gpu1": {WholeGPU: true}},
+		},
+		{
+			name: "non-GPU task emits no GPU memory demand",
+			containers: []*apicontainer.Container{
+				{Name: "a"},
+			},
+			expected: map[string]GPUMemoryDemand{},
+		},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			task := &Task{
+				Arn:                "test",
+				ResourcesMapUnsafe: make(map[string][]taskresource.TaskResource),
+				Containers:         tc.containers,
+			}
+			_, gpuMemory := task.ToHostResources()
+			assert.Equal(t, tc.expected, gpuMemory)
+		})
+	}
+}
+
+func TestToHostResourcesGPUMemorySurvivesRestart(t *testing.T) {
+	computePercent := uint(50)
+	task := &Task{
+		Arn:                "test",
+		ResourcesMapUnsafe: make(map[string][]taskresource.TaskResource),
+		Containers: []*apicontainer.Container{
+			{Name: "mps", GPUIDs: []string{"gpu1"}, MPSConfig: &apicontainer.MPSConfig{Memory: 4096, MaxComputePercent: &computePercent}},
+			{Name: "whole", GPUIDs: []string{"gpu2"}},
+		},
+	}
+	want := map[string]GPUMemoryDemand{"gpu1": {MiB: 4096}, "gpu2": {WholeGPU: true}}
+
+	// Round-trip the task through JSON the way agent restart persists and reloads it.
+	data, err := json.Marshal(task)
+	require.NoError(t, err)
+	var reloaded Task
+	require.NoError(t, json.Unmarshal(data, &reloaded))
+
+	// The fields the recompute depends on must survive the round trip.
+	require.Equal(t, []string{"gpu1"}, reloaded.Containers[0].GPUIDs)
+	require.NotNil(t, reloaded.Containers[0].MPSConfig, "MPSConfig must persist across restart")
+	assert.Equal(t, uint(4096), reloaded.Containers[0].MPSConfig.Memory)
+	require.Equal(t, []string{"gpu2"}, reloaded.Containers[1].GPUIDs)
+
+	// ToHostResources on the reloaded task must reproduce the same demand.
+	_, gpuMemory := reloaded.ToHostResources()
+	assert.Equal(t, want, gpuMemory, "GPU memory demand must be identical after restart")
 }
 
 func TestRemoveVolumes(t *testing.T) {
@@ -6191,6 +6694,69 @@ func TestGetCredentialsIDForRoleType(t *testing.T) {
 				task.SetExecutionRoleCredentialsID(tc.execCredID)
 			}
 			assert.Equal(t, tc.expectedID, task.GetCredentialsIDForRoleType(tc.roleType))
+		})
+	}
+}
+
+func TestSetAndGetTaskRoleArn(t *testing.T) {
+	task := &Task{Arn: "arn:aws:ecs:us-west-2:123:task/cluster/abc"}
+	assert.Empty(t, task.GetTaskRoleArn())
+
+	task.SetTaskRoleArn("arn:aws:iam::123:role/TaskRole")
+	assert.Equal(t, "arn:aws:iam::123:role/TaskRole", task.GetTaskRoleArn())
+}
+
+func TestSetAndGetExecutionRoleArn(t *testing.T) {
+	task := &Task{Arn: "arn:aws:ecs:us-west-2:123:task/cluster/abc"}
+	assert.Empty(t, task.GetExecutionRoleArn())
+
+	task.SetExecutionRoleArn("arn:aws:iam::123:role/ExecRole")
+	assert.Equal(t, "arn:aws:iam::123:role/ExecRole", task.GetExecutionRoleArn())
+}
+
+func TestGetRoleArnForRoleType(t *testing.T) {
+	tests := []struct {
+		name            string
+		roleArn         string
+		execRoleArn     string
+		roleType        string
+		expectedRoleArn string
+	}{
+		{
+			name:            "application role type",
+			roleArn:         "arn:aws:iam::123:role/TaskRole",
+			execRoleArn:     "arn:aws:iam::123:role/ExecRole",
+			roleType:        credentials.ApplicationRoleType,
+			expectedRoleArn: "arn:aws:iam::123:role/TaskRole",
+		},
+		{
+			name:            "execution role type",
+			roleArn:         "arn:aws:iam::123:role/TaskRole",
+			execRoleArn:     "arn:aws:iam::123:role/ExecRole",
+			roleType:        credentials.ExecutionRoleType,
+			expectedRoleArn: "arn:aws:iam::123:role/ExecRole",
+		},
+		{
+			name:            "unknown role type",
+			roleArn:         "arn:aws:iam::123:role/TaskRole",
+			execRoleArn:     "arn:aws:iam::123:role/ExecRole",
+			roleType:        "UnknownType",
+			expectedRoleArn: "",
+		},
+		{
+			name:            "role ARN not set",
+			roleType:        credentials.ApplicationRoleType,
+			expectedRoleArn: "",
+		},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			task := &Task{Arn: "arn:aws:ecs:us-west-2:123:task/cluster/abc"}
+			task.SetTaskRoleArn(tc.roleArn)
+			task.SetExecutionRoleArn(tc.execRoleArn)
+
+			assert.Equal(t, tc.expectedRoleArn, task.GetRoleArnForRoleType(tc.roleType))
 		})
 	}
 }

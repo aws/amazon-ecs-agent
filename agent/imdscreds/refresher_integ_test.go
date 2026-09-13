@@ -98,8 +98,8 @@ func TestIMDSCredentialsRefresh(t *testing.T) {
 	}()
 
 	// Simulate task payloads arriving with initial credentials.
-	addTaskToState(taskEngine, taskARN1, credID1App, "")
-	addTaskToState(taskEngine, taskARN2, credID2App, credID2Exec)
+	addTaskToState(taskEngine, taskARN1, credID1App, roleARN1, "", "")
+	addTaskToState(taskEngine, taskARN2, credID2App, roleARN2, credID2Exec, roleARN2)
 
 	setInitialTaskCredentials(t, credManager, taskARN1, credID1App, "AKID_ACS_A_APP")
 	setInitialTaskCredentials(t, credManager, taskARN2, credID2App, "AKID_ACS_B_APP")
@@ -190,7 +190,7 @@ func setupTestEngine(t *testing.T) (
 // addTaskToState adds a task to the engine's state.
 func addTaskToState(
 	taskEngine engine.TaskEngine,
-	arn, credID, execCredID string,
+	arn, credID, roleArn, execCredID, execRoleArn string,
 ) {
 	testTask := &task.Task{Arn: arn}
 	testTask.SetDesiredStatus(apitaskstatus.TaskRunning)
@@ -198,8 +198,14 @@ func addTaskToState(
 	if credID != "" {
 		testTask.SetCredentialsID(credID)
 	}
+	if roleArn != "" {
+		testTask.SetTaskRoleArn(roleArn)
+	}
 	if execCredID != "" {
 		testTask.SetExecutionRoleCredentialsID(execCredID)
+	}
+	if execRoleArn != "" {
+		testTask.SetExecutionRoleArn(execRoleArn)
 	}
 	taskEngine.(*engine.DockerTaskEngine).State().AddTask(testTask)
 }

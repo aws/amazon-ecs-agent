@@ -581,6 +581,10 @@ func TestHandlePayloadMessageTaskAddsExecutionRoles(t *testing.T) {
 	assert.Equal(t, credentialsID, addedTask.GetExecutionCredentialsID(),
 		"task execution role credentials id mismatch")
 
+	// Verify that added tasks' execution role ARN is as expected.
+	assert.Equal(t, credentialsRoleArn, addedTask.GetExecutionRoleArn(),
+		"task execution role ARN mismatch")
+
 	// Verify the credentials in the payload message was stored in the credentials manager.
 	actualCredentialsAck := <-credentialsAckSent
 	iamRoleCredentials, ok := tester.payloadMessageHandler.credentialsManager.GetTaskCredentials(credentialsID)
@@ -1111,6 +1115,7 @@ func validateTaskAndCredentials(taskCredentialsAck, expectedCredentialsAckForTas
 		NetworkMode:        apitask.BridgeNetworkMode,
 	}
 	expectedTask.SetCredentialsID(expectedTaskCredentials.CredentialsID)
+	expectedTask.SetTaskRoleArn(expectedTaskCredentials.RoleArn)
 
 	if !reflect.DeepEqual(addedTask, expectedTask) {
 		return errors.Errorf("mismatch between expected and added tasks, expected: %v, added: %v",

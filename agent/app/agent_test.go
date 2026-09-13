@@ -2000,13 +2000,6 @@ func getTestHostResources() map[string]ecstypes.Resource {
 		Type:           utils.Strptr("STRINGSET"),
 		StringSetValue: portsUDP,
 	}
-	//GPUs
-	gpuIDs := []string{"gpu1", "gpu2", "gpu3", "gpu4"}
-	hostResources["GPU"] = ecstypes.Resource{
-		Name:           utils.Strptr("GPU"),
-		Type:           utils.Strptr("STRINGSET"),
-		StringSetValue: gpuIDs,
-	}
 	return hostResources
 }
 
@@ -2165,4 +2158,35 @@ func TestGetIMDSCredentialsRefresher(t *testing.T) {
 			}
 		})
 	}
+}
+
+// TestSeedGPUMemoryCapacity covers the mainline seeding path: a GPU that reports
+// usable memory seeds a capacity entry equal to that memory, a GPU with no
+// reported memory seeds 0, and a non-GPU device is skipped.
+func TestSeedGPUMemoryCapacity(t *testing.T) {
+	mem := int32(23040)
+	devices := []ecstypes.PlatformDevice{
+		{
+			Id:      aws.String("gpu-reported"),
+			Type:    ecstypes.PlatformDeviceTypeGpu,
+			GpuInfo: &ecstypes.GpuPlatformDeviceInfo{MemoryInMiB: &mem},
+		},
+		{
+			Id:   aws.String("gpu-unreported"),
+			Type: ecstypes.PlatformDeviceTypeGpu,
+		},
+	}
+
+	hostResources := map[string]ecstypes.Resource{}
+	seedGPUMemoryCapacity(hostResources, devices)
+
+	reported := hostResources[engine.GPUMemoryCapacityPrefix+"gpu-reported"]
+	assert.Equal(t, "INTEGER", *reported.Type)
+	assert.Equal(t, int32(23040), reported.IntegerValue)
+
+	unreported := hostResources[engine.GPUMemoryCapacityPrefix+"gpu-unreported"]
+	assert.Equal(t, "INTEGER", *unreported.Type)
+	assert.Equal(t, int32(0), unreported.IntegerValue)
+
+	assert.Len(t, hostResources, 2)
 }

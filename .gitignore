@@ -48,3 +48,6 @@ pkg/
 .vscode/
 .kiro/
 !.kiro/steering/
+
+# CSE security scanner artifacts (auto-added by cse init)
+.security-scan/

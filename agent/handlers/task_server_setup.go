@@ -357,9 +357,13 @@ func registerFaultHandlers(
 	seelog.Debug("Successfully set up Fault TMDS handlers")
 }
 
+// faultHandlerRateLimit is the maximum number of fault handler requests per
+// second permitted by the tollbooth rate limiter.
+const faultHandlerRateLimit = 1.0
+
 // Creates a tollbooth ratelimiter for the Fault Handler APIs
 func createRateLimiter() *limiter.Limiter {
-	lmt := tollbooth.NewLimiter(0.2, nil)
+	lmt := tollbooth.NewLimiter(faultHandlerRateLimit, nil)
 	lmt.SetMessage("You have reached maximum request limit")
 	return lmt
 }

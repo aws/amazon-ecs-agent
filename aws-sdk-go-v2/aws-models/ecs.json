@@ -1125,17 +1125,6 @@
                             }
                         },
                         {
-                            "documentation": "For region us-iso-east-1 with FIPS enabled and DualStack enabled",
-                            "expect": {
-                                "error": "FIPS and DualStack are enabled, but this partition does not support one or both"
-                            },
-                            "params": {
-                                "Region": "us-iso-east-1",
-                                "UseFIPS": true,
-                                "UseDualStack": true
-                            }
-                        },
-                        {
                             "documentation": "For region us-iso-east-1 with FIPS enabled and DualStack disabled",
                             "expect": {
                                 "endpoint": {
@@ -1146,17 +1135,6 @@
                                 "Region": "us-iso-east-1",
                                 "UseFIPS": true,
                                 "UseDualStack": false
-                            }
-                        },
-                        {
-                            "documentation": "For region us-iso-east-1 with FIPS disabled and DualStack enabled",
-                            "expect": {
-                                "error": "DualStack is enabled but this partition does not support DualStack"
-                            },
-                            "params": {
-                                "Region": "us-iso-east-1",
-                                "UseFIPS": false,
-                                "UseDualStack": true
                             }
                         },
                         {
@@ -1173,17 +1151,6 @@
                             }
                         },
                         {
-                            "documentation": "For region us-isob-east-1 with FIPS enabled and DualStack enabled",
-                            "expect": {
-                                "error": "FIPS and DualStack are enabled, but this partition does not support one or both"
-                            },
-                            "params": {
-                                "Region": "us-isob-east-1",
-                                "UseFIPS": true,
-                                "UseDualStack": true
-                            }
-                        },
-                        {
                             "documentation": "For region us-isob-east-1 with FIPS enabled and DualStack disabled",
                             "expect": {
                                 "endpoint": {
@@ -1194,17 +1161,6 @@
                                 "Region": "us-isob-east-1",
                                 "UseFIPS": true,
                                 "UseDualStack": false
-                            }
-                        },
-                        {
-                            "documentation": "For region us-isob-east-1 with FIPS disabled and DualStack enabled",
-                            "expect": {
-                                "error": "DualStack is enabled but this partition does not support DualStack"
-                            },
-                            "params": {
-                                "Region": "us-isob-east-1",
-                                "UseFIPS": false,
-                                "UseDualStack": true
                             }
                         },
                         {
@@ -8493,6 +8449,20 @@
                 }
             }
         },
+        "com.amazonaws.ecs#GpuPlatformDeviceInfo": {
+            "type": "structure",
+            "members": {
+                "memoryInMiB": {
+                    "target": "com.amazonaws.ecs#BoxedInteger",
+                    "traits": {
+                        "smithy.api#documentation": "<p>Usable per-GPU VRAM (MiB) reported by the agent, used by GPU-sharing (MPS) memory-based placement.</p>"
+                    }
+                }
+            },
+            "traits": {
+                "smithy.api#documentation": "<p>GPU-specific platform-device attributes reported by the agent, used by GPU-sharing (MPS).</p>"
+            }
+        },
         "com.amazonaws.ecs#PlatformDevice": {
             "type": "structure",
             "members": {
@@ -8508,6 +8478,12 @@
                     "traits": {
                         "smithy.api#documentation": "<p>The type of device that's available on the container instance. The only supported\n\t\t\tvalue is <code>GPU</code>.</p>",
                         "smithy.api#required": {}
+                    }
+                },
+                "gpuInfo": {
+                    "target": "com.amazonaws.ecs#GpuPlatformDeviceInfo",
+                    "traits": {
+                        "smithy.api#documentation": "<p>GPU-specific attributes the agent reports for a GPU platform device at RegisterContainerInstance; present only when type is GPU. Absent on legacy agents that do not report it.</p>"
                     }
                 }
             },

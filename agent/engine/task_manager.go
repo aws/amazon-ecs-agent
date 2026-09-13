@@ -661,8 +661,8 @@ func (mtask *managedTask) emitTaskEvent(task *apitask.Task, reason string) {
 	// Always do (idempotent) release host resources whenever state change with
 	// known status == STOPPED is done to ensure sync between tasks and host resource manager
 	if taskKnownStatus.Terminal() {
-		resourcesToRelease := mtask.ToHostResources()
-		err := mtask.engine.hostResourceManager.release(mtask.Arn, resourcesToRelease)
+		resourcesToRelease, gpuMemoryToRelease := mtask.ToHostResources()
+		err := mtask.engine.hostResourceManager.release(mtask.Arn, resourcesToRelease, gpuMemoryToRelease)
 		if err != nil {
 			logger.Critical("Failed to release resources after task stopped",
 				logger.Fields{field.TaskARN: mtask.Arn})

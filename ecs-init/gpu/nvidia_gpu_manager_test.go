@@ -15,7 +15,9 @@ package gpu
 
 import (
 	"errors"
+	"fmt"
 	"os"
+	"os/exec"
 	"testing"
 
 	mock_gpu "github.com/aws/amazon-ecs-agent/ecs-init/gpu/mocks"
@@ -104,6 +106,9 @@ func TestGetGPUDeviceIDs(t *testing.T) {
 
 	mockDevice1.EXPECT().GetUUID().Return("gpu-0123", nvml.SUCCESS)
 	mockDevice2.EXPECT().GetUUID().Return("gpu-1234", nvml.SUCCESS)
+	// The device loop now probes virtualization mode to gate MPS; these are not vGPUs.
+	mockDevice1.EXPECT().GetVirtualizationMode().Return(nvml.GPU_VIRTUALIZATION_MODE_NONE, nvml.SUCCESS)
+	mockDevice2.EXPECT().GetVirtualizationMode().Return(nvml.GPU_VIRTUALIZATION_MODE_NONE, nvml.SUCCESS)
 
 	defer func() {
 		nvml.DeviceGetHandleByIndex = oldDeviceGetHandleByIndex
@@ -316,13 +321,35 @@ func TestGPUSetupSuccessful(t *testing.T) {
 
 	mockDevice1 := mock_gpu.NewMockGPUDevice(ctrl)
 	mockDevice2 := mock_gpu.NewMockGPUDevice(ctrl)
+	// GetGPUDeviceIDs derives each UUID (once) and probes virtualization mode;
+	// DetectGPUMemory then resolves handles by that UUID.
 	mockDevice1.EXPECT().GetUUID().Return("gpu-0123", nvml.SUCCESS)
 	mockDevice2.EXPECT().GetUUID().Return("gpu-1234", nvml.SUCCESS)
+	// The device loop now probes virtualization mode to gate MPS; these are not vGPUs.
+	mockDevice1.EXPECT().GetVirtualizationMode().Return(nvml.GPU_VIRTUALIZATION_MODE_NONE, nvml.SUCCESS)
+	mockDevice2.EXPECT().GetVirtualizationMode().Return(nvml.GPU_VIRTUALIZATION_MODE_NONE, nvml.SUCCESS)
+	// DetectGPUMemory reads NVML v2 memory (usable = Total - Reserved). Use
+	// round numbers: 16 GiB total, 512 MiB reserved -> 16384 - 512 = 15872 MiB.
+	mockDevice1.EXPECT().GetMemoryInfo_v2().Return(nvml.Memory_v2{
+		Total:    16384 * bytesPerMiB,
+		Reserved: 512 * bytesPerMiB,
+	}, nvml.SUCCESS)
+	mockDevice2.EXPECT().GetMemoryInfo_v2().Return(nvml.Memory_v2{
+		Total:    16384 * bytesPerMiB,
+		Reserved: 512 * bytesPerMiB,
+	}, nvml.SUCCESS)
 
-	// Mock DeviceGetHandleByIndex
+	// GetGPUDeviceIDs enumerates by index; DetectGPUMemory resolves handles by UUID.
 	oldDeviceGetHandleByIndex := nvml.DeviceGetHandleByIndex
 	nvml.DeviceGetHandleByIndex = func(idx int) (nvml.Device, nvml.Return) {
 		if idx == 0 {
+			return mockDevice1, nvml.SUCCESS
+		}
+		return mockDevice2, nvml.SUCCESS
+	}
+	oldDeviceGetHandleByUUID := nvml.DeviceGetHandleByUUID
+	nvml.DeviceGetHandleByUUID = func(uuid string) (nvml.Device, nvml.Return) {
+		if uuid == "gpu-0123" {
 			return mockDevice1, nvml.SUCCESS
 		}
 		return mockDevice2, nvml.SUCCESS
@@ -336,20 +363,110 @@ func TestGPUSetupSuccessful(t *testing.T) {
 		return nil
 	}
 
+	// Stub the host probes so Setup records deterministic MPS facts.
+	oldStatFile := statFile
+	statFile = func(string) (os.FileInfo, error) { return nil, nil } // binary present
+	restoreExec := stubExec("enabled\n")                             // service enabled
+
 	defer func() {
 		MatchFilePattern = FilePatternMatch
 		InitializeNVML = InitNVML
 		NvmlGetDriverVersion = GetNvidiaDriverVersion
 		NvmlGetDeviceCount = GetDeviceCount
 		nvml.DeviceGetHandleByIndex = oldDeviceGetHandleByIndex
+		nvml.DeviceGetHandleByUUID = oldDeviceGetHandleByUUID
 		WriteContentToFile = WriteToFile
 		ShutdownNVML = ShutdownNVMLib
+		statFile = oldStatFile
+		restoreExec()
 	}()
 
 	err := nvidiaGPUManager.Setup()
 	assert.NoError(t, err)
 	assert.Equal(t, driverVersion, nvidiaGPUManager.(*NvidiaGPUManager).DriverVersion)
 	assert.Equal(t, []string{"gpu-0123", "gpu-1234"}, nvidiaGPUManager.(*NvidiaGPUManager).GPUIDs)
+	// Setup must record per-GPU usable memory (v2 Total - Reserved) per UUID.
+	assert.Equal(t, map[string]uint64{"gpu-0123": 15872, "gpu-1234": 15872}, nvidiaGPUManager.(*NvidiaGPUManager).GPUMemoryMiB)
+	// Setup must persist the MPS gating facts gathered from the host and devices.
+	assert.True(t, nvidiaGPUManager.(*NvidiaGPUManager).MpsControlBinaryPresent)
+	assert.True(t, nvidiaGPUManager.(*NvidiaGPUManager).MpsServiceEnabled)
+	assert.False(t, nvidiaGPUManager.(*NvidiaGPUManager).HasVGPU)
+}
+
+// TestDetectGPUMemory covers the happy path plus the fail-open branches: a
+// per-device NVML error skips only that device, and a total < reserved reading
+// is treated as bad data and skipped, so a flaky call never fails discovery.
+func TestDetectGPUMemory(t *testing.T) {
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+
+	nvidiaGPUManager := NewNvidiaGPUManager().(*NvidiaGPUManager)
+	// Memory detection iterates the UUIDs already discovered by GetGPUDeviceIDs.
+	nvidiaGPUManager.GPUIDs = []string{"gpu-good", "gpu-memerr", "gpu-baddata"}
+
+	good := mock_gpu.NewMockGPUDevice(ctrl)
+	good.EXPECT().GetMemoryInfo_v2().Return(nvml.Memory_v2{
+		Total:    24576 * bytesPerMiB,
+		Reserved: 768 * bytesPerMiB,
+	}, nvml.SUCCESS)
+
+	memErr := mock_gpu.NewMockGPUDevice(ctrl)
+	memErr.EXPECT().GetMemoryInfo_v2().Return(nvml.Memory_v2{}, nvml.ERROR_UNKNOWN)
+
+	badData := mock_gpu.NewMockGPUDevice(ctrl)
+	badData.EXPECT().GetMemoryInfo_v2().Return(nvml.Memory_v2{
+		Total:    512 * bytesPerMiB,
+		Reserved: 1024 * bytesPerMiB,
+	}, nvml.SUCCESS)
+
+	oldDeviceGetHandleByUUID := nvml.DeviceGetHandleByUUID
+	nvml.DeviceGetHandleByUUID = func(uuid string) (nvml.Device, nvml.Return) {
+		switch uuid {
+		case "gpu-good":
+			return good, nvml.SUCCESS
+		case "gpu-memerr":
+			return memErr, nvml.SUCCESS
+		default:
+			return badData, nvml.SUCCESS
+		}
+	}
+	defer func() {
+		nvml.DeviceGetHandleByUUID = oldDeviceGetHandleByUUID
+	}()
+
+	memory := nvidiaGPUManager.DetectGPUMemory()
+	// Only the good device is reported; the NVML error and bad-data devices are skipped.
+	assert.Equal(t, map[string]uint64{"gpu-good": 23808}, memory)
+}
+
+// TestDetectGPUMemoryHandleError verifies a device whose handle cannot be resolved
+// by UUID is skipped, while other devices are still reported.
+func TestDetectGPUMemoryHandleError(t *testing.T) {
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+
+	nvidiaGPUManager := NewNvidiaGPUManager().(*NvidiaGPUManager)
+	nvidiaGPUManager.GPUIDs = []string{"gpu-good", "gpu-nohandle"}
+
+	good := mock_gpu.NewMockGPUDevice(ctrl)
+	good.EXPECT().GetMemoryInfo_v2().Return(nvml.Memory_v2{
+		Total:    24576 * bytesPerMiB,
+		Reserved: 768 * bytesPerMiB,
+	}, nvml.SUCCESS)
+
+	oldDeviceGetHandleByUUID := nvml.DeviceGetHandleByUUID
+	nvml.DeviceGetHandleByUUID = func(uuid string) (nvml.Device, nvml.Return) {
+		if uuid == "gpu-good" {
+			return good, nvml.SUCCESS
+		}
+		return nil, nvml.ERROR_NOT_FOUND
+	}
+	defer func() {
+		nvml.DeviceGetHandleByUUID = oldDeviceGetHandleByUUID
+	}()
+
+	memory := nvidiaGPUManager.DetectGPUMemory()
+	assert.Equal(t, map[string]uint64{"gpu-good": 23808}, memory)
 }
 
 func TestSetupNVMLError(t *testing.T) {
@@ -370,4 +487,80 @@ func TestSetupNVMLError(t *testing.T) {
 	}()
 	err := nvidiaGPUManager.Setup()
 	assert.Error(t, err)
+}
+
+// stubExec makes execCommand return a process whose stdout is the given text.
+// It re-execs the test binary running TestHelperProcess, the standard Go idiom
+// for faking exec.Command output without a real systemctl.
+func stubExec(output string) func() {
+	orig := execCommand
+	execCommand = func(name string, args ...string) *exec.Cmd {
+		cs := []string{"-test.run=TestHelperProcess", "--", output}
+		cmd := exec.Command(os.Args[0], cs...)
+		cmd.Env = []string{"GO_WANT_HELPER_PROCESS=1"}
+		return cmd
+	}
+	return func() { execCommand = orig }
+}
+
+// TestHelperProcess is not a real test; it is the fake subprocess stubExec spawns.
+func TestHelperProcess(t *testing.T) {
+	if os.Getenv("GO_WANT_HELPER_PROCESS") != "1" {
+		return
+	}
+	// Last arg is the stdout to emit.
+	args := os.Args
+	fmt.Fprint(os.Stdout, args[len(args)-1])
+	os.Exit(0)
+}
+
+func TestDetectMPSControlBinary(t *testing.T) {
+	orig := statFile
+	defer func() { statFile = orig }()
+
+	statFile = func(string) (os.FileInfo, error) { return nil, nil }
+	assert.True(t, detectMpsControlBinary(), "binary present -> true")
+
+	statFile = func(string) (os.FileInfo, error) { return nil, os.ErrNotExist }
+	assert.False(t, detectMpsControlBinary(), "binary absent -> false")
+}
+
+func TestDetectMpsServiceEnabled(t *testing.T) {
+	cases := []struct {
+		out  string
+		want bool
+	}{
+		{"enabled\n", true},
+		{"enabled-runtime\n", true},
+		{"disabled\n", false},
+		{"static\n", false},
+		{"", false}, // unit not found: no output
+	}
+	for _, tc := range cases {
+		t.Run(tc.out, func(t *testing.T) {
+			restore := stubExec(tc.out)
+			defer restore()
+			assert.Equal(t, tc.want, detectMpsServiceEnabled())
+		})
+	}
+}
+
+func TestDetectVGPU(t *testing.T) {
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+
+	// A regular passthrough/bare-metal GPU is not a vGPU.
+	notVGPU := mock_gpu.NewMockGPUDevice(ctrl)
+	notVGPU.EXPECT().GetVirtualizationMode().Return(nvml.GPU_VIRTUALIZATION_MODE_NONE, nvml.SUCCESS)
+	assert.False(t, detectVGPU(notVGPU))
+
+	// A vGPU slice must be detected so MPS is gated off.
+	isVGPU := mock_gpu.NewMockGPUDevice(ctrl)
+	isVGPU.EXPECT().GetVirtualizationMode().Return(nvml.GPU_VIRTUALIZATION_MODE_VGPU, nvml.SUCCESS)
+	assert.True(t, detectVGPU(isVGPU))
+
+	// An NVML error must fail open (false) so a flaky probe never strips MPS.
+	errDevice := mock_gpu.NewMockGPUDevice(ctrl)
+	errDevice.EXPECT().GetVirtualizationMode().Return(nvml.GPU_VIRTUALIZATION_MODE_NONE, nvml.ERROR_UNKNOWN)
+	assert.False(t, detectVGPU(errDevice))
 }

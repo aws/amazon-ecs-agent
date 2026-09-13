@@ -2507,8 +2507,8 @@ func TestTaskWaitForHostResources(t *testing.T) {
 	assert.Equal(t, topTask.Arn, "arn2")
 
 	// Remove 1 task
-	taskResources := taskEngine.managedTasks["arn0"].ToHostResources()
-	taskEngine.hostResourceManager.release("arn0", taskResources)
+	taskResources, taskGPUMemory := taskEngine.managedTasks["arn0"].ToHostResources()
+	taskEngine.hostResourceManager.release("arn0", taskResources, taskGPUMemory)
 	taskEngine.wakeUpTaskQueueMonitor()
 
 	time.Sleep(500 * time.Millisecond)

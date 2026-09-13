@@ -340,6 +340,29 @@ func TestScanNamespace(t *testing.T) {
 			expectLastUpdatedCached: aws.Bool(false),
 		},
 		{
+			name: "credential missing required fields",
+			setupMock: func(m *mockec2.MockEC2MetadataClient) {
+				m.EXPECT().GetMetadata("iam-ecs-1/info").Return(
+					testInfoJSON(map[string]string{key1: testRoleARN}), nil)
+				m.EXPECT().GetMetadata("iam-ecs-1/security-credentials/"+key1).Return(
+					`{"AccessKeyId": "AKID1"}`, nil)
+			},
+			expectedErrSubstring: "all credential processing failed",
+			expectedMetrics: []metricExpectation{
+				{
+					name: metrics.IMDSCredentialsScannerCredentialFailureMetricName,
+					fields: map[string]any{
+						metricFieldNamespace: "iam-ecs-1",
+						metricFieldTaskID:    testTaskID1,
+						metricFieldRoleType:  credentials.ApplicationRoleType,
+					},
+					doneErr: errMessageContains(
+						"missing required fields: SecretAccessKey, Token, Expiration"),
+				},
+			},
+			expectLastUpdatedCached: aws.Bool(false),
+		},
+		{
 			name: "invalid credential key format",
 			setupMock: func(m *mockec2.MockEC2MetadataClient) {
 				m.EXPECT().GetMetadata("iam-ecs-1/info").Return(
@@ -471,6 +494,77 @@ func TestParseCredentialKey(t *testing.T) {
 				assert.Equal(t, tc.expectedTaskID, taskID)
 				assert.Equal(t, tc.expectedRoleType, roleType)
 			}
+		})
+	}
+}
+
+func TestValidateCredential(t *testing.T) {
+	tests := []struct {
+		name                 string
+		cred                 imdsCredential
+		expectedErrSubstring string
+	}{
+		{
+			name: "all required fields present",
+			cred: imdsCredential{
+				AccessKeyId:     "AKID",
+				SecretAccessKey: "secret",
+				Token:           "token",
+				Expiration:      "2026-04-28T00:00:00Z",
+			},
+		},
+		{
+			name: "missing access key ID",
+			cred: imdsCredential{
+				SecretAccessKey: "secret",
+				Token:           "token",
+				Expiration:      "2026-04-28T00:00:00Z",
+			},
+			expectedErrSubstring: "missing required fields: AccessKeyId",
+		},
+		{
+			name: "missing secret access key",
+			cred: imdsCredential{
+				AccessKeyId: "AKID",
+				Token:       "token",
+				Expiration:  "2026-04-28T00:00:00Z",
+			},
+			expectedErrSubstring: "missing required fields: SecretAccessKey",
+		},
+		{
+			name: "missing token",
+			cred: imdsCredential{
+				AccessKeyId:     "AKID",
+				SecretAccessKey: "secret",
+				Expiration:      "2026-04-28T00:00:00Z",
+			},
+			expectedErrSubstring: "missing required fields: Token",
+		},
+		{
+			name: "missing expiration",
+			cred: imdsCredential{
+				AccessKeyId:     "AKID",
+				SecretAccessKey: "secret",
+				Token:           "token",
+			},
+			expectedErrSubstring: "missing required fields: Expiration",
+		},
+		{
+			name: "all fields missing are reported together",
+			cred: imdsCredential{},
+			expectedErrSubstring: "missing required fields: " +
+				"AccessKeyId, SecretAccessKey, Token, Expiration",
+		},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			err := validateCredential(tc.cred)
+			if tc.expectedErrSubstring == "" {
+				assert.NoError(t, err)
+				return
+			}
+			assert.ErrorContains(t, err, tc.expectedErrSubstring)
 		})
 	}
 }

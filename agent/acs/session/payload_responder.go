@@ -170,6 +170,7 @@ func (pmHandler *payloadMessageHandler) addPayloadTasks(payload *ecsacs.PayloadM
 				loggerfield.CredentialsID: utils.TruncateString(taskIAMRoleCredentials.CredentialsID, utils.CredentialsIDLogTruncationLen),
 			})
 			apiTask.SetCredentialsID(taskIAMRoleCredentials.CredentialsID)
+			apiTask.SetTaskRoleArn(taskIAMRoleCredentials.RoleArn)
 		}
 
 		// Add ENI information to the task struct.
@@ -218,6 +219,7 @@ func (pmHandler *payloadMessageHandler) addPayloadTasks(payload *ecsacs.PayloadM
 				loggerfield.CredentialsID: utils.TruncateString(taskExecutionIAMRoleCredentials.CredentialsID, utils.CredentialsIDLogTruncationLen),
 			})
 			apiTask.SetExecutionRoleCredentialsID(taskExecutionIAMRoleCredentials.CredentialsID)
+			apiTask.SetExecutionRoleArn(taskExecutionIAMRoleCredentials.RoleArn)
 		}
 
 		validTasks = append(validTasks, apiTask)

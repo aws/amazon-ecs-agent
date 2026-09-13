@@ -130,6 +130,24 @@ func TestCredentialsMessageNotAckedWhenTaskNotFound(t *testing.T) {
 		"Expected no ACK of invalid refresh credentials message when its task ARN is not in task engine")
 }
 
+// TestSetTaskRoleCredentialsMetadata tests that the task role credentials ID
+// and role ARN from the message are set on the task.
+func TestSetTaskRoleCredentialsMetadata(t *testing.T) {
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+
+	mockTaskEngine := mock_engine.NewMockTaskEngine(ctrl)
+	task := &apitask.Task{Arn: testconst.TaskARN}
+	mockTaskEngine.EXPECT().GetTaskByArn(testconst.TaskARN).Return(task, true)
+
+	setter := NewCredentialsMetadataSetter(mockTaskEngine, testIPCompatibility)
+	err := setter.SetTaskRoleCredentialsMetadata(testRefreshCredentialsMessage)
+
+	assert.NoError(t, err)
+	assert.Equal(t, testconst.CredentialsID, task.GetCredentialsID())
+	assert.Equal(t, roleArn, task.GetTaskRoleArn())
+}
+
 // TestHandleRefreshMessageAckedWhenCredentialsUpdated tests that a credential message
 // is ACKed when the credentials are updated successfully and the domainless gMSA plugin credentials
 // are updated successfully.
@@ -184,8 +202,8 @@ func TestHandleRefreshMessageAckedWhenCredentialsUpdated(t *testing.T) {
 			}()
 
 			// Return a task from the engine for GetTaskByArn.
-			mockTaskEngine.EXPECT().GetTaskByArn(tc.taskArn).Return(
-				&apitask.Task{Arn: tc.taskArn, Containers: tc.containers}, true)
+			task := &apitask.Task{Arn: tc.taskArn, Containers: tc.containers}
+			mockTaskEngine.EXPECT().GetTaskByArn(tc.taskArn).Return(task, true)
 
 			go handleCredentialsMessage(testRefreshCredentialsMessage)
 
@@ -195,6 +213,11 @@ func TestHandleRefreshMessageAckedWhenCredentialsUpdated(t *testing.T) {
 			creds, exist := credentialsManager.GetTaskCredentials(testconst.CredentialsID)
 			assert.True(t, exist, "Expected credentials to exist for the task")
 			assert.Equal(t, expectedCredentials, creds)
+
+			// The message carries the execution role type, so the execution
+			// role metadata is expected on the task.
+			assert.Equal(t, testconst.CredentialsID, task.GetExecutionCredentialsID())
+			assert.Equal(t, roleArn, task.GetExecutionRoleArn())
 		})
 	}
 }
