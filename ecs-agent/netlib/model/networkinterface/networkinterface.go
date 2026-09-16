@@ -477,14 +477,24 @@ func InterfaceFromACS(acsENI *ecsacs.ElasticNetworkInterface) (*NetworkInterface
 		ni.InterfaceAssociationProtocol = VLANInterfaceAssociationProtocol
 	}
 
-	for _, nameserverIP := range acsENI.DomainNameServers {
-		ni.DomainNameServers = append(ni.DomainNameServers, aws.ToString(nameserverIP))
-	}
-	for _, nameserverDomain := range acsENI.DomainName {
-		ni.DomainNameSearchList = append(ni.DomainNameSearchList, aws.ToString(nameserverDomain))
-	}
+	ni.DomainNameServers = trimSpaceAll(acsENI.DomainNameServers)
+	ni.DomainNameSearchList = trimSpaceAll(acsENI.DomainName)
 
 	return ni, nil
+}
+
+// trimSpaceAll returns the given values with surrounding whitespace stripped from each.
+//
+// The DNS fields of an ENI originate from the VPC DHCP option set, which stores each value exactly
+// as it was typed and performs no validation of its own. An option set configured as
+// "domain-name-servers  10.0.0.2, 10.0.0.3" therefore yields a second value with a leading space,
+// which is not a valid IP address by the time it reaches the task metadata response.
+func trimSpaceAll(values []*string) []string {
+	var trimmed []string
+	for _, value := range values {
+		trimmed = append(trimmed, strings.TrimSpace(aws.ToString(value)))
+	}
+	return trimmed
 }
 
 // ValidateENI validates the NetworkInterface information sent from ACS.
@@ -689,8 +699,8 @@ func v2nTunnelFromACS(acsENI *ecsacs.ElasticNetworkInterface) (*NetworkInterface
 				},
 			},
 
-			DomainNameServers:    aws.ToStringSlice(acsENI.DomainNameServers),
-			DomainNameSearchList: aws.ToStringSlice(acsENI.DomainName),
+			DomainNameServers:    trimSpaceAll(acsENI.DomainNameServers),
+			DomainNameSearchList: trimSpaceAll(acsENI.DomainName),
 			TunnelProperties: &TunnelProperties{
 				ID:                   aws.ToString(acsTunnelProperties.TunnelId),
 				DestinationIPAddress: aws.ToString(acsTunnelProperties.InterfaceIpAddress),
@@ -726,8 +736,8 @@ func vethPairFromACS(
 			// DNS related data for VETH interface will be copied from the peer interface's DNS data.
 			// This is because if default traffic of the container needs to use the VETH interface,
 			// domain name resolution will be based on the DNS config of the peer interface.
-			DomainNameServers:    aws.ToStringSlice(peerInterface.DomainNameServers),
-			DomainNameSearchList: aws.ToStringSlice(peerInterface.DomainName),
+			DomainNameServers:    trimSpaceAll(peerInterface.DomainNameServers),
+			DomainNameSearchList: trimSpaceAll(peerInterface.DomainName),
 			VETHProperties: &VETHProperties{
 				PeerInterfaceName: aws.ToString(acsENI.InterfaceVethProperties.PeerInterface),
 			},
