@@ -161,9 +161,7 @@ func (agent *ecsAgent) appendGpuSharingMpsCapability(capabilities []types.Attrib
 		}
 		return capabilities
 	}
-	// TODO: re-enable once the MPS runtime integration is in place:
-	// return appendNameOnlyAttribute(capabilities, capability.GPUSharingMps)
-	return capabilities
+	return appendNameOnlyAttribute(capabilities, capability.GPUSharingMps)
 }
 
 func (agent *ecsAgent) appendENITrunkingCapabilities(capabilities []types.Attribute) []types.Attribute {

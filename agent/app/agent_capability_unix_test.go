@@ -369,10 +369,9 @@ func TestAppendGpuSharingMpsCapability(t *testing.T) {
 		mgr           *gpu.NvidiaGPUManager
 		wantAdvertise bool
 	}{
-		// Advertisement of gpu-sharing-mps is intentionally disabled until the MPS runtime
-		// integration lands, so the capability must NOT appear in any case.
-		// TODO: flip to true once capability advertisement is enabled
-		{"all conditions met", newManager(true, true, true, false, true), false},
+		// gpu-sharing-mps is advertised only when every MPS precondition holds; any single
+		// unmet condition (the cases below) withholds it.
+		{"all conditions met", newManager(true, true, true, false, true), true},
 		{"no gpu present", newManager(false, true, true, false, true), false},
 		{"mps binary absent", newManager(true, false, true, false, true), false},
 		{"mps service disabled", newManager(true, true, false, false, true), false},
