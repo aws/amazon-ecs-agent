@@ -27,7 +27,7 @@
 %global ebs_csi_driver_dir /var/lib/ecs/deps/daemons/ebs-csi-driver
 
 Name:           ecs-init
-Version:        1.106.2
+Version:        1.107.0
 Release:        1%{?dist}
 License:        Apache 2.0
 Summary:        Amazon Elastic Container Service initialization application
@@ -197,7 +197,6 @@ Provides:       bundled(golang(github.com/containerd/containerd/pkg/apparmor))
 Provides:       bundled(golang(github.com/containerd/containerd/pkg/userns))
 Provides:       bundled(golang(github.com/containerd/log))
 Provides:       bundled(golang(github.com/coreos/go-systemd/activation))
-Provides:       bundled(golang(github.com/davecgh/go-spew/spew))
 Provides:       bundled(golang(github.com/docker/docker/api/types/blkiodev))
 Provides:       bundled(golang(github.com/docker/docker/api/types/container))
 Provides:       bundled(golang(github.com/docker/docker/api/types/filters))
@@ -248,14 +247,16 @@ Provides:       bundled(golang(github.com/opencontainers/go-digest))
 Provides:       bundled(golang(github.com/opencontainers/image-spec/specs-go))
 Provides:       bundled(golang(github.com/opencontainers/image-spec/specs-go/v1))
 Provides:       bundled(golang(github.com/pkg/errors))
-Provides:       bundled(golang(github.com/pmezard/go-difflib/difflib))
 Provides:       bundled(golang(github.com/sirupsen/logrus))
 Provides:       bundled(golang(github.com/stretchr/testify/assert))
 Provides:       bundled(golang(github.com/stretchr/testify/assert/yaml))
+Provides:       bundled(golang(github.com/stretchr/testify/internal/difflib))
+Provides:       bundled(golang(github.com/stretchr/testify/internal/spew))
 Provides:       bundled(golang(github.com/stretchr/testify/require))
 Provides:       bundled(golang(github.com/vishvananda/netlink))
 Provides:       bundled(golang(github.com/vishvananda/netlink/nl))
 Provides:       bundled(golang(github.com/vishvananda/netns))
+Provides:       bundled(golang(go.yaml.in/yaml/v3))
 Provides:       bundled(golang(golang.org/x/exp/constraints))
 Provides:       bundled(golang(golang.org/x/net/internal/socks))
 Provides:       bundled(golang(golang.org/x/net/proxy))
@@ -263,7 +264,6 @@ Provides:       bundled(golang(golang.org/x/sys/unix))
 Provides:       bundled(golang(golang.org/x/sys/windows))
 Provides:       bundled(golang(golang.org/x/sys/windows/registry))
 Provides:       bundled(golang(golang.org/x/sys/windows/svc/eventlog))
-Provides:       bundled(golang(gopkg.in/yaml.v3))
 
 %description
 ecs-init supports the initialization and supervision of the Amazon ECS
@@ -395,6 +395,9 @@ fi
 %endif
 
 %changelog
+* Thu Sep 17 2026 amazon-ecs-bot <amazon-ecs-bot@amazon.com> - 1.107.0-1
+- Cache Agent version 1.107.0
+
 * Fri Aug 28 2026 amazon-ecs-bot <amazon-ecs-bot@amazon.com> - 1.106.2-1
 - Cache Agent version 1.106.2
 

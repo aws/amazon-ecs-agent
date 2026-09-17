@@ -1,5 +1,19 @@
 # Changelog
 
+# 1.107.0
+* Feature - Add MPS GPU Sharing capability [#5139](https://github.com/aws/amazon-ecs-agent/pull/5139)
+  * Enhancement - Add MPS control daemon health gate task resource [#5107](https://github.com/aws/amazon-ecs-agent/pull/5107)
+  * Enhancement - Surface MPS control-daemon impairment reason as StatusReason [#5125](https://github.com/aws/amazon-ecs-agent/pull/5125)
+  * Enhancement - Attach the MPS control daemon health gate to MPS tasks [#5119](https://github.com/aws/amazon-ecs-agent/pull/5119)
+  * Enhancement - Add ACCELERATED_COMPUTE health check for the MPS control daemon [#5124](https://github.com/aws/amazon-ecs-agent/pull/5124)
+* Enhancement - Fetch GPG keys from S3 instead of GitHub in ECS Anywhere install script [#5130](https://github.com/aws/amazon-ecs-agent/pull/5130)
+* Enhancement - Bump github.com/prometheus/common from 0.66.1 to 0.71.0 in /ecs-agent [#5117](https://github.com/aws/amazon-ecs-agent/pull/5117)
+* Enhancement - Bump github.com/aws/aws-sdk-go-v2/credentials from 1.19.32 to 1.20.4 in /agent [#5128](https://github.com/aws/amazon-ecs-agent/pull/5128)
+* Enhancement - Bump github.com/containerd/containerd from 1.7.33 to 1.7.35 in /ecs-init [#5133](https://github.com/aws/amazon-ecs-agent/pull/5133)
+* Enhancement - Bump google.golang.org/grpc from 1.82.1 to 1.83.1 in /ecs-agent, /ecs-agent/daemonimages/csidriver and /agent [#5123](https://github.com/aws/amazon-ecs-agent/pull/5123)
+* Enhancement - Bump k8s.io/api from 0.28.1 to 0.37.0 in /agent [#5118](https://github.com/aws/amazon-ecs-agent/pull/5118)
+* Enhancement - Correct broken systemd link in README [#5129](https://github.com/aws/amazon-ecs-agent/pull/5129)
+
 # 1.106.2
 * Enhancement - Bump golang.org/x/text and related dependencies [#5100](https://github.com/aws/amazon-ecs-agent/pull/5100)
 * Enhancement - Bump github.com/aws/aws-sdk-go-v2/feature/ec2/imds from 1.18.33 to 1.18.38 in /ecs-agent [#5093](https://github.com/aws/amazon-ecs-agent/pull/5093)
