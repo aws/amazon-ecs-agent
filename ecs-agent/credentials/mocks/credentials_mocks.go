@@ -75,6 +75,20 @@ func (mr *MockManagerMockRecorder) GetTaskCredentials(arg0 interface{}) *gomock.
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetTaskCredentials", reflect.TypeOf((*MockManager)(nil).GetTaskCredentials), arg0)
 }
 
+// IsCredentialsAssumeRoleFailed mocks base method.
+func (m *MockManager) IsCredentialsAssumeRoleFailed(arg0 string) bool {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "IsCredentialsAssumeRoleFailed", arg0)
+	ret0, _ := ret[0].(bool)
+	return ret0
+}
+
+// IsCredentialsAssumeRoleFailed indicates an expected call of IsCredentialsAssumeRoleFailed.
+func (mr *MockManagerMockRecorder) IsCredentialsAssumeRoleFailed(arg0 interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "IsCredentialsAssumeRoleFailed", reflect.TypeOf((*MockManager)(nil).IsCredentialsAssumeRoleFailed), arg0)
+}
+
 // IsCredentialsPending mocks base method.
 func (m *MockManager) IsCredentialsPending(arg0 string) bool {
 	m.ctrl.T.Helper()
@@ -99,6 +113,18 @@ func (m *MockManager) RemoveCredentials(arg0 string) {
 func (mr *MockManagerMockRecorder) RemoveCredentials(arg0 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "RemoveCredentials", reflect.TypeOf((*MockManager)(nil).RemoveCredentials), arg0)
+}
+
+// SetAssumeRoleFailedCredentials mocks base method.
+func (m *MockManager) SetAssumeRoleFailedCredentials(arg0 string) {
+	m.ctrl.T.Helper()
+	m.ctrl.Call(m, "SetAssumeRoleFailedCredentials", arg0)
+}
+
+// SetAssumeRoleFailedCredentials indicates an expected call of SetAssumeRoleFailedCredentials.
+func (mr *MockManagerMockRecorder) SetAssumeRoleFailedCredentials(arg0 interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SetAssumeRoleFailedCredentials", reflect.TypeOf((*MockManager)(nil).SetAssumeRoleFailedCredentials), arg0)
 }
 
 // SetTaskCredentials mocks base method.

@@ -44,6 +44,25 @@ type TaskCredential struct {
 	Expiration      string
 }
 
+// AssumeRoleFailedIAMRole identifies a task's IAM role that the provider could
+// not assume, as reported by a namespace info file entry with status
+// CredentialStatusAssumeRoleFailed. It carries no credential material because
+// the provider wrote none.
+type AssumeRoleFailedIAMRole struct {
+	TaskID   string
+	RoleType string
+}
+
+// ScanResult holds the outcome of a single IMDS credentials scan.
+type ScanResult struct {
+	// Credentials are the task credentials retrieved from IMDS.
+	Credentials []TaskCredential
+	// AssumeRoleFailedRoles are the roles the provider could not assume. A
+	// consumer uses them to distinguish a stale credential the customer must
+	// remediate from a broken delivery path.
+	AssumeRoleFailedRoles []AssumeRoleFailedIAMRole
+}
+
 // imdsCredential is used internally by the scanner to deserialize IMDS
 // credential files, which use different field names than TaskCredential
 // (e.g. "Token" vs SessionToken). JSON tags match the IMDS response format.
