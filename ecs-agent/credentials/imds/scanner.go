@@ -51,8 +51,6 @@ const (
 	// Ref: https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/instancedata-data-retrieval.html
 	// The rate limiter keeps credentials scanning within ~10% of the total PPS budget
 	// to leave headroom for other link-local requests on the instance.
-	//
-	// TODO: this value will be finalized based on load testing.
 	imdsQueriesPerSec = 10
 
 	// imdsQueryBurstSize is the token bucket size for the rate limiter.
