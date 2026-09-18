@@ -223,3 +223,35 @@ func TestIsCredentialsPending(t *testing.T) {
 	manager.RemoveCredentials(credentialsID)
 	assert.False(t, manager.IsCredentialsPending(credentialsID))
 }
+
+// TestAssumeRoleFailedCredentials verifies that a role marked as failed is
+// tracked, and cleared when credentials arrive or the id is removed.
+func TestAssumeRoleFailedCredentials(t *testing.T) {
+	credentialsID := "cred-id-assume-role-failed"
+
+	t.Run("cleared when credentials arrive", func(t *testing.T) {
+		manager := NewManager()
+
+		assert.False(t, manager.IsCredentialsAssumeRoleFailed(credentialsID))
+
+		manager.SetAssumeRoleFailedCredentials(credentialsID)
+		assert.True(t, manager.IsCredentialsAssumeRoleFailed(credentialsID))
+
+		err := manager.SetTaskCredentials(&TaskIAMRoleCredentials{
+			ARN:                "task-arn",
+			IAMRoleCredentials: IAMRoleCredentials{CredentialsID: credentialsID},
+		})
+		assert.NoError(t, err)
+		assert.False(t, manager.IsCredentialsAssumeRoleFailed(credentialsID))
+	})
+
+	t.Run("cleared when credentials removed", func(t *testing.T) {
+		manager := NewManager()
+
+		manager.SetAssumeRoleFailedCredentials(credentialsID)
+		assert.True(t, manager.IsCredentialsAssumeRoleFailed(credentialsID))
+
+		manager.RemoveCredentials(credentialsID)
+		assert.False(t, manager.IsCredentialsAssumeRoleFailed(credentialsID))
+	})
+}

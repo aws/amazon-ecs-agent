@@ -322,7 +322,7 @@ func TestRefresh(t *testing.T) {
 			if tc.listTasksErr == nil && len(nonTerminalTasksByID(tc.tasks)) > 0 {
 				mockScanner.EXPECT().
 					Scan(gomock.Any()).
-					Return(tc.scanResult, tc.scanErr)
+					Return(imds.ScanResult{Credentials: tc.scanResult}, tc.scanErr)
 			}
 
 			if len(tc.expectedUpserts) > 0 {
