@@ -40,17 +40,22 @@ const (
 
 	taskID1  = "0ee1b6f1feef4ff2bacdf2c99732d506"
 	taskID2  = "aabbccdd11223344aabbccdd11223344"
+	taskID3  = "ccddeeff00112233ccddeeff00112233"
 	taskARN1 = "arn:aws:ecs:us-west-2:123456789012:" +
 		"task/cluster/" + taskID1
 	taskARN2 = "arn:aws:ecs:us-west-2:123456789012:" +
 		"task/cluster/" + taskID2
+	taskARN3 = "arn:aws:ecs:us-west-2:123456789012:" +
+		"task/cluster/" + taskID3
 
 	roleARN1 = "arn:aws:iam::123456789012:role/TaskRoleA"
 	roleARN2 = "arn:aws:iam::123456789012:role/TaskRoleB"
+	roleARN3 = "arn:aws:iam::123456789012:role/TaskRoleC"
 
 	credID1App  = "cred-a-app"
 	credID2App  = "cred-b-app"
 	credID2Exec = "cred-b-exec"
+	credID3App  = "cred-c-app"
 )
 
 // TestIMDSCredentialsRefresh tests the integration between the IMDS
@@ -100,10 +105,12 @@ func TestIMDSCredentialsRefresh(t *testing.T) {
 	// Simulate task payloads arriving with initial credentials.
 	addTaskToState(taskEngine, taskARN1, credID1App, roleARN1, "", "")
 	addTaskToState(taskEngine, taskARN2, credID2App, roleARN2, credID2Exec, roleARN2)
+	addTaskToState(taskEngine, taskARN3, credID3App, roleARN3, "", "")
 
 	setInitialTaskCredentials(t, credManager, taskARN1, credID1App, "AKID_ACS_A_APP")
 	setInitialTaskCredentials(t, credManager, taskARN2, credID2App, "AKID_ACS_B_APP")
 	setInitialTaskCredentials(t, credManager, taskARN2, credID2Exec, "AKID_ACS_B_EXEC")
+	setInitialTaskCredentials(t, credManager, taskARN3, credID3App, "AKID_ACS_C_APP")
 
 	// Verify initial credentials are present in the credentials manager.
 	verifyCredential(t, credManager,
@@ -112,6 +119,8 @@ func TestIMDSCredentialsRefresh(t *testing.T) {
 		credID2App, taskARN2, "AKID_ACS_B_APP", "")
 	verifyCredential(t, credManager,
 		credID2Exec, taskARN2, "AKID_ACS_B_EXEC", "")
+	verifyCredential(t, credManager,
+		credID3App, taskARN3, "AKID_ACS_C_APP", "")
 
 	// Phase 2: IMDS scan upserts credentials.
 	//
@@ -119,16 +128,21 @@ func TestIMDSCredentialsRefresh(t *testing.T) {
 	// Namespace 1: taskA with application role.
 	mockIMDS.AddCredential(
 		"iam-ecs-1", taskID1,
-		credentials.ApplicationRoleType, roleARN1, "AKID_IMDS_A_APP",
+		credentials.ApplicationRoleType, "AKID_IMDS_A_APP",
 	)
 	// Namespace 2: taskB with application + execution roles.
 	mockIMDS.AddCredential(
 		"iam-ecs-2", taskID2,
-		credentials.ApplicationRoleType, roleARN2, "AKID_IMDS_B_APP",
+		credentials.ApplicationRoleType, "AKID_IMDS_B_APP",
 	)
 	mockIMDS.AddCredential(
 		"iam-ecs-2", taskID2,
-		credentials.ExecutionRoleType, roleARN2, "AKID_IMDS_B_EXEC",
+		credentials.ExecutionRoleType, "AKID_IMDS_B_EXEC",
+	)
+	// Namespace 3: taskC's role cannot be assumed by the provider (status "1"),
+	// so no credential file is written for it.
+	mockIMDS.AddUnassumableRole(
+		"iam-ecs-3", taskID3, credentials.ApplicationRoleType,
 	)
 
 	// Wait for the refresher to pick up the new credentials from IMDS
@@ -147,6 +161,11 @@ func TestIMDSCredentialsRefresh(t *testing.T) {
 		credID2App, taskARN2, "AKID_IMDS_B_APP", roleARN2)
 	verifyCredential(t, credManager,
 		credID2Exec, taskARN2, "AKID_IMDS_B_EXEC", roleARN2)
+
+	// taskC's role could not be assumed, so IMDS has no credential file for it.
+	// The refresher must leave its ACS-delivered credential untouched.
+	verifyCredential(t, credManager,
+		credID3App, taskARN3, "AKID_ACS_C_APP", "")
 
 	// Phase 3: Credential rotation.
 	//
