@@ -205,7 +205,7 @@ func (s *scanner) scanNamespace(ctx context.Context, namespace string) ([]TaskCr
 
 	var creds []TaskCredential
 	var hasErrors bool
-	for key, entry := range info.TaskCredentials {
+	for key, status := range info.TaskCredentials {
 		taskID, roleType, err := parseCredentialKey(key)
 		if err != nil {
 			logger.Error("IMDS credentials scan: failed to parse credential key", logger.Fields{
@@ -218,6 +218,28 @@ func (s *scanner) scanNamespace(ctx context.Context, namespace string) ([]TaskCr
 				}).Done(err)
 			// Cannot determine task ID and role type; attempt the next credential.
 			hasErrors = true
+			continue
+		}
+
+		switch status {
+		case CredentialStatusDelivered:
+			// A credential file was written; fetch it below.
+		case CredentialStatusAssumeRoleFailed:
+			// The provider could not assume the role, so no credential file
+			// was written; there is nothing to fetch.
+			logger.Debug("IMDS credentials scan: provider could not assume the role", logger.Fields{
+				field.TaskID: taskID,
+				"roleType":   roleType,
+				"namespace":  namespace,
+			})
+			continue
+		default:
+			logger.Warn("IMDS credentials scan: unrecognized credential status", logger.Fields{
+				field.TaskID: taskID,
+				"roleType":   roleType,
+				"namespace":  namespace,
+				"status":     status,
+			})
 			continue
 		}
 
@@ -287,7 +309,6 @@ func (s *scanner) scanNamespace(ctx context.Context, namespace string) ([]TaskCr
 		creds = append(creds, TaskCredential{
 			TaskID:          taskID,
 			RoleType:        roleType,
-			RoleArn:         entry.RoleArn,
 			AccessKeyID:     imdsCred.AccessKeyId,
 			SecretAccessKey: imdsCred.SecretAccessKey,
 			SessionToken:    imdsCred.Token,
