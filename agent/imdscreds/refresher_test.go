@@ -78,6 +78,7 @@ func newTestTask(
 }
 
 func TestRefresh(t *testing.T) {
+	t.Parallel()
 	tests := []struct {
 		name            string
 		listTasksErr    error
@@ -310,6 +311,7 @@ func TestRefresh(t *testing.T) {
 
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
 			ctrl := gomock.NewController(t)
 			defer ctrl.Finish()
 
@@ -349,6 +351,7 @@ func TestRefresh(t *testing.T) {
 }
 
 func TestUpsertCredential(t *testing.T) {
+	t.Parallel()
 	tests := []struct {
 		name                 string
 		task                 *apitask.Task
@@ -445,6 +448,7 @@ func TestUpsertCredential(t *testing.T) {
 
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
 			ctrl := gomock.NewController(t)
 			defer ctrl.Finish()
 
@@ -474,6 +478,7 @@ func TestUpsertCredential(t *testing.T) {
 }
 
 func TestNonTerminalTasksByID(t *testing.T) {
+	t.Parallel()
 	tests := []struct {
 		name        string
 		tasks       []*apitask.Task
@@ -508,6 +513,7 @@ func TestNonTerminalTasksByID(t *testing.T) {
 
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
 			tasksByID := nonTerminalTasksByID(tc.tasks)
 			assert.Len(t, tasksByID, len(tc.expectedIDs))
 			for _, id := range tc.expectedIDs {
