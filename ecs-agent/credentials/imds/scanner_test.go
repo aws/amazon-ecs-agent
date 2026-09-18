@@ -126,6 +126,7 @@ func expectMetricEmission(
 }
 
 func TestDiscoverNamespaces(t *testing.T) {
+	t.Parallel()
 	tests := []struct {
 		name                 string
 		imdsResp             string
@@ -172,6 +173,7 @@ func TestDiscoverNamespaces(t *testing.T) {
 
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
 			ctrl := gomock.NewController(t)
 			defer ctrl.Finish()
 
@@ -193,6 +195,7 @@ func TestDiscoverNamespaces(t *testing.T) {
 }
 
 func TestScanNamespace(t *testing.T) {
+	t.Parallel()
 	key1 := testTaskID1 + "-" + credentials.ApplicationRoleType
 	key2 := testTaskID2 + "-" + credentials.ExecutionRoleType
 
@@ -458,6 +461,7 @@ func TestScanNamespace(t *testing.T) {
 
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
 			ctrl := gomock.NewController(t)
 			defer ctrl.Finish()
 
@@ -497,6 +501,7 @@ func TestScanNamespace(t *testing.T) {
 	}
 }
 func TestParseCredentialKey(t *testing.T) {
+	t.Parallel()
 	tests := []struct {
 		name             string
 		key              string
@@ -535,6 +540,7 @@ func TestParseCredentialKey(t *testing.T) {
 
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
 			taskID, roleType, err := parseCredentialKey(tc.key)
 			if tc.expectError {
 				assert.Error(t, err)
@@ -548,6 +554,7 @@ func TestParseCredentialKey(t *testing.T) {
 }
 
 func TestValidateCredential(t *testing.T) {
+	t.Parallel()
 	tests := []struct {
 		name                 string
 		cred                 imdsCredential
@@ -608,6 +615,7 @@ func TestValidateCredential(t *testing.T) {
 
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
 			err := validateCredential(tc.cred)
 			if tc.expectedErrSubstring == "" {
 				assert.NoError(t, err)
@@ -619,6 +627,7 @@ func TestValidateCredential(t *testing.T) {
 }
 
 func TestScan(t *testing.T) {
+	t.Parallel()
 	tests := []struct {
 		name                 string
 		setupMock            func(*mockec2.MockEC2MetadataClient)
@@ -721,6 +730,7 @@ func TestScan(t *testing.T) {
 
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
 			ctrl := gomock.NewController(t)
 			defer ctrl.Finish()
 

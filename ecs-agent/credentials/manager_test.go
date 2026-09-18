@@ -28,6 +28,7 @@ import (
 // TestIAMRoleCredentialsFromACS tests if credentials sent from ACS can be
 // represented correctly as IAMRoleCredentials
 func TestIAMRoleCredentialsFromACS(t *testing.T) {
+	t.Parallel()
 	acsCredentials := &ecsacs.IAMRoleCredentials{
 		CredentialsId:   aws.String("credsId"),
 		AccessKeyId:     aws.String("keyId"),
@@ -55,6 +56,7 @@ func TestIAMRoleCredentialsFromACS(t *testing.T) {
 // TestGetTaskCredentialsUnknownId tests if GetTaskCredentials returns a false value
 // when credentials for a given id are not be found in the engine
 func TestGetTaskCredentialsUnknownId(t *testing.T) {
+	t.Parallel()
 	manager := NewManager()
 	_, ok := manager.GetTaskCredentials("id")
 	if ok {
@@ -65,6 +67,7 @@ func TestGetTaskCredentialsUnknownId(t *testing.T) {
 // TestSetTaskCredentialsEmptyTaskCredentials tests if credentials manager returns an
 // error when invalid credentials are used to set credentials
 func TestSetTaskCredentialsEmptyTaskCredentials(t *testing.T) {
+	t.Parallel()
 	manager := NewManager()
 	err := manager.SetTaskCredentials(&TaskIAMRoleCredentials{})
 	assert.Error(t, err, "Expected error adding empty task credentials")
@@ -73,6 +76,7 @@ func TestSetTaskCredentialsEmptyTaskCredentials(t *testing.T) {
 // TestSetTaskCredentialsNoCredentialsId tests if credentials manager returns an
 // error when credentials object with no credentials id is used to set credentials
 func TestSetTaskCredentialsNoCredentialsId(t *testing.T) {
+	t.Parallel()
 	manager := NewManager()
 	err := manager.SetTaskCredentials(&TaskIAMRoleCredentials{ARN: "t1", IAMRoleCredentials: IAMRoleCredentials{}})
 	assert.Error(t, err, "Expected error adding credentials payload without credential ID")
@@ -81,6 +85,7 @@ func TestSetTaskCredentialsNoCredentialsId(t *testing.T) {
 // TestSetTaskCredentialsNoTaskArn tests if credentials manager returns an
 // error when credentials object with no task arn used to set credentials
 func TestSetTaskCredentialsNoTaskArn(t *testing.T) {
+	t.Parallel()
 	manager := NewManager()
 	err := manager.SetTaskCredentials(&TaskIAMRoleCredentials{IAMRoleCredentials: IAMRoleCredentials{CredentialsID: "id"}})
 	assert.Error(t, err, "Expected error adding credentials payload without task ARN")
@@ -89,6 +94,7 @@ func TestSetTaskCredentialsNoTaskArn(t *testing.T) {
 // TestSetAndGetTaskCredentialsHappyPath tests the happy path workflow for setting
 // and getting credentials
 func TestSetAndGetTaskCredentialsHappyPath(t *testing.T) {
+	t.Parallel()
 	manager := NewManager()
 	credentials := TaskIAMRoleCredentials{
 		ARN: "t1",
@@ -131,6 +137,7 @@ func TestSetAndGetTaskCredentialsHappyPath(t *testing.T) {
 // TestGenerateCredentialsEndpointRelativeURI tests if the relative credentials endpoint
 // URI is generated correctly
 func TestGenerateCredentialsEndpointRelativeURI(t *testing.T) {
+	t.Parallel()
 	credentials := IAMRoleCredentials{
 		RoleArn:         "r1",
 		AccessKeyID:     "akid1",
@@ -147,6 +154,7 @@ func TestGenerateCredentialsEndpointRelativeURI(t *testing.T) {
 // TestRemoveExistingCredentials tests that GetTaskCredentials returns false when
 // credentials are removed from the credentials manager
 func TestRemoveExistingCredentials(t *testing.T) {
+	t.Parallel()
 	manager := NewManager()
 	credentials := TaskIAMRoleCredentials{
 		ARN: "t1",
@@ -175,6 +183,7 @@ func TestRemoveExistingCredentials(t *testing.T) {
 
 // TestAddKnownCredentialsID tests that AddKnownCredentialsID properly tracks credentials IDs
 func TestAddKnownCredentialsID(t *testing.T) {
+	t.Parallel()
 	manager := NewManager()
 	credentialsID := "test-creds-id"
 
@@ -194,6 +203,7 @@ func TestAddKnownCredentialsID(t *testing.T) {
 
 // TestIsCredentialsPending tests the IsCredentialsPending method behavior
 func TestIsCredentialsPending(t *testing.T) {
+	t.Parallel()
 	manager := NewManager()
 	credentialsID := "test-creds-id"
 
@@ -227,9 +237,11 @@ func TestIsCredentialsPending(t *testing.T) {
 // TestAssumeRoleFailedCredentials verifies that a role marked as failed is
 // tracked, and cleared when credentials arrive or the id is removed.
 func TestAssumeRoleFailedCredentials(t *testing.T) {
+	t.Parallel()
 	credentialsID := "cred-id-assume-role-failed"
 
 	t.Run("cleared when credentials arrive", func(t *testing.T) {
+		t.Parallel()
 		manager := NewManager()
 
 		assert.False(t, manager.IsCredentialsAssumeRoleFailed(credentialsID))
@@ -246,6 +258,7 @@ func TestAssumeRoleFailedCredentials(t *testing.T) {
 	})
 
 	t.Run("cleared when credentials removed", func(t *testing.T) {
+		t.Parallel()
 		manager := NewManager()
 
 		manager.SetAssumeRoleFailedCredentials(credentialsID)
