@@ -201,6 +201,7 @@ func TestScanNamespace(t *testing.T) {
 		setupMock            func(*mockec2.MockEC2MetadataClient)
 		lastUpdated          map[string]time.Time
 		expectedCreds        []TaskCredential
+		expectedFailedRoles  []AssumeRoleFailedIAMRole
 		expectedErrSubstring string
 		expectedMetrics      []metricExpectation
 		// expectLastUpdatedCached is a pointer to distinguish "don't check" (nil)
@@ -221,15 +222,53 @@ func TestScanNamespace(t *testing.T) {
 			expectLastUpdatedCached: aws.Bool(true),
 		},
 		{
-			name: "entry not marked delivered is skipped",
+			name: "assume-role-failed entry is recorded, not fetched",
 			setupMock: func(m *mockec2.MockEC2MetadataClient) {
 				// Status "1" means no credential file was written, so no
 				// credential fetch is expected for this entry.
 				m.EXPECT().GetMetadata("iam-ecs-1/info").Return(
 					testInfoJSON(map[string]string{key1: "1"}), nil)
 			},
-			expectedCreds:           nil,
+			expectedFailedRoles: []AssumeRoleFailedIAMRole{
+				{TaskID: testTaskID1, RoleType: credentials.ApplicationRoleType},
+			},
 			expectLastUpdatedCached: aws.Bool(true),
+		},
+		{
+			name: "unrecognized status is skipped",
+			setupMock: func(m *mockec2.MockEC2MetadataClient) {
+				m.EXPECT().GetMetadata("iam-ecs-1/info").Return(
+					testInfoJSON(map[string]string{key1: "9"}), nil)
+			},
+			expectLastUpdatedCached: aws.Bool(true),
+		},
+		{
+			name: "fetch failure with an assume-role-failed entry returns an error",
+			setupMock: func(m *mockec2.MockEC2MetadataClient) {
+				m.EXPECT().GetMetadata("iam-ecs-1/info").Return(
+					testInfoJSON(map[string]string{
+						key1: CredentialStatusDelivered,
+						key2: CredentialStatusAssumeRoleFailed,
+					}), nil)
+				m.EXPECT().GetMetadata("iam-ecs-1/security-credentials/"+key1).Return(
+					"", errors.New("timeout"))
+			},
+			// The only delivered credential failed to fetch, so no credential was
+			// retrieved; the recorded failed role does not suppress the error.
+			expectedErrSubstring: "all credential processing failed",
+			expectedMetrics: []metricExpectation{
+				{
+					name: metrics.IMDSCredentialsScannerCredentialFailureMetricName,
+					fields: map[string]any{
+						metricFieldNamespace: "iam-ecs-1",
+						metricFieldTaskID:    testTaskID1,
+						metricFieldRoleType:  credentials.ApplicationRoleType,
+					},
+					doneErr: errMessageContains("timeout"),
+				},
+			},
+			// The failed fetch leaves LastUpdated uncached so it is retried next scan.
+			expectLastUpdatedCached: aws.Bool(false),
 		},
 		{
 			name: "multiple credentials",
@@ -435,14 +474,15 @@ func TestScanNamespace(t *testing.T) {
 				s.lastUpdated = tc.lastUpdated
 			}
 
-			creds, err := s.scanNamespace(context.Background(), "iam-ecs-1")
+			result, err := s.scanNamespace(context.Background(), "iam-ecs-1")
 
 			if tc.expectedErrSubstring != "" {
 				assert.ErrorContains(t, err, tc.expectedErrSubstring)
-				assert.Nil(t, creds)
+				assert.Empty(t, result.Credentials)
 			} else {
 				assert.NoError(t, err)
-				assert.ElementsMatch(t, tc.expectedCreds, creds)
+				assert.ElementsMatch(t, tc.expectedCreds, result.Credentials)
+				assert.ElementsMatch(t, tc.expectedFailedRoles, result.AssumeRoleFailedRoles)
 			}
 			if tc.expectLastUpdatedCached != nil {
 				if *tc.expectLastUpdatedCached {
@@ -582,6 +622,7 @@ func TestScan(t *testing.T) {
 		setupMock            func(*mockec2.MockEC2MetadataClient)
 		ctx                  context.Context
 		expectedCreds        []TaskCredential
+		expectedFailedRoles  []AssumeRoleFailedIAMRole
 		expectedErrSubstring string
 		expectedMetrics      []metricExpectation
 	}{
@@ -651,6 +692,29 @@ func TestScan(t *testing.T) {
 			setupMock:            func(m *mockec2.MockEC2MetadataClient) {},
 			expectedErrSubstring: "context canceled",
 		},
+		{
+			name: "failed role does not suppress scan error when a namespace fails",
+			setupMock: func(m *mockec2.MockEC2MetadataClient) {
+				key1 := testTaskID1 + "-" + credentials.ApplicationRoleType
+				m.EXPECT().GetMetadata("").Return("iam-ecs-1\niam-ecs-2", nil)
+				// Namespace 1 yields only an assume-role-failed entry.
+				m.EXPECT().GetMetadata("iam-ecs-1/info").Return(
+					testInfoJSON(map[string]string{key1: CredentialStatusAssumeRoleFailed}), nil)
+				// Namespace 2's info fetch fails.
+				m.EXPECT().GetMetadata("iam-ecs-2/info").Return(
+					"", errors.New("timeout"))
+			},
+			// No credentials were retrieved and a namespace failed; the recorded
+			// failed role from namespace 1 does not suppress the scan error.
+			expectedErrSubstring: "imds scan: all",
+			expectedMetrics: []metricExpectation{
+				{
+					name:    metrics.IMDSCredentialsScannerNamespaceInfoFailureMetricName,
+					fields:  map[string]any{metricFieldNamespace: "iam-ecs-2"},
+					doneErr: errMessageContains("timeout"),
+				},
+			},
+		},
 	}
 
 	for _, tc := range tests {
@@ -674,14 +738,16 @@ func TestScan(t *testing.T) {
 			}
 
 			s := NewScanner(mock, mockMetricsFactory)
-			creds, err := s.Scan(ctx)
+			result, err := s.Scan(ctx)
 
 			if tc.expectedErrSubstring != "" {
 				assert.ErrorContains(t, err, tc.expectedErrSubstring)
-				assert.Nil(t, creds)
+				assert.Empty(t, result.Credentials)
+				assert.Empty(t, result.AssumeRoleFailedRoles)
 			} else {
 				assert.NoError(t, err)
-				assert.ElementsMatch(t, tc.expectedCreds, creds)
+				assert.ElementsMatch(t, tc.expectedCreds, result.Credentials)
+				assert.ElementsMatch(t, tc.expectedFailedRoles, result.AssumeRoleFailedRoles)
 			}
 		})
 	}
