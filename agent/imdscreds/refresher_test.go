@@ -121,7 +121,6 @@ func TestRefresh(t *testing.T) {
 				{
 					TaskID:          testTaskID1,
 					RoleType:        credentials.ApplicationRoleType,
-					RoleArn:         testRoleARN1,
 					AccessKeyID:     "AKID_NEW",
 					SecretAccessKey: "secret_new",
 					SessionToken:    "token_new",
@@ -155,7 +154,6 @@ func TestRefresh(t *testing.T) {
 				{
 					TaskID:          testTaskID1,
 					RoleType:        credentials.ExecutionRoleType,
-					RoleArn:         testRoleARN2,
 					AccessKeyID:     "AKID_EXEC",
 					SecretAccessKey: "secret_exec",
 					SessionToken:    "token_exec",
@@ -187,7 +185,6 @@ func TestRefresh(t *testing.T) {
 				{
 					TaskID:   "unknown00000000000000000000000000",
 					RoleType: credentials.ApplicationRoleType,
-					RoleArn:  testRoleARN1,
 				},
 			},
 		},
@@ -200,21 +197,6 @@ func TestRefresh(t *testing.T) {
 				{
 					TaskID:   testTaskID1,
 					RoleType: credentials.ApplicationRoleType,
-					RoleArn:  testRoleARN1,
-				},
-			},
-		},
-		{
-			name: "skips credential whose role ARN does not match task",
-			tasks: []*apitask.Task{
-				newTestTask(testTaskARN1, status.TaskRunning,
-					testTaskOpts{credID: testCredID1, roleArn: testRoleARN1}),
-			},
-			scanResult: []imds.TaskCredential{
-				{
-					TaskID:   testTaskID1,
-					RoleType: credentials.ApplicationRoleType,
-					RoleArn:  testRoleARN2,
 				},
 			},
 		},
@@ -230,7 +212,6 @@ func TestRefresh(t *testing.T) {
 				{
 					TaskID:          testTaskID1,
 					RoleType:        credentials.ApplicationRoleType,
-					RoleArn:         testRoleARN1,
 					AccessKeyID:     "AKID1",
 					SecretAccessKey: "secret1",
 					SessionToken:    "token1",
@@ -239,7 +220,6 @@ func TestRefresh(t *testing.T) {
 				{
 					TaskID:          testTaskID2,
 					RoleType:        credentials.ApplicationRoleType,
-					RoleArn:         testRoleARN3,
 					AccessKeyID:     "AKID2",
 					SecretAccessKey: "secret2",
 					SessionToken:    "token2",
@@ -285,7 +265,6 @@ func TestRefresh(t *testing.T) {
 				{
 					TaskID:          testTaskID1,
 					RoleType:        credentials.ApplicationRoleType,
-					RoleArn:         testRoleARN1,
 					AccessKeyID:     "AKID_TASK",
 					SecretAccessKey: "secret_task",
 					SessionToken:    "token_task",
@@ -294,7 +273,6 @@ func TestRefresh(t *testing.T) {
 				{
 					TaskID:          testTaskID1,
 					RoleType:        credentials.ExecutionRoleType,
-					RoleArn:         testRoleARN1,
 					AccessKeyID:     "AKID_EXEC",
 					SecretAccessKey: "secret_exec",
 					SessionToken:    "token_exec",
@@ -386,7 +364,6 @@ func TestUpsertCredential(t *testing.T) {
 			cred: imds.TaskCredential{
 				TaskID:          testTaskID1,
 				RoleType:        credentials.ApplicationRoleType,
-				RoleArn:         testRoleARN1,
 				AccessKeyID:     "AKID",
 				SecretAccessKey: "secret",
 				SessionToken:    "token",
@@ -412,7 +389,6 @@ func TestUpsertCredential(t *testing.T) {
 			cred: imds.TaskCredential{
 				TaskID:          testTaskID1,
 				RoleType:        credentials.ApplicationRoleType,
-				RoleArn:         testRoleARN1,
 				AccessKeyID:     "AKID",
 				SecretAccessKey: "secret",
 				SessionToken:    "token",
@@ -439,7 +415,6 @@ func TestUpsertCredential(t *testing.T) {
 			cred: imds.TaskCredential{
 				TaskID:   testTaskID1,
 				RoleType: credentials.ApplicationRoleType,
-				RoleArn:  testRoleARN1,
 			},
 			expectedUpsert:       nil,
 			expectedErrSubstring: "no credentials ID on task for role type",
@@ -451,33 +426,9 @@ func TestUpsertCredential(t *testing.T) {
 			cred: imds.TaskCredential{
 				TaskID:   testTaskID1,
 				RoleType: credentials.ApplicationRoleType,
-				RoleArn:  testRoleARN1,
 			},
 			expectedUpsert:       nil,
 			expectedErrSubstring: "no role ARN on task for role type",
-		},
-		{
-			name: "scanned role ARN does not match task, does not upsert",
-			task: newTestTask(testTaskARN1, status.TaskRunning,
-				testTaskOpts{credID: testCredID1, roleArn: testRoleARN1}),
-			cred: imds.TaskCredential{
-				TaskID:   testTaskID1,
-				RoleType: credentials.ApplicationRoleType,
-				RoleArn:  testRoleARN2,
-			},
-			expectedUpsert:       nil,
-			expectedErrSubstring: "does not match",
-		},
-		{
-			name: "scanned credential has no role ARN, does not upsert",
-			task: newTestTask(testTaskARN1, status.TaskRunning,
-				testTaskOpts{credID: testCredID1, roleArn: testRoleARN1}),
-			cred: imds.TaskCredential{
-				TaskID:   testTaskID1,
-				RoleType: credentials.ApplicationRoleType,
-			},
-			expectedUpsert:       nil,
-			expectedErrSubstring: `role ARN "" does not match`,
 		},
 		{
 			name: "unknown role type, does not upsert",
@@ -486,7 +437,6 @@ func TestUpsertCredential(t *testing.T) {
 			cred: imds.TaskCredential{
 				TaskID:   testTaskID1,
 				RoleType: "UnknownType",
-				RoleArn:  testRoleARN1,
 			},
 			expectedUpsert:       nil,
 			expectedErrSubstring: "no credentials ID on task for role type",

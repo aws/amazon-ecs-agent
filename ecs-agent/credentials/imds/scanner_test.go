@@ -37,7 +37,6 @@ import (
 const (
 	testTaskID1 = "0ee1b6f1feef4ff2bacdf2c99732d506"
 	testTaskID2 = "aabbccdd11223344aabbccdd11223344"
-	testRoleARN = "arn:aws:iam::123456789012:role/TestRole"
 )
 
 // testCredentialJSON returns a mock IMDS credential file JSON.
@@ -56,13 +55,11 @@ func testInfoJSONWithTimestamp(
 	lastUpdated string, entries map[string]string,
 ) string {
 	entriesJSON := ""
-	for key, roleARN := range entries {
+	for key, status := range entries {
 		if entriesJSON != "" {
 			entriesJSON += ","
 		}
-		entriesJSON += fmt.Sprintf(
-			`"%s": {"RoleARN": "%s"}`, key, roleARN,
-		)
+		entriesJSON += fmt.Sprintf(`"%s": "%s"`, key, status)
 	}
 	return fmt.Sprintf(
 		`{"LastUpdated": "%s", "TaskCredentials": {%s}}`,
@@ -76,11 +73,10 @@ func testInfoJSON(entries map[string]string) string {
 }
 
 // testCred is a helper func that returns a TaskCredential with the given fields.
-func testCred(taskID, roleType, roleArn, accessKeyID string) TaskCredential {
+func testCred(taskID, roleType, accessKeyID string) TaskCredential {
 	return TaskCredential{
 		TaskID:          taskID,
 		RoleType:        roleType,
-		RoleArn:         roleArn,
 		AccessKeyID:     accessKeyID,
 		SecretAccessKey: "secret",
 		SessionToken:    "token",
@@ -215,13 +211,24 @@ func TestScanNamespace(t *testing.T) {
 			name: "single credential",
 			setupMock: func(m *mockec2.MockEC2MetadataClient) {
 				m.EXPECT().GetMetadata("iam-ecs-1/info").Return(
-					testInfoJSON(map[string]string{key1: testRoleARN}), nil)
+					testInfoJSON(map[string]string{key1: CredentialStatusDelivered}), nil)
 				m.EXPECT().GetMetadata("iam-ecs-1/security-credentials/"+key1).Return(
 					testCredentialJSON("AKID1"), nil)
 			},
 			expectedCreds: []TaskCredential{
-				testCred(testTaskID1, credentials.ApplicationRoleType, testRoleARN, "AKID1"),
+				testCred(testTaskID1, credentials.ApplicationRoleType, "AKID1"),
 			},
+			expectLastUpdatedCached: aws.Bool(true),
+		},
+		{
+			name: "entry not marked delivered is skipped",
+			setupMock: func(m *mockec2.MockEC2MetadataClient) {
+				// Status "1" means no credential file was written, so no
+				// credential fetch is expected for this entry.
+				m.EXPECT().GetMetadata("iam-ecs-1/info").Return(
+					testInfoJSON(map[string]string{key1: "1"}), nil)
+			},
+			expectedCreds:           nil,
 			expectLastUpdatedCached: aws.Bool(true),
 		},
 		{
@@ -229,8 +236,8 @@ func TestScanNamespace(t *testing.T) {
 			setupMock: func(m *mockec2.MockEC2MetadataClient) {
 				m.EXPECT().GetMetadata("iam-ecs-1/info").Return(
 					testInfoJSON(map[string]string{
-						key1: testRoleARN,
-						key2: testRoleARN,
+						key1: CredentialStatusDelivered,
+						key2: CredentialStatusDelivered,
 					}), nil)
 				m.EXPECT().GetMetadata("iam-ecs-1/security-credentials/"+key1).Return(
 					testCredentialJSON("AKID1"), nil)
@@ -238,8 +245,8 @@ func TestScanNamespace(t *testing.T) {
 					testCredentialJSON("AKID2"), nil)
 			},
 			expectedCreds: []TaskCredential{
-				testCred(testTaskID1, credentials.ApplicationRoleType, testRoleARN, "AKID1"),
-				testCred(testTaskID2, credentials.ExecutionRoleType, testRoleARN, "AKID2"),
+				testCred(testTaskID1, credentials.ApplicationRoleType, "AKID1"),
+				testCred(testTaskID2, credentials.ExecutionRoleType, "AKID2"),
 			},
 		},
 		{
@@ -277,7 +284,7 @@ func TestScanNamespace(t *testing.T) {
 			setupMock: func(m *mockec2.MockEC2MetadataClient) {
 				m.EXPECT().GetMetadata("iam-ecs-1/info").Return(
 					testInfoJSONWithTimestamp("not-a-timestamp",
-						map[string]string{key1: testRoleARN}), nil)
+						map[string]string{key1: CredentialStatusDelivered}), nil)
 			},
 			expectedErrSubstring: "parse LastUpdated for",
 			expectedMetrics: []metricExpectation{
@@ -293,8 +300,8 @@ func TestScanNamespace(t *testing.T) {
 			setupMock: func(m *mockec2.MockEC2MetadataClient) {
 				m.EXPECT().GetMetadata("iam-ecs-1/info").Return(
 					testInfoJSON(map[string]string{
-						key1: testRoleARN,
-						key2: testRoleARN,
+						key1: CredentialStatusDelivered,
+						key2: CredentialStatusDelivered,
 					}), nil)
 				m.EXPECT().GetMetadata("iam-ecs-1/security-credentials/"+key1).Return(
 					"", errors.New("timeout"))
@@ -302,7 +309,7 @@ func TestScanNamespace(t *testing.T) {
 					testCredentialJSON("AKID2"), nil)
 			},
 			expectedCreds: []TaskCredential{
-				testCred(testTaskID2, credentials.ExecutionRoleType, testRoleARN, "AKID2"),
+				testCred(testTaskID2, credentials.ExecutionRoleType, "AKID2"),
 			},
 			expectedMetrics: []metricExpectation{
 				{
@@ -321,7 +328,7 @@ func TestScanNamespace(t *testing.T) {
 			name: "credential response invalid JSON",
 			setupMock: func(m *mockec2.MockEC2MetadataClient) {
 				m.EXPECT().GetMetadata("iam-ecs-1/info").Return(
-					testInfoJSON(map[string]string{key1: testRoleARN}), nil)
+					testInfoJSON(map[string]string{key1: CredentialStatusDelivered}), nil)
 				m.EXPECT().GetMetadata("iam-ecs-1/security-credentials/"+key1).Return(
 					"not json", nil)
 			},
@@ -343,7 +350,7 @@ func TestScanNamespace(t *testing.T) {
 			name: "credential missing required fields",
 			setupMock: func(m *mockec2.MockEC2MetadataClient) {
 				m.EXPECT().GetMetadata("iam-ecs-1/info").Return(
-					testInfoJSON(map[string]string{key1: testRoleARN}), nil)
+					testInfoJSON(map[string]string{key1: CredentialStatusDelivered}), nil)
 				m.EXPECT().GetMetadata("iam-ecs-1/security-credentials/"+key1).Return(
 					`{"AccessKeyId": "AKID1"}`, nil)
 			},
@@ -367,7 +374,7 @@ func TestScanNamespace(t *testing.T) {
 			setupMock: func(m *mockec2.MockEC2MetadataClient) {
 				m.EXPECT().GetMetadata("iam-ecs-1/info").Return(
 					testInfoJSON(map[string]string{
-						"nodelimiterkey": testRoleARN,
+						"nodelimiterkey": CredentialStatusDelivered,
 					}), nil)
 			},
 			expectedErrSubstring: "all credential processing failed",
@@ -384,7 +391,7 @@ func TestScanNamespace(t *testing.T) {
 			name: "unchanged LastUpdated skips credential fetches",
 			setupMock: func(m *mockec2.MockEC2MetadataClient) {
 				m.EXPECT().GetMetadata("iam-ecs-1/info").Return(
-					testInfoJSON(map[string]string{key1: testRoleARN}), nil)
+					testInfoJSON(map[string]string{key1: CredentialStatusDelivered}), nil)
 			},
 			lastUpdated: map[string]time.Time{
 				"iam-ecs-1": time.Date(2026, 4, 28, 0, 0, 0, 0, time.UTC),
@@ -395,7 +402,7 @@ func TestScanNamespace(t *testing.T) {
 			setupMock: func(m *mockec2.MockEC2MetadataClient) {
 				m.EXPECT().GetMetadata("iam-ecs-1/info").Return(
 					testInfoJSONWithTimestamp("2026-04-28T01:00:00Z",
-						map[string]string{key1: testRoleARN}), nil)
+						map[string]string{key1: CredentialStatusDelivered}), nil)
 				m.EXPECT().GetMetadata("iam-ecs-1/security-credentials/"+key1).Return(
 					testCredentialJSON("AKID_NEW"), nil)
 			},
@@ -403,7 +410,7 @@ func TestScanNamespace(t *testing.T) {
 				"iam-ecs-1": time.Date(2026, 4, 28, 0, 0, 0, 0, time.UTC),
 			},
 			expectedCreds: []TaskCredential{
-				testCred(testTaskID1, credentials.ApplicationRoleType, testRoleARN, "AKID_NEW"),
+				testCred(testTaskID1, credentials.ApplicationRoleType, "AKID_NEW"),
 			},
 		},
 	}
@@ -591,17 +598,17 @@ func TestScan(t *testing.T) {
 				key2 := testTaskID2 + "-" + credentials.ExecutionRoleType
 				m.EXPECT().GetMetadata("").Return("iam-ecs-1\niam-ecs-2", nil)
 				m.EXPECT().GetMetadata("iam-ecs-1/info").Return(
-					testInfoJSON(map[string]string{key1: testRoleARN}), nil)
+					testInfoJSON(map[string]string{key1: CredentialStatusDelivered}), nil)
 				m.EXPECT().GetMetadata("iam-ecs-1/security-credentials/"+key1).Return(
 					testCredentialJSON("AKID1"), nil)
 				m.EXPECT().GetMetadata("iam-ecs-2/info").Return(
-					testInfoJSON(map[string]string{key2: testRoleARN}), nil)
+					testInfoJSON(map[string]string{key2: CredentialStatusDelivered}), nil)
 				m.EXPECT().GetMetadata("iam-ecs-2/security-credentials/"+key2).Return(
 					testCredentialJSON("AKID2"), nil)
 			},
 			expectedCreds: []TaskCredential{
-				testCred(testTaskID1, credentials.ApplicationRoleType, testRoleARN, "AKID1"),
-				testCred(testTaskID2, credentials.ExecutionRoleType, testRoleARN, "AKID2"),
+				testCred(testTaskID1, credentials.ApplicationRoleType, "AKID1"),
+				testCred(testTaskID2, credentials.ExecutionRoleType, "AKID2"),
 			},
 		},
 		{
