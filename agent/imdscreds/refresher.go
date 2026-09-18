@@ -30,7 +30,6 @@ import (
 
 const (
 	// ScanInterval is the default interval between IMDS credentials scans.
-	// TODO: this value will be finalized based on load testing.
 	ScanInterval = 15 * time.Minute
 )
 
