@@ -13,23 +13,31 @@
 
 package imds
 
+const (
+	// CredentialStatusDelivered is the info file status for a credential the
+	// provider assumed the role for and wrote to IMDS.
+	CredentialStatusDelivered = "0"
+
+	// CredentialStatusAssumeRoleFailed is the info file status for a credential
+	// the provider could not assume the role for, so no credential file was
+	// written. It is remediable by the customer (for example by fixing the
+	// role's trust policy or an account issue), after which the provider
+	// delivers the credential.
+	CredentialStatusAssumeRoleFailed = "1"
+)
+
 // NamespaceInfo represents the parsed info file from an iam-ecs-* namespace.
 // JSON tags match the IMDS response format.
 type NamespaceInfo struct {
-	LastUpdated     string                        `json:"LastUpdated"`
-	TaskCredentials map[string]TaskCredentialInfo `json:"TaskCredentials"`
-}
-
-// TaskCredentialInfo represents a single entry in the namespace info file.
-type TaskCredentialInfo struct {
-	RoleArn string `json:"RoleARN"`
+	LastUpdated string `json:"LastUpdated"`
+	// TaskCredentials maps a "<taskID>-<roleType>" key to its delivery status.
+	TaskCredentials map[string]string `json:"TaskCredentials"`
 }
 
 // TaskCredential represents a task credential retrieved from IMDS.
 type TaskCredential struct {
 	TaskID          string
 	RoleType        string
-	RoleArn         string
 	AccessKeyID     string
 	SecretAccessKey string
 	SessionToken    string
