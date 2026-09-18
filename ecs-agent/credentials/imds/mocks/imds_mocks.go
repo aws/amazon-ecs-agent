@@ -50,10 +50,10 @@ func (m *MockScanner) EXPECT() *MockScannerMockRecorder {
 }
 
 // Scan mocks base method.
-func (m *MockScanner) Scan(arg0 context.Context) ([]imds.TaskCredential, error) {
+func (m *MockScanner) Scan(arg0 context.Context) (imds.ScanResult, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "Scan", arg0)
-	ret0, _ := ret[0].([]imds.TaskCredential)
+	ret0, _ := ret[0].(imds.ScanResult)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }

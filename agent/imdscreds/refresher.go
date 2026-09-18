@@ -30,7 +30,6 @@ import (
 
 const (
 	// ScanInterval is the default interval between IMDS credentials scans.
-	// TODO: this value will be finalized based on load testing.
 	ScanInterval = 15 * time.Minute
 )
 
@@ -96,7 +95,7 @@ func (r *IMDSCredentialsRefresher) refresh() {
 		return
 	}
 
-	creds, err := r.scanner.Scan(r.ctx)
+	result, err := r.scanner.Scan(r.ctx)
 	if err != nil {
 		logger.Error("IMDS credentials refresh: scan failed", logger.Fields{
 			field.Error: err,
@@ -106,7 +105,7 @@ func (r *IMDSCredentialsRefresher) refresh() {
 
 	// upsertedCredCount tallies credentials written to the credentials manager.
 	upsertedCredCount := 0
-	for _, cred := range creds {
+	for _, cred := range result.Credentials {
 		task, ok := nonTerminalTasks[cred.TaskID]
 		if !ok {
 			// Credential for a task that's either terminal or unknown
@@ -128,10 +127,11 @@ func (r *IMDSCredentialsRefresher) refresh() {
 		upsertedCredCount++
 	}
 
-	if len(creds) > 0 {
+	if len(result.Credentials) > 0 || len(result.AssumeRoleFailedRoles) > 0 {
 		logger.Info("IMDS credentials refresh: scan complete", logger.Fields{
-			"retrievedCredentialCount": len(creds),
-			"upsertedCredentialCount":  upsertedCredCount,
+			"retrievedCredentialCount":  len(result.Credentials),
+			"upsertedCredentialCount":   upsertedCredCount,
+			"assumeRoleFailedRoleCount": len(result.AssumeRoleFailedRoles),
 		})
 	}
 }
@@ -146,15 +146,10 @@ func (r *IMDSCredentialsRefresher) upsertCredential(
 		return fmt.Errorf("no credentials ID on task for role type %s", cred.RoleType)
 	}
 
-	// A credential whose role ARN differs from task state cannot be attributed
-	// to the task's role, so reject it rather than store misleading metadata.
+	// The task's own role ARN for this role type is stored with the credential.
 	roleArn := task.GetRoleArnForRoleType(cred.RoleType)
 	if roleArn == "" {
 		return fmt.Errorf("no role ARN on task for role type %s", cred.RoleType)
-	}
-	if cred.RoleArn != roleArn {
-		return fmt.Errorf("scanned credential role ARN %q does not match %q on task",
-			cred.RoleArn, roleArn)
 	}
 
 	err := r.credManager.SetTaskCredentials(&credentials.TaskIAMRoleCredentials{
