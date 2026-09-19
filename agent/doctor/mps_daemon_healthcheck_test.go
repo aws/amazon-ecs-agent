@@ -247,15 +247,21 @@ func TestMpsRecoveryTransitionAdvancesStatusChangeTime(t *testing.T) {
 
 // A reason longer than the MHS limit is truncated on a rune boundary.
 func TestBoundStatusReason(t *testing.T) {
-	assert.Equal(t, "short", boundStatusReason("short"))
+	t.Run("shorter than limit is unchanged", func(t *testing.T) {
+		assert.Equal(t, "short", boundStatusReason("short"))
+	})
 
-	long := strings.Repeat("a", maxStatusReasonLen+50)
-	assert.Equal(t, maxStatusReasonLen, len(boundStatusReason(long)))
+	t.Run("longer than limit is truncated", func(t *testing.T) {
+		long := strings.Repeat("a", maxStatusReasonLen+50)
+		assert.Equal(t, maxStatusReasonLen, len(boundStatusReason(long)))
+	})
 
-	// Multibyte runes must not be split, so the byte length can exceed the limit
-	// while the rune count does not.
-	multibyte := strings.Repeat("é", maxStatusReasonLen+50)
-	bounded := boundStatusReason(multibyte)
-	assert.Equal(t, maxStatusReasonLen, len([]rune(bounded)))
-	assert.True(t, utf8.ValidString(bounded), "truncation keeps the string valid UTF-8")
+	t.Run("multibyte runes are not split", func(t *testing.T) {
+		// Multibyte runes must not be split, so the byte length can exceed the
+		// limit while the rune count does not.
+		multibyte := strings.Repeat("é", maxStatusReasonLen+50)
+		bounded := boundStatusReason(multibyte)
+		assert.Equal(t, maxStatusReasonLen, len([]rune(bounded)))
+		assert.True(t, utf8.ValidString(bounded), "truncation keeps the string valid UTF-8")
+	})
 }
