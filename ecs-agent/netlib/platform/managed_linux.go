@@ -585,7 +585,7 @@ func (m *managedLinux) addDaemonBridgeNATRule(ipComp ipcompatibility.IPCompatibi
 	// Setup IPv4 NAT rule if IPv4 compatible
 	if ipComp.IsIPv4Compatible() {
 		// Check if IPv4 rule already exists
-		getIPv4Args := func() []string { return getDaemonBridgeNATArgs(ECSSubNet) }
+		getIPv4Args := func() []string { return getDaemonNATArgs(DaemonBridgeIP, ECSSubNet) }
 		err := modifyNetfilterEntry(iptablesTableNat, iptablesCheck, getIPv4Args, false)
 		if err != nil {
 			// Rule doesn't exist, add it
@@ -600,12 +600,12 @@ func (m *managedLinux) addDaemonBridgeNATRule(ipComp ipcompatibility.IPCompatibi
 
 	// Setup IPv6 NAT rule if IPv6 compatible
 	if ipComp.IsIPv6Compatible() {
-		// For IPv6, we use a simple MASQUERADE rule for all traffic on the output interface
 		// Check if IPv6 rule already exists
-		err := modifyNetfilterEntry(iptablesTableNat, iptablesCheck, getSimpleIPv6NATArgs, true)
+		getIPv6Args := func() []string { return getDaemonNATArgs(DaemonBridgeIPv6, ECSSubNetIPv6) }
+		err := modifyNetfilterEntry(iptablesTableNat, iptablesCheck, getIPv6Args, true)
 		if err != nil {
 			// Rule doesn't exist, add it
-			if err := modifyNetfilterEntry(iptablesTableNat, iptablesAppend, getSimpleIPv6NATArgs, true); err != nil {
+			if err := modifyNetfilterEntry(iptablesTableNat, iptablesAppend, getIPv6Args, true); err != nil {
 				return fmt.Errorf("failed to add IPv6 NAT rule: %w", err)
 			}
 			logger.Info("IPv6 NAT rule added for daemon-bridge")
@@ -627,7 +627,7 @@ func (m *managedLinux) addDaemonBridgeNATRule(ipComp ipcompatibility.IPCompatibi
 
 // getIPCompatibilityFromNetNS determines IP compatibility from the network namespace's primary interface.
 // It checks if the primary interface has IPv4 and/or IPv6 addresses configured.
-func (m *managedLinux) getIPCompatibilityFromNetNS(netNS *tasknetworkconfig.NetworkNamespace) ipcompatibility.IPCompatibility {
+func (c *common) getIPCompatibilityFromNetNS(netNS *tasknetworkconfig.NetworkNamespace) ipcompatibility.IPCompatibility {
 	primaryIface := netNS.GetPrimaryInterface()
 	if primaryIface == nil {
 		// Default to IPv4 only if no primary interface found
@@ -718,13 +718,13 @@ func (m *managedLinux) StopDaemonNetNS(ctx context.Context, netNS *tasknetworkco
 
 // isDaemonNamespaceConfigured checks if the daemon namespace is already properly configured
 // by verifying that the veth interface exists in the daemon network namespace.
-func (m *managedLinux) isDaemonNamespaceConfigured(netNSPath string) bool {
+func (c *common) isDaemonNamespaceConfigured(netNSPath string) bool {
 	var configured bool
 
 	// Execute within the network namespace to check interfaces
-	err := m.nsUtil.ExecInNSPath(netNSPath, func(_ cnins.NetNS) error {
+	err := c.nsUtil.ExecInNSPath(netNSPath, func(_ cnins.NetNS) error {
 		// Check if eth0 veth interface exists in daemon namespace
-		link, err := m.netlink.LinkByName(DaemonInterfaceName)
+		link, err := c.netlink.LinkByName(DaemonInterfaceName)
 		if err != nil {
 			return errors.New("eth0 interface not found in daemon namespace")
 		}
