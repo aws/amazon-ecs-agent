@@ -4,11 +4,8 @@ package ec2
 
 import (
 	"context"
-	"fmt"
-	awsmiddleware "github.com/aws/aws-sdk-go-v2/aws/middleware"
 	"github.com/aws/aws-sdk-go-v2/service/ec2/types"
 	"github.com/aws/smithy-go/middleware"
-	smithyhttp "github.com/aws/smithy-go/transport/http"
 )
 
 // Creates an Amazon EBS-backed AMI from an Amazon EBS-backed instance that is
@@ -19,9 +16,23 @@ import (
 // mapping information for those volumes. When you launch an instance from this new
 // AMI, the instance automatically launches with those additional volumes.
 //
-// For more information, see [Create an Amazon EBS-backed Linux AMI] in the Amazon Elastic Compute Cloud User Guide.
+// The location of the source instance determines where you can create the
+// snapshots of the AMI:
 //
-// [Create an Amazon EBS-backed Linux AMI]: https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/creating-an-ami-ebs.html
+//   - If the source instance is in a Region, you must create the snapshots in the
+//     same Region as the instance.
+//
+//   - If the source instance is in a Local Zone, you can create the snapshots in
+//     the same Local Zone or in its parent Region.
+//
+//   - If the source instance is on an Outpost that supports local snapshots, you
+//     can create the snapshots on the same Outpost or in the parent Region of that
+//     Outpost. In this case, you must use the SnapshotLocation parameter to specify
+//     where to create the snapshots.
+//
+// For more information, see [Create an Amazon EBS-backed AMI] in the Amazon Elastic Compute Cloud User Guide.
+//
+// [Create an Amazon EBS-backed AMI]: https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/creating-an-ami-ebs.html
 func (c *Client) CreateImage(ctx context.Context, params *CreateImageInput, optFns ...func(*Options)) (*CreateImageOutput, error) {
 	if params == nil {
 		params = &CreateImageInput{}
@@ -64,11 +75,30 @@ type CreateImageInput struct {
 	//   - You can't modify the encryption status of existing volumes or snapshots. To
 	//   create an AMI with volumes or snapshots that have a different encryption status
 	//   (for example, where the source volume and snapshots are unencrypted, and you
-	//   want to create an AMI with encrypted volumes or snapshots), use the CopyImageaction.
+	//   want to create an AMI with encrypted volumes or snapshots), copy the image
+	//   instead.
 	//
 	//   - The only option that can be changed for existing mappings or snapshots is
 	//   DeleteOnTermination .
 	BlockDeviceMappings []types.BlockDeviceMapping
+
+	// The boot mode of the new image, which overrides the default boot mode. By
+	// default, if you do not specify this parameter, the new image inherits the
+	// boot-mode from the source instance.
+	//
+	// A value of uefi indicates that the image only supports UEFI boot mode. You can
+	// specify this parameter only if the current-instance-boot-mode of the source
+	// instance is uefi . To find the boot-mode or current-instance-boot-mode of an
+	// instance, see [DescribeInstances].
+	//
+	// The operating system contained in the AMI must be configured to support the
+	// specified boot mode.
+	//
+	// For more information, see [Instance launch behavior with Amazon EC2 boot modes] in the Amazon EC2 User Guide.
+	//
+	// [Instance launch behavior with Amazon EC2 boot modes]: https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/ami-boot.html
+	// [DescribeInstances]: https://docs.aws.amazon.com/AWSEC2/latest/APIReference/API_DescribeInstances.html
+	BootModeOverride types.BootModeOverrideValues
 
 	// A description for the new image.
 	Description *string
@@ -94,6 +124,28 @@ type CreateImageInput struct {
 	//
 	// Default: false
 	NoReboot *bool
+
+	// Only supported for instances in Local Zones and for instances on Outposts that
+	// support local snapshots. If the source instance is not in one of these
+	// locations, omit this parameter.
+	//
+	// The Amazon S3 location where the snapshots will be stored.
+	//
+	//   - To create local snapshots in the same Local Zone or on the same Outpost as
+	//   the source instance, specify local .
+	//
+	//   - To create regional snapshots in the parent Region of the Local Zone or
+	//   Outpost, specify regional .
+	//
+	// If the source instance is in a Local Zone and you omit this parameter, regional
+	// snapshots are created in the parent Region of the Local Zone.
+	//
+	// If the source instance is on an Outpost that supports local snapshots, this
+	// parameter is required. If you omit it, the request fails with an
+	// InvalidParameterValue error.
+	//
+	// Default: regional (for instances in Local Zones only)
+	SnapshotLocation types.SnapshotLocationEnum
 
 	// The tags to apply to the AMI and snapshots on creation. You can tag the AMI,
 	// the snapshots, or both.
@@ -127,9 +179,6 @@ type CreateImageOutput struct {
 }
 
 func (c *Client) addOperationCreateImageMiddlewares(stack *middleware.Stack, options Options) (err error) {
-	if err := stack.Serialize.Add(&setOperationInputMiddleware{}, middleware.After); err != nil {
-		return err
-	}
 	err = stack.Serialize.Add(&awsEc2query_serializeOpCreateImage{}, middleware.After)
 	if err != nil {
 		return err
@@ -138,65 +187,20 @@ func (c *Client) addOperationCreateImageMiddlewares(stack *middleware.Stack, opt
 	if err != nil {
 		return err
 	}
-	if err := addProtocolFinalizerMiddlewares(stack, options, "CreateImage"); err != nil {
-		return fmt.Errorf("add protocol finalizers: %v", err)
-	}
 
-	if err = addlegacyEndpointContextSetter(stack, options); err != nil {
-		return err
-	}
-	if err = addSetLoggerMiddleware(stack, options); err != nil {
-		return err
-	}
-	if err = addClientRequestID(stack); err != nil {
-		return err
-	}
-	if err = addComputeContentLength(stack); err != nil {
-		return err
-	}
 	if err = addResolveEndpointMiddleware(stack, options); err != nil {
 		return err
 	}
 	if err = addComputePayloadSHA256(stack); err != nil {
 		return err
 	}
-	if err = addRetry(stack, options); err != nil {
+	if err = addRecordResponseTiming(stack, options); err != nil {
 		return err
 	}
-	if err = addRawResponseToMetadata(stack); err != nil {
-		return err
-	}
-	if err = addRecordResponseTiming(stack); err != nil {
-		return err
-	}
-	if err = addSpanRetryLoop(stack, options); err != nil {
-		return err
-	}
-	if err = addClientUserAgent(stack, options); err != nil {
-		return err
-	}
-	if err = smithyhttp.AddErrorCloseResponseBodyMiddleware(stack); err != nil {
-		return err
-	}
-	if err = smithyhttp.AddCloseResponseBodyMiddleware(stack); err != nil {
-		return err
-	}
-	if err = addSetLegacyContextSigningOptionsMiddleware(stack); err != nil {
-		return err
-	}
-	if err = addTimeOffsetBuild(stack, c); err != nil {
-		return err
-	}
-	if err = addUserAgentRetryMode(stack, options); err != nil {
+	if err = addCredentialSource(stack, options); err != nil {
 		return err
 	}
 	if err = addOpCreateImageValidationMiddleware(stack); err != nil {
-		return err
-	}
-	if err = stack.Initialize.Add(newServiceMetadataMiddleware_opCreateImage(options.Region), middleware.Before); err != nil {
-		return err
-	}
-	if err = addRecursionDetection(stack); err != nil {
 		return err
 	}
 	if err = addRequestIDRetrieverMiddleware(stack); err != nil {
@@ -211,25 +215,8 @@ func (c *Client) addOperationCreateImageMiddlewares(stack *middleware.Stack, opt
 	if err = addDisableHTTPSMiddleware(stack, options); err != nil {
 		return err
 	}
-	if err = addSpanInitializeStart(stack); err != nil {
-		return err
-	}
-	if err = addSpanInitializeEnd(stack); err != nil {
-		return err
-	}
-	if err = addSpanBuildRequestStart(stack); err != nil {
-		return err
-	}
-	if err = addSpanBuildRequestEnd(stack); err != nil {
+	if err = addInterceptors(stack, options); err != nil {
 		return err
 	}
 	return nil
-}
-
-func newServiceMetadataMiddleware_opCreateImage(region string) *awsmiddleware.RegisterServiceMetadata {
-	return &awsmiddleware.RegisterServiceMetadata{
-		Region:        region,
-		ServiceID:     ServiceID,
-		OperationName: "CreateImage",
-	}
 }

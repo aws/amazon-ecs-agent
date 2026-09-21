@@ -4,31 +4,28 @@ package ec2
 
 import (
 	"context"
-	"fmt"
-	awsmiddleware "github.com/aws/aws-sdk-go-v2/aws/middleware"
 	"github.com/aws/aws-sdk-go-v2/service/ec2/types"
 	"github.com/aws/smithy-go/middleware"
-	smithyhttp "github.com/aws/smithy-go/transport/http"
 )
 
-// Creates a VPC with the specified CIDR blocks. For more information, see [IP addressing for your VPCs and subnets] in the
-// Amazon VPC User Guide.
+// Creates a VPC with the specified CIDR blocks.
 //
-// You can optionally request an IPv6 CIDR block for the VPC. You can request an
-// Amazon-provided IPv6 CIDR block from Amazon's pool of IPv6 addresses or an IPv6
-// CIDR block from an IPv6 address pool that you provisioned through bring your own
-// IP addresses ([BYOIP] ).
+// A VPC must have an associated IPv4 CIDR block. You can choose an IPv4 CIDR
+// block or an IPAM-allocated IPv4 CIDR block. You can optionally associate an IPv6
+// CIDR block with a VPC. You can choose an IPv6 CIDR block, an Amazon-provided
+// IPv6 CIDR block, an IPAM-allocated IPv6 CIDR block, or an IPv6 CIDR block that
+// you brought to Amazon Web Services. For more information, see [IP addressing for your VPCs and subnets]in the Amazon VPC
+// User Guide.
 //
 // By default, each instance that you launch in the VPC has the default DHCP
 // options, which include only a default DNS server that we provide
 // (AmazonProvidedDNS). For more information, see [DHCP option sets]in the Amazon VPC User Guide.
 //
-// You can specify the instance tenancy value for the VPC when you create it. You
-// can't change this value for the VPC after you create it. For more information,
-// see [Dedicated Instances]in the Amazon EC2 User Guide.
+// You can specify DNS options and tenancy for a VPC when you create it. You can't
+// change the tenancy of a VPC after you create it. For more information, see [VPC configuration options]in
+// the Amazon VPC User Guide.
 //
-// [BYOIP]: https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/ec2-byoip.html
-// [Dedicated Instances]: https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/dedicated-instance.html
+// [VPC configuration options]: https://docs.aws.amazon.com/vpc/latest/userguide/create-vpc-options.html
 // [DHCP option sets]: https://docs.aws.amazon.com/vpc/latest/userguide/VPC_DHCP_Options.html
 // [IP addressing for your VPCs and subnets]: https://docs.aws.amazon.com/vpc/latest/userguide/vpc-ip-addressing.html
 func (c *Client) CreateVpc(ctx context.Context, params *CreateVpcInput, optFns ...func(*Options)) (*CreateVpcOutput, error) {
@@ -124,6 +121,15 @@ type CreateVpcInput struct {
 	// The tags to assign to the VPC.
 	TagSpecifications []types.TagSpecification
 
+	// Specifies the encryption control configuration to apply to the VPC during
+	// creation. VPC Encryption Control enables you to enforce encryption for all data
+	// in transit within and between VPCs to meet compliance requirements.
+	//
+	// For more information, see [Enforce VPC encryption in transit] in the Amazon VPC User Guide.
+	//
+	// [Enforce VPC encryption in transit]: https://docs.aws.amazon.com/vpc/latest/userguide/vpc-encryption-controls.html
+	VpcEncryptionControl *types.VpcEncryptionControlConfiguration
+
 	noSmithyDocumentSerde
 }
 
@@ -139,9 +145,6 @@ type CreateVpcOutput struct {
 }
 
 func (c *Client) addOperationCreateVpcMiddlewares(stack *middleware.Stack, options Options) (err error) {
-	if err := stack.Serialize.Add(&setOperationInputMiddleware{}, middleware.After); err != nil {
-		return err
-	}
 	err = stack.Serialize.Add(&awsEc2query_serializeOpCreateVpc{}, middleware.After)
 	if err != nil {
 		return err
@@ -150,62 +153,20 @@ func (c *Client) addOperationCreateVpcMiddlewares(stack *middleware.Stack, optio
 	if err != nil {
 		return err
 	}
-	if err := addProtocolFinalizerMiddlewares(stack, options, "CreateVpc"); err != nil {
-		return fmt.Errorf("add protocol finalizers: %v", err)
-	}
 
-	if err = addlegacyEndpointContextSetter(stack, options); err != nil {
-		return err
-	}
-	if err = addSetLoggerMiddleware(stack, options); err != nil {
-		return err
-	}
-	if err = addClientRequestID(stack); err != nil {
-		return err
-	}
-	if err = addComputeContentLength(stack); err != nil {
-		return err
-	}
 	if err = addResolveEndpointMiddleware(stack, options); err != nil {
 		return err
 	}
 	if err = addComputePayloadSHA256(stack); err != nil {
 		return err
 	}
-	if err = addRetry(stack, options); err != nil {
+	if err = addRecordResponseTiming(stack, options); err != nil {
 		return err
 	}
-	if err = addRawResponseToMetadata(stack); err != nil {
+	if err = addCredentialSource(stack, options); err != nil {
 		return err
 	}
-	if err = addRecordResponseTiming(stack); err != nil {
-		return err
-	}
-	if err = addSpanRetryLoop(stack, options); err != nil {
-		return err
-	}
-	if err = addClientUserAgent(stack, options); err != nil {
-		return err
-	}
-	if err = smithyhttp.AddErrorCloseResponseBodyMiddleware(stack); err != nil {
-		return err
-	}
-	if err = smithyhttp.AddCloseResponseBodyMiddleware(stack); err != nil {
-		return err
-	}
-	if err = addSetLegacyContextSigningOptionsMiddleware(stack); err != nil {
-		return err
-	}
-	if err = addTimeOffsetBuild(stack, c); err != nil {
-		return err
-	}
-	if err = addUserAgentRetryMode(stack, options); err != nil {
-		return err
-	}
-	if err = stack.Initialize.Add(newServiceMetadataMiddleware_opCreateVpc(options.Region), middleware.Before); err != nil {
-		return err
-	}
-	if err = addRecursionDetection(stack); err != nil {
+	if err = addOpCreateVpcValidationMiddleware(stack); err != nil {
 		return err
 	}
 	if err = addRequestIDRetrieverMiddleware(stack); err != nil {
@@ -220,25 +181,8 @@ func (c *Client) addOperationCreateVpcMiddlewares(stack *middleware.Stack, optio
 	if err = addDisableHTTPSMiddleware(stack, options); err != nil {
 		return err
 	}
-	if err = addSpanInitializeStart(stack); err != nil {
-		return err
-	}
-	if err = addSpanInitializeEnd(stack); err != nil {
-		return err
-	}
-	if err = addSpanBuildRequestStart(stack); err != nil {
-		return err
-	}
-	if err = addSpanBuildRequestEnd(stack); err != nil {
+	if err = addInterceptors(stack, options); err != nil {
 		return err
 	}
 	return nil
-}
-
-func newServiceMetadataMiddleware_opCreateVpc(region string) *awsmiddleware.RegisterServiceMetadata {
-	return &awsmiddleware.RegisterServiceMetadata{
-		Region:        region,
-		ServiceID:     ServiceID,
-		OperationName: "CreateVpc",
-	}
 }
