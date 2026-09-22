@@ -58,6 +58,7 @@ const (
 func TestManagedLinux_TestConfigureInterface(t *testing.T) {
 	t.Run("regular-eni", testManagedLinuxRegularENIConfiguration)
 	t.Run("branch-eni", testManagedLinuxBranchENIConfiguration)
+	t.Run("branch-eni-non-primary", testManagedLinuxNonPrimaryBranchENIConfiguration)
 }
 
 // testRegularENIConfiguration verifies the precise list of operations are invoked
@@ -80,9 +81,10 @@ func testManagedLinuxRegularENIConfiguration(t *testing.T) {
 	err := managedLinuxPlatform.configureInterface(ctx, netNSPath, eni, nil)
 	require.NoError(t, err)
 
-	// Non-primary ENI case.
+	// Non-primary ENI case. The default gateway is withheld from non-primary interfaces.
 	eni.Default = false
 	eniConfig = createENIPluginConfigs(netNSPath, eni)
+	eniConfig.GatewayIPAddresses = []string{}
 	gomock.InOrder(
 		osWrapper.EXPECT().Setenv("ECS_CNI_LOG_FILE", ecscni.PluginLogPath).Times(1),
 		osWrapper.EXPECT().Setenv("IPAM_DB_PATH", filepath.Join(managedLinuxPlatform.stateDBDir, "eni-ipam.db")),
@@ -135,6 +137,48 @@ func testManagedLinuxBranchENIConfiguration(t *testing.T) {
 	cniClient.EXPECT().Del(gomock.Any(), cniConfig).Return(nil).Times(1)
 	err = managedLinuxPlatform.configureInterface(ctx, netNSPath, eni, nil)
 	require.NoError(t, err)
+}
+
+// testManagedLinuxNonPrimaryBranchENIConfiguration verifies that a non-primary
+// branch ENI sharing a netns with the primary keeps the device name assigned
+// at model-build time and receives neither a default gateway nor an IMDS
+// block, in both the setup and delete workflows. The primary's IMDS blackhole
+// routes already cover the shared netns; requesting them again fails with
+// EEXIST.
+func testManagedLinuxNonPrimaryBranchENIConfiguration(t *testing.T) {
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+
+	ctx, osWrapper, cniClient, eni, managedLinuxPlatform := setupManagedLinuxTestConfigureInterface(ctrl, getTestBranchV4ENI)
+	eni.Default = false
+	eni.Index = 2
+	eni.DeviceName = "eth2"
+	eni.DesiredStatus = status.NetworkReadyPull
+
+	cniConfig := createBranchENIConfig(netNSPath, eni, VPCBranchENIInterfaceTypeVlan, false)
+	cniConfig.GatewayIPAddresses = []string{}
+	require.Equal(t, "eth2", cniConfig.IfName)
+	require.False(t, cniConfig.BlockIMDS)
+
+	// Setup workflow: no bridge plugin runs, no default gateway is passed, and
+	// IMDS blocking is left to the primary interface.
+	gomock.InOrder(
+		osWrapper.EXPECT().Setenv("IPAM_DB_PATH", filepath.Join(managedLinuxPlatform.stateDBDir, "eni-ipam.db")),
+		cniClient.EXPECT().Add(gomock.Any(), cniConfig).Return(nil, nil).Times(1),
+	)
+	err := managedLinuxPlatform.ConfigureInterface(ctx, netNSPath, eni, nil)
+	require.NoError(t, err)
+	require.Equal(t, "eth2", eni.DeviceName)
+
+	// Delete workflow targets the same interface name with the same config.
+	eni.DesiredStatus = status.NetworkDeleted
+	gomock.InOrder(
+		osWrapper.EXPECT().Setenv("IPAM_DB_PATH", filepath.Join(managedLinuxPlatform.stateDBDir, "eni-ipam.db")),
+		cniClient.EXPECT().Del(gomock.Any(), cniConfig).Return(nil).Times(1),
+	)
+	err = managedLinuxPlatform.ConfigureInterface(ctx, netNSPath, eni, nil)
+	require.NoError(t, err)
+	require.Equal(t, "eth2", eni.DeviceName)
 }
 
 func TestBuildDefaultNetworkNamespaceConfig(t *testing.T) {
@@ -1268,6 +1312,161 @@ func TestIsDaemonNamespaceConfigured(t *testing.T) {
 			tt.setupMock()
 			result := ml.isDaemonNamespaceConfigured(netNSPath)
 			assert.Equal(t, tt.expected, result)
+		})
+	}
+}
+
+// TestManagedLinuxBuildTaskNetworkConfigurationDeviceNames verifies that every
+// interface in an awsvpc network namespace receives a unique device name based
+// on its 1-based position in the index-sorted interface list, with the primary
+// interface of each namespace named eth1.
+func TestManagedLinuxBuildTaskNetworkConfigurationDeviceNames(t *testing.T) {
+	t.Parallel()
+
+	// Values from a Multi-ENI V1 (DIY) task payload carrying two branch ENIs
+	// on the same trunk, listed out of index order.
+	const (
+		testTrunkMAC = "02:ff:f4:a9:a9:7d"
+		eniMACIndex0 = "02:ff:f6:be:8f:fb"
+		eniMACIndex2 = "02:ff:c0:b6:5f:6b"
+		eniMACIndex5 = "02:ff:c0:b6:5f:6c"
+	)
+
+	branchENI := func(index int64, mac, vlanID, privateIPv4, gatewayIPv4 string) *ecsacs.ElasticNetworkInterface {
+		return &ecsacs.ElasticNetworkInterface{
+			Ec2Id:                        aws.String(fmt.Sprintf("eni-%02d", index)),
+			MacAddress:                   aws.String(mac),
+			Index:                        aws.Int64(index),
+			InterfaceAssociationProtocol: aws.String(networkinterface.VLANInterfaceAssociationProtocol),
+			InterfaceVlanProperties: &ecsacs.NetworkInterfaceVlanProperties{
+				VlanId:                   aws.String(vlanID),
+				TrunkInterfaceMacAddress: aws.String(testTrunkMAC),
+			},
+			Ipv4Addresses: []*ecsacs.IPv4AddressAssignment{
+				{Primary: aws.Bool(true), PrivateAddress: aws.String(privateIPv4)},
+			},
+			SubnetGatewayIpv4Address: aws.String(gatewayIPv4),
+		}
+	}
+
+	type expectedIface struct {
+		index      int64
+		deviceName string
+		primary    bool
+	}
+
+	tests := []struct {
+		name       string
+		enis       []*ecsacs.ElasticNetworkInterface
+		containers []*ecsacs.Container
+		want       [][]expectedIface
+	}{
+		{
+			name: "shared netns with two branch ENIs and unsorted indices",
+			enis: []*ecsacs.ElasticNetworkInterface{
+				branchENI(2, eniMACIndex2, "476", "10.14.173.53", "10.14.0.1/16"),
+				branchENI(0, eniMACIndex0, "3471", "10.0.113.194", "10.0.96.1/19"),
+			},
+			containers: []*ecsacs.Container{{}},
+			want: [][]expectedIface{
+				{
+					{index: 0, deviceName: "eth1", primary: true},
+					{index: 2, deviceName: "eth2", primary: false},
+				},
+			},
+		},
+		{
+			name: "shared netns with three branch ENIs and index gaps",
+			enis: []*ecsacs.ElasticNetworkInterface{
+				branchENI(0, eniMACIndex0, "100", "10.0.0.10", "10.0.0.1/24"),
+				branchENI(1, eniMACIndex2, "101", "10.0.1.10", "10.0.1.1/24"),
+				branchENI(5, eniMACIndex5, "102", "10.0.2.10", "10.0.2.1/24"),
+			},
+			containers: []*ecsacs.Container{{}},
+			want: [][]expectedIface{
+				{
+					{index: 0, deviceName: "eth1", primary: true},
+					{index: 1, deviceName: "eth2", primary: false},
+					{index: 5, deviceName: "eth3", primary: false},
+				},
+			},
+		},
+		{
+			name: "single ENI",
+			enis: []*ecsacs.ElasticNetworkInterface{
+				branchENI(0, eniMACIndex0, "3471", "10.0.113.194", "10.0.96.1/19"),
+			},
+			containers: []*ecsacs.Container{{}},
+			want: [][]expectedIface{
+				{
+					{index: 0, deviceName: "eth1", primary: true},
+				},
+			},
+		},
+		{
+			name: "one netns per interface",
+			enis: func() []*ecsacs.ElasticNetworkInterface {
+				first := branchENI(0, eniMACIndex0, "3471", "10.0.113.194", "10.0.96.1/19")
+				first.Name = aws.String("eni-first")
+				second := branchENI(1, eniMACIndex2, "476", "10.14.173.53", "10.14.0.1/16")
+				second.Name = aws.String("eni-second")
+				return []*ecsacs.ElasticNetworkInterface{first, second}
+			}(),
+			containers: []*ecsacs.Container{
+				{NetworkInterfaceNames: []*string{aws.String("eni-first")}},
+				{NetworkInterfaceNames: []*string{aws.String("eni-second")}},
+			},
+			want: [][]expectedIface{
+				{{index: 0, deviceName: "eth1", primary: true}},
+				{{index: 1, deviceName: "eth1", primary: true}},
+			},
+		},
+	}
+
+	for _, tc := range tests {
+		tc := tc
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+			ctrl := gomock.NewController(t)
+			defer ctrl.Finish()
+
+			trunkHWAddr, err := net.ParseMAC(testTrunkMAC)
+			require.NoError(t, err)
+			mockNet := mock_netwrapper.NewMockNet(ctrl)
+			mockNet.EXPECT().Interfaces().Return([]net.Interface{
+				{HardwareAddr: trunkHWAddr, Name: "eth1"},
+			}, nil).AnyTimes()
+
+			mockNSUtil := mock_ecscni.NewMockNetNSUtil(ctrl)
+			mockNSUtil.EXPECT().GetNetNSPath(gomock.Any()).DoAndReturn(
+				func(name string) string { return "/var/run/netns/" + name }).AnyTimes()
+
+			managedLinuxPlatform := &managedLinux{
+				common: common{
+					net:    mockNet,
+					nsUtil: mockNSUtil,
+				},
+			}
+
+			payload := &ecsacs.Task{
+				NetworkMode:              aws.String(string(ecstypes.NetworkModeAwsvpc)),
+				ElasticNetworkInterfaces: tc.enis,
+				Containers:               tc.containers,
+			}
+
+			netConfig, err := managedLinuxPlatform.BuildTaskNetworkConfiguration("test-task-id", payload)
+			require.NoError(t, err)
+			require.Len(t, netConfig.NetworkNamespaces, len(tc.want))
+			for nsIdx, wantIfaces := range tc.want {
+				netNS := netConfig.NetworkNamespaces[nsIdx]
+				require.Len(t, netNS.NetworkInterfaces, len(wantIfaces))
+				for i, want := range wantIfaces {
+					iface := netNS.NetworkInterfaces[i]
+					assert.Equal(t, want.index, iface.Index)
+					assert.Equal(t, want.deviceName, iface.DeviceName)
+					assert.Equal(t, want.primary, iface.IsPrimary())
+				}
+			}
 		})
 	}
 }

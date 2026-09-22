@@ -67,7 +67,7 @@ const (
 )
 
 // createENIPluginConfigs constructs the configuration object for eni plugin
-func createENIPluginConfigs(netNSPath string, eni *networkinterface.NetworkInterface) ecscni.PluginConfig {
+func createENIPluginConfigs(netNSPath string, eni *networkinterface.NetworkInterface) *ecscni.ENIConfig {
 	cniConfig := ecscni.CNIConfig{
 		NetNSPath:      netNSPath,
 		CNISpecVersion: cniSpecVersion,
@@ -273,7 +273,7 @@ func createBranchENIConfig(
 	iface *networkinterface.NetworkInterface,
 	ifType string,
 	blockInstanceMetadata bool,
-) ecscni.PluginConfig {
+) *ecscni.VPCBranchENIConfig {
 	cniConfig := ecscni.CNIConfig{
 		NetNSPath:      netNSPath,
 		CNIPluginName:  VPCBranchENIPluginName,

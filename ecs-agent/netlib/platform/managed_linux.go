@@ -35,7 +35,7 @@ const (
 	PrivateIPv6Address         = "ipv6"
 	InstanceIDResource         = "instance-id"
 	DefaultArg                 = "default"
-	NetworkInterfaceDeviceName = "eth1" // default network interface name in the task network namespace.
+	NetworkInterfaceDeviceName = "eth1" // device name of the primary network interface in the task network namespace.
 	DaemonInterfaceName        = "eth0" // daemon network interface name in the daemon network namespace.
 )
 
@@ -60,6 +60,7 @@ func (m *managedLinux) BuildTaskNetworkConfiguration(
 		if err != nil {
 			return nil, errors.Wrap(err, "failed to translate network configuration")
 		}
+		assignTaskInterfaceDeviceNames(netNSs)
 	case types.NetworkModeHost:
 		netNSs, err = m.buildHostNetworkNamespaceConfig(taskID)
 		if err != nil {
@@ -145,14 +146,32 @@ func (m *managedLinux) createServiceConnectTasksDNSConfig(taskID string,
 	return m.populateHostsFromFile(netNS)
 }
 
+// assignTaskInterfaceDeviceNames gives every interface in each awsvpc network
+// namespace a unique device name. The CNI plugins rename the interface inside
+// the netns to this name, so duplicate names in a shared netns fail the rename
+// with EEXIST. Names derive from the interface's 1-based position in the
+// index-sorted NetworkInterfaces slice rather than from the ACS index itself,
+// so the primary (lowest index) interface is always eth1 (the name relied on
+// by TMDS, task network stats, and fault injection) and secondaries observe
+// the same eth2, eth3, ... sequence as on Fargate regardless of gaps in ACS
+// index values.
+func assignTaskInterfaceDeviceNames(netNSs []*tasknetworkconfig.NetworkNamespace) {
+	for _, netNS := range netNSs {
+		for i, iface := range netNS.NetworkInterfaces {
+			iface.DeviceName = fmt.Sprintf("eth%d", i+1)
+		}
+	}
+}
+
 func (m *managedLinux) ConfigureInterface(
 	ctx context.Context,
 	netNSPath string,
 	iface *networkinterface.NetworkInterface,
 	netDAO netlibdata.NetworkDataClient,
 ) error {
-	// Set the network interface name on the task network namespace to eth1.
-	iface.DeviceName = NetworkInterfaceDeviceName
+	// The interface arrives with the device name assigned at model-build time
+	// and persisted in the state DB, which keeps setup and cleanup symmetric
+	// across agent restarts.
 	return m.configureInterface(ctx, netNSPath, iface, netDAO)
 }
 
@@ -200,13 +219,13 @@ func (m *managedLinux) configureRegularENI(ctx context.Context, netNSPath string
 		if eni.IsPrimary() {
 			cniNetConf = append(cniNetConf, m.createBridgePluginConfig(netNSPath, ipComp))
 		}
-		cniNetConf = append(cniNetConf, createENIPluginConfigs(netNSPath, eni))
+		cniNetConf = append(cniNetConf, m.regularENIConfig(netNSPath, eni))
 		add = true
 	case status.NetworkDeleted:
 		if eni.IsPrimary() {
 			cniNetConf = append(cniNetConf, m.createBridgePluginConfig(netNSPath, ipComp))
 		}
-		cniNetConf = append(cniNetConf, createENIPluginConfigs(netNSPath, eni))
+		cniNetConf = append(cniNetConf, m.regularENIConfig(netNSPath, eni))
 		add = false
 	}
 
@@ -241,13 +260,12 @@ func (m *managedLinux) configureBranchENI(ctx context.Context, netNSPath string,
 		if eni.IsPrimary() {
 			cniNetConf = append(cniNetConf, m.createBridgePluginConfig(netNSPath, ipComp))
 		}
-		// We block IMDS access in awsvpc tasks.
-		cniNetConf = append(cniNetConf, createBranchENIConfig(netNSPath, eni, VPCBranchENIInterfaceTypeVlan, blockInstanceMetadataDefault))
+		cniNetConf = append(cniNetConf, m.branchENIConfig(netNSPath, eni))
 	case status.NetworkDeleted:
 		if eni.IsPrimary() {
 			cniNetConf = append(cniNetConf, m.createBridgePluginConfig(netNSPath, ipComp))
 		}
-		cniNetConf = append(cniNetConf, createBranchENIConfig(netNSPath, eni, VPCBranchENIInterfaceTypeVlan, blockInstanceMetadataDefault))
+		cniNetConf = append(cniNetConf, m.branchENIConfig(netNSPath, eni))
 		add = false
 	}
 
@@ -257,6 +275,40 @@ func (m *managedLinux) configureBranchENI(ctx context.Context, netNSPath string,
 	}
 
 	return err
+}
+
+// regularENIConfig builds the ecs-eni plugin configuration for the ENI,
+// withholding the default gateway from non-primary interfaces.
+func (m *managedLinux) regularENIConfig(netNSPath string, eni *networkinterface.NetworkInterface) *ecscni.ENIConfig {
+	eniConfig := createENIPluginConfigs(netNSPath, eni)
+	if !eni.IsPrimary() {
+		eniConfig.GatewayIPAddresses = []string{}
+	}
+	return eniConfig
+}
+
+// branchENIConfig builds the vpc-branch-eni plugin configuration for the ENI.
+// Non-primary interfaces get neither a default gateway nor an IMDS block.
+//
+// A default route may exist only for the primary interface of a netns:
+// installing one per interface in a shared netns fails with EEXIST and would
+// make routing for the primary's responsibilities (image pull, logs, TMDS)
+// ambiguous. Non-primary interfaces keep their IP addresses and are brought
+// up, so workloads can install their own routes.
+//
+// IMDS is blocked with blackhole routes for 169.254.169.254/32 and
+// fd00:ec2::254/128. Routes belong to the netns, not to an interface, so the
+// routes installed while configuring the primary interface already block IMDS
+// for every interface sharing that netns. Asking the plugin to block IMDS
+// again for a non-primary interface makes it add the same routes a second
+// time, which fails with EEXIST and aborts the task's network setup.
+func (m *managedLinux) branchENIConfig(netNSPath string, eni *networkinterface.NetworkInterface) *ecscni.VPCBranchENIConfig {
+	blockIMDS := blockInstanceMetadataDefault && eni.IsPrimary()
+	branchConfig := createBranchENIConfig(netNSPath, eni, VPCBranchENIInterfaceTypeVlan, blockIMDS)
+	if !eni.IsPrimary() {
+		branchConfig.GatewayIPAddresses = []string{}
+	}
+	return branchConfig
 }
 
 func (m *managedLinux) ConfigureAppMesh(ctx context.Context,
