@@ -33,6 +33,30 @@ type API interface {
 		taskID string,
 		taskPayload *ecsacs.Task) (*tasknetworkconfig.TaskNetworkConfig, error)
 
+	// ExtendTaskNetworkConfiguration models the task's networking from its
+	// payload around namespaces of the task that already exist, such as one
+	// built from an ENI attachment ahead of the payload. Interfaces an
+	// existing namespace already holds are not resolved again (their devices
+	// have left the host namespace); interfaces the payload adds to such a
+	// namespace are modelled onto a namespace of the same identity, and
+	// interfaces the payload places in namespaces of their own become new
+	// namespaces. The result is a fresh model; the existing namespaces are
+	// read, not modified, and their state is not carried over.
+	ExtendTaskNetworkConfiguration(
+		taskID string,
+		taskPayload *ecsacs.Task,
+		existing []*tasknetworkconfig.NetworkNamespace,
+	) (*tasknetworkconfig.TaskNetworkConfig, error)
+
+	// BuildAttachmentNetworkConfiguration models the networking that can be
+	// built from a task ENI attachment before the task payload arrives: the
+	// task namespace the interface establishes when it is the task's primary,
+	// and the host's shared daemon namespace on platforms that have one.
+	BuildAttachmentNetworkConfiguration(
+		taskID string,
+		eni *ecsacs.ElasticNetworkInterface,
+	) (*tasknetworkconfig.AttachmentNetworkConfig, error)
+
 	// HandleHostMode returns error if host mode is not enabled for the platform.
 	HandleHostMode() error
 

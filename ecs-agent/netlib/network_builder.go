@@ -22,6 +22,7 @@ import (
 	"github.com/aws/amazon-ecs-agent/ecs-agent/metrics"
 	"github.com/aws/amazon-ecs-agent/ecs-agent/netlib/data"
 	netlibdata "github.com/aws/amazon-ecs-agent/ecs-agent/netlib/data"
+	"github.com/aws/amazon-ecs-agent/ecs-agent/netlib/model/networkinterface"
 	"github.com/aws/amazon-ecs-agent/ecs-agent/netlib/model/status"
 	"github.com/aws/amazon-ecs-agent/ecs-agent/netlib/model/tasknetworkconfig"
 	"github.com/aws/amazon-ecs-agent/ecs-agent/netlib/platform"
@@ -35,6 +36,29 @@ import (
 
 type NetworkBuilder interface {
 	BuildTaskNetworkConfiguration(taskID string, taskPayload *ecsacs.Task) (*tasknetworkconfig.TaskNetworkConfig, error)
+
+	// BuildAttachmentNetworkConfiguration models the networking a task ENI
+	// attachment establishes ahead of the task payload; see
+	// platform.API.BuildAttachmentNetworkConfiguration.
+	BuildAttachmentNetworkConfiguration(
+		taskID string,
+		eni *ecsacs.ElasticNetworkInterface,
+	) (*tasknetworkconfig.AttachmentNetworkConfig, error)
+
+	// ExtendTaskNetworkConfiguration completes a task's networking around
+	// namespaces already provisioned ahead of its payload. The payload's
+	// remaining interfaces are placed by the platform's layout rule (see
+	// platform.API.ExtendTaskNetworkConfiguration); those that join an
+	// existing namespace are configured into it up to the namespace's current
+	// state, so this touches the host where Build does not. The returned
+	// namespaces carry the state of the work done, existing and new alike,
+	// ready to be persisted and managed; the existing models are not modified.
+	ExtendTaskNetworkConfiguration(
+		ctx context.Context,
+		taskID string,
+		taskPayload *ecsacs.Task,
+		existing ...*tasknetworkconfig.NetworkNamespace,
+	) (*tasknetworkconfig.TaskNetworkConfig, error)
 
 	Start(ctx context.Context, mode types.NetworkMode, taskID string, netNS *tasknetworkconfig.NetworkNamespace) error
 
@@ -74,6 +98,87 @@ func NewNetworkBuilder(
 func (nb *networkBuilder) BuildTaskNetworkConfiguration(
 	taskID string, taskPayload *ecsacs.Task) (*tasknetworkconfig.TaskNetworkConfig, error) {
 	return nb.platformAPI.BuildTaskNetworkConfiguration(taskID, taskPayload)
+}
+
+func (nb *networkBuilder) ExtendTaskNetworkConfiguration(
+	ctx context.Context,
+	taskID string,
+	taskPayload *ecsacs.Task,
+	existing ...*tasknetworkconfig.NetworkNamespace,
+) (*tasknetworkconfig.TaskNetworkConfig, error) {
+	netConfig, err := nb.platformAPI.ExtendTaskNetworkConfiguration(taskID, taskPayload, existing)
+	if err != nil {
+		return nil, err
+	}
+
+	byName := make(map[string]*tasknetworkconfig.NetworkNamespace, len(existing))
+	for _, netNS := range existing {
+		byName[netNS.Name] = netNS
+	}
+	for _, netNS := range netConfig.NetworkNamespaces {
+		prior, ok := byName[netNS.Name]
+		if !ok {
+			continue
+		}
+		if err := nb.carryNamespaceState(ctx, taskID, prior, netNS); err != nil {
+			return nil, err
+		}
+	}
+	return netConfig, nil
+}
+
+// carryNamespaceState brings a rebuilt namespace up to the state of the
+// namespace it describes. The state the prior model recorded is copied onto
+// the interfaces the rebuilt one shares with it, so the work already done is
+// not repeated. Interfaces the rebuilt model adds are then configured through
+// the pull phase, which every interface passes while the namespace is at
+// READY_PULL and which the namespace's next transition would otherwise skip
+// for them. The prior model is not modified.
+func (nb *networkBuilder) carryNamespaceState(
+	ctx context.Context,
+	taskID string,
+	prior, netNS *tasknetworkconfig.NetworkNamespace,
+) error {
+	priorIfaces := make(map[string]*networkinterface.NetworkInterface, len(prior.NetworkInterfaces))
+	for _, iface := range prior.NetworkInterfaces {
+		priorIfaces[iface.ID] = iface
+	}
+	added := 0
+	for _, iface := range netNS.NetworkInterfaces {
+		if have, ok := priorIfaces[iface.ID]; ok {
+			iface.KnownStatus = have.KnownStatus
+			iface.DesiredStatus = have.DesiredStatus
+			continue
+		}
+		added++
+	}
+	netNS.KnownState = prior.KnownState
+	netNS.DesiredState = prior.DesiredState
+
+	if added == 0 || prior.KnownState == status.NetworkNone {
+		return nil
+	}
+
+	logger.Info("Configuring interfaces added to a provisioned network namespace", logger.Fields{
+		"NetNSName":           netNS.Name,
+		"AddedInterfaceCount": added,
+		"KnownState":          netNS.KnownState,
+	})
+	desired := netNS.DesiredState
+	netNS.DesiredState = status.NetworkReadyPull
+	err := nb.Start(ctx, netNS.NetworkMode, taskID, netNS)
+	netNS.DesiredState = desired
+	if err != nil {
+		return errors.Wrapf(err, "failed to configure interfaces added to network namespace %s", netNS.Name)
+	}
+	return nil
+}
+
+func (nb *networkBuilder) BuildAttachmentNetworkConfiguration(
+	taskID string,
+	eni *ecsacs.ElasticNetworkInterface,
+) (*tasknetworkconfig.AttachmentNetworkConfig, error) {
+	return nb.platformAPI.BuildAttachmentNetworkConfiguration(taskID, eni)
 }
 
 // Start builds up a particular network namespace for the task as per desired configuration.
@@ -194,6 +299,15 @@ func (nb *networkBuilder) startAWSVPC(ctx context.Context, taskID string, netNS 
 		}
 
 		if netNS.ServiceConnectConfig != nil {
+			// The hosts file is first written in the NONE -> READY_PULL
+			// transition, which may precede delivery of the ServiceConnect
+			// hostname mappings when the namespace is built ahead of the task
+			// payload. Recreating the DNS config files is idempotent.
+			err = nb.platformAPI.CreateDNSConfig(taskID, netNS)
+			if err != nil {
+				return errors.Wrapf(err, "failed to recreate DNS config in netns %s", netNS.Name)
+			}
+
 			logger.Debug("Configuring ServiceConnect", logger.Fields{
 				"ServiceConnectConfig": netNS.ServiceConnectConfig,
 			})

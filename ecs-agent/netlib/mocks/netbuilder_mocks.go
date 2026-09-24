@@ -51,6 +51,21 @@ func (m *MockNetworkBuilder) EXPECT() *MockNetworkBuilderMockRecorder {
 	return m.recorder
 }
 
+// BuildAttachmentNetworkConfiguration mocks base method.
+func (m *MockNetworkBuilder) BuildAttachmentNetworkConfiguration(arg0 string, arg1 *ecsacs.ElasticNetworkInterface) (*tasknetworkconfig.AttachmentNetworkConfig, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "BuildAttachmentNetworkConfiguration", arg0, arg1)
+	ret0, _ := ret[0].(*tasknetworkconfig.AttachmentNetworkConfig)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// BuildAttachmentNetworkConfiguration indicates an expected call of BuildAttachmentNetworkConfiguration.
+func (mr *MockNetworkBuilderMockRecorder) BuildAttachmentNetworkConfiguration(arg0, arg1 interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "BuildAttachmentNetworkConfiguration", reflect.TypeOf((*MockNetworkBuilder)(nil).BuildAttachmentNetworkConfiguration), arg0, arg1)
+}
+
 // BuildTaskNetworkConfiguration mocks base method.
 func (m *MockNetworkBuilder) BuildTaskNetworkConfiguration(arg0 string, arg1 *ecsacs.Task) (*tasknetworkconfig.TaskNetworkConfig, error) {
 	m.ctrl.T.Helper()
@@ -64,6 +79,26 @@ func (m *MockNetworkBuilder) BuildTaskNetworkConfiguration(arg0 string, arg1 *ec
 func (mr *MockNetworkBuilderMockRecorder) BuildTaskNetworkConfiguration(arg0, arg1 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "BuildTaskNetworkConfiguration", reflect.TypeOf((*MockNetworkBuilder)(nil).BuildTaskNetworkConfiguration), arg0, arg1)
+}
+
+// ExtendTaskNetworkConfiguration mocks base method.
+func (m *MockNetworkBuilder) ExtendTaskNetworkConfiguration(arg0 context.Context, arg1 string, arg2 *ecsacs.Task, arg3 ...*tasknetworkconfig.NetworkNamespace) (*tasknetworkconfig.TaskNetworkConfig, error) {
+	m.ctrl.T.Helper()
+	varargs := []interface{}{arg0, arg1, arg2}
+	for _, a := range arg3 {
+		varargs = append(varargs, a)
+	}
+	ret := m.ctrl.Call(m, "ExtendTaskNetworkConfiguration", varargs...)
+	ret0, _ := ret[0].(*tasknetworkconfig.TaskNetworkConfig)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// ExtendTaskNetworkConfiguration indicates an expected call of ExtendTaskNetworkConfiguration.
+func (mr *MockNetworkBuilderMockRecorder) ExtendTaskNetworkConfiguration(arg0, arg1, arg2 interface{}, arg3 ...interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	varargs := append([]interface{}{arg0, arg1, arg2}, arg3...)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ExtendTaskNetworkConfiguration", reflect.TypeOf((*MockNetworkBuilder)(nil).ExtendTaskNetworkConfiguration), varargs...)
 }
 
 // Start mocks base method.

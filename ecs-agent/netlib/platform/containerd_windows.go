@@ -95,6 +95,25 @@ func (c *containerd) BuildTaskNetworkConfiguration(
 	return nil, nil
 }
 
+// ExtendTaskNetworkConfiguration is unsupported: this platform builds task
+// networking from the task payload only.
+func (c *containerd) ExtendTaskNetworkConfiguration(
+	_ string,
+	_ *ecsacs.Task,
+	_ []*tasknetworkconfig.NetworkNamespace,
+) (*tasknetworkconfig.TaskNetworkConfig, error) {
+	return nil, errors.New("extending task network configuration is not supported on this platform")
+}
+
+// BuildAttachmentNetworkConfiguration is unsupported: this platform builds
+// task networking from the task payload only.
+func (c *containerd) BuildAttachmentNetworkConfiguration(
+	_ string,
+	_ *ecsacs.ElasticNetworkInterface,
+) (*tasknetworkconfig.AttachmentNetworkConfig, error) {
+	return nil, errors.New("attachment network configuration is not supported on this platform")
+}
+
 // buildAWSVPCNetworkConfig builds task network config object for AWSVPC.
 func (c *containerd) buildAWSVPCNetworkConfig(
 	taskID string,
