@@ -4,11 +4,8 @@ package ec2
 
 import (
 	"context"
-	"fmt"
-	awsmiddleware "github.com/aws/aws-sdk-go-v2/aws/middleware"
 	"github.com/aws/aws-sdk-go-v2/service/ec2/types"
 	"github.com/aws/smithy-go/middleware"
-	smithyhttp "github.com/aws/smithy-go/transport/http"
 )
 
 // Describes the specified attribute of the specified AMI. You can specify only
@@ -39,7 +36,7 @@ type DescribeImageAttributeInput struct {
 	//
 	// Note: The blockDeviceMapping attribute is deprecated. Using this attribute
 	// returns the Client.AuthFailure error. To get information about the block device
-	// mappings for an AMI, use the DescribeImagesaction.
+	// mappings for an AMI, describe the image instead.
 	//
 	// This member is required.
 	Attribute types.ImageAttributeName
@@ -115,9 +112,9 @@ type DescribeImageAttributeOutput struct {
 
 	// Base64 representation of the non-volatile UEFI variable store. To retrieve the
 	// UEFI data, use the [GetInstanceUefiData]command. You can inspect and modify the UEFI data by using
-	// the [python-uefivars tool]on GitHub. For more information, see [UEFI Secure Boot] in the Amazon EC2 User Guide.
+	// the [python-uefivars tool]on GitHub. For more information, see [UEFI Secure Boot for Amazon EC2 instances] in the Amazon EC2 User Guide.
 	//
-	// [UEFI Secure Boot]: https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/uefi-secure-boot.html
+	// [UEFI Secure Boot for Amazon EC2 instances]: https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/uefi-secure-boot.html
 	// [GetInstanceUefiData]: https://docs.aws.amazon.com/AWSEC2/latest/APIReference/API_GetInstanceUefiData
 	// [python-uefivars tool]: https://github.com/awslabs/python-uefivars
 	UefiData *types.AttributeValue
@@ -129,9 +126,6 @@ type DescribeImageAttributeOutput struct {
 }
 
 func (c *Client) addOperationDescribeImageAttributeMiddlewares(stack *middleware.Stack, options Options) (err error) {
-	if err := stack.Serialize.Add(&setOperationInputMiddleware{}, middleware.After); err != nil {
-		return err
-	}
 	err = stack.Serialize.Add(&awsEc2query_serializeOpDescribeImageAttribute{}, middleware.After)
 	if err != nil {
 		return err
@@ -140,65 +134,20 @@ func (c *Client) addOperationDescribeImageAttributeMiddlewares(stack *middleware
 	if err != nil {
 		return err
 	}
-	if err := addProtocolFinalizerMiddlewares(stack, options, "DescribeImageAttribute"); err != nil {
-		return fmt.Errorf("add protocol finalizers: %v", err)
-	}
 
-	if err = addlegacyEndpointContextSetter(stack, options); err != nil {
-		return err
-	}
-	if err = addSetLoggerMiddleware(stack, options); err != nil {
-		return err
-	}
-	if err = addClientRequestID(stack); err != nil {
-		return err
-	}
-	if err = addComputeContentLength(stack); err != nil {
-		return err
-	}
 	if err = addResolveEndpointMiddleware(stack, options); err != nil {
 		return err
 	}
 	if err = addComputePayloadSHA256(stack); err != nil {
 		return err
 	}
-	if err = addRetry(stack, options); err != nil {
+	if err = addRecordResponseTiming(stack, options); err != nil {
 		return err
 	}
-	if err = addRawResponseToMetadata(stack); err != nil {
-		return err
-	}
-	if err = addRecordResponseTiming(stack); err != nil {
-		return err
-	}
-	if err = addSpanRetryLoop(stack, options); err != nil {
-		return err
-	}
-	if err = addClientUserAgent(stack, options); err != nil {
-		return err
-	}
-	if err = smithyhttp.AddErrorCloseResponseBodyMiddleware(stack); err != nil {
-		return err
-	}
-	if err = smithyhttp.AddCloseResponseBodyMiddleware(stack); err != nil {
-		return err
-	}
-	if err = addSetLegacyContextSigningOptionsMiddleware(stack); err != nil {
-		return err
-	}
-	if err = addTimeOffsetBuild(stack, c); err != nil {
-		return err
-	}
-	if err = addUserAgentRetryMode(stack, options); err != nil {
+	if err = addCredentialSource(stack, options); err != nil {
 		return err
 	}
 	if err = addOpDescribeImageAttributeValidationMiddleware(stack); err != nil {
-		return err
-	}
-	if err = stack.Initialize.Add(newServiceMetadataMiddleware_opDescribeImageAttribute(options.Region), middleware.Before); err != nil {
-		return err
-	}
-	if err = addRecursionDetection(stack); err != nil {
 		return err
 	}
 	if err = addRequestIDRetrieverMiddleware(stack); err != nil {
@@ -213,25 +162,8 @@ func (c *Client) addOperationDescribeImageAttributeMiddlewares(stack *middleware
 	if err = addDisableHTTPSMiddleware(stack, options); err != nil {
 		return err
 	}
-	if err = addSpanInitializeStart(stack); err != nil {
-		return err
-	}
-	if err = addSpanInitializeEnd(stack); err != nil {
-		return err
-	}
-	if err = addSpanBuildRequestStart(stack); err != nil {
-		return err
-	}
-	if err = addSpanBuildRequestEnd(stack); err != nil {
+	if err = addInterceptors(stack, options); err != nil {
 		return err
 	}
 	return nil
-}
-
-func newServiceMetadataMiddleware_opDescribeImageAttribute(region string) *awsmiddleware.RegisterServiceMetadata {
-	return &awsmiddleware.RegisterServiceMetadata{
-		Region:        region,
-		ServiceID:     ServiceID,
-		OperationName: "DescribeImageAttribute",
-	}
 }

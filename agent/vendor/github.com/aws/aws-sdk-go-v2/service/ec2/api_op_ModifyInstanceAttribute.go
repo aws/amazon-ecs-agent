@@ -4,11 +4,8 @@ package ec2
 
 import (
 	"context"
-	"fmt"
-	awsmiddleware "github.com/aws/aws-sdk-go-v2/aws/middleware"
 	"github.com/aws/aws-sdk-go-v2/service/ec2/types"
 	"github.com/aws/smithy-go/middleware"
-	smithyhttp "github.com/aws/smithy-go/transport/http"
 )
 
 // Modifies the specified attribute of the specified instance. You can specify
@@ -48,6 +45,11 @@ type ModifyInstanceAttributeInput struct {
 
 	// The name of the attribute to modify.
 	//
+	// When changing the instance type: If the original instance type is configured
+	// for configurable bandwidth, and the desired instance type doesn't support
+	// configurable bandwidth, first set the existing bandwidth configuration to
+	// default using the ModifyInstanceNetworkPerformanceOptions operation.
+	//
 	// You can modify the following attributes only: disableApiTermination |
 	// instanceType | kernel | ramdisk | instanceInitiatedShutdownBehavior |
 	// blockDeviceMapping | userData | sourceDestCheck | groupSet | ebsOptimized |
@@ -58,7 +60,7 @@ type ModifyInstanceAttributeInput struct {
 	// attached. The volume must be owned by the caller. If no value is specified for
 	// DeleteOnTermination , the default is true and the volume is deleted when the
 	// instance is terminated. You can't modify the DeleteOnTermination attribute for
-	// volumes that are attached to Fargate tasks.
+	// volumes that are attached to Amazon Web Services-managed resources.
 	//
 	// To add instance store volumes to an Amazon EBS-backed instance, you must add
 	// them when you launch the instance. For more information, see [Update the block device mapping when launching an instance]in the Amazon EC2
@@ -73,9 +75,9 @@ type ModifyInstanceAttributeInput struct {
 	// [Enable stop protection for your instance]: https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/ec2-stop-protection.html
 	DisableApiStop *types.AttributeBooleanValue
 
-	// If the value is true , you can't terminate the instance using the Amazon EC2
-	// console, CLI, or API; otherwise, you can. You cannot use this parameter for Spot
-	// Instances.
+	// Enable or disable termination protection for the instance. If the value is true
+	// , you can't terminate the instance using the Amazon EC2 console, command line
+	// interface, or API. You can't enable termination protection for Spot Instances.
 	DisableApiTermination *types.AttributeBooleanValue
 
 	// Checks whether you have the required permissions for the operation, without
@@ -96,6 +98,12 @@ type ModifyInstanceAttributeInput struct {
 	// This option is supported only for HVM instances. Specifying this option with a
 	// PV instance can make it unreachable.
 	EnaSupport *types.AttributeBooleanValue
+
+	// Enables or disables the instance for Amazon Web Services Nitro Enclaves. For
+	// more information, see the [Amazon Web Services Nitro Enclaves User Guide].
+	//
+	// [Amazon Web Services Nitro Enclaves User Guide]: https://docs.aws.amazon.com/enclaves/latest/user/nitro-enclave.html
+	EnclaveOptions *types.EnclaveOptionsRequest
 
 	// Replaces the security groups of the instance with the specified security
 	// groups. You must specify the ID of at least one security group, even if it's
@@ -148,7 +156,7 @@ type ModifyInstanceAttributeInput struct {
 	// base64-encoding might be performed for you. For more information, see [Work with instance user data].
 	//
 	// [Work with instance user data]: https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/instancedata-add-user-data.html
-	UserData *types.BlobAttributeValue
+	UserData *types.SecureBlobAttributeValue
 
 	// A new value for the attribute. Use only with the kernel , ramdisk , userData ,
 	// disableApiTermination , or instanceInitiatedShutdownBehavior attribute.
@@ -165,9 +173,6 @@ type ModifyInstanceAttributeOutput struct {
 }
 
 func (c *Client) addOperationModifyInstanceAttributeMiddlewares(stack *middleware.Stack, options Options) (err error) {
-	if err := stack.Serialize.Add(&setOperationInputMiddleware{}, middleware.After); err != nil {
-		return err
-	}
 	err = stack.Serialize.Add(&awsEc2query_serializeOpModifyInstanceAttribute{}, middleware.After)
 	if err != nil {
 		return err
@@ -176,65 +181,20 @@ func (c *Client) addOperationModifyInstanceAttributeMiddlewares(stack *middlewar
 	if err != nil {
 		return err
 	}
-	if err := addProtocolFinalizerMiddlewares(stack, options, "ModifyInstanceAttribute"); err != nil {
-		return fmt.Errorf("add protocol finalizers: %v", err)
-	}
 
-	if err = addlegacyEndpointContextSetter(stack, options); err != nil {
-		return err
-	}
-	if err = addSetLoggerMiddleware(stack, options); err != nil {
-		return err
-	}
-	if err = addClientRequestID(stack); err != nil {
-		return err
-	}
-	if err = addComputeContentLength(stack); err != nil {
-		return err
-	}
 	if err = addResolveEndpointMiddleware(stack, options); err != nil {
 		return err
 	}
 	if err = addComputePayloadSHA256(stack); err != nil {
 		return err
 	}
-	if err = addRetry(stack, options); err != nil {
+	if err = addRecordResponseTiming(stack, options); err != nil {
 		return err
 	}
-	if err = addRawResponseToMetadata(stack); err != nil {
-		return err
-	}
-	if err = addRecordResponseTiming(stack); err != nil {
-		return err
-	}
-	if err = addSpanRetryLoop(stack, options); err != nil {
-		return err
-	}
-	if err = addClientUserAgent(stack, options); err != nil {
-		return err
-	}
-	if err = smithyhttp.AddErrorCloseResponseBodyMiddleware(stack); err != nil {
-		return err
-	}
-	if err = smithyhttp.AddCloseResponseBodyMiddleware(stack); err != nil {
-		return err
-	}
-	if err = addSetLegacyContextSigningOptionsMiddleware(stack); err != nil {
-		return err
-	}
-	if err = addTimeOffsetBuild(stack, c); err != nil {
-		return err
-	}
-	if err = addUserAgentRetryMode(stack, options); err != nil {
+	if err = addCredentialSource(stack, options); err != nil {
 		return err
 	}
 	if err = addOpModifyInstanceAttributeValidationMiddleware(stack); err != nil {
-		return err
-	}
-	if err = stack.Initialize.Add(newServiceMetadataMiddleware_opModifyInstanceAttribute(options.Region), middleware.Before); err != nil {
-		return err
-	}
-	if err = addRecursionDetection(stack); err != nil {
 		return err
 	}
 	if err = addRequestIDRetrieverMiddleware(stack); err != nil {
@@ -249,25 +209,8 @@ func (c *Client) addOperationModifyInstanceAttributeMiddlewares(stack *middlewar
 	if err = addDisableHTTPSMiddleware(stack, options); err != nil {
 		return err
 	}
-	if err = addSpanInitializeStart(stack); err != nil {
-		return err
-	}
-	if err = addSpanInitializeEnd(stack); err != nil {
-		return err
-	}
-	if err = addSpanBuildRequestStart(stack); err != nil {
-		return err
-	}
-	if err = addSpanBuildRequestEnd(stack); err != nil {
+	if err = addInterceptors(stack, options); err != nil {
 		return err
 	}
 	return nil
-}
-
-func newServiceMetadataMiddleware_opModifyInstanceAttribute(region string) *awsmiddleware.RegisterServiceMetadata {
-	return &awsmiddleware.RegisterServiceMetadata{
-		Region:        region,
-		ServiceID:     ServiceID,
-		OperationName: "ModifyInstanceAttribute",
-	}
 }

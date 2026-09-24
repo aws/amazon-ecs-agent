@@ -6,12 +6,10 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	awsmiddleware "github.com/aws/aws-sdk-go-v2/aws/middleware"
 	"github.com/aws/aws-sdk-go-v2/service/ec2/types"
 	smithy "github.com/aws/smithy-go"
 	"github.com/aws/smithy-go/middleware"
 	smithytime "github.com/aws/smithy-go/time"
-	smithyhttp "github.com/aws/smithy-go/transport/http"
 	smithywaiter "github.com/aws/smithy-go/waiter"
 	"time"
 )
@@ -26,6 +24,10 @@ import (
 //     to identify hardware and software issues. For more information, see [Status checks for your instances]and [Troubleshoot instances with failed status checks]in
 //     the Amazon EC2 User Guide.
 //
+//   - Application status checks - Amazon EC2 reports application-level health
+//     status for instances, indicating whether applications running on the instance
+//     are functioning properly.
+//
 //   - Scheduled events - Amazon EC2 can schedule events (such as reboot, stop, or
 //     terminate) for your instances related to hardware issues, software updates, or
 //     system maintenance. For more information, see [Scheduled events for your instances]in the Amazon EC2 User Guide.
@@ -34,6 +36,11 @@ import (
 //     them through their termination. For more information, see [Instance lifecycle]in the Amazon EC2
 //     User Guide.
 //
+// The Amazon EC2 API follows an eventual consistency model. This means that the
+// result of an API command you run that creates or modifies resources might not be
+// immediately available to all subsequent commands you run. For guidance on how to
+// manage eventual consistency, see [Eventual consistency in the Amazon EC2 API]in the Amazon EC2 Developer Guide.
+//
 // The order of the elements in the response, including those within nested
 // structures, might vary. Applications should not assume the elements appear in a
 // particular order.
@@ -41,6 +48,7 @@ import (
 // [Troubleshoot instances with failed status checks]: https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/TroubleshootingInstances.html
 // [Instance lifecycle]: https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/ec2-instance-lifecycle.html
 // [Status checks for your instances]: https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/monitoring-system-instance-status-check.html
+// [Eventual consistency in the Amazon EC2 API]: https://docs.aws.amazon.com/ec2/latest/devguide/eventual-consistency.html
 // [Scheduled events for your instances]: https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/monitoring-instances-status-check_sched.html
 func (c *Client) DescribeInstanceStatus(ctx context.Context, params *DescribeInstanceStatusInput, optFns ...func(*Options)) (*DescribeInstanceStatusOutput, error) {
 	if params == nil {
@@ -68,6 +76,8 @@ type DescribeInstanceStatusInput struct {
 	// The filters.
 	//
 	//   - availability-zone - The Availability Zone of the instance.
+	//
+	//   - availability-zone-id - The ID of the Availability Zone of the instance.
 	//
 	//   - event.code - The code for the scheduled event ( instance-reboot |
 	//   system-reboot | system-maintenance | instance-retirement | instance-stop ).
@@ -115,6 +125,9 @@ type DescribeInstanceStatusInput struct {
 	//
 	//   - attached-ebs-status.status - The status of the attached EBS volume for the
 	//   instance ( ok | impaired | initializing | insufficient-data | not-applicable ).
+	//
+	//   - application-status.status - The application status of the instance ( ok |
+	//   impaired | initializing | insufficient-data | not-applicable ).
 	Filters []types.Filter
 
 	// When true , includes the health status for all instances. When false , includes
@@ -122,6 +135,11 @@ type DescribeInstanceStatusInput struct {
 	//
 	// Default: false
 	IncludeAllInstances *bool
+
+	// Indicates whether to include managed resources in the output. If this parameter
+	// is set to true , the output includes resources that are managed by Amazon Web
+	// Services services, even if managed resource visibility is set to hidden.
+	IncludeManagedResources *bool
 
 	// The instance IDs.
 	//
@@ -163,9 +181,6 @@ type DescribeInstanceStatusOutput struct {
 }
 
 func (c *Client) addOperationDescribeInstanceStatusMiddlewares(stack *middleware.Stack, options Options) (err error) {
-	if err := stack.Serialize.Add(&setOperationInputMiddleware{}, middleware.After); err != nil {
-		return err
-	}
 	err = stack.Serialize.Add(&awsEc2query_serializeOpDescribeInstanceStatus{}, middleware.After)
 	if err != nil {
 		return err
@@ -174,62 +189,17 @@ func (c *Client) addOperationDescribeInstanceStatusMiddlewares(stack *middleware
 	if err != nil {
 		return err
 	}
-	if err := addProtocolFinalizerMiddlewares(stack, options, "DescribeInstanceStatus"); err != nil {
-		return fmt.Errorf("add protocol finalizers: %v", err)
-	}
 
-	if err = addlegacyEndpointContextSetter(stack, options); err != nil {
-		return err
-	}
-	if err = addSetLoggerMiddleware(stack, options); err != nil {
-		return err
-	}
-	if err = addClientRequestID(stack); err != nil {
-		return err
-	}
-	if err = addComputeContentLength(stack); err != nil {
-		return err
-	}
 	if err = addResolveEndpointMiddleware(stack, options); err != nil {
 		return err
 	}
 	if err = addComputePayloadSHA256(stack); err != nil {
 		return err
 	}
-	if err = addRetry(stack, options); err != nil {
+	if err = addRecordResponseTiming(stack, options); err != nil {
 		return err
 	}
-	if err = addRawResponseToMetadata(stack); err != nil {
-		return err
-	}
-	if err = addRecordResponseTiming(stack); err != nil {
-		return err
-	}
-	if err = addSpanRetryLoop(stack, options); err != nil {
-		return err
-	}
-	if err = addClientUserAgent(stack, options); err != nil {
-		return err
-	}
-	if err = smithyhttp.AddErrorCloseResponseBodyMiddleware(stack); err != nil {
-		return err
-	}
-	if err = smithyhttp.AddCloseResponseBodyMiddleware(stack); err != nil {
-		return err
-	}
-	if err = addSetLegacyContextSigningOptionsMiddleware(stack); err != nil {
-		return err
-	}
-	if err = addTimeOffsetBuild(stack, c); err != nil {
-		return err
-	}
-	if err = addUserAgentRetryMode(stack, options); err != nil {
-		return err
-	}
-	if err = stack.Initialize.Add(newServiceMetadataMiddleware_opDescribeInstanceStatus(options.Region), middleware.Before); err != nil {
-		return err
-	}
-	if err = addRecursionDetection(stack); err != nil {
+	if err = addCredentialSource(stack, options); err != nil {
 		return err
 	}
 	if err = addRequestIDRetrieverMiddleware(stack); err != nil {
@@ -244,16 +214,7 @@ func (c *Client) addOperationDescribeInstanceStatusMiddlewares(stack *middleware
 	if err = addDisableHTTPSMiddleware(stack, options); err != nil {
 		return err
 	}
-	if err = addSpanInitializeStart(stack); err != nil {
-		return err
-	}
-	if err = addSpanInitializeEnd(stack); err != nil {
-		return err
-	}
-	if err = addSpanBuildRequestStart(stack); err != nil {
-		return err
-	}
-	if err = addSpanBuildRequestEnd(stack); err != nil {
+	if err = addInterceptors(stack, options); err != nil {
 		return err
 	}
 	return nil
@@ -423,7 +384,11 @@ func instanceStatusOkStateRetryable(ctx context.Context, input *DescribeInstance
 		var v2 []types.SummaryStatus
 		for _, v := range v1 {
 			v3 := v.InstanceStatus
-			v4 := v3.Status
+			var v4 types.SummaryStatus
+			if v3 != nil {
+				v5 := v3.Status
+				v4 = v5
+			}
 			v2 = append(v2, v4)
 		}
 		expectedValue := "ok"
@@ -452,6 +417,9 @@ func instanceStatusOkStateRetryable(ctx context.Context, input *DescribeInstance
 		}
 	}
 
+	if err != nil {
+		return false, err
+	}
 	return true, nil
 }
 
@@ -619,7 +587,11 @@ func systemStatusOkStateRetryable(ctx context.Context, input *DescribeInstanceSt
 		var v2 []types.SummaryStatus
 		for _, v := range v1 {
 			v3 := v.SystemStatus
-			v4 := v3.Status
+			var v4 types.SummaryStatus
+			if v3 != nil {
+				v5 := v3.Status
+				v4 = v5
+			}
 			v2 = append(v2, v4)
 		}
 		expectedValue := "ok"
@@ -636,6 +608,9 @@ func systemStatusOkStateRetryable(ctx context.Context, input *DescribeInstanceSt
 		}
 	}
 
+	if err != nil {
+		return false, err
+	}
 	return true, nil
 }
 
@@ -739,11 +714,3 @@ type DescribeInstanceStatusAPIClient interface {
 }
 
 var _ DescribeInstanceStatusAPIClient = (*Client)(nil)
-
-func newServiceMetadataMiddleware_opDescribeInstanceStatus(region string) *awsmiddleware.RegisterServiceMetadata {
-	return &awsmiddleware.RegisterServiceMetadata{
-		Region:        region,
-		ServiceID:     ServiceID,
-		OperationName: "DescribeInstanceStatus",
-	}
-}

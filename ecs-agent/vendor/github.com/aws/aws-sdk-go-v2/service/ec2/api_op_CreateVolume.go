@@ -5,10 +5,8 @@ package ec2
 import (
 	"context"
 	"fmt"
-	awsmiddleware "github.com/aws/aws-sdk-go-v2/aws/middleware"
 	"github.com/aws/aws-sdk-go-v2/service/ec2/types"
 	"github.com/aws/smithy-go/middleware"
-	smithyhttp "github.com/aws/smithy-go/transport/http"
 	"time"
 )
 
@@ -52,8 +50,14 @@ type CreateVolumeInput struct {
 	// The ID of the Availability Zone in which to create the volume. For example,
 	// us-east-1a .
 	//
-	// This member is required.
+	// Either AvailabilityZone or AvailabilityZoneId must be specified, but not both.
 	AvailabilityZone *string
+
+	// The ID of the Availability Zone in which to create the volume. For example,
+	// use1-az1 .
+	//
+	// Either AvailabilityZone or AvailabilityZoneId must be specified, but not both.
+	AvailabilityZoneId *string
 
 	// Unique, case-sensitive identifier that you provide to ensure the idempotency of
 	// the request. For more information, see [Ensure Idempotency].
@@ -79,27 +83,21 @@ type CreateVolumeInput struct {
 	// [Encryption by default]: https://docs.aws.amazon.com/ebs/latest/userguide/work-with-ebs-encr.html#encryption-by-default
 	Encrypted *bool
 
-	// The number of I/O operations per second (IOPS). For gp3 , io1 , and io2
-	// volumes, this represents the number of IOPS that are provisioned for the volume.
-	// For gp2 volumes, this represents the baseline performance of the volume and the
-	// rate at which the volume accumulates I/O credits for bursting.
+	// The number of I/O operations per second (IOPS) to provision for the volume.
+	// Required for io1 and io2 volumes. Optional for gp3 volumes. Omit for all other
+	// volume types.
 	//
-	// The following are the supported values for each volume type:
+	// Valid ranges:
 	//
-	//   - gp3 : 3,000 - 16,000 IOPS
+	//   - gp3: 3,000 (default) - 80,000 IOPS
 	//
-	//   - io1 : 100 - 64,000 IOPS
+	//   - io1: 100 - 64,000 IOPS
 	//
-	//   - io2 : 100 - 256,000 IOPS
+	//   - io2: 100 - 256,000 IOPS
 	//
-	// For io2 volumes, you can achieve up to 256,000 IOPS on [instances built on the Nitro System]. On other instances,
-	// you can achieve performance up to 32,000 IOPS.
+	// [Instances built on the Nitro System]can support up to 256,000 IOPS. Other instances can support up to 32,000 IOPS.
 	//
-	// This parameter is required for io1 and io2 volumes. The default for gp3 volumes
-	// is 3,000 IOPS. This parameter is not supported for gp2 , st1 , sc1 , or standard
-	// volumes.
-	//
-	// [instances built on the Nitro System]: https://docs.aws.amazon.com/ec2/latest/instancetypes/ec2-nitro-instances.html
+	// [Instances built on the Nitro System]: https://docs.aws.amazon.com/ec2/latest/instancetypes/ec2-nitro-instances.html
 	Iops *int32
 
 	// The identifier of the KMS key to use for Amazon EBS encryption. If this
@@ -144,20 +142,22 @@ type CreateVolumeInput struct {
 	OutpostArn *string
 
 	// The size of the volume, in GiBs. You must specify either a snapshot ID or a
-	// volume size. If you specify a snapshot, the default is the snapshot size. You
-	// can specify a volume size that is equal to or larger than the snapshot size.
+	// volume size. If you specify a snapshot, the default is the snapshot size, and
+	// you can specify a volume size that is equal to or larger than the snapshot size.
 	//
-	// The following are the supported volumes sizes for each volume type:
+	// Valid sizes:
 	//
-	//   - gp2 and gp3 : 1 - 16,384 GiB
+	//   - gp2: 1 - 16,384 GiB
 	//
-	//   - io1 : 4 - 16,384 GiB
+	//   - gp3: 1 - 65,536 GiB
 	//
-	//   - io2 : 4 - 65,536 GiB
+	//   - io1: 4 - 16,384 GiB
 	//
-	//   - st1 and sc1 : 125 - 16,384 GiB
+	//   - io2: 4 - 65,536 GiB
 	//
-	//   - standard : 1 - 1024 GiB
+	//   - st1 and sc1: 125 - 16,384 GiB
+	//
+	//   - standard: 1 - 1024 GiB
 	Size *int32
 
 	// The snapshot from which to create the volume. You must specify either a
@@ -167,12 +167,37 @@ type CreateVolumeInput struct {
 	// The tags to apply to the volume during creation.
 	TagSpecifications []types.TagSpecification
 
-	// The throughput to provision for a volume, with a maximum of 1,000 MiB/s.
+	// The throughput to provision for the volume, in MiB/s. Supported for gp3 volumes
+	// only. Omit for all other volume types.
 	//
-	// This parameter is valid only for gp3 volumes.
-	//
-	// Valid Range: Minimum value of 125. Maximum value of 1000.
+	// Valid Range: 125 - 2000 MiB/s
 	Throughput *int32
+
+	// Specifies the Amazon EBS Provisioned Rate for Volume Initialization (volume
+	// initialization rate), in MiB/s, at which to download the snapshot blocks from
+	// Amazon S3 to the volume. This is also known as volume initialization. Specifying
+	// a volume initialization rate ensures that the volume is initialized at a
+	// predictable and consistent rate after creation.
+	//
+	// This parameter is supported only for volumes created from snapshots. Omit this
+	// parameter if:
+	//
+	//   - You want to create the volume using fast snapshot restore. You must specify
+	//   a snapshot that is enabled for fast snapshot restore. In this case, the volume
+	//   is fully initialized at creation.
+	//
+	// If you specify a snapshot that is enabled for fast snapshot restore and a
+	//   volume initialization rate, the volume will be initialized at the specified rate
+	//   instead of fast snapshot restore.
+	//
+	//   - You want to create a volume that is initialized at the default rate.
+	//
+	// For more information, see [Initialize Amazon EBS volumes] in the Amazon EC2 User Guide.
+	//
+	// Valid range: 100 - 300 MiB/s
+	//
+	// [Initialize Amazon EBS volumes]: https://docs.aws.amazon.com/ebs/latest/userguide/initalize-volume.html
+	VolumeInitializationRate *int32
 
 	// The volume type. This parameter can be one of the following values:
 	//
@@ -210,6 +235,9 @@ type CreateVolumeOutput struct {
 	// The Availability Zone for the volume.
 	AvailabilityZone *string
 
+	// The ID of the Availability Zone for the volume.
+	AvailabilityZoneId *string
+
 	// The time stamp when volume creation was initiated.
 	CreateTime *time.Time
 
@@ -240,11 +268,18 @@ type CreateVolumeOutput struct {
 	// The Amazon Resource Name (ARN) of the Outpost.
 	OutpostArn *string
 
+	// The ID of the Amazon Web Services account that owns the volume.
+	OwnerId *string
+
 	// The size of the volume, in GiBs.
 	Size *int32
 
 	// The snapshot from which the volume was created, if applicable.
 	SnapshotId *string
+
+	// The ID of the source volume from which the volume copy was created. Only for
+	// volume copies.
+	SourceVolumeId *string
 
 	// This parameter is not returned by CreateVolume.
 	//
@@ -260,8 +295,16 @@ type CreateVolumeOutput struct {
 	// The throughput that the volume supports, in MiB/s.
 	Throughput *int32
 
+	// The Amazon Resource Name (ARN) of the volume.
+	VolumeArn *string
+
 	// The ID of the volume.
 	VolumeId *string
+
+	// The Amazon EBS Provisioned Rate for Volume Initialization (volume
+	// initialization rate) specified for the volume during creation, in MiB/s. If no
+	// volume initialization rate was specified, the value is null .
+	VolumeInitializationRate *int32
 
 	// The volume type.
 	VolumeType types.VolumeType
@@ -273,9 +316,6 @@ type CreateVolumeOutput struct {
 }
 
 func (c *Client) addOperationCreateVolumeMiddlewares(stack *middleware.Stack, options Options) (err error) {
-	if err := stack.Serialize.Add(&setOperationInputMiddleware{}, middleware.After); err != nil {
-		return err
-	}
 	err = stack.Serialize.Add(&awsEc2query_serializeOpCreateVolume{}, middleware.After)
 	if err != nil {
 		return err
@@ -284,68 +324,20 @@ func (c *Client) addOperationCreateVolumeMiddlewares(stack *middleware.Stack, op
 	if err != nil {
 		return err
 	}
-	if err := addProtocolFinalizerMiddlewares(stack, options, "CreateVolume"); err != nil {
-		return fmt.Errorf("add protocol finalizers: %v", err)
-	}
 
-	if err = addlegacyEndpointContextSetter(stack, options); err != nil {
-		return err
-	}
-	if err = addSetLoggerMiddleware(stack, options); err != nil {
-		return err
-	}
-	if err = addClientRequestID(stack); err != nil {
-		return err
-	}
-	if err = addComputeContentLength(stack); err != nil {
-		return err
-	}
 	if err = addResolveEndpointMiddleware(stack, options); err != nil {
 		return err
 	}
 	if err = addComputePayloadSHA256(stack); err != nil {
 		return err
 	}
-	if err = addRetry(stack, options); err != nil {
+	if err = addRecordResponseTiming(stack, options); err != nil {
 		return err
 	}
-	if err = addRawResponseToMetadata(stack); err != nil {
-		return err
-	}
-	if err = addRecordResponseTiming(stack); err != nil {
-		return err
-	}
-	if err = addSpanRetryLoop(stack, options); err != nil {
-		return err
-	}
-	if err = addClientUserAgent(stack, options); err != nil {
-		return err
-	}
-	if err = smithyhttp.AddErrorCloseResponseBodyMiddleware(stack); err != nil {
-		return err
-	}
-	if err = smithyhttp.AddCloseResponseBodyMiddleware(stack); err != nil {
-		return err
-	}
-	if err = addSetLegacyContextSigningOptionsMiddleware(stack); err != nil {
-		return err
-	}
-	if err = addTimeOffsetBuild(stack, c); err != nil {
-		return err
-	}
-	if err = addUserAgentRetryMode(stack, options); err != nil {
+	if err = addCredentialSource(stack, options); err != nil {
 		return err
 	}
 	if err = addIdempotencyToken_opCreateVolumeMiddleware(stack, options); err != nil {
-		return err
-	}
-	if err = addOpCreateVolumeValidationMiddleware(stack); err != nil {
-		return err
-	}
-	if err = stack.Initialize.Add(newServiceMetadataMiddleware_opCreateVolume(options.Region), middleware.Before); err != nil {
-		return err
-	}
-	if err = addRecursionDetection(stack); err != nil {
 		return err
 	}
 	if err = addRequestIDRetrieverMiddleware(stack); err != nil {
@@ -360,16 +352,7 @@ func (c *Client) addOperationCreateVolumeMiddlewares(stack *middleware.Stack, op
 	if err = addDisableHTTPSMiddleware(stack, options); err != nil {
 		return err
 	}
-	if err = addSpanInitializeStart(stack); err != nil {
-		return err
-	}
-	if err = addSpanInitializeEnd(stack); err != nil {
-		return err
-	}
-	if err = addSpanBuildRequestStart(stack); err != nil {
-		return err
-	}
-	if err = addSpanBuildRequestEnd(stack); err != nil {
+	if err = addInterceptors(stack, options); err != nil {
 		return err
 	}
 	return nil
@@ -406,12 +389,4 @@ func (m *idempotencyToken_initializeOpCreateVolume) HandleInitialize(ctx context
 }
 func addIdempotencyToken_opCreateVolumeMiddleware(stack *middleware.Stack, cfg Options) error {
 	return stack.Initialize.Add(&idempotencyToken_initializeOpCreateVolume{tokenProvider: cfg.IdempotencyTokenProvider}, middleware.Before)
-}
-
-func newServiceMetadataMiddleware_opCreateVolume(region string) *awsmiddleware.RegisterServiceMetadata {
-	return &awsmiddleware.RegisterServiceMetadata{
-		Region:        region,
-		ServiceID:     ServiceID,
-		OperationName: "CreateVolume",
-	}
 }
