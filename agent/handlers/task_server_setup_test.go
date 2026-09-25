@@ -26,6 +26,7 @@ import (
 	"io/ioutil"
 	"net/http"
 	"net/http/httptest"
+	"net/netip"
 	"net/url"
 	"testing"
 	"time"
@@ -65,10 +66,10 @@ import (
 	ecstypes "github.com/aws/aws-sdk-go-v2/service/ecs/types"
 	smithy "github.com/aws/smithy-go"
 	smithyhttp "github.com/aws/smithy-go/transport/http"
-	"github.com/docker/docker/api/types"
-	"github.com/docker/docker/api/types/network"
 	"github.com/golang/mock/gomock"
 	"github.com/gorilla/mux"
+	dockercontainer "github.com/moby/moby/api/types/container"
+	"github.com/moby/moby/api/types/network"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -311,9 +312,9 @@ var (
 			},
 		},
 		NetworkModeUnsafe: bridgeMode,
-		NetworkSettingsUnsafe: &types.NetworkSettings{
-			DefaultNetworkSettings: types.DefaultNetworkSettings{
-				IPAddress: bridgeIPAddr,
+		NetworkSettingsUnsafe: &dockercontainer.NetworkSettings{
+			Networks: map[string]*network.EndpointSettings{
+				"bridge": {IPAddress: netip.MustParseAddr(bridgeIPAddr)},
 			},
 		},
 	}
@@ -575,9 +576,9 @@ func standardBridgeTask() *apitask.Task {
 			},
 		},
 		NetworkModeUnsafe: bridgeMode,
-		NetworkSettingsUnsafe: &types.NetworkSettings{
-			DefaultNetworkSettings: types.DefaultNetworkSettings{
-				IPAddress: bridgeIPAddr,
+		NetworkSettingsUnsafe: &dockercontainer.NetworkSettings{
+			Networks: map[string]*network.EndpointSettings{
+				"bridge": {IPAddress: netip.MustParseAddr(bridgeIPAddr)},
 			},
 		},
 	}
@@ -1584,9 +1585,9 @@ type TMDSResponse interface {
 		v4.ContainerResponse |
 		v4.TaskResponse |
 		tptypes.TaskProtectionResponse |
-		types.StatsJSON |
+		dockercontainer.StatsResponse |
 		v4.StatsResponse |
-		map[string]*types.StatsJSON |
+		map[string]*dockercontainer.StatsResponse |
 		map[string]*v4.StatsResponse |
 		string
 }
@@ -2220,7 +2221,7 @@ func TestV4ContainerMetadata(t *testing.T) {
 		bridgeTask := standardBridgeTask()
 		bridgeContainer := standardBridgeDockerContainer()
 		networkSettings := bridgeContainer.Container.GetNetworkSettings()
-		networkSettings.GlobalIPv6Address = "5:6:7:8::"
+		networkSettings.Networks["bridge"].GlobalIPv6Address = netip.MustParseAddr("5:6:7:8::")
 		bridgeContainer.Container.SetNetworkSettings(networkSettings)
 
 		expectedResponse := standardV4BridgeContainerResponse()
@@ -2242,9 +2243,9 @@ func TestV4ContainerMetadata(t *testing.T) {
 	t.Run("happy case bridge mode including IPv6 from docker networks", func(t *testing.T) {
 		bridgeTask := standardBridgeTask()
 		bridgeContainer := standardBridgeDockerContainer()
-		bridgeContainer.Container.SetNetworkSettings(&types.NetworkSettings{
+		bridgeContainer.Container.SetNetworkSettings(&dockercontainer.NetworkSettings{
 			Networks: map[string]*network.EndpointSettings{
-				"bridge": {IPAddress: "1.2.3.4", GlobalIPv6Address: "5:6:7:8::"},
+				"bridge": {IPAddress: netip.MustParseAddr("1.2.3.4"), GlobalIPv6Address: netip.MustParseAddr("5:6:7:8::")},
 			},
 		})
 
@@ -3079,8 +3080,8 @@ func TestV2ContainerStats(t *testing.T) {
 		})
 	})
 	t.Run("happy case", func(t *testing.T) {
-		dockerStats := types.StatsJSON{Stats: types.Stats{NumProcs: 2}}
-		testTMDSRequest(t, TMDSTestCase[types.StatsJSON]{
+		dockerStats := dockercontainer.StatsResponse{NumProcs: 2}
+		testTMDSRequest(t, TMDSTestCase[dockercontainer.StatsResponse]{
 			path: path,
 			setStateExpectations: func(state *mock_dockerstate.MockTaskEngineState) {
 				state.EXPECT().GetTaskByIPAddress(remoteIP).Return(taskARN, true)
@@ -3121,7 +3122,7 @@ func TestV2TaskStats(t *testing.T) {
 		})
 	})
 	t.Run("container map empty", func(t *testing.T) {
-		testTMDSRequest(t, TMDSTestCase[map[string]*types.StatsJSON]{
+		testTMDSRequest(t, TMDSTestCase[map[string]*dockercontainer.StatsResponse]{
 			path: v2BaseStatsPath,
 			setStateExpectations: func(state *mock_dockerstate.MockTaskEngineState) {
 				gomock.InOrder(
@@ -3131,14 +3132,14 @@ func TestV2TaskStats(t *testing.T) {
 				)
 			},
 			expectedStatusCode:   http.StatusOK,
-			expectedResponseBody: map[string]*types.StatsJSON{},
+			expectedResponseBody: map[string]*dockercontainer.StatsResponse{},
 		})
 	})
 	t.Run("stats not found for a container", func(t *testing.T) {
 		containerMap := map[string]*apicontainer.DockerContainer{
 			containerName: {DockerID: containerID},
 		}
-		testTMDSRequest(t, TMDSTestCase[map[string]*types.StatsJSON]{
+		testTMDSRequest(t, TMDSTestCase[map[string]*dockercontainer.StatsResponse]{
 			path: v2BaseStatsPath,
 			setStateExpectations: func(state *mock_dockerstate.MockTaskEngineState) {
 				gomock.InOrder(
@@ -3151,19 +3152,19 @@ func TestV2TaskStats(t *testing.T) {
 					Return(nil, nil, errors.New("some error"))
 			},
 			expectedStatusCode:   http.StatusOK,
-			expectedResponseBody: map[string]*types.StatsJSON{containerID: nil},
+			expectedResponseBody: map[string]*dockercontainer.StatsResponse{containerID: nil},
 		})
 	})
 
 	happyCasePaths := []string{v2BaseStatsPath, v2BaseStatsPath + "/"}
 	for _, path := range happyCasePaths {
 		t.Run("happy case", func(t *testing.T) {
-			dockerStats := types.StatsJSON{Stats: types.Stats{NumProcs: 2}}
+			dockerStats := dockercontainer.StatsResponse{NumProcs: 2}
 			containerMap := map[string]*apicontainer.DockerContainer{
 				containerName: {DockerID: containerID},
 			}
-			taskStats := map[string]*types.StatsJSON{containerID: &dockerStats}
-			testTMDSRequest(t, TMDSTestCase[map[string]*types.StatsJSON]{
+			taskStats := map[string]*dockercontainer.StatsResponse{containerID: &dockerStats}
+			testTMDSRequest(t, TMDSTestCase[map[string]*dockercontainer.StatsResponse]{
 				path: path,
 				setStateExpectations: func(state *mock_dockerstate.MockTaskEngineState) {
 					gomock.InOrder(
@@ -3229,8 +3230,8 @@ func TestV3ContainerStats(t *testing.T) {
 		})
 	})
 	t.Run("happy case", func(t *testing.T) {
-		dockerStats := types.StatsJSON{Stats: types.Stats{NumProcs: 2}}
-		testTMDSRequest(t, TMDSTestCase[types.StatsJSON]{
+		dockerStats := dockercontainer.StatsResponse{NumProcs: 2}
+		testTMDSRequest(t, TMDSTestCase[dockercontainer.StatsResponse]{
 			path: path,
 			setStateExpectations: func(state *mock_dockerstate.MockTaskEngineState) {
 				gomock.InOrder(
@@ -3276,7 +3277,7 @@ func TestV3TaskStats(t *testing.T) {
 		})
 	})
 	t.Run("container map empty", func(t *testing.T) {
-		testTMDSRequest(t, TMDSTestCase[map[string]*types.StatsJSON]{
+		testTMDSRequest(t, TMDSTestCase[map[string]*dockercontainer.StatsResponse]{
 			path: path,
 			setStateExpectations: func(state *mock_dockerstate.MockTaskEngineState) {
 				gomock.InOrder(
@@ -3286,14 +3287,14 @@ func TestV3TaskStats(t *testing.T) {
 				)
 			},
 			expectedStatusCode:   http.StatusOK,
-			expectedResponseBody: map[string]*types.StatsJSON{},
+			expectedResponseBody: map[string]*dockercontainer.StatsResponse{},
 		})
 	})
 	t.Run("stats not found for a container", func(t *testing.T) {
 		containerMap := map[string]*apicontainer.DockerContainer{
 			containerName: {DockerID: containerID},
 		}
-		testTMDSRequest(t, TMDSTestCase[map[string]*types.StatsJSON]{
+		testTMDSRequest(t, TMDSTestCase[map[string]*dockercontainer.StatsResponse]{
 			path: path,
 			setStateExpectations: func(state *mock_dockerstate.MockTaskEngineState) {
 				gomock.InOrder(
@@ -3306,15 +3307,15 @@ func TestV3TaskStats(t *testing.T) {
 					Return(nil, nil, errors.New("some error"))
 			},
 			expectedStatusCode:   http.StatusOK,
-			expectedResponseBody: map[string]*types.StatsJSON{containerID: nil},
+			expectedResponseBody: map[string]*dockercontainer.StatsResponse{containerID: nil},
 		})
 	})
 	t.Run("happy case", func(t *testing.T) {
-		dockerStats := types.StatsJSON{Stats: types.Stats{NumProcs: 2}}
+		dockerStats := dockercontainer.StatsResponse{NumProcs: 2}
 		containerMap := map[string]*apicontainer.DockerContainer{
 			containerName: {DockerID: containerID},
 		}
-		testTMDSRequest(t, TMDSTestCase[map[string]*types.StatsJSON]{
+		testTMDSRequest(t, TMDSTestCase[map[string]*dockercontainer.StatsResponse]{
 			path: path,
 			setStateExpectations: func(state *mock_dockerstate.MockTaskEngineState) {
 				gomock.InOrder(
@@ -3327,7 +3328,7 @@ func TestV3TaskStats(t *testing.T) {
 					Return(&dockerStats, &stats.NetworkStatsPerSec{}, nil)
 			},
 			expectedStatusCode:   http.StatusOK,
-			expectedResponseBody: map[string]*types.StatsJSON{containerID: &dockerStats},
+			expectedResponseBody: map[string]*dockercontainer.StatsResponse{containerID: &dockerStats},
 		})
 	})
 }
@@ -3379,7 +3380,7 @@ func TestV4ContainerStats(t *testing.T) {
 		})
 	})
 	t.Run("happy case", func(t *testing.T) {
-		dockerStats := types.StatsJSON{Stats: types.Stats{NumProcs: 2}}
+		dockerStats := dockercontainer.StatsResponse{NumProcs: 2}
 		networkStats := stats.NetworkStatsPerSec{
 			RxBytesPerSecond: 52,
 			TxBytesPerSecond: 84,
@@ -3398,7 +3399,7 @@ func TestV4ContainerStats(t *testing.T) {
 			},
 			expectedStatusCode: http.StatusOK,
 			expectedResponseBody: v4.StatsResponse{
-				StatsJSON:          &dockerStats,
+				StatsResponse:      &dockerStats,
 				Network_rate_stats: &networkStats,
 			},
 		})
@@ -3467,7 +3468,7 @@ func TestV4TaskStats(t *testing.T) {
 			expectedStatusCode: http.StatusOK,
 			expectedResponseBody: map[string]*v4.StatsResponse{
 				containerID: {
-					StatsJSON: nil, Network_rate_stats: nil,
+					StatsResponse: nil, Network_rate_stats: nil,
 				},
 			},
 		})
@@ -3480,7 +3481,7 @@ func TestV4TaskStats(t *testing.T) {
 			RxBytesPerSecond: 52,
 			TxBytesPerSecond: 84,
 		}
-		dockerStats := types.StatsJSON{Stats: types.Stats{NumProcs: 2}}
+		dockerStats := dockercontainer.StatsResponse{NumProcs: 2}
 		testTMDSRequest(t, TMDSTestCase[map[string]*v4.StatsResponse]{
 			path: path,
 			setStateExpectations: func(state *mock_dockerstate.MockTaskEngineState) {
@@ -3495,7 +3496,7 @@ func TestV4TaskStats(t *testing.T) {
 			},
 			expectedStatusCode: http.StatusOK,
 			expectedResponseBody: map[string]*v4.StatsResponse{containerID: {
-				StatsJSON:          &dockerStats,
+				StatsResponse:      &dockerStats,
 				Network_rate_stats: &networkStats,
 			}},
 		})

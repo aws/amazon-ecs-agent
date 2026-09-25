@@ -22,6 +22,8 @@ import (
 	"errors"
 	"io"
 	"io/ioutil"
+	"iter"
+	"net/netip"
 	"reflect"
 	"strconv"
 	"strings"
@@ -46,15 +48,18 @@ import (
 
 	"github.com/aws/aws-sdk-go-v2/aws"
 	ecr_types "github.com/aws/aws-sdk-go-v2/service/ecr/types"
-	"github.com/docker/docker/api/types"
-	dockercontainer "github.com/docker/docker/api/types/container"
-	"github.com/docker/docker/api/types/events"
-	"github.com/docker/docker/api/types/filters"
-	"github.com/docker/docker/api/types/network"
-	"github.com/docker/docker/api/types/registry"
-	"github.com/docker/docker/api/types/volume"
-	"github.com/docker/go-connections/nat"
 	"github.com/golang/mock/gomock"
+	"github.com/moby/moby/api/pkg/authconfig"
+	dockercontainer "github.com/moby/moby/api/types/container"
+	"github.com/moby/moby/api/types/events"
+	"github.com/moby/moby/api/types/image"
+	"github.com/moby/moby/api/types/jsonstream"
+	"github.com/moby/moby/api/types/network"
+	mobyplugin "github.com/moby/moby/api/types/plugin"
+	"github.com/moby/moby/api/types/registry"
+	"github.com/moby/moby/api/types/system"
+	"github.com/moby/moby/api/types/volume"
+	mobyclient "github.com/moby/moby/client"
 	"github.com/opencontainers/go-digest"
 	ocispec "github.com/opencontainers/image-spec/specs-go/v1"
 	"github.com/stretchr/testify/assert"
@@ -107,7 +112,7 @@ func dockerClientSetupWithConfig(t *testing.T, conf config.Config) (
 	ctrl := gomock.NewController(t)
 	// Docker SDK tests
 	mockDockerSDK := mock_sdkclient.NewMockClient(ctrl)
-	mockDockerSDK.EXPECT().Ping(gomock.Any()).Return(types.Ping{}, nil)
+	mockDockerSDK.EXPECT().Ping(gomock.Any(), gomock.Any()).Return(mobyclient.PingResult{}, nil)
 	sdkFactory := mock_sdkclientfactory.NewMockFactory(ctrl)
 	sdkFactory.EXPECT().GetDefaultClient().AnyTimes().Return(mockDockerSDK, nil)
 
@@ -135,7 +140,7 @@ func TestPullImageOutputTimeout(t *testing.T) {
 
 	// multiple invocations will happen due to retries, but all should timeout
 	mockDockerSDK.EXPECT().ImagePull(gomock.Any(), "image:latest", gomock.Any()).DoAndReturn(
-		func(x, y, z interface{}) (io.ReadCloser, error) {
+		func(x, y, z interface{}) (mobyclient.ImagePullResponse, error) {
 			pullBeginTimeout <- time.Now()
 
 			reader := &mockReadCloser{
@@ -180,7 +185,7 @@ func TestPullImageInactivityTimeout(t *testing.T) {
 
 	testTime.EXPECT().After(gomock.Any()).AnyTimes()
 	mockDockerSDK.EXPECT().ImagePull(gomock.Any(), "image:latest", gomock.Any()).DoAndReturn(
-		func(x, y, z interface{}) (io.ReadCloser, error) {
+		func(x, y, z interface{}) (mobyclient.ImagePullResponse, error) {
 
 			reader := mockReadCloser{
 				reader: strings.NewReader(`{"status":"pull in progress"}`),
@@ -276,7 +281,7 @@ func TestPullImageECRSuccess(t *testing.T) {
 	username := "username"
 	password := "password"
 
-	imagePullOpts := types.ImagePullOptions{
+	imagePullOpts := mobyclient.ImagePullOptions{
 		All:          false,
 		RegistryAuth: "eyJ1c2VybmFtZSI6InVzZXJuYW1lIiwicGFzc3dvcmQiOiJwYXNzd29yZCIsInNlcnZlcmFkZHJlc3MiOiJodHRwczovL3JlZ2lzdHJ5LmVuZHBvaW50In0K",
 	}
@@ -351,10 +356,10 @@ func TestPullImageManifest(t *testing.T) {
 				client := mock_sdkclient.NewMockClient(ctrl)
 				client.EXPECT().
 					DistributionInspect(
-						gomock.Any(), "image", base64.URLEncoding.EncodeToString([]byte("{}"))).
+						gomock.Any(), "image", mobyclient.DistributionInspectOptions{EncodedRegistryAuth: base64.URLEncoding.EncodeToString([]byte("{}"))}).
 					Times(maximumManifestPullRetries).
 					Return(
-						registry.DistributionInspect{},
+						mobyclient.DistributionInspectResult{DistributionInspect: registry.DistributionInspect{}},
 						errors.New("Some error for https://prod-us-east-1-starport-layer-bucket.s3.us-east-1.amazonaws.com"))
 				f.EXPECT().GetDefaultClient().Return(client, nil)
 			},
@@ -405,8 +410,8 @@ func TestPullImageManifest(t *testing.T) {
 				client := mock_sdkclient.NewMockClient(ctrl)
 				client.EXPECT().
 					DistributionInspect(
-						gomock.Any(), "image", base64.URLEncoding.EncodeToString([]byte("{}"))).
-					Return(testDistributionInspect, nil)
+						gomock.Any(), "image", mobyclient.DistributionInspectOptions{EncodedRegistryAuth: base64.URLEncoding.EncodeToString([]byte("{}"))}).
+					Return(mobyclient.DistributionInspectResult{DistributionInspect: testDistributionInspect}, nil)
 				f.EXPECT().GetDefaultClient().Return(client, nil)
 			},
 			expectedDistributionInspect: testDistributionInspect,
@@ -418,7 +423,7 @@ func TestPullImageManifest(t *testing.T) {
 			}
 			authConfig := registry.AuthConfig{Username: "username", Password: "password"}
 			authData.ASMAuthData.SetDockerAuthConfig(authConfig)
-			encodedAuthConfig, err := registry.EncodeAuthConfig(authConfig)
+			encodedAuthConfig, err := authconfig.Encode(authConfig)
 			require.NoError(t, err)
 			return testCase{
 				name:     "Manifest is returned if there are no errors - auth data",
@@ -428,8 +433,8 @@ func TestPullImageManifest(t *testing.T) {
 				setSDKFactoryExpectations: func(f *mock_sdkclientfactory.MockFactory, ctrl *gomock.Controller) {
 					client := mock_sdkclient.NewMockClient(ctrl)
 					client.EXPECT().
-						DistributionInspect(gomock.Any(), "image", encodedAuthConfig).
-						Return(testDistributionInspect, nil)
+						DistributionInspect(gomock.Any(), "image", mobyclient.DistributionInspectOptions{EncodedRegistryAuth: encodedAuthConfig}).
+						Return(mobyclient.DistributionInspectResult{DistributionInspect: testDistributionInspect}, nil)
 					f.EXPECT().GetDefaultClient().Return(client, nil)
 				},
 				expectedDistributionInspect: testDistributionInspect,
@@ -443,7 +448,7 @@ func TestPullImageManifest(t *testing.T) {
 			defer ctrl.Finish()
 
 			mockDockerSDK := mock_sdkclient.NewMockClient(ctrl)
-			mockDockerSDK.EXPECT().Ping(gomock.Any()).Return(types.Ping{}, nil)
+			mockDockerSDK.EXPECT().Ping(gomock.Any(), gomock.Any()).Return(mobyclient.PingResult{}, nil)
 			sdkFactory := mock_sdkclientfactory.NewMockFactory(ctrl)
 			sdkFactory.EXPECT().GetDefaultClient().Return(mockDockerSDK, nil)
 
@@ -482,7 +487,7 @@ func TestPullImageECRAuthFail(t *testing.T) {
 
 	// Docker SDK tests
 	mockDockerSDK := mock_sdkclient.NewMockClient(ctrl)
-	mockDockerSDK.EXPECT().Ping(gomock.Any()).Return(types.Ping{}, nil)
+	mockDockerSDK.EXPECT().Ping(gomock.Any(), gomock.Any()).Return(mobyclient.PingResult{}, nil)
 	sdkFactory := mock_sdkclientfactory.NewMockFactory(ctrl)
 	sdkFactory.EXPECT().GetDefaultClient().AnyTimes().Return(mockDockerSDK, nil)
 
@@ -526,7 +531,7 @@ func TestPullImageError(t *testing.T) {
 
 	testTime.EXPECT().After(gomock.Any()).AnyTimes()
 	mockDockerSDK.EXPECT().ImagePull(gomock.Any(), "image:latest", gomock.Any()).DoAndReturn(
-		func(x, y, z interface{}) (io.ReadCloser, error) {
+		func(x, y, z interface{}) (mobyclient.ImagePullResponse, error) {
 
 			reader := mockReadCloser{
 				reader: strings.NewReader(`{"error":"toomanyrequests: Rate exceeded"}`),
@@ -554,6 +559,16 @@ func (mr mockReadCloser) Read(data []byte) (n int, err error) {
 func (mr mockReadCloser) Close() error {
 	return nil
 }
+
+// JSONMessages and Wait let mockReadCloser satisfy moby v29's
+// client.ImagePullResponse interface. The agent's pull path consumes the
+// plain io.Reader, so these are stubs.
+func (mr mockReadCloser) JSONMessages(ctx context.Context) iter.Seq2[jsonstream.Message, error] {
+	return nil
+}
+func (mr mockReadCloser) Wait(ctx context.Context) error {
+	return nil
+}
 func TestGetRepositoryWithTaggedImage(t *testing.T) {
 	image := "registry.endpoint/myimage:tag"
 	repository := getRepository(image)
@@ -575,10 +590,9 @@ func TestCreateContainerTimeout(t *testing.T) {
 	wait := &sync.WaitGroup{}
 	wait.Add(1)
 	hostConfig := &dockercontainer.HostConfig{Resources: dockercontainer.Resources{Memory: 100}}
-	mockDockerSDK.EXPECT().ContainerCreate(gomock.Any(), &dockercontainer.Config{}, hostConfig,
-		&network.NetworkingConfig{}, gomock.Any(), "containerName").Do(func(u, v, w, x, y, z interface{}) {
+	mockDockerSDK.EXPECT().ContainerCreate(gomock.Any(), gomock.Any()).Do(func(u, v interface{}) {
 		wait.Wait()
-	}).MaxTimes(1).Return(dockercontainer.CreateResponse{}, errors.New("test error"))
+	}).MaxTimes(1).Return(mobyclient.ContainerCreateResult{}, errors.New("test error"))
 	ctx, cancel := context.WithCancel(context.TODO())
 	defer cancel()
 	metadata := client.CreateContainer(ctx, &dockercontainer.Config{}, hostConfig, "containerName", xContainerShortTimeout)
@@ -594,19 +608,16 @@ func TestCreateContainer(t *testing.T) {
 	name := "containerName"
 	hostConfig := &dockercontainer.HostConfig{Resources: dockercontainer.Resources{Memory: 100}}
 	gomock.InOrder(
-		mockDockerSDK.EXPECT().ContainerCreate(gomock.Any(), gomock.Any(), hostConfig, gomock.Any(), gomock.Any(), name).
-			Do(func(u, v, actualHostConfig, x, y, actualName interface{}) {
-				assert.True(t, reflect.DeepEqual(actualHostConfig, hostConfig),
-					"Mismatch in create container HostConfig, %v != %v", actualHostConfig, hostConfig)
-				assert.Equal(t, actualName, name,
-					"Mismatch in create container options, %s != %s", actualName, name)
-			}).Return(dockercontainer.CreateResponse{ID: "id"}, nil),
-		mockDockerSDK.EXPECT().ContainerInspect(gomock.Any(), "id").
-			Return(types.ContainerJSON{
-				ContainerJSONBase: &types.ContainerJSONBase{
-					ID: "id",
-				},
-			}, nil),
+		mockDockerSDK.EXPECT().ContainerCreate(gomock.Any(), gomock.Any()).
+			Do(func(u, v interface{}) {
+				opts := v.(mobyclient.ContainerCreateOptions)
+				assert.True(t, reflect.DeepEqual(opts.HostConfig, hostConfig),
+					"Mismatch in create container HostConfig, %v != %v", opts.HostConfig, hostConfig)
+				assert.Equal(t, opts.Name, name,
+					"Mismatch in create container options, %s != %s", opts.Name, name)
+			}).Return(mobyclient.ContainerCreateResult{ID: "id"}, nil),
+		mockDockerSDK.EXPECT().ContainerInspect(gomock.Any(), "id", gomock.Any()).
+			Return(mobyclient.ContainerInspectResult{Container: dockercontainer.InspectResponse{ID: "id"}}, nil),
 	)
 	ctx, cancel := context.WithCancel(context.TODO())
 	defer cancel()
@@ -620,12 +631,11 @@ func TestCreateContainerExecTimeout(t *testing.T) {
 	mockDockerSDK, client, _, _, _, done := dockerClientSetup(t)
 	defer done()
 
-	execConfig := types.ExecConfig{
+	execConfig := mobyclient.ExecCreateOptions{
 		Privileged:   false,
 		AttachStdin:  false,
 		AttachStderr: false,
 		AttachStdout: false,
-		Detach:       true,
 		DetachKeys:   "",
 		Env:          []string{},
 		Cmd:          []string{"ls"},
@@ -633,7 +643,7 @@ func TestCreateContainerExecTimeout(t *testing.T) {
 
 	wait := &sync.WaitGroup{}
 	wait.Add(1)
-	mockDockerSDK.EXPECT().ContainerExecCreate(gomock.Any(), gomock.Any(), execConfig).Do(func(v, w, x interface{}) {
+	mockDockerSDK.EXPECT().ExecCreate(gomock.Any(), gomock.Any(), execConfig).Do(func(v, w, x interface{}) {
 		wait.Wait() // wait until timeout happens
 	}).MaxTimes(1)
 
@@ -653,21 +663,20 @@ func TestCreateContainerExec(t *testing.T) {
 	execEnv := make([]string, 0)
 	execCmd := make([]string, 0)
 	execCmd = append(execCmd, "ls")
-	execConfig := types.ExecConfig{
+	execConfig := mobyclient.ExecCreateOptions{
 		Privileged:   false,
 		AttachStdin:  false,
 		AttachStderr: false,
 		AttachStdout: false,
-		Detach:       true,
 		DetachKeys:   "",
 		Env:          execEnv,
 		Cmd:          execCmd,
 	}
 
-	execCreateResponse := types.IDResponse{ID: "id"}
+	execCreateResponse := mobyclient.ExecCreateResult{ID: "id"}
 
 	gomock.InOrder(
-		mockDockerSDK.EXPECT().ContainerExecCreate(gomock.Any(), gomock.Any(), execConfig).
+		mockDockerSDK.EXPECT().ExecCreate(gomock.Any(), gomock.Any(), execConfig).
 			Do(func(v, w, x interface{}) {
 				assert.True(t, reflect.DeepEqual(x, execConfig),
 					"Mismatch in create container ExecConfig, %v != %v", x, execConfig)
@@ -686,20 +695,20 @@ func TestStartContainerExecTimeout(t *testing.T) {
 	mockDockerSDK, client, _, _, _, done := dockerClientSetup(t)
 	defer done()
 
-	execStartCheck := types.ExecStartCheck{
+	execStartCheck := mobyclient.ExecStartOptions{
 		Detach: true,
-		Tty:    false,
+		TTY:    false,
 	}
 
 	wait := &sync.WaitGroup{}
 	wait.Add(1)
-	mockDockerSDK.EXPECT().ContainerExecStart(gomock.Any(), "id", execStartCheck).Do(func(x, y, z interface{}) {
+	mockDockerSDK.EXPECT().ExecStart(gomock.Any(), "id", execStartCheck).Do(func(x, y, z interface{}) {
 		wait.Wait() // wait until timeout happens
-	}).MaxTimes(1).Return(nil)
+	}).MaxTimes(1).Return(mobyclient.ExecStartResult{}, nil)
 
 	ctx, cancel := context.WithCancel(context.TODO())
 	defer cancel()
-	err := client.StartContainerExec(ctx, "id", types.ExecStartCheck{Detach: true, Tty: false}, xContainerShortTimeout)
+	err := client.StartContainerExec(ctx, "id", mobyclient.ExecStartOptions{Detach: true, TTY: false}, xContainerShortTimeout)
 	assert.NotNil(t, err, "Expected error for start container exec")
 	assert.Equal(t, "DockerTimeoutError", err.(apierrors.NamedError).ErrorName(), "Wrong error type")
 	wait.Done()
@@ -709,18 +718,18 @@ func TestStartContainerExec(t *testing.T) {
 	mockDockerSDK, client, _, _, _, done := dockerClientSetup(t)
 	defer done()
 
-	execStartCheck := types.ExecStartCheck{
+	execStartCheck := mobyclient.ExecStartOptions{
 		Detach: true,
-		Tty:    false,
+		TTY:    false,
 	}
 
 	gomock.InOrder(
-		mockDockerSDK.EXPECT().ContainerExecStart(gomock.Any(), "id", execStartCheck).Return(nil),
+		mockDockerSDK.EXPECT().ExecStart(gomock.Any(), "id", execStartCheck).Return(mobyclient.ExecStartResult{}, nil),
 	)
 
 	ctx, cancel := context.WithCancel(context.TODO())
 	defer cancel()
-	err := client.StartContainerExec(ctx, "id", types.ExecStartCheck{Detach: true, Tty: false}, dockerclient.ContainerExecStartTimeout)
+	err := client.StartContainerExec(ctx, "id", mobyclient.ExecStartOptions{Detach: true, TTY: false}, dockerclient.ContainerExecStartTimeout)
 	assert.NoError(t, err)
 }
 
@@ -730,7 +739,7 @@ func TestInspectContainerExecTimeout(t *testing.T) {
 
 	wait := &sync.WaitGroup{}
 	wait.Add(1)
-	mockDockerSDK.EXPECT().ContainerExecInspect(gomock.Any(), "id").Do(func(x, y interface{}) {
+	mockDockerSDK.EXPECT().ExecInspect(gomock.Any(), "id", gomock.Any()).Do(func(x, y, z interface{}) {
 		wait.Wait() // wait until timeout happens
 	}).MaxTimes(1)
 
@@ -746,26 +755,26 @@ func TestInspectContainerExec(t *testing.T) {
 	mockDockerSDK, client, _, _, _, done := dockerClientSetup(t)
 	defer done()
 
-	inspectContainerResponse := types.ContainerExecInspect{
-		ExecID:      "id",
+	inspectContainerResponse := mobyclient.ExecInspectResult{
+		ID:          "id",
 		ContainerID: "cont",
 		Running:     true,
 		ExitCode:    0,
-		Pid:         25537,
+		PID:         25537,
 	}
 	gomock.InOrder(
-		mockDockerSDK.EXPECT().ContainerExecInspect(gomock.Any(), "id").Return(inspectContainerResponse, nil),
+		mockDockerSDK.EXPECT().ExecInspect(gomock.Any(), "id", gomock.Any()).Return(inspectContainerResponse, nil),
 	)
 
 	ctx, cancel := context.WithCancel(context.TODO())
 	defer cancel()
 	resp, err := client.InspectContainerExec(ctx, "id", dockerclient.ContainerExecInspectTimeout)
 	assert.NoError(t, err)
-	assert.Equal(t, "id", resp.ExecID)
+	assert.Equal(t, "id", resp.ID)
 	assert.Equal(t, "cont", resp.ContainerID)
 	assert.Equal(t, true, resp.Running)
 	assert.Equal(t, 0, resp.ExitCode)
-	assert.Equal(t, 25537, resp.Pid)
+	assert.Equal(t, 25537, resp.PID)
 }
 
 func TestStartContainerTimeout(t *testing.T) {
@@ -774,10 +783,10 @@ func TestStartContainerTimeout(t *testing.T) {
 
 	wait := &sync.WaitGroup{}
 	wait.Add(1)
-	mockDockerSDK.EXPECT().ContainerStart(gomock.Any(), "id", types.ContainerStartOptions{}).Do(func(x, y, z interface{}) {
+	mockDockerSDK.EXPECT().ContainerStart(gomock.Any(), "id", mobyclient.ContainerStartOptions{}).Do(func(x, y, z interface{}) {
 		wait.Wait() // wait until timeout happens
 	}).MaxTimes(1)
-	mockDockerSDK.EXPECT().ContainerInspect(gomock.Any(), "id").Return(types.ContainerJSON{}, errors.New("test error")).AnyTimes()
+	mockDockerSDK.EXPECT().ContainerInspect(gomock.Any(), "id", gomock.Any()).Return(mobyclient.ContainerInspectResult{}, errors.New("test error")).AnyTimes()
 	ctx, cancel := context.WithCancel(context.TODO())
 	defer cancel()
 	metadata := client.StartContainer(ctx, "id", xContainerShortTimeout)
@@ -791,12 +800,9 @@ func TestStartContainer(t *testing.T) {
 	defer done()
 
 	gomock.InOrder(
-		mockDockerSDK.EXPECT().ContainerStart(gomock.Any(), "id", types.ContainerStartOptions{}).Return(nil),
-		mockDockerSDK.EXPECT().ContainerInspect(gomock.Any(), "id").
-			Return(types.ContainerJSON{
-				ContainerJSONBase: &types.ContainerJSONBase{
-					ID: "id",
-				}}, nil),
+		mockDockerSDK.EXPECT().ContainerStart(gomock.Any(), "id", mobyclient.ContainerStartOptions{}).Return(mobyclient.ContainerStartResult{}, nil),
+		mockDockerSDK.EXPECT().ContainerInspect(gomock.Any(), "id", gomock.Any()).
+			Return(mobyclient.ContainerInspectResult{Container: dockercontainer.InspectResponse{ID: "id"}}, nil),
 	)
 	ctx, cancel := context.WithCancel(context.TODO())
 	defer cancel()
@@ -819,14 +825,14 @@ func TestStopContainerTimeout(t *testing.T) {
 	wait := &sync.WaitGroup{}
 	wait.Add(1)
 	timeoutSeconds := int(client.config.DockerStopTimeout.Seconds())
-	containerOptions := dockercontainer.StopOptions{
+	containerOptions := mobyclient.ContainerStopOptions{
 		Timeout: &timeoutSeconds,
 	}
 	mockDockerSDK.EXPECT().ContainerStop(gomock.Any(), "id", containerOptions).Do(func(x, y, z interface{}) {
 		wait.Wait()
 		// Don't return, verify timeout happens
-	}).MaxTimes(1).Return(errors.New("test error"))
-	mockDockerSDK.EXPECT().ContainerInspect(gomock.Any(), gomock.Any()).AnyTimes()
+	}).MaxTimes(1).Return(mobyclient.ContainerStopResult{}, errors.New("test error"))
+	mockDockerSDK.EXPECT().ContainerInspect(gomock.Any(), gomock.Any(), gomock.Any()).AnyTimes()
 	ctx, cancel := context.WithCancel(context.TODO())
 	defer cancel()
 	metadata := client.StopContainer(ctx, "id", xContainerShortTimeout)
@@ -840,23 +846,13 @@ func TestStopContainer(t *testing.T) {
 	defer done()
 
 	timeoutSeconds := int(client.config.DockerStopTimeout.Seconds())
-	containerOptions := dockercontainer.StopOptions{
+	containerOptions := mobyclient.ContainerStopOptions{
 		Timeout: &timeoutSeconds,
 	}
 	gomock.InOrder(
-		mockDockerSDK.EXPECT().ContainerStop(gomock.Any(), "id", containerOptions).Return(nil),
-		mockDockerSDK.EXPECT().ContainerInspect(gomock.Any(), "id").
-			Return(
-				types.ContainerJSON{
-					ContainerJSONBase: &types.ContainerJSONBase{
-						ID: "id",
-						State: &types.ContainerState{
-							ExitCode: 10,
-						},
-					},
-					Config: &dockercontainer.Config{},
-				},
-				nil),
+		mockDockerSDK.EXPECT().ContainerStop(gomock.Any(), "id", containerOptions).Return(mobyclient.ContainerStopResult{}, nil),
+		mockDockerSDK.EXPECT().ContainerInspect(gomock.Any(), "id", gomock.Any()).
+			Return(mobyclient.ContainerInspectResult{Container: dockercontainer.InspectResponse{ID: "id", State: &dockercontainer.State{ExitCode: 10}, Config: &dockercontainer.Config{}}}, nil),
 	)
 	ctx, cancel := context.WithCancel(context.TODO())
 	defer cancel()
@@ -872,7 +868,7 @@ func TestRemoveContainerTimeout(t *testing.T) {
 	wait := &sync.WaitGroup{}
 	wait.Add(1)
 	mockDockerSDK.EXPECT().ContainerRemove(gomock.Any(), "id",
-		types.ContainerRemoveOptions{
+		mobyclient.ContainerRemoveOptions{
 			RemoveVolumes: true,
 			RemoveLinks:   false,
 			Force:         false,
@@ -893,11 +889,11 @@ func TestRemoveContainer(t *testing.T) {
 	defer done()
 
 	mockDockerSDK.EXPECT().ContainerRemove(gomock.Any(), "id",
-		types.ContainerRemoveOptions{
+		mobyclient.ContainerRemoveOptions{
 			RemoveVolumes: true,
 			RemoveLinks:   false,
 			Force:         false,
-		}).Return(nil)
+		}).Return(mobyclient.ContainerRemoveResult{}, nil)
 
 	ctx, cancel := context.WithCancel(context.TODO())
 	defer cancel()
@@ -911,10 +907,10 @@ func TestInspectContainerTimeout(t *testing.T) {
 
 	wait := &sync.WaitGroup{}
 	wait.Add(1)
-	mockDockerSDK.EXPECT().ContainerInspect(gomock.Any(), "id").Do(func(ctx, x interface{}) {
+	mockDockerSDK.EXPECT().ContainerInspect(gomock.Any(), "id", gomock.Any()).Do(func(ctx, x, y interface{}) {
 		wait.Wait()
 		// Don't return, verify timeout happens
-	}).MaxTimes(1).Return(types.ContainerJSON{}, errors.New("test error"))
+	}).MaxTimes(1).Return(mobyclient.ContainerInspectResult{}, errors.New("test error"))
 	ctx, cancel := context.WithCancel(context.TODO())
 	defer cancel()
 	_, err := client.InspectContainer(ctx, "id", xContainerShortTimeout)
@@ -927,23 +923,23 @@ func TestInspectContainer(t *testing.T) {
 	mockDockerSDK, client, _, _, _, done := dockerClientSetup(t)
 	defer done()
 
-	containerOutput := types.ContainerJSON{
-		ContainerJSONBase: &types.ContainerJSONBase{
-			ID: "id",
-			State: &types.ContainerState{
-				ExitCode: 10,
-				Health: &types.Health{
-					Status: "healthy",
-					Log: []*types.HealthcheckResult{
-						{
-							ExitCode: 1,
-							Output:   "health output",
-						},
+	containerOutput := dockercontainer.InspectResponse{
+
+		ID: "id",
+		State: &dockercontainer.State{
+			ExitCode: 10,
+			Health: &dockercontainer.Health{
+				Status: "healthy",
+				Log: []*dockercontainer.HealthcheckResult{
+					{
+						ExitCode: 1,
+						Output:   "health output",
 					},
 				},
-			}}}
+			},
+		}}
 	gomock.InOrder(
-		mockDockerSDK.EXPECT().ContainerInspect(gomock.Any(), "id").Return(containerOutput, nil),
+		mockDockerSDK.EXPECT().ContainerInspect(gomock.Any(), "id", gomock.Any()).Return(mobyclient.ContainerInspectResult{Container: containerOutput}, nil),
 	)
 	ctx, cancel := context.WithCancel(context.TODO())
 	defer cancel()
@@ -958,39 +954,38 @@ func TestContainerEvents(t *testing.T) {
 
 	eventsChan := make(chan events.Message, dockerEventBufferSize)
 	errChan := make(chan error)
-	mockDockerSDK.EXPECT().Events(gomock.Any(), gomock.Any()).Return(eventsChan, errChan)
+	mockDockerSDK.EXPECT().Events(gomock.Any(), gomock.Any()).Return(mobyclient.EventsResult{Messages: eventsChan, Err: errChan})
 
 	dockerEvents, err := client.ContainerEvents(context.TODO())
 	require.NoError(t, err, "Could not get container events")
 	go func() {
-		eventsChan <- events.Message{Type: "container", ID: "containerId", Status: "create"}
+		eventsChan <- events.Message{Type: "container", Actor: events.Actor{ID: "containerId"}, Action: "create"}
 	}()
 
 	event := <-dockerEvents
 	assert.Equal(t, event.DockerID, "containerId", "Wrong docker id")
 	assert.Equal(t, event.Status, apicontainerstatus.ContainerCreated, "Wrong status")
 
-	container := types.ContainerJSON{
-		ContainerJSONBase: &types.ContainerJSONBase{
-			ID: "cid2",
-		},
-		NetworkSettings: &types.NetworkSettings{
-			NetworkSettingsBase: types.NetworkSettingsBase{
-				Ports: nat.PortMap{
-					nat.Port("80/tcp"): []nat.PortBinding{{HostPort: "9001"}},
-				},
+	container := dockercontainer.InspectResponse{
+
+		ID: "cid2",
+
+		NetworkSettings: &dockercontainer.NetworkSettings{
+
+			Ports: network.PortMap{
+				network.MustParsePort("80/tcp"): []network.PortBinding{{HostPort: "9001"}},
 			},
 		},
 		Config: &dockercontainer.Config{},
-		Mounts: []types.MountPoint{
+		Mounts: []dockercontainer.MountPoint{
 			{Source: "/host/path",
 				Destination: "/container/path"},
 		},
 	}
 
-	mockDockerSDK.EXPECT().ContainerInspect(gomock.Any(), "cid2").Return(container, nil)
+	mockDockerSDK.EXPECT().ContainerInspect(gomock.Any(), "cid2", gomock.Any()).Return(mobyclient.ContainerInspectResult{Container: container}, nil)
 	go func() {
-		eventsChan <- events.Message{Type: "container", ID: "cid2", Status: "start"}
+		eventsChan <- events.Message{Type: "container", Actor: events.Actor{ID: "cid2"}, Action: "start"}
 	}()
 	event = <-dockerEvents
 	assert.Equal(t, event.DockerID, "cid2", "Wrong docker id")
@@ -1001,20 +996,19 @@ func TestContainerEvents(t *testing.T) {
 	assert.Equal(t, event.Volumes[0].Destination, "/container/path", "Incorrect volume mapping")
 
 	for i := 0; i < 2; i++ {
-		stoppedContainer := types.ContainerJSON{
-			ContainerJSONBase: &types.ContainerJSONBase{
-				ID: "cid3" + strconv.Itoa(i),
-				State: &types.ContainerState{
-					FinishedAt: (time.Now()).Format(time.RFC3339),
-					ExitCode:   20,
-				},
+		stoppedContainer := dockercontainer.InspectResponse{
+
+			ID: "cid3" + strconv.Itoa(i),
+			State: &dockercontainer.State{
+				FinishedAt: (time.Now()).Format(time.RFC3339),
+				ExitCode:   20,
 			},
 		}
-		mockDockerSDK.EXPECT().ContainerInspect(gomock.Any(), "cid3"+strconv.Itoa(i)).Return(stoppedContainer, nil)
+		mockDockerSDK.EXPECT().ContainerInspect(gomock.Any(), "cid3"+strconv.Itoa(i), gomock.Any()).Return(mobyclient.ContainerInspectResult{Container: stoppedContainer}, nil)
 	}
 	go func() {
-		eventsChan <- events.Message{Type: "container", ID: "cid30", Status: "stop"}
-		eventsChan <- events.Message{Type: "container", ID: "cid31", Status: "die"}
+		eventsChan <- events.Message{Type: "container", Actor: events.Actor{ID: "cid30"}, Action: "stop"}
+		eventsChan <- events.Message{Type: "container", Actor: events.Actor{ID: "cid31"}, Action: "die"}
 	}()
 
 	for i := 0; i < 2; i++ {
@@ -1024,28 +1018,25 @@ func TestContainerEvents(t *testing.T) {
 		assert.Equal(t, aws.ToInt(anEvent.ExitCode), 20, "Incorrect exit code")
 	}
 
-	containerWithHealthInfo := types.ContainerJSON{
-		ContainerJSONBase: &types.ContainerJSONBase{
-			ID: "container_health",
-			State: &types.ContainerState{
-				Health: &types.Health{
-					Status: "healthy",
-					Log: []*types.HealthcheckResult{
-						{
-							ExitCode: 1,
-							Output:   "health output",
-						},
+	containerWithHealthInfo := dockercontainer.InspectResponse{
+		ID: "container_health",
+		State: &dockercontainer.State{
+			Health: &dockercontainer.Health{
+				Status: "healthy",
+				Log: []*dockercontainer.HealthcheckResult{
+					{
+						ExitCode: 1,
+						Output:   "health output",
 					},
 				},
-			}},
+			},
+		},
 	}
-	mockDockerSDK.EXPECT().ContainerInspect(gomock.Any(), "container_health").Return(containerWithHealthInfo, nil)
+	mockDockerSDK.EXPECT().ContainerInspect(gomock.Any(), "container_health", gomock.Any()).Return(mobyclient.ContainerInspectResult{Container: containerWithHealthInfo}, nil)
 	go func() {
 		eventsChan <- events.Message{
 			Type:   "container",
-			ID:     "container_health",
 			Action: "health_status: unhealthy",
-			Status: "health_status: unhealthy",
 			Actor: events.Actor{
 				ID: "container_health",
 			},
@@ -1082,7 +1073,7 @@ func TestContainerEvents(t *testing.T) {
 		"kill",
 	}
 	for _, eventStatus := range ignore {
-		eventsChan <- events.Message{Type: "container", ID: "123", Status: eventStatus}
+		eventsChan <- events.Message{Type: "container", Actor: events.Actor{ID: "123"}, Action: events.Action(eventStatus)}
 		select {
 		case <-dockerEvents:
 			t.Error("No event should be available for " + eventStatus)
@@ -1101,7 +1092,7 @@ func TestContainerEvents(t *testing.T) {
 	}
 
 	for eventType, eventStatus := range ignoreEventType {
-		eventsChan <- events.Message{Type: eventType, ID: "123", Status: eventStatus}
+		eventsChan <- events.Message{Type: events.Type(eventType), Actor: events.Actor{ID: "123"}, Action: events.Action(eventStatus)}
 		select {
 		case <-dockerEvents:
 			t.Errorf("No event should be available for %v", eventType)
@@ -1136,13 +1127,13 @@ func TestContainerEventsError(t *testing.T) {
 
 			eventsChan := make(chan events.Message, dockerEventBufferSize)
 			errChan := make(chan error)
-			mockDockerSDK.EXPECT().Events(gomock.Any(), gomock.Any()).Return(eventsChan, errChan).MinTimes(1)
+			mockDockerSDK.EXPECT().Events(gomock.Any(), gomock.Any()).Return(mobyclient.EventsResult{Messages: eventsChan, Err: errChan}).MinTimes(1)
 
 			dockerEvents, err := client.ContainerEvents(context.TODO())
 			require.NoError(t, err, "Could not get container events")
 			go func() {
 				errChan <- tc.err
-				eventsChan <- events.Message{Type: "container", ID: "containerId", Status: "create"}
+				eventsChan <- events.Message{Type: "container", Actor: events.Actor{ID: "containerId"}, Action: "create"}
 			}()
 
 			event := <-dockerEvents
@@ -1160,7 +1151,7 @@ func TestSetExitCodeFromEvent(t *testing.T) {
 	)
 
 	defaultEvent := &events.Message{
-		Status: dockerContainerDieEvent,
+		Action: dockerContainerDieEvent,
 		Actor: events.Actor{
 			Attributes: map[string]string{
 				dockerContainerEventExitCodeAttribute: exitCodeStr,
@@ -1191,7 +1182,7 @@ func TestSetExitCodeFromEvent(t *testing.T) {
 		{
 			name: "exit code not set from event when event does not has it",
 			event: &events.Message{
-				Status: dockerContainerDieEvent,
+				Action: dockerContainerDieEvent,
 				Actor:  events.Actor{},
 			},
 			metadata:         DockerContainerMetadata{},
@@ -1200,7 +1191,7 @@ func TestSetExitCodeFromEvent(t *testing.T) {
 		{
 			name: "exit code not set from event when event has invalid exit code",
 			event: &events.Message{
-				Status: dockerContainerDieEvent,
+				Action: dockerContainerDieEvent,
 				Actor: events.Actor{
 					Attributes: map[string]string{
 						dockerContainerEventExitCodeAttribute: "invalid",
@@ -1224,7 +1215,7 @@ func TestDockerVersion(t *testing.T) {
 	mockDockerSDK, client, _, _, _, done := dockerClientSetup(t)
 	defer done()
 
-	mockDockerSDK.EXPECT().ServerVersion(gomock.Any()).Return(types.Version{Version: "1.6.0"}, nil)
+	mockDockerSDK.EXPECT().ServerVersion(gomock.Any(), gomock.Any()).Return(mobyclient.ServerVersionResult{Version: "1.6.0"}, nil)
 
 	ctx, cancel := context.WithCancel(context.TODO())
 	defer cancel()
@@ -1237,7 +1228,7 @@ func TestSystemPing(t *testing.T) {
 	mockDockerSDK, client, _, _, _, done := dockerClientSetup(t)
 	defer done()
 
-	mockDockerSDK.EXPECT().Ping(gomock.Any()).Return(types.Ping{APIVersion: "test_docker_api"}, nil)
+	mockDockerSDK.EXPECT().Ping(gomock.Any(), gomock.Any()).Return(mobyclient.PingResult{APIVersion: "test_docker_api"}, nil)
 
 	ctx, cancel := context.WithCancel(context.TODO())
 	defer cancel()
@@ -1251,7 +1242,7 @@ func TestSystemPingError(t *testing.T) {
 	mockDockerSDK, client, _, _, _, done := dockerClientSetup(t)
 	defer done()
 
-	mockDockerSDK.EXPECT().Ping(gomock.Any()).Return(types.Ping{}, errors.New("test error"))
+	mockDockerSDK.EXPECT().Ping(gomock.Any(), gomock.Any()).Return(mobyclient.PingResult{}, errors.New("test error"))
 
 	ctx, cancel := context.WithCancel(context.TODO())
 	defer cancel()
@@ -1265,7 +1256,7 @@ func TestDockerInfo(t *testing.T) {
 	mockDockerSDK, client, _, _, _, done := dockerClientSetup(t)
 	defer done()
 
-	mockDockerSDK.EXPECT().Info(gomock.Any()).Return(types.Info{SecurityOptions: []string{"selinux"}}, nil)
+	mockDockerSDK.EXPECT().Info(gomock.Any(), gomock.Any()).Return(mobyclient.SystemInfoResult{Info: system.Info{SecurityOptions: []string{"selinux"}}}, nil)
 
 	ctx, cancel := context.WithCancel(context.TODO())
 	defer cancel()
@@ -1281,14 +1272,14 @@ func TestDockerInfoError(t *testing.T) {
 
 	errorMsg := "Error getting  docker info"
 
-	mockDockerSDK.EXPECT().Info(gomock.Any()).Return(types.Info{}, errors.New(errorMsg))
+	mockDockerSDK.EXPECT().Info(gomock.Any(), gomock.Any()).Return(mobyclient.SystemInfoResult{Info: system.Info{}}, errors.New(errorMsg))
 
 	ctx, cancel := context.WithCancel(context.TODO())
 	defer cancel()
 	info, err := client.Info(ctx, dockerclient.InfoTimeout)
 
 	assert.Error(t, err, errorMsg)
-	assert.Equal(t, types.Info{}, info)
+	assert.Equal(t, system.Info{}, info)
 }
 
 func TestDockerInfoClientError(t *testing.T) {
@@ -1299,7 +1290,7 @@ func TestDockerInfoClientError(t *testing.T) {
 
 	// Mock SDKFactory
 	mockDockerSDK := mock_sdkclient.NewMockClient(ctrl)
-	mockDockerSDK.EXPECT().Ping(gomock.Any()).Return(types.Ping{}, nil)
+	mockDockerSDK.EXPECT().Ping(gomock.Any(), gomock.Any()).Return(mobyclient.PingResult{}, nil)
 	sdkFactory := mock_sdkclientfactory.NewMockFactory(ctrl)
 
 	ctx, cancel := context.WithCancel(context.TODO())
@@ -1315,7 +1306,7 @@ func TestDockerInfoClientError(t *testing.T) {
 	info, err := client.Info(ctx, dockerclient.InfoTimeout)
 
 	assert.Error(t, err, errorMsg)
-	assert.Equal(t, types.Info{}, info)
+	assert.Equal(t, system.Info{}, info)
 }
 
 func TestDockerVersionCached(t *testing.T) {
@@ -1336,8 +1327,8 @@ func TestListContainers(t *testing.T) {
 	mockDockerSDK, client, _, _, _, done := dockerClientSetup(t)
 	defer done()
 
-	containers := []types.Container{{ID: "id"}}
-	mockDockerSDK.EXPECT().ContainerList(gomock.Any(), types.ContainerListOptions{All: true}).Return(containers, nil)
+	containers := []dockercontainer.Summary{{ID: "id"}}
+	mockDockerSDK.EXPECT().ContainerList(gomock.Any(), mobyclient.ContainerListOptions{All: true}).Return(mobyclient.ContainerListResult{Items: containers}, nil)
 	ctx, cancel := context.WithCancel(context.TODO())
 	defer cancel()
 	response := client.ListContainers(ctx, true, dockerclient.ListContainersTimeout)
@@ -1354,11 +1345,10 @@ func TestListContainersTimeout(t *testing.T) {
 
 	wait := &sync.WaitGroup{}
 	wait.Add(1)
-	mockDockerSDK.EXPECT().ContainerList(gomock.Any(), types.ContainerListOptions{All: true}).
-		Do(func(x, y interface{}) {
-			wait.Wait()
-			// Don't return, verify timeout happens
-		}).MaxTimes(1).Return(nil, errors.New("test error"))
+	mockDockerSDK.EXPECT().ContainerList(gomock.Any(), mobyclient.ContainerListOptions{All: true}).Do(func(x, y interface{}) {
+		wait.Wait()
+		// Don't return, verify timeout happens
+	}).MaxTimes(1).Return(mobyclient.ContainerListResult{}, errors.New("test error"))
 	ctx, cancel := context.WithCancel(context.TODO())
 	defer cancel()
 	response := client.ListContainers(ctx, true, xContainerShortTimeout)
@@ -1371,8 +1361,8 @@ func TestListImages(t *testing.T) {
 	mockDocker, client, _, _, _, done := dockerClientSetup(t)
 	defer done()
 
-	images := []types.ImageSummary{{ID: "id"}}
-	mockDocker.EXPECT().ImageList(gomock.Any(), gomock.Any()).Return(images, nil)
+	images := []image.Summary{{ID: "id"}}
+	mockDocker.EXPECT().ImageList(gomock.Any(), gomock.Any()).Return(mobyclient.ImageListResult{Items: images}, nil)
 	ctx, cancel := context.WithCancel(context.TODO())
 	defer cancel()
 	response := client.ListImages(ctx, dockerclient.ListImagesTimeout)
@@ -1392,7 +1382,7 @@ func TestListImagesTimeout(t *testing.T) {
 	mockDocker.EXPECT().ImageList(gomock.Any(), gomock.Any()).Do(func(x, y interface{}) {
 		wait.Wait()
 		// Don't return, verify timeout happens
-	}).MaxTimes(1).Return(nil, errors.New("test error"))
+	}).MaxTimes(1).Return(mobyclient.ImageListResult{}, errors.New("test error"))
 	ctx, cancel := context.WithCancel(context.TODO())
 	defer cancel()
 
@@ -1410,7 +1400,7 @@ func TestPingSdkFailError(t *testing.T) {
 
 	// Docker SDK tests
 	mockDockerSDK := mock_sdkclient.NewMockClient(ctrl)
-	mockDockerSDK.EXPECT().Ping(gomock.Any()).Return(types.Ping{}, errors.New("test error"))
+	mockDockerSDK.EXPECT().Ping(gomock.Any(), gomock.Any()).Return(mobyclient.PingResult{}, errors.New("test error"))
 	sdkFactory := mock_sdkclientfactory.NewMockFactory(ctrl)
 	sdkFactory.EXPECT().GetDefaultClient().AnyTimes().Return(mockDockerSDK, nil)
 
@@ -1426,7 +1416,7 @@ func TestUsesVersionedClient(t *testing.T) {
 	defer ctrl.Finish()
 	// Docker SDK tests
 	mockDockerSDK := mock_sdkclient.NewMockClient(ctrl)
-	mockDockerSDK.EXPECT().Ping(gomock.Any()).Return(types.Ping{}, nil)
+	mockDockerSDK.EXPECT().Ping(gomock.Any(), gomock.Any()).Return(mobyclient.PingResult{}, nil)
 	sdkFactory := mock_sdkclientfactory.NewMockFactory(ctrl)
 	sdkFactory.EXPECT().GetDefaultClient().AnyTimes().Return(mockDockerSDK, nil)
 	ctx, cancel := context.WithCancel(context.TODO())
@@ -1442,8 +1432,8 @@ func TestUsesVersionedClient(t *testing.T) {
 	require.NoError(t, err)
 
 	sdkFactory.EXPECT().GetClient(dockerclient.DockerVersion("1.20")).Times(2).Return(mockDockerSDK, nil)
-	mockDockerSDK.EXPECT().ContainerStart(gomock.Any(), gomock.Any(), types.ContainerStartOptions{}).Return(nil)
-	mockDockerSDK.EXPECT().ContainerInspect(gomock.Any(), gomock.Any()).Return(types.ContainerJSON{}, errors.New("test error"))
+	mockDockerSDK.EXPECT().ContainerStart(gomock.Any(), gomock.Any(), mobyclient.ContainerStartOptions{}).Return(mobyclient.ContainerStartResult{}, nil)
+	mockDockerSDK.EXPECT().ContainerInspect(gomock.Any(), gomock.Any(), gomock.Any()).Return(mobyclient.ContainerInspectResult{}, errors.New("test error"))
 	vclient.StartContainer(ctx, "foo", defaultTestConfig().ContainerStartTimeout)
 }
 
@@ -1452,7 +1442,7 @@ func TestUnavailableVersionError(t *testing.T) {
 	defer ctrl.Finish()
 	// Docker SDK tests
 	mockDockerSDK := mock_sdkclient.NewMockClient(ctrl)
-	mockDockerSDK.EXPECT().Ping(gomock.Any()).Return(types.Ping{}, nil)
+	mockDockerSDK.EXPECT().Ping(gomock.Any(), gomock.Any()).Return(mobyclient.PingResult{}, nil)
 	sdkFactory := mock_sdkclientfactory.NewMockFactory(ctrl)
 	sdkFactory.EXPECT().GetDefaultClient().AnyTimes().Return(mockDockerSDK, nil)
 	ctx, cancel := context.WithCancel(context.TODO())
@@ -1479,7 +1469,7 @@ func TestUnavailableVersionError(t *testing.T) {
 	}
 }
 
-func waitForStatsChanClose(statsChan <-chan *types.StatsJSON) (closed bool) {
+func waitForStatsChanClose(statsChan <-chan *dockercontainer.StatsResponse) (closed bool) {
 	i := 0
 	for range statsChan {
 		if i == 10 {
@@ -1494,7 +1484,7 @@ func waitForStatsChanClose(statsChan <-chan *types.StatsJSON) (closed bool) {
 func TestStatsNormalExit(t *testing.T) {
 	mockDockerSDK, client, _, _, _, done := dockerClientSetup(t)
 	defer done()
-	mockDockerSDK.EXPECT().ContainerStats(gomock.Any(), gomock.Any(), true).Return(types.ContainerStats{
+	mockDockerSDK.EXPECT().ContainerStats(gomock.Any(), gomock.Any(), mobyclient.ContainerStatsOptions{Stream: true}).Return(mobyclient.ContainerStatsResult{
 		Body: mockStream{
 			data:  []byte(`{"memory_stats":{"Usage":50},"cpu_stats":{"system_cpu_usage":100}}`),
 			index: 0,
@@ -1519,7 +1509,7 @@ func TestStatsNormalExit(t *testing.T) {
 func TestStatsErrorReading(t *testing.T) {
 	mockDockerSDK, client, _, _, _, done := dockerClientSetup(t)
 	defer done()
-	mockDockerSDK.EXPECT().ContainerStats(gomock.Any(), gomock.Any(), gomock.Any()).Return(types.ContainerStats{
+	mockDockerSDK.EXPECT().ContainerStats(gomock.Any(), gomock.Any(), gomock.Any()).Return(mobyclient.ContainerStatsResult{
 		Body: mockStream{
 			data:  []byte(`{"memory_stats":{"Usage":50},"cpu_stats":{"system_cpu_usage":100}}`),
 			index: 0,
@@ -1538,7 +1528,7 @@ func TestStatsErrorReading(t *testing.T) {
 func TestStatsErrorDecoding(t *testing.T) {
 	mockDockerSDK, client, _, _, _, done := dockerClientSetup(t)
 	defer done()
-	mockDockerSDK.EXPECT().ContainerStats(gomock.Any(), gomock.Any(), true).Return(types.ContainerStats{
+	mockDockerSDK.EXPECT().ContainerStats(gomock.Any(), gomock.Any(), mobyclient.ContainerStatsOptions{Stream: true}).Return(mobyclient.ContainerStatsResult{
 		Body: mockStream{
 			data:  []byte(`stuff`),
 			index: 0,
@@ -1591,7 +1581,7 @@ func (ms mockStream) Read(data []byte) (n int, err error) {
 func (ms mockStream) Close() error {
 	return nil
 }
-func waitForStats(t *testing.T, stat *types.StatsJSON) {
+func waitForStats(t *testing.T, stat *dockercontainer.StatsResponse) {
 	ctx, cancel := context.WithTimeout(context.TODO(), 10*time.Second)
 	defer cancel()
 	for {
@@ -1612,7 +1602,7 @@ func TestStatsInactivityTimeout(t *testing.T) {
 	shortInactivityTimeout := 1 * time.Millisecond
 	mockDockerSDK, client, _, _, _, done := dockerClientSetup(t)
 	defer done()
-	mockDockerSDK.EXPECT().ContainerStats(gomock.Any(), gomock.Any(), true).Return(types.ContainerStats{
+	mockDockerSDK.EXPECT().ContainerStats(gomock.Any(), gomock.Any(), mobyclient.ContainerStatsOptions{Stream: true}).Return(mobyclient.ContainerStatsResult{
 		Body: mockStream{
 			data:  []byte(`{"memory_stats":{"Usage":50},"cpu_stats":{"system_cpu_usage":100}}`),
 			index: 0,
@@ -1638,9 +1628,9 @@ func TestPollStatsTimeout(t *testing.T) {
 	defer done()
 	wait := &sync.WaitGroup{}
 	wait.Add(1)
-	mockDockerSDK.EXPECT().ContainerStats(gomock.Any(), gomock.Any(), false).Do(func(x, y, z interface{}) {
+	mockDockerSDK.EXPECT().ContainerStats(gomock.Any(), gomock.Any(), mobyclient.ContainerStatsOptions{Stream: false}).Do(func(x, y, z interface{}) {
 		wait.Wait()
-	}).MaxTimes(1).Return(types.ContainerStats{Body: mockStream{}}, nil)
+	}).MaxTimes(1).Return(mobyclient.ContainerStatsResult{Body: mockStream{}}, nil)
 	ctx, cancel := context.WithCancel(context.TODO())
 	defer cancel()
 	_, err := getContainerStatsNotStreamed(mockDockerSDK, ctx, "", shortTimeout)
@@ -1652,7 +1642,7 @@ func TestPollStatsError(t *testing.T) {
 	shortTimeout := 1 * time.Millisecond
 	mockDockerSDK, _, _, _, _, done := dockerClientSetup(t)
 	defer done()
-	mockDockerSDK.EXPECT().ContainerStats(gomock.Any(), gomock.Any(), false).MaxTimes(1).Return(types.ContainerStats{
+	mockDockerSDK.EXPECT().ContainerStats(gomock.Any(), gomock.Any(), mobyclient.ContainerStatsOptions{Stream: false}).MaxTimes(1).Return(mobyclient.ContainerStatsResult{
 		Body: nil},
 		errors.New("Container stats error"))
 	ctx, cancel := context.WithCancel(context.TODO())
@@ -1665,7 +1655,7 @@ func TestStatsInactivityTimeoutNoHit(t *testing.T) {
 	longInactivityTimeout := 500 * time.Millisecond
 	mockDockerSDK, client, _, _, _, done := dockerClientSetup(t)
 	defer done()
-	mockDockerSDK.EXPECT().ContainerStats(gomock.Any(), gomock.Any(), true).Return(types.ContainerStats{
+	mockDockerSDK.EXPECT().ContainerStats(gomock.Any(), gomock.Any(), mobyclient.ContainerStatsOptions{Stream: true}).Return(mobyclient.ContainerStatsResult{
 		Body: mockStream{
 			data:  []byte(`{"memory_stats":{"Usage":50},"cpu_stats":{"system_cpu_usage":100}}`),
 			index: 0,
@@ -1688,7 +1678,7 @@ func TestRemoveImageTimeout(t *testing.T) {
 
 	wait := sync.WaitGroup{}
 	wait.Add(1)
-	mockDockerSDK.EXPECT().ImageRemove(gomock.Any(), "image", types.ImageRemoveOptions{}).Do(func(x, y, z interface{}) {
+	mockDockerSDK.EXPECT().ImageRemove(gomock.Any(), "image", mobyclient.ImageRemoveOptions{}).Do(func(x, y, z interface{}) {
 		wait.Wait()
 	})
 	ctx, cancel := context.WithCancel(context.TODO())
@@ -1703,7 +1693,7 @@ func TestRemoveImage(t *testing.T) {
 	defer done()
 
 	testTime.EXPECT().After(gomock.Any()).AnyTimes()
-	mockDockerSDK.EXPECT().ImageRemove(gomock.Any(), "image", types.ImageRemoveOptions{}).Return([]types.ImageDeleteResponseItem{}, nil)
+	mockDockerSDK.EXPECT().ImageRemove(gomock.Any(), "image", mobyclient.ImageRemoveOptions{}).Return(mobyclient.ImageRemoveResult{Items: []image.DeleteResponse{}}, nil)
 	ctx, cancel := context.WithCancel(context.TODO())
 	defer cancel()
 	err := client.RemoveImage(ctx, "image", dockerclient.RemoveImageTimeout)
@@ -1714,9 +1704,7 @@ func TestLoadImageHappyPath(t *testing.T) {
 	mockDockerSDK, client, _, _, _, done := dockerClientSetup(t)
 	defer done()
 
-	mockDockerSDK.EXPECT().ImageLoad(gomock.Any(), gomock.Any(), false).Return(types.ImageLoadResponse{
-		Body: ioutil.NopCloser(strings.NewReader("dummy load message")),
-	}, nil)
+	mockDockerSDK.EXPECT().ImageLoad(gomock.Any(), gomock.Any()).Return(ioutil.NopCloser(strings.NewReader("dummy load message")), nil)
 
 	ctx, cancel := context.WithCancel(context.TODO())
 	defer cancel()
@@ -1730,9 +1718,9 @@ func TestLoadImageTimeout(t *testing.T) {
 
 	wait := sync.WaitGroup{}
 	wait.Add(1)
-	mockDockerSDK.EXPECT().ImageLoad(gomock.Any(), gomock.Any(), false).Do(func(x, y, z interface{}) {
+	mockDockerSDK.EXPECT().ImageLoad(gomock.Any(), gomock.Any()).Do(func(x, y interface{}, z ...interface{}) {
 		wait.Wait()
-	}).MaxTimes(1)
+	}).MaxTimes(1).Return(nil, nil)
 
 	ctx, cancel := context.WithCancel(context.TODO())
 	defer cancel()
@@ -1973,16 +1961,16 @@ func TestECRAuthCacheWithDifferentExecutionRole(t *testing.T) {
 }
 
 func TestMetadataFromContainer(t *testing.T) {
-	ports := nat.PortMap{
-		"80/tcp": []nat.PortBinding{
+	ports := network.PortMap{
+		network.MustParsePort("80/tcp"): []network.PortBinding{
 			{
-				HostIP:   "0.0.0.0",
+				HostIP:   netip.MustParseAddr("0.0.0.0"),
 				HostPort: "80",
 			},
 		},
 	}
 	// Representation of Volumes in ContainerJSON
-	volumes := []types.MountPoint{
+	volumes := []dockercontainer.MountPoint{
 		{Destination: "/foo",
 			Source: "/bar",
 		},
@@ -1995,27 +1983,25 @@ func TestMetadataFromContainer(t *testing.T) {
 	started := time.Now().Format(time.RFC3339)
 	finished := time.Now().Format(time.RFC3339)
 
-	dockerContainer := types.ContainerJSON{
-		NetworkSettings: &types.NetworkSettings{
-			NetworkSettingsBase: types.NetworkSettingsBase{
-				Ports: ports,
-			},
-			DefaultNetworkSettings: types.DefaultNetworkSettings{
-				IPAddress: "17.0.0.3",
+	dockerContainer := dockercontainer.InspectResponse{
+		NetworkSettings: &dockercontainer.NetworkSettings{
+			Ports: ports,
+			Networks: map[string]*network.EndpointSettings{
+				"bridge": {IPAddress: netip.MustParseAddr("17.0.0.3")},
 			},
 		},
-		ContainerJSONBase: &types.ContainerJSONBase{
-			ID:      "1234",
-			Created: created,
-			State: &types.ContainerState{
-				Running:    true,
-				StartedAt:  started,
-				FinishedAt: finished,
-			},
-			HostConfig: &dockercontainer.HostConfig{
-				NetworkMode: dockercontainer.NetworkMode("bridge"),
-			},
+
+		ID:      "1234",
+		Created: created,
+		State: &dockercontainer.State{
+			Running:    true,
+			StartedAt:  started,
+			FinishedAt: finished,
 		},
+		HostConfig: &dockercontainer.HostConfig{
+			NetworkMode: dockercontainer.NetworkMode("bridge"),
+		},
+
 		Config: &dockercontainer.Config{
 			Labels: labels,
 		},
@@ -2029,7 +2015,7 @@ func TestMetadataFromContainer(t *testing.T) {
 	assert.Len(t, metadata.PortBindings, 1)
 	assert.Equal(t, "bridge", metadata.NetworkMode)
 	assert.NotNil(t, metadata.NetworkSettings)
-	assert.Equal(t, "17.0.0.3", metadata.NetworkSettings.IPAddress)
+	assert.Equal(t, "17.0.0.3", metadata.NetworkSettings.Networks["bridge"].IPAddress.String())
 
 	// Need to convert both strings to same format to be able to compare. Parse and Format are not inverses.
 	createdTimeSDK, _ := time.Parse(time.RFC3339, dockerContainer.Created)
@@ -2047,11 +2033,10 @@ func TestMetadataFromContainer(t *testing.T) {
 
 func TestMetadataFromContainerHealthCheckWithNoLogs(t *testing.T) {
 
-	dockerContainer := &types.ContainerJSON{
-		ContainerJSONBase: &types.ContainerJSONBase{
-			State: &types.ContainerState{
-				Health: &types.Health{Status: "unhealthy"},
-			},
+	dockerContainer := &dockercontainer.InspectResponse{
+
+		State: &dockercontainer.State{
+			Health: &dockercontainer.Health{Status: "unhealthy"},
 		},
 	}
 
@@ -2067,7 +2052,7 @@ func TestCreateVolumeTimeout(t *testing.T) {
 	wait.Add(1)
 	mockDockerSDK.EXPECT().VolumeCreate(gomock.Any(), gomock.Any()).Do(func(ctx context.Context, x interface{}) {
 		wait.Wait()
-	}).MaxTimes(1).Return(volume.Volume{}, nil)
+	}).MaxTimes(1).Return(mobyclient.VolumeCreateResult{Volume: volume.Volume{}}, nil)
 	ctx, cancel := context.WithCancel(context.TODO())
 	defer cancel()
 	volumeResponse := client.CreateVolume(ctx, "name", "driver", nil, nil, xContainerShortTimeout)
@@ -2080,7 +2065,7 @@ func TestCreateVolumeError(t *testing.T) {
 	mockDockerSDK, client, _, _, _, done := dockerClientSetup(t)
 	defer done()
 
-	mockDockerSDK.EXPECT().VolumeCreate(gomock.Any(), gomock.Any()).Return(volume.Volume{}, errors.New("some docker error"))
+	mockDockerSDK.EXPECT().VolumeCreate(gomock.Any(), gomock.Any()).Return(mobyclient.VolumeCreateResult{Volume: volume.Volume{}}, errors.New("some docker error"))
 	ctx, cancel := context.WithCancel(context.TODO())
 	defer cancel()
 	volumeResponse := client.CreateVolume(ctx, "name", "driver", nil, nil, dockerclient.CreateVolumeTimeout)
@@ -2099,11 +2084,11 @@ func TestCreateVolume(t *testing.T) {
 		"opt2": "val2",
 	}
 	gomock.InOrder(
-		mockDockerSDK.EXPECT().VolumeCreate(gomock.Any(), gomock.Any()).Do(func(ctx context.Context, opts volume.CreateOptions) {
+		mockDockerSDK.EXPECT().VolumeCreate(gomock.Any(), gomock.Any()).Do(func(ctx context.Context, opts mobyclient.VolumeCreateOptions) {
 			assert.Equal(t, opts.Name, volumeName)
 			assert.Equal(t, opts.Driver, driver)
 			assert.EqualValues(t, opts.DriverOpts, driverOptions)
-		}).Return(volume.Volume{Name: volumeName, Driver: driver, Mountpoint: mountPoint, Labels: nil}, nil),
+		}).Return(mobyclient.VolumeCreateResult{Volume: volume.Volume{Name: volumeName, Driver: driver, Mountpoint: mountPoint, Labels: nil}}, nil),
 	)
 	ctx, cancel := context.WithCancel(context.TODO())
 	defer cancel()
@@ -2122,9 +2107,9 @@ func TestInspectVolumeTimeout(t *testing.T) {
 
 	wait := &sync.WaitGroup{}
 	wait.Add(1)
-	mockDockerSDK.EXPECT().VolumeInspect(gomock.Any(), gomock.Any()).Do(func(ctx context.Context, x interface{}) {
+	mockDockerSDK.EXPECT().VolumeInspect(gomock.Any(), gomock.Any(), gomock.Any()).Do(func(ctx context.Context, x, y interface{}) {
 		wait.Wait()
-	}).MaxTimes(1).Return(volume.Volume{}, nil)
+	}).MaxTimes(1).Return(mobyclient.VolumeInspectResult{Volume: volume.Volume{}}, nil)
 	ctx, cancel := context.WithCancel(context.TODO())
 	defer cancel()
 	volumeResponse := client.InspectVolume(ctx, "name", xContainerShortTimeout)
@@ -2137,7 +2122,7 @@ func TestInspectVolumeError(t *testing.T) {
 	mockDockerSDK, client, _, _, _, done := dockerClientSetup(t)
 	defer done()
 
-	mockDockerSDK.EXPECT().VolumeInspect(gomock.Any(), gomock.Any()).Return(volume.Volume{}, errors.New("some docker error"))
+	mockDockerSDK.EXPECT().VolumeInspect(gomock.Any(), gomock.Any(), gomock.Any()).Return(mobyclient.VolumeInspectResult{Volume: volume.Volume{}}, errors.New("some docker error"))
 	ctx, cancel := context.WithCancel(context.TODO())
 	defer cancel()
 	volumeResponse := client.InspectVolume(ctx, "name", dockerclient.InspectVolumeTimeout)
@@ -2160,7 +2145,7 @@ func TestInspectVolume(t *testing.T) {
 		},
 	}
 
-	mockDockerSDK.EXPECT().VolumeInspect(gomock.Any(), volumeName).Return(volumeOutput, nil)
+	mockDockerSDK.EXPECT().VolumeInspect(gomock.Any(), volumeName, gomock.Any()).Return(mobyclient.VolumeInspectResult{Volume: volumeOutput}, nil)
 
 	ctx, cancel := context.WithCancel(context.TODO())
 	defer cancel()
@@ -2177,10 +2162,10 @@ func TestRemoveVolumeTimeout(t *testing.T) {
 
 	wait := &sync.WaitGroup{}
 	wait.Add(1)
-	mockDockerSDK.EXPECT().VolumeRemove(gomock.Any(), "name", false).Do(func(ctx context.Context,
-		x interface{}, y bool) {
+	mockDockerSDK.EXPECT().VolumeRemove(gomock.Any(), "name", mobyclient.VolumeRemoveOptions{Force: false}).Do(func(ctx context.Context,
+		x interface{}, y mobyclient.VolumeRemoveOptions) {
 		wait.Wait()
-	}).MaxTimes(1)
+	}).MaxTimes(1).Return(mobyclient.VolumeRemoveResult{}, nil)
 	ctx, cancel := context.WithCancel(context.TODO())
 	defer cancel()
 	err := client.RemoveVolume(ctx, "name", xContainerShortTimeout)
@@ -2193,7 +2178,7 @@ func TestRemoveVolumeError(t *testing.T) {
 	mockDockerSDK, client, _, _, _, done := dockerClientSetup(t)
 	defer done()
 
-	mockDockerSDK.EXPECT().VolumeRemove(gomock.Any(), "name", false).Return(errors.New("some docker error"))
+	mockDockerSDK.EXPECT().VolumeRemove(gomock.Any(), "name", mobyclient.VolumeRemoveOptions{Force: false}).Return(mobyclient.VolumeRemoveResult{}, errors.New("some docker error"))
 	ctx, cancel := context.WithCancel(context.TODO())
 	defer cancel()
 	err := client.RemoveVolume(ctx, "name", dockerclient.RemoveVolumeTimeout)
@@ -2207,7 +2192,7 @@ func TestRemoveVolume(t *testing.T) {
 
 	volumeName := "volumeName"
 
-	mockDockerSDK.EXPECT().VolumeRemove(gomock.Any(), volumeName, false).Return(nil)
+	mockDockerSDK.EXPECT().VolumeRemove(gomock.Any(), volumeName, mobyclient.VolumeRemoveOptions{Force: false}).Return(mobyclient.VolumeRemoveResult{}, nil)
 	ctx, cancel := context.WithCancel(context.TODO())
 	defer cancel()
 	err := client.RemoveVolume(ctx, volumeName, dockerclient.RemoveVolumeTimeout)
@@ -2220,12 +2205,12 @@ func TestListPluginsTimeout(t *testing.T) {
 
 	wait := &sync.WaitGroup{}
 	wait.Add(1)
-	mockDockerSDK.EXPECT().PluginList(gomock.Any(), filters.Args{}).Do(func(x, y interface{}) {
+	mockDockerSDK.EXPECT().PluginList(gomock.Any(), mobyclient.PluginListOptions{Filters: mobyclient.Filters{}}).Do(func(x, y interface{}) {
 		wait.Wait()
-	}).MaxTimes(1)
+	}).MaxTimes(1).Return(mobyclient.PluginListResult{}, nil)
 	ctx, cancel := context.WithCancel(context.TODO())
 	defer cancel()
-	response := client.ListPlugins(ctx, xContainerShortTimeout, filters.Args{})
+	response := client.ListPlugins(ctx, xContainerShortTimeout, mobyclient.Filters{})
 	assert.Error(t, response.Error, "expected error for timeout")
 	assert.Equal(t, "DockerTimeoutError", response.Error.(apierrors.NamedError).ErrorName())
 	wait.Done()
@@ -2235,10 +2220,10 @@ func TestListPluginsError(t *testing.T) {
 	mockDockerSDK, client, _, _, _, done := dockerClientSetup(t)
 	defer done()
 
-	mockDockerSDK.EXPECT().PluginList(gomock.Any(), filters.Args{}).Return(nil, errors.New("some docker error"))
+	mockDockerSDK.EXPECT().PluginList(gomock.Any(), mobyclient.PluginListOptions{Filters: mobyclient.Filters{}}).Return(mobyclient.PluginListResult{}, errors.New("some docker error"))
 	ctx, cancel := context.WithCancel(context.TODO())
 	defer cancel()
-	response := client.ListPlugins(ctx, dockerclient.ListPluginsTimeout, filters.Args{})
+	response := client.ListPlugins(ctx, dockerclient.ListPluginsTimeout, mobyclient.Filters{})
 	assert.Equal(t, "CannotListPluginsError", response.Error.(apierrors.NamedError).ErrorName())
 }
 
@@ -2248,16 +2233,16 @@ func TestListPlugins(t *testing.T) {
 
 	pluginID := "id"
 	pluginName := "name"
-	plugin := &types.Plugin{
+	plugin := mobyplugin.Plugin{
 		ID:      pluginID,
 		Name:    pluginName,
 		Enabled: true,
 	}
 
-	mockDockerSDK.EXPECT().PluginList(gomock.Any(), filters.Args{}).Return([]*types.Plugin{plugin}, nil)
+	mockDockerSDK.EXPECT().PluginList(gomock.Any(), mobyclient.PluginListOptions{Filters: mobyclient.Filters{}}).Return(mobyclient.PluginListResult{Items: []mobyplugin.Plugin{plugin}}, nil)
 	ctx, cancel := context.WithCancel(context.TODO())
 	defer cancel()
-	response := client.ListPlugins(ctx, dockerclient.ListPluginsTimeout, filters.Args{})
+	response := client.ListPlugins(ctx, dockerclient.ListPluginsTimeout, mobyclient.Filters{})
 	assert.NoError(t, response.Error)
 	assert.Equal(t, plugin, response.Plugins[0])
 }
@@ -2266,34 +2251,34 @@ func TestListPluginsWithFilter(t *testing.T) {
 	mockDockerSDK, client, _, _, _, done := dockerClientSetup(t)
 	defer done()
 
-	plugins := []*types.Plugin{
-		&types.Plugin{
+	plugins := []*mobyplugin.Plugin{
+		&mobyplugin.Plugin{
 			ID:      "id1",
 			Name:    "name1",
 			Enabled: false,
 		},
-		&types.Plugin{
+		&mobyplugin.Plugin{
 			ID:      "id2",
 			Name:    "name2",
 			Enabled: true,
-			Config: types.PluginConfig{
+			Config: mobyplugin.Config{
 				Description: "A sample volume plugin for Docker",
-				Interface: types.PluginConfigInterface{
-					Types: []types.PluginInterfaceType{
+				Interface: mobyplugin.Interface{
+					Types: []mobyplugin.CapabilityID{
 						{Capability: "docker.volumedriver/1.0"},
 					},
 					Socket: "plugins.sock",
 				},
 			},
 		},
-		&types.Plugin{
+		&mobyplugin.Plugin{
 			ID:      "id3",
 			Name:    "name3",
 			Enabled: true,
-			Config: types.PluginConfig{
+			Config: mobyplugin.Config{
 				Description: "A sample network plugin for Docker",
-				Interface: types.PluginConfigInterface{
-					Types: []types.PluginInterfaceType{
+				Interface: mobyplugin.Interface{
+					Types: []mobyplugin.CapabilityID{
 						{Capability: "docker.networkdriver/1.0"},
 					},
 					Socket: "plugins.sock",
@@ -2302,9 +2287,9 @@ func TestListPluginsWithFilter(t *testing.T) {
 		},
 	}
 
-	filterList := filters.NewArgs(filters.Arg("enabled", "true"))
+	filterList := mobyclient.Filters{}.Add("enabled", "true")
 	filterList.Add("capability", VolumeDriverType)
-	mockDockerSDK.EXPECT().PluginList(gomock.Any(), filterList).Return([]*types.Plugin{plugins[1]}, nil)
+	mockDockerSDK.EXPECT().PluginList(gomock.Any(), mobyclient.PluginListOptions{Filters: filterList}).Return(mobyclient.PluginListResult{Items: []mobyplugin.Plugin{*plugins[1]}}, nil)
 	ctx, cancel := context.WithCancel(context.TODO())
 	defer cancel()
 	pluginNames, error := client.ListPluginsWithFilters(ctx, true, []string{VolumeDriverType}, dockerclient.ListPluginsTimeout)
@@ -2339,9 +2324,9 @@ func TestTagImage(t *testing.T) {
 			setSDKFactoryExpectations: func(f *mock_sdkclientfactory.MockFactory, ctrl *gomock.Controller) {
 				client := mock_sdkclient.NewMockClient(ctrl)
 				client.EXPECT().
-					ImageTag(gomock.Any(), "source", "target").
+					ImageTag(gomock.Any(), gomock.Any()).
 					Times(tagImageRetryAttempts).
-					Return(someError)
+					Return(mobyclient.ImageTagResult{}, someError)
 				f.EXPECT().GetDefaultClient().Return(client, nil)
 			},
 			ctx:            context.Background(),
@@ -2354,8 +2339,8 @@ func TestTagImage(t *testing.T) {
 			target: "target",
 			setSDKFactoryExpectations: func(f *mock_sdkclientfactory.MockFactory, ctrl *gomock.Controller) {
 				client := mock_sdkclient.NewMockClient(ctrl)
-				client.EXPECT().ImageTag(gomock.Any(), "source", "target").Return(someError)
-				client.EXPECT().ImageTag(gomock.Any(), "source", "target").Return(nil)
+				client.EXPECT().ImageTag(gomock.Any(), gomock.Any()).Return(mobyclient.ImageTagResult{}, someError)
+				client.EXPECT().ImageTag(gomock.Any(), gomock.Any()).Return(mobyclient.ImageTagResult{}, nil)
 				f.EXPECT().GetDefaultClient().Return(client, nil)
 			},
 			ctx:            context.Background(),
@@ -2397,7 +2382,7 @@ func TestTagImage(t *testing.T) {
 
 			// Set up mocks
 			mockDockerSDK := mock_sdkclient.NewMockClient(ctrl)
-			mockDockerSDK.EXPECT().Ping(gomock.Any()).Return(types.Ping{}, nil)
+			mockDockerSDK.EXPECT().Ping(gomock.Any(), gomock.Any()).Return(mobyclient.PingResult{}, nil)
 			sdkFactory := mock_sdkclientfactory.NewMockFactory(ctrl)
 			sdkFactory.EXPECT().GetDefaultClient().Return(mockDockerSDK, nil)
 

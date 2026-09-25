@@ -17,23 +17,24 @@
 package container
 
 import (
+	"net/netip"
 	"reflect"
 	"testing"
 
 	apierrors "github.com/aws/amazon-ecs-agent/ecs-agent/api/errors"
 
-	"github.com/docker/go-connections/nat"
+	"github.com/moby/moby/api/types/network"
 )
 
 func TestPortBindingFromDockerPortBinding(t *testing.T) {
 	pairs := []struct {
-		dockerPortBindings nat.PortMap
+		dockerPortBindings network.PortMap
 		ecsPortBindings    []PortBinding
 	}{
 		{
-			nat.PortMap{
-				nat.Port("53/udp"): []nat.PortBinding{
-					{HostIP: "1.2.3.4", HostPort: "55"},
+			network.PortMap{
+				network.MustParsePort("53/udp"): []network.PortBinding{
+					{HostIP: netip.MustParseAddr("1.2.3.4"), HostPort: "55"},
 				},
 			},
 			[]PortBinding{
@@ -46,10 +47,10 @@ func TestPortBindingFromDockerPortBinding(t *testing.T) {
 			},
 		},
 		{
-			nat.PortMap{
-				nat.Port("80/tcp"): []nat.PortBinding{
-					{HostIP: "2.3.4.5", HostPort: "8080"},
-					{HostIP: "5.6.7.8", HostPort: "80"},
+			network.PortMap{
+				network.MustParsePort("80/tcp"): []network.PortBinding{
+					{HostIP: netip.MustParseAddr("2.3.4.5"), HostPort: "8080"},
+					{HostIP: netip.MustParseAddr("5.6.7.8"), HostPort: "80"},
 				},
 			},
 			[]PortBinding{
@@ -81,33 +82,28 @@ func TestPortBindingFromDockerPortBinding(t *testing.T) {
 }
 
 func TestPortBindingErrors(t *testing.T) {
+	// Note: moby v29's network.Port is a validated struct, so a port with a
+	// non-numeric container port (e.g. "woof/tcp") can no longer be
+	// represented as input; that error path is unreachable and is not tested
+	// here. The remaining cases still cover both error names.
 	badInputs := []struct {
-		dockerPortBindings nat.PortMap
+		dockerPortBindings network.PortMap
 		errorName          string
 	}{
 		{
-			nat.PortMap{
-				nat.Port("woof/tcp"): []nat.PortBinding{
-					{HostIP: "2.3.4.5", HostPort: "8080"},
-					{HostIP: "5.6.7.8", HostPort: "80"},
+			network.PortMap{
+				network.MustParsePort("80/tcp"): []network.PortBinding{
+					{HostIP: netip.MustParseAddr("2.3.4.5"), HostPort: "8080"},
+					{HostIP: netip.MustParseAddr("5.6.7.8"), HostPort: "bark"},
 				},
 			},
 			UnparseablePortErrorName,
 		},
 		{
-			nat.PortMap{
-				nat.Port("80/tcp"): []nat.PortBinding{
-					{HostIP: "2.3.4.5", HostPort: "8080"},
-					{HostIP: "5.6.7.8", HostPort: "bark"},
-				},
-			},
-			UnparseablePortErrorName,
-		},
-		{
-			nat.PortMap{
-				nat.Port("80/bark"): []nat.PortBinding{
-					{HostIP: "2.3.4.5", HostPort: "8080"},
-					{HostIP: "5.6.7.8", HostPort: "80"},
+			network.PortMap{
+				network.MustParsePort("80/bark"): []network.PortBinding{
+					{HostIP: netip.MustParseAddr("2.3.4.5"), HostPort: "8080"},
+					{HostIP: netip.MustParseAddr("5.6.7.8"), HostPort: "80"},
 				},
 			},
 			UnrecognizedTransportProtocolErrorName,

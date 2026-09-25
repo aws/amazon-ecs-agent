@@ -45,9 +45,8 @@ import (
 	apitaskstatus "github.com/aws/amazon-ecs-agent/ecs-agent/api/task/status"
 	"github.com/aws/amazon-ecs-agent/ecs-agent/ec2"
 
-	"github.com/docker/docker/api/types"
-	dockercontainer "github.com/docker/docker/api/types/container"
-	sdkClient "github.com/docker/docker/client"
+	dockercontainer "github.com/moby/moby/api/types/container"
+	sdkClient "github.com/moby/moby/client"
 	"github.com/pborman/uuid"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -419,7 +418,7 @@ func logContainerLogs(t *testing.T, taskEngine TaskEngine, taskArn string, conta
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
 
-	logReader, err := client.ContainerLogs(ctx, container.DockerID, types.ContainerLogsOptions{
+	logReader, err := client.ContainerLogs(ctx, container.DockerID, sdkClient.ContainerLogsOptions{
 		ShowStdout: true,
 		ShowStderr: true,
 	})

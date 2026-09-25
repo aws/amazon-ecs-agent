@@ -21,7 +21,7 @@ import (
 	"strconv"
 	"testing"
 
-	"github.com/docker/docker/api/types/events"
+	"github.com/moby/moby/api/types/events"
 	"github.com/stretchr/testify/assert"
 )
 
@@ -38,9 +38,9 @@ func TestProduceConsume(t *testing.T) {
 	go func() {
 		for i := 0; i < 10000; i++ {
 			producer <- events.Message{
-				ID:     strconv.Itoa(i),
+				Actor:  events.Actor{ID: strconv.Itoa(i)},
 				Type:   containerTypeEvent,
-				Status: "die",
+				Action: "die",
 			}
 		}
 	}()
@@ -60,11 +60,11 @@ func TestIgnoreEvents(t *testing.T) {
 	go buffer.Consume(consumer)
 
 	// event with empty ID
-	producer <- events.Message{Type: containerTypeEvent, Status: "stop"}
+	producer <- events.Message{Type: containerTypeEvent, Action: "stop"}
 	// event with wrong type
-	producer <- events.Message{ID: "id", Status: "stop", Type: "image"}
+	producer <- events.Message{Actor: events.Actor{ID: "id"}, Action: "stop", Type: "image"}
 	for _, event := range containerEvents {
-		producer <- events.Message{ID: "id", Type: containerTypeEvent, Status: event + "invalid"}
+		producer <- events.Message{Actor: events.Actor{ID: "id"}, Type: containerTypeEvent, Action: events.Action(event + "invalid")}
 	}
 
 	buffer.lock.Lock()
