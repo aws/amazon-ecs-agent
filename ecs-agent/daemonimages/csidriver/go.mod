@@ -10,7 +10,7 @@ require (
 	github.com/kubernetes-csi/csi-proxy/client v1.1.3
 	github.com/stretchr/testify v1.9.0
 	golang.org/x/sys v0.47.0
-	google.golang.org/grpc v1.83.1
+	google.golang.org/grpc v1.83.2
 	k8s.io/apimachinery v0.30.1
 	k8s.io/klog/v2 v2.120.1
 	k8s.io/mount-utils v0.30.1
@@ -28,7 +28,7 @@ require (
 	github.com/pkg/errors v0.9.1 // indirect
 	github.com/pmezard/go-difflib v1.0.0 // indirect
 	golang.org/x/mod v0.38.0 // indirect
-	golang.org/x/net v0.57.0 // indirect
+	golang.org/x/net v0.58.0 // indirect
 	golang.org/x/sync v0.22.0 // indirect
 	golang.org/x/text v0.41.0 // indirect
 	golang.org/x/tools v0.48.0 // indirect
