@@ -84,7 +84,7 @@ func testManagedLinuxRegularENIConfiguration(t *testing.T) {
 	// Non-primary ENI case. The default gateway is withheld from non-primary interfaces.
 	eni.Default = false
 	eniConfig = createENIPluginConfigs(netNSPath, eni)
-	eniConfig.GatewayIPAddresses = []string{}
+	eniConfig.(*ecscni.ENIConfig).GatewayIPAddresses = []string{}
 	gomock.InOrder(
 		osWrapper.EXPECT().Setenv("ECS_CNI_LOG_FILE", ecscni.PluginLogPath).Times(1),
 		osWrapper.EXPECT().Setenv("IPAM_DB_PATH", filepath.Join(managedLinuxPlatform.stateDBDir, "eni-ipam.db")),
@@ -156,9 +156,10 @@ func testManagedLinuxNonPrimaryBranchENIConfiguration(t *testing.T) {
 	eni.DesiredStatus = status.NetworkReadyPull
 
 	cniConfig := createBranchENIConfig(netNSPath, eni, VPCBranchENIInterfaceTypeVlan, false)
-	cniConfig.GatewayIPAddresses = []string{}
-	require.Equal(t, "eth2", cniConfig.IfName)
-	require.False(t, cniConfig.BlockIMDS)
+	branchConfig := cniConfig.(*ecscni.VPCBranchENIConfig)
+	branchConfig.GatewayIPAddresses = []string{}
+	require.Equal(t, "eth2", branchConfig.IfName)
+	require.False(t, branchConfig.BlockIMDS)
 
 	// Setup workflow: no bridge plugin runs, no default gateway is passed, and
 	// IMDS blocking is left to the primary interface.

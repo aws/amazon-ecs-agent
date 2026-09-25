@@ -279,10 +279,10 @@ func (m *managedLinux) configureBranchENI(ctx context.Context, netNSPath string,
 
 // regularENIConfig builds the ecs-eni plugin configuration for the ENI,
 // withholding the default gateway from non-primary interfaces.
-func (m *managedLinux) regularENIConfig(netNSPath string, eni *networkinterface.NetworkInterface) *ecscni.ENIConfig {
+func (m *managedLinux) regularENIConfig(netNSPath string, eni *networkinterface.NetworkInterface) ecscni.PluginConfig {
 	eniConfig := createENIPluginConfigs(netNSPath, eni)
 	if !eni.IsPrimary() {
-		eniConfig.GatewayIPAddresses = []string{}
+		eniConfig.(*ecscni.ENIConfig).GatewayIPAddresses = []string{}
 	}
 	return eniConfig
 }
@@ -302,11 +302,11 @@ func (m *managedLinux) regularENIConfig(netNSPath string, eni *networkinterface.
 // for every interface sharing that netns. Asking the plugin to block IMDS
 // again for a non-primary interface makes it add the same routes a second
 // time, which fails with EEXIST and aborts the task's network setup.
-func (m *managedLinux) branchENIConfig(netNSPath string, eni *networkinterface.NetworkInterface) *ecscni.VPCBranchENIConfig {
+func (m *managedLinux) branchENIConfig(netNSPath string, eni *networkinterface.NetworkInterface) ecscni.PluginConfig {
 	blockIMDS := blockInstanceMetadataDefault && eni.IsPrimary()
 	branchConfig := createBranchENIConfig(netNSPath, eni, VPCBranchENIInterfaceTypeVlan, blockIMDS)
 	if !eni.IsPrimary() {
-		branchConfig.GatewayIPAddresses = []string{}
+		branchConfig.(*ecscni.VPCBranchENIConfig).GatewayIPAddresses = []string{}
 	}
 	return branchConfig
 }
