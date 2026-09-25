@@ -194,6 +194,15 @@ func (nb *networkBuilder) startAWSVPC(ctx context.Context, taskID string, netNS 
 		}
 
 		if netNS.ServiceConnectConfig != nil {
+			// The hosts file is first written in the NONE -> READY_PULL
+			// transition, which may precede delivery of the ServiceConnect
+			// hostname mappings when the namespace is built ahead of the task
+			// payload. Recreating the DNS config files is idempotent.
+			err = nb.platformAPI.CreateDNSConfig(taskID, netNS)
+			if err != nil {
+				return errors.Wrapf(err, "failed to recreate DNS config in netns %s", netNS.Name)
+			}
+
 			logger.Debug("Configuring ServiceConnect", logger.Fields{
 				"ServiceConnectConfig": netNS.ServiceConnectConfig,
 			})

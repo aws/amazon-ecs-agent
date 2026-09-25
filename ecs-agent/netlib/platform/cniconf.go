@@ -22,6 +22,8 @@ const (
 	AgentEndpoint = "169.254.170.2/32"
 
 	// Daemon-bridge networking constants
+	// daemonBridgeNetNSName is the shared namespace every daemon on the host runs in.
+	daemonBridgeNetNSName   = "host-daemon"
 	DaemonBridgeGatewayIP   = "169.254.172.1"
 	DaemonBridgeIP          = "169.254.172.2/32"
 	DefaultRouteDestination = "0.0.0.0/0"

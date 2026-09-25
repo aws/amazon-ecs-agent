@@ -20,6 +20,7 @@ import (
 
 	"github.com/aws/amazon-ecs-agent/ecs-agent/netlib/model/ecscni"
 	"github.com/aws/amazon-ecs-agent/ecs-agent/netlib/model/tasknetworkconfig"
+	utilsnet "github.com/aws/amazon-ecs-agent/ecs-agent/utils/net"
 
 	"github.com/containernetworking/cni/pkg/types"
 )
@@ -77,18 +78,7 @@ func (c *common) executeCNIPlugin(
 // interfacesMACToName lists all network interfaces on the host inside the default
 // netns and returns a mac address to device name map.
 func (c *common) interfacesMACToName() (map[string]string, error) {
-	links, err := c.net.Interfaces()
-	if err != nil {
-		return nil, err
-	}
-
-	// Build a map of interface MAC address to name on the host.
-	macToName := make(map[string]string)
-	for _, link := range links {
-		macToName[link.HardwareAddr.String()] = link.Name
-	}
-
-	return macToName, nil
+	return utilsnet.MACToNameMap(c.net)
 }
 
 // HandleHostMode by default we do not want to support host mode.

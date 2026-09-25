@@ -127,6 +127,29 @@ func getDaemonBridgeNATArgs(subnet string) []string {
 	}
 }
 
+// getDaemonNATArgs returns the MASQUERADE rule for the daemon's traffic leaving
+// the bridge subnet.
+func getDaemonNATArgs(daemonAddr, subnet string) []string {
+	return []string{
+		"POSTROUTING",
+		"-s", daemonAddr,
+		"!", "-d", subnet,
+		"-j", "MASQUERADE",
+	}
+}
+
+// getDaemonEgressNATArgs is getDaemonNATArgs bound to one output interface: the
+// task ENI that a task namespace carries the daemon's traffic out over.
+func getDaemonEgressNATArgs(daemonAddr, subnet, deviceName string) []string {
+	return []string{
+		"POSTROUTING",
+		"-s", daemonAddr,
+		"!", "-d", subnet,
+		"-o", deviceName,
+		"-j", "MASQUERADE",
+	}
+}
+
 // getSimpleIPv6NATArgs returns simple MASQUERADE rule for all IPv6 traffic.
 // Use this if you don't want to restrict by source subnet.
 func getSimpleIPv6NATArgs() []string {
@@ -163,10 +186,20 @@ func getIntrospectionBridgeDropArgs() []string {
 	}
 }
 
+// runSysctlCommand is a variable so tests can observe the settings applied
+// without a real kernel.
+var runSysctlCommand = func(args ...string) ([]byte, error) {
+	// sysctlExecutable is a fixed constant and args are built from internal
+	// constants (forwarding keys, device names from the interface model); none
+	// are user-controlled. exec.Command runs the binary directly (no shell), so
+	// there is no shell-injection surface.
+	// nosemgrep: command-injection-exec-variable
+	return exec.Command(sysctlExecutable, args...).CombinedOutput()
+}
+
 // enableSysctlSetting enables a sysctl setting with the given key and value.
 func enableSysctlSetting(key string, value string) error {
-	cmd := exec.Command(sysctlExecutable, "-w", fmt.Sprintf("%s=%s", key, value))
-	output, err := cmd.CombinedOutput()
+	output, err := runSysctlCommand("-w", fmt.Sprintf("%s=%s", key, value))
 	if err != nil {
 		logger.Error("sysctl command failed", logger.Fields{
 			"key":             key,
@@ -217,6 +250,30 @@ func enableSystemSettings(ipComp ipcompatibility.IPCompatibility) error {
 		enableSysctlSetting(bridgeNetfilterCallIPv6Key, "1")
 	}
 
+	return nil
+}
+
+// enableTaskNamespaceForwarding enables IP forwarding inside a task network
+// namespace for the address families the given interface carries. IPv6
+// forwarding is per interface in the kernel, so the device itself and
+// "default" (for interfaces created afterwards) are set alongside "all".
+func enableTaskNamespaceForwarding(ipComp ipcompatibility.IPCompatibility, deviceName string) error {
+	if ipComp.IsIPv4Compatible() {
+		if err := enableSysctlSetting(ipv4ForwardingKey, "1"); err != nil {
+			return fmt.Errorf("failed to enable IPv4 forwarding: %w", err)
+		}
+	}
+	if ipComp.IsIPv6Compatible() {
+		for _, key := range []string{
+			ipv6ForwardingKey,
+			"net.ipv6.conf.default.forwarding",
+			fmt.Sprintf("net.ipv6.conf.%s.forwarding", deviceName),
+		} {
+			if err := enableSysctlSetting(key, "1"); err != nil {
+				return fmt.Errorf("failed to enable IPv6 forwarding (%s): %w", key, err)
+			}
+		}
+	}
 	return nil
 }
 
