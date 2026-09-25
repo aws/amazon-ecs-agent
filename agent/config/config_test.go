@@ -1080,7 +1080,7 @@ func TestDetermineIMDSIAMRolesConfig(t *testing.T) {
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
 			cfg := &Config{}
-			cfg.determineIMDSIAMRolesConfig(tc.imdsAvailable, tc.previouslyEnabled, tc.hasNonTerminalTasks)
+			cfg.DetermineIMDSIAMRolesConfig(tc.imdsAvailable, tc.previouslyEnabled, tc.hasNonTerminalTasks)
 			assert.Equal(t, tc.expectedEnabled, cfg.IMDSIAMRolesEnabled)
 		})
 	}
