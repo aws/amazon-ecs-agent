@@ -130,11 +130,17 @@ const (
 	// First placeholder is host data dir, second placeholder is taskID.
 	firelensConfigBindFormatFluentd   = "%s/data/firelens/%s/config/fluent.conf:/fluentd/etc/fluent.conf"
 	firelensConfigBindFormatFluentbit = "%s/data/firelens/%s/config/fluent.conf:/fluent-bit/etc/fluent-bit.conf"
+	// firelensConfigBindFormatFluentbitYAML is the fluentbit config file bind mount format used when the firelens
+	// container's external config is YAML formatted; see firelens.IsYAMLExternalConfigValue.
+	firelensConfigBindFormatFluentbitYAML = "%s/data/firelens/%s/config/fluent-bit.yaml:/fluent-bit/etc/fluent-bit.yaml"
 
 	// firelensS3ConfigBindFormat specifies the format of the bind mount for the firelens config file downloaded from S3.
 	// First placeholder is host data dir, second placeholder is taskID, third placeholder is the s3 config path inside
 	// the firelens container.
 	firelensS3ConfigBindFormat = "%s/data/firelens/%s/config/external.conf:%s"
+	// firelensS3ConfigBindFormatYAML is the S3 external config bind mount format used when that config is YAML
+	// formatted; see firelens.IsYAMLExternalConfigValue.
+	firelensS3ConfigBindFormatYAML = "%s/data/firelens/%s/config/external.yaml:%s"
 
 	// firelensSocketBindFormat specifies the format for firelens container's socket directory bind mount.
 	// First placeholder is host data dir, second placeholder is taskID.
@@ -1671,14 +1677,24 @@ func (task *Task) AddFirelensContainerBindMounts(firelensConfig *apicontainer.Fi
 	config *config.Config) *apierrors.HostConfigError {
 	taskID := task.GetID()
 
+	// YAML formatted external configs are only supported for fluentbit; the firelens resource fails the task fast
+	// if a YAML external config is specified for a fluentd firelens container, so it's safe to only check this for
+	// FirelensConfigTypeFluentbit below.
+	usesYAMLConfig := firelens.IsYAMLExternalConfigValue(firelensConfig.Options[firelens.ExternalConfigValueOption])
+
 	var configBind, s3ConfigBind, socketBind string
 	switch firelensConfig.Type {
 	case firelens.FirelensConfigTypeFluentd:
 		configBind = fmt.Sprintf(firelensConfigBindFormatFluentd, config.DataDirOnHost, taskID)
 		s3ConfigBind = fmt.Sprintf(firelensS3ConfigBindFormat, config.DataDirOnHost, taskID, firelens.S3ConfigPathFluentd)
 	case firelens.FirelensConfigTypeFluentbit:
-		configBind = fmt.Sprintf(firelensConfigBindFormatFluentbit, config.DataDirOnHost, taskID)
-		s3ConfigBind = fmt.Sprintf(firelensS3ConfigBindFormat, config.DataDirOnHost, taskID, firelens.S3ConfigPathFluentbit)
+		if usesYAMLConfig {
+			configBind = fmt.Sprintf(firelensConfigBindFormatFluentbitYAML, config.DataDirOnHost, taskID)
+			s3ConfigBind = fmt.Sprintf(firelensS3ConfigBindFormatYAML, config.DataDirOnHost, taskID, firelens.S3ConfigPathFluentbitYAML)
+		} else {
+			configBind = fmt.Sprintf(firelensConfigBindFormatFluentbit, config.DataDirOnHost, taskID)
+			s3ConfigBind = fmt.Sprintf(firelensS3ConfigBindFormat, config.DataDirOnHost, taskID, firelens.S3ConfigPathFluentbit)
+		}
 	default:
 		return &apierrors.HostConfigError{Msg: fmt.Sprintf("encounter invalid firelens configuration type %s",
 			firelensConfig.Type)}
