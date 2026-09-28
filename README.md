@@ -17,75 +17,6 @@ The best source of information on running this software is the
 On the [Amazon Linux AMI](https://aws.amazon.com/amazon-linux-ami/), we provide an installable RPM which can be used via
 `sudo yum install ecs-init && sudo start ecs`. This is the recommended way to run it in this environment.
 
-### On Other Linux AMIs
-
-[Amazon ECS docs](https://docs.aws.amazon.com/AmazonECS/latest/developerguide/ecs-agent-install.html) provides deb and rpm packages and instructions to install ECS Container Agent on non-Amazon Linux instances.
-
-The Amazon ECS Container Agent may also be run in a Docker container on an EC2 instance with a recent Docker version
-installed. Docker images are available in
-[Docker Hub Repository](https://hub.docker.com/r/amazon/amazon-ecs-agent) and [ECR Public Gallery](https://gallery.ecr.aws/ecs/amazon-ecs-agent).
-
-```bash
-$ # Set up directories the agent uses
-$ mkdir -p /var/log/ecs /etc/ecs /var/lib/ecs/data
-$ touch /etc/ecs/ecs.config
-$ # Set up necessary rules to enable IAM roles for tasks
-$ sysctl -w net.ipv4.conf.all.route_localnet=1
-$ iptables -t nat -A PREROUTING -p tcp -d 169.254.170.2 --dport 80 -j DNAT --to-destination 127.0.0.1:51679
-$ iptables -t nat -A OUTPUT -d 169.254.170.2 -p tcp -m tcp --dport 80 -j REDIRECT --to-ports 51679
-$ # Run the agent
-$ docker run --name ecs-agent \
-    --detach=true \
-    --restart=on-failure:10 \
-    --volume=/var/run/docker.sock:/var/run/docker.sock \
-    --volume=/var/log/ecs:/log \
-    --volume=/var/lib/ecs/data:/data \
-    --net=host \
-    --env-file=/etc/ecs/ecs.config \
-    --env=ECS_LOGFILE=/log/ecs-agent.log \
-    --env=ECS_DATADIR=/data/ \
-    --env=ECS_ENABLE_TASK_IAM_ROLE=true \
-    --env=ECS_ENABLE_TASK_IAM_ROLE_NETWORK_HOST=true \
-    amazon/amazon-ecs-agent:latest
-```
-
-### On Other Linux AMIs when awsvpc networking mode is enabled
-
-For the AWS VPC networking mode, ECS agent requires CNI plugin and dhclient to be available. ECS also needs the ecs-init to run as part of its startup.
-The following is an example of docker run configuration for running ecs-agent with Task ENI enabled. Note that ECS agent currently only supports cgroupfs for cgroup driver.
-```
-$ # Run the agent
-$ /usr/bin/docker run --name ecs-agent \
---init \
---restart=on-failure:10 \
---volume=/var/run:/var/run \
---volume=/var/log/ecs/:/log:Z \
---volume=/var/lib/ecs/data:/data:Z \
---volume=/etc/ecs:/etc/ecs \
---volume=/sbin:/host/sbin \
---volume=/lib:/lib \
---volume=/lib64:/lib64 \
---volume=/usr/lib:/usr/lib \
---volume=/usr/lib64:/usr/lib64 \
---volume=/proc:/host/proc \
---volume=/sys/fs/cgroup:/sys/fs/cgroup \
---net=host \
---env-file=/etc/ecs/ecs.config \
---cap-add=sys_admin \
---cap-add=net_admin \
---env ECS_ENABLE_TASK_ENI=true \
---env ECS_UPDATES_ENABLED=true \
---env ECS_ENGINE_TASK_CLEANUP_WAIT_DURATION=1h \
---env ECS_DATADIR=/data \
---env ECS_ENABLE_TASK_IAM_ROLE=true \
---env ECS_ENABLE_TASK_IAM_ROLE_NETWORK_HOST=true \
---env ECS_LOGFILE=/log/ecs-agent.log \
---env ECS_AVAILABLE_LOGGING_DRIVERS='["json-file","awslogs","syslog","none"]' \
---env ECS_LOGLEVEL=info \
---detach \
-amazon/amazon-ecs-agent:latest
-```
-
 See also the Advanced Usage section below.
 
 ### On the ECS Optimized Windows AMI
@@ -126,7 +57,7 @@ This installs the required build dependencies, builds ECS Agent image and saves 
 ```
 docker load < ecs-agent-v${AGENT_VERSION}.tar
 ```
-Follow the instructions [above](https://github.com/aws/amazon-ecs-agent#on-other-linux-amis) to continue with the installation
+Follow the [Amazon ECS docs](https://docs.aws.amazon.com/AmazonECS/latest/developerguide/ecs-agent-install.html) to continue with the installation
 
 ### Build and run standalone (Linux)
 
