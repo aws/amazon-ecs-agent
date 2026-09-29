@@ -309,6 +309,8 @@ func getExpectedCalls_StartAWSVPC(
 				Return(nil).Times(1))
 		}
 		if netNS.ServiceConnectConfig != nil {
+			// DNS config files are recreated before ServiceConnect is configured.
+			calls = append(calls, platformAPI.EXPECT().CreateDNSConfig(taskID, netNS).Return(nil).Times(1))
 			calls = append(calls, platformAPI.EXPECT().ConfigureServiceConnect(ctx, netNS.Path,
 				netNS.GetPrimaryInterface(), netNS.ServiceConnectConfig).Return(nil).Times(1))
 		}

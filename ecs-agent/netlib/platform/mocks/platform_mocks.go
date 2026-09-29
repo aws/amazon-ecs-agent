@@ -54,6 +54,21 @@ func (m *MockAPI) EXPECT() *MockAPIMockRecorder {
 	return m.recorder
 }
 
+// BuildAttachmentNetworkConfiguration mocks base method.
+func (m *MockAPI) BuildAttachmentNetworkConfiguration(arg0 string, arg1 *ecsacs.ElasticNetworkInterface) (*tasknetworkconfig.AttachmentNetworkConfig, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "BuildAttachmentNetworkConfiguration", arg0, arg1)
+	ret0, _ := ret[0].(*tasknetworkconfig.AttachmentNetworkConfig)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// BuildAttachmentNetworkConfiguration indicates an expected call of BuildAttachmentNetworkConfiguration.
+func (mr *MockAPIMockRecorder) BuildAttachmentNetworkConfiguration(arg0, arg1 interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "BuildAttachmentNetworkConfiguration", reflect.TypeOf((*MockAPI)(nil).BuildAttachmentNetworkConfiguration), arg0, arg1)
+}
+
 // BuildTaskNetworkConfiguration mocks base method.
 func (m *MockAPI) BuildTaskNetworkConfiguration(arg0 string, arg1 *ecsacs.Task) (*tasknetworkconfig.TaskNetworkConfig, error) {
 	m.ctrl.T.Helper()
@@ -179,6 +194,21 @@ func (m *MockAPI) DeleteNetNS(arg0 string) error {
 func (mr *MockAPIMockRecorder) DeleteNetNS(arg0 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "DeleteNetNS", reflect.TypeOf((*MockAPI)(nil).DeleteNetNS), arg0)
+}
+
+// ExtendTaskNetworkConfiguration mocks base method.
+func (m *MockAPI) ExtendTaskNetworkConfiguration(arg0 string, arg1 *ecsacs.Task, arg2 []*tasknetworkconfig.NetworkNamespace) (*tasknetworkconfig.TaskNetworkConfig, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "ExtendTaskNetworkConfiguration", arg0, arg1, arg2)
+	ret0, _ := ret[0].(*tasknetworkconfig.TaskNetworkConfig)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// ExtendTaskNetworkConfiguration indicates an expected call of ExtendTaskNetworkConfiguration.
+func (mr *MockAPIMockRecorder) ExtendTaskNetworkConfiguration(arg0, arg1, arg2 interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ExtendTaskNetworkConfiguration", reflect.TypeOf((*MockAPI)(nil).ExtendTaskNetworkConfiguration), arg0, arg1, arg2)
 }
 
 // GetNetNSPath mocks base method.

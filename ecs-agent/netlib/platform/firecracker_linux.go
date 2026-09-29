@@ -50,7 +50,17 @@ func (f *firecraker) BuildTaskNetworkConfiguration(
 		return nil, err
 	}
 
-	return f.common.buildTaskNetworkConfiguration(taskID, taskPayload, true, i2n)
+	return f.common.buildTaskNetworkConfiguration(taskID, taskPayload, true, i2n, nil)
+}
+
+// ExtendTaskNetworkConfiguration is unsupported: this platform builds task
+// networking from the task payload only.
+func (f *firecraker) ExtendTaskNetworkConfiguration(
+	_ string,
+	_ *ecsacs.Task,
+	_ []*tasknetworkconfig.NetworkNamespace,
+) (*tasknetworkconfig.TaskNetworkConfig, error) {
+	return nil, errors.New("extending task network configuration is not supported on this platform")
 }
 
 func (f *firecraker) CreateDNSConfig(taskID string, netNS *tasknetworkconfig.NetworkNamespace) error {
