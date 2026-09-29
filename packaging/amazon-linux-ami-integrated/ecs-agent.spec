@@ -27,7 +27,7 @@
 %global ebs_csi_driver_dir /var/lib/ecs/deps/daemons/ebs-csi-driver
 
 Name:           ecs-init
-Version:        1.107.0
+Version:        1.108.0
 Release:        1%{?dist}
 License:        Apache 2.0
 Summary:        Amazon Elastic Container Service initialization application
@@ -92,10 +92,12 @@ Provides:       bundled(golang(github.com/aws/aws-sdk-go-v2/aws/signer/internal/
 Provides:       bundled(golang(github.com/aws/aws-sdk-go-v2/aws/signer/v4))
 Provides:       bundled(golang(github.com/aws/aws-sdk-go-v2/aws/transport/http))
 Provides:       bundled(golang(github.com/aws/aws-sdk-go-v2/config))
+Provides:       bundled(golang(github.com/aws/aws-sdk-go-v2/config/internal/ini))
 Provides:       bundled(golang(github.com/aws/aws-sdk-go-v2/credentials))
 Provides:       bundled(golang(github.com/aws/aws-sdk-go-v2/credentials/ec2rolecreds))
 Provides:       bundled(golang(github.com/aws/aws-sdk-go-v2/credentials/endpointcreds))
 Provides:       bundled(golang(github.com/aws/aws-sdk-go-v2/credentials/endpointcreds/internal/client))
+Provides:       bundled(golang(github.com/aws/aws-sdk-go-v2/credentials/logincreds))
 Provides:       bundled(golang(github.com/aws/aws-sdk-go-v2/credentials/processcreds))
 Provides:       bundled(golang(github.com/aws/aws-sdk-go-v2/credentials/ssocreds))
 Provides:       bundled(golang(github.com/aws/aws-sdk-go-v2/credentials/stscreds))
@@ -110,7 +112,6 @@ Provides:       bundled(golang(github.com/aws/aws-sdk-go-v2/internal/context))
 Provides:       bundled(golang(github.com/aws/aws-sdk-go-v2/internal/endpoints))
 Provides:       bundled(golang(github.com/aws/aws-sdk-go-v2/internal/endpoints/awsrulesfn))
 Provides:       bundled(golang(github.com/aws/aws-sdk-go-v2/internal/endpoints/v2))
-Provides:       bundled(golang(github.com/aws/aws-sdk-go-v2/internal/ini))
 Provides:       bundled(golang(github.com/aws/aws-sdk-go-v2/internal/rand))
 Provides:       bundled(golang(github.com/aws/aws-sdk-go-v2/internal/sdk))
 Provides:       bundled(golang(github.com/aws/aws-sdk-go-v2/internal/sdkio))
@@ -118,6 +119,7 @@ Provides:       bundled(golang(github.com/aws/aws-sdk-go-v2/internal/shareddefau
 Provides:       bundled(golang(github.com/aws/aws-sdk-go-v2/internal/strings))
 Provides:       bundled(golang(github.com/aws/aws-sdk-go-v2/internal/sync/singleflight))
 Provides:       bundled(golang(github.com/aws/aws-sdk-go-v2/internal/timeconv))
+Provides:       bundled(golang(github.com/aws/aws-sdk-go-v2/internal/timeouts))
 Provides:       bundled(golang(github.com/aws/aws-sdk-go-v2/internal/v4a))
 Provides:       bundled(golang(github.com/aws/aws-sdk-go-v2/internal/v4a/internal/crypto))
 Provides:       bundled(golang(github.com/aws/aws-sdk-go-v2/internal/v4a/internal/v4))
@@ -132,6 +134,9 @@ Provides:       bundled(golang(github.com/aws/aws-sdk-go-v2/service/s3/internal/
 Provides:       bundled(golang(github.com/aws/aws-sdk-go-v2/service/s3/internal/customizations))
 Provides:       bundled(golang(github.com/aws/aws-sdk-go-v2/service/s3/internal/endpoints))
 Provides:       bundled(golang(github.com/aws/aws-sdk-go-v2/service/s3/types))
+Provides:       bundled(golang(github.com/aws/aws-sdk-go-v2/service/signin))
+Provides:       bundled(golang(github.com/aws/aws-sdk-go-v2/service/signin/internal/endpoints))
+Provides:       bundled(golang(github.com/aws/aws-sdk-go-v2/service/signin/types))
 Provides:       bundled(golang(github.com/aws/aws-sdk-go-v2/service/sso))
 Provides:       bundled(golang(github.com/aws/aws-sdk-go-v2/service/sso/internal/endpoints))
 Provides:       bundled(golang(github.com/aws/aws-sdk-go-v2/service/sso/types))
@@ -395,6 +400,9 @@ fi
 %endif
 
 %changelog
+* Tue Sep 29 2026 amazon-ecs-bot <amazon-ecs-bot@amazon.com> - 1.108.0-1
+- Cache Agent version 1.108.0
+
 * Thu Sep 17 2026 amazon-ecs-bot <amazon-ecs-bot@amazon.com> - 1.107.0-1
 - Cache Agent version 1.107.0
 

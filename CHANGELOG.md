@@ -1,5 +1,17 @@
 # Changelog
 
+# 1.108.0
+* Enhancement - Add ECS-Init install pointer for non-Amazon Linux AMIs to README [#5161](https://github.com/aws/amazon-ecs-agent/pull/5161)
+* Enhancement - Remove direct docker run instructions from README [#5160](https://github.com/aws/amazon-ecs-agent/pull/5160)
+* Enhancement - Bump github.com/aws/aws-sdk-go-v2/config from 1.28.1 to 1.33.6 in /ecs-agent, /agent, and /ecs-init [#5159](https://github.com/aws/amazon-ecs-agent/pull/5159)
+* Feature - Enable IMDS IAM roles config resolution [#5154](https://github.com/aws/amazon-ecs-agent/pull/5154)
+* Enhancement - Bump github.com/containerd/containerd from 1.7.33 to 1.7.36 in /agent [#5155](https://github.com/aws/amazon-ecs-agent/pull/5155)
+* Enhancement - Bump github.com/containerd/containerd from 1.7.35 to 1.7.36 in /ecs-init [#5156](https://github.com/aws/amazon-ecs-agent/pull/5156)
+* Enhancement - Bump github.com/aws/aws-sdk-go-v2/service/ec2 from 1.195.0 to 1.334.0 in /ecs-agent and /agent [#5148](https://github.com/aws/amazon-ecs-agent/pull/5148)
+* Enhancement - Bump google.golang.org/grpc from 1.83.1 to 1.83.2 in /ecs-agent, /ecs-agent/daemonimages/csidriver and /agent [#5153](https://github.com/aws/amazon-ecs-agent/pull/5153)
+* Enhancement - Bump go.opentelemetry.io/otel/exporters/otlp/otlptrace/otlptracehttp from 1.43.0 to 1.45.0 in /agent [#5141](https://github.com/aws/amazon-ecs-agent/pull/5141)
+* Enhancement - IMDS credential scanner/refresher updates [#5145](https://github.com/aws/amazon-ecs-agent/pull/5145)
+
 # 1.107.0
 * Feature - Add MPS GPU Sharing capability [#5139](https://github.com/aws/amazon-ecs-agent/pull/5139)
   * Enhancement - Add MPS control daemon health gate task resource [#5107](https://github.com/aws/amazon-ecs-agent/pull/5107)
