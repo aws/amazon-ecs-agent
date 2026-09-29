@@ -19,6 +19,10 @@ On the [Amazon Linux AMI](https://aws.amazon.com/amazon-linux-ami/), we provide 
 
 See also the Advanced Usage section below.
 
+### On Other Linux AMIs
+
+On non-Amazon Linux instances, install the agent with ECS-Init by following the [Amazon ECS docs](https://docs.aws.amazon.com/AmazonECS/latest/developerguide/ecs-agent-install.html#ecs-agent-install-nonamazonlinux).
+
 ### On the ECS Optimized Windows AMI
 
 ECS Optimized Windows AMI ships with a pre-installed PowerShell module called ECSTools to install, configure, and run the ECS Agent as a Windows service.
