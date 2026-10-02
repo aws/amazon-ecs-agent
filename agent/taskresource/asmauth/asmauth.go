@@ -27,7 +27,7 @@ import (
 	apicontainerstatus "github.com/aws/amazon-ecs-agent/ecs-agent/api/container/status"
 	"github.com/aws/amazon-ecs-agent/ecs-agent/api/task/status"
 	"github.com/aws/amazon-ecs-agent/ecs-agent/credentials"
-	"github.com/docker/docker/api/types/registry"
+	"github.com/moby/moby/api/types/registry"
 
 	"github.com/cihub/seelog"
 	"github.com/pkg/errors"

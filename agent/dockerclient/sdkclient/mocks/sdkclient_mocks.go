@@ -23,17 +23,8 @@ import (
 	io "io"
 	reflect "reflect"
 
-	types "github.com/docker/docker/api/types"
-	container "github.com/docker/docker/api/types/container"
-	events "github.com/docker/docker/api/types/events"
-	filters "github.com/docker/docker/api/types/filters"
-	image "github.com/docker/docker/api/types/image"
-	network "github.com/docker/docker/api/types/network"
-	registry "github.com/docker/docker/api/types/registry"
-	system "github.com/docker/docker/api/types/system"
-	volume "github.com/docker/docker/api/types/volume"
 	gomock "github.com/golang/mock/gomock"
-	v1 "github.com/opencontainers/image-spec/specs-go/v1"
+	client "github.com/moby/moby/client"
 )
 
 // MockClient is a mock of Client interface.
@@ -74,84 +65,40 @@ func (mr *MockClientMockRecorder) ClientVersion() *gomock.Call {
 }
 
 // ContainerCreate mocks base method.
-func (m *MockClient) ContainerCreate(arg0 context.Context, arg1 *container.Config, arg2 *container.HostConfig, arg3 *network.NetworkingConfig, arg4 *v1.Platform, arg5 string) (container.CreateResponse, error) {
+func (m *MockClient) ContainerCreate(arg0 context.Context, arg1 client.ContainerCreateOptions) (client.ContainerCreateResult, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "ContainerCreate", arg0, arg1, arg2, arg3, arg4, arg5)
-	ret0, _ := ret[0].(container.CreateResponse)
+	ret := m.ctrl.Call(m, "ContainerCreate", arg0, arg1)
+	ret0, _ := ret[0].(client.ContainerCreateResult)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
 // ContainerCreate indicates an expected call of ContainerCreate.
-func (mr *MockClientMockRecorder) ContainerCreate(arg0, arg1, arg2, arg3, arg4, arg5 interface{}) *gomock.Call {
+func (mr *MockClientMockRecorder) ContainerCreate(arg0, arg1 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ContainerCreate", reflect.TypeOf((*MockClient)(nil).ContainerCreate), arg0, arg1, arg2, arg3, arg4, arg5)
-}
-
-// ContainerExecCreate mocks base method.
-func (m *MockClient) ContainerExecCreate(arg0 context.Context, arg1 string, arg2 types.ExecConfig) (types.IDResponse, error) {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "ContainerExecCreate", arg0, arg1, arg2)
-	ret0, _ := ret[0].(types.IDResponse)
-	ret1, _ := ret[1].(error)
-	return ret0, ret1
-}
-
-// ContainerExecCreate indicates an expected call of ContainerExecCreate.
-func (mr *MockClientMockRecorder) ContainerExecCreate(arg0, arg1, arg2 interface{}) *gomock.Call {
-	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ContainerExecCreate", reflect.TypeOf((*MockClient)(nil).ContainerExecCreate), arg0, arg1, arg2)
-}
-
-// ContainerExecInspect mocks base method.
-func (m *MockClient) ContainerExecInspect(arg0 context.Context, arg1 string) (types.ContainerExecInspect, error) {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "ContainerExecInspect", arg0, arg1)
-	ret0, _ := ret[0].(types.ContainerExecInspect)
-	ret1, _ := ret[1].(error)
-	return ret0, ret1
-}
-
-// ContainerExecInspect indicates an expected call of ContainerExecInspect.
-func (mr *MockClientMockRecorder) ContainerExecInspect(arg0, arg1 interface{}) *gomock.Call {
-	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ContainerExecInspect", reflect.TypeOf((*MockClient)(nil).ContainerExecInspect), arg0, arg1)
-}
-
-// ContainerExecStart mocks base method.
-func (m *MockClient) ContainerExecStart(arg0 context.Context, arg1 string, arg2 types.ExecStartCheck) error {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "ContainerExecStart", arg0, arg1, arg2)
-	ret0, _ := ret[0].(error)
-	return ret0
-}
-
-// ContainerExecStart indicates an expected call of ContainerExecStart.
-func (mr *MockClientMockRecorder) ContainerExecStart(arg0, arg1, arg2 interface{}) *gomock.Call {
-	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ContainerExecStart", reflect.TypeOf((*MockClient)(nil).ContainerExecStart), arg0, arg1, arg2)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ContainerCreate", reflect.TypeOf((*MockClient)(nil).ContainerCreate), arg0, arg1)
 }
 
 // ContainerInspect mocks base method.
-func (m *MockClient) ContainerInspect(arg0 context.Context, arg1 string) (types.ContainerJSON, error) {
+func (m *MockClient) ContainerInspect(arg0 context.Context, arg1 string, arg2 client.ContainerInspectOptions) (client.ContainerInspectResult, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "ContainerInspect", arg0, arg1)
-	ret0, _ := ret[0].(types.ContainerJSON)
+	ret := m.ctrl.Call(m, "ContainerInspect", arg0, arg1, arg2)
+	ret0, _ := ret[0].(client.ContainerInspectResult)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
 // ContainerInspect indicates an expected call of ContainerInspect.
-func (mr *MockClientMockRecorder) ContainerInspect(arg0, arg1 interface{}) *gomock.Call {
+func (mr *MockClientMockRecorder) ContainerInspect(arg0, arg1, arg2 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ContainerInspect", reflect.TypeOf((*MockClient)(nil).ContainerInspect), arg0, arg1)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ContainerInspect", reflect.TypeOf((*MockClient)(nil).ContainerInspect), arg0, arg1, arg2)
 }
 
 // ContainerList mocks base method.
-func (m *MockClient) ContainerList(arg0 context.Context, arg1 container.ListOptions) ([]types.Container, error) {
+func (m *MockClient) ContainerList(arg0 context.Context, arg1 client.ContainerListOptions) (client.ContainerListResult, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "ContainerList", arg0, arg1)
-	ret0, _ := ret[0].([]types.Container)
+	ret0, _ := ret[0].(client.ContainerListResult)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
@@ -163,11 +110,12 @@ func (mr *MockClientMockRecorder) ContainerList(arg0, arg1 interface{}) *gomock.
 }
 
 // ContainerRemove mocks base method.
-func (m *MockClient) ContainerRemove(arg0 context.Context, arg1 string, arg2 container.RemoveOptions) error {
+func (m *MockClient) ContainerRemove(arg0 context.Context, arg1 string, arg2 client.ContainerRemoveOptions) (client.ContainerRemoveResult, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "ContainerRemove", arg0, arg1, arg2)
-	ret0, _ := ret[0].(error)
-	return ret0
+	ret0, _ := ret[0].(client.ContainerRemoveResult)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
 }
 
 // ContainerRemove indicates an expected call of ContainerRemove.
@@ -177,11 +125,12 @@ func (mr *MockClientMockRecorder) ContainerRemove(arg0, arg1, arg2 interface{}) 
 }
 
 // ContainerStart mocks base method.
-func (m *MockClient) ContainerStart(arg0 context.Context, arg1 string, arg2 container.StartOptions) error {
+func (m *MockClient) ContainerStart(arg0 context.Context, arg1 string, arg2 client.ContainerStartOptions) (client.ContainerStartResult, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "ContainerStart", arg0, arg1, arg2)
-	ret0, _ := ret[0].(error)
-	return ret0
+	ret0, _ := ret[0].(client.ContainerStartResult)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
 }
 
 // ContainerStart indicates an expected call of ContainerStart.
@@ -191,10 +140,10 @@ func (mr *MockClientMockRecorder) ContainerStart(arg0, arg1, arg2 interface{}) *
 }
 
 // ContainerStats mocks base method.
-func (m *MockClient) ContainerStats(arg0 context.Context, arg1 string, arg2 bool) (types.ContainerStats, error) {
+func (m *MockClient) ContainerStats(arg0 context.Context, arg1 string, arg2 client.ContainerStatsOptions) (client.ContainerStatsResult, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "ContainerStats", arg0, arg1, arg2)
-	ret0, _ := ret[0].(types.ContainerStats)
+	ret0, _ := ret[0].(client.ContainerStatsResult)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
@@ -206,11 +155,12 @@ func (mr *MockClientMockRecorder) ContainerStats(arg0, arg1, arg2 interface{}) *
 }
 
 // ContainerStop mocks base method.
-func (m *MockClient) ContainerStop(arg0 context.Context, arg1 string, arg2 container.StopOptions) error {
+func (m *MockClient) ContainerStop(arg0 context.Context, arg1 string, arg2 client.ContainerStopOptions) (client.ContainerStopResult, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "ContainerStop", arg0, arg1, arg2)
-	ret0, _ := ret[0].(error)
-	return ret0
+	ret0, _ := ret[0].(client.ContainerStopResult)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
 }
 
 // ContainerStop indicates an expected call of ContainerStop.
@@ -220,10 +170,10 @@ func (mr *MockClientMockRecorder) ContainerStop(arg0, arg1, arg2 interface{}) *g
 }
 
 // ContainerTop mocks base method.
-func (m *MockClient) ContainerTop(arg0 context.Context, arg1 string, arg2 []string) (container.ContainerTopOKBody, error) {
+func (m *MockClient) ContainerTop(arg0 context.Context, arg1 string, arg2 client.ContainerTopOptions) (client.ContainerTopResult, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "ContainerTop", arg0, arg1, arg2)
-	ret0, _ := ret[0].(container.ContainerTopOKBody)
+	ret0, _ := ret[0].(client.ContainerTopResult)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
@@ -235,10 +185,10 @@ func (mr *MockClientMockRecorder) ContainerTop(arg0, arg1, arg2 interface{}) *go
 }
 
 // DistributionInspect mocks base method.
-func (m *MockClient) DistributionInspect(arg0 context.Context, arg1, arg2 string) (registry.DistributionInspect, error) {
+func (m *MockClient) DistributionInspect(arg0 context.Context, arg1 string, arg2 client.DistributionInspectOptions) (client.DistributionInspectResult, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "DistributionInspect", arg0, arg1, arg2)
-	ret0, _ := ret[0].(registry.DistributionInspect)
+	ret0, _ := ret[0].(client.DistributionInspectResult)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
@@ -250,12 +200,11 @@ func (mr *MockClientMockRecorder) DistributionInspect(arg0, arg1, arg2 interface
 }
 
 // Events mocks base method.
-func (m *MockClient) Events(arg0 context.Context, arg1 types.EventsOptions) (<-chan events.Message, <-chan error) {
+func (m *MockClient) Events(arg0 context.Context, arg1 client.EventsListOptions) client.EventsResult {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "Events", arg0, arg1)
-	ret0, _ := ret[0].(<-chan events.Message)
-	ret1, _ := ret[1].(<-chan error)
-	return ret0, ret1
+	ret0, _ := ret[0].(client.EventsResult)
+	return ret0
 }
 
 // Events indicates an expected call of Events.
@@ -264,11 +213,56 @@ func (mr *MockClientMockRecorder) Events(arg0, arg1 interface{}) *gomock.Call {
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Events", reflect.TypeOf((*MockClient)(nil).Events), arg0, arg1)
 }
 
+// ExecCreate mocks base method.
+func (m *MockClient) ExecCreate(arg0 context.Context, arg1 string, arg2 client.ExecCreateOptions) (client.ExecCreateResult, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "ExecCreate", arg0, arg1, arg2)
+	ret0, _ := ret[0].(client.ExecCreateResult)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// ExecCreate indicates an expected call of ExecCreate.
+func (mr *MockClientMockRecorder) ExecCreate(arg0, arg1, arg2 interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ExecCreate", reflect.TypeOf((*MockClient)(nil).ExecCreate), arg0, arg1, arg2)
+}
+
+// ExecInspect mocks base method.
+func (m *MockClient) ExecInspect(arg0 context.Context, arg1 string, arg2 client.ExecInspectOptions) (client.ExecInspectResult, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "ExecInspect", arg0, arg1, arg2)
+	ret0, _ := ret[0].(client.ExecInspectResult)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// ExecInspect indicates an expected call of ExecInspect.
+func (mr *MockClientMockRecorder) ExecInspect(arg0, arg1, arg2 interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ExecInspect", reflect.TypeOf((*MockClient)(nil).ExecInspect), arg0, arg1, arg2)
+}
+
+// ExecStart mocks base method.
+func (m *MockClient) ExecStart(arg0 context.Context, arg1 string, arg2 client.ExecStartOptions) (client.ExecStartResult, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "ExecStart", arg0, arg1, arg2)
+	ret0, _ := ret[0].(client.ExecStartResult)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// ExecStart indicates an expected call of ExecStart.
+func (mr *MockClientMockRecorder) ExecStart(arg0, arg1, arg2 interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ExecStart", reflect.TypeOf((*MockClient)(nil).ExecStart), arg0, arg1, arg2)
+}
+
 // ImageImport mocks base method.
-func (m *MockClient) ImageImport(arg0 context.Context, arg1 types.ImageImportSource, arg2 string, arg3 types.ImageImportOptions) (io.ReadCloser, error) {
+func (m *MockClient) ImageImport(arg0 context.Context, arg1 client.ImageImportSource, arg2 string, arg3 client.ImageImportOptions) (client.ImageImportResult, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "ImageImport", arg0, arg1, arg2, arg3)
-	ret0, _ := ret[0].(io.ReadCloser)
+	ret0, _ := ret[0].(client.ImageImportResult)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
@@ -279,27 +273,31 @@ func (mr *MockClientMockRecorder) ImageImport(arg0, arg1, arg2, arg3 interface{}
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ImageImport", reflect.TypeOf((*MockClient)(nil).ImageImport), arg0, arg1, arg2, arg3)
 }
 
-// ImageInspectWithRaw mocks base method.
-func (m *MockClient) ImageInspectWithRaw(arg0 context.Context, arg1 string) (types.ImageInspect, []byte, error) {
+// ImageInspect mocks base method.
+func (m *MockClient) ImageInspect(arg0 context.Context, arg1 string, arg2 ...client.ImageInspectOption) (client.ImageInspectResult, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "ImageInspectWithRaw", arg0, arg1)
-	ret0, _ := ret[0].(types.ImageInspect)
-	ret1, _ := ret[1].([]byte)
-	ret2, _ := ret[2].(error)
-	return ret0, ret1, ret2
+	varargs := []interface{}{arg0, arg1}
+	for _, a := range arg2 {
+		varargs = append(varargs, a)
+	}
+	ret := m.ctrl.Call(m, "ImageInspect", varargs...)
+	ret0, _ := ret[0].(client.ImageInspectResult)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
 }
 
-// ImageInspectWithRaw indicates an expected call of ImageInspectWithRaw.
-func (mr *MockClientMockRecorder) ImageInspectWithRaw(arg0, arg1 interface{}) *gomock.Call {
+// ImageInspect indicates an expected call of ImageInspect.
+func (mr *MockClientMockRecorder) ImageInspect(arg0, arg1 interface{}, arg2 ...interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ImageInspectWithRaw", reflect.TypeOf((*MockClient)(nil).ImageInspectWithRaw), arg0, arg1)
+	varargs := append([]interface{}{arg0, arg1}, arg2...)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ImageInspect", reflect.TypeOf((*MockClient)(nil).ImageInspect), varargs...)
 }
 
 // ImageList mocks base method.
-func (m *MockClient) ImageList(arg0 context.Context, arg1 types.ImageListOptions) ([]image.Summary, error) {
+func (m *MockClient) ImageList(arg0 context.Context, arg1 client.ImageListOptions) (client.ImageListResult, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "ImageList", arg0, arg1)
-	ret0, _ := ret[0].([]image.Summary)
+	ret0, _ := ret[0].(client.ImageListResult)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
@@ -311,25 +309,30 @@ func (mr *MockClientMockRecorder) ImageList(arg0, arg1 interface{}) *gomock.Call
 }
 
 // ImageLoad mocks base method.
-func (m *MockClient) ImageLoad(arg0 context.Context, arg1 io.Reader, arg2 bool) (types.ImageLoadResponse, error) {
+func (m *MockClient) ImageLoad(arg0 context.Context, arg1 io.Reader, arg2 ...client.ImageLoadOption) (client.ImageLoadResult, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "ImageLoad", arg0, arg1, arg2)
-	ret0, _ := ret[0].(types.ImageLoadResponse)
+	varargs := []interface{}{arg0, arg1}
+	for _, a := range arg2 {
+		varargs = append(varargs, a)
+	}
+	ret := m.ctrl.Call(m, "ImageLoad", varargs...)
+	ret0, _ := ret[0].(client.ImageLoadResult)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
 // ImageLoad indicates an expected call of ImageLoad.
-func (mr *MockClientMockRecorder) ImageLoad(arg0, arg1, arg2 interface{}) *gomock.Call {
+func (mr *MockClientMockRecorder) ImageLoad(arg0, arg1 interface{}, arg2 ...interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ImageLoad", reflect.TypeOf((*MockClient)(nil).ImageLoad), arg0, arg1, arg2)
+	varargs := append([]interface{}{arg0, arg1}, arg2...)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ImageLoad", reflect.TypeOf((*MockClient)(nil).ImageLoad), varargs...)
 }
 
 // ImagePull mocks base method.
-func (m *MockClient) ImagePull(arg0 context.Context, arg1 string, arg2 types.ImagePullOptions) (io.ReadCloser, error) {
+func (m *MockClient) ImagePull(arg0 context.Context, arg1 string, arg2 client.ImagePullOptions) (client.ImagePullResponse, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "ImagePull", arg0, arg1, arg2)
-	ret0, _ := ret[0].(io.ReadCloser)
+	ret0, _ := ret[0].(client.ImagePullResponse)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
@@ -341,10 +344,10 @@ func (mr *MockClientMockRecorder) ImagePull(arg0, arg1, arg2 interface{}) *gomoc
 }
 
 // ImageRemove mocks base method.
-func (m *MockClient) ImageRemove(arg0 context.Context, arg1 string, arg2 types.ImageRemoveOptions) ([]image.DeleteResponse, error) {
+func (m *MockClient) ImageRemove(arg0 context.Context, arg1 string, arg2 client.ImageRemoveOptions) (client.ImageRemoveResult, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "ImageRemove", arg0, arg1, arg2)
-	ret0, _ := ret[0].([]image.DeleteResponse)
+	ret0, _ := ret[0].(client.ImageRemoveResult)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
@@ -356,54 +359,55 @@ func (mr *MockClientMockRecorder) ImageRemove(arg0, arg1, arg2 interface{}) *gom
 }
 
 // ImageTag mocks base method.
-func (m *MockClient) ImageTag(arg0 context.Context, arg1, arg2 string) error {
+func (m *MockClient) ImageTag(arg0 context.Context, arg1 client.ImageTagOptions) (client.ImageTagResult, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "ImageTag", arg0, arg1, arg2)
-	ret0, _ := ret[0].(error)
-	return ret0
+	ret := m.ctrl.Call(m, "ImageTag", arg0, arg1)
+	ret0, _ := ret[0].(client.ImageTagResult)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
 }
 
 // ImageTag indicates an expected call of ImageTag.
-func (mr *MockClientMockRecorder) ImageTag(arg0, arg1, arg2 interface{}) *gomock.Call {
+func (mr *MockClientMockRecorder) ImageTag(arg0, arg1 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ImageTag", reflect.TypeOf((*MockClient)(nil).ImageTag), arg0, arg1, arg2)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ImageTag", reflect.TypeOf((*MockClient)(nil).ImageTag), arg0, arg1)
 }
 
 // Info mocks base method.
-func (m *MockClient) Info(arg0 context.Context) (system.Info, error) {
+func (m *MockClient) Info(arg0 context.Context, arg1 client.InfoOptions) (client.SystemInfoResult, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "Info", arg0)
-	ret0, _ := ret[0].(system.Info)
+	ret := m.ctrl.Call(m, "Info", arg0, arg1)
+	ret0, _ := ret[0].(client.SystemInfoResult)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
 // Info indicates an expected call of Info.
-func (mr *MockClientMockRecorder) Info(arg0 interface{}) *gomock.Call {
+func (mr *MockClientMockRecorder) Info(arg0, arg1 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Info", reflect.TypeOf((*MockClient)(nil).Info), arg0)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Info", reflect.TypeOf((*MockClient)(nil).Info), arg0, arg1)
 }
 
 // Ping mocks base method.
-func (m *MockClient) Ping(arg0 context.Context) (types.Ping, error) {
+func (m *MockClient) Ping(arg0 context.Context, arg1 client.PingOptions) (client.PingResult, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "Ping", arg0)
-	ret0, _ := ret[0].(types.Ping)
+	ret := m.ctrl.Call(m, "Ping", arg0, arg1)
+	ret0, _ := ret[0].(client.PingResult)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
 // Ping indicates an expected call of Ping.
-func (mr *MockClientMockRecorder) Ping(arg0 interface{}) *gomock.Call {
+func (mr *MockClientMockRecorder) Ping(arg0, arg1 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Ping", reflect.TypeOf((*MockClient)(nil).Ping), arg0)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Ping", reflect.TypeOf((*MockClient)(nil).Ping), arg0, arg1)
 }
 
 // PluginList mocks base method.
-func (m *MockClient) PluginList(arg0 context.Context, arg1 filters.Args) (types.PluginsListResponse, error) {
+func (m *MockClient) PluginList(arg0 context.Context, arg1 client.PluginListOptions) (client.PluginListResult, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "PluginList", arg0, arg1)
-	ret0, _ := ret[0].(types.PluginsListResponse)
+	ret0, _ := ret[0].(client.PluginListResult)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
@@ -415,25 +419,25 @@ func (mr *MockClientMockRecorder) PluginList(arg0, arg1 interface{}) *gomock.Cal
 }
 
 // ServerVersion mocks base method.
-func (m *MockClient) ServerVersion(arg0 context.Context) (types.Version, error) {
+func (m *MockClient) ServerVersion(arg0 context.Context, arg1 client.ServerVersionOptions) (client.ServerVersionResult, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "ServerVersion", arg0)
-	ret0, _ := ret[0].(types.Version)
+	ret := m.ctrl.Call(m, "ServerVersion", arg0, arg1)
+	ret0, _ := ret[0].(client.ServerVersionResult)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
 // ServerVersion indicates an expected call of ServerVersion.
-func (mr *MockClientMockRecorder) ServerVersion(arg0 interface{}) *gomock.Call {
+func (mr *MockClientMockRecorder) ServerVersion(arg0, arg1 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ServerVersion", reflect.TypeOf((*MockClient)(nil).ServerVersion), arg0)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ServerVersion", reflect.TypeOf((*MockClient)(nil).ServerVersion), arg0, arg1)
 }
 
 // VolumeCreate mocks base method.
-func (m *MockClient) VolumeCreate(arg0 context.Context, arg1 volume.CreateOptions) (volume.Volume, error) {
+func (m *MockClient) VolumeCreate(arg0 context.Context, arg1 client.VolumeCreateOptions) (client.VolumeCreateResult, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "VolumeCreate", arg0, arg1)
-	ret0, _ := ret[0].(volume.Volume)
+	ret0, _ := ret[0].(client.VolumeCreateResult)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
@@ -445,26 +449,27 @@ func (mr *MockClientMockRecorder) VolumeCreate(arg0, arg1 interface{}) *gomock.C
 }
 
 // VolumeInspect mocks base method.
-func (m *MockClient) VolumeInspect(arg0 context.Context, arg1 string) (volume.Volume, error) {
+func (m *MockClient) VolumeInspect(arg0 context.Context, arg1 string, arg2 client.VolumeInspectOptions) (client.VolumeInspectResult, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "VolumeInspect", arg0, arg1)
-	ret0, _ := ret[0].(volume.Volume)
+	ret := m.ctrl.Call(m, "VolumeInspect", arg0, arg1, arg2)
+	ret0, _ := ret[0].(client.VolumeInspectResult)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
 // VolumeInspect indicates an expected call of VolumeInspect.
-func (mr *MockClientMockRecorder) VolumeInspect(arg0, arg1 interface{}) *gomock.Call {
+func (mr *MockClientMockRecorder) VolumeInspect(arg0, arg1, arg2 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "VolumeInspect", reflect.TypeOf((*MockClient)(nil).VolumeInspect), arg0, arg1)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "VolumeInspect", reflect.TypeOf((*MockClient)(nil).VolumeInspect), arg0, arg1, arg2)
 }
 
 // VolumeRemove mocks base method.
-func (m *MockClient) VolumeRemove(arg0 context.Context, arg1 string, arg2 bool) error {
+func (m *MockClient) VolumeRemove(arg0 context.Context, arg1 string, arg2 client.VolumeRemoveOptions) (client.VolumeRemoveResult, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "VolumeRemove", arg0, arg1, arg2)
-	ret0, _ := ret[0].(error)
-	return ret0
+	ret0, _ := ret[0].(client.VolumeRemoveResult)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
 }
 
 // VolumeRemove indicates an expected call of VolumeRemove.
