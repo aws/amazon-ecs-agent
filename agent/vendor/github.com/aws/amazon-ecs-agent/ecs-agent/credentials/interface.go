@@ -15,11 +15,13 @@ package credentials
 
 // Manager is responsible for saving and retrieving credentials. A single
 // instance of the credentials manager is created in the agent, and shared
-// between the task engine, acs and credentials handlers
+// between the task engine, acs and credentials handlers.
 type Manager interface {
 	SetTaskCredentials(*TaskIAMRoleCredentials) error
 	GetTaskCredentials(string) (TaskIAMRoleCredentials, bool)
 	RemoveCredentials(string)
 	IsCredentialsPending(string) bool
 	AddKnownCredentialsID(string)
+	SetAssumeRoleFailedCredentials(string)
+	IsCredentialsAssumeRoleFailed(string) bool
 }

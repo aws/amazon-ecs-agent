@@ -49,6 +49,11 @@ const (
 	CredentialsRefreshFailure = credsRefreshNamespace + ".Failure"
 	CredentialsRefreshSuccess = credsRefreshNamespace + ".Success"
 
+	// ECS Control Plane Connectivity
+	DPEConnectivityFailureMetricName = "DPEConnectivityFailure"
+	ACSConnectivityFailureMetricName = "ACSConnectivityFailure"
+	TCSConnectivityFailureMetricName = "TCSConnectivityFailure"
+
 	// Agent Availability
 	agentAvailabilityNamespace     = "Availability"
 	ACSDisconnectTimeoutMetricName = agentAvailabilityNamespace + ".ACSDisconnectTimeout"
@@ -85,4 +90,11 @@ const (
 	DeleteNetworkNamespaceMetricName      = networkBuilderNamespace + ".DeleteNetworkNamespace"
 	V2NDestinationPortExhaustedMetricName = networkBuilderNamespace + ".V2NDestinationPortExhausted"
 	ReleaseGeneveDstPortMetricName        = dbClientMetricNamespace + ".ReleaseGeneveDstPort"
+
+	// IMDS credentials scanner metrics
+	imdsCredentialsScannerMetricNamespace                = "IMDSCredentialsScanner"
+	IMDSCredentialsScannerNamespaceInfoFailureMetricName = imdsCredentialsScannerMetricNamespace +
+		".NamespaceInfoFailure"
+	IMDSCredentialsScannerCredentialFailureMetricName = imdsCredentialsScannerMetricNamespace +
+		".CredentialFailure"
 )

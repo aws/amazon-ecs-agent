@@ -168,3 +168,23 @@ func TestParseInstanceIPCompatibility(t *testing.T) {
 		})
 	}
 }
+
+func TestParsePropagateTaskMemoryLimitCgroupV2(t *testing.T) {
+	testCases := []struct {
+		name     string
+		envValue string
+		expected bool
+	}{
+		{"not set", "", false},
+		{"set to true", "true", true},
+		{"set to false", "false", false},
+	}
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			if tc.envValue != "" {
+				t.Setenv(envPropagateTaskMemoryLimitCgroupV2, tc.envValue)
+			}
+			assert.Equal(t, tc.expected, parsePropagateTaskMemoryLimitCgroupV2().Enabled())
+		})
+	}
+}

@@ -85,6 +85,7 @@ const (
 	capabilityGpuDriverVersion                             = "gpu-driver-version"
 	capabilityEBSTaskAttach                                = "storage.ebs-task-volume-attach"
 	capabilityEBSTANonRootUser                             = "storage.ebsta-non-root-user"
+	capabilityS3Files                                      = "storage.s3-files"
 	capabilityContainerRestartPolicy                       = "container-restart-policy"
 	capabilityFaultInjection                               = "fault-injection"
 	capabilityIPv6Only                                     = "ipv6-only"
@@ -274,6 +275,7 @@ func (agent *ecsAgent) capabilities() ([]types.Attribute, error) {
 
 	if agent.cfg.GPUSupportEnabled {
 		capabilities = agent.appendNvidiaDriverVersionAttribute(capabilities)
+		capabilities = agent.appendGpuSharingMpsCapability(capabilities)
 	}
 
 	// ecs agent version 1.22.0 supports sharing PID namespaces and IPC resource namespaces
@@ -303,6 +305,9 @@ func (agent *ecsAgent) capabilities() ([]types.Attribute, error) {
 
 	// support efs on ecs capabilities
 	capabilities = agent.appendEFSCapabilities(capabilities)
+
+	// support S3Files on ecs capabilities
+	capabilities = agent.appendS3FilesCapabilities(capabilities)
 
 	// support external firelens config
 	capabilities = agent.appendFirelensConfigCapabilities(capabilities)

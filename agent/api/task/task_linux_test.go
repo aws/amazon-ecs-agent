@@ -325,6 +325,7 @@ func TestBuildLinuxResourceSpecCPUMem_WithPidLimits(t *testing.T) {
 	expectedTaskCPUPeriod := uint64(defaultCPUPeriod / time.Microsecond)
 	expectedTaskCPUQuota := int64(taskVCPULimit * float64(expectedTaskCPUPeriod))
 	expectedTaskMemory := taskMemoryLimit * bytesPerMegabyte
+	expectedTaskPidsLimit := int64(100)
 	expectedLinuxResourceSpec := specs.LinuxResources{
 		CPU: &specs.LinuxCPU{
 			Quota:  &expectedTaskCPUQuota,
@@ -334,7 +335,7 @@ func TestBuildLinuxResourceSpecCPUMem_WithPidLimits(t *testing.T) {
 			Limit: &expectedTaskMemory,
 		},
 		Pids: &specs.LinuxPids{
-			Limit: int64(100),
+			Limit: &expectedTaskPidsLimit,
 		},
 	}
 
@@ -453,12 +454,13 @@ func TestBuildLinuxResourceSpecWithoutTaskCPULimits_WithPidLimits(t *testing.T) 
 		},
 	}
 	expectedCPUShares := uint64(minimumCPUShares)
+	expectedTaskPidsLimit := int64(100)
 	expectedLinuxResourceSpec := specs.LinuxResources{
 		CPU: &specs.LinuxCPU{
 			Shares: &expectedCPUShares,
 		},
 		Pids: &specs.LinuxPids{
-			Limit: int64(100),
+			Limit: &expectedTaskPidsLimit,
 		},
 	}
 

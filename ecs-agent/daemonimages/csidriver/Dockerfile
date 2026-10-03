@@ -20,7 +20,7 @@ ADD . /go/src/
 RUN make bin/ebs-csi-driver
 
 # use minimal eks base for csi driver image to add required mount utils
-FROM public.ecr.aws/eks-distro-build-tooling/eks-distro-minimal-base-csi-ebs:latest-al2
+FROM public.ecr.aws/eks-distro-build-tooling/eks-distro-minimal-base-csi-ebs:latest-al23
 
 MAINTAINER Amazon Web Services, Inc.
 COPY --from=build /go/src/bin/ebs-csi-driver /bin/ebs-csi-driver

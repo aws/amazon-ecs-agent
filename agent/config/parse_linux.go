@@ -176,3 +176,7 @@ func parseInstanceIPCompatibility() ipcompatibility.IPCompatibility {
 		return ipcompatibility.IPCompatibility{}
 	}
 }
+
+func parsePropagateTaskMemoryLimitCgroupV2() BooleanDefaultFalse {
+	return parseBooleanDefaultFalseConfig(envPropagateTaskMemoryLimitCgroupV2)
+}

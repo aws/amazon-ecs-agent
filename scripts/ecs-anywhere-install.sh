@@ -462,7 +462,7 @@ ssm-agent-signature-verify() {
         return
     fi
 
-    curl-helper "$dir/amazon-ssm-agent.gpg" "https://raw.githubusercontent.com/aws/amazon-ecs-agent/master/scripts/amazon-ssm-agent.gpg"
+    curl-helper "$dir/amazon-ssm-agent.gpg" "${S3_URL}/${S3_BUCKET}/amazon-ssm-agent.gpg"
     gpg --import "$dir/amazon-ssm-agent.gpg"
 
     if gpg --verify "$1" "$2"; then
@@ -646,7 +646,7 @@ ecs-init-signature-verify() {
         return
     fi
 
-    curl-helper "$dir/amazon-ecs-agent.gpg" "https://raw.githubusercontent.com/aws/amazon-ecs-agent/master/scripts/amazon-ecs-agent.gpg"
+    curl-helper "$dir/amazon-ecs-agent.gpg" "${S3_URL}/${S3_BUCKET}/amazon-ecs-agent.gpg"
     gpg --import "$dir/amazon-ecs-agent.gpg"
     if gpg --verify "$1" "$2"; then
         echo "amazon-ecs-init GPG verification passed. Install amazon-ecs-init."
@@ -735,7 +735,7 @@ find-copy-certs-exec() {
 }
 
 download-ssm-binaries-exec() {
-    BINARY_VERSION="3.3.4108.0"
+    BINARY_VERSION="3.3.4624.0"
     BINARY_PATH="/var/lib/ecs/deps/execute-command/bin/${BINARY_VERSION}"
     BINARY_DOWNLOAD_PATH="ssm-binaries"
 

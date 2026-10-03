@@ -5,10 +5,8 @@ package ec2
 import (
 	"context"
 	"fmt"
-	awsmiddleware "github.com/aws/aws-sdk-go-v2/aws/middleware"
 	"github.com/aws/aws-sdk-go-v2/service/ec2/types"
 	"github.com/aws/smithy-go/middleware"
-	smithyhttp "github.com/aws/smithy-go/transport/http"
 )
 
 // Launches the specified number of instances using an AMI for which you have
@@ -125,11 +123,11 @@ type RunInstancesInput struct {
 	// request. If you do not specify a client token, a randomly generated token is
 	// used for the request to ensure idempotency.
 	//
-	// For more information, see [Ensuring Idempotency].
+	// For more information, see [Ensuring idempotency in Amazon EC2 API requests].
 	//
 	// Constraints: Maximum 64 ASCII characters
 	//
-	// [Ensuring Idempotency]: https://docs.aws.amazon.com/AWSEC2/latest/APIReference/Run_Instance_Idempotency.html
+	// [Ensuring idempotency in Amazon EC2 API requests]: https://docs.aws.amazon.com/ec2/latest/devguide/ec2-api-idempotency.html
 	ClientToken *string
 
 	// The CPU options for the instance. For more information, see [Optimize CPU options] in the Amazon EC2
@@ -151,20 +149,16 @@ type RunInstancesInput struct {
 	CreditSpecification *types.CreditSpecificationRequest
 
 	// Indicates whether an instance is enabled for stop protection. For more
-	// information, see [Stop protection].
+	// information, see [Enable stop protection for your EC2 instances].
 	//
-	// [Stop protection]: https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/Stop_Start.html#Using_StopProtection
+	// [Enable stop protection for your EC2 instances]: https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/ec2-stop-protection.html
 	DisableApiStop *bool
 
-	// If you set this parameter to true , you can't terminate the instance using the
-	// Amazon EC2 console, CLI, or API; otherwise, you can. To change this attribute
-	// after launch, use [ModifyInstanceAttribute]. Alternatively, if you set InstanceInitiatedShutdownBehavior
-	// to terminate , you can terminate the instance by running the shutdown command
-	// from the instance.
-	//
-	// Default: false
-	//
-	// [ModifyInstanceAttribute]: https://docs.aws.amazon.com/AWSEC2/latest/APIReference/API_ModifyInstanceAttribute.html
+	// Indicates whether termination protection is enabled for the instance. The
+	// default is false , which means that you can terminate the instance using the
+	// Amazon EC2 console, command line tools, or API. You can enable termination
+	// protection when you launch an instance, while the instance is running, or while
+	// the instance is stopped.
 	DisableApiTermination *bool
 
 	// Checks whether you have the required permissions for the operation, without
@@ -185,11 +179,17 @@ type RunInstancesInput struct {
 	// An elastic GPU to associate with the instance.
 	//
 	// Amazon Elastic Graphics reached end of life on January 8, 2024.
+	//
+	// Deprecated: Specifying Elastic Graphics accelerators is no longer supported on
+	// the RunInstances API.
 	ElasticGpuSpecification []types.ElasticGpuSpecification
 
 	// An elastic inference accelerator to associate with the instance.
 	//
 	// Amazon Elastic Inference is no longer available.
+	//
+	// Deprecated: Specifying Elastic Inference accelerators is no longer supported on
+	// the RunInstances API.
 	ElasticInferenceAccelerators []types.ElasticInferenceAccelerator
 
 	// If you’re launching an instance into a dual-stack or IPv6-only subnet, you can
@@ -208,13 +208,12 @@ type RunInstancesInput struct {
 	EnablePrimaryIpv6 *bool
 
 	// Indicates whether the instance is enabled for Amazon Web Services Nitro
-	// Enclaves. For more information, see [What is Amazon Web Services Nitro Enclaves?]in the Amazon Web Services Nitro Enclaves
-	// User Guide.
+	// Enclaves. For more information, see [Amazon Web Services Nitro Enclaves User Guide].
 	//
 	// You can't enable Amazon Web Services Nitro Enclaves and hibernation on the same
 	// instance.
 	//
-	// [What is Amazon Web Services Nitro Enclaves?]: https://docs.aws.amazon.com/enclaves/latest/user/nitro-enclave.html
+	// [Amazon Web Services Nitro Enclaves User Guide]: https://docs.aws.amazon.com/enclaves/latest/user/
 	EnclaveOptions *types.EnclaveOptionsRequest
 
 	// Indicates whether an instance is enabled for hibernation. This parameter is
@@ -247,9 +246,9 @@ type RunInstancesInput struct {
 	// InstanceInterruptionBehavior is set to either hibernate or stop .
 	InstanceMarketOptions *types.InstanceMarketOptionsRequest
 
-	// The instance type. For more information, see [Amazon EC2 instance types] in the Amazon EC2 User Guide.
+	// The instance type. For more information, see [Amazon EC2 Instance Types Guide].
 	//
-	// [Amazon EC2 instance types]: https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/instance-types.html
+	// [Amazon EC2 Instance Types Guide]: https://docs.aws.amazon.com/ec2/latest/instancetypes/instance-types.html
 	InstanceType types.InstanceType
 
 	// The number of IPv6 addresses to associate with the primary network interface.
@@ -279,13 +278,12 @@ type RunInstancesInput struct {
 	// [PV-GRUB]: https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/UserProvidedkernels.html
 	KernelId *string
 
-	// The name of the key pair. You can create a key pair using [CreateKeyPair] or [ImportKeyPair].
+	// The name of the key pair. For more information, see [Create a key pair for your EC2 instance].
 	//
 	// If you do not specify a key pair, you can't connect to the instance unless you
 	// choose an AMI that is configured to allow users another way to log in.
 	//
-	// [ImportKeyPair]: https://docs.aws.amazon.com/AWSEC2/latest/APIReference/API_ImportKeyPair.html
-	// [CreateKeyPair]: https://docs.aws.amazon.com/AWSEC2/latest/APIReference/API_CreateKeyPair.html
+	// [Create a key pair for your EC2 instance]: https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/create-key-pairs.html
 	KeyName *string
 
 	// The launch template. Any additional parameters that you specify for the new
@@ -298,9 +296,9 @@ type RunInstancesInput struct {
 	// The maintenance and recovery options for the instance.
 	MaintenanceOptions *types.InstanceMaintenanceOptionsRequest
 
-	// The metadata options for the instance. For more information, see [Instance metadata and user data].
+	// The metadata options for the instance. For more information, see [Configure the Instance Metadata Service options].
 	//
-	// [Instance metadata and user data]: https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/ec2-instance-metadata.html
+	// [Configure the Instance Metadata Service options]: https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/configuring-instance-metadata-options.html
 	MetadataOptions *types.InstanceMetadataOptionsRequest
 
 	// Specifies whether detailed monitoring is enabled for the instance.
@@ -308,6 +306,9 @@ type RunInstancesInput struct {
 
 	// The network interfaces to associate with the instance.
 	NetworkInterfaces []types.InstanceNetworkInterfaceSpecification
+
+	// Contains settings for the network performance options for the instance.
+	NetworkPerformanceOptions *types.InstanceNetworkPerformanceOptionsRequest
 
 	// Reserved for internal use.
 	Operator *types.OperatorRequest
@@ -343,12 +344,13 @@ type RunInstancesInput struct {
 	// [PV-GRUB]: https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/UserProvidedkernels.html
 	RamdiskId *string
 
-	// The IDs of the security groups. You can create a security group using [CreateSecurityGroup].
+	// The secondary interfaces to associate with the instance.
+	SecondaryInterfaces []types.InstanceSecondaryInterfaceSpecificationRequest
+
+	// The IDs of the security groups.
 	//
 	// If you specify a network interface, you must specify any security groups as
 	// part of the network interface instead of using this parameter.
-	//
-	// [CreateSecurityGroup]: https://docs.aws.amazon.com/AWSEC2/latest/APIReference/API_CreateSecurityGroup.html
 	SecurityGroupIds []string
 
 	// [Default VPC] The names of the security groups.
@@ -384,9 +386,9 @@ type RunInstancesInput struct {
 
 	// The user data to make available to the instance. User data must be
 	// base64-encoded. Depending on the tool or SDK that you're using, the
-	// base64-encoding might be performed for you. For more information, see [Work with instance user data].
+	// base64-encoding might be performed for you. For more information, see [Run commands at launch using instance user data].
 	//
-	// [Work with instance user data]: https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/instancedata-add-user-data.html
+	// [Run commands at launch using instance user data]: https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/user-data.html
 	UserData *string
 
 	noSmithyDocumentSerde
@@ -420,9 +422,6 @@ type RunInstancesOutput struct {
 }
 
 func (c *Client) addOperationRunInstancesMiddlewares(stack *middleware.Stack, options Options) (err error) {
-	if err := stack.Serialize.Add(&setOperationInputMiddleware{}, middleware.After); err != nil {
-		return err
-	}
 	err = stack.Serialize.Add(&awsEc2query_serializeOpRunInstances{}, middleware.After)
 	if err != nil {
 		return err
@@ -431,68 +430,23 @@ func (c *Client) addOperationRunInstancesMiddlewares(stack *middleware.Stack, op
 	if err != nil {
 		return err
 	}
-	if err := addProtocolFinalizerMiddlewares(stack, options, "RunInstances"); err != nil {
-		return fmt.Errorf("add protocol finalizers: %v", err)
-	}
 
-	if err = addlegacyEndpointContextSetter(stack, options); err != nil {
-		return err
-	}
-	if err = addSetLoggerMiddleware(stack, options); err != nil {
-		return err
-	}
-	if err = addClientRequestID(stack); err != nil {
-		return err
-	}
-	if err = addComputeContentLength(stack); err != nil {
-		return err
-	}
 	if err = addResolveEndpointMiddleware(stack, options); err != nil {
 		return err
 	}
 	if err = addComputePayloadSHA256(stack); err != nil {
 		return err
 	}
-	if err = addRetry(stack, options); err != nil {
+	if err = addRecordResponseTiming(stack, options); err != nil {
 		return err
 	}
-	if err = addRawResponseToMetadata(stack); err != nil {
-		return err
-	}
-	if err = addRecordResponseTiming(stack); err != nil {
-		return err
-	}
-	if err = addSpanRetryLoop(stack, options); err != nil {
-		return err
-	}
-	if err = addClientUserAgent(stack, options); err != nil {
-		return err
-	}
-	if err = smithyhttp.AddErrorCloseResponseBodyMiddleware(stack); err != nil {
-		return err
-	}
-	if err = smithyhttp.AddCloseResponseBodyMiddleware(stack); err != nil {
-		return err
-	}
-	if err = addSetLegacyContextSigningOptionsMiddleware(stack); err != nil {
-		return err
-	}
-	if err = addTimeOffsetBuild(stack, c); err != nil {
-		return err
-	}
-	if err = addUserAgentRetryMode(stack, options); err != nil {
+	if err = addCredentialSource(stack, options); err != nil {
 		return err
 	}
 	if err = addIdempotencyToken_opRunInstancesMiddleware(stack, options); err != nil {
 		return err
 	}
 	if err = addOpRunInstancesValidationMiddleware(stack); err != nil {
-		return err
-	}
-	if err = stack.Initialize.Add(newServiceMetadataMiddleware_opRunInstances(options.Region), middleware.Before); err != nil {
-		return err
-	}
-	if err = addRecursionDetection(stack); err != nil {
 		return err
 	}
 	if err = addRequestIDRetrieverMiddleware(stack); err != nil {
@@ -507,16 +461,7 @@ func (c *Client) addOperationRunInstancesMiddlewares(stack *middleware.Stack, op
 	if err = addDisableHTTPSMiddleware(stack, options); err != nil {
 		return err
 	}
-	if err = addSpanInitializeStart(stack); err != nil {
-		return err
-	}
-	if err = addSpanInitializeEnd(stack); err != nil {
-		return err
-	}
-	if err = addSpanBuildRequestStart(stack); err != nil {
-		return err
-	}
-	if err = addSpanBuildRequestEnd(stack); err != nil {
+	if err = addInterceptors(stack, options); err != nil {
 		return err
 	}
 	return nil
@@ -553,12 +498,4 @@ func (m *idempotencyToken_initializeOpRunInstances) HandleInitialize(ctx context
 }
 func addIdempotencyToken_opRunInstancesMiddleware(stack *middleware.Stack, cfg Options) error {
 	return stack.Initialize.Add(&idempotencyToken_initializeOpRunInstances{tokenProvider: cfg.IdempotencyTokenProvider}, middleware.Before)
-}
-
-func newServiceMetadataMiddleware_opRunInstances(region string) *awsmiddleware.RegisterServiceMetadata {
-	return &awsmiddleware.RegisterServiceMetadata{
-		Region:        region,
-		ServiceID:     ServiceID,
-		OperationName: "RunInstances",
-	}
 }

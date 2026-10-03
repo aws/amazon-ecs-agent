@@ -405,4 +405,10 @@ type Config struct {
 
 	// IMDSIAMRolesEnabled controls whether the agent uses IMDS for task credential retrieval.
 	IMDSIAMRolesEnabled bool
+
+	// PropagateTaskMemoryLimitCgroupV2 specifies whether Agent using cgroupv2 should propagate task-level
+	// memory limits to containers that do not have explicit container-level memory limits.
+	// When enabled, Agent sets each container's memory limit to the task-level value if the container
+	// does not already have an explicit memory limit.
+	PropagateTaskMemoryLimitCgroupV2 BooleanDefaultFalse
 }

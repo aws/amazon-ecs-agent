@@ -5,16 +5,17 @@ package ec2
 import (
 	"context"
 	"fmt"
-	awsmiddleware "github.com/aws/aws-sdk-go-v2/aws/middleware"
 	"github.com/aws/aws-sdk-go-v2/service/ec2/types"
 	"github.com/aws/smithy-go/middleware"
-	smithyhttp "github.com/aws/smithy-go/transport/http"
 	"time"
 )
 
 // Describes Capacity Block offerings available for purchase in the Amazon Web
-// Services Region that you're currently using. With Capacity Blocks, you purchase
-// a specific instance type for a period of time.
+// Services Region that you're currently using. With Capacity Blocks, you can
+// purchase a specific GPU instance type or EC2 UltraServer for a period of time.
+//
+// To search for an available Capacity Block offering, you specify a reservation
+// duration and instance count.
 func (c *Client) DescribeCapacityBlockOfferings(ctx context.Context, params *DescribeCapacityBlockOfferingsInput, optFns ...func(*Options)) (*DescribeCapacityBlockOfferingsOutput, error) {
 	if params == nil {
 		params = &DescribeCapacityBlockOfferingsInput{}
@@ -32,10 +33,17 @@ func (c *Client) DescribeCapacityBlockOfferings(ctx context.Context, params *Des
 
 type DescribeCapacityBlockOfferingsInput struct {
 
-	// The number of hours for which to reserve Capacity Block.
+	// The reservation duration for the Capacity Block, in hours. You must specify the
+	// duration in 1-day increments up 14 days, and in 7-day increments up to 182 days.
 	//
 	// This member is required.
 	CapacityDurationHours *int32
+
+	//  Include all Availability Zones and Local Zones, regardless of your opt-in
+	// status. If you do not use this parameter, the results include available
+	// offerings from all Availability Zones in the Amazon Web Services Region and
+	// Local Zones you are opted into.
+	AllAvailabilityZones *bool
 
 	// Checks whether you have the required permissions for the action, without
 	// actually making the request, and provides an error response. If you have the
@@ -46,7 +54,9 @@ type DescribeCapacityBlockOfferingsInput struct {
 	// The latest end date for the Capacity Block offering.
 	EndDateRange *time.Time
 
-	// The number of instances for which to reserve capacity.
+	// The number of instances for which to reserve capacity. Each Capacity Block can
+	// have up to 64 instances, and you can have up to 256 instances across Capacity
+	// Blocks.
 	InstanceCount *int32
 
 	// The type of instance for which the Capacity Block offering reserves capacity.
@@ -64,6 +74,12 @@ type DescribeCapacityBlockOfferingsInput struct {
 
 	// The earliest start date for the Capacity Block offering.
 	StartDateRange *time.Time
+
+	// The number of EC2 UltraServers in the offerings.
+	UltraserverCount *int32
+
+	// The EC2 UltraServer type of the Capacity Block offerings.
+	UltraserverType *string
 
 	noSmithyDocumentSerde
 }
@@ -84,9 +100,6 @@ type DescribeCapacityBlockOfferingsOutput struct {
 }
 
 func (c *Client) addOperationDescribeCapacityBlockOfferingsMiddlewares(stack *middleware.Stack, options Options) (err error) {
-	if err := stack.Serialize.Add(&setOperationInputMiddleware{}, middleware.After); err != nil {
-		return err
-	}
 	err = stack.Serialize.Add(&awsEc2query_serializeOpDescribeCapacityBlockOfferings{}, middleware.After)
 	if err != nil {
 		return err
@@ -95,65 +108,20 @@ func (c *Client) addOperationDescribeCapacityBlockOfferingsMiddlewares(stack *mi
 	if err != nil {
 		return err
 	}
-	if err := addProtocolFinalizerMiddlewares(stack, options, "DescribeCapacityBlockOfferings"); err != nil {
-		return fmt.Errorf("add protocol finalizers: %v", err)
-	}
 
-	if err = addlegacyEndpointContextSetter(stack, options); err != nil {
-		return err
-	}
-	if err = addSetLoggerMiddleware(stack, options); err != nil {
-		return err
-	}
-	if err = addClientRequestID(stack); err != nil {
-		return err
-	}
-	if err = addComputeContentLength(stack); err != nil {
-		return err
-	}
 	if err = addResolveEndpointMiddleware(stack, options); err != nil {
 		return err
 	}
 	if err = addComputePayloadSHA256(stack); err != nil {
 		return err
 	}
-	if err = addRetry(stack, options); err != nil {
+	if err = addRecordResponseTiming(stack, options); err != nil {
 		return err
 	}
-	if err = addRawResponseToMetadata(stack); err != nil {
-		return err
-	}
-	if err = addRecordResponseTiming(stack); err != nil {
-		return err
-	}
-	if err = addSpanRetryLoop(stack, options); err != nil {
-		return err
-	}
-	if err = addClientUserAgent(stack, options); err != nil {
-		return err
-	}
-	if err = smithyhttp.AddErrorCloseResponseBodyMiddleware(stack); err != nil {
-		return err
-	}
-	if err = smithyhttp.AddCloseResponseBodyMiddleware(stack); err != nil {
-		return err
-	}
-	if err = addSetLegacyContextSigningOptionsMiddleware(stack); err != nil {
-		return err
-	}
-	if err = addTimeOffsetBuild(stack, c); err != nil {
-		return err
-	}
-	if err = addUserAgentRetryMode(stack, options); err != nil {
+	if err = addCredentialSource(stack, options); err != nil {
 		return err
 	}
 	if err = addOpDescribeCapacityBlockOfferingsValidationMiddleware(stack); err != nil {
-		return err
-	}
-	if err = stack.Initialize.Add(newServiceMetadataMiddleware_opDescribeCapacityBlockOfferings(options.Region), middleware.Before); err != nil {
-		return err
-	}
-	if err = addRecursionDetection(stack); err != nil {
 		return err
 	}
 	if err = addRequestIDRetrieverMiddleware(stack); err != nil {
@@ -168,16 +136,7 @@ func (c *Client) addOperationDescribeCapacityBlockOfferingsMiddlewares(stack *mi
 	if err = addDisableHTTPSMiddleware(stack, options); err != nil {
 		return err
 	}
-	if err = addSpanInitializeStart(stack); err != nil {
-		return err
-	}
-	if err = addSpanInitializeEnd(stack); err != nil {
-		return err
-	}
-	if err = addSpanBuildRequestStart(stack); err != nil {
-		return err
-	}
-	if err = addSpanBuildRequestEnd(stack); err != nil {
+	if err = addInterceptors(stack, options); err != nil {
 		return err
 	}
 	return nil
@@ -282,11 +241,3 @@ type DescribeCapacityBlockOfferingsAPIClient interface {
 }
 
 var _ DescribeCapacityBlockOfferingsAPIClient = (*Client)(nil)
-
-func newServiceMetadataMiddleware_opDescribeCapacityBlockOfferings(region string) *awsmiddleware.RegisterServiceMetadata {
-	return &awsmiddleware.RegisterServiceMetadata{
-		Region:        region,
-		ServiceID:     ServiceID,
-		OperationName: "DescribeCapacityBlockOfferings",
-	}
-}

@@ -28,6 +28,7 @@ import (
 	ecsagentimds "github.com/aws/amazon-ecs-agent/ecs-agent/credentials/imds"
 	"github.com/aws/amazon-ecs-agent/ecs-agent/credentials/imds/testutil"
 	ecsagentec2 "github.com/aws/amazon-ecs-agent/ecs-agent/ec2"
+	"github.com/aws/amazon-ecs-agent/ecs-agent/metrics"
 
 	sdkimds "github.com/aws/aws-sdk-go-v2/feature/ec2/imds"
 	"github.com/stretchr/testify/assert"
@@ -39,21 +40,26 @@ const (
 
 	taskID1  = "0ee1b6f1feef4ff2bacdf2c99732d506"
 	taskID2  = "aabbccdd11223344aabbccdd11223344"
+	taskID3  = "ccddeeff00112233ccddeeff00112233"
 	taskARN1 = "arn:aws:ecs:us-west-2:123456789012:" +
 		"task/cluster/" + taskID1
 	taskARN2 = "arn:aws:ecs:us-west-2:123456789012:" +
 		"task/cluster/" + taskID2
+	taskARN3 = "arn:aws:ecs:us-west-2:123456789012:" +
+		"task/cluster/" + taskID3
 
 	roleARN1 = "arn:aws:iam::123456789012:role/TaskRoleA"
 	roleARN2 = "arn:aws:iam::123456789012:role/TaskRoleB"
+	roleARN3 = "arn:aws:iam::123456789012:role/TaskRoleC"
 
 	credID1App  = "cred-a-app"
 	credID2App  = "cred-b-app"
 	credID2Exec = "cred-b-exec"
+	credID3App  = "cred-c-app"
 )
 
-// TestIMDSCredentialRefresh tests the integration between the IMDS
-// credential refresher, scanner, task engine state, credentials manager,
+// TestIMDSCredentialsRefresh tests the integration between the IMDS
+// credentials refresher, scanner, task engine state, credentials manager,
 // and a mock IMDS HTTP server.
 //
 // Phase 1: Setup the mock IMDS server, task engine, and credentials refresher.
@@ -63,7 +69,7 @@ const (
 //
 // Phase 3: Rotate credentials on the mock server and verify the refresher
 // picks up the new values on the next scan cycle.
-func TestIMDSCredentialRefresh(t *testing.T) {
+func TestIMDSCredentialsRefresh(t *testing.T) {
 	// Phase 1: Setup.
 	//
 	// Start a mock IMDS server.
@@ -75,11 +81,11 @@ func TestIMDSCredentialRefresh(t *testing.T) {
 	defer cleanup()
 
 	// Setup the IMDS scanner.
-	scanner := ecsagentimds.NewScanner(newEC2Client(t, mockIMDS.URL()))
+	scanner := ecsagentimds.NewScanner(newEC2Client(t, mockIMDS.URL()), metrics.NewNopEntryFactory())
 	ctx, cancel := context.WithCancel(context.Background())
 
-	// Setup the credential refresher.
-	refresher := NewIMDSCredentialRefresher(
+	// Setup the credentials refresher.
+	refresher := NewIMDSCredentialsRefresher(
 		ctx, scanner, credManager, taskEngine, testScanInterval,
 	)
 
@@ -97,12 +103,14 @@ func TestIMDSCredentialRefresh(t *testing.T) {
 	}()
 
 	// Simulate task payloads arriving with initial credentials.
-	addTaskToState(taskEngine, taskARN1, credID1App, "")
-	addTaskToState(taskEngine, taskARN2, credID2App, credID2Exec)
+	addTaskToState(taskEngine, taskARN1, credID1App, roleARN1, "", "")
+	addTaskToState(taskEngine, taskARN2, credID2App, roleARN2, credID2Exec, roleARN2)
+	addTaskToState(taskEngine, taskARN3, credID3App, roleARN3, "", "")
 
 	setInitialTaskCredentials(t, credManager, taskARN1, credID1App, "AKID_ACS_A_APP")
 	setInitialTaskCredentials(t, credManager, taskARN2, credID2App, "AKID_ACS_B_APP")
 	setInitialTaskCredentials(t, credManager, taskARN2, credID2Exec, "AKID_ACS_B_EXEC")
+	setInitialTaskCredentials(t, credManager, taskARN3, credID3App, "AKID_ACS_C_APP")
 
 	// Verify initial credentials are present in the credentials manager.
 	verifyCredential(t, credManager,
@@ -111,6 +119,8 @@ func TestIMDSCredentialRefresh(t *testing.T) {
 		credID2App, taskARN2, "AKID_ACS_B_APP", "")
 	verifyCredential(t, credManager,
 		credID2Exec, taskARN2, "AKID_ACS_B_EXEC", "")
+	verifyCredential(t, credManager,
+		credID3App, taskARN3, "AKID_ACS_C_APP", "")
 
 	// Phase 2: IMDS scan upserts credentials.
 	//
@@ -118,16 +128,21 @@ func TestIMDSCredentialRefresh(t *testing.T) {
 	// Namespace 1: taskA with application role.
 	mockIMDS.AddCredential(
 		"iam-ecs-1", taskID1,
-		credentials.ApplicationRoleType, roleARN1, "AKID_IMDS_A_APP",
+		credentials.ApplicationRoleType, "AKID_IMDS_A_APP",
 	)
 	// Namespace 2: taskB with application + execution roles.
 	mockIMDS.AddCredential(
 		"iam-ecs-2", taskID2,
-		credentials.ApplicationRoleType, roleARN2, "AKID_IMDS_B_APP",
+		credentials.ApplicationRoleType, "AKID_IMDS_B_APP",
 	)
 	mockIMDS.AddCredential(
 		"iam-ecs-2", taskID2,
-		credentials.ExecutionRoleType, roleARN2, "AKID_IMDS_B_EXEC",
+		credentials.ExecutionRoleType, "AKID_IMDS_B_EXEC",
+	)
+	// Namespace 3: taskC's role cannot be assumed by the provider (status "1"),
+	// so no credential file is written for it.
+	mockIMDS.AddUnassumableRole(
+		"iam-ecs-3", taskID3, credentials.ApplicationRoleType,
 	)
 
 	// Wait for the refresher to pick up the new credentials from IMDS
@@ -146,6 +161,11 @@ func TestIMDSCredentialRefresh(t *testing.T) {
 		credID2App, taskARN2, "AKID_IMDS_B_APP", roleARN2)
 	verifyCredential(t, credManager,
 		credID2Exec, taskARN2, "AKID_IMDS_B_EXEC", roleARN2)
+
+	// taskC's role could not be assumed, so IMDS has no credential file for it.
+	// The refresher must leave its ACS-delivered credential untouched.
+	verifyCredential(t, credManager,
+		credID3App, taskARN3, "AKID_ACS_C_APP", "")
 
 	// Phase 3: Credential rotation.
 	//
@@ -189,7 +209,7 @@ func setupTestEngine(t *testing.T) (
 // addTaskToState adds a task to the engine's state.
 func addTaskToState(
 	taskEngine engine.TaskEngine,
-	arn, credID, execCredID string,
+	arn, credID, roleArn, execCredID, execRoleArn string,
 ) {
 	testTask := &task.Task{Arn: arn}
 	testTask.SetDesiredStatus(apitaskstatus.TaskRunning)
@@ -197,8 +217,14 @@ func addTaskToState(
 	if credID != "" {
 		testTask.SetCredentialsID(credID)
 	}
+	if roleArn != "" {
+		testTask.SetTaskRoleArn(roleArn)
+	}
 	if execCredID != "" {
 		testTask.SetExecutionRoleCredentialsID(execCredID)
+	}
+	if execRoleArn != "" {
+		testTask.SetExecutionRoleArn(execRoleArn)
 	}
 	taskEngine.(*engine.DockerTaskEngine).State().AddTask(testTask)
 }

@@ -79,12 +79,15 @@ func handleTaskAttachments(acsTask *ecsacs.Task, task *Task) error {
 	if acsTask.Attachments != nil {
 		var serviceConnectAttachment *ecsacs.Attachment
 		var ebsVolumeAttachments []*ecsacs.Attachment
+		var s3filesVolumeAttachments []*ecsacs.Attachment
 		for _, attachment := range acsTask.Attachments {
 			switch aws.ToString(attachment.AttachmentType) {
 			case serviceConnectAttachmentType:
 				serviceConnectAttachment = attachment
 			case apiresource.EBSTaskAttach:
 				ebsVolumeAttachments = append(ebsVolumeAttachments, attachment)
+			case apiresource.S3FilesTaskAttach:
+				s3filesVolumeAttachments = append(s3filesVolumeAttachments, attachment)
 			default:
 				logger.Debug("Received an attachment type", logger.Fields{
 					"attachmentType": attachment.AttachmentType,
@@ -124,14 +127,42 @@ func handleTaskAttachments(acsTask *ecsacs.Task, task *Task) error {
 				ebsVolumes[ebs.VolumeName] = true
 				task.Volumes = append(task.Volumes, taskVolume)
 			}
-			// We're removing all incorrect volume configuration that were intially passed over from ACS
-			for index, tv := range task.Volumes {
-				volumeName := tv.Name
-				volumeType := tv.Type
-				if ebsVolumes[volumeName] && volumeType != apiresource.EBSTaskAttach {
-					task.RemoveVolume(index)
+			// Remove all incorrect volume configurations that were initially passed over from ACS.
+			// We rebuild the slice to avoid index-shifting bugs when removing multiple entries.
+			filtered := make([]TaskVolume, 0, len(task.Volumes))
+			for _, tv := range task.Volumes {
+				if ebsVolumes[tv.Name] && tv.Type != apiresource.EBSTaskAttach {
+					continue
 				}
+				filtered = append(filtered, tv)
 			}
+			task.Volumes = filtered
+		}
+		if len(s3filesVolumeAttachments) > 0 {
+			s3filesVolumes := make(map[string]bool)
+			for _, attachment := range s3filesVolumeAttachments {
+				s3cfg, err := taskresourcevolume.ParseS3FilesTaskVolumeAttachment(attachment)
+				if err != nil {
+					return fmt.Errorf("unable to parse and validate S3 Files volume: %w", err)
+				}
+				taskVolume := TaskVolume{
+					Name:   s3cfg.VolumeName,
+					Type:   apiresource.S3FilesTaskAttach,
+					Volume: s3cfg,
+				}
+				s3filesVolumes[s3cfg.VolumeName] = true
+				task.Volumes = append(task.Volumes, taskVolume)
+			}
+			// Remove incomplete volumes with same name from ACS.
+			// We rebuild the slice to avoid index-shifting bugs when removing multiple entries.
+			filtered := make([]TaskVolume, 0, len(task.Volumes))
+			for _, tv := range task.Volumes {
+				if s3filesVolumes[tv.Name] && tv.Type != apiresource.S3FilesTaskAttach {
+					continue
+				}
+				filtered = append(filtered, tv)
+			}
+			task.Volumes = filtered
 		}
 	}
 	return nil

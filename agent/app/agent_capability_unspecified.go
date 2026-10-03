@@ -81,6 +81,10 @@ func (agent *ecsAgent) appendNvidiaDriverVersionAttribute(capabilities []types.A
 	return capabilities
 }
 
+func (agent *ecsAgent) appendGpuSharingMpsCapability(capabilities []types.Attribute) []types.Attribute {
+	return capabilities
+}
+
 func (agent *ecsAgent) appendENITrunkingCapabilities(capabilities []types.Attribute) []types.Attribute {
 	return capabilities
 }
@@ -106,6 +110,10 @@ func (agent *ecsAgent) appendFirelensFluentbitCapabilities(capabilities []types.
 }
 
 func (agent *ecsAgent) appendEFSCapabilities(capabilities []types.Attribute) []types.Attribute {
+	return capabilities
+}
+
+func (agent *ecsAgent) appendS3FilesCapabilities(capabilities []types.Attribute) []types.Attribute {
 	return capabilities
 }
 

@@ -157,3 +157,7 @@ artifacts:
 
     # ECS Anywhere install script
     - 'scripts/ecs-anywhere-install.sh'
+
+    # GPG public keys for ECS Anywhere package verification
+    - 'scripts/amazon-ecs-agent.gpg'
+    - 'scripts/amazon-ssm-agent.gpg'

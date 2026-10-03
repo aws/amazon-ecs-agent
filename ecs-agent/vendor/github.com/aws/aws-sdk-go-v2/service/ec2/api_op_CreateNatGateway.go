@@ -5,10 +5,8 @@ package ec2
 import (
 	"context"
 	"fmt"
-	awsmiddleware "github.com/aws/aws-sdk-go-v2/aws/middleware"
 	"github.com/aws/aws-sdk-go-v2/service/ec2/types"
 	"github.com/aws/smithy-go/middleware"
-	smithyhttp "github.com/aws/smithy-go/transport/http"
 )
 
 // Creates a NAT gateway in the specified subnet. This action creates a network
@@ -56,16 +54,42 @@ func (c *Client) CreateNatGateway(ctx context.Context, params *CreateNatGatewayI
 
 type CreateNatGatewayInput struct {
 
-	// The ID of the subnet in which to create the NAT gateway.
-	//
-	// This member is required.
-	SubnetId *string
-
 	// [Public NAT gateways only] The allocation ID of an Elastic IP address to
 	// associate with the NAT gateway. You cannot specify an Elastic IP address with a
 	// private NAT gateway. If the Elastic IP address is associated with another
 	// resource, you must first disassociate it.
 	AllocationId *string
+
+	// Specifies whether to create a zonal (single-AZ) or regional (multi-AZ) NAT
+	// gateway. Defaults to zonal .
+	//
+	// A zonal NAT gateway is a NAT Gateway that provides redundancy and scalability
+	// within a single availability zone. A regional NAT gateway is a single NAT
+	// Gateway that works across multiple availability zones (AZs) in your VPC,
+	// providing redundancy, scalability and availability across all the AZs in a
+	// Region.
+	//
+	// For more information, see [Regional NAT gateways for automatic multi-AZ expansion] in the Amazon VPC User Guide.
+	//
+	// [Regional NAT gateways for automatic multi-AZ expansion]: https://docs.aws.amazon.com/vpc/latest/userguide/nat-gateways-regional.html
+	AvailabilityMode types.AvailabilityMode
+
+	// For regional NAT gateways only: Specifies which Availability Zones you want the
+	// NAT gateway to support and the Elastic IP addresses (EIPs) to use in each AZ.
+	// The regional NAT gateway uses these EIPs to handle outbound NAT traffic from
+	// their respective AZs. If not specified, the NAT gateway will automatically
+	// expand to new AZs and associate EIPs upon detection of an elastic network
+	// interface. If you specify this parameter, auto-expansion is disabled and you
+	// must manually manage AZ coverage.
+	//
+	// A regional NAT gateway is a single NAT Gateway that works across multiple
+	// availability zones (AZs) in your VPC, providing redundancy, scalability and
+	// availability across all the AZs in a Region.
+	//
+	// For more information, see [Regional NAT gateways for automatic multi-AZ expansion] in the Amazon VPC User Guide.
+	//
+	// [Regional NAT gateways for automatic multi-AZ expansion]: https://docs.aws.amazon.com/vpc/latest/userguide/nat-gateways-regional.html
+	AvailabilityZoneAddresses []types.AvailabilityZoneAddress
 
 	// Unique, case-sensitive identifier that you provide to ensure the idempotency of
 	// the request. For more information, see [Ensuring idempotency].
@@ -108,8 +132,14 @@ type CreateNatGatewayInput struct {
 	// [Create a NAT gateway]: https://docs.aws.amazon.com/vpc/latest/userguide/nat-gateway-working-with.html
 	SecondaryPrivateIpAddresses []string
 
+	// The ID of the subnet in which to create the NAT gateway.
+	SubnetId *string
+
 	// The tags to assign to the NAT gateway.
 	TagSpecifications []types.TagSpecification
+
+	// The ID of the VPC where you want to create a regional NAT gateway.
+	VpcId *string
 
 	noSmithyDocumentSerde
 }
@@ -130,9 +160,6 @@ type CreateNatGatewayOutput struct {
 }
 
 func (c *Client) addOperationCreateNatGatewayMiddlewares(stack *middleware.Stack, options Options) (err error) {
-	if err := stack.Serialize.Add(&setOperationInputMiddleware{}, middleware.After); err != nil {
-		return err
-	}
 	err = stack.Serialize.Add(&awsEc2query_serializeOpCreateNatGateway{}, middleware.After)
 	if err != nil {
 		return err
@@ -141,68 +168,20 @@ func (c *Client) addOperationCreateNatGatewayMiddlewares(stack *middleware.Stack
 	if err != nil {
 		return err
 	}
-	if err := addProtocolFinalizerMiddlewares(stack, options, "CreateNatGateway"); err != nil {
-		return fmt.Errorf("add protocol finalizers: %v", err)
-	}
 
-	if err = addlegacyEndpointContextSetter(stack, options); err != nil {
-		return err
-	}
-	if err = addSetLoggerMiddleware(stack, options); err != nil {
-		return err
-	}
-	if err = addClientRequestID(stack); err != nil {
-		return err
-	}
-	if err = addComputeContentLength(stack); err != nil {
-		return err
-	}
 	if err = addResolveEndpointMiddleware(stack, options); err != nil {
 		return err
 	}
 	if err = addComputePayloadSHA256(stack); err != nil {
 		return err
 	}
-	if err = addRetry(stack, options); err != nil {
+	if err = addRecordResponseTiming(stack, options); err != nil {
 		return err
 	}
-	if err = addRawResponseToMetadata(stack); err != nil {
-		return err
-	}
-	if err = addRecordResponseTiming(stack); err != nil {
-		return err
-	}
-	if err = addSpanRetryLoop(stack, options); err != nil {
-		return err
-	}
-	if err = addClientUserAgent(stack, options); err != nil {
-		return err
-	}
-	if err = smithyhttp.AddErrorCloseResponseBodyMiddleware(stack); err != nil {
-		return err
-	}
-	if err = smithyhttp.AddCloseResponseBodyMiddleware(stack); err != nil {
-		return err
-	}
-	if err = addSetLegacyContextSigningOptionsMiddleware(stack); err != nil {
-		return err
-	}
-	if err = addTimeOffsetBuild(stack, c); err != nil {
-		return err
-	}
-	if err = addUserAgentRetryMode(stack, options); err != nil {
+	if err = addCredentialSource(stack, options); err != nil {
 		return err
 	}
 	if err = addIdempotencyToken_opCreateNatGatewayMiddleware(stack, options); err != nil {
-		return err
-	}
-	if err = addOpCreateNatGatewayValidationMiddleware(stack); err != nil {
-		return err
-	}
-	if err = stack.Initialize.Add(newServiceMetadataMiddleware_opCreateNatGateway(options.Region), middleware.Before); err != nil {
-		return err
-	}
-	if err = addRecursionDetection(stack); err != nil {
 		return err
 	}
 	if err = addRequestIDRetrieverMiddleware(stack); err != nil {
@@ -217,16 +196,7 @@ func (c *Client) addOperationCreateNatGatewayMiddlewares(stack *middleware.Stack
 	if err = addDisableHTTPSMiddleware(stack, options); err != nil {
 		return err
 	}
-	if err = addSpanInitializeStart(stack); err != nil {
-		return err
-	}
-	if err = addSpanInitializeEnd(stack); err != nil {
-		return err
-	}
-	if err = addSpanBuildRequestStart(stack); err != nil {
-		return err
-	}
-	if err = addSpanBuildRequestEnd(stack); err != nil {
+	if err = addInterceptors(stack, options); err != nil {
 		return err
 	}
 	return nil
@@ -263,12 +233,4 @@ func (m *idempotencyToken_initializeOpCreateNatGateway) HandleInitialize(ctx con
 }
 func addIdempotencyToken_opCreateNatGatewayMiddleware(stack *middleware.Stack, cfg Options) error {
 	return stack.Initialize.Add(&idempotencyToken_initializeOpCreateNatGateway{tokenProvider: cfg.IdempotencyTokenProvider}, middleware.Before)
-}
-
-func newServiceMetadataMiddleware_opCreateNatGateway(region string) *awsmiddleware.RegisterServiceMetadata {
-	return &awsmiddleware.RegisterServiceMetadata{
-		Region:        region,
-		ServiceID:     ServiceID,
-		OperationName: "CreateNatGateway",
-	}
 }

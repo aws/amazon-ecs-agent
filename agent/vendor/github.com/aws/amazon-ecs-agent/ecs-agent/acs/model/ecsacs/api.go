@@ -671,6 +671,8 @@ type Container struct {
 
 	RegistryAuthentication *RegistryAuthenticationData `json:"registryAuthentication,omitempty" type:"structure"`
 
+	ResourceRequirements []*ResourceRequirement `json:"resourceRequirements,omitempty" type:"list"`
+
 	RestartPolicy *RestartPolicy `json:"restartPolicy,omitempty" type:"structure"`
 
 	Secrets []*Secret `json:"secrets,omitempty" type:"list"`
@@ -706,6 +708,16 @@ func (s *Container) Validate() error {
 	if s.LinuxParameters != nil {
 		if err := s.LinuxParameters.Validate(); err != nil {
 			invalidParams.AddNested("LinuxParameters", err.(request.ErrInvalidParams))
+		}
+	}
+	if s.ResourceRequirements != nil {
+		for i, v := range s.ResourceRequirements {
+			if v == nil {
+				continue
+			}
+			if err := v.Validate(); err != nil {
+				invalidParams.AddNested(fmt.Sprintf("%s[%v]", "ResourceRequirements", i), err.(request.ErrInvalidParams))
+			}
 		}
 	}
 
@@ -1757,6 +1769,30 @@ func (s *LinuxParameters) Validate() error {
 	return nil
 }
 
+type LogDriverVolumeConfiguration struct {
+	_ struct{} `type:"structure"`
+
+	Driver *string `json:"driver,omitempty" type:"string"`
+}
+
+// String returns the string representation.
+//
+// API parameter values that are decorated as "sensitive" in the API will not
+// be included in the string output. The member name will be present, but the
+// value will be replaced with "sensitive".
+func (s LogDriverVolumeConfiguration) String() string {
+	return awsutil.Prettify(s)
+}
+
+// GoString returns the string representation.
+//
+// API parameter values that are decorated as "sensitive" in the API will not
+// be included in the string output. The member name will be present, but the
+// value will be replaced with "sensitive".
+func (s LogDriverVolumeConfiguration) GoString() string {
+	return s.String()
+}
+
 type ManagedAgent struct {
 	_ struct{} `type:"structure"`
 
@@ -1915,6 +1951,46 @@ func (s NetworkInterfaceVlanProperties) String() string {
 // value will be replaced with "sensitive".
 func (s NetworkInterfaceVlanProperties) GoString() string {
 	return s.String()
+}
+
+type NvidiaMpsAllocation struct {
+	_ struct{} `type:"structure"`
+
+	MaxComputePercent *int64 `json:"maxComputePercent,omitempty" type:"integer"`
+
+	// Memory is a required field
+	Memory *int64 `json:"memory" type:"integer" required:"true"`
+}
+
+// String returns the string representation.
+//
+// API parameter values that are decorated as "sensitive" in the API will not
+// be included in the string output. The member name will be present, but the
+// value will be replaced with "sensitive".
+func (s NvidiaMpsAllocation) String() string {
+	return awsutil.Prettify(s)
+}
+
+// GoString returns the string representation.
+//
+// API parameter values that are decorated as "sensitive" in the API will not
+// be included in the string output. The member name will be present, but the
+// value will be replaced with "sensitive".
+func (s NvidiaMpsAllocation) GoString() string {
+	return s.String()
+}
+
+// Validate inspects the fields of the type to determine if they are valid.
+func (s *NvidiaMpsAllocation) Validate() error {
+	invalidParams := request.ErrInvalidParams{Context: "NvidiaMpsAllocation"}
+	if s.Memory == nil {
+		invalidParams.Add(request.NewErrParamRequired("Memory"))
+	}
+
+	if invalidParams.Len() > 0 {
+		return invalidParams
+	}
+	return nil
 }
 
 type PayloadInput struct {
@@ -2367,6 +2443,49 @@ func (s RegistryAuthenticationData) GoString() string {
 	return s.String()
 }
 
+type ResourceRequirement struct {
+	_ struct{} `type:"structure"`
+
+	SharingStrategy *SharingStrategy `json:"sharingStrategy,omitempty" type:"structure"`
+
+	Type *string `json:"type,omitempty" type:"string"`
+
+	Value *string `json:"value,omitempty" type:"string"`
+}
+
+// String returns the string representation.
+//
+// API parameter values that are decorated as "sensitive" in the API will not
+// be included in the string output. The member name will be present, but the
+// value will be replaced with "sensitive".
+func (s ResourceRequirement) String() string {
+	return awsutil.Prettify(s)
+}
+
+// GoString returns the string representation.
+//
+// API parameter values that are decorated as "sensitive" in the API will not
+// be included in the string output. The member name will be present, but the
+// value will be replaced with "sensitive".
+func (s ResourceRequirement) GoString() string {
+	return s.String()
+}
+
+// Validate inspects the fields of the type to determine if they are valid.
+func (s *ResourceRequirement) Validate() error {
+	invalidParams := request.ErrInvalidParams{Context: "ResourceRequirement"}
+	if s.SharingStrategy != nil {
+		if err := s.SharingStrategy.Validate(); err != nil {
+			invalidParams.AddNested("SharingStrategy", err.(request.ErrInvalidParams))
+		}
+	}
+
+	if invalidParams.Len() > 0 {
+		return invalidParams
+	}
+	return nil
+}
+
 type RestartPolicy struct {
 	_ struct{} `type:"structure"`
 
@@ -2492,6 +2611,45 @@ func (s *ServerException) StatusCode() int {
 // RequestID returns the service's response RequestID for request.
 func (s *ServerException) RequestID() string {
 	return s.RespMetadata.RequestID
+}
+
+type SharingStrategy struct {
+	_ struct{} `type:"structure"`
+
+	NvidiaMps *NvidiaMpsAllocation `json:"nvidiaMps,omitempty" type:"structure"`
+}
+
+// String returns the string representation.
+//
+// API parameter values that are decorated as "sensitive" in the API will not
+// be included in the string output. The member name will be present, but the
+// value will be replaced with "sensitive".
+func (s SharingStrategy) String() string {
+	return awsutil.Prettify(s)
+}
+
+// GoString returns the string representation.
+//
+// API parameter values that are decorated as "sensitive" in the API will not
+// be included in the string output. The member name will be present, but the
+// value will be replaced with "sensitive".
+func (s SharingStrategy) GoString() string {
+	return s.String()
+}
+
+// Validate inspects the fields of the type to determine if they are valid.
+func (s *SharingStrategy) Validate() error {
+	invalidParams := request.ErrInvalidParams{Context: "SharingStrategy"}
+	if s.NvidiaMps != nil {
+		if err := s.NvidiaMps.Validate(); err != nil {
+			invalidParams.AddNested("NvidiaMps", err.(request.ErrInvalidParams))
+		}
+	}
+
+	if invalidParams.Len() > 0 {
+		return invalidParams
+	}
+	return nil
 }
 
 type StageUpdateInput struct {
@@ -2630,6 +2788,8 @@ type Task struct {
 	TaskClusterArn *string `json:"taskClusterArn,omitempty" type:"string"`
 
 	TaskDefinitionAccountId *string `json:"taskDefinitionAccountId,omitempty" type:"string"`
+
+	TrustedExecutionConfiguration *TrustedExecutionConfiguration `json:"trustedExecutionConfiguration,omitempty" type:"structure"`
 
 	Version *string `json:"version,omitempty" type:"string"`
 
@@ -2908,6 +3068,32 @@ func (s TaskStopVerificationOutput) GoString() string {
 	return s.String()
 }
 
+type TrustedExecutionConfiguration struct {
+	_ struct{} `type:"structure"`
+
+	AttestationPolicy *string `json:"attestationPolicy,omitempty" type:"string"`
+
+	IsolationMode *string `json:"isolationMode,omitempty" type:"string" enum:"IsolationMode"`
+}
+
+// String returns the string representation.
+//
+// API parameter values that are decorated as "sensitive" in the API will not
+// be included in the string output. The member name will be present, but the
+// value will be replaced with "sensitive".
+func (s TrustedExecutionConfiguration) String() string {
+	return awsutil.Prettify(s)
+}
+
+// GoString returns the string representation.
+//
+// API parameter values that are decorated as "sensitive" in the API will not
+// be included in the string output. The member name will be present, but the
+// value will be replaced with "sensitive".
+func (s TrustedExecutionConfiguration) GoString() string {
+	return s.String()
+}
+
 type UpdateFailureInput struct {
 	_ struct{} `type:"structure"`
 
@@ -3026,6 +3212,8 @@ type Volume struct {
 	FsxWindowsFileServerVolumeConfiguration *FSxWindowsFileServerVolumeConfiguration `json:"fsxWindowsFileServerVolumeConfiguration,omitempty" type:"structure"`
 
 	Host *HostVolumeProperties `json:"host,omitempty" type:"structure"`
+
+	LogDriverVolumeConfiguration *LogDriverVolumeConfiguration `json:"logDriverVolumeConfiguration,omitempty" type:"structure"`
 
 	Name *string `json:"name,omitempty" type:"string"`
 

@@ -5,22 +5,19 @@ package secretsmanager
 import (
 	"context"
 	"fmt"
-	awsmiddleware "github.com/aws/aws-sdk-go-v2/aws/middleware"
 	"github.com/aws/smithy-go/middleware"
-	smithyhttp "github.com/aws/smithy-go/transport/http"
 )
 
-// Creates a new version with a new encrypted secret value and attaches it to the
-// secret. The version can contain a new SecretString value or a new SecretBinary
-// value.
+// Creates a new version of your secret by creating a new encrypted value and
+// attaching it to the secret. version can contain a new SecretString value or a
+// new SecretBinary value.
 //
-// We recommend you avoid calling PutSecretValue at a sustained rate of more than
-// once every 10 minutes. When you update the secret value, Secrets Manager creates
-// a new version of the secret. Secrets Manager removes outdated versions when
-// there are more than 100, but it does not remove versions created less than 24
-// hours ago. If you call PutSecretValue more than once every 10 minutes, you
-// create more versions than Secrets Manager removes, and you will reach the quota
-// for secret versions.
+// Do not call PutSecretValue at a sustained rate of more than once every 10
+// minutes. When you update the secret value, Secrets Manager creates a new version
+// of the secret. Secrets Manager keeps 100 of the most recent versions, but it
+// keeps all secret versions created in the last 24 hours. If you call
+// PutSecretValue more than once every 10 minutes, you will create more versions
+// than Secrets Manager removes, and you will reach the quota for secret versions.
 //
 // You can specify the staging labels to attach to the new version in VersionStages
 // . If you don't include VersionStages , then Secrets Manager automatically moves
@@ -114,16 +111,18 @@ type PutSecretValueInput struct {
 	// [UUID-type]: https://wikipedia.org/wiki/Universally_unique_identifier
 	ClientRequestToken *string
 
-	// A unique identifier that indicates the source of the request. For cross-account
-	// rotation (when you rotate a secret in one account by using a Lambda rotation
-	// function in another account) and the Lambda rotation function assumes an IAM
-	// role to call Secrets Manager, Secrets Manager validates the identity with the
-	// rotation token. For more information, see [How rotation works].
+	// A unique identifier that indicates the source of the request. Required for
+	// secret rotations using an IAM assumed role or cross-account rotation, in which
+	// you rotate a secret in one account by using a Lambda rotation function in
+	// another account. In both cases, the rotation function assumes an IAM role to
+	// call Secrets Manager, and then Secrets Manager validates the identity using the
+	// token. For more information, see [How rotation works]and [Rotation by Lambda functions].
 	//
 	// Sensitive: This field contains sensitive information, so the service does not
 	// include it in CloudTrail log entries. If you create your own log entries, you
 	// must also avoid logging the information in this field.
 	//
+	// [Rotation by Lambda functions]: https://docs.aws.amazon.com/secretsmanager/latest/userguide/rotate-secrets_lambda
 	// [How rotation works]: https://docs.aws.amazon.com/secretsmanager/latest/userguide/rotating-secrets.html
 	RotationToken *string
 
@@ -192,9 +191,6 @@ type PutSecretValueOutput struct {
 }
 
 func (c *Client) addOperationPutSecretValueMiddlewares(stack *middleware.Stack, options Options) (err error) {
-	if err := stack.Serialize.Add(&setOperationInputMiddleware{}, middleware.After); err != nil {
-		return err
-	}
 	err = stack.Serialize.Add(&awsAwsjson11_serializeOpPutSecretValue{}, middleware.After)
 	if err != nil {
 		return err
@@ -203,19 +199,7 @@ func (c *Client) addOperationPutSecretValueMiddlewares(stack *middleware.Stack, 
 	if err != nil {
 		return err
 	}
-	if err := addProtocolFinalizerMiddlewares(stack, options, "PutSecretValue"); err != nil {
-		return fmt.Errorf("add protocol finalizers: %v", err)
-	}
 
-	if err = addlegacyEndpointContextSetter(stack, options); err != nil {
-		return err
-	}
-	if err = addSetLoggerMiddleware(stack, options); err != nil {
-		return err
-	}
-	if err = addClientRequestID(stack); err != nil {
-		return err
-	}
 	if err = addComputeContentLength(stack); err != nil {
 		return err
 	}
@@ -225,34 +209,7 @@ func (c *Client) addOperationPutSecretValueMiddlewares(stack *middleware.Stack, 
 	if err = addComputePayloadSHA256(stack); err != nil {
 		return err
 	}
-	if err = addRetry(stack, options); err != nil {
-		return err
-	}
-	if err = addRawResponseToMetadata(stack); err != nil {
-		return err
-	}
-	if err = addRecordResponseTiming(stack); err != nil {
-		return err
-	}
-	if err = addSpanRetryLoop(stack, options); err != nil {
-		return err
-	}
-	if err = addClientUserAgent(stack, options); err != nil {
-		return err
-	}
-	if err = smithyhttp.AddErrorCloseResponseBodyMiddleware(stack); err != nil {
-		return err
-	}
-	if err = smithyhttp.AddCloseResponseBodyMiddleware(stack); err != nil {
-		return err
-	}
-	if err = addSetLegacyContextSigningOptionsMiddleware(stack); err != nil {
-		return err
-	}
-	if err = addTimeOffsetBuild(stack, c); err != nil {
-		return err
-	}
-	if err = addUserAgentRetryMode(stack, options); err != nil {
+	if err = addRecordResponseTiming(stack, options); err != nil {
 		return err
 	}
 	if err = addCredentialSource(stack, options); err != nil {
@@ -262,12 +219,6 @@ func (c *Client) addOperationPutSecretValueMiddlewares(stack *middleware.Stack, 
 		return err
 	}
 	if err = addOpPutSecretValueValidationMiddleware(stack); err != nil {
-		return err
-	}
-	if err = stack.Initialize.Add(newServiceMetadataMiddleware_opPutSecretValue(options.Region), middleware.Before); err != nil {
-		return err
-	}
-	if err = addRecursionDetection(stack); err != nil {
 		return err
 	}
 	if err = addRequestIDRetrieverMiddleware(stack); err != nil {
@@ -282,16 +233,7 @@ func (c *Client) addOperationPutSecretValueMiddlewares(stack *middleware.Stack, 
 	if err = addDisableHTTPSMiddleware(stack, options); err != nil {
 		return err
 	}
-	if err = addSpanInitializeStart(stack); err != nil {
-		return err
-	}
-	if err = addSpanInitializeEnd(stack); err != nil {
-		return err
-	}
-	if err = addSpanBuildRequestStart(stack); err != nil {
-		return err
-	}
-	if err = addSpanBuildRequestEnd(stack); err != nil {
+	if err = addInterceptors(stack, options); err != nil {
 		return err
 	}
 	return nil
@@ -328,12 +270,4 @@ func (m *idempotencyToken_initializeOpPutSecretValue) HandleInitialize(ctx conte
 }
 func addIdempotencyToken_opPutSecretValueMiddleware(stack *middleware.Stack, cfg Options) error {
 	return stack.Initialize.Add(&idempotencyToken_initializeOpPutSecretValue{tokenProvider: cfg.IdempotencyTokenProvider}, middleware.Before)
-}
-
-func newServiceMetadataMiddleware_opPutSecretValue(region string) *awsmiddleware.RegisterServiceMetadata {
-	return &awsmiddleware.RegisterServiceMetadata{
-		Region:        region,
-		ServiceID:     ServiceID,
-		OperationName: "PutSecretValue",
-	}
 }

@@ -4,11 +4,8 @@ package ec2
 
 import (
 	"context"
-	"fmt"
-	awsmiddleware "github.com/aws/aws-sdk-go-v2/aws/middleware"
 	"github.com/aws/aws-sdk-go-v2/service/ec2/types"
 	"github.com/aws/smithy-go/middleware"
-	smithyhttp "github.com/aws/smithy-go/transport/http"
 	"time"
 )
 
@@ -16,11 +13,17 @@ import (
 // snapshots for backups, to make copies of EBS volumes, and to save data before
 // shutting down an instance.
 //
-// You can create snapshots of volumes in a Region and volumes on an Outpost. If
-// you create a snapshot of a volume in a Region, the snapshot must be stored in
-// the same Region as the volume. If you create a snapshot of a volume on an
-// Outpost, the snapshot can be stored on the same Outpost as the volume, or in the
-// Region for that Outpost.
+// The location of the source EBS volume determines where you can create the
+// snapshot.
+//
+//   - If the source volume is in a Region, you must create the snapshot in the
+//     same Region as the volume.
+//
+//   - If the source volume is in a Local Zone, you can create the snapshot in the
+//     same Local Zone or in its parent Amazon Web Services Region.
+//
+//   - If the source volume is on an Outpost, you can create the snapshot on the
+//     same Outpost or in its parent Amazon Web Services Region.
 //
 // When a snapshot is created, any Amazon Web Services Marketplace product codes
 // that are associated with the source volume are propagated to the snapshot.
@@ -41,16 +44,9 @@ import (
 // Snapshots that are taken from encrypted volumes are automatically encrypted.
 // Volumes that are created from encrypted snapshots are also automatically
 // encrypted. Your encrypted volumes and any associated snapshots always remain
-// protected.
+// protected. For more information, see [Amazon EBS encryption]in the Amazon EBS User Guide.
 //
-// You can tag your snapshots during creation. For more information, see [Tag your Amazon EC2 resources] in the
-// Amazon EC2 User Guide.
-//
-// For more information, see [Amazon EBS] and [Amazon EBS encryption] in the Amazon EBS User Guide.
-//
-// [Amazon EBS]: https://docs.aws.amazon.com/ebs/latest/userguide/what-is-ebs.html
 // [Amazon EBS encryption]: https://docs.aws.amazon.com/ebs/latest/userguide/ebs-encryption.html
-// [Tag your Amazon EC2 resources]: https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/Using_Tags.html
 func (c *Client) CreateSnapshot(ctx context.Context, params *CreateSnapshotInput, optFns ...func(*Options)) (*CreateSnapshotOutput, error) {
 	if params == nil {
 		params = &CreateSnapshotInput{}
@@ -82,19 +78,27 @@ type CreateSnapshotInput struct {
 	// UnauthorizedOperation .
 	DryRun *bool
 
-	// The Amazon Resource Name (ARN) of the Outpost on which to create a local
-	// snapshot.
+	// Only supported for volumes in Local Zones. If the source volume is not in a
+	// Local Zone, omit this parameter.
 	//
-	//   - To create a snapshot of a volume in a Region, omit this parameter. The
-	//   snapshot is created in the same Region as the volume.
+	//   - To create a local snapshot in the same Local Zone as the source volume,
+	//   specify local .
 	//
-	//   - To create a snapshot of a volume on an Outpost and store the snapshot in
-	//   the Region, omit this parameter. The snapshot is created in the Region for the
-	//   Outpost.
+	//   - To create a regional snapshot in the parent Region of the Local Zone,
+	//   specify regional or omit this parameter.
 	//
-	//   - To create a snapshot of a volume on an Outpost and store the snapshot on an
-	//   Outpost, specify the ARN of the destination Outpost. The snapshot must be
-	//   created on the same Outpost as the volume.
+	// Default value: regional
+	Location types.SnapshotLocationEnum
+
+	// Only supported for volumes on Outposts. If the source volume is not on an
+	// Outpost, omit this parameter.
+	//
+	//   - To create the snapshot on the same Outpost as the source volume, specify
+	//   the ARN of that Outpost. The snapshot must be created on the same Outpost as the
+	//   volume.
+	//
+	//   - To create the snapshot in the parent Region of the Outpost, omit this
+	//   parameter.
 	//
 	// For more information, see [Create local snapshots from volumes on an Outpost] in the Amazon EBS User Guide.
 	//
@@ -109,6 +113,10 @@ type CreateSnapshotInput struct {
 
 // Describes a snapshot.
 type CreateSnapshotOutput struct {
+
+	// The Availability Zone or Local Zone of the snapshot. For example, us-west-1a
+	// (Availability Zone) or us-west-2-lax-1a (Local Zone).
+	AvailabilityZone *string
 
 	// Only for snapshot copies created with time-based snapshot copy operations.
 	//
@@ -131,6 +139,13 @@ type CreateSnapshotOutput struct {
 
 	// Indicates whether the snapshot is encrypted.
 	Encrypted *bool
+
+	// The full size of the snapshot, in bytes.
+	//
+	// This is not the incremental size of the snapshot. This is the full snapshot
+	// size and represents the size of all the blocks that were written to the source
+	// volume at the time the snapshot was created.
+	FullSnapshotSizeInBytes *int64
 
 	// The Amazon Resource Name (ARN) of the KMS key that was used to protect the
 	// volume encryption key for the parent volume.
@@ -200,7 +215,8 @@ type CreateSnapshotOutput struct {
 	TransferType types.TransferType
 
 	// The ID of the volume that was used to create the snapshot. Snapshots created by
-	// the CopySnapshotaction have an arbitrary volume ID that should not be used for any purpose.
+	// a copy snapshot operation have an arbitrary volume ID that you should not use
+	// for any purpose.
 	VolumeId *string
 
 	// The size of the volume, in GiB.
@@ -213,9 +229,6 @@ type CreateSnapshotOutput struct {
 }
 
 func (c *Client) addOperationCreateSnapshotMiddlewares(stack *middleware.Stack, options Options) (err error) {
-	if err := stack.Serialize.Add(&setOperationInputMiddleware{}, middleware.After); err != nil {
-		return err
-	}
 	err = stack.Serialize.Add(&awsEc2query_serializeOpCreateSnapshot{}, middleware.After)
 	if err != nil {
 		return err
@@ -224,65 +237,20 @@ func (c *Client) addOperationCreateSnapshotMiddlewares(stack *middleware.Stack, 
 	if err != nil {
 		return err
 	}
-	if err := addProtocolFinalizerMiddlewares(stack, options, "CreateSnapshot"); err != nil {
-		return fmt.Errorf("add protocol finalizers: %v", err)
-	}
 
-	if err = addlegacyEndpointContextSetter(stack, options); err != nil {
-		return err
-	}
-	if err = addSetLoggerMiddleware(stack, options); err != nil {
-		return err
-	}
-	if err = addClientRequestID(stack); err != nil {
-		return err
-	}
-	if err = addComputeContentLength(stack); err != nil {
-		return err
-	}
 	if err = addResolveEndpointMiddleware(stack, options); err != nil {
 		return err
 	}
 	if err = addComputePayloadSHA256(stack); err != nil {
 		return err
 	}
-	if err = addRetry(stack, options); err != nil {
+	if err = addRecordResponseTiming(stack, options); err != nil {
 		return err
 	}
-	if err = addRawResponseToMetadata(stack); err != nil {
-		return err
-	}
-	if err = addRecordResponseTiming(stack); err != nil {
-		return err
-	}
-	if err = addSpanRetryLoop(stack, options); err != nil {
-		return err
-	}
-	if err = addClientUserAgent(stack, options); err != nil {
-		return err
-	}
-	if err = smithyhttp.AddErrorCloseResponseBodyMiddleware(stack); err != nil {
-		return err
-	}
-	if err = smithyhttp.AddCloseResponseBodyMiddleware(stack); err != nil {
-		return err
-	}
-	if err = addSetLegacyContextSigningOptionsMiddleware(stack); err != nil {
-		return err
-	}
-	if err = addTimeOffsetBuild(stack, c); err != nil {
-		return err
-	}
-	if err = addUserAgentRetryMode(stack, options); err != nil {
+	if err = addCredentialSource(stack, options); err != nil {
 		return err
 	}
 	if err = addOpCreateSnapshotValidationMiddleware(stack); err != nil {
-		return err
-	}
-	if err = stack.Initialize.Add(newServiceMetadataMiddleware_opCreateSnapshot(options.Region), middleware.Before); err != nil {
-		return err
-	}
-	if err = addRecursionDetection(stack); err != nil {
 		return err
 	}
 	if err = addRequestIDRetrieverMiddleware(stack); err != nil {
@@ -297,25 +265,8 @@ func (c *Client) addOperationCreateSnapshotMiddlewares(stack *middleware.Stack, 
 	if err = addDisableHTTPSMiddleware(stack, options); err != nil {
 		return err
 	}
-	if err = addSpanInitializeStart(stack); err != nil {
-		return err
-	}
-	if err = addSpanInitializeEnd(stack); err != nil {
-		return err
-	}
-	if err = addSpanBuildRequestStart(stack); err != nil {
-		return err
-	}
-	if err = addSpanBuildRequestEnd(stack); err != nil {
+	if err = addInterceptors(stack, options); err != nil {
 		return err
 	}
 	return nil
-}
-
-func newServiceMetadataMiddleware_opCreateSnapshot(region string) *awsmiddleware.RegisterServiceMetadata {
-	return &awsmiddleware.RegisterServiceMetadata{
-		Region:        region,
-		ServiceID:     ServiceID,
-		OperationName: "CreateSnapshot",
-	}
 }

@@ -71,6 +71,13 @@ const (
 	SourceVolumeHostPathKey = "sourceVolumeHostPath"
 	VolumeNameKey           = "volumeName"
 	FileSystemKey           = "fileSystem"
+
+	// Properties specific to S3 Files attachment.
+	S3FilesVolumeIdKey              = "volumeId"
+	S3FilesVolumeNameKey            = "volumeName"
+	S3FilesRootDirectoryKey         = "s3FilesRootDirectory"
+	S3FilesTransitEncryptionPortKey = "s3FilesTransitEncryptionPort"
+	S3FilesAccessPointIdKey         = "s3FilesAccessPointId"
 )
 
 var (

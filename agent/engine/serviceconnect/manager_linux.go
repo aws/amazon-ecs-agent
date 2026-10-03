@@ -82,9 +82,10 @@ const (
 	defaultAdminStatsRequest = httpRequestPrefix + "/stats/prometheus?usedonly&filter=metrics_extension&delta"
 	defaultAdminDrainRequest = httpRequestPrefix + "/drain_listeners?inboundonly"
 
-	defaultAgentContainerImageName         = "ecs-service-connect-agent"
-	defaultAgentContainerTagFormat         = "interface-%s"
-	defaultAgentContainerTarballPathFormat = "/managed-agents/serviceconnect/ecs-service-connect-agent.interface-%s.tar"
+	defaultAgentContainerImageName          = "ecs-service-connect-agent"
+	defaultAgentContainerTagFormat          = "interface-%s"
+	defaultAgentContainerTarballPathFormat  = "/managed-agents/serviceconnect/ecs-service-connect-agent.interface-%s.tar"
+	defaultAgentContainerMetadataPathFormat = "/managed-agents/serviceconnect/ecs-service-connect-agent.interface-%s.metadata.json"
 
 	ecsAgentLogFileENV              = "ECS_LOGFILE"
 	defaultECSAgentLogPathContainer = "/log"
@@ -128,6 +129,7 @@ type manager struct {
 	agentContainerImageName string
 	agentContainerTag       string
 	appnetInterfaceVersion  string
+	appnetImageDigest       string
 
 	ecsClient            ecs.ECSClient
 	containerInstanceARN string
@@ -181,6 +183,9 @@ func (m *manager) augmentAgentContainer(
 
 	task.PopulateServiceConnectRuntimeConfig(config)
 	container.Image = m.GetLoadedImageName()
+	if d := m.GetLoadedImageDigest(); d != "" {
+		container.SetImageDigest(d)
+	}
 	return nil
 }
 
@@ -458,6 +463,38 @@ func (agent *manager) setLoadedAppnetVerion(appnetInterfaceVersion string) {
 	agent.appnetInterfaceVersion = appnetInterfaceVersion
 }
 
+// readMetadataFile is overridden in tests to inject metadata.json contents.
+var readMetadataFile = os.ReadFile
+
+// readLoadedImageDigest reads the Appnet agent container image metadata.json
+// that ships alongside the tarball and returns the registry manifest digest.
+// Returns "" (with a warning logged) if the file is missing or malformed;
+// older RPMs do not ship this file, and the Appnet agent container must
+// still launch in that case.
+func (agent *manager) readLoadedImageDigest(version string) string {
+	imageMetadataPath := fmt.Sprintf(defaultAgentContainerMetadataPathFormat, version)
+	raw, err := readMetadataFile(imageMetadataPath)
+	if err != nil {
+		logger.Warn("Appnet agent container image metadata unavailable", logger.Fields{
+			field.Error: err,
+			"path":      imageMetadataPath,
+		})
+		return ""
+	}
+	var md struct {
+		SchemaVersion int    `json:"schemaVersion"`
+		Digest        string `json:"digest"`
+	}
+	if err := json.Unmarshal(raw, &md); err != nil {
+		logger.Warn("Appnet agent container image metadata malformed", logger.Fields{
+			field.Error: err,
+			"path":      imageMetadataPath,
+		})
+		return ""
+	}
+	return md.Digest
+}
+
 // LoadImage helps load the AppNetAgent container image for the agent latest supported
 // AppNet interface version by looking for the AppNet agent tar name from supported list
 // of AppNet versions from highest to lowest version when loading AppNet image
@@ -480,10 +517,12 @@ func (agent *manager) LoadImage(ctx context.Context, _ *config.Config, dockerCli
 			continue
 		}
 		agent.setLoadedAppnetVerion(supportedAppnetInterfaceVersion)
+		agent.appnetImageDigest = agent.readLoadedImageDigest(supportedAppnetInterfaceVersion)
 		imageName := agent.GetLoadedImageName()
 		logger.Info(fmt.Sprintf("Successfully loaded Appnet agent container tarball: %s", agentContainerTarballPath),
 			logger.Fields{
-				field.Image: imageName,
+				field.Image:         imageName,
+				"appnetImageDigest": agent.appnetImageDigest,
 			})
 		return loader.GetContainerImage(imageName, dockerClient)
 	}
@@ -497,6 +536,14 @@ func (agent *manager) IsLoaded(dockerClient dockerapi.DockerClient) (bool, error
 func (agent *manager) GetLoadedImageName() string {
 	agent.agentContainerTag = fmt.Sprintf(defaultAgentContainerTagFormat, agent.appnetInterfaceVersion)
 	return fmt.Sprintf("%s:%s", agent.agentContainerImageName, agent.agentContainerTag)
+}
+
+// GetLoadedImageDigest returns the registry manifest digest of the loaded
+// Appnet agent container image, sourced from the metadata.json file that
+// ships alongside the tarball. Returns "" if the metadata file was missing
+// or malformed at LoadImage time; callers must tolerate empty digest.
+func (agent *manager) GetLoadedImageDigest() string {
+	return agent.appnetImageDigest
 }
 
 func (agent *manager) GetLoadedAppnetVersion() (string, error) {

@@ -360,3 +360,105 @@ func TestAugmentTaskContainerError(t *testing.T) {
 		assert.EqualError(t, namedErr, "instance is IPv6-only but no IPv6 address found for container 'web'")
 	})
 }
+
+// Verifies the metadata.json reader: happy path, missing file, malformed JSON.
+// Failures must degrade gracefully (return "" + warn) so older RPMs without
+// metadata.json do not break AppNet container launch.
+func TestReadLoadedImageDigest(t *testing.T) {
+	const expectedDigest = "sha256:8bdb42f6a48b7422f5eee379a6522a446850269001e9432cea58296f5fbb1169"
+
+	tt := []struct {
+		name     string
+		readFn   func(string) ([]byte, error)
+		expected string
+	}{
+		{
+			name: "valid metadata.json returns digest",
+			readFn: func(string) ([]byte, error) {
+				return []byte(`{"schemaVersion":1,"digest":"` + expectedDigest + `"}`), nil
+			},
+			expected: expectedDigest,
+		},
+		{
+			name: "missing file returns empty digest",
+			readFn: func(string) ([]byte, error) {
+				return nil, os.ErrNotExist
+			},
+			expected: "",
+		},
+		{
+			name: "malformed JSON returns empty digest",
+			readFn: func(string) ([]byte, error) {
+				return []byte(`{not valid json`), nil
+			},
+			expected: "",
+		},
+		{
+			name: "empty digest field returns empty",
+			readFn: func(string) ([]byte, error) {
+				return []byte(`{"schemaVersion":1,"digest":""}`), nil
+			},
+			expected: "",
+		},
+	}
+
+	for _, tc := range tt {
+		t.Run(tc.name, func(t *testing.T) {
+			origRead := readMetadataFile
+			readMetadataFile = tc.readFn
+			defer func() { readMetadataFile = origRead }()
+
+			m := &manager{}
+			got := m.readLoadedImageDigest("v1")
+			assert.Equal(t, tc.expected, got)
+		})
+	}
+}
+
+// Verifies augmentAgentContainer plumbs the cached digest onto the AppNet
+// container via SetImageDigest. The non-empty branch is the load-bearing
+// behavior (it makes ImageDigest flow to control plane); the empty branch
+// guards against overwriting when an older RPM ships no metadata.json.
+func TestAugmentTaskContainerSetsImageDigest(t *testing.T) {
+	const testDigest = "sha256:8bdb42f6a48b7422f5eee379a6522a446850269001e9432cea58296f5fbb1169"
+
+	tt := []struct {
+		name           string
+		managerDigest  string
+		expectedDigest string
+	}{
+		{
+			name:           "manager has digest, container gets it",
+			managerDigest:  testDigest,
+			expectedDigest: testDigest,
+		},
+		{
+			name:           "manager has empty digest, container untouched",
+			managerDigest:  "",
+			expectedDigest: "",
+		},
+	}
+
+	for _, tc := range tt {
+		t.Run(tc.name, func(t *testing.T) {
+			origMkdir := mkdirAllAndChown
+			mkdirAllAndChown = func(path string, perm fs.FileMode, uid, gid int) error {
+				return nil
+			}
+			defer func() { mkdirAllAndChown = origMkdir }()
+
+			scTask, _, serviceConnectContainer := getAWSVPCTask(t)
+
+			scManager := &manager{
+				agentContainerImageName: "container_image",
+				agentContainerTag:       "tag",
+				appnetImageDigest:       tc.managerDigest,
+			}
+
+			err := scManager.AugmentTaskContainer(scTask, serviceConnectContainer,
+				&dockercontainer.HostConfig{}, ipcompatibility.NewIPv4OnlyCompatibility())
+			assert.NoError(t, err)
+			assert.Equal(t, tc.expectedDigest, serviceConnectContainer.GetImageDigest())
+		})
+	}
+}

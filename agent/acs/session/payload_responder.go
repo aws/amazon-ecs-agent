@@ -120,6 +120,13 @@ func (pmHandler *payloadMessageHandler) addPayloadTasks(payload *ecsacs.PayloadM
 			initializeAttachmentTypeVolume(task, volName)
 		}
 
+		// Same for S3 Files attachments - mark matching volumes as "attachment" type
+		// so they pass through UnmarshalJSON without error.
+		s3filesVolNames := getS3FilesAttachmentVolumeNames(task)
+		for _, volName := range s3filesVolNames {
+			initializeAttachmentTypeVolume(task, volName)
+		}
+
 		apiTask, err := apitask.TaskFromACS(task, payload)
 		if err != nil {
 			pmHandler.handleInvalidTask(task, err, payload)
@@ -163,6 +170,7 @@ func (pmHandler *payloadMessageHandler) addPayloadTasks(payload *ecsacs.PayloadM
 				loggerfield.CredentialsID: utils.TruncateString(taskIAMRoleCredentials.CredentialsID, utils.CredentialsIDLogTruncationLen),
 			})
 			apiTask.SetCredentialsID(taskIAMRoleCredentials.CredentialsID)
+			apiTask.SetTaskRoleArn(taskIAMRoleCredentials.RoleArn)
 		}
 
 		// Add ENI information to the task struct.
@@ -211,6 +219,7 @@ func (pmHandler *payloadMessageHandler) addPayloadTasks(payload *ecsacs.PayloadM
 				loggerfield.CredentialsID: utils.TruncateString(taskExecutionIAMRoleCredentials.CredentialsID, utils.CredentialsIDLogTruncationLen),
 			})
 			apiTask.SetExecutionRoleCredentialsID(taskExecutionIAMRoleCredentials.CredentialsID)
+			apiTask.SetExecutionRoleArn(taskExecutionIAMRoleCredentials.RoleArn)
 		}
 
 		validTasks = append(validTasks, apiTask)
@@ -362,4 +371,19 @@ func initializeAttachmentTypeVolume(acsTask *ecsacs.Task, volName string) {
 			volume.Type = &newType
 		}
 	}
+}
+
+// getS3FilesAttachmentVolumeNames returns the volume names from all S3 Files attachments in the task.
+func getS3FilesAttachmentVolumeNames(acsTask *ecsacs.Task) []string {
+	var volNames []string
+	for _, attachment := range acsTask.Attachments {
+		if aws.ToString(attachment.AttachmentType) == apiresource.S3FilesTaskAttach {
+			for _, property := range attachment.AttachmentProperties {
+				if aws.ToString(property.Name) == apiresource.S3FilesVolumeNameKey {
+					volNames = append(volNames, aws.ToString(property.Value))
+				}
+			}
+		}
+	}
+	return volNames
 }

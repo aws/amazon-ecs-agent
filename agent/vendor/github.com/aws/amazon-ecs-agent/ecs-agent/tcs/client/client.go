@@ -531,6 +531,9 @@ func (cs *tcsClientServer) getInstanceStatuses() []*ecstcs.InstanceStatus {
 			Status:           aws.String(healthcheck.GetHealthcheckStatus().String()),
 			Type:             aws.String(healthcheck.GetHealthcheckType()),
 		}
+		if reason := healthcheck.GetStatusReason(); reason != "" {
+			instanceStatus.StatusReason = aws.String(reason)
+		}
 		instanceStatuses = append(instanceStatuses, instanceStatus)
 	}
 	return instanceStatuses

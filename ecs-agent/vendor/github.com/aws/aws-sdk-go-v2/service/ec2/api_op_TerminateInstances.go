@@ -4,15 +4,23 @@ package ec2
 
 import (
 	"context"
-	"fmt"
-	awsmiddleware "github.com/aws/aws-sdk-go-v2/aws/middleware"
 	"github.com/aws/aws-sdk-go-v2/service/ec2/types"
 	"github.com/aws/smithy-go/middleware"
-	smithyhttp "github.com/aws/smithy-go/transport/http"
 )
 
-// Shuts down the specified instances. This operation is idempotent; if you
+// Terminates (deletes) the specified instances. This operation is [idempotent]; if you
 // terminate an instance more than once, each call succeeds.
+//
+// Terminating an instance is permanent and irreversible.
+//
+// After you terminate an instance, you can no longer connect to it, and it can't
+// be recovered. All attached Amazon EBS volumes that are configured to be deleted
+// on termination are also permanently deleted and can't be recovered. All data
+// stored on instance store volumes is permanently lost. For more information, see [How instance termination works]
+// .
+//
+// Before you terminate an instance, ensure that you have backed up all data that
+// you need to retain after the termination to persistent storage.
 //
 // If you specify multiple instances and the request fails (for example, because
 // of a single incorrect instance ID), none of the instances are terminated.
@@ -53,19 +61,30 @@ import (
 // By default, Amazon EC2 deletes all EBS volumes that were attached when the
 // instance launched. Volumes attached after instance launch continue running.
 //
+// By default, the TerminateInstances operation includes a graceful operating
+// system (OS) shutdown. To bypass the graceful shutdown, use the skipOsShutdown
+// parameter; however, this might risk data integrity.
+//
 // You can stop, start, and terminate EBS-backed instances. You can only terminate
 // instance store-backed instances. What happens to an instance differs if you stop
-// it or terminate it. For example, when you stop an instance, the root device and
-// any other devices attached to the instance persist. When you terminate an
-// instance, any attached EBS volumes with the DeleteOnTermination block device
-// mapping parameter set to true are automatically deleted. For more information
-// about the differences between stopping and terminating instances, see [Instance lifecycle]in the
-// Amazon EC2 User Guide.
+// or terminate it. For example, when you stop an instance, the root device and any
+// other devices attached to the instance persist. When you terminate an instance,
+// any attached EBS volumes with the DeleteOnTermination block device mapping
+// parameter set to true are automatically deleted. For more information about the
+// differences between stopping and terminating instances, see [Amazon EC2 instance state changes]in the Amazon EC2
+// User Guide.
 //
-// For more information about troubleshooting, see [Troubleshooting terminating your instance] in the Amazon EC2 User Guide.
+// When you terminate an instance, we attempt to terminate it forcibly after a
+// short while. If your instance appears stuck in the shutting-down state after a
+// period of time, there might be an issue with the underlying host computer. For
+// more information about terminating and troubleshooting terminating your
+// instances, see [Terminate Amazon EC2 instances]and [Troubleshooting terminating your instance] in the Amazon EC2 User Guide.
 //
-// [Instance lifecycle]: https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/ec2-instance-lifecycle.html
+// [idempotent]: https://docs.aws.amazon.com/ec2/latest/devguide/ec2-api-idempotency.html
+// [How instance termination works]: https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/how-ec2-instance-termination-works.html
 // [Troubleshooting terminating your instance]: https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/TroubleshootingInstancesShuttingDown.html
+// [Amazon EC2 instance state changes]: https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/ec2-instance-lifecycle.html
+// [Terminate Amazon EC2 instances]: https://docs.aws.amazon.com/
 func (c *Client) TerminateInstances(ctx context.Context, params *TerminateInstancesInput, optFns ...func(*Options)) (*TerminateInstancesOutput, error) {
 	if params == nil {
 		params = &TerminateInstancesInput{}
@@ -97,6 +116,18 @@ type TerminateInstancesInput struct {
 	// UnauthorizedOperation .
 	DryRun *bool
 
+	// Forces the instances to terminate. The instance will first attempt a graceful
+	// shutdown, which includes flushing file system caches and metadata. If the
+	// graceful shutdown fails to complete within the timeout period, the instance
+	// shuts down forcibly without flushing the file system caches and metadata.
+	Force *bool
+
+	// Specifies whether to bypass the graceful OS shutdown process when the instance
+	// is terminated.
+	//
+	// Default: false
+	SkipOsShutdown *bool
+
 	noSmithyDocumentSerde
 }
 
@@ -112,9 +143,6 @@ type TerminateInstancesOutput struct {
 }
 
 func (c *Client) addOperationTerminateInstancesMiddlewares(stack *middleware.Stack, options Options) (err error) {
-	if err := stack.Serialize.Add(&setOperationInputMiddleware{}, middleware.After); err != nil {
-		return err
-	}
 	err = stack.Serialize.Add(&awsEc2query_serializeOpTerminateInstances{}, middleware.After)
 	if err != nil {
 		return err
@@ -123,65 +151,20 @@ func (c *Client) addOperationTerminateInstancesMiddlewares(stack *middleware.Sta
 	if err != nil {
 		return err
 	}
-	if err := addProtocolFinalizerMiddlewares(stack, options, "TerminateInstances"); err != nil {
-		return fmt.Errorf("add protocol finalizers: %v", err)
-	}
 
-	if err = addlegacyEndpointContextSetter(stack, options); err != nil {
-		return err
-	}
-	if err = addSetLoggerMiddleware(stack, options); err != nil {
-		return err
-	}
-	if err = addClientRequestID(stack); err != nil {
-		return err
-	}
-	if err = addComputeContentLength(stack); err != nil {
-		return err
-	}
 	if err = addResolveEndpointMiddleware(stack, options); err != nil {
 		return err
 	}
 	if err = addComputePayloadSHA256(stack); err != nil {
 		return err
 	}
-	if err = addRetry(stack, options); err != nil {
+	if err = addRecordResponseTiming(stack, options); err != nil {
 		return err
 	}
-	if err = addRawResponseToMetadata(stack); err != nil {
-		return err
-	}
-	if err = addRecordResponseTiming(stack); err != nil {
-		return err
-	}
-	if err = addSpanRetryLoop(stack, options); err != nil {
-		return err
-	}
-	if err = addClientUserAgent(stack, options); err != nil {
-		return err
-	}
-	if err = smithyhttp.AddErrorCloseResponseBodyMiddleware(stack); err != nil {
-		return err
-	}
-	if err = smithyhttp.AddCloseResponseBodyMiddleware(stack); err != nil {
-		return err
-	}
-	if err = addSetLegacyContextSigningOptionsMiddleware(stack); err != nil {
-		return err
-	}
-	if err = addTimeOffsetBuild(stack, c); err != nil {
-		return err
-	}
-	if err = addUserAgentRetryMode(stack, options); err != nil {
+	if err = addCredentialSource(stack, options); err != nil {
 		return err
 	}
 	if err = addOpTerminateInstancesValidationMiddleware(stack); err != nil {
-		return err
-	}
-	if err = stack.Initialize.Add(newServiceMetadataMiddleware_opTerminateInstances(options.Region), middleware.Before); err != nil {
-		return err
-	}
-	if err = addRecursionDetection(stack); err != nil {
 		return err
 	}
 	if err = addRequestIDRetrieverMiddleware(stack); err != nil {
@@ -196,25 +179,8 @@ func (c *Client) addOperationTerminateInstancesMiddlewares(stack *middleware.Sta
 	if err = addDisableHTTPSMiddleware(stack, options); err != nil {
 		return err
 	}
-	if err = addSpanInitializeStart(stack); err != nil {
-		return err
-	}
-	if err = addSpanInitializeEnd(stack); err != nil {
-		return err
-	}
-	if err = addSpanBuildRequestStart(stack); err != nil {
-		return err
-	}
-	if err = addSpanBuildRequestEnd(stack); err != nil {
+	if err = addInterceptors(stack, options); err != nil {
 		return err
 	}
 	return nil
-}
-
-func newServiceMetadataMiddleware_opTerminateInstances(region string) *awsmiddleware.RegisterServiceMetadata {
-	return &awsmiddleware.RegisterServiceMetadata{
-		Region:        region,
-		ServiceID:     ServiceID,
-		OperationName: "TerminateInstances",
-	}
 }

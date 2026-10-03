@@ -47,24 +47,38 @@ const (
 	testRoleARN3 = "arn:aws:iam::123456789012:role/TaskRole2"
 )
 
-// newTestTask creates a task with the given ARN, status, and credential IDs
-// for use in unit tests.
+// testTaskOpts configures a test task's credentials-related state.
+type testTaskOpts struct {
+	credID      string
+	roleArn     string
+	execCredID  string
+	execRoleArn string
+}
+
+// newTestTask creates a task with the given ARN, status, and
+// credentials-related state for use in unit tests.
 func newTestTask(
-	arn string, taskStatus status.TaskStatus,
-	credID, execCredID string,
+	arn string, taskStatus status.TaskStatus, opts testTaskOpts,
 ) *apitask.Task {
 	task := &apitask.Task{Arn: arn}
 	task.SetKnownStatus(taskStatus)
-	if credID != "" {
-		task.SetCredentialsID(credID)
+	if opts.credID != "" {
+		task.SetCredentialsID(opts.credID)
 	}
-	if execCredID != "" {
-		task.SetExecutionRoleCredentialsID(execCredID)
+	if opts.roleArn != "" {
+		task.SetTaskRoleArn(opts.roleArn)
+	}
+	if opts.execCredID != "" {
+		task.SetExecutionRoleCredentialsID(opts.execCredID)
+	}
+	if opts.execRoleArn != "" {
+		task.SetExecutionRoleArn(opts.execRoleArn)
 	}
 	return task
 }
 
 func TestRefresh(t *testing.T) {
+	t.Parallel()
 	tests := []struct {
 		name            string
 		listTasksErr    error
@@ -84,26 +98,30 @@ func TestRefresh(t *testing.T) {
 		{
 			name: "scan error",
 			tasks: []*apitask.Task{
-				newTestTask(testTaskARN1, status.TaskRunning, testCredID1, ""),
+				newTestTask(testTaskARN1, status.TaskRunning,
+					testTaskOpts{credID: testCredID1, roleArn: testRoleARN1}),
 			},
 			scanErr: errors.New("imds unreachable"),
 		},
 		{
 			name: "all terminal tasks skips scan",
 			tasks: []*apitask.Task{
-				newTestTask(testTaskARN1, status.TaskStopped, testCredID1, ""),
+				newTestTask(testTaskARN1, status.TaskStopped,
+					testTaskOpts{credID: testCredID1, roleArn: testRoleARN1}),
 			},
 		},
 		{
 			name: "upserts task role credential",
 			tasks: []*apitask.Task{
-				newTestTask(testTaskARN1, status.TaskRunning, testCredID1, testCredID2),
+				newTestTask(testTaskARN1, status.TaskRunning, testTaskOpts{
+					credID: testCredID1, roleArn: testRoleARN1,
+					execCredID: testCredID2, execRoleArn: testRoleARN2,
+				}),
 			},
 			scanResult: []imds.TaskCredential{
 				{
 					TaskID:          testTaskID1,
 					RoleType:        credentials.ApplicationRoleType,
-					RoleArn:         testRoleARN1,
 					AccessKeyID:     "AKID_NEW",
 					SecretAccessKey: "secret_new",
 					SessionToken:    "token_new",
@@ -128,13 +146,15 @@ func TestRefresh(t *testing.T) {
 		{
 			name: "upserts execution role credential",
 			tasks: []*apitask.Task{
-				newTestTask(testTaskARN1, status.TaskRunning, testCredID1, testCredID2),
+				newTestTask(testTaskARN1, status.TaskRunning, testTaskOpts{
+					credID: testCredID1, roleArn: testRoleARN1,
+					execCredID: testCredID2, execRoleArn: testRoleARN2,
+				}),
 			},
 			scanResult: []imds.TaskCredential{
 				{
 					TaskID:          testTaskID1,
 					RoleType:        credentials.ExecutionRoleType,
-					RoleArn:         testRoleARN2,
 					AccessKeyID:     "AKID_EXEC",
 					SecretAccessKey: "secret_exec",
 					SessionToken:    "token_exec",
@@ -159,40 +179,40 @@ func TestRefresh(t *testing.T) {
 		{
 			name: "skips unknown task ID",
 			tasks: []*apitask.Task{
-				newTestTask(testTaskARN1, status.TaskRunning, testCredID1, ""),
+				newTestTask(testTaskARN1, status.TaskRunning,
+					testTaskOpts{credID: testCredID1, roleArn: testRoleARN1}),
 			},
 			scanResult: []imds.TaskCredential{
 				{
 					TaskID:   "unknown00000000000000000000000000",
 					RoleType: credentials.ApplicationRoleType,
-					RoleArn:  testRoleARN1,
 				},
 			},
 		},
 		{
 			name: "skips credential with no credentials ID on task",
 			tasks: []*apitask.Task{
-				newTestTask(testTaskARN1, status.TaskRunning, "", ""),
+				newTestTask(testTaskARN1, status.TaskRunning, testTaskOpts{}),
 			},
 			scanResult: []imds.TaskCredential{
 				{
 					TaskID:   testTaskID1,
 					RoleType: credentials.ApplicationRoleType,
-					RoleArn:  testRoleARN1,
 				},
 			},
 		},
 		{
 			name: "multiple tasks multiple credentials",
 			tasks: []*apitask.Task{
-				newTestTask(testTaskARN1, status.TaskRunning, testCredID1, ""),
-				newTestTask(testTaskARN2, status.TaskRunning, testCredID3, ""),
+				newTestTask(testTaskARN1, status.TaskRunning,
+					testTaskOpts{credID: testCredID1, roleArn: testRoleARN1}),
+				newTestTask(testTaskARN2, status.TaskRunning,
+					testTaskOpts{credID: testCredID3, roleArn: testRoleARN3}),
 			},
 			scanResult: []imds.TaskCredential{
 				{
 					TaskID:          testTaskID1,
 					RoleType:        credentials.ApplicationRoleType,
-					RoleArn:         testRoleARN1,
 					AccessKeyID:     "AKID1",
 					SecretAccessKey: "secret1",
 					SessionToken:    "token1",
@@ -201,7 +221,6 @@ func TestRefresh(t *testing.T) {
 				{
 					TaskID:          testTaskID2,
 					RoleType:        credentials.ApplicationRoleType,
-					RoleArn:         testRoleARN3,
 					AccessKeyID:     "AKID2",
 					SecretAccessKey: "secret2",
 					SessionToken:    "token2",
@@ -238,13 +257,15 @@ func TestRefresh(t *testing.T) {
 		{
 			name: "same role ARN for task and execution role",
 			tasks: []*apitask.Task{
-				newTestTask(testTaskARN1, status.TaskRunning, testCredID1, testCredID2),
+				newTestTask(testTaskARN1, status.TaskRunning, testTaskOpts{
+					credID: testCredID1, roleArn: testRoleARN1,
+					execCredID: testCredID2, execRoleArn: testRoleARN1,
+				}),
 			},
 			scanResult: []imds.TaskCredential{
 				{
 					TaskID:          testTaskID1,
 					RoleType:        credentials.ApplicationRoleType,
-					RoleArn:         testRoleARN1,
 					AccessKeyID:     "AKID_TASK",
 					SecretAccessKey: "secret_task",
 					SessionToken:    "token_task",
@@ -253,7 +274,6 @@ func TestRefresh(t *testing.T) {
 				{
 					TaskID:          testTaskID1,
 					RoleType:        credentials.ExecutionRoleType,
-					RoleArn:         testRoleARN1,
 					AccessKeyID:     "AKID_EXEC",
 					SecretAccessKey: "secret_exec",
 					SessionToken:    "token_exec",
@@ -291,6 +311,7 @@ func TestRefresh(t *testing.T) {
 
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
 			ctrl := gomock.NewController(t)
 			defer ctrl.Finish()
 
@@ -303,7 +324,7 @@ func TestRefresh(t *testing.T) {
 			if tc.listTasksErr == nil && len(nonTerminalTasksByID(tc.tasks)) > 0 {
 				mockScanner.EXPECT().
 					Scan(gomock.Any()).
-					Return(tc.scanResult, tc.scanErr)
+					Return(imds.ScanResult{Credentials: tc.scanResult}, tc.scanErr)
 			}
 
 			if len(tc.expectedUpserts) > 0 {
@@ -318,7 +339,7 @@ func TestRefresh(t *testing.T) {
 					Times(0)
 			}
 
-			refresher := &IMDSCredentialRefresher{
+			refresher := &IMDSCredentialsRefresher{
 				ctx:         context.Background(),
 				scanner:     mockScanner,
 				credManager: mockCredManager,
@@ -330,20 +351,22 @@ func TestRefresh(t *testing.T) {
 }
 
 func TestUpsertCredential(t *testing.T) {
+	t.Parallel()
 	tests := []struct {
-		name           string
-		task           *apitask.Task
-		cred           imds.TaskCredential
-		expectedUpsert *credentials.TaskIAMRoleCredentials
-		upsertErr      error
+		name                 string
+		task                 *apitask.Task
+		cred                 imds.TaskCredential
+		expectedUpsert       *credentials.TaskIAMRoleCredentials
+		upsertErr            error
+		expectedErrSubstring string
 	}{
 		{
 			name: "upserts with correct credentials",
-			task: newTestTask(testTaskARN1, status.TaskRunning, testCredID1, ""),
+			task: newTestTask(testTaskARN1, status.TaskRunning,
+				testTaskOpts{credID: testCredID1, roleArn: testRoleARN1}),
 			cred: imds.TaskCredential{
 				TaskID:          testTaskID1,
 				RoleType:        credentials.ApplicationRoleType,
-				RoleArn:         testRoleARN1,
 				AccessKeyID:     "AKID",
 				SecretAccessKey: "secret",
 				SessionToken:    "token",
@@ -363,12 +386,12 @@ func TestUpsertCredential(t *testing.T) {
 			},
 		},
 		{
-			name: "SetTaskCredentials error is handled gracefully",
-			task: newTestTask(testTaskARN1, status.TaskRunning, testCredID1, ""),
+			name: "SetTaskCredentials error is returned",
+			task: newTestTask(testTaskARN1, status.TaskRunning,
+				testTaskOpts{credID: testCredID1, roleArn: testRoleARN1}),
 			cred: imds.TaskCredential{
 				TaskID:          testTaskID1,
 				RoleType:        credentials.ApplicationRoleType,
-				RoleArn:         testRoleARN1,
 				AccessKeyID:     "AKID",
 				SecretAccessKey: "secret",
 				SessionToken:    "token",
@@ -386,32 +409,46 @@ func TestUpsertCredential(t *testing.T) {
 					RoleType:        credentials.ApplicationRoleType,
 				},
 			},
-			upsertErr: errors.New("write failed"),
+			upsertErr:            errors.New("write failed"),
+			expectedErrSubstring: "set task credentials: write failed",
 		},
 		{
 			name: "no credentials ID for role type, does not upsert",
-			task: newTestTask(testTaskARN1, status.TaskRunning, "", ""),
+			task: newTestTask(testTaskARN1, status.TaskRunning, testTaskOpts{}),
 			cred: imds.TaskCredential{
 				TaskID:   testTaskID1,
 				RoleType: credentials.ApplicationRoleType,
-				RoleArn:  testRoleARN1,
 			},
-			expectedUpsert: nil,
+			expectedUpsert:       nil,
+			expectedErrSubstring: "no credentials ID on task for role type",
+		},
+		{
+			name: "no role ARN on task, does not upsert",
+			task: newTestTask(testTaskARN1, status.TaskRunning,
+				testTaskOpts{credID: testCredID1}),
+			cred: imds.TaskCredential{
+				TaskID:   testTaskID1,
+				RoleType: credentials.ApplicationRoleType,
+			},
+			expectedUpsert:       nil,
+			expectedErrSubstring: "no role ARN on task for role type",
 		},
 		{
 			name: "unknown role type, does not upsert",
-			task: newTestTask(testTaskARN1, status.TaskRunning, testCredID1, ""),
+			task: newTestTask(testTaskARN1, status.TaskRunning,
+				testTaskOpts{credID: testCredID1, roleArn: testRoleARN1}),
 			cred: imds.TaskCredential{
 				TaskID:   testTaskID1,
 				RoleType: "UnknownType",
-				RoleArn:  testRoleARN1,
 			},
-			expectedUpsert: nil,
+			expectedUpsert:       nil,
+			expectedErrSubstring: "no credentials ID on task for role type",
 		},
 	}
 
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
 			ctrl := gomock.NewController(t)
 			defer ctrl.Finish()
 
@@ -426,16 +463,22 @@ func TestUpsertCredential(t *testing.T) {
 					Times(0)
 			}
 
-			refresher := &IMDSCredentialRefresher{
+			refresher := &IMDSCredentialsRefresher{
 				ctx:         context.Background(),
 				credManager: mockCredManager,
 			}
-			refresher.upsertCredential(tc.task, tc.cred)
+			err := refresher.upsertCredential(tc.task, tc.cred)
+			if tc.expectedErrSubstring == "" {
+				assert.NoError(t, err)
+				return
+			}
+			assert.ErrorContains(t, err, tc.expectedErrSubstring)
 		})
 	}
 }
 
 func TestNonTerminalTasksByID(t *testing.T) {
+	t.Parallel()
 	tests := []struct {
 		name        string
 		tasks       []*apitask.Task
@@ -449,16 +492,20 @@ func TestNonTerminalTasksByID(t *testing.T) {
 		{
 			name: "filters terminal tasks",
 			tasks: []*apitask.Task{
-				newTestTask(testTaskARN1, status.TaskRunning, testCredID1, ""),
-				newTestTask(testTaskARN2, status.TaskStopped, testCredID3, ""),
+				newTestTask(testTaskARN1, status.TaskRunning,
+					testTaskOpts{credID: testCredID1, roleArn: testRoleARN1}),
+				newTestTask(testTaskARN2, status.TaskStopped,
+					testTaskOpts{credID: testCredID3, roleArn: testRoleARN3}),
 			},
 			expectedIDs: []string{testTaskID1},
 		},
 		{
 			name: "includes all non-terminal",
 			tasks: []*apitask.Task{
-				newTestTask(testTaskARN1, status.TaskRunning, testCredID1, ""),
-				newTestTask(testTaskARN2, status.TaskRunning, testCredID3, ""),
+				newTestTask(testTaskARN1, status.TaskRunning,
+					testTaskOpts{credID: testCredID1, roleArn: testRoleARN1}),
+				newTestTask(testTaskARN2, status.TaskRunning,
+					testTaskOpts{credID: testCredID3, roleArn: testRoleARN3}),
 			},
 			expectedIDs: []string{testTaskID1, testTaskID2},
 		},
@@ -466,6 +513,7 @@ func TestNonTerminalTasksByID(t *testing.T) {
 
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
 			tasksByID := nonTerminalTasksByID(tc.tasks)
 			assert.Len(t, tasksByID, len(tc.expectedIDs))
 			for _, id := range tc.expectedIDs {

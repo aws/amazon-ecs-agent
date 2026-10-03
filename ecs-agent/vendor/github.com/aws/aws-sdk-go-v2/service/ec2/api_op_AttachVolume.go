@@ -4,21 +4,20 @@ package ec2
 
 import (
 	"context"
-	"fmt"
-	awsmiddleware "github.com/aws/aws-sdk-go-v2/aws/middleware"
 	"github.com/aws/aws-sdk-go-v2/service/ec2/types"
 	"github.com/aws/smithy-go/middleware"
-	smithyhttp "github.com/aws/smithy-go/transport/http"
 	"time"
 )
 
-// Attaches an EBS volume to a running or stopped instance and exposes it to the
-// instance with the specified device name.
+// Attaches an Amazon EBS volume to a running or stopped instance, and exposes it
+// to the instance with the specified device name.
 //
-// Encrypted EBS volumes must be attached to instances that support Amazon EBS
-// encryption. For more information, see [Amazon EBS encryption]in the Amazon EBS User Guide.
+// The maximum number of Amazon EBS volumes that you can attach to an instance
+// depends on the instance type. If you exceed the volume attachment limit for an
+// instance type, the attachment request fails with the AttachmentLimitExceeded
+// error. For more information, see [Instance volume limits].
 //
-// After you attach an EBS volume, you must make it available. For more
+// After you attach an EBS volume, you must make it available for use. For more
 // information, see [Make an EBS volume available for use].
 //
 // If a volume has an Amazon Web Services Marketplace product code:
@@ -36,9 +35,9 @@ import (
 //
 // For more information, see [Attach an Amazon EBS volume to an instance] in the Amazon EBS User Guide.
 //
-// [Amazon EBS encryption]: https://docs.aws.amazon.com/ebs/latest/userguide/ebs-encryption.html
 // [Make an EBS volume available for use]: https://docs.aws.amazon.com/ebs/latest/userguide/ebs-using-volumes.html
 // [Attach an Amazon EBS volume to an instance]: https://docs.aws.amazon.com/ebs/latest/userguide/ebs-attaching-volume.html
+// [Instance volume limits]: https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/volume_limits.html
 func (c *Client) AttachVolume(ctx context.Context, params *AttachVolumeInput, optFns ...func(*Options)) (*AttachVolumeOutput, error) {
 	if params == nil {
 		params = &AttachVolumeInput{}
@@ -78,13 +77,18 @@ type AttachVolumeInput struct {
 	// UnauthorizedOperation .
 	DryRun *bool
 
+	// The index of the EBS card. Some instance types support multiple EBS cards. The
+	// default EBS card index is 0.
+	EbsCardIndex *int32
+
 	noSmithyDocumentSerde
 }
 
 // Describes volume attachment details.
 type AttachVolumeOutput struct {
 
-	// The ARN of the Amazon ECS or Fargate task to which the volume is attached.
+	// The ARN of the Amazon Web Services-managed resource to which the volume is
+	// attached.
 	AssociatedResource *string
 
 	// The time stamp when the attachment initiated.
@@ -95,18 +99,25 @@ type AttachVolumeOutput struct {
 
 	// The device name.
 	//
-	// If the volume is attached to a Fargate task, this parameter returns null .
+	// If the volume is attached to an Amazon Web Services-managed resource, this
+	// parameter returns null .
 	Device *string
+
+	// The index of the EBS card. Some instance types support multiple EBS cards. The
+	// default EBS card index is 0.
+	EbsCardIndex *int32
 
 	// The ID of the instance.
 	//
-	// If the volume is attached to a Fargate task, this parameter returns null .
+	// If the volume is attached to an Amazon Web Services-managed resource, this
+	// parameter returns null .
 	InstanceId *string
 
-	// The service principal of Amazon Web Services service that owns the underlying
-	// instance to which the volume is attached.
+	// The service principal of the Amazon Web Services service that owns the
+	// underlying resource to which the volume is attached.
 	//
-	// This parameter is returned only for volumes that are attached to Fargate tasks.
+	// This parameter is returned only for volumes that are attached to Amazon Web
+	// Services-managed resources.
 	InstanceOwningService *string
 
 	// The attachment state of the volume.
@@ -122,9 +133,6 @@ type AttachVolumeOutput struct {
 }
 
 func (c *Client) addOperationAttachVolumeMiddlewares(stack *middleware.Stack, options Options) (err error) {
-	if err := stack.Serialize.Add(&setOperationInputMiddleware{}, middleware.After); err != nil {
-		return err
-	}
 	err = stack.Serialize.Add(&awsEc2query_serializeOpAttachVolume{}, middleware.After)
 	if err != nil {
 		return err
@@ -133,65 +141,20 @@ func (c *Client) addOperationAttachVolumeMiddlewares(stack *middleware.Stack, op
 	if err != nil {
 		return err
 	}
-	if err := addProtocolFinalizerMiddlewares(stack, options, "AttachVolume"); err != nil {
-		return fmt.Errorf("add protocol finalizers: %v", err)
-	}
 
-	if err = addlegacyEndpointContextSetter(stack, options); err != nil {
-		return err
-	}
-	if err = addSetLoggerMiddleware(stack, options); err != nil {
-		return err
-	}
-	if err = addClientRequestID(stack); err != nil {
-		return err
-	}
-	if err = addComputeContentLength(stack); err != nil {
-		return err
-	}
 	if err = addResolveEndpointMiddleware(stack, options); err != nil {
 		return err
 	}
 	if err = addComputePayloadSHA256(stack); err != nil {
 		return err
 	}
-	if err = addRetry(stack, options); err != nil {
+	if err = addRecordResponseTiming(stack, options); err != nil {
 		return err
 	}
-	if err = addRawResponseToMetadata(stack); err != nil {
-		return err
-	}
-	if err = addRecordResponseTiming(stack); err != nil {
-		return err
-	}
-	if err = addSpanRetryLoop(stack, options); err != nil {
-		return err
-	}
-	if err = addClientUserAgent(stack, options); err != nil {
-		return err
-	}
-	if err = smithyhttp.AddErrorCloseResponseBodyMiddleware(stack); err != nil {
-		return err
-	}
-	if err = smithyhttp.AddCloseResponseBodyMiddleware(stack); err != nil {
-		return err
-	}
-	if err = addSetLegacyContextSigningOptionsMiddleware(stack); err != nil {
-		return err
-	}
-	if err = addTimeOffsetBuild(stack, c); err != nil {
-		return err
-	}
-	if err = addUserAgentRetryMode(stack, options); err != nil {
+	if err = addCredentialSource(stack, options); err != nil {
 		return err
 	}
 	if err = addOpAttachVolumeValidationMiddleware(stack); err != nil {
-		return err
-	}
-	if err = stack.Initialize.Add(newServiceMetadataMiddleware_opAttachVolume(options.Region), middleware.Before); err != nil {
-		return err
-	}
-	if err = addRecursionDetection(stack); err != nil {
 		return err
 	}
 	if err = addRequestIDRetrieverMiddleware(stack); err != nil {
@@ -206,25 +169,8 @@ func (c *Client) addOperationAttachVolumeMiddlewares(stack *middleware.Stack, op
 	if err = addDisableHTTPSMiddleware(stack, options); err != nil {
 		return err
 	}
-	if err = addSpanInitializeStart(stack); err != nil {
-		return err
-	}
-	if err = addSpanInitializeEnd(stack); err != nil {
-		return err
-	}
-	if err = addSpanBuildRequestStart(stack); err != nil {
-		return err
-	}
-	if err = addSpanBuildRequestEnd(stack); err != nil {
+	if err = addInterceptors(stack, options); err != nil {
 		return err
 	}
 	return nil
-}
-
-func newServiceMetadataMiddleware_opAttachVolume(region string) *awsmiddleware.RegisterServiceMetadata {
-	return &awsmiddleware.RegisterServiceMetadata{
-		Region:        region,
-		ServiceID:     ServiceID,
-		OperationName: "AttachVolume",
-	}
 }

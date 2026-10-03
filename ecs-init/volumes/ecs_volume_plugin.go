@@ -45,7 +45,8 @@ type AmazonECSVolumePlugin struct {
 func NewAmazonECSVolumePlugin() *AmazonECSVolumePlugin {
 	plugin := &AmazonECSVolumePlugin{
 		volumeDrivers: map[string]driver.VolumeDriver{
-			"efs": NewECSVolumeDriver(),
+			"efs":     NewECSVolumeDriver(),
+			"s3files": NewECSVolumeDriver(),
 		},
 		volumes: make(map[string]*types.Volume),
 		state:   NewStateManager(),

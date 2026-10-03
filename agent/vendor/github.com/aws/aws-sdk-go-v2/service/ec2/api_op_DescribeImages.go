@@ -6,12 +6,10 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	awsmiddleware "github.com/aws/aws-sdk-go-v2/aws/middleware"
 	"github.com/aws/aws-sdk-go-v2/service/ec2/types"
 	smithy "github.com/aws/smithy-go"
 	"github.com/aws/smithy-go/middleware"
 	smithytime "github.com/aws/smithy-go/time"
-	smithyhttp "github.com/aws/smithy-go/transport/http"
 	smithywaiter "github.com/aws/smithy-go/waiter"
 	"strconv"
 	"time"
@@ -33,7 +31,12 @@ import (
 // results, with the imageAllowed field set to true for each image. In audit-mode ,
 // the imageAllowed field is set to true for images that meet the account's
 // Allowed AMIs criteria, and false for images that don't meet the criteria. For
-// more information, see EnableAllowedImagesSettings.
+// more information, see [Allowed AMIs].
+//
+// The Amazon EC2 API follows an eventual consistency model. This means that the
+// result of an API command you run that creates or modifies resources might not be
+// immediately available to all subsequent commands you run. For guidance on how to
+// manage eventual consistency, see [Eventual consistency in the Amazon EC2 API]in the Amazon EC2 Developer Guide.
 //
 // We strongly recommend using only paginated requests. Unpaginated requests are
 // susceptible to throttling and timeouts.
@@ -41,6 +44,9 @@ import (
 // The order of the elements in the response, including those within nested
 // structures, might vary. Applications should not assume the elements appear in a
 // particular order.
+//
+// [Allowed AMIs]: https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/ec2-allowed-amis.html
+// [Eventual consistency in the Amazon EC2 API]: https://docs.aws.amazon.com/ec2/latest/devguide/eventual-consistency.html
 func (c *Client) DescribeImages(ctx context.Context, params *DescribeImagesInput, optFns ...func(*Options)) (*DescribeImagesOutput, error) {
 	if params == nil {
 		params = &DescribeImagesInput{}
@@ -102,6 +108,9 @@ type DescribeImagesInput struct {
 	//   - block-device-mapping.encrypted - A Boolean that indicates whether the Amazon
 	//   EBS volume is encrypted.
 	//
+	//   - boot-mode – The boot mode of the image ( legacy-bios | uefi | uefi-preferred
+	//   ).
+	//
 	//   - creation-date - The time when the image was created, in the ISO 8601 format
 	//   in the UTC time zone (YYYY-MM-DDThh:mm:ss.sssZ), for example,
 	//   2021-09-29T11:04:43.305Z . You can use a wildcard ( * ), for example,
@@ -112,6 +121,9 @@ type DescribeImagesInput struct {
 	//   - ena-support - A Boolean that indicates whether enhanced networking with ENA
 	//   is enabled.
 	//
+	//   - free-tier-eligible - A Boolean that indicates whether this image can be used
+	//   under the Amazon Web Services Free Tier ( true | false ).
+	//
 	//   - hypervisor - The hypervisor type ( ovm | xen ).
 	//
 	//   - image-allowed - A Boolean that indicates whether the image meets the
@@ -119,7 +131,36 @@ type DescribeImagesInput struct {
 	//
 	//   - image-id - The ID of the image.
 	//
+	//   - image-watermark.source-image-creation-time - The creation date of the source
+	//   AMI, in the ISO 8601 format in the UTC time zone (
+	//   YYYY-MM-DDTHH:MM:SS.ssssss+HH:MM ). You can use a wildcard ( * ), for example,
+	//   2021-09-29T* , which matches an entire day.
+	//
+	//   - image-watermark.source-image-id - The ID of the AMI to which the watermark
+	//   was originally attached.
+	//
+	//   - image-watermark.source-image-region - The Region where the watermark was
+	//   originally attached.
+	//
+	//   - image-watermark.watermark-creation-time - The date and time the watermark
+	//   was attached to the AMI, in the ISO 8601 format in the UTC time zone (
+	//   YYYY-MM-DDTHH:MM:SS.ssssss+HH:MM ). You can use a wildcard ( * ), for example,
+	//   2021-09-29T* , which matches an entire day.
+	//
+	//   - image-watermark.watermark-key - The watermark identifier, in
+	//   accountId:watermarkName format (for example, 123456789012:approvedAmi ).
+	//
 	//   - image-type - The image type ( machine | kernel | ramdisk ).
+	//
+	//   - instance-type-specification.supported-instance-type – The instance types
+	//   that are compatible with the AMI, as specified by the AMI owner. Values can be
+	//   individual instance types (for example, t3.micro ) or wildcard patterns that
+	//   match multiple instance types (for example, t3.* ).
+	//
+	//   - instance-type-specification.unsupported-instance-type – The instance types
+	//   that are not compatible with the AMI, as specified by the AMI owner. Values can
+	//   be individual instance types (for example, t3.micro ) or wildcard patterns
+	//   that match multiple instance types (for example, t3.* ).
 	//
 	//   - is-public - A Boolean that indicates whether the image is public.
 	//
@@ -142,6 +183,11 @@ type DescribeImagesInput struct {
 	//   - product-code - The product code.
 	//
 	//   - product-code.type - The type of the product code ( marketplace ).
+	//
+	//   - public-ssm-parameter-name - The name of a public Systems Manager parameter
+	//   associated with the AMI. The parameter must be in a trusted Amazon Web Services
+	//   namespace under aws/service/ . Returns all AMIs that have ever been associated
+	//   with the parameter, including previous versions.
 	//
 	//   - ramdisk-id - The RAM disk ID.
 	//
@@ -235,9 +281,6 @@ type DescribeImagesOutput struct {
 }
 
 func (c *Client) addOperationDescribeImagesMiddlewares(stack *middleware.Stack, options Options) (err error) {
-	if err := stack.Serialize.Add(&setOperationInputMiddleware{}, middleware.After); err != nil {
-		return err
-	}
 	err = stack.Serialize.Add(&awsEc2query_serializeOpDescribeImages{}, middleware.After)
 	if err != nil {
 		return err
@@ -246,62 +289,17 @@ func (c *Client) addOperationDescribeImagesMiddlewares(stack *middleware.Stack, 
 	if err != nil {
 		return err
 	}
-	if err := addProtocolFinalizerMiddlewares(stack, options, "DescribeImages"); err != nil {
-		return fmt.Errorf("add protocol finalizers: %v", err)
-	}
 
-	if err = addlegacyEndpointContextSetter(stack, options); err != nil {
-		return err
-	}
-	if err = addSetLoggerMiddleware(stack, options); err != nil {
-		return err
-	}
-	if err = addClientRequestID(stack); err != nil {
-		return err
-	}
-	if err = addComputeContentLength(stack); err != nil {
-		return err
-	}
 	if err = addResolveEndpointMiddleware(stack, options); err != nil {
 		return err
 	}
 	if err = addComputePayloadSHA256(stack); err != nil {
 		return err
 	}
-	if err = addRetry(stack, options); err != nil {
+	if err = addRecordResponseTiming(stack, options); err != nil {
 		return err
 	}
-	if err = addRawResponseToMetadata(stack); err != nil {
-		return err
-	}
-	if err = addRecordResponseTiming(stack); err != nil {
-		return err
-	}
-	if err = addSpanRetryLoop(stack, options); err != nil {
-		return err
-	}
-	if err = addClientUserAgent(stack, options); err != nil {
-		return err
-	}
-	if err = smithyhttp.AddErrorCloseResponseBodyMiddleware(stack); err != nil {
-		return err
-	}
-	if err = smithyhttp.AddCloseResponseBodyMiddleware(stack); err != nil {
-		return err
-	}
-	if err = addSetLegacyContextSigningOptionsMiddleware(stack); err != nil {
-		return err
-	}
-	if err = addTimeOffsetBuild(stack, c); err != nil {
-		return err
-	}
-	if err = addUserAgentRetryMode(stack, options); err != nil {
-		return err
-	}
-	if err = stack.Initialize.Add(newServiceMetadataMiddleware_opDescribeImages(options.Region), middleware.Before); err != nil {
-		return err
-	}
-	if err = addRecursionDetection(stack); err != nil {
+	if err = addCredentialSource(stack, options); err != nil {
 		return err
 	}
 	if err = addRequestIDRetrieverMiddleware(stack); err != nil {
@@ -316,16 +314,7 @@ func (c *Client) addOperationDescribeImagesMiddlewares(stack *middleware.Stack, 
 	if err = addDisableHTTPSMiddleware(stack, options); err != nil {
 		return err
 	}
-	if err = addSpanInitializeStart(stack); err != nil {
-		return err
-	}
-	if err = addSpanInitializeEnd(stack); err != nil {
-		return err
-	}
-	if err = addSpanBuildRequestStart(stack); err != nil {
-		return err
-	}
-	if err = addSpanBuildRequestEnd(stack); err != nil {
+	if err = addInterceptors(stack, options); err != nil {
 		return err
 	}
 	return nil
@@ -532,6 +521,9 @@ func imageAvailableStateRetryable(ctx context.Context, input *DescribeImagesInpu
 		}
 	}
 
+	if err != nil {
+		return false, err
+	}
 	return true, nil
 }
 
@@ -720,6 +712,9 @@ func imageExistsStateRetryable(ctx context.Context, input *DescribeImagesInput, 
 		}
 	}
 
+	if err != nil {
+		return false, err
+	}
 	return true, nil
 }
 
@@ -819,11 +814,3 @@ type DescribeImagesAPIClient interface {
 }
 
 var _ DescribeImagesAPIClient = (*Client)(nil)
-
-func newServiceMetadataMiddleware_opDescribeImages(region string) *awsmiddleware.RegisterServiceMetadata {
-	return &awsmiddleware.RegisterServiceMetadata{
-		Region:        region,
-		ServiceID:     ServiceID,
-		OperationName: "DescribeImages",
-	}
-}

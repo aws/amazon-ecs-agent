@@ -68,12 +68,13 @@ func (dhc *dockerRuntimeHealthcheck) RunCheck() ecstcs.InstanceHealthCheckStatus
 		seelog.Infof("[DockerRuntimeHealthcheck] Docker Ping failed with error: %v", res.Error)
 		resultStatus = ecstcs.InstanceHealthCheckStatusImpaired
 	}
-	dhc.SetHealthcheckStatus(resultStatus)
+	dhc.SetHealthcheckStatus(resultStatus, "")
 	return resultStatus
 }
 
-// SetHealthcheckStatus updates the health check status and timestamps.
-func (dhc *dockerRuntimeHealthcheck) SetHealthcheckStatus(healthStatus ecstcs.InstanceHealthCheckStatus) {
+// SetHealthcheckStatus updates the health check status and timestamps. The
+// Docker runtime check carries no status reason, so reason is ignored.
+func (dhc *dockerRuntimeHealthcheck) SetHealthcheckStatus(healthStatus ecstcs.InstanceHealthCheckStatus, reason string) {
 	dhc.lock.Lock()
 	defer dhc.lock.Unlock()
 	nowTime := time.Now()
@@ -88,6 +89,12 @@ func (dhc *dockerRuntimeHealthcheck) SetHealthcheckStatus(healthStatus ecstcs.In
 	// Update latest status.
 	dhc.Status = healthStatus
 	dhc.TimeStamp = nowTime
+}
+
+// GetStatusReason returns a human-readable reason for the current status. The
+// Docker runtime health check does not carry one.
+func (dhc *dockerRuntimeHealthcheck) GetStatusReason() string {
+	return ""
 }
 
 // GetHealthcheckType returns the type of this health check.

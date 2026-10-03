@@ -464,12 +464,14 @@ func TestFaultLatencyFaultPath(t *testing.T) {
 	assert.Equal(t, "/api/{endpointContainerIDMuxName:[^/]*}/fault/v1/network-latency/start", NetworkFaultPath(types.LatencyFaultType, types.StartNetworkFaultPostfix))
 	assert.Equal(t, "/api/{endpointContainerIDMuxName:[^/]*}/fault/v1/network-latency/stop", NetworkFaultPath(types.LatencyFaultType, types.StopNetworkFaultPostfix))
 	assert.Equal(t, "/api/{endpointContainerIDMuxName:[^/]*}/fault/v1/network-latency/status", NetworkFaultPath(types.LatencyFaultType, types.CheckNetworkFaultPostfix))
+	assert.Equal(t, "/api/{endpointContainerIDMuxName:[^/]*}/fault/v1/network-latency/add-sources", NetworkFaultPath(types.LatencyFaultType, types.AddNetworkFaultPostfix))
 }
 
 func TestFaultPacketLossFaultPath(t *testing.T) {
 	assert.Equal(t, "/api/{endpointContainerIDMuxName:[^/]*}/fault/v1/network-packet-loss/start", NetworkFaultPath(types.PacketLossFaultType, types.StartNetworkFaultPostfix))
 	assert.Equal(t, "/api/{endpointContainerIDMuxName:[^/]*}/fault/v1/network-packet-loss/stop", NetworkFaultPath(types.PacketLossFaultType, types.StopNetworkFaultPostfix))
 	assert.Equal(t, "/api/{endpointContainerIDMuxName:[^/]*}/fault/v1/network-packet-loss/status", NetworkFaultPath(types.PacketLossFaultType, types.CheckNetworkFaultPostfix))
+	assert.Equal(t, "/api/{endpointContainerIDMuxName:[^/]*}/fault/v1/network-packet-loss/add-sources", NetworkFaultPath(types.PacketLossFaultType, types.AddNetworkFaultPostfix))
 }
 
 // testNetworkFaultInjectionCommon will be used by unit tests for all 9 fault injection Network Fault APIs.
@@ -529,6 +531,12 @@ func testNetworkFaultInjectionCommon(t *testing.T,
 			case NetworkFaultPath(types.PacketLossFaultType, types.CheckNetworkFaultPostfix):
 				tmdsAPI = "/api/%s/fault/v1/network-packet-loss/status"
 				handleMethod = handler.CheckNetworkPacketLoss()
+			case NetworkFaultPath(types.LatencyFaultType, types.AddNetworkFaultPostfix):
+				tmdsAPI = "/api/%s/fault/v1/network-latency/add-sources"
+				handleMethod = handler.AddSourcesNetworkLatency()
+			case NetworkFaultPath(types.PacketLossFaultType, types.AddNetworkFaultPostfix):
+				tmdsAPI = "/api/%s/fault/v1/network-packet-loss/add-sources"
+				handleMethod = handler.AddSourcesNetworkPacketLoss()
 			default:
 				t.Error("Unrecognized TMDS Endpoint")
 			}
@@ -3680,4 +3688,484 @@ func TestCheckTCFault(t *testing.T) {
 			assert.Equal(t, tc.expectedPacketLoss, packetLossExists)
 		})
 	}
+}
+
+// ---------------------------------------------------------------------------
+// Add-sources tests (network-latency and network-packet-loss)
+// ---------------------------------------------------------------------------
+
+var (
+	happyAddSourcesReqBody = map[string]interface{}{
+		"Sources":         []string{"203.0.113.10", "203.0.113.11"},
+		"SourcesToFilter": []string{"10.0.0.2"},
+	}
+
+	addSourcesNetworkLatencyTestPrefix    = fmt.Sprintf(addSourcesFaultRequestType, types.LatencyFaultType)
+	addSourcesNetworkPacketLossTestPrefix = fmt.Sprintf(addSourcesFaultRequestType, types.PacketLossFaultType)
+)
+
+// setAddSourcesExpectations wires up the canonical happy-path exec mocks for
+// an add-sources call: one context setup, one checkTCFault call per interface
+// returning `checkOutput`, then the allowlist and impaired tc filter add
+// commands for each (interface, ip) pair.
+func setAddSourcesExpectations(
+	exec *mock_execwrapper.MockExec,
+	ctrl *gomock.Controller,
+	interfaces []string,
+	checkOutput string,
+	sourcesToFilter []string,
+	sources []string,
+	nsenterPrefix string,
+) {
+	ctx, cancel := context.WithTimeout(context.Background(), ctxTimeoutDuration)
+	mockCMD := mock_execwrapper.NewMockCmd(ctrl)
+
+	expectations := []*gomock.Call{
+		exec.EXPECT().NewExecContextWithTimeout(gomock.Any(), gomock.Any()).Times(1).Return(ctx, cancel),
+	}
+
+	// checkTCFault runs once per interface.
+	checkCommands := make([]string, 0, len(interfaces))
+	for _, iface := range interfaces {
+		checkCommands = append(checkCommands, fmt.Sprintf("tc -j q show dev %s parent 100:1", iface))
+	}
+	expectations = addExpectedCommandsWithOutput(exec, nsenterPrefix, checkCommands, expectations, mockCMD, checkOutput)
+
+	// For each interface, install SourcesToFilter (prio 1, allowlist) then
+	// Sources (prio 2, impaired). Matches addSourcesToFault's ordering.
+	for _, iface := range interfaces {
+		filterCommands := []string{}
+		for _, src := range sourcesToFilter {
+			proto := ip4
+			if !isIPv4(src) {
+				proto = ip6
+			}
+			filterCommands = append(filterCommands, fmt.Sprintf(
+				"tc filter add dev %s protocol all parent 1:0 prio 1 u32 match %s dst %s flowid 1:3",
+				iface, proto, src))
+		}
+		for _, src := range sources {
+			proto := ip4
+			if !isIPv4(src) {
+				proto = ip6
+			}
+			filterCommands = append(filterCommands, fmt.Sprintf(
+				"tc filter add dev %s protocol all parent 1:0 prio 2 u32 match %s dst %s flowid 1:1",
+				iface, proto, src))
+		}
+		expectations = addExpectedCommandsWithOutput(exec, nsenterPrefix, filterCommands, expectations, mockCMD, "")
+	}
+
+	gomock.InOrder(expectations...)
+}
+
+// addExpectedCommandsWithOutput is a variant of addExpectedCommandsWithPrefix
+// that lets the caller control the CombinedOutput bytes per command batch.
+// The existing helper hardcodes tcCommandEmptyOutput which does not fit the
+// add-sources check-then-apply flow.
+func addExpectedCommandsWithOutput(
+	exec *mock_execwrapper.MockExec, nsenterPrefix string, commands []string,
+	expectations []*gomock.Call, mockCMD *mock_execwrapper.MockCmd, output string,
+) []*gomock.Call {
+	for _, cmd := range commands {
+		if nsenterPrefix != "" {
+			cmd = nsenterPrefix + cmd
+		}
+		parts := strings.Split(cmd, " ")
+		expectations = append(expectations,
+			exec.EXPECT().CommandContext(gomock.Any(), parts[0], parts[1:]).Return(mockCMD),
+			mockCMD.EXPECT().CombinedOutput().Return([]byte(output), nil),
+		)
+	}
+	return expectations
+}
+
+// generateCommonAddSourcesTestCases returns test cases that exercise the
+// validation layer shared by both add-sources endpoints (latency, packet loss)
+// and the task metadata error paths.
+func generateCommonAddSourcesTestCases(name, notRunningErr string) []networkFaultInjectionTestCase {
+	return []networkFaultInjectionTestCase{
+		{
+			name:                 fmt.Sprintf("%s no request body", name),
+			expectedStatusCode:   400,
+			requestBody:          nil,
+			expectedResponseBody: types.NewNetworkFaultInjectionErrorResponse(types.MissingRequestBodyError),
+			setAgentStateExpectations: func(agentState *mock_state.MockAgentState, netConfigClient *netconfig.NetworkConfigClient) {
+				agentState.EXPECT().GetTaskMetadataWithTaskNetworkConfig(endpointId, netConfigClient).Times(0)
+			},
+			expectedResponseJSON: fmt.Sprintf(errorResponse, types.MissingRequestBodyError),
+		},
+		{
+			name:               fmt.Sprintf("%s both lists empty", name),
+			expectedStatusCode: 400,
+			requestBody: map[string]interface{}{
+				"Sources":         []string{},
+				"SourcesToFilter": []string{},
+			},
+			expectedResponseBody: types.NewNetworkFaultInjectionErrorResponse(types.AddSourcesEmptyError),
+			setAgentStateExpectations: func(agentState *mock_state.MockAgentState, netConfigClient *netconfig.NetworkConfigClient) {
+				agentState.EXPECT().GetTaskMetadataWithTaskNetworkConfig(endpointId, netConfigClient).Times(0)
+			},
+			expectedResponseJSON: fmt.Sprintf(errorResponse, types.AddSourcesEmptyError),
+		},
+		{
+			name:               fmt.Sprintf("%s exceeds max IPs", name),
+			expectedStatusCode: 400,
+			requestBody: map[string]interface{}{
+				"Sources": func() []string {
+					s := make([]string, 17)
+					for i := range s {
+						s[i] = fmt.Sprintf("10.0.0.%d", i+1)
+					}
+					return s
+				}(),
+			},
+			expectedResponseBody: types.NewNetworkFaultInjectionErrorResponse(fmt.Sprintf(types.AddSourcesTooManyIPsError, 17, types.AddSourcesMaxIPs)),
+			setAgentStateExpectations: func(agentState *mock_state.MockAgentState, netConfigClient *netconfig.NetworkConfigClient) {
+				agentState.EXPECT().GetTaskMetadataWithTaskNetworkConfig(endpointId, netConfigClient).Times(0)
+			},
+			expectedResponseJSON: fmt.Sprintf(errorResponse, fmt.Sprintf(types.AddSourcesTooManyIPsError, 17, types.AddSourcesMaxIPs)),
+		},
+		{
+			name:               fmt.Sprintf("%s invalid ip rejected", name),
+			expectedStatusCode: 400,
+			requestBody: map[string]interface{}{
+				"Sources": []string{"not-an-ip"},
+			},
+			expectedResponseBody: types.NewNetworkFaultInjectionErrorResponse(fmt.Sprintf(types.InvalidValueError, "not-an-ip", "Sources")),
+			setAgentStateExpectations: func(agentState *mock_state.MockAgentState, netConfigClient *netconfig.NetworkConfigClient) {
+				agentState.EXPECT().GetTaskMetadataWithTaskNetworkConfig(endpointId, netConfigClient).Times(0)
+			},
+			expectedResponseJSON: fmt.Sprintf(errorResponse, fmt.Sprintf(types.InvalidValueError, "not-an-ip", "Sources")),
+		},
+		{
+			name:               fmt.Sprintf("%s overlap rejected", name),
+			expectedStatusCode: 400,
+			requestBody: map[string]interface{}{
+				"Sources":         []string{"1.2.3.4"},
+				"SourcesToFilter": []string{"1.2.3.4"},
+			},
+			expectedResponseBody: types.NewNetworkFaultInjectionErrorResponse(fmt.Sprintf(types.AddSourcesOverlapError, "1.2.3.4")),
+			setAgentStateExpectations: func(agentState *mock_state.MockAgentState, netConfigClient *netconfig.NetworkConfigClient) {
+				agentState.EXPECT().GetTaskMetadataWithTaskNetworkConfig(endpointId, netConfigClient).Times(0)
+			},
+			expectedResponseJSON: fmt.Sprintf(errorResponse, fmt.Sprintf(types.AddSourcesOverlapError, "1.2.3.4")),
+		},
+		{
+			name:                 fmt.Sprintf("%s task lookup fail", name),
+			expectedStatusCode:   404,
+			requestBody:          happyAddSourcesReqBody,
+			expectedResponseBody: types.NewNetworkFaultInjectionErrorResponse(taskLookupFailError),
+			setAgentStateExpectations: func(agentState *mock_state.MockAgentState, netConfigClient *netconfig.NetworkConfigClient) {
+				agentState.EXPECT().GetTaskMetadataWithTaskNetworkConfig(endpointId, netConfigClient).
+					Return(state.TaskResponse{}, state.NewErrorLookupFailure(taskLookupFailError)).
+					Times(1)
+			},
+			expectedResponseJSON: fmt.Sprintf(errorResponse, taskLookupFailError),
+		},
+		{
+			name:                 fmt.Sprintf("%s fault injection disabled", name),
+			expectedStatusCode:   400,
+			requestBody:          happyAddSourcesReqBody,
+			expectedResponseBody: types.NewNetworkFaultInjectionErrorResponse(fmt.Sprintf(faultInjectionEnabledError, taskARN)),
+			setAgentStateExpectations: func(agentState *mock_state.MockAgentState, netConfigClient *netconfig.NetworkConfigClient) {
+				agentState.EXPECT().GetTaskMetadataWithTaskNetworkConfig(endpointId, netConfigClient).Return(state.TaskResponse{
+					TaskResponse:          &v2.TaskResponse{TaskARN: taskARN},
+					FaultInjectionEnabled: false,
+				}, nil).Times(1)
+			},
+			expectedResponseJSON: fmt.Sprintf(errorResponse, fmt.Sprintf(faultInjectionEnabledError, taskARN)),
+		},
+	}
+}
+
+func generateAddSourcesNetworkLatencyTestCases() []networkFaultInjectionTestCase {
+	commonTcs := generateCommonAddSourcesTestCases(addSourcesNetworkLatencyTestPrefix, latencyFaultNotRunningError)
+	specificTcs := []networkFaultInjectionTestCase{
+		{
+			name:                 "no fault running returns 404",
+			expectedStatusCode:   404,
+			requestBody:          happyAddSourcesReqBody,
+			expectedResponseBody: types.NewNetworkFaultInjectionErrorResponse(latencyFaultNotRunningError),
+			setAgentStateExpectations: func(agentState *mock_state.MockAgentState, netConfigClient *netconfig.NetworkConfigClient) {
+				agentState.EXPECT().GetTaskMetadataWithTaskNetworkConfig(endpointId, netConfigClient).Return(happyTaskResponse, nil)
+			},
+			setExecExpectations: func(exec *mock_execwrapper.MockExec, ctrl *gomock.Controller) {
+				ctx, cancel := context.WithTimeout(context.Background(), ctxTimeoutDuration)
+				mockCMD := mock_execwrapper.NewMockCmd(ctrl)
+				gomock.InOrder(
+					exec.EXPECT().NewExecContextWithTimeout(gomock.Any(), gomock.Any()).Times(1).Return(ctx, cancel),
+					exec.EXPECT().CommandContext(gomock.Any(), gomock.Any(), gomock.Any()).Times(1).Return(mockCMD),
+					mockCMD.EXPECT().CombinedOutput().Times(1).Return([]byte(tcCommandEmptyOutput), nil),
+				)
+			},
+			expectedResponseJSON: fmt.Sprintf(errorResponse, latencyFaultNotRunningError),
+		},
+		{
+			// Design calls this out explicitly: latency add-sources must only
+			// honor the latency flag. A running packet-loss fault does not
+			// satisfy the latency endpoint.
+			name:                 "packet-loss running but not latency returns 404",
+			expectedStatusCode:   404,
+			requestBody:          happyAddSourcesReqBody,
+			expectedResponseBody: types.NewNetworkFaultInjectionErrorResponse(latencyFaultNotRunningError),
+			setAgentStateExpectations: func(agentState *mock_state.MockAgentState, netConfigClient *netconfig.NetworkConfigClient) {
+				agentState.EXPECT().GetTaskMetadataWithTaskNetworkConfig(endpointId, netConfigClient).Return(happyTaskResponse, nil)
+			},
+			setExecExpectations: func(exec *mock_execwrapper.MockExec, ctrl *gomock.Controller) {
+				ctx, cancel := context.WithTimeout(context.Background(), ctxTimeoutDuration)
+				mockCMD := mock_execwrapper.NewMockCmd(ctrl)
+				gomock.InOrder(
+					exec.EXPECT().NewExecContextWithTimeout(gomock.Any(), gomock.Any()).Times(1).Return(ctx, cancel),
+					exec.EXPECT().CommandContext(gomock.Any(), gomock.Any(), gomock.Any()).Times(1).Return(mockCMD),
+					mockCMD.EXPECT().CombinedOutput().Times(1).Return([]byte(tcLossFaultExistsCommandOutput), nil),
+				)
+			},
+			expectedResponseJSON: fmt.Sprintf(errorResponse, latencyFaultNotRunningError),
+		},
+		{
+			name:                 "latency running, single interface, happy",
+			expectedStatusCode:   200,
+			requestBody:          happyAddSourcesReqBody,
+			expectedResponseBody: types.NewNetworkFaultInjectionSuccessResponse("running"),
+			setAgentStateExpectations: func(agentState *mock_state.MockAgentState, netConfigClient *netconfig.NetworkConfigClient) {
+				agentState.EXPECT().GetTaskMetadataWithTaskNetworkConfig(endpointId, netConfigClient).Return(happyTaskResponse, nil)
+			},
+			setExecExpectations: func(exec *mock_execwrapper.MockExec, ctrl *gomock.Controller) {
+				setAddSourcesExpectations(exec, ctrl,
+					[]string{deviceName}, tcLatencyFaultExistsCommandOutput,
+					[]string{"10.0.0.2"}, []string{"203.0.113.10", "203.0.113.11"},
+					fmt.Sprintf(nsenterCommandString, nspath))
+			},
+			expectedResponseJSON: happyFaultRunningResponse,
+		},
+		{
+			// IPv6 and dual-stack sources flow through the same v4/v6 switch
+			// in addIPAddressesToFilter; this test pins the tc filter command
+			// shape to "match ip6 dst <addr>" for v6 entries.
+			name:               "latency running, dual-stack add-sources, happy",
+			expectedStatusCode: 200,
+			requestBody: map[string]interface{}{
+				"Sources":         []string{"203.0.113.10", "2001:db8::1"},
+				"SourcesToFilter": []string{"10.0.0.2", "2001:db8:1::/48"},
+			},
+			expectedResponseBody: types.NewNetworkFaultInjectionSuccessResponse("running"),
+			setAgentStateExpectations: func(agentState *mock_state.MockAgentState, netConfigClient *netconfig.NetworkConfigClient) {
+				agentState.EXPECT().GetTaskMetadataWithTaskNetworkConfig(endpointId, netConfigClient).Return(happyTaskResponse, nil)
+			},
+			setExecExpectations: func(exec *mock_execwrapper.MockExec, ctrl *gomock.Controller) {
+				setAddSourcesExpectations(exec, ctrl,
+					[]string{deviceName}, tcLatencyFaultExistsCommandOutput,
+					[]string{"10.0.0.2", "2001:db8:1::/48"},
+					[]string{"203.0.113.10", "2001:db8::1"},
+					fmt.Sprintf(nsenterCommandString, nspath))
+			},
+			expectedResponseJSON: happyFaultRunningResponse,
+		},
+		{
+			name:                 "latency running, two interfaces (host mode), happy",
+			expectedStatusCode:   200,
+			requestBody:          happyAddSourcesReqBody,
+			expectedResponseBody: types.NewNetworkFaultInjectionSuccessResponse("running"),
+			setAgentStateExpectations: func(agentState *mock_state.MockAgentState, netConfigClient *netconfig.NetworkConfigClient) {
+				agentState.EXPECT().
+					GetTaskMetadataWithTaskNetworkConfig(endpointId, netConfigClient).
+					Return(happyTaskResponseTwoInterfaces, nil)
+			},
+			setExecExpectations: func(exec *mock_execwrapper.MockExec, ctrl *gomock.Controller) {
+				// host mode does not add nsenter prefix.
+				setAddSourcesExpectations(exec, ctrl,
+					[]string{"eth0", "eth1"}, tcLatencyFaultExistsCommandOutput,
+					[]string{"10.0.0.2"}, []string{"203.0.113.10", "203.0.113.11"},
+					"")
+			},
+			expectedResponseJSON: happyFaultRunningResponse,
+		},
+		{
+			name:                 "tc filter add fails returns 500",
+			expectedStatusCode:   500,
+			requestBody:          happyAddSourcesReqBody,
+			expectedResponseBody: types.NewNetworkFaultInjectionErrorResponse(internalError),
+			setAgentStateExpectations: func(agentState *mock_state.MockAgentState, netConfigClient *netconfig.NetworkConfigClient) {
+				agentState.EXPECT().GetTaskMetadataWithTaskNetworkConfig(endpointId, netConfigClient).Return(happyTaskResponse, nil)
+			},
+			setExecExpectations: func(exec *mock_execwrapper.MockExec, ctrl *gomock.Controller) {
+				ctx, cancel := context.WithTimeout(context.Background(), ctxTimeoutDuration)
+				mockCMD := mock_execwrapper.NewMockCmd(ctrl)
+				gomock.InOrder(
+					exec.EXPECT().NewExecContextWithTimeout(gomock.Any(), gomock.Any()).Times(1).Return(ctx, cancel),
+					// checkTCFault returns "latency running"
+					exec.EXPECT().CommandContext(gomock.Any(), gomock.Any(), gomock.Any()).Times(1).Return(mockCMD),
+					mockCMD.EXPECT().CombinedOutput().Times(1).Return([]byte(tcLatencyFaultExistsCommandOutput), nil),
+					// First filter add fails (simulating the kernel rejecting a dup filter).
+					exec.EXPECT().CommandContext(gomock.Any(), gomock.Any(), gomock.Any()).Times(1).Return(mockCMD),
+					mockCMD.EXPECT().CombinedOutput().Times(1).Return([]byte("RTNETLINK answers: File exists"), errors.New("exit status 2")),
+				)
+			},
+			expectedResponseJSON: fmt.Sprintf(errorResponse, internalError),
+		},
+		{
+			// checkTCFault returning a non-timeout error must surface as 500
+			// "internal error", not as a 404 (the zero values of the returned
+			// flags would otherwise route the request into the "not running"
+			// branch).
+			name:                 "checkTCFault error returns 500",
+			expectedStatusCode:   500,
+			requestBody:          happyAddSourcesReqBody,
+			expectedResponseBody: types.NewNetworkFaultInjectionErrorResponse(internalError),
+			setAgentStateExpectations: func(agentState *mock_state.MockAgentState, netConfigClient *netconfig.NetworkConfigClient) {
+				agentState.EXPECT().GetTaskMetadataWithTaskNetworkConfig(endpointId, netConfigClient).Return(happyTaskResponse, nil)
+			},
+			setExecExpectations: func(exec *mock_execwrapper.MockExec, ctrl *gomock.Controller) {
+				ctx, cancel := context.WithTimeout(context.Background(), ctxTimeoutDuration)
+				mockCMD := mock_execwrapper.NewMockCmd(ctrl)
+				gomock.InOrder(
+					exec.EXPECT().NewExecContextWithTimeout(gomock.Any(), gomock.Any()).Times(1).Return(ctx, cancel),
+					// Non-parseable output + non-nil error from the tc show
+					// command makes checkTCFault return an error while the
+					// context is still alive.
+					exec.EXPECT().CommandContext(gomock.Any(), gomock.Any(), gomock.Any()).Times(1).Return(mockCMD),
+					mockCMD.EXPECT().CombinedOutput().Times(1).Return([]byte("boom"), errors.New("exit status 1")),
+				)
+			},
+			expectedResponseJSON: fmt.Sprintf(errorResponse, internalError),
+		},
+		{
+			// Context deadline exceeded during checkTCFault must map to the
+			// request-timed-out 500, not the generic internal-error 500.
+			name:                 "checkTCFault deadline exceeded returns 500 timed out",
+			expectedStatusCode:   500,
+			requestBody:          happyAddSourcesReqBody,
+			expectedResponseBody: types.NewNetworkFaultInjectionErrorResponse(fmt.Sprintf(requestTimedOutError, addSourcesNetworkLatencyTestPrefix)),
+			setAgentStateExpectations: func(agentState *mock_state.MockAgentState, netConfigClient *netconfig.NetworkConfigClient) {
+				agentState.EXPECT().GetTaskMetadataWithTaskNetworkConfig(endpointId, netConfigClient).Return(happyTaskResponse, nil)
+			},
+			setExecExpectations: func(exec *mock_execwrapper.MockExec, ctrl *gomock.Controller) {
+				// A negative timeout yields a context whose Err() is already
+				// DeadlineExceeded, matching how the existing request-timed-out
+				// tests in this file simulate the deadline branch.
+				ctx, cancel := context.WithTimeout(context.Background(), -1*time.Second)
+				mockCMD := mock_execwrapper.NewMockCmd(ctrl)
+				gomock.InOrder(
+					exec.EXPECT().NewExecContextWithTimeout(gomock.Any(), gomock.Any()).Times(1).Return(ctx, cancel),
+					exec.EXPECT().CommandContext(gomock.Any(), gomock.Any(), gomock.Any()).Times(1).Return(mockCMD),
+					mockCMD.EXPECT().CombinedOutput().Times(1).Return([]byte{}, errors.New("signal: killed")),
+				)
+			},
+			expectedResponseJSON: fmt.Sprintf(errorResponse, fmt.Sprintf(requestTimedOutError, addSourcesNetworkLatencyTestPrefix)),
+		},
+	}
+	return append(specificTcs, commonTcs...)
+}
+
+func generateAddSourcesNetworkPacketLossTestCases() []networkFaultInjectionTestCase {
+	commonTcs := generateCommonAddSourcesTestCases(addSourcesNetworkPacketLossTestPrefix, packetLossFaultNotRunningError)
+	specificTcs := []networkFaultInjectionTestCase{
+		{
+			name:                 "no fault running returns 404",
+			expectedStatusCode:   404,
+			requestBody:          happyAddSourcesReqBody,
+			expectedResponseBody: types.NewNetworkFaultInjectionErrorResponse(packetLossFaultNotRunningError),
+			setAgentStateExpectations: func(agentState *mock_state.MockAgentState, netConfigClient *netconfig.NetworkConfigClient) {
+				agentState.EXPECT().GetTaskMetadataWithTaskNetworkConfig(endpointId, netConfigClient).Return(happyTaskResponse, nil)
+			},
+			setExecExpectations: func(exec *mock_execwrapper.MockExec, ctrl *gomock.Controller) {
+				ctx, cancel := context.WithTimeout(context.Background(), ctxTimeoutDuration)
+				mockCMD := mock_execwrapper.NewMockCmd(ctrl)
+				gomock.InOrder(
+					exec.EXPECT().NewExecContextWithTimeout(gomock.Any(), gomock.Any()).Times(1).Return(ctx, cancel),
+					exec.EXPECT().CommandContext(gomock.Any(), gomock.Any(), gomock.Any()).Times(1).Return(mockCMD),
+					mockCMD.EXPECT().CombinedOutput().Times(1).Return([]byte(tcCommandEmptyOutput), nil),
+				)
+			},
+			expectedResponseJSON: fmt.Sprintf(errorResponse, packetLossFaultNotRunningError),
+		},
+		{
+			name:                 "latency running but not packet-loss returns 404",
+			expectedStatusCode:   404,
+			requestBody:          happyAddSourcesReqBody,
+			expectedResponseBody: types.NewNetworkFaultInjectionErrorResponse(packetLossFaultNotRunningError),
+			setAgentStateExpectations: func(agentState *mock_state.MockAgentState, netConfigClient *netconfig.NetworkConfigClient) {
+				agentState.EXPECT().GetTaskMetadataWithTaskNetworkConfig(endpointId, netConfigClient).Return(happyTaskResponse, nil)
+			},
+			setExecExpectations: func(exec *mock_execwrapper.MockExec, ctrl *gomock.Controller) {
+				ctx, cancel := context.WithTimeout(context.Background(), ctxTimeoutDuration)
+				mockCMD := mock_execwrapper.NewMockCmd(ctrl)
+				gomock.InOrder(
+					exec.EXPECT().NewExecContextWithTimeout(gomock.Any(), gomock.Any()).Times(1).Return(ctx, cancel),
+					exec.EXPECT().CommandContext(gomock.Any(), gomock.Any(), gomock.Any()).Times(1).Return(mockCMD),
+					mockCMD.EXPECT().CombinedOutput().Times(1).Return([]byte(tcLatencyFaultExistsCommandOutput), nil),
+				)
+			},
+			expectedResponseJSON: fmt.Sprintf(errorResponse, packetLossFaultNotRunningError),
+		},
+		{
+			name:                 "packet-loss running, single interface, happy",
+			expectedStatusCode:   200,
+			requestBody:          happyAddSourcesReqBody,
+			expectedResponseBody: types.NewNetworkFaultInjectionSuccessResponse("running"),
+			setAgentStateExpectations: func(agentState *mock_state.MockAgentState, netConfigClient *netconfig.NetworkConfigClient) {
+				agentState.EXPECT().GetTaskMetadataWithTaskNetworkConfig(endpointId, netConfigClient).Return(happyTaskResponse, nil)
+			},
+			setExecExpectations: func(exec *mock_execwrapper.MockExec, ctrl *gomock.Controller) {
+				setAddSourcesExpectations(exec, ctrl,
+					[]string{deviceName}, tcLossFaultExistsCommandOutput,
+					[]string{"10.0.0.2"}, []string{"203.0.113.10", "203.0.113.11"},
+					fmt.Sprintf(nsenterCommandString, nspath))
+			},
+			expectedResponseJSON: happyFaultRunningResponse,
+		},
+		{
+			// IPv6 and dual-stack sources flow through the same v4/v6 switch
+			// in addIPAddressesToFilter; this test pins the tc filter command
+			// shape to "match ip6 dst <addr>" for v6 entries.
+			name:               "packet-loss running, dual-stack add-sources, happy",
+			expectedStatusCode: 200,
+			requestBody: map[string]interface{}{
+				"Sources":         []string{"203.0.113.10", "2001:db8::1"},
+				"SourcesToFilter": []string{"10.0.0.2", "2001:db8:1::/48"},
+			},
+			expectedResponseBody: types.NewNetworkFaultInjectionSuccessResponse("running"),
+			setAgentStateExpectations: func(agentState *mock_state.MockAgentState, netConfigClient *netconfig.NetworkConfigClient) {
+				agentState.EXPECT().GetTaskMetadataWithTaskNetworkConfig(endpointId, netConfigClient).Return(happyTaskResponse, nil)
+			},
+			setExecExpectations: func(exec *mock_execwrapper.MockExec, ctrl *gomock.Controller) {
+				setAddSourcesExpectations(exec, ctrl,
+					[]string{deviceName}, tcLossFaultExistsCommandOutput,
+					[]string{"10.0.0.2", "2001:db8:1::/48"},
+					[]string{"203.0.113.10", "2001:db8::1"},
+					fmt.Sprintf(nsenterCommandString, nspath))
+			},
+			expectedResponseJSON: happyFaultRunningResponse,
+		},
+		{
+			name:               "Sources only (no SourcesToFilter), happy",
+			expectedStatusCode: 200,
+			requestBody: map[string]interface{}{
+				"Sources": []string{"203.0.113.10"},
+			},
+			expectedResponseBody: types.NewNetworkFaultInjectionSuccessResponse("running"),
+			setAgentStateExpectations: func(agentState *mock_state.MockAgentState, netConfigClient *netconfig.NetworkConfigClient) {
+				agentState.EXPECT().GetTaskMetadataWithTaskNetworkConfig(endpointId, netConfigClient).Return(happyTaskResponse, nil)
+			},
+			setExecExpectations: func(exec *mock_execwrapper.MockExec, ctrl *gomock.Controller) {
+				setAddSourcesExpectations(exec, ctrl,
+					[]string{deviceName}, tcLossFaultExistsCommandOutput,
+					nil, []string{"203.0.113.10"},
+					fmt.Sprintf(nsenterCommandString, nspath))
+			},
+			expectedResponseJSON: happyFaultRunningResponse,
+		},
+	}
+	return append(specificTcs, commonTcs...)
+}
+
+func TestAddSourcesNetworkLatency(t *testing.T) {
+	tcs := generateAddSourcesNetworkLatencyTestCases()
+	testNetworkFaultInjectionCommon(t, tcs, NetworkFaultPath(types.LatencyFaultType, types.AddNetworkFaultPostfix))
+}
+
+func TestAddSourcesNetworkPacketLoss(t *testing.T) {
+	tcs := generateAddSourcesNetworkPacketLossTestCases()
+	testNetworkFaultInjectionCommon(t, tcs, NetworkFaultPath(types.PacketLossFaultType, types.AddNetworkFaultPostfix))
 }

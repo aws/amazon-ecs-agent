@@ -308,3 +308,195 @@ func TestHandleTaskAttachmentsWithoutAttachment(t *testing.T) {
 	assert.Nil(t, err, "Should not return error")
 	assert.Nil(t, testTask.ServiceConnectConfig, "Should not return service connect config from attachments")
 }
+
+func TestHandleTaskAttachments_S3Files(t *testing.T) {
+	testAcsTask := &ecsacs.Task{
+		Attachments: []*ecsacs.Attachment{
+			{
+				AttachmentArn: stringToPointer("s3filesAttachmentArn"),
+				AttachmentProperties: []*ecsacs.AttachmentProperty{
+					{Name: stringToPointer("volumeId"), Value: stringToPointer("fs-123")},
+					{Name: stringToPointer("volumeName"), Value: stringToPointer("myS3Vol")},
+				},
+				AttachmentType: stringToPointer(apiresource.S3FilesTaskAttach),
+			},
+		},
+	}
+	testTask := &Task{}
+	err := handleTaskAttachments(testAcsTask, testTask)
+	require.NoError(t, err)
+
+	require.Len(t, testTask.Volumes, 1)
+	assert.Equal(t, "myS3Vol", testTask.Volumes[0].Name)
+	assert.Equal(t, apiresource.S3FilesTaskAttach, testTask.Volumes[0].Type)
+	s3cfg, ok := testTask.Volumes[0].Volume.(*taskresourcevolume.S3FilesVolumeConfig)
+	require.True(t, ok)
+	assert.Equal(t, "fs-123", s3cfg.VolumeId)
+	assert.Equal(t, "myS3Vol", s3cfg.VolumeName)
+}
+
+func TestHandleTaskAttachments_S3Files_DuplicateVolumeName(t *testing.T) {
+	testAcsTask := &ecsacs.Task{
+		Attachments: []*ecsacs.Attachment{
+			{
+				AttachmentArn: stringToPointer("s3filesAttachmentArn"),
+				AttachmentProperties: []*ecsacs.AttachmentProperty{
+					{Name: stringToPointer("volumeId"), Value: stringToPointer("fs-123")},
+					{Name: stringToPointer("volumeName"), Value: stringToPointer("myVol")},
+				},
+				AttachmentType: stringToPointer(apiresource.S3FilesTaskAttach),
+			},
+		},
+	}
+	testTask := &Task{
+		Volumes: []TaskVolume{
+			{
+				Name:   "myVol",
+				Type:   HostVolumeType,
+				Volume: &taskresourcevolume.FSHostVolume{FSSourcePath: "/host/path"},
+			},
+		},
+	}
+	err := handleTaskAttachments(testAcsTask, testTask)
+	require.NoError(t, err)
+
+	// Count volumes named "myVol"
+	var myVolCount int
+	var s3filesVol *TaskVolume
+	for i := range testTask.Volumes {
+		if testTask.Volumes[i].Name == "myVol" {
+			myVolCount++
+			if testTask.Volumes[i].Type == apiresource.S3FilesTaskAttach {
+				s3filesVol = &testTask.Volumes[i]
+			}
+		}
+	}
+	assert.Equal(t, 1, myVolCount, "expected exactly one volume named 'myVol'")
+	require.NotNil(t, s3filesVol, "expected the remaining volume to be s3files type")
+	assert.Equal(t, apiresource.S3FilesTaskAttach, s3filesVol.Type)
+}
+
+func TestHandleTaskAttachments_EBSAndMultipleS3Files(t *testing.T) {
+	testAcsTask := &ecsacs.Task{
+		Attachments: []*ecsacs.Attachment{
+			{
+				AttachmentArn: stringToPointer("ebsAttachmentArn"),
+				AttachmentProperties: []*ecsacs.AttachmentProperty{
+					{Name: stringToPointer(apiresource.VolumeIdKey), Value: stringToPointer(taskresourcevolume.TestVolumeId)},
+					{Name: stringToPointer(apiresource.VolumeSizeGibKey), Value: stringToPointer(taskresourcevolume.TestVolumeSizeGib)},
+					{Name: stringToPointer(apiresource.DeviceNameKey), Value: stringToPointer(taskresourcevolume.TestDeviceName)},
+					{Name: stringToPointer(apiresource.SourceVolumeHostPathKey), Value: stringToPointer(taskresourcevolume.TestSourceVolumeHostPath)},
+					{Name: stringToPointer(apiresource.VolumeNameKey), Value: stringToPointer(taskresourcevolume.TestVolumeName)},
+					{Name: stringToPointer(apiresource.FileSystemKey), Value: stringToPointer(taskresourcevolume.TestFileSystem)},
+				},
+				AttachmentType: stringToPointer(apiresource.EBSTaskAttach),
+			},
+			{
+				AttachmentArn: stringToPointer("s3filesAttachmentArn1"),
+				AttachmentProperties: []*ecsacs.AttachmentProperty{
+					{Name: stringToPointer("volumeId"), Value: stringToPointer("fs-aaa")},
+					{Name: stringToPointer("volumeName"), Value: stringToPointer("s3volA")},
+				},
+				AttachmentType: stringToPointer(apiresource.S3FilesTaskAttach),
+			},
+			{
+				AttachmentArn: stringToPointer("s3filesAttachmentArn2"),
+				AttachmentProperties: []*ecsacs.AttachmentProperty{
+					{Name: stringToPointer("volumeId"), Value: stringToPointer("fs-bbb")},
+					{Name: stringToPointer("volumeName"), Value: stringToPointer("s3volB")},
+				},
+				AttachmentType: stringToPointer(apiresource.S3FilesTaskAttach),
+			},
+		},
+	}
+	// Pre-populate task with placeholder volumes for all three (simulating ACS payload).
+	testTask := &Task{
+		Volumes: []TaskVolume{
+			{
+				Name:   taskresourcevolume.TestVolumeName,
+				Type:   HostVolumeType,
+				Volume: &taskresourcevolume.FSHostVolume{FSSourcePath: "/host/ebs"},
+			},
+			{
+				Name:   "s3volA",
+				Type:   HostVolumeType,
+				Volume: &taskresourcevolume.FSHostVolume{FSSourcePath: "/host/s3a"},
+			},
+			{
+				Name:   "s3volB",
+				Type:   HostVolumeType,
+				Volume: &taskresourcevolume.FSHostVolume{FSSourcePath: "/host/s3b"},
+			},
+		},
+	}
+	err := handleTaskAttachments(testAcsTask, testTask)
+	require.NoError(t, err)
+
+	// Expect exactly 3 volumes: 1 EBS + 2 S3Files, no placeholders remaining.
+	var ebsCount, s3Count, placeholderCount int
+	for _, vol := range testTask.Volumes {
+		switch vol.Type {
+		case apiresource.EBSTaskAttach:
+			ebsCount++
+		case apiresource.S3FilesTaskAttach:
+			s3Count++
+		case HostVolumeType:
+			placeholderCount++
+		}
+	}
+	assert.Equal(t, 0, placeholderCount, "no placeholder volumes should remain")
+	assert.Equal(t, 1, ebsCount, "expected 1 EBS volume")
+	assert.Equal(t, 2, s3Count, "expected 2 S3Files volumes")
+
+	// Verify EBS volume config
+	var ebsVol *taskresourcevolume.EBSTaskVolumeConfig
+	for _, vol := range testTask.Volumes {
+		if vol.Type == apiresource.EBSTaskAttach {
+			cfg, ok := vol.Volume.(*taskresourcevolume.EBSTaskVolumeConfig)
+			require.True(t, ok)
+			ebsVol = cfg
+		}
+	}
+	require.NotNil(t, ebsVol)
+	assert.Equal(t, taskresourcevolume.TestVolumeId, ebsVol.VolumeId)
+	assert.Equal(t, taskresourcevolume.TestVolumeName, ebsVol.VolumeName)
+
+	// Verify S3Files volume configs
+	s3Vols := map[string]string{}
+	for _, vol := range testTask.Volumes {
+		if vol.Type == apiresource.S3FilesTaskAttach {
+			cfg, ok := vol.Volume.(*taskresourcevolume.S3FilesVolumeConfig)
+			require.True(t, ok)
+			s3Vols[cfg.VolumeName] = cfg.VolumeId
+		}
+	}
+	assert.Equal(t, "fs-aaa", s3Vols["s3volA"])
+	assert.Equal(t, "fs-bbb", s3Vols["s3volB"])
+}
+
+func TestHandleTaskAttachments_NoS3Files(t *testing.T) {
+	testAcsTask := &ecsacs.Task{
+		Attachments: []*ecsacs.Attachment{
+			{
+				AttachmentArn: stringToPointer("ebsAttachmentArn"),
+				AttachmentProperties: []*ecsacs.AttachmentProperty{
+					{Name: stringToPointer(apiresource.VolumeIdKey), Value: stringToPointer(taskresourcevolume.TestVolumeId)},
+					{Name: stringToPointer(apiresource.VolumeSizeGibKey), Value: stringToPointer(taskresourcevolume.TestVolumeSizeGib)},
+					{Name: stringToPointer(apiresource.DeviceNameKey), Value: stringToPointer(taskresourcevolume.TestDeviceName)},
+					{Name: stringToPointer(apiresource.SourceVolumeHostPathKey), Value: stringToPointer(taskresourcevolume.TestSourceVolumeHostPath)},
+					{Name: stringToPointer(apiresource.VolumeNameKey), Value: stringToPointer(taskresourcevolume.TestVolumeName)},
+					{Name: stringToPointer(apiresource.FileSystemKey), Value: stringToPointer(taskresourcevolume.TestFileSystem)},
+				},
+				AttachmentType: stringToPointer(apiresource.EBSTaskAttach),
+			},
+		},
+	}
+	testTask := &Task{}
+	err := handleTaskAttachments(testAcsTask, testTask)
+	require.NoError(t, err)
+
+	// Verify no s3files volumes were added
+	for _, vol := range testTask.Volumes {
+		assert.NotEqual(t, apiresource.S3FilesTaskAttach, vol.Type)
+	}
+}

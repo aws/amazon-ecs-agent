@@ -1,3 +1,51 @@
+amazon-ecs-init (1.108.0-1) stable; urgency=medium
+
+  * Cache Agent version 1.108.0
+
+ -- amazon-ecs-bot <amazon-ecs-bot@amazon.com>  Tue, 29 Sep 2026 18:00:00 +0000
+
+amazon-ecs-init (1.107.0-1) stable; urgency=medium
+
+  * Cache Agent version 1.107.0
+
+ -- amazon-ecs-bot <amazon-ecs-bot@amazon.com>  Thu, 17 Sep 2026 18:00:00 +0000
+
+amazon-ecs-init (1.106.2-1) stable; urgency=medium
+
+  * Cache Agent version 1.106.2
+
+ -- amazon-ecs-bot <amazon-ecs-bot@amazon.com>  Fri, 28 Aug 2026 18:00:00 +0000
+
+amazon-ecs-init (1.106.1-1) stable; urgency=medium
+
+  * Cache Agent version 1.106.1
+
+ -- amazon-ecs-bot <amazon-ecs-bot@amazon.com>  Fri, 07 Aug 2026 18:00:00 +0000
+
+amazon-ecs-init (1.106.0-1) stable; urgency=medium
+
+  * Cache Agent version 1.106.0
+
+ -- amazon-ecs-bot <amazon-ecs-bot@amazon.com>  Wed, 22 Jul 2026 18:00:00 +0000
+
+amazon-ecs-init (1.105.1-1) stable; urgency=medium
+
+  * Cache Agent version 1.105.1
+
+ -- amazon-ecs-bot <amazon-ecs-bot@amazon.com>  Mon, 29 Jun 2026 18:00:00 +0000
+
+amazon-ecs-init (1.105.0-1) stable; urgency=medium
+
+  * Cache Agent version 1.105.0
+
+ -- amazon-ecs-bot <amazon-ecs-bot@amazon.com>  Fri, 12 Jun 2026 18:00:00 +0000
+
+amazon-ecs-init (1.104.0-1) stable; urgency=medium
+
+  * Cache Agent version 1.104.0
+
+ -- amazon-ecs-bot <amazon-ecs-bot@amazon.com>  Thu, 04 Jun 2026 18:00:00 +0000
+
 amazon-ecs-init (1.103.2-1) stable; urgency=medium
 
   * Cache Agent version 1.103.2

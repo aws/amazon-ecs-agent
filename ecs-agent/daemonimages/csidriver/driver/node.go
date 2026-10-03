@@ -229,6 +229,14 @@ func (d *nodeService) NodeStageVolume(ctx context.Context, req *csi.NodeStageVol
 	if len(numInodes) > 0 {
 		formatOptions = append(formatOptions, "-N", numInodes)
 	}
+
+	// This is needed as there's an issue with older kernel versions where newer features in xfsprogs are not available
+	// which is being used in the EBS CSI driver AL2023 image.
+	// Ref: https://github.com/kubernetes-sigs/aws-ebs-csi-driver/blob/master/docs/faq.md#xfs-on-older-kernels-eg-amazon-linux-2
+	if fsType == FSTypeXfs {
+		formatOptions = append(formatOptions, "-m", "bigtime=0,inobtcount=0,reflink=0", "-i", "nrext64=0")
+	}
+
 	err = d.mounter.FormatAndMountSensitiveWithFormatOptions(source, target, fsType, mountOptions, nil, formatOptions)
 	if err != nil {
 		klog.V(4).InfoS("NodeStageVolume: format mount fail", "error", err)

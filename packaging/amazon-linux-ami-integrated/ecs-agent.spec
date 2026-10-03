@@ -27,7 +27,7 @@
 %global ebs_csi_driver_dir /var/lib/ecs/deps/daemons/ebs-csi-driver
 
 Name:           ecs-init
-Version:        1.103.2
+Version:        1.108.0
 Release:        1%{?dist}
 License:        Apache 2.0
 Summary:        Amazon Elastic Container Service initialization application
@@ -42,7 +42,7 @@ Source5:        amazon-ecs-volume-plugin.conf
 Source6:        ebs-csi-driver-arm64-v%{version}.tar
 Source7:        ebs-csi-driver-v%{version}.tar
 
-BuildRequires:  golang >= 1.25.0
+BuildRequires:  golang >= 1.26.0
 %if %{with systemd}
 BuildRequires:  systemd
 Requires:       systemd
@@ -92,10 +92,12 @@ Provides:       bundled(golang(github.com/aws/aws-sdk-go-v2/aws/signer/internal/
 Provides:       bundled(golang(github.com/aws/aws-sdk-go-v2/aws/signer/v4))
 Provides:       bundled(golang(github.com/aws/aws-sdk-go-v2/aws/transport/http))
 Provides:       bundled(golang(github.com/aws/aws-sdk-go-v2/config))
+Provides:       bundled(golang(github.com/aws/aws-sdk-go-v2/config/internal/ini))
 Provides:       bundled(golang(github.com/aws/aws-sdk-go-v2/credentials))
 Provides:       bundled(golang(github.com/aws/aws-sdk-go-v2/credentials/ec2rolecreds))
 Provides:       bundled(golang(github.com/aws/aws-sdk-go-v2/credentials/endpointcreds))
 Provides:       bundled(golang(github.com/aws/aws-sdk-go-v2/credentials/endpointcreds/internal/client))
+Provides:       bundled(golang(github.com/aws/aws-sdk-go-v2/credentials/logincreds))
 Provides:       bundled(golang(github.com/aws/aws-sdk-go-v2/credentials/processcreds))
 Provides:       bundled(golang(github.com/aws/aws-sdk-go-v2/credentials/ssocreds))
 Provides:       bundled(golang(github.com/aws/aws-sdk-go-v2/credentials/stscreds))
@@ -110,8 +112,6 @@ Provides:       bundled(golang(github.com/aws/aws-sdk-go-v2/internal/context))
 Provides:       bundled(golang(github.com/aws/aws-sdk-go-v2/internal/endpoints))
 Provides:       bundled(golang(github.com/aws/aws-sdk-go-v2/internal/endpoints/awsrulesfn))
 Provides:       bundled(golang(github.com/aws/aws-sdk-go-v2/internal/endpoints/v2))
-Provides:       bundled(golang(github.com/aws/aws-sdk-go-v2/internal/ini))
-Provides:       bundled(golang(github.com/aws/aws-sdk-go-v2/internal/middleware))
 Provides:       bundled(golang(github.com/aws/aws-sdk-go-v2/internal/rand))
 Provides:       bundled(golang(github.com/aws/aws-sdk-go-v2/internal/sdk))
 Provides:       bundled(golang(github.com/aws/aws-sdk-go-v2/internal/sdkio))
@@ -119,6 +119,7 @@ Provides:       bundled(golang(github.com/aws/aws-sdk-go-v2/internal/shareddefau
 Provides:       bundled(golang(github.com/aws/aws-sdk-go-v2/internal/strings))
 Provides:       bundled(golang(github.com/aws/aws-sdk-go-v2/internal/sync/singleflight))
 Provides:       bundled(golang(github.com/aws/aws-sdk-go-v2/internal/timeconv))
+Provides:       bundled(golang(github.com/aws/aws-sdk-go-v2/internal/timeouts))
 Provides:       bundled(golang(github.com/aws/aws-sdk-go-v2/internal/v4a))
 Provides:       bundled(golang(github.com/aws/aws-sdk-go-v2/internal/v4a/internal/crypto))
 Provides:       bundled(golang(github.com/aws/aws-sdk-go-v2/internal/v4a/internal/v4))
@@ -133,6 +134,9 @@ Provides:       bundled(golang(github.com/aws/aws-sdk-go-v2/service/s3/internal/
 Provides:       bundled(golang(github.com/aws/aws-sdk-go-v2/service/s3/internal/customizations))
 Provides:       bundled(golang(github.com/aws/aws-sdk-go-v2/service/s3/internal/endpoints))
 Provides:       bundled(golang(github.com/aws/aws-sdk-go-v2/service/s3/types))
+Provides:       bundled(golang(github.com/aws/aws-sdk-go-v2/service/signin))
+Provides:       bundled(golang(github.com/aws/aws-sdk-go-v2/service/signin/internal/endpoints))
+Provides:       bundled(golang(github.com/aws/aws-sdk-go-v2/service/signin/types))
 Provides:       bundled(golang(github.com/aws/aws-sdk-go-v2/service/sso))
 Provides:       bundled(golang(github.com/aws/aws-sdk-go-v2/service/sso/internal/endpoints))
 Provides:       bundled(golang(github.com/aws/aws-sdk-go-v2/service/sso/types))
@@ -171,7 +175,9 @@ Provides:       bundled(golang(github.com/aws/smithy-go/encoding/httpbinding))
 Provides:       bundled(golang(github.com/aws/smithy-go/encoding/json))
 Provides:       bundled(golang(github.com/aws/smithy-go/encoding/xml))
 Provides:       bundled(golang(github.com/aws/smithy-go/endpoints))
+Provides:       bundled(golang(github.com/aws/smithy-go/endpoints/private/bdd))
 Provides:       bundled(golang(github.com/aws/smithy-go/endpoints/private/rulesfn))
+Provides:       bundled(golang(github.com/aws/smithy-go/eventstream))
 Provides:       bundled(golang(github.com/aws/smithy-go/internal/sync/singleflight))
 Provides:       bundled(golang(github.com/aws/smithy-go/io))
 Provides:       bundled(golang(github.com/aws/smithy-go/logging))
@@ -183,6 +189,7 @@ Provides:       bundled(golang(github.com/aws/smithy-go/rand))
 Provides:       bundled(golang(github.com/aws/smithy-go/sync))
 Provides:       bundled(golang(github.com/aws/smithy-go/time))
 Provides:       bundled(golang(github.com/aws/smithy-go/tracing))
+Provides:       bundled(golang(github.com/aws/smithy-go/traits))
 Provides:       bundled(golang(github.com/aws/smithy-go/transport/http))
 Provides:       bundled(golang(github.com/aws/smithy-go/transport/http/internal/io))
 Provides:       bundled(golang(github.com/aws/smithy-go/waiter))
@@ -195,7 +202,6 @@ Provides:       bundled(golang(github.com/containerd/containerd/pkg/apparmor))
 Provides:       bundled(golang(github.com/containerd/containerd/pkg/userns))
 Provides:       bundled(golang(github.com/containerd/log))
 Provides:       bundled(golang(github.com/coreos/go-systemd/activation))
-Provides:       bundled(golang(github.com/davecgh/go-spew/spew))
 Provides:       bundled(golang(github.com/docker/docker/api/types/blkiodev))
 Provides:       bundled(golang(github.com/docker/docker/api/types/container))
 Provides:       bundled(golang(github.com/docker/docker/api/types/filters))
@@ -246,14 +252,16 @@ Provides:       bundled(golang(github.com/opencontainers/go-digest))
 Provides:       bundled(golang(github.com/opencontainers/image-spec/specs-go))
 Provides:       bundled(golang(github.com/opencontainers/image-spec/specs-go/v1))
 Provides:       bundled(golang(github.com/pkg/errors))
-Provides:       bundled(golang(github.com/pmezard/go-difflib/difflib))
 Provides:       bundled(golang(github.com/sirupsen/logrus))
 Provides:       bundled(golang(github.com/stretchr/testify/assert))
 Provides:       bundled(golang(github.com/stretchr/testify/assert/yaml))
+Provides:       bundled(golang(github.com/stretchr/testify/internal/difflib))
+Provides:       bundled(golang(github.com/stretchr/testify/internal/spew))
 Provides:       bundled(golang(github.com/stretchr/testify/require))
 Provides:       bundled(golang(github.com/vishvananda/netlink))
 Provides:       bundled(golang(github.com/vishvananda/netlink/nl))
 Provides:       bundled(golang(github.com/vishvananda/netns))
+Provides:       bundled(golang(go.yaml.in/yaml/v3))
 Provides:       bundled(golang(golang.org/x/exp/constraints))
 Provides:       bundled(golang(golang.org/x/net/internal/socks))
 Provides:       bundled(golang(golang.org/x/net/proxy))
@@ -261,7 +269,6 @@ Provides:       bundled(golang(golang.org/x/sys/unix))
 Provides:       bundled(golang(golang.org/x/sys/windows))
 Provides:       bundled(golang(golang.org/x/sys/windows/registry))
 Provides:       bundled(golang(golang.org/x/sys/windows/svc/eventlog))
-Provides:       bundled(golang(gopkg.in/yaml.v3))
 
 %description
 ecs-init supports the initialization and supervision of the Amazon ECS
@@ -393,6 +400,30 @@ fi
 %endif
 
 %changelog
+* Tue Sep 29 2026 amazon-ecs-bot <amazon-ecs-bot@amazon.com> - 1.108.0-1
+- Cache Agent version 1.108.0
+
+* Thu Sep 17 2026 amazon-ecs-bot <amazon-ecs-bot@amazon.com> - 1.107.0-1
+- Cache Agent version 1.107.0
+
+* Fri Aug 28 2026 amazon-ecs-bot <amazon-ecs-bot@amazon.com> - 1.106.2-1
+- Cache Agent version 1.106.2
+
+* Fri Aug 07 2026 amazon-ecs-bot <amazon-ecs-bot@amazon.com> - 1.106.1-1
+- Cache Agent version 1.106.1
+
+* Wed Jul 22 2026 amazon-ecs-bot <amazon-ecs-bot@amazon.com> - 1.106.0-1
+- Cache Agent version 1.106.0
+
+* Mon Jun 29 2026 amazon-ecs-bot <amazon-ecs-bot@amazon.com> - 1.105.1-1
+- Cache Agent version 1.105.1
+
+* Fri Jun 12 2026 amazon-ecs-bot <amazon-ecs-bot@amazon.com> - 1.105.0-1
+- Cache Agent version 1.105.0
+
+* Thu Jun 04 2026 amazon-ecs-bot <amazon-ecs-bot@amazon.com> - 1.104.0-1
+- Cache Agent version 1.104.0
+
 * Tue May 19 2026 amazon-ecs-bot <amazon-ecs-bot@amazon.com> - 1.103.2-1
 - Cache Agent version 1.103.2
 

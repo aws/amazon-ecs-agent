@@ -69,6 +69,10 @@ func (*manager) GetLoadedImageName() string {
 	return ""
 }
 
+func (*manager) GetLoadedImageDigest() string {
+	return ""
+}
+
 func (*manager) GetLoadedAppnetVersion() (string, error) {
 	return "", loader.NewUnsupportedPlatformError(fmt.Errorf(
 		"appnetAgent container get loaded appnet version: unsupported platform: %s/%s",

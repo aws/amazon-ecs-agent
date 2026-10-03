@@ -6,12 +6,10 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	awsmiddleware "github.com/aws/aws-sdk-go-v2/aws/middleware"
 	"github.com/aws/aws-sdk-go-v2/service/ec2/types"
 	smithy "github.com/aws/smithy-go"
 	"github.com/aws/smithy-go/middleware"
 	smithytime "github.com/aws/smithy-go/time"
-	smithyhttp "github.com/aws/smithy-go/transport/http"
 	smithywaiter "github.com/aws/smithy-go/waiter"
 	"time"
 )
@@ -108,6 +106,9 @@ type DescribeSpotInstanceRequestsInput struct {
 	//   - launched-availability-zone - The Availability Zone in which the request is
 	//   launched.
 	//
+	//   - launched-availability-zone-id - The ID of the Availability Zone in which the
+	//   request is launched.
+	//
 	//   - network-interface.addresses.primary - Indicates whether the IP address is
 	//   the primary private IP address.
 	//
@@ -199,9 +200,6 @@ type DescribeSpotInstanceRequestsOutput struct {
 }
 
 func (c *Client) addOperationDescribeSpotInstanceRequestsMiddlewares(stack *middleware.Stack, options Options) (err error) {
-	if err := stack.Serialize.Add(&setOperationInputMiddleware{}, middleware.After); err != nil {
-		return err
-	}
 	err = stack.Serialize.Add(&awsEc2query_serializeOpDescribeSpotInstanceRequests{}, middleware.After)
 	if err != nil {
 		return err
@@ -210,62 +208,17 @@ func (c *Client) addOperationDescribeSpotInstanceRequestsMiddlewares(stack *midd
 	if err != nil {
 		return err
 	}
-	if err := addProtocolFinalizerMiddlewares(stack, options, "DescribeSpotInstanceRequests"); err != nil {
-		return fmt.Errorf("add protocol finalizers: %v", err)
-	}
 
-	if err = addlegacyEndpointContextSetter(stack, options); err != nil {
-		return err
-	}
-	if err = addSetLoggerMiddleware(stack, options); err != nil {
-		return err
-	}
-	if err = addClientRequestID(stack); err != nil {
-		return err
-	}
-	if err = addComputeContentLength(stack); err != nil {
-		return err
-	}
 	if err = addResolveEndpointMiddleware(stack, options); err != nil {
 		return err
 	}
 	if err = addComputePayloadSHA256(stack); err != nil {
 		return err
 	}
-	if err = addRetry(stack, options); err != nil {
+	if err = addRecordResponseTiming(stack, options); err != nil {
 		return err
 	}
-	if err = addRawResponseToMetadata(stack); err != nil {
-		return err
-	}
-	if err = addRecordResponseTiming(stack); err != nil {
-		return err
-	}
-	if err = addSpanRetryLoop(stack, options); err != nil {
-		return err
-	}
-	if err = addClientUserAgent(stack, options); err != nil {
-		return err
-	}
-	if err = smithyhttp.AddErrorCloseResponseBodyMiddleware(stack); err != nil {
-		return err
-	}
-	if err = smithyhttp.AddCloseResponseBodyMiddleware(stack); err != nil {
-		return err
-	}
-	if err = addSetLegacyContextSigningOptionsMiddleware(stack); err != nil {
-		return err
-	}
-	if err = addTimeOffsetBuild(stack, c); err != nil {
-		return err
-	}
-	if err = addUserAgentRetryMode(stack, options); err != nil {
-		return err
-	}
-	if err = stack.Initialize.Add(newServiceMetadataMiddleware_opDescribeSpotInstanceRequests(options.Region), middleware.Before); err != nil {
-		return err
-	}
-	if err = addRecursionDetection(stack); err != nil {
+	if err = addCredentialSource(stack, options); err != nil {
 		return err
 	}
 	if err = addRequestIDRetrieverMiddleware(stack); err != nil {
@@ -280,16 +233,7 @@ func (c *Client) addOperationDescribeSpotInstanceRequestsMiddlewares(stack *midd
 	if err = addDisableHTTPSMiddleware(stack, options); err != nil {
 		return err
 	}
-	if err = addSpanInitializeStart(stack); err != nil {
-		return err
-	}
-	if err = addSpanInitializeEnd(stack); err != nil {
-		return err
-	}
-	if err = addSpanBuildRequestStart(stack); err != nil {
-		return err
-	}
-	if err = addSpanBuildRequestEnd(stack); err != nil {
+	if err = addInterceptors(stack, options); err != nil {
 		return err
 	}
 	return nil
@@ -463,7 +407,11 @@ func spotInstanceRequestFulfilledStateRetryable(ctx context.Context, input *Desc
 		var v2 []string
 		for _, v := range v1 {
 			v3 := v.Status
-			v4 := v3.Code
+			var v4 *string
+			if v3 != nil {
+				v5 := v3.Code
+				v4 = v5
+			}
 			if v4 != nil {
 				v2 = append(v2, *v4)
 			}
@@ -487,7 +435,11 @@ func spotInstanceRequestFulfilledStateRetryable(ctx context.Context, input *Desc
 		var v2 []string
 		for _, v := range v1 {
 			v3 := v.Status
-			v4 := v3.Code
+			var v4 *string
+			if v3 != nil {
+				v5 := v3.Code
+				v4 = v5
+			}
 			if v4 != nil {
 				v2 = append(v2, *v4)
 			}
@@ -511,7 +463,11 @@ func spotInstanceRequestFulfilledStateRetryable(ctx context.Context, input *Desc
 		var v2 []string
 		for _, v := range v1 {
 			v3 := v.Status
-			v4 := v3.Code
+			var v4 *string
+			if v3 != nil {
+				v5 := v3.Code
+				v4 = v5
+			}
 			if v4 != nil {
 				v2 = append(v2, *v4)
 			}
@@ -535,7 +491,11 @@ func spotInstanceRequestFulfilledStateRetryable(ctx context.Context, input *Desc
 		var v2 []string
 		for _, v := range v1 {
 			v3 := v.Status
-			v4 := v3.Code
+			var v4 *string
+			if v3 != nil {
+				v5 := v3.Code
+				v4 = v5
+			}
 			if v4 != nil {
 				v2 = append(v2, *v4)
 			}
@@ -559,7 +519,11 @@ func spotInstanceRequestFulfilledStateRetryable(ctx context.Context, input *Desc
 		var v2 []string
 		for _, v := range v1 {
 			v3 := v.Status
-			v4 := v3.Code
+			var v4 *string
+			if v3 != nil {
+				v5 := v3.Code
+				v4 = v5
+			}
 			if v4 != nil {
 				v2 = append(v2, *v4)
 			}
@@ -583,7 +547,11 @@ func spotInstanceRequestFulfilledStateRetryable(ctx context.Context, input *Desc
 		var v2 []string
 		for _, v := range v1 {
 			v3 := v.Status
-			v4 := v3.Code
+			var v4 *string
+			if v3 != nil {
+				v5 := v3.Code
+				v4 = v5
+			}
 			if v4 != nil {
 				v2 = append(v2, *v4)
 			}
@@ -614,6 +582,9 @@ func spotInstanceRequestFulfilledStateRetryable(ctx context.Context, input *Desc
 		}
 	}
 
+	if err != nil {
+		return false, err
+	}
 	return true, nil
 }
 
@@ -716,11 +687,3 @@ type DescribeSpotInstanceRequestsAPIClient interface {
 }
 
 var _ DescribeSpotInstanceRequestsAPIClient = (*Client)(nil)
-
-func newServiceMetadataMiddleware_opDescribeSpotInstanceRequests(region string) *awsmiddleware.RegisterServiceMetadata {
-	return &awsmiddleware.RegisterServiceMetadata{
-		Region:        region,
-		ServiceID:     ServiceID,
-		OperationName: "DescribeSpotInstanceRequests",
-	}
-}

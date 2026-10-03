@@ -30,8 +30,10 @@ import (
 	"github.com/aws/amazon-ecs-agent/agent/ecscni"
 	"github.com/aws/amazon-ecs-agent/agent/taskresource/volume"
 	"github.com/aws/amazon-ecs-agent/agent/utils"
+	"github.com/aws/amazon-ecs-agent/ecs-agent/capability"
 	"github.com/aws/amazon-ecs-agent/ecs-agent/tmds/utils/netconfig"
 	"github.com/aws/amazon-ecs-agent/ecs-agent/utils/execwrapper"
+	"github.com/aws/amazon-ecs-agent/ecs-agent/utils/gpu"
 
 	"github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/aws/aws-sdk-go-v2/service/ecs/types"
@@ -122,6 +124,44 @@ func (agent *ecsAgent) appendNvidiaDriverVersionAttribute(capabilities []types.A
 		}
 	}
 	return capabilities
+}
+
+// mpsCapabilityInputs gathers the host facts the MPS gate decision is made from,
+// reading them off the NvidiaGPUManager. ok is false when there is no GPU manager, in
+// which case MPS cannot be evaluated on this instance. It is the single source of truth
+// shared by the gpu-sharing-mps capability and the MPS daemon health check.
+func (agent *ecsAgent) mpsCapabilityInputs() (gpu.MpsCapabilityInputs, bool) {
+	if agent.resourceFields == nil || agent.resourceFields.NvidiaGPUManager == nil {
+		return gpu.MpsCapabilityInputs{}, false
+	}
+	mgr := agent.resourceFields.NvidiaGPUManager
+	return gpu.MpsCapabilityInputs{
+		GPUPresent:        len(mgr.GetDevices()) > 0,
+		MpsBinaryPresent:  mgr.GetMpsControlBinaryPresent(),
+		MpsServiceEnabled: mgr.GetMpsServiceEnabled(),
+		IsVGPU:            mgr.GetHasVGPU(),
+		AllGPUsHaveMemory: gpu.AllGPUMemoryReported(mgr.GetGPUIDsUnsafe(), mgr.GetGPUMemoryMiBUnsafe()),
+	}, true
+}
+
+// appendGpuSharingMpsCapability advertises ecs.capability.gpu-sharing-mps when the
+// instance can run MPS: a GPU is present, the MPS control binary and its systemd unit
+// are installed and enabled, the GPU is not a vGPU slice, and every discovered GPU has
+// a usable-memory value. The facts are gathered by ecs-init and read from the NvidiaGPUManager;
+// the decision itself lives in the shared gpu package so the MI agent reaches the same verdict from the same inputs.
+func (agent *ecsAgent) appendGpuSharingMpsCapability(capabilities []types.Attribute) []types.Attribute {
+	inputs, ok := agent.mpsCapabilityInputs()
+	if !ok {
+		return capabilities
+	}
+	advertise, conditions := gpu.ShouldAdvertiseMpsCapability(inputs)
+	if !advertise {
+		for _, c := range gpu.UnmetMpsConditions(conditions) {
+			seelog.Warnf("Not advertising %s: %s", capability.GPUSharingMps, c.UnmetReason())
+		}
+		return capabilities
+	}
+	return appendNameOnlyAttribute(capabilities, capability.GPUSharingMps)
 }
 
 func (agent *ecsAgent) appendENITrunkingCapabilities(capabilities []types.Attribute) []types.Attribute {
@@ -218,6 +258,10 @@ func (agent *ecsAgent) appendFirelensConfigCapabilities(capabilities []types.Att
 
 func (agent *ecsAgent) appendEFSCapabilities(capabilities []types.Attribute) []types.Attribute {
 	return appendNameOnlyAttribute(capabilities, attributePrefix+capabilityEFS)
+}
+
+func (agent *ecsAgent) appendS3FilesCapabilities(capabilities []types.Attribute) []types.Attribute {
+	return appendNameOnlyAttribute(capabilities, attributePrefix+capabilityS3Files)
 }
 
 func (agent *ecsAgent) appendEFSVolumePluginCapabilities(capabilities []types.Attribute, pluginCapability string) []types.Attribute {

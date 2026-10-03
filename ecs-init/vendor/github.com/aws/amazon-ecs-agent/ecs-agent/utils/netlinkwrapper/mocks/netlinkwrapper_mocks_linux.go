@@ -122,6 +122,35 @@ func (mr *MockNetLinkMockRecorder) LinkSetUp(arg0 interface{}) *gomock.Call {
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "LinkSetUp", reflect.TypeOf((*MockNetLink)(nil).LinkSetUp), arg0)
 }
 
+// NeighList mocks base method.
+func (m *MockNetLink) NeighList(arg0, arg1 int) ([]netlink.Neigh, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "NeighList", arg0, arg1)
+	ret0, _ := ret[0].([]netlink.Neigh)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// NeighList indicates an expected call of NeighList.
+func (mr *MockNetLinkMockRecorder) NeighList(arg0, arg1 interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "NeighList", reflect.TypeOf((*MockNetLink)(nil).NeighList), arg0, arg1)
+}
+
+// NeighSet mocks base method.
+func (m *MockNetLink) NeighSet(arg0 *netlink.Neigh) error {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "NeighSet", arg0)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// NeighSet indicates an expected call of NeighSet.
+func (mr *MockNetLinkMockRecorder) NeighSet(arg0 interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "NeighSet", reflect.TypeOf((*MockNetLink)(nil).NeighSet), arg0)
+}
+
 // RouteAdd mocks base method.
 func (m *MockNetLink) RouteAdd(arg0 *netlink.Route) error {
 	m.ctrl.T.Helper()
@@ -163,4 +192,18 @@ func (m *MockNetLink) RouteList(arg0 netlink.Link, arg1 int) ([]netlink.Route, e
 func (mr *MockNetLinkMockRecorder) RouteList(arg0, arg1 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "RouteList", reflect.TypeOf((*MockNetLink)(nil).RouteList), arg0, arg1)
+}
+
+// RouteReplace mocks base method.
+func (m *MockNetLink) RouteReplace(arg0 *netlink.Route) error {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "RouteReplace", arg0)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// RouteReplace indicates an expected call of RouteReplace.
+func (mr *MockNetLinkMockRecorder) RouteReplace(arg0 interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "RouteReplace", reflect.TypeOf((*MockNetLink)(nil).RouteReplace), arg0)
 }

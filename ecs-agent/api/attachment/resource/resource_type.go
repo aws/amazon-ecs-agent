@@ -22,4 +22,6 @@ const (
 	ElasticBlockStorage = "ElasticBlockStorage"
 	// EBSTaskAttach is one of the attachment types in the attachment payload message for EBS attach tasks.
 	EBSTaskAttach = "amazonebs"
+	// S3FilesTaskAttach is one of the attachment types in the attachment payload message for tasks with S3 Files volumes.
+	S3FilesTaskAttach = "s3files"
 )

@@ -4,6 +4,7 @@
 package platform
 
 import (
+	"errors"
 	"os/exec"
 	"testing"
 
@@ -733,4 +734,80 @@ func TestUnifiedFunctionHandlesBothIPVersions(t *testing.T) {
 			}
 		})
 	}
+}
+
+func TestBuildIptablesArgs(t *testing.T) {
+	// The -w wait flag must lead, followed by the table selector, the action,
+	// then the chain args — for insert, delete, append alike.
+	allow := getIntrospectionAllowDaemonArgs(DaemonBridgeIP)
+
+	assert.Equal(t,
+		append([]string{"-w", "-t", iptablesTableFilter, "-I"}, allow...),
+		buildIptablesArgs(iptablesTableFilter, iptablesInsert, allow),
+		"insert args should be: -w -t filter -I <chain args>")
+
+	assert.Equal(t,
+		append([]string{"-w", "-t", iptablesTableFilter, "-D"}, allow...),
+		buildIptablesArgs(iptablesTableFilter, iptablesDelete, allow),
+		"delete args should be: -w -t filter -D <chain args>")
+
+	drop := getIntrospectionBridgeDropArgs()
+	assert.Equal(t,
+		append([]string{"-w", "-t", iptablesTableFilter, "-A"}, drop...),
+		buildIptablesArgs(iptablesTableFilter, iptablesAppend, drop),
+		"append args should be: -w -t filter -A <chain args>")
+}
+
+// errStubIptables is the failure returned by the stubbed iptables runner.
+var errStubIptables = errors.New("stub iptables failure")
+
+// stubIptables replaces the package-level iptables runner with fn for the
+// duration of the test, restoring the real one on cleanup. It lets unit tests
+// drive error paths without invoking real iptables (the integration test, which
+// needs root, covers the success paths against the real binaries).
+func stubIptables(t *testing.T, fn func(executable string, args ...string) ([]byte, error)) {
+	t.Helper()
+	orig := runIptablesCommand
+	runIptablesCommand = fn
+	t.Cleanup(func() { runIptablesCommand = orig })
+}
+
+// iptablesActionOf returns the action flag (-A/-I/-C/-D) present in an iptables
+// argument list, or "" if none is found.
+func iptablesActionOf(args []string) iptablesAction {
+	for _, a := range args {
+		switch iptablesAction(a) {
+		case iptablesAppend, iptablesInsert, iptablesCheck, iptablesDelete:
+			return iptablesAction(a)
+		}
+	}
+	return ""
+}
+
+// These unit tests cover only the error paths: that a failed iptables invocation
+// surfaces as a returned error rather than being swallowed. The success paths —
+// rule content, ordering, idempotency, and IPv6 gating — are covered by the
+// integration test against real iptables (which, running in a fresh netns where
+// commands succeed, cannot exercise failures).
+
+func TestSetupIntrospectionFirewall_PropagatesError(t *testing.T) {
+	stubIptables(t, func(string, ...string) ([]byte, error) { return nil, errStubIptables })
+	assert.ErrorIs(t, SetupIntrospectionFirewall(false), errStubIptables)
+}
+
+func TestAllowDaemonIntrospection_PropagatesError(t *testing.T) {
+	stubIptables(t, func(string, ...string) ([]byte, error) { return nil, errStubIptables })
+	assert.ErrorIs(t, allowDaemonIntrospection(false), errStubIptables)
+}
+
+func TestDisallowDaemonIntrospection_PropagatesError(t *testing.T) {
+	// The -C existence check must succeed so the delete is attempted; only the
+	// delete fails. (A failed -C is read as "rule absent" and returns no error.)
+	stubIptables(t, func(_ string, args ...string) ([]byte, error) {
+		if iptablesActionOf(args) == iptablesDelete {
+			return nil, errStubIptables
+		}
+		return nil, nil
+	})
+	assert.ErrorIs(t, disallowDaemonIntrospection(false), errStubIptables)
 }

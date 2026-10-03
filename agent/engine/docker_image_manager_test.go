@@ -35,6 +35,7 @@ import (
 	ec2testutil "github.com/aws/amazon-ecs-agent/agent/utils/test/ec2util"
 
 	"github.com/docker/docker/api/types"
+	dockercontainer "github.com/docker/docker/api/types/container"
 	"github.com/golang/mock/gomock"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -192,6 +193,90 @@ func TestRecordContainerReferenceInspectError(t *testing.T) {
 	}
 }
 
+func TestRecordContainerReferenceStoresManagedEnvKeysOnImageState(t *testing.T) {
+	envVars := []string{"PATH=/usr/local/bin", "AWS_DEFAULT_REGION=us-east-1"}
+	tests := []struct {
+		name        string
+		config      *dockercontainer.Config
+		wantEnvKeys map[string]bool
+	}{
+		{
+			name:        "image config with region env var — key stored on image state",
+			config:      &dockercontainer.Config{Env: envVars},
+			wantEnvKeys: map[string]bool{"AWS_DEFAULT_REGION": true},
+		},
+		{
+			name:        "nil image config — ManagedEnvKeys nil on image state",
+			config:      nil,
+			wantEnvKeys: nil,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			ctrl := gomock.NewController(t)
+			defer ctrl.Finish()
+			client := mock_dockerapi.NewMockDockerClient(ctrl)
+
+			imageManager := NewImageManager(defaultTestConfig(), client, dockerstate.NewTaskEngineState())
+			imageManager.SetDataClient(data.NewNoopClient())
+
+			container := &apicontainer.Container{
+				Name:  "testContainer",
+				Image: "testContainerImage",
+			}
+			client.EXPECT().InspectImage(container.Image).Return(&types.ImageInspect{
+				ID:     "sha256:qwerty",
+				Config: tt.config,
+			}, nil)
+
+			err := imageManager.RecordContainerReference(container)
+			assert.NoError(t, err)
+
+			imageState, ok := imageManager.GetImageStateFromImageName(container.Image)
+			assert.True(t, ok)
+			assert.Equal(t, tt.wantEnvKeys, imageState.GetManagedEnvKeys())
+		})
+	}
+}
+
+// TestRecordContainerReferencePreservesManagedEnvKeysOnRestart verifies that when a container
+// already has an ImageID set (e.g. on agent restart from saved state), RecordContainerReference
+// does not re-inspect the image — the ManagedEnvKeys are already persisted on ImageState.
+func TestRecordContainerReferencePreservesManagedEnvKeysOnRestart(t *testing.T) {
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+	client := mock_dockerapi.NewMockDockerClient(ctrl)
+
+	imageManager := NewImageManager(defaultTestConfig(), client, dockerstate.NewTaskEngineState())
+	imageManager.SetDataClient(data.NewNoopClient())
+
+	const imageID = "sha256:qwerty"
+	existingKeys := map[string]bool{"AWS_DEFAULT_REGION": true}
+
+	// Seed the image state with persisted ManagedEnvKeys (as if loaded from state file).
+	sourceImageState := &image.ImageState{
+		Image:          &image.Image{ImageID: imageID},
+		ManagedEnvKeys: existingKeys,
+	}
+	imageManager.(*dockerImageManager).addImageState(sourceImageState)
+
+	container := &apicontainer.Container{
+		Name:    "testContainer",
+		Image:   "testContainerImage",
+		ImageID: imageID, // pre-populated, as it would be after agent restart
+	}
+
+	// No InspectImage call expected — keys are already persisted.
+	err := imageManager.RecordContainerReference(container)
+	assert.NoError(t, err)
+
+	// Verify the keys are still on the image state.
+	imageState, ok := imageManager.GetImageStateFromImageName(container.Image)
+	assert.True(t, ok)
+	assert.Equal(t, existingKeys, imageState.GetManagedEnvKeys())
+}
+
 func TestRecordContainerReferenceWithNoImageName(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
@@ -282,7 +367,7 @@ func TestAddContainerReferenceToExistingImageState(t *testing.T) {
 	sourceImageState1.AddImageName("testContainerImage")
 	imageManager.addImageState(sourceImageState)
 	imageManager.addImageState(sourceImageState1)
-	if !imageManager.addContainerReferenceToExistingImageState(container) {
+	if !imageManager.addContainerReferenceToExistingImageState(container, nil) {
 		t.Error("Error in adding container to an already existing image state")
 	}
 	if !reflect.DeepEqual(sourceImageState.Containers[0], container) {
@@ -371,7 +456,7 @@ func TestAddContainerReferenceToExistingImageStateNoState(t *testing.T) {
 		Image:   "testContainerImage",
 		ImageID: "sha256:qwerty",
 	}
-	if imageManager.addContainerReferenceToExistingImageState(container) {
+	if imageManager.addContainerReferenceToExistingImageState(container, nil) {
 		t.Error("Error adding container to an incorrect existing image state")
 	}
 }
@@ -390,7 +475,7 @@ func TestAddContainerReferenceToNewImageState(t *testing.T) {
 		Image:   "testContainerImage",
 		ImageID: imageID,
 	}
-	imageManager.addContainerReferenceToNewImageState(container, imageSize)
+	imageManager.addContainerReferenceToNewImageState(container, imageSize, nil)
 	_, ok := imageManager.getImageState(imageID)
 	if !ok {
 		t.Error("Error adding container reference to new image state")
@@ -426,7 +511,7 @@ func TestAddContainerReferenceToNewImageStateAddedState(t *testing.T) {
 	sourceImageState1.AddImageName("testContainerImage")
 	imageManager.addImageState(sourceImageState)
 	imageManager.addImageState(sourceImageState1)
-	imageManager.addContainerReferenceToNewImageState(container, imageSize)
+	imageManager.addContainerReferenceToNewImageState(container, imageSize, nil)
 	if !reflect.DeepEqual(sourceImageState.Containers[0], container) {
 		t.Error("Incorrect container added to an already existing image state")
 	}

@@ -310,7 +310,34 @@
         "startTimeout":{"shape":"Integer"},
         "stopTimeout":{"shape":"Integer"},
         "firelensConfiguration":{"shape":"FirelensConfiguration"},
-        "containerArn":{"shape":"String"}
+        "containerArn":{"shape":"String"},
+        "resourceRequirements":{"shape":"ResourceRequirementList"}
+      }
+    },
+    "ResourceRequirementList":{
+      "type":"list",
+      "member":{"shape":"ResourceRequirement"}
+    },
+    "ResourceRequirement":{
+      "type":"structure",
+      "members":{
+        "value":{"shape":"String"},
+        "type":{"shape":"String"},
+        "sharingStrategy":{"shape":"SharingStrategy"}
+      }
+    },
+    "SharingStrategy":{
+      "type":"structure",
+      "members":{
+        "nvidiaMps":{"shape":"NvidiaMpsAllocation"}
+      }
+    },
+    "NvidiaMpsAllocation":{
+      "type":"structure",
+      "required":["memory"],
+      "members":{
+        "memory":{"shape":"Integer"},
+        "maxComputePercent":{"shape":"Integer"}
       }
     },
     "RestartPolicy":{
@@ -600,6 +627,15 @@
       "exception":true
     },
     "Integer":{"type":"integer"},
+    "IsolationMode":{
+      "type":"string",
+      "enum":[
+        "SHARED",
+        "EXCLUSIVE",
+        "ISOLATED_PARTITION",
+        "CONFIDENTIAL_PARTITION"
+      ]
+    },
     "InvalidClusterException":{
       "type":"structure",
       "members":{
@@ -615,6 +651,12 @@
       "exception":true
     },
     "Long":{"type":"long"},
+    "LogDriverVolumeConfiguration":{
+      "type":"structure",
+      "members":{
+        "driver":{"shape":"String"}
+      }
+    },
     "ManagedAgent":{
       "type":"structure",
       "members":{
@@ -906,7 +948,8 @@
         "networkMode":{"shape":"String"},
         "serviceName":{"shape":"String"},
         "group":{"shape":"String"},
-        "enableFaultInjection":{"shape":"Boolean"}
+        "enableFaultInjection":{"shape":"Boolean"},
+        "trustedExecutionConfiguration":{"shape":"TrustedExecutionConfiguration"}
       }
     },
     "TaskIdentifier":{
@@ -958,6 +1001,13 @@
         "udp"
       ]
     },
+    "TrustedExecutionConfiguration":{
+      "type":"structure",
+      "members":{
+        "isolationMode":{"shape":"IsolationMode"},
+        "attestationPolicy":{"shape":"String"}
+      }
+    },
     "UpdateInfo":{
       "type":"structure",
       "members":{
@@ -982,7 +1032,8 @@
         "dockerVolumeConfiguration":{"shape":"DockerVolumeConfiguration"},
         "efsVolumeConfiguration":{"shape":"EFSVolumeConfiguration"},
         "fsxWindowsFileServerVolumeConfiguration":{"shape":"FSxWindowsFileServerVolumeConfiguration"},
-        "ebsVolumeConfiguration":{"shape":"EBSVolumeConfiguration"}
+        "ebsVolumeConfiguration":{"shape":"EBSVolumeConfiguration"},
+        "logDriverVolumeConfiguration":{"shape":"LogDriverVolumeConfiguration"}
       }
     },
     "VolumeFrom":{
@@ -1007,7 +1058,8 @@
         "docker",
         "efs",
         "fsxWindowsFileServer",
-        "ebs"
+        "ebs",
+        "logDriverOutput"
       ]
     }
   }

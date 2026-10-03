@@ -5,7 +5,7 @@
 The Amazon ECS Container Agent is a component of Amazon Elastic Container Service
 ([Amazon ECS](http://aws.amazon.com/ecs/)) and is responsible for managing containers on behalf of Amazon ECS.
 
-This repository comes with ECS-Init, which is a [systemd](http://www.freedesktop.org/wiki/Software/systemd/) based service to support the Amazon ECS Container Agent and keep it running. It is used for systems that utilize `systemd` as init systems and is packaged as deb or rpm. The source for ECS-Init is available in this repository at `./ecs-init` while the packaging is available at `./packaging`.
+This repository comes with ECS-Init, which is a [systemd](https://systemd.io/) based service to support the Amazon ECS Container Agent and keep it running. It is used for systems that utilize `systemd` as init systems and is packaged as deb or rpm. The source for ECS-Init is available in this repository at `./ecs-init` while the packaging is available at `./packaging`.
 
 ## Usage
 
@@ -17,76 +17,11 @@ The best source of information on running this software is the
 On the [Amazon Linux AMI](https://aws.amazon.com/amazon-linux-ami/), we provide an installable RPM which can be used via
 `sudo yum install ecs-init && sudo start ecs`. This is the recommended way to run it in this environment.
 
+See also the Advanced Usage section below.
+
 ### On Other Linux AMIs
 
-[Amazon ECS docs](https://docs.aws.amazon.com/AmazonECS/latest/developerguide/ecs-agent-install.html) provides deb and rpm packages and instructions to install ECS Container Agent on non-Amazon Linux instances.
-
-The Amazon ECS Container Agent may also be run in a Docker container on an EC2 instance with a recent Docker version
-installed. Docker images are available in
-[Docker Hub Repository](https://hub.docker.com/r/amazon/amazon-ecs-agent) and [ECR Public Gallery](https://gallery.ecr.aws/ecs/amazon-ecs-agent).
-
-```bash
-$ # Set up directories the agent uses
-$ mkdir -p /var/log/ecs /etc/ecs /var/lib/ecs/data
-$ touch /etc/ecs/ecs.config
-$ # Set up necessary rules to enable IAM roles for tasks
-$ sysctl -w net.ipv4.conf.all.route_localnet=1
-$ iptables -t nat -A PREROUTING -p tcp -d 169.254.170.2 --dport 80 -j DNAT --to-destination 127.0.0.1:51679
-$ iptables -t nat -A OUTPUT -d 169.254.170.2 -p tcp -m tcp --dport 80 -j REDIRECT --to-ports 51679
-$ # Run the agent
-$ docker run --name ecs-agent \
-    --detach=true \
-    --restart=on-failure:10 \
-    --volume=/var/run/docker.sock:/var/run/docker.sock \
-    --volume=/var/log/ecs:/log \
-    --volume=/var/lib/ecs/data:/data \
-    --net=host \
-    --env-file=/etc/ecs/ecs.config \
-    --env=ECS_LOGFILE=/log/ecs-agent.log \
-    --env=ECS_DATADIR=/data/ \
-    --env=ECS_ENABLE_TASK_IAM_ROLE=true \
-    --env=ECS_ENABLE_TASK_IAM_ROLE_NETWORK_HOST=true \
-    amazon/amazon-ecs-agent:latest
-```
-
-### On Other Linux AMIs when awsvpc networking mode is enabled
-
-For the AWS VPC networking mode, ECS agent requires CNI plugin and dhclient to be available. ECS also needs the ecs-init to run as part of its startup.
-The following is an example of docker run configuration for running ecs-agent with Task ENI enabled. Note that ECS agent currently only supports cgroupfs for cgroup driver.
-```
-$ # Run the agent
-$ /usr/bin/docker run --name ecs-agent \
---init \
---restart=on-failure:10 \
---volume=/var/run:/var/run \
---volume=/var/log/ecs/:/log:Z \
---volume=/var/lib/ecs/data:/data:Z \
---volume=/etc/ecs:/etc/ecs \
---volume=/sbin:/host/sbin \
---volume=/lib:/lib \
---volume=/lib64:/lib64 \
---volume=/usr/lib:/usr/lib \
---volume=/usr/lib64:/usr/lib64 \
---volume=/proc:/host/proc \
---volume=/sys/fs/cgroup:/sys/fs/cgroup \
---net=host \
---env-file=/etc/ecs/ecs.config \
---cap-add=sys_admin \
---cap-add=net_admin \
---env ECS_ENABLE_TASK_ENI=true \
---env ECS_UPDATES_ENABLED=true \
---env ECS_ENGINE_TASK_CLEANUP_WAIT_DURATION=1h \
---env ECS_DATADIR=/data \
---env ECS_ENABLE_TASK_IAM_ROLE=true \
---env ECS_ENABLE_TASK_IAM_ROLE_NETWORK_HOST=true \
---env ECS_LOGFILE=/log/ecs-agent.log \
---env ECS_AVAILABLE_LOGGING_DRIVERS='["json-file","awslogs","syslog","none"]' \
---env ECS_LOGLEVEL=info \
---detach \
-amazon/amazon-ecs-agent:latest
-```
-
-See also the Advanced Usage section below.
+On non-Amazon Linux instances, install the agent with ECS-Init by following the [Amazon ECS docs](https://docs.aws.amazon.com/AmazonECS/latest/developerguide/ecs-agent-install.html#ecs-agent-install-nonamazonlinux).
 
 ### On the ECS Optimized Windows AMI
 
@@ -126,7 +61,6 @@ This installs the required build dependencies, builds ECS Agent image and saves 
 ```
 docker load < ecs-agent-v${AGENT_VERSION}.tar
 ```
-Follow the instructions [above](https://github.com/aws/amazon-ecs-agent#on-other-linux-amis) to continue with the installation
 
 ### Build and run standalone (Linux)
 
@@ -256,6 +190,7 @@ additional details about how to configure the agent.
 | `CREDENTIALS_FETCHER_SECRET_NAME_FOR_DOMAINLESS_GMSA`   | `secretmanager-secretname` | Used to support scaling option for gMSA on Linux [credentials-fetcher daemon](https://github.com/aws/credentials-fetcher). If user is configuring gMSA on a non-domain joined instance, they need to create an Active Directory user with access to retrieve principals for the gMSA account and store it in secrets manager | `secretmanager-secretname` | Not Applicable |
 | `ECS_DYNAMIC_HOST_PORT_RANGE` | `100-200` | This specifies the dynamic host port range that the agent uses to assign host ports from, for container ports mapping. If there are no available ports in the range for containers, including customer containers and Service Connect Agent containers (if Service Connect is enabled), service deployments would fail. | Defined by `/proc/sys/net/ipv4/ip_local_port_range` | `49152-65535` |
 | `ECS_TASK_PIDS_LIMIT` | `100` | Specifies the per-task pids limit cgroup setting for each task launched on the container instance. This setting maps to the pids.max cgroup setting at the ECS task level. See https://www.kernel.org/doc/html/latest/admin-guide/cgroup-v2.html#pid. If unset, pids will be unlimited. Min value is 1 and max value is 4194304 (4*1024*1024) | `unset` | Not Supported on Windows |
+| `ECS_PROPAGATE_TASK_MEMORY_LIMIT_CGROUPV2` | `true` | Whether to propagate task-level memory limits to containers that do not have explicit container-level memory limits when using cgroupv2. When enabled and on cgroupv2, the agent sets each container's memory limit to the task-level value if the container does not already have an explicit memory limit. | `false` | Not Applicable |
 | `ECS_EBSTA_SUPPORTED` | `true` | Whether to use the container instance with EBS Task Attach support. This variable is set properly by ecs-init. Its value indicates if correct environment to support EBS volumes by instance has been set up or not. ECS only schedules EBSTA tasks if this feature is supported by the platform type. Check [EBS Volume considerations](https://docs.aws.amazon.com/AmazonECS/latest/developerguide/ebs-volumes.html#ebs-volume-considerations) for other EBS support details | `true` | Not Supported on Windows |
 | `ECS_ENABLE_FIRELENS_ASYNC` | `true` | Whether the log driver connects to the Firelens container in the background. | `true` | `true` |
 | `ECS_DETAILED_OS_FAMILY` | `debian_11` | Sets detailed OS information for Linux-based ECS instances by parsing /etc/os-release. This variable is set properly by ecs-init during system initialization.  | `linux` | Not supported on Windows |

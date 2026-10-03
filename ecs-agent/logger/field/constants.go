@@ -75,4 +75,5 @@ const (
 	Region                  = "region"
 	DockerVersion           = "dockerVersion"
 	NetworkInterface        = "networkInterface"
+	MetricName              = "metricName"
 )

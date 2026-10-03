@@ -4,21 +4,18 @@ package ec2
 
 import (
 	"context"
-	"fmt"
-	awsmiddleware "github.com/aws/aws-sdk-go-v2/aws/middleware"
 	"github.com/aws/smithy-go/middleware"
-	smithyhttp "github.com/aws/smithy-go/transport/http"
 )
 
 // Enables deregistration protection for an AMI. When deregistration protection is
 // enabled, the AMI can't be deregistered.
 //
 // To allow the AMI to be deregistered, you must first disable deregistration
-// protection using DisableImageDeregistrationProtection.
+// protection.
 //
-// For more information, see [Protect an AMI from deregistration] in the Amazon EC2 User Guide.
+// For more information, see [Protect an Amazon EC2 AMI from deregistration] in the Amazon EC2 User Guide.
 //
-// [Protect an AMI from deregistration]: https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/deregister-ami.html#ami-deregistration-protection
+// [Protect an Amazon EC2 AMI from deregistration]: https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/ami-deregistration-protection.html
 func (c *Client) EnableImageDeregistrationProtection(ctx context.Context, params *EnableImageDeregistrationProtectionInput, optFns ...func(*Options)) (*EnableImageDeregistrationProtectionOutput, error) {
 	if params == nil {
 		params = &EnableImageDeregistrationProtectionInput{}
@@ -66,9 +63,6 @@ type EnableImageDeregistrationProtectionOutput struct {
 }
 
 func (c *Client) addOperationEnableImageDeregistrationProtectionMiddlewares(stack *middleware.Stack, options Options) (err error) {
-	if err := stack.Serialize.Add(&setOperationInputMiddleware{}, middleware.After); err != nil {
-		return err
-	}
 	err = stack.Serialize.Add(&awsEc2query_serializeOpEnableImageDeregistrationProtection{}, middleware.After)
 	if err != nil {
 		return err
@@ -77,65 +71,20 @@ func (c *Client) addOperationEnableImageDeregistrationProtectionMiddlewares(stac
 	if err != nil {
 		return err
 	}
-	if err := addProtocolFinalizerMiddlewares(stack, options, "EnableImageDeregistrationProtection"); err != nil {
-		return fmt.Errorf("add protocol finalizers: %v", err)
-	}
 
-	if err = addlegacyEndpointContextSetter(stack, options); err != nil {
-		return err
-	}
-	if err = addSetLoggerMiddleware(stack, options); err != nil {
-		return err
-	}
-	if err = addClientRequestID(stack); err != nil {
-		return err
-	}
-	if err = addComputeContentLength(stack); err != nil {
-		return err
-	}
 	if err = addResolveEndpointMiddleware(stack, options); err != nil {
 		return err
 	}
 	if err = addComputePayloadSHA256(stack); err != nil {
 		return err
 	}
-	if err = addRetry(stack, options); err != nil {
+	if err = addRecordResponseTiming(stack, options); err != nil {
 		return err
 	}
-	if err = addRawResponseToMetadata(stack); err != nil {
-		return err
-	}
-	if err = addRecordResponseTiming(stack); err != nil {
-		return err
-	}
-	if err = addSpanRetryLoop(stack, options); err != nil {
-		return err
-	}
-	if err = addClientUserAgent(stack, options); err != nil {
-		return err
-	}
-	if err = smithyhttp.AddErrorCloseResponseBodyMiddleware(stack); err != nil {
-		return err
-	}
-	if err = smithyhttp.AddCloseResponseBodyMiddleware(stack); err != nil {
-		return err
-	}
-	if err = addSetLegacyContextSigningOptionsMiddleware(stack); err != nil {
-		return err
-	}
-	if err = addTimeOffsetBuild(stack, c); err != nil {
-		return err
-	}
-	if err = addUserAgentRetryMode(stack, options); err != nil {
+	if err = addCredentialSource(stack, options); err != nil {
 		return err
 	}
 	if err = addOpEnableImageDeregistrationProtectionValidationMiddleware(stack); err != nil {
-		return err
-	}
-	if err = stack.Initialize.Add(newServiceMetadataMiddleware_opEnableImageDeregistrationProtection(options.Region), middleware.Before); err != nil {
-		return err
-	}
-	if err = addRecursionDetection(stack); err != nil {
 		return err
 	}
 	if err = addRequestIDRetrieverMiddleware(stack); err != nil {
@@ -150,25 +99,8 @@ func (c *Client) addOperationEnableImageDeregistrationProtectionMiddlewares(stac
 	if err = addDisableHTTPSMiddleware(stack, options); err != nil {
 		return err
 	}
-	if err = addSpanInitializeStart(stack); err != nil {
-		return err
-	}
-	if err = addSpanInitializeEnd(stack); err != nil {
-		return err
-	}
-	if err = addSpanBuildRequestStart(stack); err != nil {
-		return err
-	}
-	if err = addSpanBuildRequestEnd(stack); err != nil {
+	if err = addInterceptors(stack, options); err != nil {
 		return err
 	}
 	return nil
-}
-
-func newServiceMetadataMiddleware_opEnableImageDeregistrationProtection(region string) *awsmiddleware.RegisterServiceMetadata {
-	return &awsmiddleware.RegisterServiceMetadata{
-		Region:        region,
-		ServiceID:     ServiceID,
-		OperationName: "EnableImageDeregistrationProtection",
-	}
 }

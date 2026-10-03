@@ -17,6 +17,7 @@
 package types
 
 import (
+	"context"
 	"encoding/json"
 	"testing"
 	"time"
@@ -27,6 +28,7 @@ import (
 	"github.com/aws/amazon-ecs-agent/agent/taskresource"
 	cgroupres "github.com/aws/amazon-ecs-agent/agent/taskresource/cgroup"
 	"github.com/aws/amazon-ecs-agent/agent/taskresource/firelens"
+	"github.com/aws/amazon-ecs-agent/agent/taskresource/mpsdaemon"
 	resourcestatus "github.com/aws/amazon-ecs-agent/agent/taskresource/status"
 )
 
@@ -65,4 +67,28 @@ func TestMarshalUnmarshalFirelensResource(t *testing.T) {
 	assert.True(t, ok)
 	assert.Equal(t, unMarshalledFirelensResources[0].GetDesiredStatus(), resourcestatus.ResourceCreated)
 	assert.Equal(t, unMarshalledFirelensResources[0].GetKnownStatus(), resourcestatus.ResourceStatusNone)
+}
+
+func TestMarshalUnmarshalMPSDaemonResource(t *testing.T) {
+	resources := make(map[string][]taskresource.TaskResource)
+
+	gates := []taskresource.TaskResource{
+		mpsdaemon.NewMPSDaemonResource(context.Background(),
+			"arn:aws:ecs:us-west-2:123456789012:task/cluster/abc123", nil, ""),
+	}
+	gates[0].SetDesiredStatus(resourcestatus.ResourceCreated)
+	gates[0].SetKnownStatus(resourcestatus.ResourceStatusNone)
+
+	resources[MPSDaemonKey] = gates
+	data, err := json.Marshal(resources)
+	require.NoError(t, err)
+
+	var unMarshalledResource ResourcesMap
+	err = json.Unmarshal(data, &unMarshalledResource)
+	assert.NoError(t, err, "unmarshal mps daemon resource from data failed")
+	restored, ok := unMarshalledResource[MPSDaemonKey]
+	assert.True(t, ok, "mps daemon resource not found in the resource map")
+	assert.Equal(t, mpsdaemon.ResourceName, restored[0].GetName())
+	assert.Equal(t, resourcestatus.ResourceCreated, restored[0].GetDesiredStatus())
+	assert.Equal(t, resourcestatus.ResourceStatusNone, restored[0].GetKnownStatus())
 }

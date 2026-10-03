@@ -143,6 +143,20 @@ func (mr *MockManagerMockRecorder) GetLoadedAppnetVersion() *gomock.Call {
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetLoadedAppnetVersion", reflect.TypeOf((*MockManager)(nil).GetLoadedAppnetVersion))
 }
 
+// GetLoadedImageDigest mocks base method.
+func (m *MockManager) GetLoadedImageDigest() string {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "GetLoadedImageDigest")
+	ret0, _ := ret[0].(string)
+	return ret0
+}
+
+// GetLoadedImageDigest indicates an expected call of GetLoadedImageDigest.
+func (mr *MockManagerMockRecorder) GetLoadedImageDigest() *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetLoadedImageDigest", reflect.TypeOf((*MockManager)(nil).GetLoadedImageDigest))
+}
+
 // GetLoadedImageName mocks base method.
 func (m *MockManager) GetLoadedImageName() string {
 	m.ctrl.T.Helper()

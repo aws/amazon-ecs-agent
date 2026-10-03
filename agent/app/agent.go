@@ -49,6 +49,7 @@ import (
 	"github.com/aws/amazon-ecs-agent/agent/stats/reporter"
 	"github.com/aws/amazon-ecs-agent/agent/taskresource"
 	"github.com/aws/amazon-ecs-agent/agent/utils"
+	"github.com/aws/amazon-ecs-agent/agent/utils/ec2metadata"
 	"github.com/aws/amazon-ecs-agent/agent/utils/loader"
 	"github.com/aws/amazon-ecs-agent/agent/utils/mobypkgwrapper"
 	"github.com/aws/amazon-ecs-agent/agent/version"
@@ -245,6 +246,10 @@ func newAgent(blackholeEC2Metadata bool, acceptInsecureCert *bool) (agent, error
 		dataClient = data.NewNoopClient()
 	}
 
+	// Resolved here rather than during config initialization because it requires
+	// the data client, which is created after config setup.
+	resolveIMDSIAMRolesConfig(cfg, dataClient, ec2MetadataClient)
+
 	var metadataManager containermetadata.Manager
 	if cfg.ContainerMetadataEnabled.Enabled() {
 		// We use the default API client for the metadata inspect call. This version has some information
@@ -357,6 +362,18 @@ func (agent *ecsAgent) doStart(containerChangeEventStream *eventstream.EventStre
 	imageManager engine.ImageManager,
 	client ecs.ECSClient,
 	execCmdMgr execcmd.Manager) int {
+	// Check for cloud-init failure before proceeding with startup.
+	// If cloud-init fell back to DataSourceNone but userdata exists on IMDS,
+	// userdata was not executed and the agent may have incorrect config.
+	if !agent.cfg.External.Enabled() {
+		if err := config.CheckCloudInitFailure(agent.ec2MetadataClient, config.CloudInitResultFilePath); err != nil {
+			seelog.Criticalf("Cloud-init failure detected: %v. "+
+				"Userdata was not executed during instance boot. "+
+				"Refusing to start with potentially incorrect config.", err)
+			return exitcodes.ExitTerminal
+		}
+	}
+
 	// check docker version >= 1.9.0, exit agent if older
 	if exitcode, ok := agent.verifyRequiredDockerVersion(); !ok {
 		return exitcode
@@ -374,7 +391,6 @@ func (agent *ecsAgent) doStart(containerChangeEventStream *eventstream.EventStre
 		seelog.Critical("Unable to fetch host resources")
 		return exitcodes.ExitError
 	}
-	gpuIDs := []string{}
 	if agent.cfg.GPUSupportEnabled {
 		err := agent.initializeGPUManager()
 		if err != nil {
@@ -382,18 +398,7 @@ func (agent *ecsAgent) doStart(containerChangeEventStream *eventstream.EventStre
 			return exitcodes.ExitError
 		}
 		// Find GPUs (if any) on the instance
-		platformDevices := agent.getPlatformDevices()
-		for _, device := range platformDevices {
-			if device.Type == types.PlatformDeviceTypeGpu {
-				gpuIDs = append(gpuIDs, *device.Id)
-			}
-		}
-	}
-
-	hostResources["GPU"] = types.Resource{
-		Name:           utils.Strptr("GPU"),
-		Type:           utils.Strptr("STRINGSET"),
-		StringSetValue: gpuIDs,
+		seedGPUMemoryCapacity(hostResources, agent.getPlatformDevices())
 	}
 
 	// Create the task engine
@@ -556,6 +561,30 @@ func (agent *ecsAgent) doStart(containerChangeEventStream *eventstream.EventStre
 		deregisterInstanceEventStream, client, state, taskHandler, doctor)
 }
 
+// seedGPUMemoryCapacity adds a GPU_MEMORY:<uuid> capacity entry to hostResources
+// for every GPU device. A device that reports no usable memory seeds 0, which
+// still admits whole-GPU tasks but refuses MPS sharing.
+func seedGPUMemoryCapacity(hostResources map[string]types.Resource, platformDevices []types.PlatformDevice) {
+	for _, device := range platformDevices {
+		if device.Type != types.PlatformDeviceTypeGpu {
+			continue
+		}
+		memoryMiB := int32(0)
+		if device.GpuInfo != nil && device.GpuInfo.MemoryInMiB != nil {
+			memoryMiB = *device.GpuInfo.MemoryInMiB
+		} else {
+			seelog.Warnf("GPU %s reported no usable memory; seeding capacity 0 "+
+				"(whole-GPU tasks allowed, MPS sharing refused); check ecs-init/NVML version", *device.Id)
+		}
+		key := engine.GPUMemoryCapacityPrefix + *device.Id
+		hostResources[key] = types.Resource{
+			Name:         utils.Strptr(key),
+			Type:         utils.Strptr("INTEGER"),
+			IntegerValue: memoryMiB,
+		}
+	}
+}
+
 // waitUntilInstanceInService Polls IMDS until the target lifecycle state indicates that the instance is going in
 // service. This is to avoid instances going to a warm pool being registered as container instances with the cluster
 func (agent *ecsAgent) waitUntilInstanceInService(pollWaitDuration time.Duration, pollMaxTimes int) error {
@@ -700,6 +729,9 @@ func (agent *ecsAgent) newDoctorWithHealthchecks(cluster, containerInstanceARN s
 	healthcheckList := []doctor.Healthcheck{
 		runtimeHealthCheck,
 	}
+
+	// register the MPS control daemon health check on MPS-capable instances
+	healthcheckList = agent.appendMpsDaemonHealthcheck(healthcheckList)
 
 	// set up the doctor and return it
 	return doctor.NewDoctor(healthcheckList, cluster, containerInstanceARN)
@@ -971,8 +1003,8 @@ func (agent *ecsAgent) startAsyncRoutines(
 		go agent.startSpotInstanceDrainingPoller(agent.ctx, client)
 	}
 
-	// Start IMDS credential refresher for periodic task credential retrieval via IMDS.
-	if imdsRefresher := agent.getIMDSCredentialRefresher(credentialsManager, taskEngine); imdsRefresher != nil {
+	// Start IMDS credentials refresher for periodic task credential retrieval via IMDS.
+	if imdsRefresher := agent.getIMDSCredentialsRefresher(credentialsManager, taskEngine); imdsRefresher != nil {
 		go imdsRefresher.Start()
 	}
 
@@ -1027,15 +1059,17 @@ func (agent *ecsAgent) startSpotInstanceDrainingPoller(ctx context.Context, clie
 	}
 }
 
-// getIMDSCredentialRefresher returns an IMDS credential refresher
+// getIMDSCredentialsRefresher returns an IMDS credentials refresher
 // if the IMDSIAMRolesEnabled configuration is enabled.
-func (agent *ecsAgent) getIMDSCredentialRefresher(
+func (agent *ecsAgent) getIMDSCredentialsRefresher(
 	credentialsManager credentials.Manager,
 	taskEngine engine.TaskEngine,
-) *imdscreds.IMDSCredentialRefresher {
+) *imdscreds.IMDSCredentialsRefresher {
 	if agent.cfg.IMDSIAMRolesEnabled {
-		imdsScanner := imds.NewScanner(agent.ec2MetadataClient)
-		return imdscreds.NewIMDSCredentialRefresher(
+		// The agent passes a no-op metrics factory; scanner-emitted metrics,
+		// like other agent runtime metrics, are not consumed today.
+		imdsScanner := imds.NewScanner(agent.ec2MetadataClient, metricsfactory.NewNopEntryFactory())
+		return imdscreds.NewIMDSCredentialsRefresher(
 			agent.ctx, imdsScanner, credentialsManager,
 			taskEngine, imdscreds.ScanInterval,
 		)
@@ -1307,4 +1341,28 @@ func contains(capabilities []string, capability string) bool {
 	}
 
 	return false
+}
+
+// resolveIMDSIAMRolesConfig determines whether IMDS IAM roles should be enabled and persists the state for agent restarts.
+func resolveIMDSIAMRolesConfig(cfg *config.Config, dataClient data.Client, ec2MetadataClient ec2.EC2MetadataClient) {
+	imdsIAMRolesVal, err := dataClient.GetMetadata(data.IMDSIAMRolesKey)
+	if err != nil {
+		seelog.Debugf("Unable to retrieve %s from database: %v", data.IMDSIAMRolesKey, err)
+	}
+
+	// Metadata values are stored as strings in the database.
+	previouslyEnabled := imdsIAMRolesVal == "true"
+	cfg.DetermineIMDSIAMRolesConfig(ec2metadata.IsIMDSAvailable(ec2MetadataClient),
+		previouslyEnabled,
+		dataClient.HasNonTerminalTasks(),
+	)
+
+	// Persist enablement so the agent knows it was previously enabled, after a restart.
+	if cfg.IMDSIAMRolesEnabled {
+		if err := dataClient.SaveMetadata(data.IMDSIAMRolesKey, "true"); err != nil {
+			seelog.Warnf("Failed to persist %s: %v", data.IMDSIAMRolesKey, err)
+		} else {
+			seelog.Debugf("Persisted %s to database", data.IMDSIAMRolesKey)
+		}
+	}
 }

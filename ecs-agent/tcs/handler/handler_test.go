@@ -58,6 +58,7 @@ const (
 	testAgentVersion                      = "testAgentVersion"
 	testAgentHash                         = "testAgentHash"
 	testContainerRuntimeVersion           = "testContainerRuntimeVersion"
+	testInvalidURL                        = "invalid-url"
 	testHeartbeatTimeout                  = 1 * time.Minute
 	testHeartbeatJitter                   = 1 * time.Minute
 	testDisconnectionTimeout              = 30 * time.Minute
@@ -482,7 +483,7 @@ func TestTACSConnectionFailureMetric(t *testing.T) {
 
 	// Create a test ECS client that will cause StartTelemetrySession to fail
 	testecsclient := &wsmock.TestECSClient{
-		TCSurl: "invalid-url", // This will cause an error
+		TCSurl: testInvalidURL, // This will cause an error
 	}
 
 	ctx, cancel := context.WithCancel(context.Background())
@@ -797,4 +798,137 @@ func TestPeriodicDisconnectonTCSClient(t *testing.T) {
 		"Expected normal closure code message to be received on server side after periodic disconnect.")
 
 	closeSocket(closeWS)
+}
+
+func TestDPEAndTCSConnFailureTrackingRecordFailure(t *testing.T) {
+	testCases := []struct {
+		name             string
+		tcsURL           string
+		expectDPEFailing bool
+		expectTCSFailing bool
+	}{
+		{
+			name: "DPE error records both DPE and TCS connectivity failure",
+			// Empty TCS URL will cause DPE call via test ECS client to fail.
+			tcsURL:           "",
+			expectDPEFailing: true,
+			expectTCSFailing: true,
+		},
+		{
+			name: "DPE success and TCS connect error records TCS connectivity failure only",
+			// Invalid TCS URL returned by test ECS client will cause TCS connect to fail.
+			tcsURL:           testInvalidURL,
+			expectDPEFailing: false,
+			expectTCSFailing: true,
+		},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			dpeFailureTracker := metrics.NewFailureTracker(
+				metrics.DPEConnectivityFailureMetricName,
+				metrics.NewNopEntryFactory(),
+			)
+			tcsConnFailureTracker := metrics.NewFailureTracker(
+				metrics.TCSConnectivityFailureMetricName,
+				metrics.NewNopEntryFactory(),
+			)
+
+			testecsclient := &wsmock.TestECSClient{TCSurl: tc.tcsURL}
+			telemetryMessages := make(chan ecstcs.TelemetryMessage, testTelemetryChannelDefaultBufferSize)
+			healthMessages := make(chan ecstcs.HealthMessage, testTelemetryChannelDefaultBufferSize)
+			instanceStatusMessages := make(chan ecstcs.InstanceStatusMessage, testTelemetryChannelDefaultBufferSize)
+
+			session := NewTelemetrySession(
+				testInstanceArn,
+				testClusterArn,
+				testAgentVersion,
+				testAgentHash,
+				testContainerRuntimeVersion,
+				false,
+				aws.NewCredentialsCache(testCreds),
+				testCfg,
+				nil,
+				testHeartbeatTimeout,
+				testHeartbeatJitter,
+				testDisconnectionTimeout,
+				testDisconnectionJitter,
+				metrics.NewNopEntryFactory(),
+				telemetryMessages,
+				healthMessages,
+				instanceStatusMessages,
+				emptyDoctor,
+				testecsclient,
+				WithDPEFailureTracker(dpeFailureTracker),
+				WithTCSConnFailureTracker(tcsConnFailureTracker),
+			)
+
+			err := session.StartTelemetrySession(context.Background())
+			assert.Error(t, err)
+			assert.Equal(t, tc.expectDPEFailing, dpeFailureTracker.IsFailing())
+			assert.Equal(t, tc.expectTCSFailing, tcsConnFailureTracker.IsFailing())
+		})
+	}
+}
+
+func TestDPEAndTCSConnFailureTrackersRecordSuccess(t *testing.T) {
+	closeWS := make(chan []byte)
+	server, _, _, _, err := wsmock.GetMockServer(closeWS)
+	assert.NoError(t, err)
+	server.StartTLS()
+	defer server.Close()
+	defer close(closeWS)
+
+	dpeFailureTracker := metrics.NewFailureTracker(
+		metrics.DPEConnectivityFailureMetricName,
+		metrics.NewNopEntryFactory(),
+	)
+	tcsConnFailureTracker := metrics.NewFailureTracker(
+		metrics.TCSConnectivityFailureMetricName,
+		metrics.NewNopEntryFactory(),
+	)
+
+	ctx, cancel := context.WithCancel(context.Background())
+
+	// Start in a failing state to verify later that RecordSuccess resets it.
+	dpeFailureTracker.RecordFailure()
+	tcsConnFailureTracker.RecordFailure()
+
+	// Call cancel upfront to ensure that TCS client does not serve traffic
+	// indefinitely once TCS connection is successful.
+	cancel()
+
+	testecsclient := &wsmock.TestECSClient{TCSurl: server.URL}
+	telemetryMessages := make(chan ecstcs.TelemetryMessage, testTelemetryChannelDefaultBufferSize)
+	healthMessages := make(chan ecstcs.HealthMessage, testTelemetryChannelDefaultBufferSize)
+	instanceStatusMessages := make(chan ecstcs.InstanceStatusMessage, testTelemetryChannelDefaultBufferSize)
+
+	session := NewTelemetrySession(
+		testInstanceArn,
+		testClusterArn,
+		testAgentVersion,
+		testAgentHash,
+		testContainerRuntimeVersion,
+		false,
+		aws.NewCredentialsCache(testCreds),
+		testCfg,
+		nil,
+		testHeartbeatTimeout,
+		testHeartbeatJitter,
+		testDisconnectionTimeout,
+		testDisconnectionJitter,
+		metrics.NewNopEntryFactory(),
+		telemetryMessages,
+		healthMessages,
+		instanceStatusMessages,
+		emptyDoctor,
+		testecsclient,
+		WithDPEFailureTracker(dpeFailureTracker),
+		WithTCSConnFailureTracker(tcsConnFailureTracker),
+	)
+
+	err = session.StartTelemetrySession(ctx)
+	assert.ErrorIs(t, err, context.Canceled)
+	assert.False(t, dpeFailureTracker.IsFailing())
+	assert.False(t, tcsConnFailureTracker.IsFailing())
 }

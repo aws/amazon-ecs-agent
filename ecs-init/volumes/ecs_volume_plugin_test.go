@@ -1187,3 +1187,46 @@ func TestPluginUnmount(t *testing.T) {
 		})
 	}
 }
+
+func TestGetVolumeDriver_S3Files(t *testing.T) {
+	plugin := NewAmazonECSVolumePlugin()
+	driver, err := plugin.getVolumeDriver("s3files")
+	assert.NoError(t, err)
+	assert.NotNil(t, driver)
+}
+
+func TestCreate_S3FilesVolume(t *testing.T) {
+	plugin := &AmazonECSVolumePlugin{
+		volumeDrivers: map[string]driver.VolumeDriver{
+			"s3files": NewTestVolumeDriver(),
+		},
+		volumes: make(map[string]*types.Volume),
+		state:   NewStateManager(),
+	}
+	req := &volume.CreateRequest{
+		Name: "s3vol",
+		Options: map[string]string{
+			"type":   "s3files",
+			"device": "fs-123",
+			"o":      "tls,iam",
+		},
+	}
+	createMountPath = func(path string) error {
+		return nil
+	}
+	saveStateToDisk = func(b []byte) error {
+		return nil
+	}
+	defer func() {
+		createMountPath = createMountDir
+		saveStateToDisk = saveState
+	}()
+	err := plugin.Create(req)
+	assert.NoError(t, err, "create s3files volume should be successful")
+	assert.Len(t, plugin.volumes, 1)
+	vol, ok := plugin.volumes["s3vol"]
+	assert.True(t, ok)
+	assert.Equal(t, "s3files", vol.Type)
+	assert.Equal(t, VolumeMountPathPrefix+"s3vol", vol.Path)
+	assert.NotEmpty(t, vol.CreatedAt)
+}

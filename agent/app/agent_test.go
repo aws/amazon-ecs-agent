@@ -30,6 +30,7 @@ import (
 	"github.com/aws/amazon-ecs-agent/agent/config"
 	mock_containermetadata "github.com/aws/amazon-ecs-agent/agent/containermetadata/mocks"
 	"github.com/aws/amazon-ecs-agent/agent/data"
+	mock_data "github.com/aws/amazon-ecs-agent/agent/data/mocks"
 	"github.com/aws/amazon-ecs-agent/agent/dockerclient"
 	"github.com/aws/amazon-ecs-agent/agent/dockerclient/dockerapi"
 	mock_dockerapi "github.com/aws/amazon-ecs-agent/agent/dockerclient/dockerapi/mocks"
@@ -2000,13 +2001,6 @@ func getTestHostResources() map[string]ecstypes.Resource {
 		Type:           utils.Strptr("STRINGSET"),
 		StringSetValue: portsUDP,
 	}
-	//GPUs
-	gpuIDs := []string{"gpu1", "gpu2", "gpu3", "gpu4"}
-	hostResources["GPU"] = ecstypes.Resource{
-		Name:           utils.Strptr("GPU"),
-		Type:           utils.Strptr("STRINGSET"),
-		StringSetValue: gpuIDs,
-	}
 	return hostResources
 }
 
@@ -2119,7 +2113,7 @@ func TestLoadManagedDaemonImage(t *testing.T) {
 	}
 }
 
-func TestGetIMDSCredentialRefresher(t *testing.T) {
+func TestGetIMDSCredentialsRefresher(t *testing.T) {
 	tests := []struct {
 		name            string
 		enabled         bool
@@ -2155,7 +2149,7 @@ func TestGetIMDSCredentialRefresher(t *testing.T) {
 				ec2MetadataClient: mockEC2Metadata,
 			}
 
-			result := agent.getIMDSCredentialRefresher(
+			result := agent.getIMDSCredentialsRefresher(
 				mockCredManager, mockEngine,
 			)
 			if tc.expectRefresher {
@@ -2163,6 +2157,121 @@ func TestGetIMDSCredentialRefresher(t *testing.T) {
 			} else {
 				assert.Nil(t, result)
 			}
+		})
+	}
+}
+
+// TestSeedGPUMemoryCapacity covers the mainline seeding path: a GPU that reports
+// usable memory seeds a capacity entry equal to that memory, a GPU with no
+// reported memory seeds 0, and a non-GPU device is skipped.
+func TestSeedGPUMemoryCapacity(t *testing.T) {
+	mem := int32(23040)
+	devices := []ecstypes.PlatformDevice{
+		{
+			Id:      aws.String("gpu-reported"),
+			Type:    ecstypes.PlatformDeviceTypeGpu,
+			GpuInfo: &ecstypes.GpuPlatformDeviceInfo{MemoryInMiB: &mem},
+		},
+		{
+			Id:   aws.String("gpu-unreported"),
+			Type: ecstypes.PlatformDeviceTypeGpu,
+		},
+	}
+
+	hostResources := map[string]ecstypes.Resource{}
+	seedGPUMemoryCapacity(hostResources, devices)
+
+	reported := hostResources[engine.GPUMemoryCapacityPrefix+"gpu-reported"]
+	assert.Equal(t, "INTEGER", *reported.Type)
+	assert.Equal(t, int32(23040), reported.IntegerValue)
+
+	unreported := hostResources[engine.GPUMemoryCapacityPrefix+"gpu-unreported"]
+	assert.Equal(t, "INTEGER", *unreported.Type)
+	assert.Equal(t, int32(0), unreported.IntegerValue)
+
+	assert.Len(t, hostResources, 2)
+}
+
+func TestResolveIMDSIAMRolesConfig(t *testing.T) {
+	tests := []struct {
+		name                string
+		imdsAvailable       bool
+		savedValue          string
+		savedErr            error
+		hasNonTerminalTasks bool
+		expectedEnabled     bool
+		expectPersisted     bool
+	}{
+		{
+			name:            "IMDS not available",
+			imdsAvailable:   false,
+			savedErr:        errors.New("not found"),
+			expectedEnabled: false,
+			expectPersisted: false,
+		},
+		{
+			name:            "fresh instance, IMDS available",
+			imdsAvailable:   true,
+			savedErr:        errors.New("not found"),
+			expectedEnabled: true,
+			expectPersisted: true,
+		},
+		{
+			name:            "previously enabled",
+			imdsAvailable:   true,
+			savedValue:      "true",
+			expectedEnabled: true,
+			expectPersisted: true,
+		},
+		{
+			name:                "not previously enabled, tasks running (in-place upgrade)",
+			imdsAvailable:       true,
+			savedErr:            errors.New("not found"),
+			hasNonTerminalTasks: true,
+			expectedEnabled:     false,
+			expectPersisted:     false,
+		},
+		{
+			name:                "previously enabled, tasks running (restart)",
+			imdsAvailable:       true,
+			savedValue:          "true",
+			hasNonTerminalTasks: true,
+			expectedEnabled:     true,
+			expectPersisted:     true,
+		},
+		{
+			name:            "db error, no tasks running",
+			imdsAvailable:   true,
+			savedValue:      "",
+			savedErr:        errors.New("failed to unmarshal object"),
+			expectedEnabled: true,
+			expectPersisted: true,
+		},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			ctrl := gomock.NewController(t)
+			defer ctrl.Finish()
+
+			ec2MetadataClient := mock_ec2.NewMockEC2MetadataClient(ctrl)
+			if tc.imdsAvailable {
+				ec2MetadataClient.EXPECT().GetMetadata("instance-id").Return("i-123", nil)
+			} else {
+				ec2MetadataClient.EXPECT().GetMetadata("instance-id").Return("", errors.New("unavailable"))
+			}
+
+			mockDataClient := mock_data.NewMockClient(ctrl)
+			mockDataClient.EXPECT().GetMetadata(data.IMDSIAMRolesKey).Return(tc.savedValue, tc.savedErr)
+			mockDataClient.EXPECT().HasNonTerminalTasks().Return(tc.hasNonTerminalTasks)
+			if tc.expectPersisted {
+				mockDataClient.EXPECT().SaveMetadata(data.IMDSIAMRolesKey, "true").Return(nil)
+			}
+
+			cfg := &config.Config{}
+			resolveIMDSIAMRolesConfig(cfg, mockDataClient, ec2MetadataClient)
+
+			assert.Equal(t, tc.expectedEnabled, cfg.IMDSIAMRolesEnabled)
 		})
 	}
 }

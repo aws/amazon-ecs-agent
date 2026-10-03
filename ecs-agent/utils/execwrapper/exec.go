@@ -70,6 +70,7 @@ type Cmd interface {
 	AppendExtraFiles(...*os.File)
 	Args() []string
 	SetIOStreams(io.Reader, io.Writer, io.Writer)
+	SetEnv([]string)
 	Output() ([]byte, error)
 	CombinedOutput() ([]byte, error)
 }
@@ -131,6 +132,14 @@ func (c *cmdWrapper) SetIOStreams(stdin io.Reader, stdout io.Writer, stderr io.W
 	}
 	if stderr != nil {
 		c.Stderr = stderr
+	}
+}
+
+// SetEnv sets the environment for the command. A nil or empty slice leaves the
+// command inheriting the parent process environment.
+func (c *cmdWrapper) SetEnv(env []string) {
+	if len(env) > 0 {
+		c.Env = env
 	}
 }
 

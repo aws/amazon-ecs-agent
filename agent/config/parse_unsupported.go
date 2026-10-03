@@ -50,3 +50,7 @@ func GetDetailedOSFamily() string {
 func parseTaskPidsLimit() int {
 	return 0
 }
+
+func parsePropagateTaskMemoryLimitCgroupV2() BooleanDefaultFalse {
+	return BooleanDefaultFalse{Value: ExplicitlyDisabled}
+}

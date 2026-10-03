@@ -20,6 +20,7 @@ import (
 	"bytes"
 	"context"
 	"fmt"
+	"net"
 	"os"
 	"path/filepath"
 	"sort"
@@ -132,6 +133,30 @@ func NewPlatform(
 		return &managedLinux{
 			common: commonPlatform,
 			client: ec2Client,
+		}, nil
+	case IsolatedPlatform:
+		ec2Client, err := ec2.NewEC2MetadataClient(nil)
+		if err != nil {
+			return nil, err
+		}
+		return &isolatedLinux{
+			managedLinux: managedLinux{
+				common: commonPlatform,
+				client: ec2Client,
+			},
+		}, nil
+	case IsolatedDebugPlatform:
+		ec2Client, err := ec2.NewEC2MetadataClient(nil)
+		if err != nil {
+			return nil, err
+		}
+		return &isolatedDebug{
+			isolatedLinux: isolatedLinux{
+				managedLinux: managedLinux{
+					common: commonPlatform,
+					client: ec2Client,
+				},
+			},
 		}, nil
 	}
 	return nil, errors.New("invalid platform: " + platformConfig.Name)
@@ -435,6 +460,7 @@ func (c *common) createDNSConfig(
 	if primaryIF == nil {
 		return errors.New("unable to find primary interface")
 	}
+
 	if reuseHostDNSConfig {
 		if err := c.generateNetworkConfigFiles(netNS.Name, primaryIF); err != nil {
 			return errors.Wrap(err, "unable to copy dns config files")
@@ -450,7 +476,8 @@ func (c *common) createDNSConfig(
 	if err := c.copyNetworkConfigFilesToTask(taskID, netNS.Name); err != nil {
 		return err
 	}
-	return nil
+
+	return c.populateHostsFromFile(netNS)
 }
 
 // createNetworkConfigFiles gathers DNS config information from a network interface
@@ -569,6 +596,39 @@ func (c *common) createResolvConf(netNSDir string,
 		taskDNSConfigFileMode)
 }
 
+// parseResolvConf extracts nameserver addresses and search domains from content
+// in the resolv.conf(5) format.
+//
+// Parsing rules (matching the behavior of Go's net.dnsReadConfig in
+// src/net/dnsconfig_unix.go and glibc's res_init):
+//   - Lines starting with ';' or '#' are treated as comments and skipped.
+//   - Fields are separated by any combination of spaces and tabs.
+//   - A "nameserver" line contributes one IP address (the second field).
+//   - A "search" line contributes all subsequent fields as search domains;
+//     if multiple search lines appear, only the last is used.
+//   - All other directives are ignored.
+func parseResolvConf(content []byte) (servers, searches []string) {
+	for _, line := range bytes.Split(content, []byte("\n")) {
+		if len(line) == 0 || line[0] == ';' || line[0] == '#' {
+			continue
+		}
+		fields := bytes.Fields(line)
+		if len(fields) < 2 {
+			continue
+		}
+		switch string(fields[0]) {
+		case "nameserver":
+			servers = append(servers, string(fields[1]))
+		case "search":
+			searches = nil
+			for _, f := range fields[1:] {
+				searches = append(searches, string(f))
+			}
+		}
+	}
+	return servers, searches
+}
+
 func (c *common) copyFile(dst, src string, fileMode os.FileMode) error {
 	logger.Info("Copying the src file to the dst", map[string]interface{}{
 		"SrcFile": src,
@@ -654,6 +714,61 @@ func (c *common) createHostsFile(netNSName string, iface *networkinterface.Netwo
 		filepath.Join(networkConfigFileDirectory, netNSName, HostsFileName),
 		contents.Bytes(),
 		networkConfigFileMode)
+}
+
+// parseHosts parses content in the hosts(5) file format into a slice of Host
+// entries.
+//
+//	IP_address canonical_hostname [aliases...]
+//
+// Parsing rules (matching the behavior of glibc nss_files, musl, and Go's
+// net.LookupHost):
+//   - A '#' character starts a comment that extends to end-of-line. Comments
+//     may appear inline after valid fields.
+//   - Fields are separated by any combination of spaces and tabs.
+//   - Blank lines and lines with fewer than two fields (e.g., an IP with no
+//     hostname) are silently skipped.
+//   - Lines whose first field is not a valid IPv4 or IPv6 address are
+//     silently skipped (matching glibc's inet_pton and Go's net.ParseIP
+//     behavior).
+func parseHosts(content []byte) []tasknetworkconfig.Host {
+	var hosts []tasknetworkconfig.Host
+	for _, line := range bytes.Split(content, []byte("\n")) {
+		// Strip inline comments.
+		if idx := bytes.IndexByte(line, '#'); idx >= 0 {
+			line = line[:idx]
+		}
+		// Split on any whitespace.
+		fields := bytes.Fields(line)
+		if len(fields) < 2 {
+			continue
+		}
+		ip := string(fields[0])
+		if net.ParseIP(ip) == nil {
+			continue
+		}
+		var hostnames []string
+		for _, f := range fields[1:] {
+			hostnames = append(hostnames, string(f))
+		}
+		hosts = append(hosts, tasknetworkconfig.Host{IP: ip, Hostnames: hostnames})
+	}
+	if hosts == nil {
+		return []tasknetworkconfig.Host{}
+	}
+	return hosts
+}
+
+// populateHostsFromFile reads the hosts file for the given network namespace
+// from disk and populates netNS.Hosts with the parsed entries.
+func (c *common) populateHostsFromFile(netNS *tasknetworkconfig.NetworkNamespace) error {
+	hostsFilePath := filepath.Join(networkConfigFileDirectory, netNS.Name, HostsFileName)
+	content, err := c.ioutil.ReadFile(hostsFilePath)
+	if err != nil {
+		return errors.Wrapf(err, "unable to read hosts file for netns %s", netNS.Name)
+	}
+	netNS.Hosts = parseHosts(content)
+	return nil
 }
 
 // configureInterface initiates the workflow for setting up a network interface
