@@ -1,8 +1,6 @@
 module github.com/aws/amazon-ecs-agent/ecs-init
 
-go 1.25.0
-
-toolchain go1.25.9
+go 1.26.0
 
 require (
 	github.com/NVIDIA/go-nvml v0.12.4-0
