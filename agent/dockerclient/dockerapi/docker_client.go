@@ -46,13 +46,14 @@ import (
 	"github.com/aws/amazon-ecs-agent/ecs-agent/utils/ttime"
 
 	"github.com/cihub/seelog"
-	"github.com/docker/docker/api/types"
-	dockercontainer "github.com/docker/docker/api/types/container"
-	"github.com/docker/docker/api/types/events"
-	"github.com/docker/docker/api/types/filters"
-	"github.com/docker/docker/api/types/network"
-	"github.com/docker/docker/api/types/registry"
-	"github.com/docker/docker/api/types/volume"
+	"github.com/moby/moby/api/pkg/authconfig"
+	dockercontainer "github.com/moby/moby/api/types/container"
+	"github.com/moby/moby/api/types/events"
+	"github.com/moby/moby/api/types/image"
+	"github.com/moby/moby/api/types/network"
+	"github.com/moby/moby/api/types/registry"
+	"github.com/moby/moby/api/types/system"
+	mobyclient "github.com/moby/moby/client"
 )
 
 const (
@@ -171,19 +172,19 @@ type DockerClient interface {
 
 	// InspectContainer returns information about the specified container. A timeout value and a context should be
 	// provided for the request.
-	InspectContainer(context.Context, string, time.Duration) (*types.ContainerJSON, error)
+	InspectContainer(context.Context, string, time.Duration) (*dockercontainer.InspectResponse, error)
 
 	// CreateContainerExec creates a new exec configuration to run an exec process with the provided Config. A timeout value
 	// and a context should be provided for the request.
-	CreateContainerExec(ctx context.Context, containerID string, execConfig types.ExecConfig, timeout time.Duration) (*types.IDResponse, error)
+	CreateContainerExec(ctx context.Context, containerID string, execConfig mobyclient.ExecCreateOptions, timeout time.Duration) (*mobyclient.ExecCreateResult, error)
 
 	// StartContainerExec starts an exec process already created in the docker host. A timeout value
 	// and a context should be provided for the request.
-	StartContainerExec(ctx context.Context, execID string, execStartCheck types.ExecStartCheck, timeout time.Duration) error
+	StartContainerExec(ctx context.Context, execID string, execStartCheck mobyclient.ExecStartOptions, timeout time.Duration) error
 
 	// InspectContainerExec returns information about a specific exec process on the docker host. A timeout value
 	// and a context should be provided for the request.
-	InspectContainerExec(ctx context.Context, execID string, timeout time.Duration) (*types.ContainerExecInspect, error)
+	InspectContainerExec(ctx context.Context, execID string, timeout time.Duration) (*mobyclient.ExecInspectResult, error)
 
 	// ListContainers returns the set of containers known to the Docker daemon. A timeout value and a context
 	// should be provided for the request.
@@ -211,11 +212,11 @@ type DockerClient interface {
 
 	// ListPlugins returns the set of docker plugins installed on the host. A timeout value should be provided for
 	// the request.
-	ListPlugins(context.Context, time.Duration, filters.Args) ListPluginsResponse
+	ListPlugins(context.Context, time.Duration, mobyclient.Filters) ListPluginsResponse
 
 	// Stats returns a channel of stat data for the specified container. A context should be provided so the request can
 	// be canceled.
-	Stats(context.Context, string, time.Duration) (<-chan *types.StatsJSON, <-chan error)
+	Stats(context.Context, string, time.Duration) (<-chan *dockercontainer.StatsResponse, <-chan error)
 
 	// Version returns the version of the Docker daemon.
 	Version(context.Context, time.Duration) (string, error)
@@ -224,7 +225,7 @@ type DockerClient interface {
 	APIVersion() (dockerclient.DockerVersion, error)
 
 	// InspectImage returns information about the specified image.
-	InspectImage(string) (*types.ImageInspect, error)
+	InspectImage(string) (*image.InspectResponse, error)
 
 	// RemoveImage removes the metadata associated with an image and may remove the underlying layer data. A timeout
 	// value and a context should be provided for the request.
@@ -234,7 +235,7 @@ type DockerClient interface {
 	LoadImage(context.Context, io.Reader, time.Duration) error
 
 	// Info returns the information of the Docker server.
-	Info(context.Context, time.Duration) (types.Info, error)
+	Info(context.Context, time.Duration) (system.Info, error)
 }
 
 // DockerGoClient wraps the underlying go-dockerclient and docker/docker library.
@@ -319,7 +320,7 @@ func NewDockerGoClient(sdkclientFactory sdkclientfactory.Factory,
 
 	// Even if we have a DockerClient, the daemon might not be running. Ping from both clients
 	// to ensure it's up.
-	_, err = sdkclient.Ping(ctx)
+	_, err = sdkclient.Ping(ctx, mobyclient.PingOptions{})
 	if err != nil {
 		seelog.Errorf("DockerGoClient: Docker SDK client unable to ping Docker daemon. "+
 			"Ensure Docker is running: %v", err)
@@ -372,7 +373,7 @@ func (dg *dockerGoClient) PullImageManifest(
 	if err != nil {
 		return registry.DistributionInspect{}, wrapManifestPullErrorAsNamedError(imageRef, err)
 	}
-	encodedAuth, err := registry.EncodeAuthConfig(sdkAuthConfig)
+	encodedAuth, err := authconfig.Encode(sdkAuthConfig)
 	if err != nil {
 		return registry.DistributionInspect{}, wrapManifestPullErrorAsNamedError(imageRef, err)
 	}
@@ -387,11 +388,12 @@ func (dg *dockerGoClient) PullImageManifest(
 	startTime := time.Now()
 	var distInspectPtr *registry.DistributionInspect
 	err = retry.RetryNWithBackoffCtx(ctx, dg.manifestPullBackoff, maximumManifestPullRetries, func() error {
-		distInspect, err := client.DistributionInspect(ctx, imageRef, encodedAuth)
+		distInspect, err := client.DistributionInspect(ctx, imageRef,
+			mobyclient.DistributionInspectOptions{EncodedRegistryAuth: encodedAuth})
 		if err != nil {
 			return err
 		}
-		distInspectPtr = &distInspect
+		distInspectPtr = &distInspect.DistributionInspect
 		return nil
 	})
 
@@ -502,7 +504,7 @@ func (dg *dockerGoClient) pullImage(ctx context.Context, image string,
 		return CannotPullECRContainerError{err}
 	}
 
-	imagePullOpts := types.ImagePullOptions{
+	imagePullOpts := mobyclient.ImagePullOptions{
 		All:          false,
 		RegistryAuth: base64.URLEncoding.EncodeToString(buf.Bytes()),
 	}
@@ -521,11 +523,14 @@ func (dg *dockerGoClient) pullImage(ctx context.Context, image string,
 
 	go func() {
 		defer cancelRequest()
-		reader, err := client.ImagePull(subCtx, repository, imagePullOpts)
+		pullResp, err := client.ImagePull(subCtx, repository, imagePullOpts)
 		if err != nil {
 			pullFinished <- err
 			return
 		}
+		// ImagePullResponse is an io.ReadCloser; the inactivity timeout handler
+		// operates on the plain reader.
+		var reader io.ReadCloser = pullResp
 
 		// handle inactivity timeout
 		var canceled uint32
@@ -623,7 +628,7 @@ func (dg *dockerGoClient) TagImage(ctx context.Context, source string, target st
 	}
 
 	err = retry.RetryNWithBackoffCtx(ctx, dg.imageTagBackoff, tagImageRetryAttempts, func() error {
-		if tagErr := client.ImageTag(ctx, source, target); tagErr != nil {
+		if _, tagErr := client.ImageTag(ctx, mobyclient.ImageTagOptions{Source: source, Target: target}); tagErr != nil {
 			logger.Error("Attempt to tag image failed", logger.Fields{
 				"source":    source,
 				"target":    target,
@@ -643,13 +648,13 @@ func (dg *dockerGoClient) TagImage(ctx context.Context, source string, target st
 	return nil
 }
 
-func (dg *dockerGoClient) InspectImage(image string) (*types.ImageInspect, error) {
+func (dg *dockerGoClient) InspectImage(imageID string) (*image.InspectResponse, error) {
 	client, err := dg.sdkDockerClient()
 	if err != nil {
 		return nil, err
 	}
-	imageData, _, err := client.ImageInspectWithRaw(dg.context, image)
-	return &imageData, err
+	res, err := client.ImageInspect(dg.context, imageID)
+	return &res.InspectResponse, err
 }
 
 func (dg *dockerGoClient) getAuthdata(image string, authData *apicontainer.RegistryAuthenticationData) (registry.AuthConfig, error) {
@@ -715,7 +720,12 @@ func (dg *dockerGoClient) createContainer(ctx context.Context,
 		return DockerContainerMetadata{Error: CannotGetDockerClientError{version: dg.version, err: err}}
 	}
 
-	dockerContainer, err := client.ContainerCreate(ctx, config, hostConfig, &network.NetworkingConfig{}, nil, name)
+	dockerContainer, err := client.ContainerCreate(ctx, mobyclient.ContainerCreateOptions{
+		Config:           config,
+		HostConfig:       hostConfig,
+		NetworkingConfig: &network.NetworkingConfig{},
+		Name:             name,
+	})
 	if err != nil {
 		return DockerContainerMetadata{Error: CannotCreateContainerError{err}}
 	}
@@ -750,7 +760,7 @@ func (dg *dockerGoClient) startContainer(ctx context.Context, id string) DockerC
 	if err != nil {
 		return DockerContainerMetadata{Error: CannotGetDockerClientError{version: dg.version, err: err}}
 	}
-	err = client.ContainerStart(ctx, id, types.ContainerStartOptions{})
+	_, err = client.ContainerStart(ctx, id, mobyclient.ContainerStartOptions{})
 
 	metadata := dg.containerMetadata(ctx, id)
 	if err != nil {
@@ -761,7 +771,7 @@ func (dg *dockerGoClient) startContainer(ctx context.Context, id string) DockerC
 }
 
 // DockerStateToState converts the container status from docker to status recognized by the agent
-func DockerStateToState(state *types.ContainerState) apicontainerstatus.ContainerStatus {
+func DockerStateToState(state *dockercontainer.State) apicontainerstatus.ContainerStatus {
 	if state.Running {
 		return apicontainerstatus.ContainerRunning
 	}
@@ -784,12 +794,12 @@ func (dg *dockerGoClient) DescribeContainer(ctx context.Context, dockerID string
 	if err != nil {
 		return apicontainerstatus.ContainerStatusNone, DockerContainerMetadata{Error: CannotDescribeContainerError{err}}
 	}
-	return DockerStateToState(dockerContainer.ContainerJSONBase.State), MetadataFromContainer(dockerContainer)
+	return DockerStateToState(dockerContainer.State), MetadataFromContainer(dockerContainer)
 }
 
-func (dg *dockerGoClient) InspectContainer(ctx context.Context, dockerID string, timeout time.Duration) (*types.ContainerJSON, error) {
+func (dg *dockerGoClient) InspectContainer(ctx context.Context, dockerID string, timeout time.Duration) (*dockercontainer.InspectResponse, error) {
 	type inspectResponse struct {
-		container *types.ContainerJSON
+		container *dockercontainer.InspectResponse
 		err       error
 	}
 	ctx, cancel := context.WithTimeout(ctx, timeout)
@@ -816,13 +826,13 @@ func (dg *dockerGoClient) InspectContainer(ctx context.Context, dockerID string,
 	}
 }
 
-func (dg *dockerGoClient) inspectContainer(ctx context.Context, dockerID string) (*types.ContainerJSON, error) {
+func (dg *dockerGoClient) inspectContainer(ctx context.Context, dockerID string) (*dockercontainer.InspectResponse, error) {
 	client, err := dg.sdkDockerClient()
 	if err != nil {
 		return nil, err
 	}
-	containerData, err := client.ContainerInspect(ctx, dockerID)
-	return &containerData, err
+	containerData, err := client.ContainerInspect(ctx, dockerID, mobyclient.ContainerInspectOptions{})
+	return &containerData.Container, err
 }
 
 func (dg *dockerGoClient) StopContainer(ctx context.Context, dockerID string, timeout time.Duration) DockerContainerMetadata {
@@ -854,10 +864,10 @@ func (dg *dockerGoClient) stopContainer(ctx context.Context, dockerID string, ti
 	}
 
 	timeoutSeconds := int(timeout.Seconds())
-	containerOptions := dockercontainer.StopOptions{
+	containerOptions := mobyclient.ContainerStopOptions{
 		Timeout: &timeoutSeconds,
 	}
-	err = client.ContainerStop(ctx, dockerID, containerOptions)
+	_, err = client.ContainerStop(ctx, dockerID, containerOptions)
 	metadata := dg.containerMetadata(ctx, dockerID)
 	if err != nil {
 		seelog.Errorf("DockerGoClient: error stopping container ID=%s: %v", dockerID, err)
@@ -902,12 +912,13 @@ func (dg *dockerGoClient) removeContainer(ctx context.Context, dockerID string) 
 	if err != nil {
 		return err
 	}
-	return client.ContainerRemove(ctx, dockerID,
-		types.ContainerRemoveOptions{
+	_, err = client.ContainerRemove(ctx, dockerID,
+		mobyclient.ContainerRemoveOptions{
 			RemoveVolumes: true,
 			RemoveLinks:   false,
 			Force:         false,
 		})
+	return err
 }
 
 func (dg *dockerGoClient) containerMetadata(ctx context.Context, id string) DockerContainerMetadata {
@@ -921,7 +932,7 @@ func (dg *dockerGoClient) containerMetadata(ctx context.Context, id string) Dock
 }
 
 // MetadataFromContainer translates dockerContainer into DockerContainerMetadata
-func MetadataFromContainer(dockerContainer *types.ContainerJSON) DockerContainerMetadata {
+func MetadataFromContainer(dockerContainer *dockercontainer.InspectResponse) DockerContainerMetadata {
 	var bindings []apicontainer.PortBinding
 	var err apierrors.NamedError
 	if dockerContainer.NetworkSettings != nil {
@@ -985,7 +996,7 @@ func MetadataFromContainer(dockerContainer *types.ContainerJSON) DockerContainer
 	return metadata
 }
 
-func getMetadataHealthCheck(dockerContainer *types.ContainerJSON) apicontainer.HealthStatus {
+func getMetadataHealthCheck(dockerContainer *dockercontainer.InspectResponse) apicontainer.HealthStatus {
 	health := apicontainer.HealthStatus{}
 	if dockerContainer.State == nil || dockerContainer.State.Health == nil {
 		return health
@@ -1028,7 +1039,8 @@ func (dg *dockerGoClient) ContainerEvents(ctx context.Context) (<-chan DockerCon
 	buffer := NewInfiniteBuffer()
 
 	derivedCtx, cancel := context.WithCancel(ctx)
-	dockerEvents, eventErr := client.Events(derivedCtx, types.EventsOptions{})
+	eventsResult := client.Events(derivedCtx, mobyclient.EventsListOptions{})
+	dockerEvents, eventErr := eventsResult.Messages, eventsResult.Err
 
 	// Cache the event from docker client. Channel closes when an error is passed to eventErr.
 	go buffer.StartListening(derivedCtx, dockerEvents)
@@ -1051,7 +1063,8 @@ func (dg *dockerGoClient) ContainerEvents(ctx context.Context) (<-chan DockerCon
 
 				// Reopen a new event stream to continue listening.
 				nextCtx, nextCancel := context.WithCancel(ctx)
-				dockerEvents, eventErr = client.Events(nextCtx, types.EventsOptions{})
+				eventsResult = client.Events(nextCtx, mobyclient.EventsListOptions{})
+				dockerEvents, eventErr = eventsResult.Messages, eventsResult.Err
 				// Cache the event from docker client.
 				go buffer.StartListening(nextCtx, dockerEvents)
 				// Close previous stream after starting to listen on new one
@@ -1076,12 +1089,12 @@ func (dg *dockerGoClient) handleContainerEvents(ctx context.Context,
 	events <-chan *events.Message,
 	changedContainers chan<- DockerContainerChangeEvent) {
 	for event := range events {
-		containerID := event.ID
+		containerID := event.Actor.ID
 		seelog.Debugf("DockerGoClient: got event from docker daemon: %v", event)
 
 		var status apicontainerstatus.ContainerStatus
 		eventType := apicontainer.ContainerStatusEvent
-		switch event.Status {
+		switch event.Action {
 		case "create":
 			status = apicontainerstatus.ContainerCreated
 			changedContainers <- DockerContainerChangeEvent{
@@ -1099,7 +1112,7 @@ func (dg *dockerGoClient) handleContainerEvents(ctx context.Context,
 		case "die":
 			status = apicontainerstatus.ContainerStopped
 		case "oom":
-			containerInfo := event.ID
+			containerInfo := event.Actor.ID
 			// events only contain the container's name in newer Docker API
 			// versions (starting with 1.22)
 			if containerName, ok := event.Actor.Attributes["name"]; ok {
@@ -1139,7 +1152,7 @@ func (dg *dockerGoClient) handleContainerEvents(ctx context.Context,
 // contain the exit code already.
 func setExitCodeFromEvent(event *events.Message, metadata *DockerContainerMetadata) {
 	// exit code is only available from die event.
-	if metadata.ExitCode != nil || event.Status != dockerContainerDieEvent {
+	if metadata.ExitCode != nil || event.Action != dockerContainerDieEvent {
 		return
 	}
 	exitCode, ok := event.Actor.Attributes[dockerContainerEventExitCodeAttribute]
@@ -1184,7 +1197,7 @@ func (dg *dockerGoClient) listContainers(ctx context.Context, all bool) ListCont
 		return ListContainersResponse{Error: err}
 	}
 
-	containers, err := client.ContainerList(ctx, types.ContainerListOptions{
+	listResult, err := client.ContainerList(ctx, mobyclient.ContainerListOptions{
 		All: all,
 	})
 	if err != nil {
@@ -1193,8 +1206,8 @@ func (dg *dockerGoClient) listContainers(ctx context.Context, all bool) ListCont
 
 	// We get an empty slice if there are no containers to be listed.
 	// Extract container IDs from this list.
-	containerIDs := make([]string, len(containers))
-	for i, container := range containers {
+	containerIDs := make([]string, len(listResult.Items))
+	for i, container := range listResult.Items {
 		containerIDs[i] = container.ID
 	}
 
@@ -1224,15 +1237,15 @@ func (dg *dockerGoClient) listImages(ctx context.Context) ListImagesResponse {
 	if err != nil {
 		return ListImagesResponse{Error: err}
 	}
-	images, err := client.ImageList(ctx, types.ImageListOptions{})
+	listResult, err := client.ImageList(ctx, mobyclient.ImageListOptions{})
 	if err != nil {
 		return ListImagesResponse{Error: err}
 	}
 	var imageRepoTags []string
-	imageIDs := make([]string, len(images))
-	for i, image := range images {
-		imageIDs[i] = image.ID
-		imageRepoTags = append(imageRepoTags, image.RepoTags...)
+	imageIDs := make([]string, len(listResult.Items))
+	for i, img := range listResult.Items {
+		imageIDs[i] = img.ID
+		imageRepoTags = append(imageRepoTags, img.RepoTags...)
 	}
 	return ListImagesResponse{ImageIDs: imageIDs, RepoTags: imageRepoTags, Error: nil}
 }
@@ -1265,7 +1278,7 @@ func (dg *dockerGoClient) systemPing(ctx context.Context) PingResponse {
 		return PingResponse{Error: err}
 	}
 
-	pingResponse, err := client.Ping(ctx)
+	pingResponse, err := client.Ping(ctx, mobyclient.PingOptions{})
 	if err != nil {
 		return PingResponse{Error: err}
 	}
@@ -1294,7 +1307,7 @@ func (dg *dockerGoClient) Version(ctx context.Context, timeout time.Duration) (s
 	if err != nil {
 		return "", err
 	}
-	info, err := client.ServerVersion(derivedCtx)
+	info, err := client.ServerVersion(derivedCtx, mobyclient.ServerVersionOptions{})
 	if err != nil {
 		return "", err
 	}
@@ -1305,20 +1318,20 @@ func (dg *dockerGoClient) Version(ctx context.Context, timeout time.Duration) (s
 	return version, nil
 }
 
-func (dg *dockerGoClient) Info(ctx context.Context, timeout time.Duration) (types.Info, error) {
+func (dg *dockerGoClient) Info(ctx context.Context, timeout time.Duration) (system.Info, error) {
 	derivedCtx, cancel := context.WithTimeout(ctx, timeout)
 	defer cancel()
 
 	client, err := dg.sdkDockerClient()
 	if err != nil {
-		return types.Info{}, err
+		return system.Info{}, err
 	}
-	info, infoErr := client.Info(derivedCtx)
+	info, infoErr := client.Info(derivedCtx, mobyclient.InfoOptions{})
 	if infoErr != nil {
-		return types.Info{}, infoErr
+		return system.Info{}, infoErr
 	}
 
-	return info, nil
+	return info.Info, nil
 }
 
 func (dg *dockerGoClient) getDaemonVersion() string {
@@ -1374,7 +1387,7 @@ func (dg *dockerGoClient) createVolume(ctx context.Context,
 		return SDKVolumeResponse{DockerVolume: nil, Error: &CannotGetDockerClientError{version: dg.version, err: err}}
 	}
 
-	volumeOptions := volume.CreateOptions{
+	volumeOptions := mobyclient.VolumeCreateOptions{
 		Driver:     driver,
 		DriverOpts: driverOptions,
 		Labels:     labels,
@@ -1385,7 +1398,7 @@ func (dg *dockerGoClient) createVolume(ctx context.Context,
 		return SDKVolumeResponse{DockerVolume: nil, Error: &CannotCreateVolumeError{err}}
 	}
 
-	return SDKVolumeResponse{DockerVolume: &dockerVolume, Error: nil}
+	return SDKVolumeResponse{DockerVolume: &dockerVolume.Volume, Error: nil}
 }
 
 func (dg *dockerGoClient) InspectVolume(ctx context.Context, name string, timeout time.Duration) SDKVolumeResponse {
@@ -1421,12 +1434,12 @@ func (dg *dockerGoClient) inspectVolume(ctx context.Context, name string) SDKVol
 			Error:        &CannotGetDockerClientError{version: dg.version, err: err}}
 	}
 
-	dockerVolume, err := client.VolumeInspect(ctx, name)
+	dockerVolume, err := client.VolumeInspect(ctx, name, mobyclient.VolumeInspectOptions{})
 	if err != nil {
 		return SDKVolumeResponse{DockerVolume: nil, Error: &CannotInspectVolumeError{err}}
 	}
 
-	return SDKVolumeResponse{DockerVolume: &dockerVolume, Error: nil}
+	return SDKVolumeResponse{DockerVolume: &dockerVolume.Volume, Error: nil}
 }
 
 func (dg *dockerGoClient) RemoveVolume(ctx context.Context, name string, timeout time.Duration) error {
@@ -1460,7 +1473,7 @@ func (dg *dockerGoClient) removeVolume(ctx context.Context, name string) error {
 		return &CannotGetDockerClientError{version: dg.version, err: err}
 	}
 
-	err = client.VolumeRemove(ctx, name, false)
+	_, err = client.VolumeRemove(ctx, name, mobyclient.VolumeRemoveOptions{Force: false})
 	if err != nil {
 		return &CannotRemoveVolumeError{err}
 	}
@@ -1471,7 +1484,7 @@ func (dg *dockerGoClient) removeVolume(ctx context.Context, name string) error {
 // ListPluginsWithFilters takes in filter arguments and returns the string of filtered Plugin names
 func (dg *dockerGoClient) ListPluginsWithFilters(ctx context.Context, enabled bool, capabilities []string, timeout time.Duration) ([]string, error) {
 	// Create filter list
-	filterList := filters.NewArgs(filters.Arg("enabled", strconv.FormatBool(enabled)))
+	filterList := mobyclient.Filters{}.Add("enabled", strconv.FormatBool(enabled))
 	for _, capability := range capabilities {
 		filterList.Add("capability", capability)
 	}
@@ -1489,7 +1502,7 @@ func (dg *dockerGoClient) ListPluginsWithFilters(ctx context.Context, enabled bo
 	return filteredPluginNames, nil
 }
 
-func (dg *dockerGoClient) ListPlugins(ctx context.Context, timeout time.Duration, filters filters.Args) ListPluginsResponse {
+func (dg *dockerGoClient) ListPlugins(ctx context.Context, timeout time.Duration, filters mobyclient.Filters) ListPluginsResponse {
 	ctx, cancel := context.WithTimeout(ctx, timeout)
 	defer cancel()
 
@@ -1515,18 +1528,18 @@ func (dg *dockerGoClient) ListPlugins(ctx context.Context, timeout time.Duration
 	}
 }
 
-func (dg *dockerGoClient) listPlugins(ctx context.Context, filters filters.Args) ListPluginsResponse {
+func (dg *dockerGoClient) listPlugins(ctx context.Context, filters mobyclient.Filters) ListPluginsResponse {
 	client, err := dg.sdkDockerClient()
 	if err != nil {
 		return ListPluginsResponse{Plugins: nil, Error: &CannotGetDockerClientError{version: dg.version, err: err}}
 	}
 
-	plugins, err := client.PluginList(ctx, filters)
+	plugins, err := client.PluginList(ctx, mobyclient.PluginListOptions{Filters: filters})
 	if err != nil {
 		return ListPluginsResponse{Plugins: nil, Error: &CannotListPluginsError{err}}
 	}
 
-	return ListPluginsResponse{Plugins: plugins, Error: nil}
+	return ListPluginsResponse{Plugins: plugins.Items, Error: nil}
 }
 
 // APIVersion returns the client api version
@@ -1538,12 +1551,12 @@ func (dg *dockerGoClient) APIVersion() (dockerclient.DockerVersion, error) {
 	return dg.sdkClientFactory.FindClientAPIVersion(client), nil
 }
 
-// Stats returns a channel of *types.StatsJSON entries for the container.
-func (dg *dockerGoClient) Stats(ctx context.Context, id string, inactivityTimeout time.Duration) (<-chan *types.StatsJSON, <-chan error) {
+// Stats returns a channel of *container.StatsResponse entries for the container.
+func (dg *dockerGoClient) Stats(ctx context.Context, id string, inactivityTimeout time.Duration) (<-chan *dockercontainer.StatsResponse, <-chan error) {
 	subCtx, cancelRequest := context.WithCancel(ctx)
 
 	errC := make(chan error, 1)
-	statsC := make(chan *types.StatsJSON)
+	statsC := make(chan *dockercontainer.StatsResponse)
 	client, err := dg.sdkDockerClient()
 	if err != nil {
 		cancelRequest()
@@ -1555,7 +1568,7 @@ func (dg *dockerGoClient) Stats(ctx context.Context, id string, inactivityTimeou
 		return statsC, errC
 	}
 
-	var resp types.ContainerStats
+	var resp mobyclient.ContainerStatsResult
 	if !dg.config.PollMetrics.Enabled() {
 		// Streaming metrics is the default behavior
 		logger.Info("Start streaming metrics for container", logger.Fields{
@@ -1565,7 +1578,7 @@ func (dg *dockerGoClient) Stats(ctx context.Context, id string, inactivityTimeou
 			defer cancelRequest()
 			defer close(statsC)
 			stream := true
-			resp, err = client.ContainerStats(subCtx, id, stream)
+			resp, err = client.ContainerStats(subCtx, id, mobyclient.ContainerStatsOptions{Stream: stream})
 			if err != nil {
 				errC <- fmt.Errorf("DockerGoClient: Unable to retrieve stats for container %s: %v", id, err)
 				return
@@ -1579,7 +1592,7 @@ func (dg *dockerGoClient) Stats(ctx context.Context, id string, inactivityTimeou
 			defer close(ch)
 
 			decoder := json.NewDecoder(resp.Body)
-			data := new(types.StatsJSON)
+			data := new(dockercontainer.StatsResponse)
 			for err := decoder.Decode(data); err != io.EOF; err = decoder.Decode(data) {
 				if err != nil {
 					errC <- fmt.Errorf("DockerGoClient: Unable to decode stats for container %s: %v", id, err)
@@ -1596,7 +1609,7 @@ func (dg *dockerGoClient) Stats(ctx context.Context, id string, inactivityTimeou
 				case statsC <- data:
 				}
 
-				data = new(types.StatsJSON)
+				data = new(dockercontainer.StatsResponse)
 			}
 		}()
 	} else {
@@ -1642,16 +1655,16 @@ func (dg *dockerGoClient) Stats(ctx context.Context, id string, inactivityTimeou
 	return statsC, errC
 }
 
-func getContainerStatsNotStreamed(client sdkclient.Client, ctx context.Context, id string, timeout time.Duration) (*types.StatsJSON, error) {
+func getContainerStatsNotStreamed(client sdkclient.Client, ctx context.Context, id string, timeout time.Duration) (*dockercontainer.StatsResponse, error) {
 	ctxWithTimeout, cancel := context.WithTimeout(ctx, timeout)
 	defer cancel()
 	type statsResponse struct {
-		stats types.ContainerStats
+		stats mobyclient.ContainerStatsResult
 		err   error
 	}
 	response := make(chan statsResponse, 1)
 	go func() {
-		stats, err := client.ContainerStats(ctxWithTimeout, id, false)
+		stats, err := client.ContainerStats(ctxWithTimeout, id, mobyclient.ContainerStatsOptions{Stream: false})
 		response <- statsResponse{stats, err}
 	}()
 	select {
@@ -1660,7 +1673,7 @@ func getContainerStatsNotStreamed(client sdkclient.Client, ctx context.Context, 
 			return nil, fmt.Errorf("DockerGoClient: Unable to retrieve stats for container %s: %v", id, resp.err)
 		}
 		decoder := json.NewDecoder(resp.stats.Body)
-		stats := &types.StatsJSON{}
+		stats := &dockercontainer.StatsResponse{}
 		err := decoder.Decode(stats)
 		if err != nil {
 			return nil, fmt.Errorf("DockerGoClient: Unable to decode stats for container %s: %v", id, err)
@@ -1695,7 +1708,7 @@ func (dg *dockerGoClient) removeImage(ctx context.Context, imageName string) err
 	if err != nil {
 		return err
 	}
-	_, err = client.ImageRemove(ctx, imageName, types.ImageRemoveOptions{})
+	_, err = client.ImageRemove(ctx, imageName, mobyclient.ImageRemoveOptions{})
 	return err
 }
 
@@ -1720,22 +1733,22 @@ func (dg *dockerGoClient) loadImage(ctx context.Context, reader io.Reader) error
 	if err != nil {
 		return err
 	}
-	resp, err := client.ImageLoad(ctx, reader, false)
+	resp, err := client.ImageLoad(ctx, reader)
 	if err != nil {
 		return err
 	}
 
-	// flush and close response reader
-	if resp.Body != nil {
-		defer resp.Body.Close()
-		_, err = io.Copy(ioutil.Discard, resp.Body)
+	// flush and close response reader. ImageLoadResult is itself an io.ReadCloser.
+	if resp != nil {
+		defer resp.Close()
+		_, err = io.Copy(ioutil.Discard, resp)
 	}
 	return err
 }
 
-func (dg *dockerGoClient) CreateContainerExec(ctx context.Context, containerID string, execConfig types.ExecConfig, timeout time.Duration) (*types.IDResponse, error) {
+func (dg *dockerGoClient) CreateContainerExec(ctx context.Context, containerID string, execConfig mobyclient.ExecCreateOptions, timeout time.Duration) (*mobyclient.ExecCreateResult, error) {
 	type createContainerExecResponse struct {
-		execID *types.IDResponse
+		execID *mobyclient.ExecCreateResult
 		err    error
 	}
 
@@ -1759,20 +1772,20 @@ func (dg *dockerGoClient) CreateContainerExec(ctx context.Context, containerID s
 	}
 }
 
-func (dg *dockerGoClient) createContainerExec(ctx context.Context, containerID string, config types.ExecConfig) (*types.IDResponse, error) {
+func (dg *dockerGoClient) createContainerExec(ctx context.Context, containerID string, config mobyclient.ExecCreateOptions) (*mobyclient.ExecCreateResult, error) {
 	client, err := dg.sdkDockerClient()
 	if err != nil {
 		return nil, err
 	}
 
-	execIDResponse, err := client.ContainerExecCreate(ctx, containerID, config)
+	execIDResponse, err := client.ExecCreate(ctx, containerID, config)
 	if err != nil {
 		return nil, &CannotCreateContainerExecError{err}
 	}
 	return &execIDResponse, nil
 }
 
-func (dg *dockerGoClient) StartContainerExec(ctx context.Context, execID string, execStartCheck types.ExecStartCheck, timeout time.Duration) error {
+func (dg *dockerGoClient) StartContainerExec(ctx context.Context, execID string, execStartCheck mobyclient.ExecStartOptions, timeout time.Duration) error {
 
 	ctx, cancel := context.WithTimeout(ctx, timeout)
 	defer cancel()
@@ -1794,22 +1807,22 @@ func (dg *dockerGoClient) StartContainerExec(ctx context.Context, execID string,
 	}
 }
 
-func (dg *dockerGoClient) startContainerExec(ctx context.Context, execID string, execStartCheck types.ExecStartCheck) error {
+func (dg *dockerGoClient) startContainerExec(ctx context.Context, execID string, execStartCheck mobyclient.ExecStartOptions) error {
 	client, err := dg.sdkDockerClient()
 	if err != nil {
 		return err
 	}
 
-	err = client.ContainerExecStart(ctx, execID, execStartCheck)
+	_, err = client.ExecStart(ctx, execID, execStartCheck)
 	if err != nil {
 		return &CannotStartContainerExecError{err}
 	}
 	return nil
 }
 
-func (dg *dockerGoClient) InspectContainerExec(ctx context.Context, execID string, timeout time.Duration) (*types.ContainerExecInspect, error) {
+func (dg *dockerGoClient) InspectContainerExec(ctx context.Context, execID string, timeout time.Duration) (*mobyclient.ExecInspectResult, error) {
 	type inspectContainerExecResponse struct {
-		execInspect *types.ContainerExecInspect
+		execInspect *mobyclient.ExecInspectResult
 		err         error
 	}
 
@@ -1834,13 +1847,13 @@ func (dg *dockerGoClient) InspectContainerExec(ctx context.Context, execID strin
 	}
 }
 
-func (dg *dockerGoClient) inspectContainerExec(ctx context.Context, containerID string) (*types.ContainerExecInspect, error) {
+func (dg *dockerGoClient) inspectContainerExec(ctx context.Context, containerID string) (*mobyclient.ExecInspectResult, error) {
 	client, err := dg.sdkDockerClient()
 	if err != nil {
 		return nil, err
 	}
 
-	execInspectResponse, err := client.ContainerExecInspect(ctx, containerID)
+	execInspectResponse, err := client.ExecInspect(ctx, containerID, mobyclient.ExecInspectOptions{})
 	if err != nil {
 		return nil, &CannotInspectContainerExecError{err}
 	}

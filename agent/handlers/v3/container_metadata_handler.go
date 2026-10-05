@@ -91,25 +91,25 @@ func GetContainerNetworkMetadata(containerID string, state dockerstate.TaskEngin
 		seelog.Errorf("unable to get container network response for container '%s'", containerID)
 		return nil, errors.Errorf("Unable to generate network response for container '%s'", containerID)
 	}
-	// This metadata is the information provided in older versions of the API
-	// We get the NetworkMode (Network interface name) from the HostConfig because this
-	// this is the network with which the container is created
-	ipv4AddressFromSettings := settings.IPAddress
+	// We get the NetworkMode (Network interface name) from the HostConfig because
+	// this is the network with which the container is created.
 	networkModeFromHostConfig := dockerContainer.Container.GetNetworkMode()
 
-	// Extensive Network information is not available for Docker API versions 1.17-1.20
-	// Instead we only get the details of the first network
+	// moby v29 exposes per-network IP addresses under NetworkSettings.Networks
+	// (as netip.Addr); the legacy top-level IPAddress field was removed.
 	networks := make([]tmdsresponse.Network, 0)
 	if len(settings.Networks) > 0 {
 		for modeFromSettings, containerNetwork := range settings.Networks {
 			networkMode := modeFromSettings
-			ipv4Addresses := []string{containerNetwork.IPAddress}
+			var ipv4Addresses []string
+			if containerNetwork.IPAddress.IsValid() {
+				ipv4Addresses = []string{containerNetwork.IPAddress.String()}
+			}
 			network := tmdsresponse.Network{NetworkMode: networkMode, IPv4Addresses: ipv4Addresses}
 			networks = append(networks, network)
 		}
 	} else {
-		ipv4Addresses := []string{ipv4AddressFromSettings}
-		network := tmdsresponse.Network{NetworkMode: networkModeFromHostConfig, IPv4Addresses: ipv4Addresses}
+		network := tmdsresponse.Network{NetworkMode: networkModeFromHostConfig}
 		networks = append(networks, network)
 	}
 	return networks, nil

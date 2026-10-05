@@ -22,8 +22,10 @@ import (
 	apierrors "github.com/aws/amazon-ecs-agent/ecs-agent/api/errors"
 
 	"github.com/aws/aws-sdk-go-v2/aws"
-	"github.com/docker/docker/api/types"
-	"github.com/docker/docker/api/types/volume"
+	dockercontainer "github.com/moby/moby/api/types/container"
+	mobyplugin "github.com/moby/moby/api/types/plugin"
+	"github.com/moby/moby/api/types/volume"
+	mobyclient "github.com/moby/moby/client"
 )
 
 // ContainerNotFound is a type for a missing container
@@ -62,7 +64,7 @@ type DockerContainerMetadata struct {
 	// is unable to perform any of the required container transitions
 	Error apierrors.NamedError
 	// Volumes contains volume informaton for the container
-	Volumes []types.MountPoint
+	Volumes []dockercontainer.MountPoint
 	// Labels contains labels set for the container
 	Labels map[string]string
 	// CreatedAt is the timestamp of container creation
@@ -76,7 +78,7 @@ type DockerContainerMetadata struct {
 	// NetworkMode denotes the network mode in which the container is started
 	NetworkMode string
 	// NetworksUnsafe denotes the Docker Network Settings in the container
-	NetworkSettings *types.NetworkSettings
+	NetworkSettings *dockercontainer.NetworkSettings
 }
 
 // ListContainersResponse encapsulates the response from the docker client for the
@@ -100,7 +102,7 @@ type ListImagesResponse struct {
 }
 
 type PingResponse struct {
-	Response *types.Ping
+	Response *mobyclient.PingResult
 	Error    error
 }
 
@@ -119,7 +121,7 @@ type SDKVolumeResponse struct {
 
 // ListPluginsResponse is a wrapper for ListPlugins api
 type ListPluginsResponse struct {
-	Plugins []*types.Plugin
+	Plugins []mobyplugin.Plugin
 	Error   error
 }
 
