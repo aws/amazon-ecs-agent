@@ -28,8 +28,9 @@ import (
 	mock_sdkclientfactory "github.com/aws/amazon-ecs-agent/agent/dockerclient/sdkclientfactory/mocks"
 	"github.com/aws/amazon-ecs-agent/ecs-agent/ipcompatibility"
 
-	"github.com/docker/docker/api/types"
 	"github.com/golang/mock/gomock"
+	"github.com/moby/moby/api/types/image"
+	mobyclient "github.com/moby/moby/client"
 	"github.com/stretchr/testify/assert"
 )
 
@@ -46,7 +47,7 @@ func TestGetContainerImageInspectImageError(t *testing.T) {
 
 	// Docker SDK tests
 	mockDockerSDK := mock_sdkclient.NewMockClient(ctrl)
-	mockDockerSDK.EXPECT().Ping(gomock.Any()).Return(types.Ping{}, nil)
+	mockDockerSDK.EXPECT().Ping(gomock.Any(), gomock.Any()).Return(mobyclient.PingResult{}, nil)
 	sdkFactory := mock_sdkclientfactory.NewMockFactory(ctrl)
 	sdkFactory.EXPECT().GetDefaultClient().AnyTimes().Return(mockDockerSDK, nil)
 
@@ -55,8 +56,8 @@ func TestGetContainerImageInspectImageError(t *testing.T) {
 
 	client, err := dockerapi.NewDockerGoClient(sdkFactory, &defaultConfig, ctx)
 	assert.NoError(t, err)
-	mockDockerSDK.EXPECT().ImageInspectWithRaw(gomock.Any(), imageName).Return(
-		types.ImageInspect{}, nil, errors.New("error"))
+	mockDockerSDK.EXPECT().ImageInspect(gomock.Any(), imageName).Return(
+		mobyclient.ImageInspectResult{}, errors.New("error"))
 
 	_, err = GetContainerImage(imageName, client)
 	assert.Error(t, err)
@@ -68,7 +69,7 @@ func TestGetContainerHappyPath(t *testing.T) {
 
 	// Docker SDK tests
 	mockDockerSDK := mock_sdkclient.NewMockClient(ctrl)
-	mockDockerSDK.EXPECT().Ping(gomock.Any()).Return(types.Ping{}, nil)
+	mockDockerSDK.EXPECT().Ping(gomock.Any(), gomock.Any()).Return(mobyclient.PingResult{}, nil)
 	sdkFactory := mock_sdkclientfactory.NewMockFactory(ctrl)
 	sdkFactory.EXPECT().GetDefaultClient().AnyTimes().Return(mockDockerSDK, nil)
 
@@ -77,7 +78,8 @@ func TestGetContainerHappyPath(t *testing.T) {
 
 	client, err := dockerapi.NewDockerGoClient(sdkFactory, &defaultConfig, ctx)
 	assert.NoError(t, err)
-	mockDockerSDK.EXPECT().ImageInspectWithRaw(gomock.Any(), imageName).Return(types.ImageInspect{}, nil, nil)
+	mockDockerSDK.EXPECT().ImageInspect(gomock.Any(), imageName).Return(
+		mobyclient.ImageInspectResult{}, nil)
 
 	_, err = GetContainerImage(imageName, client)
 	assert.NoError(t, err)
@@ -89,7 +91,7 @@ func TestIsImageLoadedHappyPath(t *testing.T) {
 
 	// Docker SDK tests
 	mockDockerSDK := mock_sdkclient.NewMockClient(ctrl)
-	mockDockerSDK.EXPECT().Ping(gomock.Any()).Return(types.Ping{}, nil)
+	mockDockerSDK.EXPECT().Ping(gomock.Any(), gomock.Any()).Return(mobyclient.PingResult{}, nil)
 	sdkFactory := mock_sdkclientfactory.NewMockFactory(ctrl)
 	sdkFactory.EXPECT().GetDefaultClient().AnyTimes().Return(mockDockerSDK, nil)
 
@@ -98,7 +100,7 @@ func TestIsImageLoadedHappyPath(t *testing.T) {
 
 	client, err := dockerapi.NewDockerGoClient(sdkFactory, &defaultConfig, ctx)
 	assert.NoError(t, err)
-	mockDockerSDK.EXPECT().ImageInspectWithRaw(gomock.Any(), gomock.Any()).Return(types.ImageInspect{ID: "test123"}, nil, nil)
+	mockDockerSDK.EXPECT().ImageInspect(gomock.Any(), gomock.Any()).Return(mobyclient.ImageInspectResult{InspectResponse: image.InspectResponse{ID: "test123"}}, nil)
 
 	isLoaded, err := IsImageLoaded(imageName, client)
 	assert.NoError(t, err)
@@ -111,7 +113,7 @@ func TestIsImageLoadedNotLoaded(t *testing.T) {
 
 	// Docker SDK tests
 	mockDockerSDK := mock_sdkclient.NewMockClient(ctrl)
-	mockDockerSDK.EXPECT().Ping(gomock.Any()).Return(types.Ping{}, nil)
+	mockDockerSDK.EXPECT().Ping(gomock.Any(), gomock.Any()).Return(mobyclient.PingResult{}, nil)
 	sdkFactory := mock_sdkclientfactory.NewMockFactory(ctrl)
 	sdkFactory.EXPECT().GetDefaultClient().AnyTimes().Return(mockDockerSDK, nil)
 
@@ -120,7 +122,7 @@ func TestIsImageLoadedNotLoaded(t *testing.T) {
 
 	client, err := dockerapi.NewDockerGoClient(sdkFactory, &defaultConfig, ctx)
 	assert.NoError(t, err)
-	mockDockerSDK.EXPECT().ImageInspectWithRaw(gomock.Any(), gomock.Any()).Return(types.ImageInspect{}, nil, nil)
+	mockDockerSDK.EXPECT().ImageInspect(gomock.Any(), gomock.Any()).Return(mobyclient.ImageInspectResult{InspectResponse: image.InspectResponse{}}, nil)
 
 	isLoaded, err := IsImageLoaded(imageName, client)
 	assert.NoError(t, err)
@@ -133,7 +135,7 @@ func TestIsImageLoadedError(t *testing.T) {
 
 	// Docker SDK tests
 	mockDockerSDK := mock_sdkclient.NewMockClient(ctrl)
-	mockDockerSDK.EXPECT().Ping(gomock.Any()).Return(types.Ping{}, nil)
+	mockDockerSDK.EXPECT().Ping(gomock.Any(), gomock.Any()).Return(mobyclient.PingResult{}, nil)
 	sdkFactory := mock_sdkclientfactory.NewMockFactory(ctrl)
 	sdkFactory.EXPECT().GetDefaultClient().AnyTimes().Return(mockDockerSDK, nil)
 
@@ -142,8 +144,8 @@ func TestIsImageLoadedError(t *testing.T) {
 
 	client, err := dockerapi.NewDockerGoClient(sdkFactory, &defaultConfig, ctx)
 	assert.NoError(t, err)
-	mockDockerSDK.EXPECT().ImageInspectWithRaw(gomock.Any(), gomock.Any()).Return(
-		types.ImageInspect{}, nil, errors.New("error"))
+	mockDockerSDK.EXPECT().ImageInspect(gomock.Any(), gomock.Any()).Return(
+		mobyclient.ImageInspectResult{}, errors.New("error"))
 
 	isLoaded, err := IsImageLoaded(imageName, client)
 	assert.Error(t, err)
@@ -166,7 +168,7 @@ func TestLoadFromFileWithReaderError(t *testing.T) {
 
 	// Docker SDK tests
 	mockDockerSDK := mock_sdkclient.NewMockClient(ctrl)
-	mockDockerSDK.EXPECT().Ping(gomock.Any()).Return(types.Ping{}, nil)
+	mockDockerSDK.EXPECT().Ping(gomock.Any(), gomock.Any()).Return(mobyclient.PingResult{}, nil)
 	sdkFactory := mock_sdkclientfactory.NewMockFactory(ctrl)
 	sdkFactory.EXPECT().GetDefaultClient().AnyTimes().Return(mockDockerSDK, nil)
 
@@ -190,7 +192,7 @@ func TestLoadFromFileHappyPath(t *testing.T) {
 
 	// Docker SDK tests
 	mockDockerSDK := mock_sdkclient.NewMockClient(ctrl)
-	mockDockerSDK.EXPECT().Ping(gomock.Any()).Return(types.Ping{}, nil)
+	mockDockerSDK.EXPECT().Ping(gomock.Any(), gomock.Any()).Return(mobyclient.PingResult{}, nil)
 	sdkFactory := mock_sdkclientfactory.NewMockFactory(ctrl)
 	sdkFactory.EXPECT().GetDefaultClient().AnyTimes().Return(mockDockerSDK, nil)
 
@@ -199,7 +201,7 @@ func TestLoadFromFileHappyPath(t *testing.T) {
 
 	client, err := dockerapi.NewDockerGoClient(sdkFactory, &defaultConfig, ctx)
 	assert.NoError(t, err)
-	mockDockerSDK.EXPECT().ImageLoad(gomock.Any(), gomock.Any(), false).Return(types.ImageLoadResponse{}, nil)
+	mockDockerSDK.EXPECT().ImageLoad(gomock.Any(), gomock.Any()).Return(nil, nil)
 	mockedOpenReset := mockOpen(nil, nil)
 	defer mockedOpenReset()
 
@@ -215,7 +217,7 @@ func TestLoadFromFileDockerLoadImageError(t *testing.T) {
 
 	// Docker SDK tests
 	mockDockerSDK := mock_sdkclient.NewMockClient(ctrl)
-	mockDockerSDK.EXPECT().Ping(gomock.Any()).Return(types.Ping{}, nil)
+	mockDockerSDK.EXPECT().Ping(gomock.Any(), gomock.Any()).Return(mobyclient.PingResult{}, nil)
 	sdkFactory := mock_sdkclientfactory.NewMockFactory(ctrl)
 	sdkFactory.EXPECT().GetDefaultClient().AnyTimes().Return(mockDockerSDK, nil)
 
@@ -224,7 +226,7 @@ func TestLoadFromFileDockerLoadImageError(t *testing.T) {
 
 	client, err := dockerapi.NewDockerGoClient(sdkFactory, &defaultConfig, ctx)
 	assert.NoError(t, err)
-	mockDockerSDK.EXPECT().ImageLoad(gomock.Any(), gomock.Any(), false).Return(types.ImageLoadResponse{},
+	mockDockerSDK.EXPECT().ImageLoad(gomock.Any(), gomock.Any()).Return(nil,
 		errors.New("Dummy Load Image Error"))
 
 	mockedOpenReset := mockOpen(nil, nil)

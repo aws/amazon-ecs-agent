@@ -19,10 +19,11 @@ import (
 	"fmt"
 	"os"
 
+	dockercontainer "github.com/moby/moby/api/types/container"
+
 	apitask "github.com/aws/amazon-ecs-agent/agent/api/task"
 	"github.com/aws/amazon-ecs-agent/agent/config"
 	"github.com/aws/amazon-ecs-agent/agent/dockerclient"
-	dockercontainer "github.com/docker/docker/api/types/container"
 )
 
 const (

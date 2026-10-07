@@ -60,9 +60,8 @@ import (
 	"github.com/aws/amazon-ecs-agent/ecs-agent/utils/ttime"
 
 	"github.com/aws/aws-sdk-go-v2/aws"
-	"github.com/docker/docker/api/types"
-	dockercontainer "github.com/docker/docker/api/types/container"
-	"github.com/docker/docker/api/types/registry"
+	dockercontainer "github.com/moby/moby/api/types/container"
+	"github.com/moby/moby/api/types/registry"
 	"github.com/pkg/errors"
 )
 
@@ -2658,7 +2657,7 @@ func (engine *DockerTaskEngine) cleanupPauseContainerNetwork(task *apitask.Task,
 // buildCNIConfigFromTaskContainerAwsvpc builds a CNI config for the task and container in AWSVPC mode.
 func (engine *DockerTaskEngine) buildCNIConfigFromTaskContainerAwsvpc(
 	task *apitask.Task,
-	containerInspectOutput *types.ContainerJSON,
+	containerInspectOutput *dockercontainer.InspectResponse,
 	includeIPAMConfig bool) (*ecscni.Config, error) {
 	cniConfig := &ecscni.Config{
 		BlockInstanceMetadata:    engine.cfg.AWSVPCBlockInstanceMetdata.Enabled(),
@@ -2698,7 +2697,7 @@ func (engine *DockerTaskEngine) buildCNIConfigFromTaskContainerAwsvpc(
 
 // buildCNIConfigFromTaskContainerBridgeMode builds a CNI config for the task and container in docker bridge mode.
 func (engine *DockerTaskEngine) buildCNIConfigFromTaskContainerBridgeMode(
-	task *apitask.Task, containerInspectOutput *types.ContainerJSON, containerName string) (*ecscni.Config, error) {
+	task *apitask.Task, containerInspectOutput *dockercontainer.InspectResponse, containerName string) (*ecscni.Config, error) {
 
 	containerPid := strconv.Itoa(containerInspectOutput.State.Pid)
 	cniConfig := &ecscni.Config{
@@ -2714,7 +2713,7 @@ func (engine *DockerTaskEngine) buildCNIConfigFromTaskContainerBridgeMode(
 	return cniConfig, nil
 }
 
-func (engine *DockerTaskEngine) inspectContainer(task *apitask.Task, container *apicontainer.Container) (*types.ContainerJSON, error) {
+func (engine *DockerTaskEngine) inspectContainer(task *apitask.Task, container *apicontainer.Container) (*dockercontainer.InspectResponse, error) {
 	dockerID, err := engine.getDockerID(task, container)
 	if err != nil {
 		return nil, err
@@ -2955,29 +2954,13 @@ func isVolumePluginMountTimeout(err apierrors.NamedError) bool {
 		strings.Contains(errStr, "context deadline exceeded")
 }
 
-func getContainerHostIP(networkSettings *types.NetworkSettings) (string, bool) {
-	if networkSettings == nil {
-		return "", false
-	} else if networkSettings.IPAddress != "" {
-		return networkSettings.IPAddress, true
-	} else if len(networkSettings.Networks) > 0 {
-		for mode, network := range networkSettings.Networks {
-			if mode == apitask.BridgeNetworkMode && network.IPAddress != "" {
-				return network.IPAddress, true
-			}
-		}
-	}
-	return "", false
+func getContainerHostIP(networkSettings *dockercontainer.NetworkSettings) (string, bool) {
+	ipv4, _ := apitask.BridgeNetworkAddresses(networkSettings)
+	return ipv4, ipv4 != ""
 }
 
-func getBridgeModeContainerIP(networkSettings *types.NetworkSettings) (string, string) {
-	if networkSettings != nil &&
-		networkSettings.Networks != nil &&
-		networkSettings.Networks[apitask.BridgeNetworkMode] != nil {
-		return networkSettings.Networks[apitask.BridgeNetworkMode].IPAddress,
-			networkSettings.Networks[apitask.BridgeNetworkMode].GlobalIPv6Address
-	}
-	return "", ""
+func getBridgeModeContainerIP(networkSettings *dockercontainer.NetworkSettings) (string, string) {
+	return apitask.BridgeNetworkAddresses(networkSettings)
 }
 
 func (engine *DockerTaskEngine) getDockerID(task *apitask.Task, container *apicontainer.Container) (string, error) {

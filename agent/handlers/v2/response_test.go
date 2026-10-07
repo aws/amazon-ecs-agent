@@ -36,8 +36,8 @@ import (
 	awshttp "github.com/aws/aws-sdk-go-v2/aws/transport/http"
 	ecstypes "github.com/aws/aws-sdk-go-v2/service/ecs/types"
 	smithyhttp "github.com/aws/smithy-go/transport/http"
-	"github.com/docker/docker/api/types"
 	"github.com/golang/mock/gomock"
+	dockercontainer "github.com/moby/moby/api/types/container"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -106,7 +106,7 @@ func TestTaskResponse(t *testing.T) {
 				Protocol:      apicontainer.TransportProtocolTCP,
 			},
 		},
-		VolumesUnsafe: []types.MountPoint{
+		VolumesUnsafe: []dockercontainer.MountPoint{
 			{
 				Name:        volName,
 				Source:      volSource,
@@ -202,7 +202,7 @@ func TestTaskResponseWithV4Metadata(t *testing.T) {
 				Protocol:      apicontainer.TransportProtocolTCP,
 			},
 		},
-		VolumesUnsafe: []types.MountPoint{
+		VolumesUnsafe: []dockercontainer.MountPoint{
 			{
 				Name:        volName,
 				Source:      volSource,
@@ -285,7 +285,7 @@ func TestContainerResponse(t *testing.T) {
 						Protocol:      apicontainer.TransportProtocolTCP,
 					},
 				},
-				VolumesUnsafe: []types.MountPoint{
+				VolumesUnsafe: []dockercontainer.MountPoint{
 					{
 						Name:        volName,
 						Source:      volSource,
@@ -658,7 +658,7 @@ func TestTaskResponseWithV4TagsError(t *testing.T) {
 				Protocol:      apicontainer.TransportProtocolTCP,
 			},
 		},
-		VolumesUnsafe: []types.MountPoint{
+		VolumesUnsafe: []dockercontainer.MountPoint{
 			{
 				Name:        volName,
 				Source:      volSource,
