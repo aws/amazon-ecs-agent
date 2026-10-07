@@ -18,10 +18,11 @@ package execcmd
 import (
 	"context"
 
+	dockercontainer "github.com/moby/moby/api/types/container"
+
 	apicontainer "github.com/aws/amazon-ecs-agent/agent/api/container"
 	apitask "github.com/aws/amazon-ecs-agent/agent/api/task"
 	"github.com/aws/amazon-ecs-agent/agent/dockerclient/dockerapi"
-	dockercontainer "github.com/docker/docker/api/types/container"
 )
 
 const (

@@ -54,8 +54,9 @@ import (
 	"github.com/aws/aws-sdk-go-v2/aws"
 	ecstypes "github.com/aws/aws-sdk-go-v2/service/ecs/types"
 	"github.com/cihub/seelog"
-	"github.com/docker/docker/api/types"
-	sdkClient "github.com/docker/docker/client"
+	dockercontainer "github.com/moby/moby/api/types/container"
+	mobyclient "github.com/moby/moby/client"
+	sdkClient "github.com/moby/moby/client"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -216,7 +217,8 @@ func TestSharedDoNotAutoprovisionVolume(t *testing.T) {
 // https://github.com/docker/for-win/issues/204#issuecomment-352899657
 
 func getContainerIP(client *sdkClient.Client, id string) (string, error) {
-	dockerContainer, err := client.ContainerInspect(context.TODO(), id)
+	dockerContainerResult, err := client.ContainerInspect(context.TODO(), id, sdkClient.ContainerInspectOptions{})
+	dockerContainer := dockerContainerResult.Container
 	if err != nil {
 		return "", err
 	}
@@ -226,7 +228,7 @@ func getContainerIP(client *sdkClient.Client, id string) (string, error) {
 		return "", errors.New("getContainerIP: inspect return multiple networks of container")
 	}
 	for _, v := range networks {
-		return v.IPAddress, nil
+		return v.IPAddress.String(), nil
 	}
 	return "", nil
 }
@@ -524,7 +526,7 @@ func TestGMSATaskFile(t *testing.T) {
 	assert.NoError(t, err)
 
 	// Kill the existing container now
-	err = client.ContainerKill(context.TODO(), cid, "SIGKILL")
+	_, err = client.ContainerKill(context.TODO(), cid, sdkClient.ContainerKillOptions{Signal: "SIGKILL"})
 	assert.NoError(t, err, "Could not kill container")
 
 	VerifyTaskIsStopped(stateChangeEvents, testTask)
@@ -584,7 +586,8 @@ func setupGMSA(cfg *config.Config, state dockerstate.TaskEngineState, t *testing
 }
 
 func verifyContainerCredentialSpec(client *sdkClient.Client, id, credentialspecOpt string) error {
-	dockerContainer, err := client.ContainerInspect(context.TODO(), id)
+	dockerContainerResult, err := client.ContainerInspect(context.TODO(), id, sdkClient.ContainerInspectOptions{})
+	dockerContainer := dockerContainerResult.Container
 	if err != nil {
 		return err
 	}
@@ -836,7 +839,8 @@ func verifyExecCmdAgentExpectedMounts(t *testing.T,
 	ctx context.Context,
 	client *sdkClient.Client,
 	testTaskId, containerId, containerName, testExecCmdHostVersionedBinDir, testconfigDirName string) {
-	inspectState, _ := client.ContainerInspect(ctx, containerId)
+	inspectStateResult, _ := client.ContainerInspect(ctx, containerId, sdkClient.ContainerInspectOptions{})
+	inspectState := inspectStateResult.Container
 
 	// The dockerclient only gives back lowercase paths in Windows
 	expectedMounts := []struct {
@@ -867,7 +871,7 @@ func verifyExecCmdAgentExpectedMounts(t *testing.T,
 	}
 
 	for _, em := range expectedMounts {
-		var found *types.MountPoint
+		var found *dockercontainer.MountPoint
 		for _, m := range inspectState.Mounts {
 			if m.Source == em.source {
 				found = &m
@@ -902,7 +906,7 @@ func verifyMockExecCommandAgentStatus(t *testing.T, client *sdkClient.Client, co
 	execCmdAgentProcessRegex := execcmd.SSMAgentBinName
 	go func() {
 		for {
-			top, err := client.ContainerTop(ctx, containerId, nil)
+			top, err := client.ContainerTop(ctx, containerId, sdkClient.ContainerTopOptions{})
 			if err != nil {
 				continue
 			}
@@ -963,14 +967,13 @@ func killMockExecCommandAgent(t *testing.T, client *sdkClient.Client, containerI
 	defer cancel()
 	// this is the same user used to start the execcmd agent (ssm agent)
 	containerNTUser := "NT AUTHORITY\\SYSTEM"
-	create, err := client.ContainerExecCreate(ctx, containerId, types.ExecConfig{
-		User:   containerNTUser,
-		Detach: true,
-		Cmd:    []string{"cmd", "/C", "taskkill /F /IM amazon-ssm-agent.exe"},
+	create, err := client.ExecCreate(ctx, containerId, mobyclient.ExecCreateOptions{
+		User: containerNTUser,
+		Cmd:  []string{"cmd", "/C", "taskkill /F /IM amazon-ssm-agent.exe"},
 	})
 	require.NoError(t, err)
 
-	err = client.ContainerExecStart(ctx, create.ID, types.ExecStartCheck{
+	_, err = client.ExecStart(ctx, create.ID, mobyclient.ExecStartOptions{
 		Detach: true,
 	})
 	require.NoError(t, err)

@@ -46,6 +46,9 @@ ecs-agent-*.tar
 .run/
 pkg/
 !**/vendor/k8s.io/**/pkg/
+# Vendored pkg/ directories are real source (moby/moby/client/pkg, containerd/errdefs/pkg), not build output.
+!**/vendor/**/pkg/
+!**/vendor/**/pkg/**
 .vscode/
 .kiro/
 !.kiro/steering/

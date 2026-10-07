@@ -18,6 +18,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"maps"
+	"net/netip"
 	"os"
 	"path/filepath"
 	"reflect"
@@ -25,6 +26,8 @@ import (
 	"strings"
 	"sync"
 	"time"
+
+	ecstypes "github.com/aws/aws-sdk-go-v2/service/ecs/types"
 
 	apicontainer "github.com/aws/amazon-ecs-agent/agent/api/container"
 	"github.com/aws/amazon-ecs-agent/agent/api/serviceconnect"
@@ -60,12 +63,11 @@ import (
 	"github.com/aws/amazon-ecs-agent/ecs-agent/utils/execwrapper"
 	"github.com/aws/amazon-ecs-agent/ecs-agent/utils/mps"
 	"github.com/aws/amazon-ecs-agent/ecs-agent/utils/ttime"
-	ecstypes "github.com/aws/aws-sdk-go-v2/service/ecs/types"
 
 	"github.com/aws/aws-sdk-go-v2/aws"
-	"github.com/docker/docker/api/types"
-	dockercontainer "github.com/docker/docker/api/types/container"
 	"github.com/docker/go-connections/nat"
+	dockercontainer "github.com/moby/moby/api/types/container"
+	"github.com/moby/moby/api/types/network"
 	"github.com/pkg/errors"
 )
 
@@ -1906,7 +1908,7 @@ func (task *Task) HostVolumeByName(name string) (taskresourcevolume.Volume, bool
 // UpdateMountPoints updates the mount points of volumes that were created
 // without specifying a host path.  This is used as part of the empty host
 // volume feature.
-func (task *Task) UpdateMountPoints(cont *apicontainer.Container, vols []types.MountPoint) {
+func (task *Task) UpdateMountPoints(cont *apicontainer.Container, vols []dockercontainer.MountPoint) {
 	for _, mountPoint := range cont.MountPoints {
 		containerPath := utils.GetCanonicalPath(mountPoint.ContainerPath)
 		for _, vol := range vols {
@@ -2029,12 +2031,16 @@ func (task *Task) dockerConfig(container *apicontainer.Container, apiVersion doc
 	if exposedPorts, err = task.dockerExposedPorts(container); err != nil {
 		return nil, &apierrors.DockerClientConfigError{Msg: "error resolving docker exposed ports for container: " + err.Error()}
 	}
+	mobyExposedPorts, err := natPortSetToMoby(exposedPorts)
+	if err != nil {
+		return nil, &apierrors.DockerClientConfigError{Msg: "error converting docker exposed ports for container: " + err.Error()}
+	}
 
 	containerConfig := &dockercontainer.Config{
 		Image:        container.Image,
 		Cmd:          container.Command,
 		Entrypoint:   entryPoint,
-		ExposedPorts: exposedPorts,
+		ExposedPorts: mobyExposedPorts,
 		Env:          dockerEnv,
 	}
 
@@ -2204,6 +2210,10 @@ func (task *Task) dockerHostConfig(container *apicontainer.Container, dockerCont
 	if err != nil {
 		return nil, &apierrors.HostConfigError{Msg: fmt.Sprintf("error retrieving docker port map: %+v", err.Error())}
 	}
+	mobyPortMap, err := natPortMapToMoby(dockerPortMap)
+	if err != nil {
+		return nil, &apierrors.HostConfigError{Msg: fmt.Sprintf("error converting docker port map: %+v", err.Error())}
+	}
 
 	volumesFrom, err := task.dockerVolumesFrom(container, dockerContainerMap)
 	if err != nil {
@@ -2226,7 +2236,7 @@ func (task *Task) dockerHostConfig(container *apicontainer.Container, dockerCont
 	hostConfig := &dockercontainer.HostConfig{
 		Links:        dockerLinkArr,
 		Binds:        binds,
-		PortBindings: dockerPortMap,
+		PortBindings: mobyPortMap,
 		VolumesFrom:  volumesFrom,
 		Resources:    resources,
 		GroupAdd:     supplementaryGroups,
@@ -2450,10 +2460,99 @@ func (task *Task) overrideDNS(hostConfig *dockercontainer.HostConfig) *dockercon
 		return hostConfig
 	}
 
-	hostConfig.DNS = eni.DomainNameServers
+	hostConfig.DNS = parseDNSServers(eni.DomainNameServers)
 	hostConfig.DNSSearch = eni.DomainNameSearchList
 
 	return hostConfig
+}
+
+// BridgeNetworkAddresses returns the container's IPv4 and IPv6 addresses on the
+// default bridge network, or "" for an address that is not set. Docker no
+// longer reports a top-level address on NetworkSettings; the bridge endpoint is
+// the only network the agent manages directly.
+func BridgeNetworkAddresses(settings *dockercontainer.NetworkSettings) (ipv4 string, ipv6 string) {
+	if settings == nil {
+		return "", ""
+	}
+	bridge, ok := settings.Networks[BridgeNetworkMode]
+	if !ok || bridge == nil {
+		return "", ""
+	}
+	if bridge.IPAddress.IsValid() {
+		ipv4 = bridge.IPAddress.String()
+	}
+	if bridge.GlobalIPv6Address.IsValid() {
+		ipv6 = bridge.GlobalIPv6Address.String()
+	}
+	return ipv4, ipv6
+}
+
+// parseDNSServers converts ENI-provided DNS server strings to the netip.Addr
+// values the Docker API expects. Unparseable entries are skipped so a single
+// bad server does not fail the whole override.
+func parseDNSServers(servers []string) []netip.Addr {
+	if len(servers) == 0 {
+		return nil
+	}
+	addrs := make([]netip.Addr, 0, len(servers))
+	for _, server := range servers {
+		addr, err := netip.ParseAddr(server)
+		if err != nil {
+			logger.Warn("Skipping unparseable DNS server address from ENI", logger.Fields{
+				"address":   server,
+				field.Error: err,
+			})
+			continue
+		}
+		addrs = append(addrs, addr)
+	}
+	return addrs
+}
+
+// natPortSetToMoby converts the agent's internal nat.PortSet to the
+// network.PortSet type used by container.Config.ExposedPorts.
+func natPortSetToMoby(ports nat.PortSet) (network.PortSet, error) {
+	if ports == nil {
+		return nil, nil
+	}
+	out := make(network.PortSet, len(ports))
+	for p := range ports {
+		port, err := network.ParsePort(string(p))
+		if err != nil {
+			return nil, err
+		}
+		out[port] = struct{}{}
+	}
+	return out, nil
+}
+
+// natPortMapToMoby converts the agent's internal nat.PortMap to the
+// network.PortMap type used by container.HostConfig.PortBindings.
+func natPortMapToMoby(portMap nat.PortMap) (network.PortMap, error) {
+	if portMap == nil {
+		return nil, nil
+	}
+	out := make(network.PortMap, len(portMap))
+	for p, bindings := range portMap {
+		port, err := network.ParsePort(string(p))
+		if err != nil {
+			return nil, err
+		}
+		converted := make([]network.PortBinding, 0, len(bindings))
+		for _, b := range bindings {
+			binding := network.PortBinding{HostPort: b.HostPort}
+			if b.HostIP != "" {
+				addr, err := netip.ParseAddr(b.HostIP)
+				if err != nil {
+					return nil, fmt.Errorf("invalid host IP %q for port %s: %w", b.HostIP, p, err)
+				}
+				binding.HostIP = addr
+			}
+			converted = append(converted, binding)
+		}
+		out[port] = converted
+	}
+	return out, nil
 }
 
 // applyENIHostname adds the hostname provided by the ENI message to the
@@ -3905,15 +4004,16 @@ func (task *Task) PopulateServiceConnectContainerMappingEnvVarBridge(
 		if err != nil {
 			return fmt.Errorf("error retrieving task container for pause container %s: %+v", c.Name, err)
 		}
+		ipv4, ipv6 := BridgeNetworkAddresses(c.GetNetworkSettings())
 		if instanceIPCompatibility.IsIPv6Only() {
-			if c.GetNetworkSettings().GlobalIPv6Address == "" {
+			if ipv6 == "" {
 				return fmt.Errorf(
 					"instance is IPv6-only but no IPv6 address found for container '%s'",
 					taskContainer.Name)
 			}
-			containerMapping[taskContainer.Name] = c.GetNetworkSettings().GlobalIPv6Address
+			containerMapping[taskContainer.Name] = ipv6
 		} else {
-			containerMapping[taskContainer.Name] = c.GetNetworkSettings().IPAddress
+			containerMapping[taskContainer.Name] = ipv4
 		}
 	}
 	return task.setContainerMappingForServiceConnectContainer(containerMapping)

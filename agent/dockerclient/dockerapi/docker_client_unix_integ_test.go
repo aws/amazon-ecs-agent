@@ -20,15 +20,16 @@ import (
 	"testing"
 	"time"
 
+	"github.com/moby/moby/api/types/registry"
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
+
 	"github.com/aws/amazon-ecs-agent/agent/api/container"
 	apicontainer "github.com/aws/amazon-ecs-agent/agent/api/container"
 	"github.com/aws/amazon-ecs-agent/agent/config"
 	"github.com/aws/amazon-ecs-agent/agent/dockerclient"
 	"github.com/aws/amazon-ecs-agent/agent/dockerclient/sdkclientfactory"
 	"github.com/aws/amazon-ecs-agent/ecs-agent/utils/retry"
-	"github.com/docker/docker/api/types/registry"
-	"github.com/stretchr/testify/assert"
-	"github.com/stretchr/testify/require"
 )
 
 const dockerEndpoint = "unix:///var/run/docker.sock"

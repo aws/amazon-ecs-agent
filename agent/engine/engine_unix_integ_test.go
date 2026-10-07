@@ -31,6 +31,8 @@ import (
 	"testing"
 	"time"
 
+	"github.com/golang/mock/gomock"
+
 	"github.com/aws/amazon-ecs-agent/agent/api"
 	apicontainer "github.com/aws/amazon-ecs-agent/agent/api/container"
 	apitask "github.com/aws/amazon-ecs-agent/agent/api/task"
@@ -49,15 +51,14 @@ import (
 	"github.com/aws/amazon-ecs-agent/ecs-agent/credentials"
 	"github.com/aws/amazon-ecs-agent/ecs-agent/ipcompatibility"
 	"github.com/aws/amazon-ecs-agent/ecs-agent/utils/ttime"
-	"github.com/golang/mock/gomock"
 
 	"github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/aws/aws-sdk-go-v2/service/ssm"
 	ssmtypes "github.com/aws/aws-sdk-go-v2/service/ssm/types"
 	"github.com/cihub/seelog"
 	"github.com/containerd/cgroups/v3"
-	"github.com/docker/docker/api/types"
-	sdkClient "github.com/docker/docker/client"
+	mobyclient "github.com/moby/moby/client"
+	sdkClient "github.com/moby/moby/client"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -717,7 +718,7 @@ func TestPortForward(t *testing.T) {
 	containerMap, _ := taskEngine.(*DockerTaskEngine).state.ContainerMapByArn(testTask.Arn)
 	cid := containerMap[testTask.Containers[0].Name].DockerID
 	client, _ := sdkClient.NewClientWithOpts(sdkClient.WithHost(endpoint), sdkClient.WithVersion(sdkclientfactory.GetDefaultVersion().String()))
-	err = client.ContainerKill(context.TODO(), cid, "SIGKILL")
+	_, err = client.ContainerKill(context.TODO(), cid, sdkClient.ContainerKillOptions{Signal: "SIGKILL"})
 	require.NoError(t, err, "Could not kill container", err)
 
 	VerifyTaskIsStopped(stateChangeEvents, testTask)
@@ -1177,7 +1178,7 @@ func TestSignalEvent(t *testing.T) {
 	containerMap, _ := taskEngine.(*DockerTaskEngine).state.ContainerMapByArn(testTask.Arn)
 	cid := containerMap[testTask.Containers[0].Name].DockerID
 	client, _ := sdkClient.NewClientWithOpts(sdkClient.WithHost(endpoint), sdkClient.WithVersion(sdkclientfactory.GetDefaultVersion().String()))
-	err := client.ContainerKill(context.TODO(), cid, "SIGUSR1")
+	_, err := client.ContainerKill(context.TODO(), cid, sdkClient.ContainerKillOptions{Signal: "SIGUSR1"})
 	require.NoError(t, err, "Could not signal container", err)
 
 	// Verify the container has not stopped
@@ -1315,7 +1316,8 @@ func TestSwapConfigurationTask(t *testing.T) {
 
 	containerMap, _ := taskEngine.(*DockerTaskEngine).state.ContainerMapByArn(testTask.Arn)
 	cid := containerMap[testTask.Containers[0].Name].DockerID
-	state, _ := client.ContainerInspect(ctx, cid)
+	stateResult, _ := client.ContainerInspect(ctx, cid, sdkClient.ContainerInspectOptions{})
+	state := stateResult.Container
 	require.EqualValues(t, 314572800, state.HostConfig.MemorySwap)
 	// skip testing memory swappiness for cgroupv2, since this control has been removed in cgroupv2
 	if cgroups.Mode() != cgroups.Unified {
@@ -1397,7 +1399,8 @@ func TestMemoryOverCommit(t *testing.T) {
 
 	containerMap, _ := taskEngine.(*DockerTaskEngine).state.ContainerMapByArn(testTask.Arn)
 	cid := containerMap[testTask.Containers[0].Name].DockerID
-	state, _ := client.ContainerInspect(ctx, cid)
+	stateResult, _ := client.ContainerInspect(ctx, cid, sdkClient.ContainerInspectOptions{})
+	state := stateResult.Container
 
 	require.EqualValues(t, memoryReservation*1024*1024, state.HostConfig.MemoryReservation)
 
@@ -1481,7 +1484,8 @@ func TestFluentdTag(t *testing.T) {
 
 	containerMap, _ := taskEngine.(*DockerTaskEngine).state.ContainerMapByArn(testTaskFluentdLogTag.Arn)
 	cid := containerMap[testTaskFluentdLogTag.Containers[0].Name].DockerID
-	state, _ := client.ContainerInspect(ctx, cid)
+	stateResult, _ := client.ContainerInspect(ctx, cid, sdkClient.ContainerInspectOptions{})
+	state := stateResult.Container
 
 	// Kill the fluentd driver task
 	testUpdate := CreateTestTask("testFleuntdDriver")
@@ -1520,10 +1524,9 @@ func TestDockerExecAPI(t *testing.T) {
 	testTask.Containers = []*apicontainer.Container{
 		A,
 	}
-	execConfig := types.ExecConfig{
-		User:   "0",
-		Detach: true,
-		Cmd:    []string{"ls"},
+	execConfig := mobyclient.ExecCreateOptions{
+		User: "0",
+		Cmd:  []string{"ls"},
 	}
 	go taskEngine.AddTask(testTask)
 
@@ -1547,7 +1550,7 @@ func TestDockerExecAPI(t *testing.T) {
 		require.NotNil(t, execContainerOut)
 
 		//Start the above Exec process on the host
-		err1 := taskEngine.(*DockerTaskEngine).client.StartContainerExec(ctx, execContainerOut.ID, types.ExecStartCheck{Detach: true, Tty: false},
+		err1 := taskEngine.(*DockerTaskEngine).client.StartContainerExec(ctx, execContainerOut.ID, mobyclient.ExecStartOptions{Detach: true, TTY: false},
 			dockerclient.ContainerExecStartTimeout)
 		require.NoError(t, err1)
 
