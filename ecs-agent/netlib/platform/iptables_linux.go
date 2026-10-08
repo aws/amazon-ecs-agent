@@ -127,6 +127,17 @@ func getDaemonBridgeNATArgs(subnet string) []string {
 	}
 }
 
+// getDaemonNATArgs returns the MASQUERADE rule for the daemon's traffic leaving
+// the bridge subnet.
+func getDaemonNATArgs(daemonAddr, subnet string) []string {
+	return []string{
+		"POSTROUTING",
+		"-s", daemonAddr,
+		"!", "-d", subnet,
+		"-j", "MASQUERADE",
+	}
+}
+
 // getSimpleIPv6NATArgs returns simple MASQUERADE rule for all IPv6 traffic.
 // Use this if you don't want to restrict by source subnet.
 func getSimpleIPv6NATArgs() []string {
