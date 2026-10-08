@@ -50,13 +50,17 @@ type managedLinux struct {
 func (m *managedLinux) BuildTaskNetworkConfiguration(
 	taskID string,
 	taskPayload *ecsacs.Task,
+	existing ...*tasknetworkconfig.NetworkNamespace,
 ) (*tasknetworkconfig.TaskNetworkConfig, error) {
 	mode := types.NetworkMode(aws.ToString(taskPayload.NetworkMode))
+	if len(existing) != 0 && mode != types.NetworkModeAwsvpc {
+		return nil, errors.New("existing network namespaces are only supported in awsvpc mode")
+	}
 	var netNSs []*tasknetworkconfig.NetworkNamespace
 	var err error
 	switch mode {
 	case types.NetworkModeAwsvpc:
-		netNSs, err = m.common.buildAWSVPCNetworkNamespaces(taskID, taskPayload, false, nil)
+		netNSs, err = m.common.buildAWSVPCNetworkNamespaces(taskID, taskPayload, false, nil, existing)
 		if err != nil {
 			return nil, errors.Wrap(err, "failed to translate network configuration")
 		}
@@ -679,7 +683,7 @@ func (m *managedLinux) addDaemonBridgeNATRule(ipComp ipcompatibility.IPCompatibi
 
 // getIPCompatibilityFromNetNS determines IP compatibility from the network namespace's primary interface.
 // It checks if the primary interface has IPv4 and/or IPv6 addresses configured.
-func (m *managedLinux) getIPCompatibilityFromNetNS(netNS *tasknetworkconfig.NetworkNamespace) ipcompatibility.IPCompatibility {
+func (c *common) getIPCompatibilityFromNetNS(netNS *tasknetworkconfig.NetworkNamespace) ipcompatibility.IPCompatibility {
 	primaryIface := netNS.GetPrimaryInterface()
 	if primaryIface == nil {
 		// Default to IPv4 only if no primary interface found
@@ -770,13 +774,13 @@ func (m *managedLinux) StopDaemonNetNS(ctx context.Context, netNS *tasknetworkco
 
 // isDaemonNamespaceConfigured checks if the daemon namespace is already properly configured
 // by verifying that the veth interface exists in the daemon network namespace.
-func (m *managedLinux) isDaemonNamespaceConfigured(netNSPath string) bool {
+func (c *common) isDaemonNamespaceConfigured(netNSPath string) bool {
 	var configured bool
 
 	// Execute within the network namespace to check interfaces
-	err := m.nsUtil.ExecInNSPath(netNSPath, func(_ cnins.NetNS) error {
+	err := c.nsUtil.ExecInNSPath(netNSPath, func(_ cnins.NetNS) error {
 		// Check if eth0 veth interface exists in daemon namespace
-		link, err := m.netlink.LinkByName(DaemonInterfaceName)
+		link, err := c.netlink.LinkByName(DaemonInterfaceName)
 		if err != nil {
 			return errors.New("eth0 interface not found in daemon namespace")
 		}

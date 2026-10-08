@@ -22,9 +22,12 @@ import (
 	"testing"
 	"time"
 
+	"github.com/aws/amazon-ecs-agent/ecs-agent/acs/model/ecsacs"
 	"github.com/aws/amazon-ecs-agent/ecs-agent/api/attachment"
+	"github.com/aws/aws-sdk-go-v2/aws"
 
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 const (
@@ -185,4 +188,88 @@ func TestInitializeExpiredButAlreadySent(t *testing.T) {
 		MACAddress: mac,
 	}
 	assert.NoError(t, attachment.Initialize(func() {}))
+}
+
+// TestMarshalUnmarshalWithInterfaceConfig verifies the interface
+// configuration carried on the attachment survives a persistence round trip
+// and still builds a usable interface model, so an attachment restored from
+// the data store can drive interface configuration after a restart.
+func TestMarshalUnmarshalWithInterfaceConfig(t *testing.T) {
+	expiresAt := time.Now().Add(time.Minute)
+	attachment := &ENIAttachment{
+		AttachmentInfo: attachment.AttachmentInfo{
+			TaskARN:          taskARN,
+			AttachmentARN:    attachmentARN,
+			AttachStatusSent: attachSent,
+			Status:           attachment.AttachmentNone,
+			ExpiresAt:        expiresAt,
+		},
+		AttachmentType: ENIAttachmentTypeTaskENI,
+		MACAddress:     mac,
+		InterfaceConfig: &ecsacs.ElasticNetworkInterface{
+			Ec2Id:                        aws.String("eni-12345"),
+			MacAddress:                   aws.String(mac),
+			Name:                         aws.String("eth1"),
+			Index:                        aws.Int64(0),
+			Ipv4Addresses:                []*ecsacs.IPv4AddressAssignment{{Primary: aws.Bool(true), PrivateAddress: aws.String("10.0.0.1")}},
+			Ipv6Addresses:                []*ecsacs.IPv6AddressAssignment{{Address: aws.String("2001:db8::1")}},
+			SubnetGatewayIpv4Address:     aws.String("10.0.0.0/24"),
+			SubnetGatewayIpv6Address:     aws.String("2001:db8::/64"),
+			DomainNameServers:            []*string{aws.String("10.0.0.2")},
+			DomainName:                   []*string{aws.String("us-west-2.compute.internal")},
+			PrivateDnsName:               aws.String("ip-10-0-0-1.us-west-2.compute.internal"),
+			InterfaceAssociationProtocol: aws.String(DefaultInterfaceAssociationProtocol),
+		},
+	}
+
+	marshalled, err := json.Marshal(attachment)
+	assert.NoError(t, err)
+
+	var unmarshalled ENIAttachment
+	assert.NoError(t, json.Unmarshal(marshalled, &unmarshalled))
+	require.NotNil(t, unmarshalled.InterfaceConfig)
+
+	// The restored configuration must still build the same interface model a
+	// task payload would, including the fields derived from host state.
+	macToName := map[string]string{mac: "eth1"}
+	original, err := New(attachment.InterfaceConfig, "", nil, macToName)
+	require.NoError(t, err)
+	restored, err := New(unmarshalled.InterfaceConfig, "", nil, macToName)
+	require.NoError(t, err)
+	assert.Equal(t, original, restored)
+
+	assert.Equal(t, "eni-12345", restored.ID)
+	assert.Equal(t, "eth1", restored.DeviceName, "device name must come from host state")
+	assert.Equal(t, "eth1", restored.Name)
+	assert.Equal(t, "10.0.0.0/24", restored.SubnetGatewayIPV4Address)
+	assert.Equal(t, []string{"10.0.0.2"}, restored.DomainNameServers)
+}
+
+// TestUnmarshalOldRecordWithoutInterface verifies that an attachment record
+// persisted before the interface configuration field existed still restores
+// cleanly, with no interface configuration. An absent configuration marshals
+// to the exact pre-change wire format (the field is omitted), which is also
+// asserted so that new-agent records remain readable by older readers.
+func TestUnmarshalOldRecordWithoutInterface(t *testing.T) {
+	oldFormat := &ENIAttachment{
+		AttachmentInfo: attachment.AttachmentInfo{
+			TaskARN:          taskARN,
+			AttachmentARN:    attachmentARN,
+			AttachStatusSent: attachSent,
+			Status:           attachment.AttachmentNone,
+		},
+		AttachmentType: ENIAttachmentTypeTaskENI,
+		MACAddress:     mac,
+	}
+
+	oldRecord, err := json.Marshal(oldFormat)
+	assert.NoError(t, err)
+	// The absent configuration must not appear on the wire (pre-change format).
+	assert.NotContains(t, string(oldRecord), "interfaceConfig")
+
+	var unmarshalled ENIAttachment
+	assert.NoError(t, json.Unmarshal(oldRecord, &unmarshalled))
+	assert.Equal(t, taskARN, unmarshalled.TaskARN)
+	assert.Equal(t, mac, unmarshalled.MACAddress)
+	assert.Nil(t, unmarshalled.InterfaceConfig)
 }

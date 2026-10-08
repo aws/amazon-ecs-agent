@@ -84,7 +84,12 @@ func NewPlatform(
 // BuildTaskNetworkConfiguration builds a task network configuration object from the task payload.
 func (c *containerd) BuildTaskNetworkConfiguration(
 	taskID string,
-	taskPayload *ecsacs.Task) (*tasknetworkconfig.TaskNetworkConfig, error) {
+	taskPayload *ecsacs.Task,
+	existing ...*tasknetworkconfig.NetworkNamespace,
+) (*tasknetworkconfig.TaskNetworkConfig, error) {
+	if len(existing) != 0 {
+		return nil, errors.New("existing network namespaces are not supported on this platform")
+	}
 	mode := ecstypes.NetworkMode(aws.ToString(taskPayload.NetworkMode))
 	switch mode {
 	case ecstypes.NetworkModeAwsvpc:
@@ -93,6 +98,15 @@ func (c *containerd) BuildTaskNetworkConfiguration(
 		return nil, errors.New("invalid network mode")
 	}
 	return nil, nil
+}
+
+// BuildAttachmentNetworkConfiguration is unsupported: this platform builds
+// task networking from the task payload only.
+func (c *containerd) BuildAttachmentNetworkConfiguration(
+	_ string,
+	_ *ecsacs.ElasticNetworkInterface,
+) (*tasknetworkconfig.AttachmentNetworkConfig, error) {
+	return nil, errors.New("attachment network configuration is not supported on this platform")
 }
 
 // buildAWSVPCNetworkConfig builds task network config object for AWSVPC.
