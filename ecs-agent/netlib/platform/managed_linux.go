@@ -637,7 +637,7 @@ func (m *managedLinux) addDaemonBridgeNATRule(ipComp ipcompatibility.IPCompatibi
 	// Setup IPv4 NAT rule if IPv4 compatible
 	if ipComp.IsIPv4Compatible() {
 		// Check if IPv4 rule already exists
-		getIPv4Args := func() []string { return getDaemonBridgeNATArgs(ECSSubNet) }
+		getIPv4Args := func() []string { return getDaemonNATArgs(DaemonBridgeIP, ECSSubNet) }
 		err := modifyNetfilterEntry(iptablesTableNat, iptablesCheck, getIPv4Args, false)
 		if err != nil {
 			// Rule doesn't exist, add it
@@ -652,12 +652,12 @@ func (m *managedLinux) addDaemonBridgeNATRule(ipComp ipcompatibility.IPCompatibi
 
 	// Setup IPv6 NAT rule if IPv6 compatible
 	if ipComp.IsIPv6Compatible() {
-		// For IPv6, we use a simple MASQUERADE rule for all traffic on the output interface
 		// Check if IPv6 rule already exists
-		err := modifyNetfilterEntry(iptablesTableNat, iptablesCheck, getSimpleIPv6NATArgs, true)
+		getIPv6Args := func() []string { return getDaemonNATArgs(DaemonBridgeIPv6, ECSSubNetIPv6) }
+		err := modifyNetfilterEntry(iptablesTableNat, iptablesCheck, getIPv6Args, true)
 		if err != nil {
 			// Rule doesn't exist, add it
-			if err := modifyNetfilterEntry(iptablesTableNat, iptablesAppend, getSimpleIPv6NATArgs, true); err != nil {
+			if err := modifyNetfilterEntry(iptablesTableNat, iptablesAppend, getIPv6Args, true); err != nil {
 				return fmt.Errorf("failed to add IPv6 NAT rule: %w", err)
 			}
 			logger.Info("IPv6 NAT rule added for daemon-bridge")
