@@ -737,21 +737,26 @@ find-copy-certs-exec() {
 download-ssm-binaries-exec() {
     BINARY_VERSION="3.3.4624.0"
     BINARY_PATH="/var/lib/ecs/deps/execute-command/bin/${BINARY_VERSION}"
-    BINARY_DOWNLOAD_PATH="ssm-binaries"
+    local BINARY_URL="${S3_URL}/${SSM_S3_BUCKET}/${BINARY_VERSION}/linux_$ARCH_ALT/amazon-ssm-agent-binaries.tar.gz"
+
+    local dir
+    dir="$(mktemp -d)"
 
     # Download SSM binaries from S3
     echo "Downloading SSM binaries for exec feature"
 
-    mkdir -p $BINARY_DOWNLOAD_PATH
-    curl "${S3_URL}/${SSM_S3_BUCKET}/${BINARY_VERSION}/linux_$ARCH_ALT/amazon-ssm-agent-binaries.tar.gz" -o ${BINARY_DOWNLOAD_PATH}/amazon-ssm-agent.tar.gz
-    tar -xvf ${BINARY_DOWNLOAD_PATH}/amazon-ssm-agent.tar.gz -C ${BINARY_DOWNLOAD_PATH}/
+    curl-helper "$dir/amazon-ssm-agent.tar.gz" "$BINARY_URL"
+    if $CHECK_SIG; then
+        curl-helper "$dir/amazon-ssm-agent.tar.gz.sig" "$BINARY_URL.sig"
+        ssm-agent-signature-verify "$dir/amazon-ssm-agent.tar.gz.sig" "$dir/amazon-ssm-agent.tar.gz"
+    fi
+    tar -xvf "$dir/amazon-ssm-agent.tar.gz" -C "$dir/"
 
-    # Copy binaries to exec directory
-    mkdir -p ${BINARY_PATH}
-    cp ${BINARY_DOWNLOAD_PATH}/amazon-ssm-agent ${BINARY_PATH}/amazon-ssm-agent
-    cp ${BINARY_DOWNLOAD_PATH}/ssm-agent-worker ${BINARY_PATH}/ssm-agent-worker
-    cp ${BINARY_DOWNLOAD_PATH}/ssm-session-worker ${BINARY_PATH}/ssm-session-worker
-    rm -rf ${BINARY_DOWNLOAD_PATH}
+    # Copy binaries to exec directory and set permissions simultaneously
+    install -D -m 0755 "$dir/amazon-ssm-agent" "${BINARY_PATH}/amazon-ssm-agent"
+    install -D -m 0755 "$dir/ssm-agent-worker" "${BINARY_PATH}/ssm-agent-worker"
+    install -D -m 0755 "$dir/ssm-session-worker" "${BINARY_PATH}/ssm-session-worker"
+    rm -rf "$dir"
     ok
 }
 
