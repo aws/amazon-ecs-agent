@@ -735,7 +735,7 @@ find-copy-certs-exec() {
 }
 
 download-ssm-binaries-exec() {
-    BINARY_VERSION="3.3.4624.0"
+    BINARY_VERSION="3.3.5390.0"
     BINARY_PATH="/var/lib/ecs/deps/execute-command/bin/${BINARY_VERSION}"
     local BINARY_URL="${S3_URL}/${SSM_S3_BUCKET}/${BINARY_VERSION}/linux_$ARCH_ALT/amazon-ssm-agent-binaries.tar.gz"
 
