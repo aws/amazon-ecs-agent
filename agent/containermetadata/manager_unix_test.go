@@ -24,10 +24,10 @@ import (
 	apitask "github.com/aws/amazon-ecs-agent/agent/api/task"
 	"github.com/aws/amazon-ecs-agent/agent/dockerclient"
 	"github.com/aws/amazon-ecs-agent/agent/utils/oswrapper"
-	"github.com/docker/docker/api/types"
-	dockercontainer "github.com/docker/docker/api/types/container"
-	"github.com/docker/docker/api/types/network"
 	"github.com/golang/mock/gomock"
+	dockercontainer "github.com/moby/moby/api/types/container"
+	"github.com/moby/moby/api/types/network"
+	"github.com/moby/moby/api/types/system"
 	"github.com/stretchr/testify/assert"
 )
 
@@ -50,7 +50,7 @@ func TestCreate(t *testing.T) {
 	mockContainerName := containerName
 	mockConfig := &dockercontainer.Config{Env: make([]string, 0)}
 	mockHostConfig := &dockercontainer.HostConfig{Binds: make([]string, 0)}
-	mockDockerSecurityOptions := types.Info{SecurityOptions: make([]string, 0)}.SecurityOptions
+	mockDockerSecurityOptions := system.Info{SecurityOptions: make([]string, 0)}.SecurityOptions
 
 	oTempFile := TempFile
 	TempFile = func(dir, pattern string) (oswrapper.File, error) {
@@ -82,21 +82,19 @@ func TestUpdate(t *testing.T) {
 	mockTaskARN := validTaskARN
 	mockTask := &apitask.Task{Arn: mockTaskARN}
 	mockContainerName := containerName
-	mockState := types.ContainerState{
+	mockState := dockercontainer.State{
 		Running: true,
 	}
 
 	mockConfig := &dockercontainer.Config{Image: "image"}
 
 	mockNetworks := map[string]*network.EndpointSettings{}
-	mockNetworkSettings := &types.NetworkSettings{
+	mockNetworkSettings := &dockercontainer.NetworkSettings{
 		Networks: mockNetworks,
 	}
 
-	mockContainer := types.ContainerJSON{
-		ContainerJSONBase: &types.ContainerJSONBase{
-			State: &mockState,
-		},
+	mockContainer := dockercontainer.InspectResponse{
+		State:           &mockState,
 		Config:          mockConfig,
 		NetworkSettings: mockNetworkSettings,
 	}
