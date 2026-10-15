@@ -4,7 +4,7 @@
 * Enhancement - Bump ECS Exec SSM Agent to 3.3.5390.0 [#5171](https://github.com/aws/amazon-ecs-agent/pull/5171)
 * Enhancement - Update to golang 1.26.9 [#5170](https://github.com/aws/amazon-ecs-agent/pull/5170)
 * Enhancement - Bump github.com/aws/aws-sdk-go-v2/config from 1.33.6 to 1.33.8 in /ecs-agent, /agent and /ecs-init [#5169](https://github.com/aws/amazon-ecs-agent/pull/5169)
-* Enhancement - Enhancement - Stage ecs-anywhere exec binaries in a temporary directory and verify their signature [#5168](https://github.com/aws/amazon-ecs-agent/pull/5168)
+* Enhancement - Stage ecs-anywhere exec binaries in a temporary directory and verify their signature [#5168](https://github.com/aws/amazon-ecs-agent/pull/5168)
 * Enhancement - Bump golang.org/x/time to 0.16.0 in /ecs-agent and /agent [#5165](https://github.com/aws/amazon-ecs-agent/pull/5165)
 
 # 1.108.0
