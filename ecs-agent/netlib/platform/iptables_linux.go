@@ -41,6 +41,10 @@ const (
 	bridgeNetfilterCallIPv6Key = "net.bridge.bridge-nf-call-ip6tables"
 )
 
+// ipv6AcceptRAWithForwarding is the accept_ra value that keeps a forwarding
+// interface processing router advertisements.
+const ipv6AcceptRAWithForwarding = "2"
+
 // introspectionServerPort is the introspection server's TCP port as a string for
 // iptables --dport args, derived from the canonical introspection.Port so the
 // filter rules always target the same port the server binds.
@@ -137,6 +141,19 @@ func getSimpleIPv6NATArgs() []string {
 	}
 }
 
+// getDaemonEgressNATArgs returns the MASQUERADE rule for the daemon's traffic
+// leaving the bridge subnet over one output interface: the task ENI that a task
+// namespace carries the daemon's traffic out over.
+func getDaemonEgressNATArgs(daemonAddr, subnet, deviceName string) []string {
+	return []string{
+		"POSTROUTING",
+		"-s", daemonAddr,
+		"!", "-d", subnet,
+		"-o", deviceName,
+		"-j", "MASQUERADE",
+	}
+}
+
 // getIntrospectionAllowDaemonArgs returns a filter-table INPUT rule that accepts
 // introspection traffic on the daemon bridge from the given source address
 // (daemonAddr, e.g. DaemonBridgeIP for IPv4).
@@ -163,10 +180,20 @@ func getIntrospectionBridgeDropArgs() []string {
 	}
 }
 
+// runSysctlCommand is a variable so tests can observe the settings applied
+// without a real kernel.
+var runSysctlCommand = func(args ...string) ([]byte, error) {
+	// sysctlExecutable is a fixed constant and args are built from internal
+	// constants (forwarding keys, device names from the interface model); none
+	// are user-controlled. exec.Command runs the binary directly (no shell), so
+	// there is no shell-injection surface.
+	// nosemgrep: command-injection-exec-variable
+	return exec.Command(sysctlExecutable, args...).CombinedOutput()
+}
+
 // enableSysctlSetting enables a sysctl setting with the given key and value.
 func enableSysctlSetting(key string, value string) error {
-	cmd := exec.Command(sysctlExecutable, "-w", fmt.Sprintf("%s=%s", key, value))
-	output, err := cmd.CombinedOutput()
+	output, err := runSysctlCommand("-w", fmt.Sprintf("%s=%s", key, value))
 	if err != nil {
 		logger.Error("sysctl command failed", logger.Fields{
 			"key":             key,
@@ -217,6 +244,40 @@ func enableSystemSettings(ipComp ipcompatibility.IPCompatibility) error {
 		enableSysctlSetting(bridgeNetfilterCallIPv6Key, "1")
 	}
 
+	return nil
+}
+
+// enableTaskNamespaceForwarding enables IP forwarding inside a task network
+// namespace for the address families the given interface carries. IPv6
+// forwarding is per interface in the kernel, so the device itself and
+// "default" (for interfaces created afterwards) are set alongside "all".
+//
+// A dual-stack interface gets its IPv6 default route from router
+// advertisements, which the kernel stops accepting once forwarding is on
+// unless accept_ra is 2, so the two are set together.
+func enableTaskNamespaceForwarding(ipComp ipcompatibility.IPCompatibility, deviceName string) error {
+	if ipComp.IsIPv4Compatible() {
+		if err := enableSysctlSetting(ipv4ForwardingKey, "1"); err != nil {
+			return fmt.Errorf("failed to enable IPv4 forwarding: %w", err)
+		}
+	}
+	if ipComp.IsIPv6Compatible() {
+		scopes := []string{"all", "default", deviceName}
+		// Every accept_ra first: writing all.forwarding=1 applies to the device
+		// at once, and would drop advertisements until its own accept_ra caught up.
+		for _, scope := range scopes {
+			acceptRA := fmt.Sprintf("net.ipv6.conf.%s.accept_ra", scope)
+			if err := enableSysctlSetting(acceptRA, ipv6AcceptRAWithForwarding); err != nil {
+				return fmt.Errorf("failed to keep accepting router advertisements (%s): %w", acceptRA, err)
+			}
+		}
+		for _, scope := range scopes {
+			forwarding := fmt.Sprintf("net.ipv6.conf.%s.forwarding", scope)
+			if err := enableSysctlSetting(forwarding, "1"); err != nil {
+				return fmt.Errorf("failed to enable IPv6 forwarding (%s): %w", forwarding, err)
+			}
+		}
+	}
 	return nil
 }
 
