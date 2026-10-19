@@ -28,6 +28,7 @@ import (
 	"github.com/aws/amazon-ecs-agent/ecs-agent/metrics"
 	"github.com/aws/amazon-ecs-agent/ecs-agent/tcs/model/ecstcs"
 	"github.com/aws/amazon-ecs-agent/ecs-agent/utils"
+	"github.com/aws/amazon-ecs-agent/ecs-agent/utils/retry"
 	"github.com/aws/amazon-ecs-agent/ecs-agent/wsclient"
 
 	"github.com/aws/aws-sdk-go-v2/aws"
@@ -45,6 +46,8 @@ const (
 	// DefaultContainerMetricsPublishInterval is the default interval that we publish
 	// metrics to the ECS telemetry backend (TACS)
 	DefaultContainerMetricsPublishInterval = 20 * time.Second
+	tcsPublishRetryAttempts                = 3
+	tcsPublishRetryBackoff                 = 100 * time.Millisecond
 )
 
 var (
@@ -196,7 +199,7 @@ func (cs *tcsClientServer) publishMetricsOnce(message ecstcs.TelemetryMessage) e
 	// Make the publish metrics request to the backend.
 	for _, request := range requests {
 		logger.Debug("making publish metrics request")
-		err = cs.MakeRequest(request)
+		err = cs.makeRequestWithRetry(request)
 		if err != nil {
 			return err
 		}
@@ -214,12 +217,22 @@ func (cs *tcsClientServer) publishHealthOnce(health ecstcs.HealthMessage) error 
 	// Make the publish metrics request to the backend.
 	for _, request := range requests {
 		logger.Debug("making publish health metrics request")
-		err = cs.MakeRequest(request)
+		err = cs.makeRequestWithRetry(request)
 		if err != nil {
 			return err
 		}
 	}
 	return nil
+}
+
+func (cs *tcsClientServer) makeRequestWithRetry(request interface{}) error {
+	return retry.RetryNWithBackoff(
+		retry.NewConstantBackoff(tcsPublishRetryBackoff),
+		tcsPublishRetryAttempts,
+		func() error {
+			return cs.MakeRequest(request)
+		},
+	)
 }
 
 // metricsToPublishMetricRequests gets task metrics and converts them to a list of PublishMetricRequest
