@@ -42,6 +42,7 @@ const (
 	availabilityZoneID   = "usw2-az2"
 	vpcID                = "test-vpc-id"
 	containerInstanceArn = "containerInstanceArn-test"
+	ec2InstanceID        = "i-0123456789abcdef0"
 )
 
 // This function starts the server and listens on a specified port
@@ -56,7 +57,7 @@ func startServer(t *testing.T) (*http.Server, int) {
 	statsEngine := mock_stats.NewMockEngine(ctrl)
 	ecsClient := mock_ecs.NewMockECSClient(ctrl)
 
-	agentState := agentV4.NewTMDSAgentState(state, statsEngine, ecsClient, clusterName, availabilityzone, availabilityZoneID, vpcID, containerInstanceArn)
+	agentState := agentV4.NewTMDSAgentState(state, statsEngine, ecsClient, clusterName, availabilityzone, availabilityZoneID, vpcID, containerInstanceArn, ec2InstanceID)
 	metricsFactory := metrics.NewNopEntryFactory()
 	execWrapper := mock_execwrapper.NewMockExec(ctrl)
 
