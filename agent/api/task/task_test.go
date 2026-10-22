@@ -1426,6 +1426,13 @@ func TestApplyRegionToContainerPrecedence(t *testing.T) {
 			wantDefaultReg: "us-west-2",
 		},
 		{
+			name:           "existing env vars preserved — inject both vars",
+			taskDefEnvs:    map[string]string{"FOO": "bar"},
+			instanceRegion: "us-west-2",
+			wantRegion:     "us-west-2",
+			wantDefaultReg: "us-west-2",
+		},
+		{
 			name:           "nil image region keys — injection still proceeds",
 			instanceRegion: "us-west-2",
 			wantRegion:     "us-west-2",
@@ -1499,10 +1506,18 @@ func TestApplyRegionToContainerPrecedence(t *testing.T) {
 			}
 			task := Task{Containers: []*apicontainer.Container{container}}
 
+			originalEnvs := make(map[string]string, len(tt.taskDefEnvs))
+			for k, v := range tt.taskDefEnvs {
+				originalEnvs[k] = v
+			}
+
 			task.ApplyRegionToContainer(container, tt.instanceRegion, tt.imageEnvKeys)
 
 			assert.Equal(t, tt.wantRegion, container.Environment[awsRegionEnvVar])
 			assert.Equal(t, tt.wantDefaultReg, container.Environment[awsDefaultRegionEnvVar])
+			for k, v := range originalEnvs {
+				assert.Equal(t, v, container.Environment[k])
+			}
 		})
 	}
 }

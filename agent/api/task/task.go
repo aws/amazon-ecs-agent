@@ -1259,11 +1259,10 @@ func (task *Task) ApplyRegionToContainer(container *apicontainer.Container, regi
 		return
 	}
 
-	if container.Environment == nil {
-		container.Environment = make(map[string]string)
-	}
-	container.Environment[awsRegionEnvVar] = region
-	container.Environment[awsDefaultRegionEnvVar] = region
+	container.MergeEnvironmentVariables(map[string]string{
+		awsRegionEnvVar:        region,
+		awsDefaultRegionEnvVar: region,
+	})
 }
 
 // initializeContainersV3MetadataEndpoint generates a v3 endpoint id for each container, constructs the
