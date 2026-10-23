@@ -124,8 +124,14 @@ func (queue *Queue) add(rawStat *ContainerStats) {
 				stat.NetworkStats.TxBytesPerSecond = lastStat.NetworkStats.TxBytesPerSecond
 			}
 		} else {
-			cpuUsageSinceLastStat := float32(rawStat.cpuUsage - lastStat.cpuUsage)
-			stat.CPUUsagePerc = 100 * cpuUsageSinceLastStat / timeSinceLastStat
+			if cpuUsageSinceLastStat, ok := counterDelta(rawStat.cpuUsage, lastStat.cpuUsage); ok {
+				stat.CPUUsagePerc = 100 * cpuUsageSinceLastStat / timeSinceLastStat
+			} else {
+				// The CPU usage counter is cumulative and only decreases when it is reset, for
+				// example during container teardown.
+				seelog.Debugf("CPU usage counter decreased, skipping CPU usage percent for this stat. lastStatCPUTime=%d thisStatCPUTime=%d",
+					lastStat.cpuUsage, rawStat.cpuUsage)
+			}
 
 			//calculate per second Network metrics
 			if stat.NetworkStats != nil && lastStat.NetworkStats != nil {
@@ -157,6 +163,15 @@ func (queue *Queue) add(rawStat *ContainerStats) {
 	}
 
 	queue.buffer = append(queue.buffer, stat)
+}
+
+// counterDelta returns the increase of a cumulative counter between two samples.
+// It returns false if the counter decreased, for example because it was reset.
+func counterDelta(current, previous uint64) (float32, bool) {
+	if current < previous {
+		return 0, false
+	}
+	return float32(current - previous), true
 }
 
 // GetLastStat returns the last recorded raw statistics object from docker
