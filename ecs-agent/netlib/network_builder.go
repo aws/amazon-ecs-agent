@@ -34,7 +34,23 @@ import (
 )
 
 type NetworkBuilder interface {
-	BuildTaskNetworkConfiguration(taskID string, taskPayload *ecsacs.Task) (*tasknetworkconfig.TaskNetworkConfig, error)
+	// BuildTaskNetworkConfiguration models the task's networking from its
+	// payload. Namespaces of the task that already exist, such as one built
+	// from an ENI attachment ahead of the payload, are passed as existing and
+	// are not modified; see platform.API.BuildTaskNetworkConfiguration.
+	BuildTaskNetworkConfiguration(
+		taskID string,
+		taskPayload *ecsacs.Task,
+		existing ...*tasknetworkconfig.NetworkNamespace,
+	) (*tasknetworkconfig.TaskNetworkConfig, error)
+
+	// BuildAttachmentNetworkConfiguration models the networking a task ENI
+	// attachment establishes ahead of the task payload; see
+	// platform.API.BuildAttachmentNetworkConfiguration.
+	BuildAttachmentNetworkConfiguration(
+		taskID string,
+		eni *ecsacs.ElasticNetworkInterface,
+	) (*tasknetworkconfig.AttachmentNetworkConfig, error)
 
 	Start(ctx context.Context, mode types.NetworkMode, taskID string, netNS *tasknetworkconfig.NetworkNamespace) error
 
@@ -72,8 +88,18 @@ func NewNetworkBuilder(
 
 // BuildTaskNetworkConfiguration builds the task's network configuration
 func (nb *networkBuilder) BuildTaskNetworkConfiguration(
-	taskID string, taskPayload *ecsacs.Task) (*tasknetworkconfig.TaskNetworkConfig, error) {
-	return nb.platformAPI.BuildTaskNetworkConfiguration(taskID, taskPayload)
+	taskID string,
+	taskPayload *ecsacs.Task,
+	existing ...*tasknetworkconfig.NetworkNamespace,
+) (*tasknetworkconfig.TaskNetworkConfig, error) {
+	return nb.platformAPI.BuildTaskNetworkConfiguration(taskID, taskPayload, existing...)
+}
+
+func (nb *networkBuilder) BuildAttachmentNetworkConfiguration(
+	taskID string,
+	eni *ecsacs.ElasticNetworkInterface,
+) (*tasknetworkconfig.AttachmentNetworkConfig, error) {
+	return nb.platformAPI.BuildAttachmentNetworkConfiguration(taskID, eni)
 }
 
 // Start builds up a particular network namespace for the task as per desired configuration.
@@ -174,13 +200,19 @@ func (nb *networkBuilder) startAWSVPC(ctx context.Context, taskID string, netNS 
 		}
 	}
 
-	// Configure each interface inside the network namespace.
+	// Configure each interface inside the network namespace. In the
+	// READY_PULL -> CONFIGURED transition this brings interfaces the task
+	// payload added after the namespace was built up to READY_PULL; the
+	// interfaces already there are left alone.
 	err = nb.configureNetNSInterfaces(ctx, netNS)
 	if err != nil {
 		return err
 	}
-	// Configure AppMesh and service connect rules in the netns.
-	if netNS.KnownState == status.NetworkReadyPull &&
+	// Configure AppMesh and service connect rules in the netns, once every
+	// interface the task declares is in place. A consumer that drives the
+	// namespace from READY_PULL straight to READY gets the same result: the
+	// interface pass above has just brought any added interface in.
+	if (netNS.KnownState == status.NetworkConfigured || netNS.KnownState == status.NetworkReadyPull) &&
 		netNS.DesiredState == status.NetworkReady {
 		if netNS.AppMeshConfig != nil {
 			logger.Debug("Configuring AppMesh", logger.Fields{
@@ -194,6 +226,15 @@ func (nb *networkBuilder) startAWSVPC(ctx context.Context, taskID string, netNS 
 		}
 
 		if netNS.ServiceConnectConfig != nil {
+			// The hosts file is first written in the NONE -> READY_PULL
+			// transition, which may precede delivery of the ServiceConnect
+			// hostname mappings when the namespace is built ahead of the task
+			// payload. Recreating the DNS config files is idempotent.
+			err = nb.platformAPI.CreateDNSConfig(taskID, netNS)
+			if err != nil {
+				return errors.Wrapf(err, "failed to recreate DNS config in netns %s", netNS.Name)
+			}
+
 			logger.Debug("Configuring ServiceConnect", logger.Fields{
 				"ServiceConnectConfig": netNS.ServiceConnectConfig,
 			})
@@ -209,9 +250,21 @@ func (nb *networkBuilder) startAWSVPC(ctx context.Context, taskID string, netNS 
 	return err
 }
 
+// interfaceTargetStatus maps a namespace's desired state to the status its
+// interfaces are driven to. CONFIGURED is a namespace status: it says every
+// interface the task declares has reached READY_PULL, so interfaces are driven
+// to READY_PULL for it.
+func interfaceTargetStatus(netNSDesired status.NetworkStatus) status.NetworkStatus {
+	if netNSDesired == status.NetworkConfigured {
+		return status.NetworkReadyPull
+	}
+	return netNSDesired
+}
+
 // configureNetNSInterfaces executes the platform API to configure every interface inside a network namespace.
 func (nb *networkBuilder) configureNetNSInterfaces(ctx context.Context, netNS *tasknetworkconfig.NetworkNamespace) error {
 	var errs error
+	target := interfaceTargetStatus(netNS.DesiredState)
 	for _, iface := range netNS.NetworkInterfaces {
 		logFields := logger.Fields{
 			"Interface":     iface,
@@ -219,14 +272,14 @@ func (nb *networkBuilder) configureNetNSInterfaces(ctx context.Context, netNS *t
 			"KnownStatus":   iface.KnownStatus,
 			"DesiredStatus": iface.DesiredStatus,
 		}
-		if iface.KnownStatus == netNS.DesiredState {
+		if iface.KnownStatus == target {
 			logger.Debug("Interface already in desired state", logFields)
 			continue
 		}
 
 		// The interface desired status is driven by the network namespace's desired state.
 		logger.Debug("Configuring interface", logFields)
-		iface.DesiredStatus = netNS.DesiredState
+		iface.DesiredStatus = target
 
 		err := nb.platformAPI.ConfigureInterface(ctx, netNS.Path, iface, nb.networkDAO)
 		if err != nil {
@@ -237,7 +290,7 @@ func (nb *networkBuilder) configureNetNSInterfaces(ctx context.Context, netNS *t
 				return err
 			}
 		}
-		iface.KnownStatus = netNS.DesiredState
+		iface.KnownStatus = target
 
 		// Save new state of the network interface in the database.
 		if err = nb.networkDAO.SaveNetworkNamespace(netNS); err != nil {

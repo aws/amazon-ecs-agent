@@ -98,6 +98,19 @@ func (r *attachTaskENIResponder) handleAttachMessage(message *ecsacs.AttachTaskN
 func (r *attachTaskENIResponder) handleTaskENIFromMessage(eni *ecsacs.ElasticNetworkInterface,
 	messageID, taskARN, clusterARN, containerInstanceARN string, receivedAt time.Time, waitTimeoutMs int64) {
 	expiresAt := receivedAt.Add(time.Duration(waitTimeoutMs) * time.Millisecond)
+
+	// Validation failure is not fatal: attachment tracking and confirmation
+	// proceed with no interface configuration attached.
+	interfaceConfig := eni
+	if err := ni.ValidateENI(eni); err != nil {
+		logger.Warn(fmt.Sprintf("Unusable interface configuration in %s", AttachTaskENIMessageName),
+			logger.Fields{
+				field.MessageID: messageID,
+				field.Error:     err,
+			})
+		interfaceConfig = nil
+	}
+
 	err := r.eniHandler.HandleENIAttachment(&ni.ENIAttachment{
 		AttachmentInfo: attachment.AttachmentInfo{
 			TaskARN:              taskARN,
@@ -110,6 +123,8 @@ func (r *attachTaskENIResponder) handleTaskENIFromMessage(eni *ecsacs.ElasticNet
 		},
 		AttachmentType: ni.ENIAttachmentTypeTaskENI,
 		MACAddress:     aws.ToString(eni.MacAddress),
+
+		InterfaceConfig: interfaceConfig,
 	})
 	if err != nil {
 		logger.Error(fmt.Sprintf("Unable to handle %s", AttachTaskENIMessageName), logger.Fields{
