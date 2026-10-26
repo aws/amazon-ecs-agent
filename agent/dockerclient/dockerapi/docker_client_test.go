@@ -2045,6 +2045,32 @@ func TestMetadataFromContainer(t *testing.T) {
 	assert.True(t, finishedTime.Equal(finishedTimeSDK))
 }
 
+func TestMetadataFromContainerOOMKilled(t *testing.T) {
+	stopped := types.ContainerJSON{
+		ContainerJSONBase: &types.ContainerJSONBase{
+			ID: "1234",
+			State: &types.ContainerState{
+				OOMKilled:  true,
+				ExitCode:   137,
+				FinishedAt: time.Now().Format(time.RFC3339),
+			},
+		},
+	}
+	assert.Equal(t, OutOfMemoryError{}, MetadataFromContainer(&stopped).Error)
+
+	running := types.ContainerJSON{
+		ContainerJSONBase: &types.ContainerJSONBase{
+			ID: "1234",
+			State: &types.ContainerState{
+				Running:   true,
+				OOMKilled: true,
+				StartedAt: time.Now().Format(time.RFC3339),
+			},
+		},
+	}
+	assert.Nil(t, MetadataFromContainer(&running).Error)
+}
+
 func TestMetadataFromContainerHealthCheckWithNoLogs(t *testing.T) {
 
 	dockerContainer := &types.ContainerJSON{
