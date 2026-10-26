@@ -28,8 +28,8 @@ import (
 	mock_resolver "github.com/aws/amazon-ecs-agent/agent/stats/resolver/mock"
 	apitaskstatus "github.com/aws/amazon-ecs-agent/ecs-agent/api/task/status"
 
-	dockerstats "github.com/docker/docker/api/types"
 	"github.com/golang/mock/gomock"
+	dockercontainer "github.com/moby/moby/api/types/container"
 	"github.com/stretchr/testify/assert"
 )
 
@@ -54,7 +54,7 @@ var ifRowResult = &networkutils.MibIfRow2{
 }
 
 // Expected output from the stats collection module.
-var expectedNetworkStats = &dockerstats.NetworkStats{
+var expectedNetworkStats = &dockercontainer.NetworkStats{
 	RxBytes:    249578,
 	RxPackets:  5902,
 	RxErrors:   4,

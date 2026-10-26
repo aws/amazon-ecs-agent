@@ -18,7 +18,7 @@ import (
 
 	apierrors "github.com/aws/amazon-ecs-agent/ecs-agent/api/errors"
 
-	"github.com/docker/go-connections/nat"
+	"github.com/moby/moby/api/types/network"
 )
 
 const (
@@ -44,15 +44,12 @@ type PortBinding struct {
 
 // PortBindingFromDockerPortBinding constructs a PortBinding slice from a docker
 // NetworkSettings.Ports map.
-func PortBindingFromDockerPortBinding(dockerPortBindings nat.PortMap) ([]PortBinding, apierrors.NamedError) {
+func PortBindingFromDockerPortBinding(dockerPortBindings network.PortMap) ([]PortBinding, apierrors.NamedError) {
 	portBindings := make([]PortBinding, 0, len(dockerPortBindings))
 
 	for port, bindings := range dockerPortBindings {
-		containerPort, err := nat.ParsePort(port.Port())
-		if err != nil {
-			return nil, &apierrors.DefaultNamedError{Name: UnparseablePortErrorName, Err: "Error parsing docker port as int " + err.Error()}
-		}
-		protocol, err := NewTransportProtocol(port.Proto())
+		containerPort := port.Num()
+		protocol, err := NewTransportProtocol(string(port.Proto()))
 		if err != nil {
 			return nil, &apierrors.DefaultNamedError{Name: UnrecognizedTransportProtocolErrorName, Err: err.Error()}
 		}
@@ -62,10 +59,16 @@ func PortBindingFromDockerPortBinding(dockerPortBindings nat.PortMap) ([]PortBin
 			if err != nil {
 				return nil, &apierrors.DefaultNamedError{Name: UnparseablePortErrorName, Err: "Error parsing port binding as int " + err.Error()}
 			}
+			// HostIP is a netip.Addr; an unset address serializes as "" rather
+			// than the zero value's "invalid IP".
+			bindIP := ""
+			if binding.HostIP.IsValid() {
+				bindIP = binding.HostIP.String()
+			}
 			portBindings = append(portBindings, PortBinding{
-				ContainerPort: uint16(containerPort),
+				ContainerPort: containerPort,
 				HostPort:      uint16(hostPort),
-				BindIP:        binding.HostIP,
+				BindIP:        bindIP,
 				Protocol:      protocol,
 			})
 		}

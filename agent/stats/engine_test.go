@@ -40,8 +40,8 @@ import (
 	"github.com/aws/amazon-ecs-agent/ecs-agent/tcs/model/ecstcs"
 
 	"github.com/aws/aws-sdk-go-v2/aws"
-	"github.com/docker/docker/api/types"
 	"github.com/golang/mock/gomock"
+	dockercontainer "github.com/moby/moby/api/types/container"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -79,7 +79,7 @@ func TestStatsEngineAddRemoveContainers(t *testing.T) {
 			NetworkModeUnsafe: networkMode,
 		},
 	}, nil)
-	mockStatsChannel := make(chan *types.StatsJSON)
+	mockStatsChannel := make(chan *dockercontainer.StatsResponse)
 	defer close(mockStatsChannel)
 	mockDockerClient.EXPECT().Stats(gomock.Any(), gomock.Any(), gomock.Any()).Return(mockStatsChannel, nil).AnyTimes()
 	engine := NewDockerStatsEngine(&cfg, nil, eventStream("TestStatsEngineAddRemoveContainers"), nil, nil, nil)
@@ -285,7 +285,7 @@ func TestStatsEngineMetadataInStatsSets(t *testing.T) {
 	ts1 := parseNanoTime("2015-02-12T21:22:05.131117533Z")
 	ts2 := parseNanoTime("2015-02-12T21:22:05.232291187Z")
 	containerStats := createFakeContainerStats()
-	dockerStats := []*types.StatsJSON{{}, {}}
+	dockerStats := []*dockercontainer.StatsResponse{{}, {}}
 	dockerStats[0].Read = ts1
 	dockerStats[1].Read = ts2
 	containers, _ := engine.tasksToContainers["t1"]
@@ -436,11 +436,9 @@ func TestStartMetricsPublish(t *testing.T) {
 			resolver := mock_resolver.NewMockContainerMetadataResolver(mockCtrl)
 
 			mockDockerClient.EXPECT().Stats(gomock.Any(), gomock.Any(), gomock.Any()).Return(nil, nil).AnyTimes()
-			mockDockerClient.EXPECT().InspectContainer(gomock.Any(), gomock.Any(), gomock.Any()).Return(&types.ContainerJSON{
-				ContainerJSONBase: &types.ContainerJSONBase{
-					ID:    containerID,
-					State: &types.ContainerState{Pid: 23},
-				},
+			mockDockerClient.EXPECT().InspectContainer(gomock.Any(), gomock.Any(), gomock.Any()).Return(&dockercontainer.InspectResponse{
+				ID:    containerID,
+				State: &dockercontainer.State{Pid: 23},
 			}, nil).AnyTimes()
 
 			resolver.EXPECT().ResolveTask(containerID).AnyTimes().Return(t1, nil)
@@ -477,7 +475,7 @@ func TestStartMetricsPublish(t *testing.T) {
 			ts1 := parseNanoTime("2015-02-12T21:22:05.131117533Z")
 
 			containerStats := createFakeContainerStats()
-			dockerStats := []*types.StatsJSON{{}, {}}
+			dockerStats := []*dockercontainer.StatsResponse{{}, {}}
 			dockerStats[0].Read = ts1
 			containers, _ := engine.tasksToContainers["t1"]
 
@@ -719,7 +717,7 @@ func TestSynchronizeOnRestart(t *testing.T) {
 	defer ctrl.Finish()
 
 	containerID := "containerID"
-	statsChan := make(chan *types.StatsJSON)
+	statsChan := make(chan *dockercontainer.StatsResponse)
 	statsStarted := make(chan struct{})
 	client := mock_dockerapi.NewMockDockerClient(ctrl)
 	resolver := mock_resolver.NewMockContainerMetadataResolver(ctrl)
@@ -817,11 +815,9 @@ func testNetworkModeStats(t *testing.T, netMode string, enis []*ni.NetworkInterf
 	resolver.EXPECT().ResolveContainer(gomock.Any()).AnyTimes().Return(testContainer, nil)
 	mockDockerClient.EXPECT().Stats(gomock.Any(), gomock.Any(), gomock.Any()).Return(nil, nil).AnyTimes()
 
-	mockDockerClient.EXPECT().InspectContainer(gomock.Any(), gomock.Any(), gomock.Any()).Return(&types.ContainerJSON{
-		ContainerJSONBase: &types.ContainerJSONBase{
-			ID:    "test",
-			State: &types.ContainerState{Pid: 23},
-		},
+	mockDockerClient.EXPECT().InspectContainer(gomock.Any(), gomock.Any(), gomock.Any()).Return(&dockercontainer.InspectResponse{
+		ID:    "test",
+		State: &dockercontainer.State{Pid: 23},
 	}, nil).AnyTimes()
 	engine := NewDockerStatsEngine(&cfg, nil, eventStream("TestTaskNetworkStatsSet"), nil, nil, nil)
 	ctx, cancel := context.WithCancel(context.TODO())
@@ -834,7 +830,7 @@ func testNetworkModeStats(t *testing.T, netMode string, enis []*ni.NetworkInterf
 	engine.addAndStartStatsContainer("c1")
 	ts1 := parseNanoTime("2015-02-12T21:22:05.131117533Z")
 	containerStats := createFakeContainerStats()
-	dockerStats := []*types.StatsJSON{{}, {}}
+	dockerStats := []*dockercontainer.StatsResponse{{}, {}}
 	dockerStats[0].Read = ts1
 	containers, _ := engine.tasksToContainers["t1"]
 	for _, statsContainer := range containers {

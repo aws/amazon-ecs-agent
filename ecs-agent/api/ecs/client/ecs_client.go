@@ -36,12 +36,12 @@ import (
 	"github.com/aws/amazon-ecs-agent/ecs-agent/utils/retry"
 	"github.com/aws/aws-sdk-go-v2/aws/ratelimit"
 
+	"github.com/aws/amazon-ecs-agent/ecs-agent/utils/meminfo"
 	"github.com/aws/aws-sdk-go-v2/aws"
 	awsconfig "github.com/aws/aws-sdk-go-v2/config"
 	ecsservice "github.com/aws/aws-sdk-go-v2/service/ecs"
 	"github.com/aws/aws-sdk-go-v2/service/ecs/types"
 	"github.com/aws/smithy-go"
-	"github.com/docker/docker/pkg/meminfo"
 )
 
 const (

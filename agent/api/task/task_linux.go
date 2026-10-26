@@ -22,6 +22,12 @@ import (
 	"strconv"
 	"time"
 
+	"github.com/cihub/seelog"
+	"github.com/containernetworking/cni/libcni"
+	dockercontainer "github.com/moby/moby/api/types/container"
+	specs "github.com/opencontainers/runtime-spec/specs-go"
+	"github.com/pkg/errors"
+
 	apicontainer "github.com/aws/amazon-ecs-agent/agent/api/container"
 	"github.com/aws/amazon-ecs-agent/agent/config"
 	"github.com/aws/amazon-ecs-agent/agent/ecscni"
@@ -37,11 +43,6 @@ import (
 	"github.com/aws/amazon-ecs-agent/ecs-agent/logger/field"
 	ni "github.com/aws/amazon-ecs-agent/ecs-agent/netlib/model/networkinterface"
 	"github.com/aws/amazon-ecs-agent/ecs-agent/utils/arn"
-	"github.com/cihub/seelog"
-	"github.com/containernetworking/cni/libcni"
-	dockercontainer "github.com/docker/docker/api/types/container"
-	specs "github.com/opencontainers/runtime-spec/specs-go"
-	"github.com/pkg/errors"
 )
 
 const (

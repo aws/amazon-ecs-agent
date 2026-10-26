@@ -34,10 +34,10 @@ import (
 
 	"github.com/aws/aws-sdk-go-v2/aws"
 	ecstypes "github.com/aws/aws-sdk-go-v2/service/ecs/types"
-	"github.com/docker/docker/api/types"
-	dockercontainer "github.com/docker/docker/api/types/container"
-	"github.com/docker/docker/api/types/network"
-	sdkClient "github.com/docker/docker/client"
+	dockercontainer "github.com/moby/moby/api/types/container"
+	"github.com/moby/moby/api/types/network"
+	"github.com/moby/moby/api/types/system"
+	sdkClient "github.com/moby/moby/client"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -91,30 +91,28 @@ func eventStream(name string) *eventstream.EventStream {
 
 // createGremlin creates the gremlin container using the docker client.
 // It is used only in the test code.
-func createGremlin(client *sdkClient.Client, netMode string) (*dockercontainer.CreateResponse, error) {
-	containerGremlin, err := client.ContainerCreate(context.TODO(),
-		&dockercontainer.Config{
+func createGremlin(client *sdkClient.Client, netMode string) (*sdkClient.ContainerCreateResult, error) {
+	containerGremlin, err := client.ContainerCreate(context.TODO(), sdkClient.ContainerCreateOptions{
+		Config: &dockercontainer.Config{
 			Image: testImageName,
 		},
-		&dockercontainer.HostConfig{
+		HostConfig: &dockercontainer.HostConfig{
 			NetworkMode: dockercontainer.NetworkMode(netMode),
 		},
-		&network.NetworkingConfig{},
-		nil,
-		"")
+		NetworkingConfig: &network.NetworkingConfig{},
+	})
 
 	return &containerGremlin, err
 }
 
-func createHealthContainer(client *sdkClient.Client) (*dockercontainer.CreateResponse, error) {
-	container, err := client.ContainerCreate(context.TODO(),
-		&dockercontainer.Config{
+func createHealthContainer(client *sdkClient.Client) (*sdkClient.ContainerCreateResult, error) {
+	container, err := client.ContainerCreate(context.TODO(), sdkClient.ContainerCreateOptions{
+		Config: &dockercontainer.Config{
 			Image: testContainerHealthImageName,
 		},
-		&dockercontainer.HostConfig{},
-		&network.NetworkingConfig{},
-		nil,
-		"")
+		HostConfig:       &dockercontainer.HostConfig{},
+		NetworkingConfig: &network.NetworkingConfig{},
+	})
 
 	return &container, err
 }
@@ -400,8 +398,8 @@ func (engine *MockTaskEngine) Capabilities() []ecstypes.Attribute {
 func (engine *MockTaskEngine) Disable() {
 }
 
-func (engine *MockTaskEngine) Info() (types.Info, error) {
-	return types.Info{}, nil
+func (engine *MockTaskEngine) Info() (system.Info, error) {
+	return system.Info{}, nil
 }
 
 func (engine *MockTaskEngine) GetDaemonManagers() map[string]dm.DaemonManager {

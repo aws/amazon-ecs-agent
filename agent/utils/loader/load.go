@@ -20,22 +20,23 @@ import (
 
 	"github.com/aws/amazon-ecs-agent/ecs-agent/logger/field"
 
+	"github.com/moby/moby/api/types/image"
+
 	"github.com/aws/amazon-ecs-agent/agent/config"
 	"github.com/aws/amazon-ecs-agent/agent/dockerclient"
 	"github.com/aws/amazon-ecs-agent/agent/dockerclient/dockerapi"
 	"github.com/aws/amazon-ecs-agent/ecs-agent/logger"
-	"github.com/docker/docker/api/types"
 )
 
 // Loader defines an interface for loading the container images. This is mostly
 // to facilitate mocking and testing
 type Loader interface {
-	LoadImage(ctx context.Context, cfg *config.Config, dockerClient dockerapi.DockerClient) (*types.ImageInspect, error)
+	LoadImage(ctx context.Context, cfg *config.Config, dockerClient dockerapi.DockerClient) (*image.InspectResponse, error)
 	IsLoaded(dockerClient dockerapi.DockerClient) (bool, error)
 }
 
 // GetContainerImage This function uses the DockerClient to inspect the image with the given name and tag.
-func GetContainerImage(imageName string, dockerClient dockerapi.DockerClient) (*types.ImageInspect, error) {
+func GetContainerImage(imageName string, dockerClient dockerapi.DockerClient) (*image.InspectResponse, error) {
 	logger.Debug("Inspecting container image: ", logger.Fields{
 		field.Image: imageName,
 	})
