@@ -21,12 +21,17 @@ import (
 	"net"
 	"net/http"
 	"net/http/httptest"
+	"sync/atomic"
 	"testing"
+	"time"
+
+	"github.com/aws/amazon-ecs-agent/ecs-agent/utils/retry"
 
 	"github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/gorilla/mux"
 	prometheus "github.com/prometheus/client_model/go"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 const (
@@ -89,13 +94,25 @@ var (
 	}
 )
 
-func setupTestUdsServer(t *testing.T, rawResponse string) *httptest.Server {
+// setupTestUdsServer starts a test Appnet Agent server. The stats endpoint responds with statusCodes in order, one
+// per request, and repeats the last one once they run out. It responds with 200 when statusCodes is empty. The
+// returned counter holds the number of stats requests received.
+func setupTestUdsServer(t *testing.T, rawResponse string, statusCodes ...int) (*httptest.Server, *atomic.Int32) {
 	t.Helper()
+	statsCalls := &atomic.Int32{}
 	r := mux.NewRouter()
 	r.HandleFunc("/stats/are/cool", func(w http.ResponseWriter, r *http.Request) {
 		assert.Equal(t, http.MethodGet, r.Method)
 		assert.True(t, r.URL.Query().Has("true"))
 		assert.Equal(t, "value", r.URL.Query().Get("key"))
+		call := int(statsCalls.Add(1))
+		if len(statusCodes) > 0 {
+			statusCode := statusCodes[min(call, len(statusCodes))-1]
+			if statusCode != http.StatusOK {
+				w.WriteHeader(statusCode)
+				return
+			}
+		}
 		fmt.Fprintf(w, "%s", rawResponse)
 	})
 	r.HandleFunc("/drain/connections", func(w http.ResponseWriter, r *http.Request) {
@@ -112,17 +129,30 @@ func setupTestUdsServer(t *testing.T, rawResponse string) *httptest.Server {
 	ts.Listener.Close()
 	ts.Listener = l
 	ts.Start()
-	return ts
+	return ts, statsCalls
 }
 
 func TestGetStats(t *testing.T) {
+	defaultBackoff := oneSecondBackoffNoJitter
+	oneSecondBackoffNoJitter = retry.NewExponentialBackoff(time.Millisecond, time.Millisecond, 0, 1)
+	t.Cleanup(func() {
+		oneSecondBackoffNoJitter = defaultBackoff
+	})
+
+	validRawStats := `# TYPE MetricFamily1 counter
+	MetricFamily1{dimensionA="value1", dimensionB="value2"} 1
+	# TYPE MetricFamily2 histogram
+	MetricFamily2{dimensionX="value1", dimensionY="value2", le="0.5"} 1
+	`
 	for _, tc := range []struct {
 		name                  string
 		udsPath               string
 		rawStats              string
+		statusCodes           []int
 		expectedResult        map[string]*prometheus.MetricFamily
 		isErrorExpected       bool
 		expectedErrorContains string
+		expectedCalls         int32
 	}{
 		{
 			name:    "happy case with valid counter and histogram metrics",
@@ -134,6 +164,7 @@ func TestGetStats(t *testing.T) {
 			`,
 			expectedResult:  mockedValidStats,
 			isErrorExpected: false,
+			expectedCalls:   1,
 		},
 		{
 			name:    "sad case with invalid metrics",
@@ -146,6 +177,7 @@ func TestGetStats(t *testing.T) {
 			expectedResult:        nil,
 			isErrorExpected:       true,
 			expectedErrorContains: "text format parsing error",
+			expectedCalls:         1,
 		},
 		{
 			name:    "invalid UDS path",
@@ -158,6 +190,7 @@ func TestGetStats(t *testing.T) {
 			expectedResult:        nil,
 			isErrorExpected:       true,
 			expectedErrorContains: "dial unix /this/doesnt/exist.sock: connect: no such file or directory",
+			expectedCalls:         0,
 		},
 		{
 			name:    "blank UDS path",
@@ -170,21 +203,62 @@ func TestGetStats(t *testing.T) {
 			expectedResult:        nil,
 			isErrorExpected:       true,
 			expectedErrorContains: "appnet client: Path to appnet admin socket was blank",
+			expectedCalls:         0,
+		},
+		{
+			name:                  "429 is retried until attempts run out",
+			udsPath:               testUDSPath,
+			rawStats:              validRawStats,
+			statusCodes:           []int{http.StatusTooManyRequests},
+			expectedResult:        nil,
+			isErrorExpected:       true,
+			expectedErrorContains: "received non-OK HTTP status 429",
+			expectedCalls:         appnetRequestMaxAttempts,
+		},
+		{
+			name:                  "500 is retried until attempts run out",
+			udsPath:               testUDSPath,
+			rawStats:              validRawStats,
+			statusCodes:           []int{http.StatusInternalServerError},
+			expectedResult:        nil,
+			isErrorExpected:       true,
+			expectedErrorContains: "received non-OK HTTP status 500",
+			expectedCalls:         appnetRequestMaxAttempts,
+		},
+		{
+			name:                  "404 is not retried",
+			udsPath:               testUDSPath,
+			rawStats:              validRawStats,
+			statusCodes:           []int{http.StatusNotFound},
+			expectedResult:        nil,
+			isErrorExpected:       true,
+			expectedErrorContains: "received non-OK HTTP status 404",
+			expectedCalls:         1,
+		},
+		{
+			name:            "429 followed by 200 returns stats",
+			udsPath:         testUDSPath,
+			rawStats:        validRawStats,
+			statusCodes:     []int{http.StatusTooManyRequests, http.StatusOK},
+			expectedResult:  mockedValidStats,
+			isErrorExpected: false,
+			expectedCalls:   2,
 		},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
-			ts := setupTestUdsServer(t, tc.rawStats)
+			ts, statsCalls := setupTestUdsServer(t, tc.rawStats, tc.statusCodes...)
 			t.Cleanup(func() {
 				ts.Close()
 			})
 			stats, err := CreateClient().GetStats(tc.udsPath, testStatsUrl)
 			assert.Equal(t, tc.expectedResult, stats)
 			if tc.isErrorExpected {
-				assert.Error(t, err)
+				require.Error(t, err)
 				assert.Contains(t, err.Error(), tc.expectedErrorContains)
 			} else {
 				assert.NoError(t, err)
 			}
+			assert.Equal(t, tc.expectedCalls, statsCalls.Load())
 		})
 	}
 
@@ -216,7 +290,7 @@ func TestDrainInboundConnections(t *testing.T) {
 		},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
-			ts := setupTestUdsServer(t, "not important")
+			ts, _ := setupTestUdsServer(t, "not important")
 			t.Cleanup(func() {
 				ts.Close()
 			})

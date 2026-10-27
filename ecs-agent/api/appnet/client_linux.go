@@ -21,11 +21,16 @@ import (
 	"net/http"
 	"time"
 
+	apierrors "github.com/aws/amazon-ecs-agent/ecs-agent/api/errors"
 	"github.com/aws/amazon-ecs-agent/ecs-agent/logger"
 	"github.com/aws/amazon-ecs-agent/ecs-agent/logger/field"
 	"github.com/aws/amazon-ecs-agent/ecs-agent/utils/retry"
 	"github.com/pkg/errors"
 	prometheus "github.com/prometheus/client_model/go"
+)
+
+const (
+	appnetRequestMaxAttempts = 3
 )
 
 var (
@@ -35,16 +40,47 @@ var (
 
 // GetStats invokes Appnet Agent's stats API to retrieve ServiceConnect stats in prometheus format. This function expects
 // an Appnet-Agent-hosted HTTP server listening on the UDS path passed in config.
+//
+// Failed requests are retried. Appnet Agent advances its stats window on its own timer, not when the window is read,
+// so a retry returns the same window.
 func (cl *AppNetAgentClient) GetStats(adminSocketPath string, statsRequest string) (map[string]*prometheus.MetricFamily, error) {
-	resp, err := cl.performAppnetRequest(http.MethodGet, adminSocketPath, statsRequest)
+	var stats map[string]*prometheus.MetricFamily
+	err := retry.RetryNWithBackoff(oneSecondBackoffNoJitter, appnetRequestMaxAttempts, func() error {
+		resp, err := cl.performAppnetRequest(http.MethodGet, adminSocketPath, statsRequest)
+		if err != nil {
+			logger.Warn("Error invoking Appnet's stats endpoint", logger.Fields{
+				"adminSocketPath": adminSocketPath,
+				field.Error:       err,
+			})
+			return err
+		}
+		defer resp.Body.Close()
+		if resp.StatusCode != http.StatusOK {
+			logger.Warn("Non-OK response from Appnet's stats endpoint", logger.Fields{
+				"adminSocketPath": adminSocketPath,
+				"statusCode":      resp.StatusCode,
+			})
+			return apierrors.NewRetriableError(apierrors.NewRetriable(isRetriableStatusCode(resp.StatusCode)),
+				errors.Errorf("received non-OK HTTP status %v from Service Connect stats endpoint", resp.StatusCode))
+		}
+		stats, err = parseServiceConnectStats(resp.Body)
+		if err != nil {
+			// The same response would fail to parse again.
+			return apierrors.NewRetriableError(apierrors.NewRetriable(false), err)
+		}
+		return nil
+	})
 	if err != nil {
 		return nil, err
 	}
-	defer resp.Body.Close()
-	if resp.StatusCode != http.StatusOK {
-		return nil, errors.Wrapf(err, "received non-OK HTTP status %v from Service Connect stats endpoint", resp.StatusCode)
-	}
-	return parseServiceConnectStats(resp.Body)
+	return stats, nil
+}
+
+// isRetriableStatusCode reports whether a non-OK status from Appnet Agent may succeed on retry. 429 comes from Appnet
+// Agent's rate limiter and 5xx from a failed Envoy stats scrape, and both can clear within seconds. Other 4xx statuses
+// are caused by the request itself and do not change on retry.
+func isRetriableStatusCode(statusCode int) bool {
+	return statusCode == http.StatusTooManyRequests || statusCode >= http.StatusInternalServerError
 }
 
 // DrainInboundConnections invokes Appnet Agent's drain_listeners API which starts draining ServiceConnect inbound connections.

@@ -53,7 +53,6 @@ func newServiceConnectStats() (*ServiceConnectStats, error) {
 	}, nil
 }
 
-// TODO [SC]: Add retries on failure to retrieve service connect stats
 func (sc *ServiceConnectStats) retrieveServiceConnectStats(task *apitask.Task) {
 	serviceConnectConfig := task.GetServiceConnectRuntimeConfig()
 	adminSocketPath := serviceConnectConfig.AdminSocketPath
