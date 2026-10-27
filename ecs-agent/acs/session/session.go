@@ -205,6 +205,10 @@ func (s *session) Start(ctx context.Context) error {
 	for {
 		select {
 		case <-connectToACS:
+			if ctx.Err() != nil {
+				continue
+			}
+
 			logger.Debug("Received connect to ACS message. Attempting connect to ACS",
 				logger.Fields{
 					"containerInstanceARN": s.containerInstanceARN,
