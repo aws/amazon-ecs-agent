@@ -27,7 +27,7 @@
 %global ebs_csi_driver_dir /var/lib/ecs/deps/daemons/ebs-csi-driver
 
 Name:           ecs-init
-Version:        1.108.1
+Version:        1.108.2
 Release:        1%{?dist}
 License:        Apache 2.0
 Summary:        Amazon Elastic Container Service initialization application
@@ -238,6 +238,7 @@ Provides:       bundled(golang(github.com/klauspost/compress))
 Provides:       bundled(golang(github.com/klauspost/compress/fse))
 Provides:       bundled(golang(github.com/klauspost/compress/huff0))
 Provides:       bundled(golang(github.com/klauspost/compress/internal/cpuinfo))
+Provides:       bundled(golang(github.com/klauspost/compress/internal/le))
 Provides:       bundled(golang(github.com/klauspost/compress/internal/snapref))
 Provides:       bundled(golang(github.com/klauspost/compress/zstd))
 Provides:       bundled(golang(github.com/klauspost/compress/zstd/internal/xxhash))
@@ -400,6 +401,9 @@ fi
 %endif
 
 %changelog
+* Wed Oct 28 2026 amazon-ecs-bot <amazon-ecs-bot@amazon.com> - 1.108.2-1
+- Cache Agent version 1.108.2
+
 * Thu Oct 15 2026 amazon-ecs-bot <amazon-ecs-bot@amazon.com> - 1.108.1-1
 - Cache Agent version 1.108.1
 
