@@ -1,5 +1,14 @@
 # Changelog
 
+# 1.108.2
+* Enhancement - Enhancement - Update to golang 1.26.10 [#5183](https://github.com/aws/amazon-ecs-agent/pull/5183)
+* Enhancement - Bump github.com/klauspost/compress from 1.16.7 to 1.18.7 in /ecs-init [#5175](https://github.com/aws/amazon-ecs-agent/pull/5175)
+* Enhancement - - Bugfix - Skip ACS reconnect when the session context is already canceled [#5181](https://github.com/aws/amazon-ecs-agent/pull/5181)
+* Enhancement - Bump github.com/moby/sys/user from 0.3.0 to 0.4.1 in /ecs-init [#5172](https://github.com/aws/amazon-ecs-agent/pull/5172)
+* Enhancement - Enhancement - Narrow the Managed Instances daemon-bridge NAT source to the daemon address [#5167](https://github.com/aws/amazon-ecs-agent/pull/5167)
+* Bugfix - Bugfix - Skip CPU usage samples when the container CPU counter decreases [#5179](https://github.com/aws/amazon-ecs-agent/pull/5179)
+* Bugfix - Bugfix - Fix a data race when injecting AWS region environment variables into containers [#5178](https://github.com/aws/amazon-ecs-agent/pull/5178)
+
 # 1.108.1
 * Enhancement - Bump ECS Exec SSM Agent to 3.3.5390.0 [#5171](https://github.com/aws/amazon-ecs-agent/pull/5171)
 * Enhancement - Update to golang 1.26.9 [#5170](https://github.com/aws/amazon-ecs-agent/pull/5170)
