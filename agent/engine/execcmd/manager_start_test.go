@@ -33,8 +33,8 @@ import (
 	apicontainerstatus "github.com/aws/amazon-ecs-agent/ecs-agent/api/container/status"
 	errors2 "github.com/aws/amazon-ecs-agent/ecs-agent/api/errors"
 
-	"github.com/docker/docker/api/types"
 	"github.com/golang/mock/gomock"
+	mobyclient "github.com/moby/moby/client"
 	"github.com/stretchr/testify/assert"
 )
 
@@ -66,12 +66,12 @@ func TestStartAgent(t *testing.T) {
 		execEnabled                bool
 		containers                 []*apicontainer.Container
 		expectCreateContainerExec  bool
-		createContainerExecRes     *types.IDResponse
+		createContainerExecRes     *mobyclient.ExecCreateResult
 		createContainerExecErr     error
 		expectStartContainerExec   bool
 		startContainerExecErr      error
 		expectInspectContainerExec bool
-		inspectContainerExecRes    *types.ContainerExecInspect
+		inspectContainerExecRes    *mobyclient.ExecInspectResult
 		inspectContainerExecErr    error
 		expectedError              error
 		expectedStatus             apicontainerstatus.ManagedAgentStatus
@@ -97,7 +97,7 @@ func TestStartAgent(t *testing.T) {
 			execEnabled:               true,
 			containers:                testContainers,
 			expectCreateContainerExec: true,
-			createContainerExecRes: &types.IDResponse{
+			createContainerExecRes: &mobyclient.ExecCreateResult{
 				ID: testDockerExecId,
 			},
 			expectStartContainerExec: true,
@@ -111,7 +111,7 @@ func TestStartAgent(t *testing.T) {
 			execEnabled:               true,
 			containers:                testContainers,
 			expectCreateContainerExec: true,
-			createContainerExecRes: &types.IDResponse{
+			createContainerExecRes: &mobyclient.ExecCreateResult{
 				ID: testDockerExecId,
 			},
 			expectStartContainerExec:   true,
@@ -127,7 +127,7 @@ func TestStartAgent(t *testing.T) {
 			execEnabled:               true,
 			containers:                testContainers,
 			expectCreateContainerExec: true,
-			createContainerExecRes: &types.IDResponse{
+			createContainerExecRes: &mobyclient.ExecCreateResult{
 				ID: testDockerExecId,
 			},
 			expectStartContainerExec:   true,
@@ -135,9 +135,9 @@ func TestStartAgent(t *testing.T) {
 			expectInspectContainerExec: true,
 			expectedStatus:             apicontainerstatus.ManagedAgentRunning,
 			expectedStartTime:          nowTime,
-			inspectContainerExecRes: &types.ContainerExecInspect{
-				ExecID:  testDockerExecId,
-				Pid:     testPid1,
+			inspectContainerExecRes: &mobyclient.ExecInspectResult{
+				ID:      testDockerExecId,
+				PID:     testPid1,
 				Running: true,
 			},
 		},
@@ -175,10 +175,9 @@ func TestStartAgent(t *testing.T) {
 				times = 1
 			}
 			if test.expectCreateContainerExec {
-				execCfg := types.ExecConfig{
-					User:   specUser,
-					Detach: true,
-					Cmd:    []string{specTestCmd},
+				execCfg := mobyclient.ExecCreateOptions{
+					User: specUser,
+					Cmd:  []string{specTestCmd},
 				}
 				client.EXPECT().CreateContainerExec(gomock.Any(), testTask.Containers[0].RuntimeID, execCfg, dockerclient.ContainerExecCreateTimeout).
 					Return(test.createContainerExecRes, test.createContainerExecErr).
@@ -259,13 +258,12 @@ func TestIdempotentStartAgent(t *testing.T) {
 		}},
 	}
 
-	execCfg := types.ExecConfig{
-		User:   specUser,
-		Detach: true,
-		Cmd:    []string{specTestCmd},
+	execCfg := mobyclient.ExecCreateOptions{
+		User: specUser,
+		Cmd:  []string{specTestCmd},
 	}
 	client.EXPECT().CreateContainerExec(gomock.Any(), testTask.Containers[0].RuntimeID, execCfg, dockerclient.ContainerExecCreateTimeout).
-		Return(&types.IDResponse{ID: testDockerExecId}, nil).
+		Return(&mobyclient.ExecCreateResult{ID: testDockerExecId}, nil).
 		Times(1)
 
 	client.EXPECT().StartContainerExec(gomock.Any(), testDockerExecId, gomock.Any(), dockerclient.ContainerExecStartTimeout).
@@ -273,9 +271,9 @@ func TestIdempotentStartAgent(t *testing.T) {
 		Times(1)
 
 	client.EXPECT().InspectContainerExec(gomock.Any(), testDockerExecId, dockerclient.ContainerExecInspectTimeout).
-		Return(&types.ContainerExecInspect{
-			ExecID:  testDockerExecId,
-			Pid:     testPid,
+		Return(&mobyclient.ExecInspectResult{
+			ID:      testDockerExecId,
+			PID:     testPid,
 			Running: true,
 		}, nil).
 		Times(2)
@@ -346,7 +344,7 @@ func TestRestartAgentIfStopped(t *testing.T) {
 		execEnabled             bool
 		expectedRestartStatus   RestartStatus
 		execAgentState          apicontainer.ManagedAgentState
-		containerExecInspectRes *types.ContainerExecInspect
+		containerExecInspectRes *mobyclient.ExecInspectResult
 		expectedInspectErr      error
 		expectedRestartErr      error
 		expectedExecAgentStatus apicontainerstatus.ManagedAgentStatus
@@ -378,7 +376,7 @@ func TestRestartAgentIfStopped(t *testing.T) {
 			name:           "test with exec command still running",
 			execEnabled:    true,
 			execAgentState: testExecAgentState,
-			containerExecInspectRes: &types.ContainerExecInspect{
+			containerExecInspectRes: &mobyclient.ExecInspectResult{
 				Running: true,
 			},
 			expectedRestartStatus:   NotRestarted,
@@ -388,7 +386,7 @@ func TestRestartAgentIfStopped(t *testing.T) {
 			name:           "test with exec command stopped",
 			execEnabled:    true,
 			execAgentState: testExecAgentState,
-			containerExecInspectRes: &types.ContainerExecInspect{
+			containerExecInspectRes: &mobyclient.ExecInspectResult{
 				Running: false,
 			},
 			expectedRestartStatus:   Restarted,
@@ -424,7 +422,7 @@ func TestRestartAgentIfStopped(t *testing.T) {
 			// Expect calls made by Start()
 			if test.containerExecInspectRes != nil && !test.containerExecInspectRes.Running {
 				client.EXPECT().CreateContainerExec(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).
-					Return(&types.IDResponse{ID: testNewDockerExecID}, nil).
+					Return(&mobyclient.ExecCreateResult{ID: testNewDockerExecID}, nil).
 					Times(1)
 
 				client.EXPECT().StartContainerExec(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).
@@ -432,9 +430,9 @@ func TestRestartAgentIfStopped(t *testing.T) {
 					Times(1)
 
 				client.EXPECT().InspectContainerExec(gomock.Any(), gomock.Any(), gomock.Any()).
-					Return(&types.ContainerExecInspect{
-						ExecID:  testNewDockerExecID,
-						Pid:     testNewPID,
+					Return(&mobyclient.ExecInspectResult{
+						ID:      testNewDockerExecID,
+						PID:     testNewPID,
 						Running: true,
 					}, nil).
 					Times(1)

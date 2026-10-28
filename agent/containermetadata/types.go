@@ -21,7 +21,7 @@ import (
 
 	apicontainer "github.com/aws/amazon-ecs-agent/agent/api/container"
 	tmdsresponse "github.com/aws/amazon-ecs-agent/ecs-agent/tmds/handlers/response"
-	"github.com/docker/docker/api/types"
+	dockercontainer "github.com/moby/moby/api/types/container"
 )
 
 const (
@@ -80,7 +80,7 @@ func (status *MetadataStatus) UnmarshalText(text []byte) error {
 // The problems described above are indications dockerapi.DockerClient needs to be moved
 // outside the engine package
 type DockerMetadataClient interface {
-	InspectContainer(context.Context, string, time.Duration) (*types.ContainerJSON, error)
+	InspectContainer(context.Context, string, time.Duration) (*dockercontainer.InspectResponse, error)
 }
 
 // NetworkMetadata keeps track of the data we parse from the Network Settings

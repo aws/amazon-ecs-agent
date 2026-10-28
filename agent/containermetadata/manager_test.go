@@ -28,8 +28,9 @@ import (
 	apitask "github.com/aws/amazon-ecs-agent/agent/api/task"
 	mock_containermetadata "github.com/aws/amazon-ecs-agent/agent/containermetadata/mocks"
 	"github.com/aws/amazon-ecs-agent/agent/dockerclient"
-	"github.com/docker/docker/api/types"
 	"github.com/golang/mock/gomock"
+	dockercontainer "github.com/moby/moby/api/types/container"
+	"github.com/moby/moby/api/types/system"
 	"github.com/stretchr/testify/assert"
 )
 
@@ -113,7 +114,7 @@ func TestCreateMalformedFilepath(t *testing.T) {
 	mockTaskARN := invalidTaskARN
 	mockTask := &apitask.Task{Arn: mockTaskARN}
 	mockContainerName := containerName
-	mockDockerSecurityOptions := types.Info{SecurityOptions: make([]string, 0)}.SecurityOptions
+	mockDockerSecurityOptions := system.Info{SecurityOptions: make([]string, 0)}.SecurityOptions
 
 	newManager := &metadataManager{}
 	err := newManager.Create(nil, nil, mockTask, mockContainerName, mockDockerSecurityOptions)
@@ -128,7 +129,7 @@ func TestCreateMkdirAllFail(t *testing.T) {
 	mockTaskARN := validTaskARN
 	mockTask := &apitask.Task{Arn: mockTaskARN}
 	mockContainerName := containerName
-	mockDockerSecurityOptions := types.Info{SecurityOptions: make([]string, 0)}.SecurityOptions
+	mockDockerSecurityOptions := system.Info{SecurityOptions: make([]string, 0)}.SecurityOptions
 
 	mkdirAll = func(path string, perm os.FileMode) error {
 		return errors.New("err")
@@ -173,13 +174,11 @@ func TestUpdateNotRunningFail(t *testing.T) {
 	mockTaskARN := validTaskARN
 	mockTask := &apitask.Task{Arn: mockTaskARN}
 	mockContainerName := containerName
-	mockState := types.ContainerState{
+	mockState := dockercontainer.State{
 		Running: false,
 	}
-	mockContainer := types.ContainerJSON{
-		ContainerJSONBase: &types.ContainerJSONBase{
-			State: &mockState,
-		},
+	mockContainer := dockercontainer.InspectResponse{
+		State: &mockState,
 	}
 
 	newManager := &metadataManager{

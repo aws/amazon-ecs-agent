@@ -23,8 +23,8 @@ import (
 	"github.com/aws/amazon-ecs-agent/agent/dockerclient"
 	"github.com/aws/amazon-ecs-agent/agent/dockerclient/sdkclient"
 	mock_sdkclient "github.com/aws/amazon-ecs-agent/agent/dockerclient/sdkclient/mocks"
-	docker "github.com/docker/docker/api/types"
 	"github.com/golang/mock/gomock"
+	mobyclient "github.com/moby/moby/client"
 	"github.com/stretchr/testify/assert"
 )
 
@@ -39,8 +39,8 @@ func TestGetClientMinimumVersion(t *testing.T) {
 		if version == string(dockerclient.MinDockerAPIVersion) {
 			mockClient = expectedClient
 		}
-		mockClient.EXPECT().ServerVersion(gomock.Any()).Return(docker.Version{}, nil).AnyTimes()
-		mockClient.EXPECT().Ping(gomock.Any()).AnyTimes()
+		mockClient.EXPECT().ServerVersion(gomock.Any(), gomock.Any()).Return(mobyclient.ServerVersionResult{}, nil).AnyTimes()
+		mockClient.EXPECT().Ping(gomock.Any(), gomock.Any()).AnyTimes()
 		return mockClient, nil
 	}
 

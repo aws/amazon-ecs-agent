@@ -35,8 +35,8 @@ import (
 	apicontainerstatus "github.com/aws/amazon-ecs-agent/ecs-agent/api/container/status"
 	apitaskstatus "github.com/aws/amazon-ecs-agent/ecs-agent/api/task/status"
 
-	"github.com/docker/docker/api/types"
-	"github.com/docker/docker/client"
+	cerrdefs "github.com/containerd/errdefs"
+	"github.com/moby/moby/client"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -149,11 +149,11 @@ func TestIntegImageCleanupHappyCase(t *testing.T) {
 
 	// Verify top 2 LRU images are removed from docker
 	_, err = dockerClient.InspectImage(imageState1ImageID)
-	if !client.IsErrNotFound(err) {
+	if !cerrdefs.IsNotFound(err) {
 		t.Fatalf("Image was not removed successfully")
 	}
 	_, err = dockerClient.InspectImage(imageState2ImageID)
-	if !client.IsErrNotFound(err) {
+	if !cerrdefs.IsNotFound(err) {
 		t.Fatalf("Image was not removed successfully")
 	}
 
@@ -263,11 +263,11 @@ func TestIntegImageCleanupThreshold(t *testing.T) {
 
 	// Verify Image1 & Image3 are removed from docker
 	_, err = dockerClient.InspectImage(imageState1ImageID)
-	if !client.IsErrNotFound(err) {
+	if !cerrdefs.IsNotFound(err) {
 		t.Fatalf("Image was not removed successfully")
 	}
 	_, err = dockerClient.InspectImage(imageState3ImageID)
-	if !client.IsErrNotFound(err) {
+	if !cerrdefs.IsNotFound(err) {
 		t.Fatalf("Image was not removed successfully")
 	}
 
@@ -302,15 +302,15 @@ func TestImageWithSameNameAndDifferentID(t *testing.T) {
 	stateChangeEvents := taskEngine.StateChangeEvents()
 
 	// Pull the images needed for the test
-	if _, err = dockerClient.InspectImage(test3Image1Name); client.IsErrNotFound(err) {
+	if _, err = dockerClient.InspectImage(test3Image1Name); cerrdefs.IsNotFound(err) {
 		metadata := dockerClient.PullImage(ctx, test3Image1Name, nil, dockerclient.LoadImageTimeout)
 		assert.NoError(t, metadata.Error, "Failed to pull image %s", test3Image1Name)
 	}
-	if _, err = dockerClient.InspectImage(test3Image2Name); client.IsErrNotFound(err) {
+	if _, err = dockerClient.InspectImage(test3Image2Name); cerrdefs.IsNotFound(err) {
 		metadata := dockerClient.PullImage(ctx, test3Image2Name, nil, dockerclient.LoadImageTimeout)
 		assert.NoError(t, metadata.Error, "Failed to pull image %s", test3Image2Name)
 	}
-	if _, err = dockerClient.InspectImage(test3Image3Name); client.IsErrNotFound(err) {
+	if _, err = dockerClient.InspectImage(test3Image3Name); cerrdefs.IsNotFound(err) {
 		metadata := dockerClient.PullImage(ctx, test3Image3Name, nil, dockerclient.LoadImageTimeout)
 		assert.NoError(t, metadata.Error, "Failed to pull image %s", test3Image3Name)
 	}
@@ -409,11 +409,11 @@ func TestImageWithSameNameAndDifferentID(t *testing.T) {
 
 	// Verify images are removed by docker
 	_, err = dockerClient.InspectImage(imageID1)
-	assert.True(t, client.IsErrNotFound(err), "Image was not removed successfully, image: %s", imageID1)
+	assert.True(t, cerrdefs.IsNotFound(err), "Image was not removed successfully, image: %s", imageID1)
 	_, err = dockerClient.InspectImage(imageID2)
-	assert.True(t, client.IsErrNotFound(err), "Image was not removed successfully, image: %s", imageID2)
+	assert.True(t, cerrdefs.IsNotFound(err), "Image was not removed successfully, image: %s", imageID2)
 	_, err = dockerClient.InspectImage(imageID3)
-	assert.True(t, client.IsErrNotFound(err), "Image was not removed successfully, image: %s", imageID3)
+	assert.True(t, cerrdefs.IsNotFound(err), "Image was not removed successfully, image: %s", imageID3)
 }
 
 // TestImageWithSameIDAndDifferentNames tests images can be correctly removed if
@@ -448,7 +448,7 @@ func TestImageWithSameIDAndDifferentNames(t *testing.T) {
 	task3.Containers[0].Image = "testimagewithsameidanddifferentnames-3:latest"
 
 	// Pull the images needed for the test
-	if _, err = dockerClient.InspectImage(test4Image1Name); client.IsErrNotFound(err) {
+	if _, err = dockerClient.InspectImage(test4Image1Name); cerrdefs.IsNotFound(err) {
 		metadata := dockerClient.PullImage(ctx, test4Image1Name, nil, DefaultTestConfigIntegTest().ImagePullTimeout)
 		assert.NoError(t, metadata.Error, "Failed to pull image %s", test4Image1Name)
 	}
@@ -468,7 +468,7 @@ func TestImageWithSameIDAndDifferentNames(t *testing.T) {
 	imageID1 := imageState1.Image.ImageID
 
 	// copy the image for task2 to run with same image but different name
-	err = sdkDockerClient.ImageTag(ctx, task1.Containers[0].Image, task2.Containers[0].Image)
+	_, err = sdkDockerClient.ImageTag(ctx, client.ImageTagOptions{Source: task1.Containers[0].Image, Target: task2.Containers[0].Image})
 	require.NoError(t, err, "Trying to copy image failed")
 
 	// Start and wait for task2 to be running
@@ -483,7 +483,7 @@ func TestImageWithSameIDAndDifferentNames(t *testing.T) {
 	require.Equal(t, imageID2, imageID1, "The image id in task2 should be same as in task1")
 
 	// make task3 use the same image name but different image id
-	err = sdkDockerClient.ImageTag(ctx, task1.Containers[0].Image, task3.Containers[0].Image)
+	_, err = sdkDockerClient.ImageTag(ctx, client.ImageTagOptions{Source: task1.Containers[0].Image, Target: task3.Containers[0].Image})
 	require.NoError(t, err, "Trying to copy image failed")
 
 	// Start and wait for task3 to be running
@@ -530,21 +530,21 @@ func TestImageWithSameIDAndDifferentNames(t *testing.T) {
 
 	// Verify images are removed by docker
 	_, err = dockerClient.InspectImage(imageID1)
-	assert.True(t, client.IsErrNotFound(err), "Image was not removed successfully")
+	assert.True(t, cerrdefs.IsNotFound(err), "Image was not removed successfully")
 }
 
 // renameImage retag the image with the target tag and delete the source tag
-func renameImage(source string, target string, client *client.Client) error {
+func renameImage(source string, target string, dockerClient *client.Client) error {
 	ctx, cancel := context.WithCancel(context.TODO())
 	defer cancel()
 
-	err := client.ImageTag(ctx, source, target)
+	_, err := dockerClient.ImageTag(ctx, client.ImageTagOptions{Source: source, Target: target})
 	if err != nil {
 		return fmt.Errorf("Trying to tag image failed, err: %v", err)
 	}
 
 	// delete the source tag
-	_, err = client.ImageRemove(ctx, source, types.ImageRemoveOptions{})
+	_, err = dockerClient.ImageRemove(ctx, source, client.ImageRemoveOptions{})
 	if err != nil {
 		return fmt.Errorf("Failed to remove the source tag of the image: %s", source)
 	}
