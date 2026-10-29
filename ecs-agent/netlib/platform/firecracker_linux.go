@@ -38,7 +38,12 @@ type firecraker struct {
 
 func (f *firecraker) BuildTaskNetworkConfiguration(
 	taskID string,
-	taskPayload *ecsacs.Task) (*tasknetworkconfig.TaskNetworkConfig, error) {
+	taskPayload *ecsacs.Task,
+	existing ...*tasknetworkconfig.NetworkNamespace,
+) (*tasknetworkconfig.TaskNetworkConfig, error) {
+	if len(existing) != 0 {
+		return nil, errors.New("existing network namespaces are not supported on this platform")
+	}
 
 	// On Firecracker, there is always only one task network namespace on the bare metal host.
 	// Inside the microVM, a dedicated netns will also be created to separate primary interface
@@ -50,7 +55,7 @@ func (f *firecraker) BuildTaskNetworkConfiguration(
 		return nil, err
 	}
 
-	return f.common.buildTaskNetworkConfiguration(taskID, taskPayload, true, i2n)
+	return f.common.buildTaskNetworkConfiguration(taskID, taskPayload, true, i2n, nil)
 }
 
 func (f *firecraker) CreateDNSConfig(taskID string, netNS *tasknetworkconfig.NetworkNamespace) error {
