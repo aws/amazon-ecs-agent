@@ -101,7 +101,7 @@ func (authProvider *ecrAuthProvider) GetAuthconfig(image string,
 	}
 
 	// Try to get the auth config from cache
-	auth := authProvider.getAuthConfigFromCache(key)
+	auth := authProvider.getAuthConfigFromCache(key, image)
 	if auth != nil {
 		return *auth, nil
 	}
@@ -111,7 +111,7 @@ func (authProvider *ecrAuthProvider) GetAuthconfig(image string,
 }
 
 // getAuthconfigFromCache retrieves the token from cache
-func (authProvider *ecrAuthProvider) getAuthConfigFromCache(key cacheKey) *registry.AuthConfig {
+func (authProvider *ecrAuthProvider) getAuthConfigFromCache(key cacheKey, image string) *registry.AuthConfig {
 	token, ok := authProvider.tokenCache.Get(key.String())
 	if !ok {
 		return nil
@@ -124,7 +124,7 @@ func (authProvider *ecrAuthProvider) getAuthConfigFromCache(key cacheKey) *regis
 	}
 
 	if authProvider.IsTokenValid(cachedToken) {
-		auth, err := extractToken(cachedToken)
+		auth, err := extractToken(cachedToken, image)
 		if err != nil {
 			log.Errorf("Extract docker auth from cache failed, err: %v", err)
 			// Remove invalid token from cache
@@ -166,23 +166,61 @@ func (authProvider *ecrAuthProvider) getAuthConfigFromECR(image string, key cach
 	if ecrAuthData.AuthorizationToken != nil {
 		// Cache the new token
 		authProvider.tokenCache.Set(key.String(), ecrAuthData)
-		return extractToken(ecrAuthData)
+		return extractToken(ecrAuthData, image)
 	}
 
 	return registry.AuthConfig{}, fmt.Errorf("ecr auth: AuthorizationData is nil for %s", image)
 }
 
-func extractToken(authData *types.AuthorizationData) (registry.AuthConfig, error) {
+func extractToken(authData *types.AuthorizationData, image string) (registry.AuthConfig, error) {
 	decodedToken, err := base64.StdEncoding.DecodeString(aws.ToString(authData.AuthorizationToken))
 	if err != nil {
 		return registry.AuthConfig{}, err
 	}
 	parts := strings.SplitN(string(decodedToken), ":", 2)
+
+	// Default the ServerAddress to the ProxyEndpoint returned by ECR's
+	// GetAuthorizationToken (the regular endpoint, e.g.
+	// <account>.dkr.ecr.<region>.amazonaws.com).
+	//
+	// However, the image may reference a different-but-equivalent ECR endpoint,
+	// most notably the DualStack endpoint (<account>.dkr-ecr.<region>.on.aws).
+	// The containerd image store (default in Docker 29.x) matches registry
+	// credentials by exact host and does not normalize these ECR endpoints as
+	// the legacy graph-driver code did. If the credential's ServerAddress host
+	// does not exactly match the image's registry host, the pull fails with
+	// "no basic auth credentials".
+	//
+	// To support both the regular and DualStack ECR endpoints, set the
+	// ServerAddress to the image's actual registry host when it can be
+	// determined from the image reference.
+	serverAddress := aws.ToString(authData.ProxyEndpoint)
+	if registryHost := extractRegistryHost(image); registryHost != "" {
+		serverAddress = proxyEndpointScheme + registryHost
+	}
+
 	return registry.AuthConfig{
 		Username:      parts[0],
 		Password:      parts[1],
-		ServerAddress: aws.ToString(authData.ProxyEndpoint),
+		ServerAddress: serverAddress,
 	}, nil
+}
+
+// extractRegistryHost returns the registry host portion of an image reference.
+// e.g. "123456789012.dkr-ecr.us-west-2.on.aws/repo:tag" -> "123456789012.dkr-ecr.us-west-2.on.aws"
+// Returns an empty string if a host cannot be determined.
+func extractRegistryHost(image string) string {
+	if image == "" {
+		return ""
+	}
+	host := strings.SplitN(image, "/", 2)[0]
+	// A registry host must contain a "." or ":" (or be "localhost") to be a
+	// valid registry reference; otherwise the first path segment is a repo
+	// name on the default registry, not a host.
+	if strings.ContainsAny(host, ".:") {
+		return host
+	}
+	return ""
 }
 
 // IsTokenValid checks the token is still within it's expiration window. We early expire to allow
