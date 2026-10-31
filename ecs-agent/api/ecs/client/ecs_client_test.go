@@ -23,6 +23,7 @@ import (
 	"strings"
 	"sync"
 	"testing"
+	"testing/synctest"
 	"time"
 
 	"github.com/aws/aws-sdk-go-v2/aws"
@@ -624,13 +625,13 @@ func TestRegisterContainerInstance(t *testing.T) {
 
 // TestRegisterContainerInstanceWithRetry tests the RegisterContainerInstanceWithRetry wrapper.
 // The wrapper implements registerContainerInstance with an additional layer of retry with exponential backoff.
-// RCI call has 4 failure types: ServerException, ClientException, InvalidParameterException, ThrottlingException.
+// RCI failure types include: ServerException, ClientException, InvalidParameterException, ThrottlingException.
 // ServerException and ThrottlingException are considered transient, and should be retried upon receiving such failures.
-// We have 2 subtests, one for happy path and one for unhappy path.
-// For both tests, we will make 3 RCI calls, and the first 2 will fail with ThrottlingException and ServerException, respectively.
+// We have 4 subtests, one for happy path and three for unhappy paths.
+// For all tests, we will make 3 RCI calls, and the first 2 will fail with LimitExceededException and ServerException, respectively.
 // In the happy test, the last RCI call will succeed, and we will examine the expected attributes are present.
-// In the unhappy test, the last RCI call will fail with ClientException, and an appropriate error will be returned.
-// For both test cases, the last RCI call should effectively terminate the retry loop.
+// In the unhappy tests, the last RCI call will fail with ClientException, InvalidParameterException or AccessDeniedException, and an appropriate error will be returned.
+// For all test cases, the last RCI call should effectively terminate the retry loop.
 func TestRegisterContainerInstanceWithRetryNonTerminalError(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
@@ -693,6 +694,14 @@ func TestRegisterContainerInstanceWithRetryNonTerminalError(t *testing.T) {
 			finalRCICallResponse: nil,
 			finalRCICallError:    &types.ClientException{},
 		},
+		{
+			name:              "Invalid parameter",
+			finalRCICallError: &types.InvalidParameterException{},
+		},
+		{
+			name:              "Access denied",
+			finalRCICallError: &types.AccessDeniedException{},
+		},
 	}
 
 	for _, tc := range testCases {
@@ -724,6 +733,88 @@ func TestRegisterContainerInstanceWithRetryNonTerminalError(t *testing.T) {
 			assert.Equal(t, tc.expectedAZ, availabilityzone)
 		})
 	}
+}
+
+func TestRegisterContainerInstanceWithRetryTimeout(t *testing.T) {
+	// Avoid deadline-aligned retries so call counts stay deterministic.
+	const retryDelay = time.Minute + time.Second
+	const expectedCalls = int(rciMaxRetryTimeAllowed/retryDelay) + 1
+	for _, registration := range []struct {
+		name string
+		arn  string
+	}{
+		{name: "initial"},
+		{name: "reregister", arn: containerInstanceARN},
+	} {
+		for _, registrationErr := range []error{
+			mock_client.NewThrottlingException(),
+			&types.ServerException{},
+			&types.LimitExceededException{},
+			mock_client.NewQuotaExceededError(),
+			fmt.Errorf("wrapped throttling: %w", mock_client.NewThrottlingException()),
+		} {
+			t.Run(registration.name+"/"+registrationErr.Error(), func(t *testing.T) {
+				synctest.Test(t, func(t *testing.T) {
+					ctrl := gomock.NewController(t)
+					defer ctrl.Finish()
+					mockEC2Metadata := mock_ec2.NewMockEC2MetadataClient(ctrl)
+					mockEC2Metadata.EXPECT().GetDynamicData(ec2.InstanceIdentityDocumentResource).Return(iid, nil).AnyTimes()
+					mockEC2Metadata.EXPECT().GetDynamicData(ec2.InstanceIdentityDocumentSignatureResource).Return(iidSignature, nil).AnyTimes()
+					tester := setup(t, ctrl, mockEC2Metadata, nil, WithAvailableMemoryProvider(func() int32 { return 1024 }))
+					tester.client.(*ecsClient).rciRetryBackoff = retry.NewExponentialBackoff(retryDelay, retryDelay, 0, 1)
+					gomock.InOrder(
+						tester.mockStandardClient.EXPECT().RegisterContainerInstance(gomock.Any(), gomock.Any()).
+							Return(nil, mock_client.NewThrottlingException()),
+						tester.mockStandardClient.EXPECT().RegisterContainerInstance(gomock.Any(), gomock.Any()).
+							Return(nil, registrationErr).Times(expectedCalls-1),
+					)
+
+					started := time.Now()
+					arn, zone, err := tester.client.RegisterContainerInstance(registration.arn, nil, nil, registrationToken, nil, "")
+
+					require.ErrorIs(t, err, registrationErr)
+					assert.Equal(t, registrationErr, err)
+					assert.Empty(t, arn)
+					assert.Empty(t, zone)
+					assert.GreaterOrEqual(t, time.Since(started), rciMaxRetryTimeAllowed)
+					assert.LessOrEqual(t, time.Since(started), rciMaxRetryTimeAllowed+retryDelay)
+				})
+			})
+		}
+	}
+}
+
+func TestRegisterContainerInstanceWithRetrySuccessAfterDeadline(t *testing.T) {
+	synctest.Test(t, func(t *testing.T) {
+		ctrl := gomock.NewController(t)
+		defer ctrl.Finish()
+		mockEC2Metadata := mock_ec2.NewMockEC2MetadataClient(ctrl)
+		mockEC2Metadata.EXPECT().GetDynamicData(ec2.InstanceIdentityDocumentResource).Return(iid, nil).Times(2)
+		mockEC2Metadata.EXPECT().GetDynamicData(ec2.InstanceIdentityDocumentSignatureResource).Return(iidSignature, nil).Times(2)
+		tester := setup(t, ctrl, mockEC2Metadata, nil, WithAvailableMemoryProvider(func() int32 { return 1024 }))
+		gomock.InOrder(
+			tester.mockStandardClient.EXPECT().RegisterContainerInstance(gomock.Any(), gomock.Any()).
+				Return(nil, mock_client.NewThrottlingException()),
+			tester.mockStandardClient.EXPECT().RegisterContainerInstance(gomock.Any(), gomock.Any()).
+				DoAndReturn(func(_ context.Context, request *ecsservice.RegisterContainerInstanceInput, _ ...func(*ecsservice.Options)) (*ecsservice.RegisterContainerInstanceOutput, error) {
+					time.Sleep(rciMaxRetryTimeAllowed)
+					return &ecsservice.RegisterContainerInstanceOutput{
+						ContainerInstance: &types.ContainerInstance{
+							ContainerInstanceArn: aws.String(containerInstanceARN),
+							Attributes: append(request.Attributes, types.Attribute{
+								Name: aws.String(azAttrName), Value: aws.String(availabilityZone),
+							}),
+						},
+					}, nil
+				}),
+		)
+
+		arn, zone, err := tester.client.RegisterContainerInstance("", nil, nil, registrationToken, nil, "")
+
+		require.NoError(t, err)
+		assert.Equal(t, containerInstanceARN, arn)
+		assert.Equal(t, availabilityZone, zone)
+	})
 }
 
 func TestReRegisterContainerInstance(t *testing.T) {
