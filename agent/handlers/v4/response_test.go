@@ -59,6 +59,7 @@ const (
 	availabilityZoneID       = "usw2-az2"
 	vpcID                    = "test-vpc-id"
 	containerInstanceArn     = "containerInstance-test"
+	ec2InstanceID            = "i-0123456789abcdef0"
 	testEndpointID           = "test-endpoint-ID"
 )
 
@@ -140,7 +141,7 @@ func TestNewTaskContainerResponses(t *testing.T) {
 	state.EXPECT().TaskByArn(taskARN).Return(task, true)
 
 	taskResponse, err := NewTaskResponse(testEndpointID, taskARN, state, ecsClient, cluster,
-		availabilityZone, availabilityZoneID, vpcID, containerInstanceArn, task.ServiceName, false)
+		availabilityZone, availabilityZoneID, vpcID, containerInstanceArn, ec2InstanceID, task.ServiceName, false)
 	require.NoError(t, err)
 	_, err = json.Marshal(taskResponse)
 	require.NoError(t, err)
@@ -150,6 +151,8 @@ func TestNewTaskContainerResponses(t *testing.T) {
 	assert.Equal(t, ipv6SubnetCIDRBlock, taskResponse.Containers[0].Networks[0].IPv6SubnetCIDRBlock)
 	assert.Equal(t, subnetGatewayIPV4Address, taskResponse.Containers[0].Networks[0].SubnetGatewayIPV4Address)
 	assert.Equal(t, serviceName, taskResponse.ServiceName)
+	assert.Equal(t, containerInstanceArn, taskResponse.ContainerInstanceARN)
+	assert.Equal(t, ec2InstanceID, taskResponse.EC2InstanceID)
 
 	state.EXPECT().ContainerByID(containerID).Return(dockerContainer, true).AnyTimes()
 	state.EXPECT().TaskByID(containerID).Return(task, true).Times(2)
