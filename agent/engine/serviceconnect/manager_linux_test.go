@@ -18,17 +18,19 @@ package serviceconnect
 
 import (
 	"io/fs"
+	"net/netip"
 	"os"
 	"testing"
+
+	dockercontainer "github.com/moby/moby/api/types/container"
+	"github.com/moby/moby/api/types/network"
+	"github.com/stretchr/testify/assert"
 
 	apicontainer "github.com/aws/amazon-ecs-agent/agent/api/container"
 	"github.com/aws/amazon-ecs-agent/agent/api/serviceconnect"
 	apitask "github.com/aws/amazon-ecs-agent/agent/api/task"
 	"github.com/aws/amazon-ecs-agent/agent/dockerclient/dockerapi"
 	"github.com/aws/amazon-ecs-agent/ecs-agent/ipcompatibility"
-	dockertypes "github.com/docker/docker/api/types"
-	dockercontainer "github.com/docker/docker/api/types/container"
-	"github.com/stretchr/testify/assert"
 )
 
 func TestDNSConfigToDockerExtraHostsFormat(t *testing.T) {
@@ -325,9 +327,9 @@ func TestAugmentTaskContainerError(t *testing.T) {
 				{
 					Type: apicontainer.ContainerCNIPause,
 					Name: "~internal~ecs~pause-web",
-					NetworkSettingsUnsafe: &dockertypes.NetworkSettings{
-						DefaultNetworkSettings: dockertypes.DefaultNetworkSettings{
-							IPAddress: "1.2.3.4",
+					NetworkSettingsUnsafe: &dockercontainer.NetworkSettings{
+						Networks: map[string]*network.EndpointSettings{
+							"bridge": {IPAddress: netip.MustParseAddr("1.2.3.4")},
 						},
 					},
 				},
@@ -338,9 +340,9 @@ func TestAugmentTaskContainerError(t *testing.T) {
 				{
 					Type: apicontainer.ContainerCNIPause,
 					Name: "~internal~ecs~pause-sc-container",
-					NetworkSettingsUnsafe: &dockertypes.NetworkSettings{
-						DefaultNetworkSettings: dockertypes.DefaultNetworkSettings{
-							IPAddress: "1.2.3.5",
+					NetworkSettingsUnsafe: &dockercontainer.NetworkSettings{
+						Networks: map[string]*network.EndpointSettings{
+							"bridge": {IPAddress: netip.MustParseAddr("1.2.3.5")},
 						},
 					},
 				},

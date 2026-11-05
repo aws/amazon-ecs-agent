@@ -17,7 +17,7 @@ import (
 	"context"
 	"sync"
 
-	"github.com/docker/docker/api/types/events"
+	"github.com/moby/moby/api/types/events"
 )
 
 const (
@@ -70,13 +70,13 @@ func (buffer *InfiniteBuffer) StartListening(ctx context.Context, eventChan <-ch
 
 // CopyEvents copies the event into the buffer
 func (buffer *InfiniteBuffer) CopyEvents(event *events.Message) {
-	if event.ID == "" || event.Type != containerTypeEvent {
+	if event.Actor.ID == "" || event.Type != containerTypeEvent {
 		return
 	}
 
 	// Only add the events agent is interested
 	for _, containerEvent := range containerEvents {
-		if event.Status == containerEvent {
+		if string(event.Action) == containerEvent {
 			buffer.lock.Lock()
 			defer buffer.lock.Unlock()
 

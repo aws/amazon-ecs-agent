@@ -21,6 +21,8 @@ import (
 	"fmt"
 	"testing"
 
+	"github.com/golang/mock/gomock"
+
 	apicontainer "github.com/aws/amazon-ecs-agent/agent/api/container"
 	"github.com/aws/amazon-ecs-agent/agent/config"
 	"github.com/aws/amazon-ecs-agent/agent/ecscni"
@@ -33,12 +35,12 @@ import (
 	apitaskstatus "github.com/aws/amazon-ecs-agent/ecs-agent/api/task/status"
 	ni "github.com/aws/amazon-ecs-agent/ecs-agent/netlib/model/networkinterface"
 	eautils "github.com/aws/amazon-ecs-agent/ecs-agent/utils"
-	"github.com/golang/mock/gomock"
 
-	"github.com/aws/amazon-ecs-agent/agent/dockerclient"
-	dockercontainer "github.com/docker/docker/api/types/container"
+	dockercontainer "github.com/moby/moby/api/types/container"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+
+	"github.com/aws/amazon-ecs-agent/agent/dockerclient"
 
 	mock_asm_factory "github.com/aws/amazon-ecs-agent/agent/asm/factory/mocks"
 	mock_fsx_factory "github.com/aws/amazon-ecs-agent/agent/fsx/factory/mocks"

@@ -14,10 +14,18 @@
 package mobypkgwrapper
 
 import (
-	mobyplugins "github.com/docker/docker/pkg/plugins"
+	"io/fs"
+	"os"
+	"path/filepath"
+	"strings"
+
+	"github.com/pkg/errors"
 )
 
-// Plugins wraps moby/pkg/plugins methods for testing
+// defaultSocketsPath is where Docker looks for plugin unix sockets.
+const defaultSocketsPath = "/run/docker/plugins"
+
+// Plugins discovers Docker plugins installed on the host.
 type Plugins interface {
 	Scan() ([]string, error)
 }
@@ -30,8 +38,59 @@ func NewPlugins() Plugins {
 	return &plugins{}
 }
 
+// Scan returns the names of all plugins registered through the Docker plugin
+// socket directory or the plugin spec directories. It mirrors the discovery
+// performed by the Docker daemon's local plugin registry. The agent runs as
+// root against the host daemon, so rootless-daemon spec paths are not
+// considered.
 func (*plugins) Scan() ([]string, error) {
-	// Delegate the call to the mobyplugins package
-	localRegistry := mobyplugins.NewLocalRegistry()
-	return localRegistry.Scan()
+	var names []string
+	dirEntries, err := os.ReadDir(defaultSocketsPath)
+	if err != nil && !os.IsNotExist(err) {
+		return nil, errors.Wrap(err, "error reading dir entries")
+	}
+
+	for _, entry := range dirEntries {
+		if entry.IsDir() {
+			fi, err := os.Stat(filepath.Join(defaultSocketsPath, entry.Name(), entry.Name()+".sock"))
+			if err != nil {
+				continue
+			}
+			entry = fs.FileInfoToDirEntry(fi)
+		}
+
+		if entry.Type()&os.ModeSocket != 0 {
+			names = append(names, strings.TrimSuffix(filepath.Base(entry.Name()), filepath.Ext(entry.Name())))
+		}
+	}
+
+	for _, p := range specsPaths() {
+		dirEntries, err = os.ReadDir(p)
+		if err != nil {
+			if os.IsNotExist(err) {
+				continue
+			}
+			return nil, errors.Wrap(err, "error reading dir entries")
+		}
+		for _, entry := range dirEntries {
+			if entry.IsDir() {
+				infos, err := os.ReadDir(filepath.Join(p, entry.Name()))
+				if err != nil {
+					continue
+				}
+				for _, info := range infos {
+					if strings.TrimSuffix(info.Name(), filepath.Ext(info.Name())) == entry.Name() {
+						entry = info
+						break
+					}
+				}
+			}
+
+			switch ext := filepath.Ext(entry.Name()); ext {
+			case ".spec", ".json":
+				names = append(names, strings.TrimSuffix(entry.Name(), ext))
+			}
+		}
+	}
+	return names, nil
 }

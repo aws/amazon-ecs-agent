@@ -16,8 +16,9 @@ package stats
 import (
 	"math"
 
+	dockercontainer "github.com/moby/moby/api/types/container"
+
 	eautils "github.com/aws/amazon-ecs-agent/ecs-agent/utils"
-	"github.com/docker/docker/api/types"
 )
 
 const (
@@ -31,7 +32,7 @@ func nan32() float32 {
 	return (float32)(math.NaN())
 }
 
-func getNetworkStats(dockerStats *types.StatsJSON) *NetworkStats {
+func getNetworkStats(dockerStats *dockercontainer.StatsResponse) *NetworkStats {
 	if dockerStats.Networks == nil {
 		return nil
 	}

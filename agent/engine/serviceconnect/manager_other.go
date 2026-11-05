@@ -29,8 +29,8 @@ import (
 	"github.com/aws/amazon-ecs-agent/ecs-agent/api/ecs"
 	"github.com/aws/amazon-ecs-agent/ecs-agent/ipcompatibility"
 
-	"github.com/docker/docker/api/types"
-	dockercontainer "github.com/docker/docker/api/types/container"
+	dockercontainer "github.com/moby/moby/api/types/container"
+	"github.com/moby/moby/api/types/image"
 )
 
 type manager struct {
@@ -50,7 +50,7 @@ func (m *manager) AugmentInstanceContainer(*apitask.Task, *apicontainer.Containe
 	return fmt.Errorf("ServiceConnect is only supported on linux")
 }
 
-func (*manager) LoadImage(ctx context.Context, _ *config.Config, dockerClient dockerapi.DockerClient) (*types.ImageInspect, error) {
+func (*manager) LoadImage(ctx context.Context, _ *config.Config, dockerClient dockerapi.DockerClient) (*image.InspectResponse, error) {
 	return nil, loader.NewUnsupportedPlatformError(fmt.Errorf(
 		"appnetAgent container load: unsupported platform: %s/%s",
 		runtime.GOOS, runtime.GOARCH))

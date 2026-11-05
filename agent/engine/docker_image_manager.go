@@ -31,7 +31,7 @@ import (
 	"github.com/aws/amazon-ecs-agent/ecs-agent/logger"
 	"github.com/aws/amazon-ecs-agent/ecs-agent/logger/field"
 
-	"github.com/docker/docker/api/types"
+	dockerimage "github.com/moby/moby/api/types/image"
 )
 
 const (
@@ -177,7 +177,7 @@ func (imageManager *dockerImageManager) RecordContainerReference(container *apic
 }
 
 // The helper function to fetch the RepoImageDigest when inspect the image
-func (imageManager *dockerImageManager) fetchRepoDigest(imageInspected *types.ImageInspect, container *apicontainer.Container) string {
+func (imageManager *dockerImageManager) fetchRepoDigest(imageInspected *dockerimage.InspectResponse, container *apicontainer.Container) string {
 	imageRepoDigests := imageInspected.RepoDigests
 	resultRepoDigest := ""
 	imagePrefix := strings.Split(container.Image, ":")[0]

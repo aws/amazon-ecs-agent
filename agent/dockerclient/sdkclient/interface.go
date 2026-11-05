@@ -11,56 +11,45 @@
 // express or implied. See the License for the specific language governing
 // permissions and limitations under the License.
 
-// Package sdkclient contains an interface for moby matching the
-// subset used by the agent
 package sdkclient
 
 import (
 	"context"
 	"io"
 
-	"github.com/docker/docker/api/types"
-	"github.com/docker/docker/api/types/container"
-	"github.com/docker/docker/api/types/events"
-	"github.com/docker/docker/api/types/filters"
-	"github.com/docker/docker/api/types/network"
-	"github.com/docker/docker/api/types/registry"
-	"github.com/docker/docker/api/types/volume"
-	v1 "github.com/opencontainers/image-spec/specs-go/v1"
+	"github.com/moby/moby/client"
 )
 
-// Client is an interface specifying the subset of
-// github.com/docker/docker/client that the agent uses.
+// Client is an interface specifying the subset of github.com/moby/moby/client
+// that the agent uses. Method signatures mirror *client.Client exactly so the
+// concrete client satisfies this interface without an adapter.
 type Client interface {
 	ClientVersion() string
-	ContainerCreate(ctx context.Context, config *container.Config, hostConfig *container.HostConfig,
-		networkingConfig *network.NetworkingConfig, platform *v1.Platform, containerName string) (container.CreateResponse, error)
-	ContainerInspect(ctx context.Context, containerID string) (types.ContainerJSON, error)
-	ContainerList(ctx context.Context, options types.ContainerListOptions) ([]types.Container, error)
-	ContainerTop(ctx context.Context, containerID string, arguments []string) (container.ContainerTopOKBody, error)
-	ContainerRemove(ctx context.Context, containerID string, options types.ContainerRemoveOptions) error
-	ContainerStart(ctx context.Context, containerID string, options types.ContainerStartOptions) error
-	ContainerStats(ctx context.Context, containerID string, stream bool) (types.ContainerStats, error)
-	ContainerStop(ctx context.Context, containerID string, options container.StopOptions) error
-	ContainerExecCreate(ctx context.Context, container string, config types.ExecConfig) (types.IDResponse, error)
-	ContainerExecStart(ctx context.Context, execID string, config types.ExecStartCheck) error
-	ContainerExecInspect(ctx context.Context, execID string) (types.ContainerExecInspect, error)
-	DistributionInspect(ctx context.Context, imageRef, encodedRegistryAuth string) (registry.DistributionInspect, error)
-	Events(ctx context.Context, options types.EventsOptions) (<-chan events.Message, <-chan error)
-	ImageImport(ctx context.Context, source types.ImageImportSource, ref string,
-		options types.ImageImportOptions) (io.ReadCloser, error)
-	ImageInspectWithRaw(ctx context.Context, imageID string) (types.ImageInspect, []byte, error)
-	ImageLoad(ctx context.Context, input io.Reader, quiet bool) (types.ImageLoadResponse, error)
-	ImageList(ctx context.Context, options types.ImageListOptions) ([]types.ImageSummary, error)
-	ImagePull(ctx context.Context, refStr string, options types.ImagePullOptions) (io.ReadCloser, error)
-	ImageRemove(ctx context.Context, imageID string, options types.ImageRemoveOptions) ([]types.ImageDeleteResponseItem,
-		error)
-	ImageTag(ctx context.Context, source, target string) error
-	Ping(ctx context.Context) (types.Ping, error)
-	PluginList(ctx context.Context, filter filters.Args) (types.PluginsListResponse, error)
-	VolumeCreate(ctx context.Context, options volume.CreateOptions) (volume.Volume, error)
-	VolumeInspect(ctx context.Context, volumeID string) (volume.Volume, error)
-	VolumeRemove(ctx context.Context, volumeID string, force bool) error
-	ServerVersion(ctx context.Context) (types.Version, error)
-	Info(ctx context.Context) (types.Info, error)
+	ContainerCreate(ctx context.Context, options client.ContainerCreateOptions) (client.ContainerCreateResult, error)
+	ContainerInspect(ctx context.Context, containerID string, options client.ContainerInspectOptions) (client.ContainerInspectResult, error)
+	ContainerList(ctx context.Context, options client.ContainerListOptions) (client.ContainerListResult, error)
+	ContainerTop(ctx context.Context, containerID string, options client.ContainerTopOptions) (client.ContainerTopResult, error)
+	ContainerRemove(ctx context.Context, containerID string, options client.ContainerRemoveOptions) (client.ContainerRemoveResult, error)
+	ContainerStart(ctx context.Context, containerID string, options client.ContainerStartOptions) (client.ContainerStartResult, error)
+	ContainerStats(ctx context.Context, containerID string, options client.ContainerStatsOptions) (client.ContainerStatsResult, error)
+	ContainerStop(ctx context.Context, containerID string, options client.ContainerStopOptions) (client.ContainerStopResult, error)
+	ExecCreate(ctx context.Context, containerID string, options client.ExecCreateOptions) (client.ExecCreateResult, error)
+	ExecStart(ctx context.Context, execID string, options client.ExecStartOptions) (client.ExecStartResult, error)
+	ExecInspect(ctx context.Context, execID string, options client.ExecInspectOptions) (client.ExecInspectResult, error)
+	DistributionInspect(ctx context.Context, imageRef string, options client.DistributionInspectOptions) (client.DistributionInspectResult, error)
+	Events(ctx context.Context, options client.EventsListOptions) client.EventsResult
+	ImageImport(ctx context.Context, source client.ImageImportSource, ref string, options client.ImageImportOptions) (client.ImageImportResult, error)
+	ImageInspect(ctx context.Context, imageID string, inspectOpts ...client.ImageInspectOption) (client.ImageInspectResult, error)
+	ImageLoad(ctx context.Context, input io.Reader, loadOpts ...client.ImageLoadOption) (client.ImageLoadResult, error)
+	ImageList(ctx context.Context, options client.ImageListOptions) (client.ImageListResult, error)
+	ImagePull(ctx context.Context, refStr string, options client.ImagePullOptions) (client.ImagePullResponse, error)
+	ImageRemove(ctx context.Context, imageID string, options client.ImageRemoveOptions) (client.ImageRemoveResult, error)
+	ImageTag(ctx context.Context, options client.ImageTagOptions) (client.ImageTagResult, error)
+	Ping(ctx context.Context, options client.PingOptions) (client.PingResult, error)
+	PluginList(ctx context.Context, options client.PluginListOptions) (client.PluginListResult, error)
+	VolumeCreate(ctx context.Context, options client.VolumeCreateOptions) (client.VolumeCreateResult, error)
+	VolumeInspect(ctx context.Context, volumeID string, options client.VolumeInspectOptions) (client.VolumeInspectResult, error)
+	VolumeRemove(ctx context.Context, volumeID string, options client.VolumeRemoveOptions) (client.VolumeRemoveResult, error)
+	ServerVersion(ctx context.Context, options client.ServerVersionOptions) (client.ServerVersionResult, error)
+	Info(ctx context.Context, options client.InfoOptions) (client.SystemInfoResult, error)
 }

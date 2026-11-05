@@ -16,8 +16,9 @@
 package dockerauth
 
 import (
+	"github.com/moby/moby/api/types/registry"
+
 	apicontainer "github.com/aws/amazon-ecs-agent/agent/api/container"
-	"github.com/docker/docker/api/types/registry"
 )
 
 // DockerAuthProvider is something that can give the auth information for a given docker image

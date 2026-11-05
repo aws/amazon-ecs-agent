@@ -20,9 +20,10 @@ import (
 	"encoding/json"
 	"strings"
 
+	"github.com/moby/moby/api/types/registry"
+
 	apicontainer "github.com/aws/amazon-ecs-agent/agent/api/container"
 	"github.com/aws/amazon-ecs-agent/agent/utils"
-	"github.com/docker/docker/api/types/registry"
 
 	"github.com/cihub/seelog"
 )

@@ -20,12 +20,13 @@ import (
 	"context"
 	"testing"
 
+	"github.com/golang/mock/gomock"
+	mobyclient "github.com/moby/moby/client"
+	"github.com/stretchr/testify/assert"
+
 	"github.com/aws/amazon-ecs-agent/agent/dockerclient"
 	"github.com/aws/amazon-ecs-agent/agent/dockerclient/sdkclient"
 	mock_sdkclient "github.com/aws/amazon-ecs-agent/agent/dockerclient/sdkclient/mocks"
-	docker "github.com/docker/docker/api/types"
-	"github.com/golang/mock/gomock"
-	"github.com/stretchr/testify/assert"
 )
 
 const expectedEndpoint = "expectedEndpoint"
@@ -40,8 +41,8 @@ func TestGetDefaultClientSuccess(t *testing.T) {
 		if version == string(GetDefaultVersion()) {
 			mockClient = expectedClient
 		}
-		mockClient.EXPECT().ServerVersion(gomock.Any()).Return(docker.Version{}, nil).AnyTimes()
-		mockClient.EXPECT().Ping(gomock.Any()).AnyTimes()
+		mockClient.EXPECT().ServerVersion(gomock.Any(), gomock.Any()).Return(mobyclient.ServerVersionResult{}, nil).AnyTimes()
+		mockClient.EXPECT().Ping(gomock.Any(), gomock.Any()).AnyTimes()
 
 		return mockClient, nil
 	}
@@ -67,8 +68,8 @@ func TestFindSupportedAPIVersions(t *testing.T) {
 	// Ensure that agent pings all known versions of Docker API
 	for i := 0; i < len(allVersions); i++ {
 		mockClients[string(allVersions[i])] = mock_sdkclient.NewMockClient(ctrl)
-		mockClients[string(allVersions[i])].EXPECT().ServerVersion(gomock.Any()).Return(docker.Version{}, nil).AnyTimes()
-		mockClients[string(allVersions[i])].EXPECT().Ping(gomock.Any()).AnyTimes()
+		mockClients[string(allVersions[i])].EXPECT().ServerVersion(gomock.Any(), gomock.Any()).Return(mobyclient.ServerVersionResult{}, nil).AnyTimes()
+		mockClients[string(allVersions[i])].EXPECT().Ping(gomock.Any(), gomock.Any()).AnyTimes()
 	}
 
 	// Define the function for the mock client
@@ -117,8 +118,8 @@ func TestFindSupportedAPIVersionsFromMinAPIVersions(t *testing.T) {
 	// Ensure that agent pings all known versions of Docker API
 	for i := 0; i < len(allVersions); i++ {
 		mockClients[string(allVersions[i])] = mock_sdkclient.NewMockClient(ctrl)
-		mockClients[string(allVersions[i])].EXPECT().ServerVersion(gomock.Any()).Return(docker.Version{}, nil).AnyTimes()
-		mockClients[string(allVersions[i])].EXPECT().Ping(gomock.Any()).AnyTimes()
+		mockClients[string(allVersions[i])].EXPECT().ServerVersion(gomock.Any(), gomock.Any()).Return(mobyclient.ServerVersionResult{}, nil).AnyTimes()
+		mockClients[string(allVersions[i])].EXPECT().Ping(gomock.Any(), gomock.Any()).AnyTimes()
 	}
 
 	// Define the function for the mock client
@@ -155,9 +156,9 @@ func TestFactoryChecksServerVersion(t *testing.T) {
 	for i := 0; i < len(allVersions); i++ {
 		mockClients[string(allVersions[i])] = mock_sdkclient.NewMockClient(ctrl)
 		mockClients[string(allVersions[i])].EXPECT().
-			ServerVersion(gomock.Any()).
-			Return(docker.Version{APIVersion: serverAPIVersion.String()}, nil)
-		mockClients[string(allVersions[i])].EXPECT().Ping(gomock.Any()).AnyTimes()
+			ServerVersion(gomock.Any(), gomock.Any()).
+			Return(mobyclient.ServerVersionResult{APIVersion: serverAPIVersion.String()}, nil)
+		mockClients[string(allVersions[i])].EXPECT().Ping(gomock.Any(), gomock.Any()).AnyTimes()
 	}
 
 	// Define the function for the mock client
@@ -192,8 +193,8 @@ func TestGetClientCached(t *testing.T) {
 
 	newVersionedClient = func(endpoint, version string) (sdkclient.Client, error) {
 		mockClient := mock_sdkclient.NewMockClient(ctrl)
-		mockClient.EXPECT().ServerVersion(gomock.Any()).Return(docker.Version{}, nil).AnyTimes()
-		mockClient.EXPECT().Ping(gomock.Any()).AnyTimes()
+		mockClient.EXPECT().ServerVersion(gomock.Any(), gomock.Any()).Return(mobyclient.ServerVersionResult{}, nil).AnyTimes()
+		mockClient.EXPECT().Ping(gomock.Any(), gomock.Any()).AnyTimes()
 		return mockClient, nil
 	}
 

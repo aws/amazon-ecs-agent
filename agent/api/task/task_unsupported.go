@@ -23,12 +23,13 @@ import (
 	"github.com/aws/amazon-ecs-agent/ecs-agent/logger"
 	"github.com/aws/amazon-ecs-agent/ecs-agent/logger/field"
 
+	"github.com/cihub/seelog"
+	dockercontainer "github.com/moby/moby/api/types/container"
+	"github.com/pkg/errors"
+
 	"github.com/aws/amazon-ecs-agent/agent/config"
 	"github.com/aws/amazon-ecs-agent/agent/taskresource"
 	"github.com/aws/amazon-ecs-agent/ecs-agent/credentials"
-	"github.com/cihub/seelog"
-	dockercontainer "github.com/docker/docker/api/types/container"
-	"github.com/pkg/errors"
 )
 
 const (

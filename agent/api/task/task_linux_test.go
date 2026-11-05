@@ -25,6 +25,8 @@ import (
 
 	"github.com/aws/amazon-ecs-agent/agent/api/serviceconnect"
 
+	"github.com/golang/mock/gomock"
+
 	apicontainer "github.com/aws/amazon-ecs-agent/agent/api/container"
 	"github.com/aws/amazon-ecs-agent/agent/config"
 	"github.com/aws/amazon-ecs-agent/agent/dockerclient"
@@ -41,10 +43,9 @@ import (
 	"github.com/aws/amazon-ecs-agent/ecs-agent/netlib/model/appmesh"
 	nlappmesh "github.com/aws/amazon-ecs-agent/ecs-agent/netlib/model/appmesh"
 	ni "github.com/aws/amazon-ecs-agent/ecs-agent/netlib/model/networkinterface"
-	"github.com/golang/mock/gomock"
 
 	"github.com/aws/aws-sdk-go-v2/aws"
-	dockercontainer "github.com/docker/docker/api/types/container"
+	dockercontainer "github.com/moby/moby/api/types/container"
 	specs "github.com/opencontainers/runtime-spec/specs-go"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"

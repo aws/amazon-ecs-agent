@@ -31,8 +31,8 @@ import (
 
 	"github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/aws/aws-sdk-go-v2/service/ecr/types"
-	"github.com/docker/docker/api/types/registry"
 	"github.com/golang/mock/gomock"
+	"github.com/moby/moby/api/types/registry"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )

@@ -41,8 +41,8 @@ import (
 
 	"github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/aws/aws-sdk-go-v2/aws/arn"
-	"github.com/docker/docker/api/types"
-	dockercontainer "github.com/docker/docker/api/types/container"
+	dockercontainer "github.com/moby/moby/api/types/container"
+	"github.com/moby/moby/api/types/image"
 	"github.com/pborman/uuid"
 )
 
@@ -498,7 +498,7 @@ func (agent *manager) readLoadedImageDigest(version string) string {
 // LoadImage helps load the AppNetAgent container image for the agent latest supported
 // AppNet interface version by looking for the AppNet agent tar name from supported list
 // of AppNet versions from highest to lowest version when loading AppNet image
-func (agent *manager) LoadImage(ctx context.Context, _ *config.Config, dockerClient dockerapi.DockerClient) (*types.ImageInspect, error) {
+func (agent *manager) LoadImage(ctx context.Context, _ *config.Config, dockerClient dockerapi.DockerClient) (*image.InspectResponse, error) {
 	var loadErr error
 	for _, supportedAppnetInterfaceVersion := range getSupportedAppnetInterfaceVersions() {
 		agentContainerTarballPath := fmt.Sprintf(defaultAgentContainerTarballPathFormat, supportedAppnetInterfaceVersion)

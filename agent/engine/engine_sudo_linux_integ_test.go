@@ -49,8 +49,9 @@ import (
 
 	ecstypes "github.com/aws/aws-sdk-go-v2/service/ecs/types"
 	"github.com/cihub/seelog"
-	"github.com/docker/docker/api/types"
-	sdkClient "github.com/docker/docker/client"
+	dockercontainer "github.com/moby/moby/api/types/container"
+	mobyclient "github.com/moby/moby/client"
+	sdkClient "github.com/moby/moby/client"
 	"github.com/pkg/errors"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -491,7 +492,8 @@ func verifyExecCmdAgentExpectedMounts(t *testing.T,
 	ctx context.Context,
 	client *sdkClient.Client,
 	testTaskId, containerId, containerName, testExecCmdHostVersionedBinDir, testConfigFileName, testLogConfigFileName string) {
-	inspectState, err := client.ContainerInspect(ctx, containerId)
+	inspectStateResult, err := client.ContainerInspect(ctx, containerId, sdkClient.ContainerInspectOptions{})
+	inspectState := inspectStateResult.Container
 	require.NoError(t, err)
 
 	expectedMounts := []struct {
@@ -537,7 +539,7 @@ func verifyExecCmdAgentExpectedMounts(t *testing.T,
 	}
 
 	for _, em := range expectedMounts {
-		var found *types.MountPoint
+		var found *dockercontainer.MountPoint
 		for _, m := range inspectState.Mounts {
 			if m.Source == em.source {
 				found = &m
@@ -631,7 +633,7 @@ func waitForKillProcToFinish(t *testing.T, client *sdkClient.Client, containerId
 func findContainerProcess(client *sdkClient.Client, containerId, matching string) (string, string, error) {
 	ctx, cancel := context.WithTimeout(context.Background(), time.Second*10)
 	defer cancel()
-	top, err := client.ContainerTop(ctx, containerId, nil)
+	top, err := client.ContainerTop(ctx, containerId, sdkClient.ContainerTopOptions{})
 	if err != nil {
 		return "", "", fmt.Errorf("failed to run container top: %w", err)
 	}
@@ -665,13 +667,12 @@ func findContainerProcess(client *sdkClient.Client, containerId, matching string
 func killMockExecCommandAgent(t *testing.T, client *sdkClient.Client, containerId, pid string) {
 	ctx, cancel := context.WithTimeout(context.Background(), time.Second*10)
 	defer cancel()
-	create, err := client.ContainerExecCreate(ctx, containerId, types.ExecConfig{
-		Detach: true,
-		Cmd:    []string{testExecCommandAgentKillBin, "-pid=" + pid},
+	create, err := client.ExecCreate(ctx, containerId, mobyclient.ExecCreateOptions{
+		Cmd: []string{testExecCommandAgentKillBin, "-pid=" + pid},
 	})
 	require.NoError(t, err)
 
-	err = client.ContainerExecStart(ctx, create.ID, types.ExecStartCheck{
+	_, err = client.ExecStart(ctx, create.ID, mobyclient.ExecStartOptions{
 		Detach: true,
 	})
 	require.NoError(t, err)
@@ -758,7 +759,7 @@ func TestGMSATaskFile(t *testing.T) {
 	assert.NoError(t, err)
 
 	// Kill the existing container now
-	err = client.ContainerKill(context.TODO(), cid, "SIGKILL")
+	_, err = client.ContainerKill(context.TODO(), cid, sdkClient.ContainerKillOptions{Signal: "SIGKILL"})
 	assert.NoError(t, err, "Could not kill container")
 
 	VerifyTaskIsStopped(stateChangeEvents, testTask)
@@ -851,7 +852,7 @@ func TestGMSADomainlessTaskFile(t *testing.T) {
 	assert.NoError(t, err)
 
 	// Kill the existing container now
-	err = client.ContainerKill(context.TODO(), cid, "SIGKILL")
+	_, err = client.ContainerKill(context.TODO(), cid, sdkClient.ContainerKillOptions{Signal: "SIGKILL"})
 	assert.NoError(t, err, "Could not kill container")
 
 	VerifyTaskIsStopped(stateChangeEvents, testTask)
@@ -1033,7 +1034,8 @@ func TestGMSANotRunningErr(t *testing.T) {
 }
 
 func verifyContainerBindMount(client *sdkClient.Client, id, expectedBind string) error {
-	dockerContainer, err := client.ContainerInspect(context.TODO(), id)
+	dockerContainerResult, err := client.ContainerInspect(context.TODO(), id, sdkClient.ContainerInspectOptions{})
+	dockerContainer := dockerContainerResult.Container
 	if err != nil {
 		return err
 	}
