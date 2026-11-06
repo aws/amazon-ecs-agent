@@ -36,7 +36,7 @@ import (
 
 	"github.com/cihub/seelog"
 	"github.com/containernetworking/cni/libcni"
-	dockercontainer "github.com/docker/docker/api/types/container"
+	dockercontainer "github.com/moby/moby/api/types/container"
 	"github.com/pkg/errors"
 )
 

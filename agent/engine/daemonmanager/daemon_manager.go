@@ -34,9 +34,9 @@ import (
 	md "github.com/aws/amazon-ecs-agent/ecs-agent/manageddaemon"
 
 	"github.com/aws/aws-sdk-go-v2/aws"
-	"github.com/docker/docker/api/types"
-	dockercontainer "github.com/docker/docker/api/types/container"
-	dockermount "github.com/docker/docker/api/types/mount"
+	dockercontainer "github.com/moby/moby/api/types/container"
+	"github.com/moby/moby/api/types/image"
+	dockermount "github.com/moby/moby/api/types/mount"
 	"github.com/pborman/uuid"
 )
 
@@ -46,7 +46,7 @@ type DaemonManager interface {
 	// Returns true if the Daemon image is found on this host, false otherwise.
 	// Error is returned when something goes wrong when looking for the image.
 	ImageExists() (bool, error)
-	LoadImage(ctx context.Context, dockerClient dockerapi.DockerClient) (*types.ImageInspect, error)
+	LoadImage(ctx context.Context, dockerClient dockerapi.DockerClient) (*image.InspectResponse, error)
 	IsLoaded(dockerClient dockerapi.DockerClient) (bool, error)
 }
 
@@ -199,7 +199,7 @@ func (dm *daemonManager) ImageExists() (bool, error) {
 }
 
 // LoadImage loads the daemon's latest image
-func (dm *daemonManager) LoadImage(ctx context.Context, dockerClient dockerapi.DockerClient) (*types.ImageInspect, error) {
+func (dm *daemonManager) LoadImage(ctx context.Context, dockerClient dockerapi.DockerClient) (*image.InspectResponse, error) {
 	var loadErr error
 	daemonImageToLoad := dm.managedDaemon.GetImageName()
 	daemonImageTarPath := dm.managedDaemon.GetImageTarPath()

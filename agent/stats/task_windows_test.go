@@ -28,8 +28,8 @@ import (
 	mock_resolver "github.com/aws/amazon-ecs-agent/agent/stats/resolver/mock"
 	apitaskstatus "github.com/aws/amazon-ecs-agent/ecs-agent/api/task/status"
 
-	dockerstats "github.com/docker/docker/api/types"
 	"github.com/golang/mock/gomock"
+	dockerstats "github.com/moby/moby/api/types/container"
 	"github.com/stretchr/testify/assert"
 )
 

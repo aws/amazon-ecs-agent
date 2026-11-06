@@ -20,7 +20,7 @@ import (
 	"github.com/aws/amazon-ecs-agent/agent/dockerclient"
 	"github.com/aws/amazon-ecs-agent/agent/dockerclient/sdkclient"
 	log "github.com/cihub/seelog"
-	docker "github.com/docker/docker/client"
+	mobyclient "github.com/moby/moby/client"
 	"github.com/pkg/errors"
 )
 
@@ -63,7 +63,7 @@ type factory struct {
 // newVersionedClient is a variable such that the implementation can be
 // swapped out for unit tests
 var newVersionedClient = func(endpoint, version string) (sdkclient.Client, error) {
-	return docker.NewClientWithOpts(docker.WithVersion(version), docker.WithHost(endpoint))
+	return mobyclient.NewClientWithOpts(mobyclient.WithVersion(version), mobyclient.WithHost(endpoint))
 }
 
 // NewFactory initializes a client factory using a specified endpoint.
@@ -130,7 +130,7 @@ func findDockerVersions(ctx context.Context, endpoint string) map[dockerclient.D
 		}
 		ctx, cancel := context.WithTimeout(ctx, time.Second*5)
 		defer cancel()
-		serverVer, err := dockerClient.ServerVersion(ctx)
+		serverVer, err := dockerClient.ServerVersion(ctx, mobyclient.ServerVersionOptions{})
 		if err != nil {
 			log.Infof("Unable to get Docker client for version %s: %v", version, err)
 			continue

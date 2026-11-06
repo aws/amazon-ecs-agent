@@ -26,8 +26,8 @@ import (
 	task "github.com/aws/amazon-ecs-agent/agent/api/task"
 	dockerapi "github.com/aws/amazon-ecs-agent/agent/dockerclient/dockerapi"
 	execcmd "github.com/aws/amazon-ecs-agent/agent/engine/execcmd"
-	container0 "github.com/docker/docker/api/types/container"
 	gomock "github.com/golang/mock/gomock"
+	container0 "github.com/moby/moby/api/types/container"
 )
 
 // MockManager is a mock of Manager interface.
