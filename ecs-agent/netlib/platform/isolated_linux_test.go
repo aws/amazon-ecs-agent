@@ -21,6 +21,7 @@ import (
 	"net"
 	"path/filepath"
 	"testing"
+	"time"
 
 	mock_ecscni2 "github.com/aws/amazon-ecs-agent/ecs-agent/netlib/model/ecscni/mocks_ecscni"
 	mock_ecscni "github.com/aws/amazon-ecs-agent/ecs-agent/netlib/model/ecscni/mocks_nsutil"
@@ -191,18 +192,19 @@ func TestIsolatedLinux_AddGatewayNeighbor(t *testing.T) {
 	eni := getTestRegularV4ENI()
 	eni.DeviceName = "eth0"
 
-	// resolveHostNeighbor: return gateway MAC
-	mockNetLink.EXPECT().NeighList(0, netlink.FAMILY_V4).Return([]netlink.Neigh{
-		{IP: net.ParseIP("10.1.0.1"), HardwareAddr: gwMAC},
-	}, nil)
-
-	// ExecInNSPath: execute the closure
+	// ExecInNSPath: execute the closure (resolution now happens inside the netns).
 	mockNSUtil.EXPECT().ExecInNSPath(netNSPath, gomock.Any()).DoAndReturn(
 		func(path string, fn func(cnins.NetNS) error) error {
 			return fn(nil)
 		})
 
 	mockNetLink.EXPECT().LinkByName("eth0").Return(mockLink, nil)
+
+	// resolveGatewayNeighbor: look up the gateway on the task-netns interface.
+	mockNetLink.EXPECT().NeighList(7, netlink.FAMILY_V4).Return([]netlink.Neigh{
+		{IP: net.ParseIP("10.1.0.1"), HardwareAddr: gwMAC, State: netlink.NUD_REACHABLE},
+	}, nil)
+
 	mockNetLink.EXPECT().NeighSet(gomock.Any()).DoAndReturn(func(neigh *netlink.Neigh) error {
 		assert.Equal(t, 7, neigh.LinkIndex)
 		assert.Equal(t, netlink.NUD_PERMANENT, neigh.State)
@@ -233,17 +235,34 @@ func TestIsolatedLinux_AddGatewayNeighbor_NoGateway(t *testing.T) {
 	require.NoError(t, err)
 }
 
-func TestIsolatedLinux_AddGatewayNeighbor_HostNeighborNotFound(t *testing.T) {
+func TestIsolatedLinux_AddGatewayNeighbor_GatewayNotResolvable(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
 
-	p, _, _, _, mockNetLink := newIsolatedLinuxPlatform(ctrl)
+	mockLink := &netlink.Dummy{LinkAttrs: netlink.LinkAttrs{Index: 7, Name: "eth0"}}
+
+	p, _, _, mockNSUtil, mockNetLink := newIsolatedLinuxPlatform(ctrl)
 	eni := getTestRegularV4ENI()
 	eni.DeviceName = "eth0"
 
-	mockNetLink.EXPECT().NeighList(0, netlink.FAMILY_V4).Return([]netlink.Neigh{}, nil)
+	// Keep the test fast and avoid a real probe datagram.
+	origTimeout, origInterval, origProbe := gatewayNeighborResolveTimeout, gatewayNeighborResolveInterval, gatewayProbeFn
+	gatewayNeighborResolveTimeout = 0
+	gatewayNeighborResolveInterval = time.Millisecond
+	gatewayProbeFn = func(net.IP) {}
+	defer func() {
+		gatewayNeighborResolveTimeout, gatewayNeighborResolveInterval, gatewayProbeFn = origTimeout, origInterval, origProbe
+	}()
+
+	mockNSUtil.EXPECT().ExecInNSPath(netNSPath, gomock.Any()).DoAndReturn(
+		func(path string, fn func(cnins.NetNS) error) error {
+			return fn(nil)
+		})
+	mockNetLink.EXPECT().LinkByName("eth0").Return(mockLink, nil)
+	// Gateway never resolves: neighbor table stays empty.
+	mockNetLink.EXPECT().NeighList(7, netlink.FAMILY_V4).Return([]netlink.Neigh{}, nil).AnyTimes()
 
 	err := p.addGatewayNeighbor(netNSPath, eni)
 	assert.Error(t, err)
-	assert.Contains(t, err.Error(), "gateway MAC not in host neighbor cache")
+	assert.Contains(t, err.Error(), "gateway MAC not resolvable in task netns")
 }

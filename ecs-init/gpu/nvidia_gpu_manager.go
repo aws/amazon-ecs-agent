@@ -16,7 +16,9 @@ package gpu
 import (
 	"encoding/json"
 	"os"
+	"os/exec"
 	"path/filepath"
+	"strings"
 
 	"github.com/NVIDIA/go-nvml/pkg/nvml"
 	"github.com/cihub/seelog"
@@ -41,6 +43,16 @@ type GPUManager interface {
 type NvidiaGPUManager struct {
 	DriverVersion string
 	GPUIDs        []string
+	// GPUMemoryMiB maps a GPU UUID to its usable memory in MiB, computed as
+	// (NVML v2 Total - Reserved). The agent reads this from the saved JSON to
+	// report per-GPU memory at RegisterContainerInstance for the MPS
+	// GPU-sharing feature.
+	GPUMemoryMiB map[string]uint64 `json:"GPUMemoryMiB,omitempty"`
+	// MPS gating facts. The agent reads these from the saved JSON to decide whether
+	// to advertise the gpu-sharing-mps capability at registration.
+	MpsControlBinaryPresent bool `json:"MpsControlBinaryPresent"`
+	MpsServiceEnabled       bool `json:"MpsServiceEnabled"`
+	HasVGPU                 bool `json:"HasVGPU"`
 }
 
 const (
@@ -52,6 +64,12 @@ const (
 	NvidiaGPUInfoFilePath = GPUInfoDirPath + "/nvidia-gpu-info.json"
 	// FilePerm is the file permissions for gpu info json file
 	FilePerm = 0700
+	// bytesPerMiB converts NVML memory (reported in bytes) to MiB.
+	bytesPerMiB = 1024 * 1024
+	// mpsControlBinaryPath is where the NVIDIA MPS control daemon binary lives on the GPU AMI.
+	mpsControlBinaryPath = "/usr/bin/nvidia-cuda-mps-control"
+	// mpsServiceName is the systemd unit that runs the MPS control daemon.
+	mpsServiceName = "nvidia-mps.service"
 	// nvidiaEULAAgreementInfo is the EULA agreement that we want to show to the customers when using
 	// Nvidia products
 	nvidiaEULAAgreementInfo = "By using the GPU Optimized AMI, you agree to Nvidia’s End User License Agreement: " +
@@ -92,6 +110,13 @@ func (n *NvidiaGPUManager) Setup() error {
 		return errors.Wrapf(err, "setup failed")
 	}
 	n.GPUIDs = gpuIDs
+	// Discover per-GPU usable memory so the agent can report it at
+	// registration for the MPS GPU-sharing feature.
+	n.GPUMemoryMiB = n.DetectGPUMemory()
+	// Gather the MPS facts once, after devices are known and before we persist state.
+	// HasVGPU is set per-device inside GetGPUDeviceIDs above.
+	n.MpsControlBinaryPresent = detectMpsControlBinary()
+	n.MpsServiceEnabled = detectMpsServiceEnabled()
 	err = n.SaveGPUState()
 	if err != nil {
 		return errors.Wrapf(err, "setup failed")
@@ -192,12 +217,42 @@ func (n *NvidiaGPUManager) GetGPUDeviceIDs() ([]string, error) {
 			seelog.Errorf("Failed to get UUID for device at index %d: %v", i, nvml.ErrorString(ret))
 			continue
 		}
+		if detectVGPU(device) {
+			// Any vGPU slice on the instance disqualifies MPS
+			n.HasVGPU = true
+		}
 		gpuIDs = append(gpuIDs, uuid)
 	}
 	if len(gpuIDs) == 0 {
 		return gpuIDs, errors.New("error initializing GPU devices")
 	}
 	return gpuIDs, nil
+}
+
+// DetectGPUMemory returns a map of GPU UUID to usable memory in MiB. It uses
+// NVML v2 memory (usable = Total - Reserved) so the reported value matches what
+// a workload can actually allocate under MPS.
+func (n *NvidiaGPUManager) DetectGPUMemory() map[string]uint64 {
+	memory := make(map[string]uint64)
+	for _, uuid := range n.GPUIDs {
+		device, ret := nvml.DeviceGetHandleByUUID(uuid)
+		if ret != nvml.SUCCESS {
+			seelog.Errorf("Failed to get device handle for UUID %s during memory detection: %v", uuid, nvml.ErrorString(ret))
+			continue
+		}
+		// NVML v2 memory: usable = Total - Reserved.
+		mem, ret := nvml.DeviceGetMemoryInfo_v2(device)
+		if ret != nvml.SUCCESS {
+			seelog.Errorf("Failed to get v2 memory info for device %s: %v", uuid, nvml.ErrorString(ret))
+			continue
+		}
+		if mem.Total < mem.Reserved {
+			seelog.Errorf("Unexpected v2 memory for device %s: total %d < reserved %d; skipping", uuid, mem.Total, mem.Reserved)
+			continue
+		}
+		memory[uuid] = (mem.Total - mem.Reserved) / bytesPerMiB
+	}
+	return memory
 }
 
 var NvmlGetDeviceCount = GetDeviceCount
@@ -209,6 +264,38 @@ func GetDeviceCount() (int, error) {
 		return 0, errors.New(nvml.ErrorString(ret))
 	}
 	return count, nil
+}
+
+// statFile and execCommand are indirections so unit tests can stub host access.
+var statFile = os.Stat
+var execCommand = exec.Command
+
+// detectMpsControlBinary reports whether the MPS control daemon binary is installed.
+func detectMpsControlBinary() bool {
+	_, err := statFile(mpsControlBinaryPath)
+	return err == nil
+}
+
+// detectMpsServiceEnabled reports whether nvidia-mps.service is enabled to start on boot.
+// systemctl is-enabled exits non-zero for a known-but-disabled unit while still printing
+// its state, so we key off the printed word rather than the exit code.
+func detectMpsServiceEnabled() bool {
+	out, err := execCommand("systemctl", "is-enabled", mpsServiceName).Output()
+	state := strings.TrimSpace(string(out))
+	if err != nil {
+		seelog.Debugf("Checking nvidia-mps.service enablement: 'systemctl is-enabled %s' returned state %q, err: %v", mpsServiceName, state, err)
+	}
+	return state == "enabled" || state == "enabled-runtime"
+}
+
+// detectVGPU reports whether a device is running as an NVIDIA vGPU slice. It fails open:
+// only a definite VGPU result counts, so an NVML error or unknown mode leaves MPS enabled.
+func detectVGPU(device nvml.Device) bool {
+	mode, ret := nvml.DeviceGetVirtualizationMode(device)
+	if ret != nvml.SUCCESS {
+		return false
+	}
+	return mode == nvml.GPU_VIRTUALIZATION_MODE_VGPU
 }
 
 // SaveGPUState saves gpu state info on the disk

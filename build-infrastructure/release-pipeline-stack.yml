@@ -899,6 +899,36 @@ Resources:
           Status: ENABLED
           StreamName: !Ref CopyCodeBuildProjectName
 
+  ReleaseArtifactsBucketLogExportPolicy:
+    Type: AWS::S3::BucketPolicy
+    Properties:
+      Bucket: !Ref ReleaseArtifactsBucketName
+      PolicyDocument:
+        Version: 2012-10-17
+        Statement:
+          - Sid: AllowCloudWatchLogsExportGetBucketAcl
+            Effect: Allow
+            Principal:
+              Service: !Sub 'logs.${AWS::Region}.amazonaws.com'
+            Action: s3:GetBucketAcl
+            Resource: !Ref ReleaseArtifactsBucketArn
+            Condition:
+              StringEquals:
+                aws:SourceAccount: !Ref 'AWS::AccountId'
+              ArnLike:
+                aws:SourceArn: !GetAtt CodeBuildLogGroup.Arn
+          - Sid: AllowCloudWatchLogsExportPutObject
+            Effect: Allow
+            Principal:
+              Service: !Sub 'logs.${AWS::Region}.amazonaws.com'
+            Action: s3:PutObject
+            Resource: !Sub '${ReleaseArtifactsBucketArn}/*'
+            Condition:
+              StringEquals:
+                aws:SourceAccount: !Ref 'AWS::AccountId'
+              ArnLike:
+                aws:SourceArn: !GetAtt CodeBuildLogGroup.Arn
+
   BuildAndSignCodePipelineServiceRole:
     Type: AWS::IAM::Role
     Properties:

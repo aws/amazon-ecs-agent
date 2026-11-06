@@ -40,10 +40,12 @@ type MockIMDSServer struct {
 type mockNamespace struct {
 	lastUpdated time.Time
 	credentials map[string]*mockCredential
+	// failedRoles holds keys the provider could not assume the role for; they
+	// appear in the info file with status "1" and have no credential file.
+	failedRoles map[string]bool
 }
 
 type mockCredential struct {
-	RoleArn         string
 	AccessKeyID     string
 	SecretAccessKey string
 	SessionToken    string
@@ -72,7 +74,7 @@ func (s *MockIMDSServer) Close() {
 // AddCredential registers a credential in the mock IMDS server.
 // The namespace is auto-created if it doesn't exist.
 func (s *MockIMDSServer) AddCredential(
-	namespace, taskID, roleType, roleArn, accessKeyID string,
+	namespace, taskID, roleType, accessKeyID string,
 ) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
@@ -80,12 +82,25 @@ func (s *MockIMDSServer) AddCredential(
 	ns := s.getOrCreateNamespace(namespace)
 	key := taskID + "-" + roleType
 	ns.credentials[key] = &mockCredential{
-		RoleArn:         roleArn,
 		AccessKeyID:     accessKeyID,
 		SecretAccessKey: "secret-" + accessKeyID,
 		SessionToken:    "token-" + accessKeyID,
 		Expiration:      time.Now().Add(1 * time.Hour).UTC().Format(time.RFC3339),
 	}
+	ns.lastUpdated = time.Now().UTC()
+}
+
+// AddUnassumableRole registers a role the provider could not assume in the
+// mock IMDS server: it appears in the namespace info file with status "1"
+// and has no credential file. The namespace is auto-created if needed.
+func (s *MockIMDSServer) AddUnassumableRole(
+	namespace, taskID, roleType string,
+) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+
+	ns := s.getOrCreateNamespace(namespace)
+	ns.failedRoles[taskID+"-"+roleType] = true
 	ns.lastUpdated = time.Now().UTC()
 }
 
@@ -124,6 +139,7 @@ func (s *MockIMDSServer) getOrCreateNamespace(name string) *mockNamespace {
 		ns = &mockNamespace{
 			lastUpdated: time.Now().UTC(),
 			credentials: make(map[string]*mockCredential),
+			failedRoles: make(map[string]bool),
 		}
 		s.namespaces[name] = ns
 	}
@@ -190,20 +206,22 @@ func (s *MockIMDSServer) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 }
 
 // serveInfo writes the namespace info JSON response containing
-// LastUpdated and the TaskCredentials map.
+// LastUpdated and the TaskCredentials map of key to delivery status.
 func (s *MockIMDSServer) serveInfo(w http.ResponseWriter, ns *mockNamespace) {
-	type taskCredInfo struct {
-		RoleARN string `json:"RoleARN"`
-	}
 	info := struct {
-		LastUpdated     string                  `json:"LastUpdated"`
-		TaskCredentials map[string]taskCredInfo `json:"TaskCredentials"`
+		LastUpdated     string            `json:"LastUpdated"`
+		TaskCredentials map[string]string `json:"TaskCredentials"`
 	}{
 		LastUpdated:     ns.lastUpdated.Format(time.RFC3339Nano),
-		TaskCredentials: make(map[string]taskCredInfo),
+		TaskCredentials: make(map[string]string),
 	}
-	for key, cred := range ns.credentials {
-		info.TaskCredentials[key] = taskCredInfo{RoleARN: cred.RoleArn}
+	for key := range ns.credentials {
+		// "0" marks the credential as delivered.
+		info.TaskCredentials[key] = "0"
+	}
+	for key := range ns.failedRoles {
+		// "1" marks a role the provider could not assume (no credential file).
+		info.TaskCredentials[key] = "1"
 	}
 	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(info)

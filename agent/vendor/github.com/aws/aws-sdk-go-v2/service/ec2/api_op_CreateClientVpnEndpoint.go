@@ -5,10 +5,8 @@ package ec2
 import (
 	"context"
 	"fmt"
-	awsmiddleware "github.com/aws/aws-sdk-go-v2/aws/middleware"
 	"github.com/aws/aws-sdk-go-v2/service/ec2/types"
 	"github.com/aws/smithy-go/middleware"
-	smithyhttp "github.com/aws/smithy-go/transport/http"
 )
 
 // Creates a Client VPN endpoint. A Client VPN endpoint is the resource you create
@@ -36,16 +34,6 @@ type CreateClientVpnEndpointInput struct {
 	// This member is required.
 	AuthenticationOptions []types.ClientVpnAuthenticationRequest
 
-	// The IPv4 address range, in CIDR notation, from which to assign client IP
-	// addresses. The address range cannot overlap with the local CIDR of the VPC in
-	// which the associated subnet is located, or the routes that you add manually. The
-	// address range cannot be changed after the Client VPN endpoint has been created.
-	// Client CIDR range must have a size of at least /22 and must not be greater than
-	// /12.
-	//
-	// This member is required.
-	ClientCidrBlock *string
-
 	// Information about the client connection logging options.
 	//
 	// If you enable client connection logging, data about client connections is sent
@@ -69,12 +57,32 @@ type CreateClientVpnEndpointInput struct {
 	// This member is required.
 	ServerCertificateArn *string
 
+	// The IPv4 address range, in CIDR notation, from which to assign client IP
+	// addresses. The address range cannot overlap with the local CIDR of the VPC in
+	// which the associated subnet is located, or the routes that you add manually. The
+	// address range cannot be changed after the Client VPN endpoint has been created.
+	// Client CIDR range must have a size of at least /22 and must not be greater than
+	// /12.
+	ClientCidrBlock *string
+
 	// The options for managing connection authorization for new client connections.
 	ClientConnectOptions *types.ClientConnectOptions
 
 	// Options for enabling a customizable text banner that will be displayed on
 	// Amazon Web Services provided clients when a VPN session is established.
 	ClientLoginBannerOptions *types.ClientLoginBannerOptions
+
+	// Client route enforcement is a feature of the Client VPN service that helps
+	// enforce administrator defined routes on devices connected through the VPN. T his
+	// feature helps improve your security posture by ensuring that network traffic
+	// originating from a connected client is not inadvertently sent outside the VPN
+	// tunnel.
+	//
+	// Client route enforcement works by monitoring the route table of a connected
+	// device for routing policy changes to the VPN connection. If the feature detects
+	// any VPN routing policy modifications, it will automatically force an update to
+	// the route table, reverting it back to the expected route configurations.
+	ClientRouteEnforcementOptions *types.ClientRouteEnforcementOptions
 
 	// Unique, case-sensitive identifier that you provide to ensure the idempotency of
 	// the request. For more information, see [Ensuring idempotency].
@@ -84,6 +92,12 @@ type CreateClientVpnEndpointInput struct {
 
 	// A brief description of the Client VPN endpoint.
 	Description *string
+
+	// Indicates whether the client VPN session is disconnected after the maximum
+	// timeout specified in SessionTimeoutHours is reached. If true , users are
+	// prompted to reconnect client VPN. If false , client VPN attempts to reconnect
+	// automatically. The default value is true .
+	DisconnectOnSessionTimeout *bool
 
 	// Information about the DNS servers to be used for DNS resolution. A Client VPN
 	// endpoint can have up to two DNS servers. If no DNS server is specified, the DNS
@@ -95,6 +109,12 @@ type CreateClientVpnEndpointInput struct {
 	// required permissions, the error response is DryRunOperation . Otherwise, it is
 	// UnauthorizedOperation .
 	DryRun *bool
+
+	// The IP address type for the Client VPN endpoint. Valid values are ipv4
+	// (default) for IPv4 addressing only, ipv6 for IPv6 addressing only, or dual-stack
+	// for both IPv4 and IPv6 addressing. When set to dual-stack, clients can connect
+	// to the endpoint using either IPv4 or IPv6 addresses..
+	EndpointIpAddressType types.EndpointIpAddressType
 
 	// The IDs of one or more security groups to apply to the target network. You must
 	// also specify the ID of the VPC that contains the security groups.
@@ -124,6 +144,17 @@ type CreateClientVpnEndpointInput struct {
 
 	// The tags to apply to the Client VPN endpoint during creation.
 	TagSpecifications []types.TagSpecification
+
+	// The IP address type for traffic within the Client VPN tunnel. Valid values are
+	// ipv4 (default) for IPv4 traffic only, ipv6 for IPv6 addressing only, or
+	// dual-stack for both IPv4 and IPv6 traffic. When set to dual-stack , clients can
+	// access both IPv4 and IPv6 resources through the VPN .
+	TrafficIpAddressType types.TrafficIpAddressType
+
+	// The Transit Gateway configuration for the Client VPN endpoint. Use this
+	// parameter to associate the endpoint with a Transit Gateway instead of a VPC. You
+	// cannot specify both TransitGatewayConfiguration and VpcId / SecurityGroupIds .
+	TransitGatewayConfiguration *types.TransitGatewayConfigurationInputStructure
 
 	// The transport protocol to be used by the VPN session.
 	//
@@ -163,9 +194,6 @@ type CreateClientVpnEndpointOutput struct {
 }
 
 func (c *Client) addOperationCreateClientVpnEndpointMiddlewares(stack *middleware.Stack, options Options) (err error) {
-	if err := stack.Serialize.Add(&setOperationInputMiddleware{}, middleware.After); err != nil {
-		return err
-	}
 	err = stack.Serialize.Add(&awsEc2query_serializeOpCreateClientVpnEndpoint{}, middleware.After)
 	if err != nil {
 		return err
@@ -174,68 +202,23 @@ func (c *Client) addOperationCreateClientVpnEndpointMiddlewares(stack *middlewar
 	if err != nil {
 		return err
 	}
-	if err := addProtocolFinalizerMiddlewares(stack, options, "CreateClientVpnEndpoint"); err != nil {
-		return fmt.Errorf("add protocol finalizers: %v", err)
-	}
 
-	if err = addlegacyEndpointContextSetter(stack, options); err != nil {
-		return err
-	}
-	if err = addSetLoggerMiddleware(stack, options); err != nil {
-		return err
-	}
-	if err = addClientRequestID(stack); err != nil {
-		return err
-	}
-	if err = addComputeContentLength(stack); err != nil {
-		return err
-	}
 	if err = addResolveEndpointMiddleware(stack, options); err != nil {
 		return err
 	}
 	if err = addComputePayloadSHA256(stack); err != nil {
 		return err
 	}
-	if err = addRetry(stack, options); err != nil {
+	if err = addRecordResponseTiming(stack, options); err != nil {
 		return err
 	}
-	if err = addRawResponseToMetadata(stack); err != nil {
-		return err
-	}
-	if err = addRecordResponseTiming(stack); err != nil {
-		return err
-	}
-	if err = addSpanRetryLoop(stack, options); err != nil {
-		return err
-	}
-	if err = addClientUserAgent(stack, options); err != nil {
-		return err
-	}
-	if err = smithyhttp.AddErrorCloseResponseBodyMiddleware(stack); err != nil {
-		return err
-	}
-	if err = smithyhttp.AddCloseResponseBodyMiddleware(stack); err != nil {
-		return err
-	}
-	if err = addSetLegacyContextSigningOptionsMiddleware(stack); err != nil {
-		return err
-	}
-	if err = addTimeOffsetBuild(stack, c); err != nil {
-		return err
-	}
-	if err = addUserAgentRetryMode(stack, options); err != nil {
+	if err = addCredentialSource(stack, options); err != nil {
 		return err
 	}
 	if err = addIdempotencyToken_opCreateClientVpnEndpointMiddleware(stack, options); err != nil {
 		return err
 	}
 	if err = addOpCreateClientVpnEndpointValidationMiddleware(stack); err != nil {
-		return err
-	}
-	if err = stack.Initialize.Add(newServiceMetadataMiddleware_opCreateClientVpnEndpoint(options.Region), middleware.Before); err != nil {
-		return err
-	}
-	if err = addRecursionDetection(stack); err != nil {
 		return err
 	}
 	if err = addRequestIDRetrieverMiddleware(stack); err != nil {
@@ -250,16 +233,7 @@ func (c *Client) addOperationCreateClientVpnEndpointMiddlewares(stack *middlewar
 	if err = addDisableHTTPSMiddleware(stack, options); err != nil {
 		return err
 	}
-	if err = addSpanInitializeStart(stack); err != nil {
-		return err
-	}
-	if err = addSpanInitializeEnd(stack); err != nil {
-		return err
-	}
-	if err = addSpanBuildRequestStart(stack); err != nil {
-		return err
-	}
-	if err = addSpanBuildRequestEnd(stack); err != nil {
+	if err = addInterceptors(stack, options); err != nil {
 		return err
 	}
 	return nil
@@ -296,12 +270,4 @@ func (m *idempotencyToken_initializeOpCreateClientVpnEndpoint) HandleInitialize(
 }
 func addIdempotencyToken_opCreateClientVpnEndpointMiddleware(stack *middleware.Stack, cfg Options) error {
 	return stack.Initialize.Add(&idempotencyToken_initializeOpCreateClientVpnEndpoint{tokenProvider: cfg.IdempotencyTokenProvider}, middleware.Before)
-}
-
-func newServiceMetadataMiddleware_opCreateClientVpnEndpoint(region string) *awsmiddleware.RegisterServiceMetadata {
-	return &awsmiddleware.RegisterServiceMetadata{
-		Region:        region,
-		ServiceID:     ServiceID,
-		OperationName: "CreateClientVpnEndpoint",
-	}
 }

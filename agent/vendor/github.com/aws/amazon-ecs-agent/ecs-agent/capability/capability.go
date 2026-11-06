@@ -17,4 +17,8 @@ package capability
 const (
 	// IMDSIAMRoles indicates that the agent supports retrieving task credentials via IMDS.
 	IMDSIAMRoles = "ecs.capability.imds-iam-roles"
+
+	// GPUSharingMps indicates that the agent and instance can support GPU container sharing
+	// via NVIDIA MPS under enforced per-container memory and optional compute limits.
+	GPUSharingMps = "ecs.capability.gpu-sharing-mps"
 )

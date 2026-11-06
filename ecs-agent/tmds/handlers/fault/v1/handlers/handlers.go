@@ -48,6 +48,7 @@ const (
 	startFaultRequestType       = "start %s"
 	stopFaultRequestType        = "stop %s"
 	checkStatusFaultRequestType = "check status %s"
+	addSourcesFaultRequestType  = "add sources %s"
 	// Fault injection operation error messages
 	internalError                      = "internal error"
 	invalidNetworkModeError            = "%s mode is not supported. Please use either host or awsvpc mode."
@@ -55,6 +56,10 @@ const (
 	requestTimedOutError               = "%s: request timed out"
 	latencyFaultAlreadyRunningError    = "There is already one network latency fault running"
 	packetLossFaultAlreadyRunningError = "There is already one network packet loss fault running"
+	// add-sources 404 messages. We emit a distinct message per fault type so
+	// caller logs make it obvious which fault was being extended.
+	latencyFaultNotRunningError    = "no network-latency fault is currently running for the task"
+	packetLossFaultNotRunningError = "no network-packet-loss fault is currently running for the task"
 	// This is our initial assumption of how much time it would take for the Linux commands used to inject faults
 	// to finish. This will be confirmed/updated after more testing.
 	requestTimeoutSeconds = 5
@@ -1082,6 +1087,170 @@ func (h *FaultHandler) CheckNetworkPacketLoss() func(http.ResponseWriter, *http.
 			requestType,
 		)
 	}
+}
+
+// AddSourcesNetworkLatency extends a running network-latency fault with
+// additional IPs supplied by the caller. It does not modify fault parameters
+// (delay, jitter, flows percent); those are locked in at start time. Returns
+// 404 if no latency fault is currently running for the task.
+func (h *FaultHandler) AddSourcesNetworkLatency() func(http.ResponseWriter, *http.Request) {
+	// The selector is defined inline so that the rule "this endpoint honors
+	// only the latency flag" lives at the only call site that uses it; the
+	// packet-loss handler has its own mirror below.
+	return h.addSourcesHandler(
+		types.LatencyFaultType,
+		latencyFaultNotRunningError,
+		func(latencyExists, _ bool) bool { return latencyExists },
+	)
+}
+
+// AddSourcesNetworkPacketLoss extends a running network-packet-loss fault
+// with additional IPs. See AddSourcesNetworkLatency for semantics.
+func (h *FaultHandler) AddSourcesNetworkPacketLoss() func(http.ResponseWriter, *http.Request) {
+	return h.addSourcesHandler(
+		types.PacketLossFaultType,
+		packetLossFaultNotRunningError,
+		func(_, packetLossExists bool) bool { return packetLossExists },
+	)
+}
+
+// faultExistsSelector picks which of the two flags returned by checkTCFault
+// should gate the add-sources operation. A latency add-sources call must
+// observe a latency fault (packet-loss running counts as "not running" for
+// the latency endpoint, returning 404), and vice versa.
+type faultExistsSelector func(latencyExists, packetLossExists bool) bool
+
+// addSourcesHandler is the shared implementation behind AddSourcesNetworkLatency
+// and AddSourcesNetworkPacketLoss. Both endpoints share the same decode,
+// validate, lock, check, apply pipeline; only the fault type, not-running
+// error message, and which checkTCFault flag to honor differ.
+func (h *FaultHandler) addSourcesHandler(
+	faultType, notRunningErr string, faultPresent faultExistsSelector,
+) func(http.ResponseWriter, *http.Request) {
+	return func(w http.ResponseWriter, r *http.Request) {
+		var request types.NetworkFaultAddSourcesRequest
+		requestType := fmt.Sprintf(addSourcesFaultRequestType, faultType)
+
+		// Parse the request body. decodeRequest logs the request and writes a
+		// 400 if the JSON is malformed or the body is missing.
+		if err := decodeRequest(w, &request, requestType, r); err != nil {
+			return
+		}
+
+		// Validate the request. validateRequest writes a 400 on failure.
+		if err := validateRequest(w, request, requestType); err != nil {
+			return
+		}
+
+		// Obtain the task metadata via the endpoint container ID.
+		taskMetadata, err := validateTaskMetadata(w, h.AgentState, requestType, r)
+		if err != nil {
+			return
+		}
+
+		// Acquire the per-namespace write lock. This is the same lock used by
+		// start and stop so that add-sources cannot race with either: if stop
+		// has already torn down the qdisc hierarchy, checkTCFault below will
+		// observe it and return 404 instead of attempting a filter-add against
+		// a missing qdisc.
+		networkNSPath := taskMetadata.TaskNetworkConfig.NetworkNamespaces[0].Path
+		rwMu := h.loadLock(networkNSPath)
+		rwMu.Lock()
+		defer rwMu.Unlock()
+
+		var responseBody types.NetworkFaultInjectionResponse
+		var httpStatusCode int
+		stringToBeLogged := "Failed to add sources to fault"
+		// Share a single 5-second context across checkTCFault and every
+		// tc filter add below. The per-request cap of AddSourcesMaxIPs keeps
+		// a well-formed call inside this budget.
+		ctx, cancel := h.osExecWrapper.NewExecContextWithTimeout(
+			context.Background(), requestTimeoutSeconds*time.Second)
+		defer cancel()
+
+		latencyExists, packetLossExists, err := h.checkTCFault(ctx, taskMetadata)
+		if errors.Is(ctx.Err(), context.DeadlineExceeded) {
+			responseBody = types.NewNetworkFaultInjectionErrorResponse(fmt.Sprintf(requestTimedOutError, requestType))
+			httpStatusCode = http.StatusInternalServerError
+		} else if err != nil {
+			// Log before overwriting responseBody. Without this, a failing
+			// checkTCFault surfaces as a bare 500 with no breadcrumb for ops.
+			logger.Error("checkTCFault failed", logger.Fields{
+				field.Error:       err,
+				field.RequestType: requestType,
+				field.TaskARN:     taskMetadata.TaskARN,
+			})
+			responseBody = types.NewNetworkFaultInjectionErrorResponse(internalError)
+			httpStatusCode = http.StatusInternalServerError
+		} else if !faultPresent(latencyExists, packetLossExists) {
+			// 404 signals to the caller that the fault is gone, e.g. so a
+			// refresh loop can stop. This is the expected behavior after a
+			// stop has raced ahead of this update.
+			responseBody = types.NewNetworkFaultInjectionErrorResponse(notRunningErr)
+			httpStatusCode = http.StatusNotFound
+		} else {
+			applyErr := h.addSourcesToFault(ctx, taskMetadata, request)
+			if errors.Is(ctx.Err(), context.DeadlineExceeded) {
+				responseBody = types.NewNetworkFaultInjectionErrorResponse(fmt.Sprintf(requestTimedOutError, requestType))
+				httpStatusCode = http.StatusInternalServerError
+			} else if applyErr != nil {
+				// No rollback on partial application. Filters already installed
+				// stay in place; callers retry the same IPs on the next call.
+				// `tc filter add` accepts duplicate u32 matches without error,
+				// so the retry is safe. Any duplicates are reaped when the
+				// qdisc is torn down on stop.
+				responseBody = types.NewNetworkFaultInjectionErrorResponse(internalError)
+				httpStatusCode = http.StatusInternalServerError
+			} else {
+				stringToBeLogged = "Successfully added sources to fault"
+				responseBody = types.NewNetworkFaultInjectionSuccessResponse("running")
+				httpStatusCode = http.StatusOK
+			}
+		}
+		logger.Info(stringToBeLogged, logger.Fields{
+			field.RequestType: requestType,
+			field.Request:     request.ToString(),
+			field.Response:    responseBody.ToString(),
+		})
+		handlerutils.WriteJSONResponse(
+			w,
+			httpStatusCode,
+			responseBody,
+			requestType,
+		)
+	}
+}
+
+// addSourcesToFault walks every interface in the task's network namespace and
+// installs new tc filters: SourcesToFilter first (flowid 1:3, allowlist), then
+// Sources (flowid 1:1, impaired). We mirror the start workflow's ordering
+// because SourcesToFilter has a higher-priority tc prio (1 vs 2) and applying
+// it first matches how start builds the filter chain; no functional difference
+// for add-sources, but keeps the two paths visually aligned.
+func (h *FaultHandler) addSourcesToFault(
+	ctx context.Context, taskMetadata *state.TaskResponse,
+	request types.NetworkFaultAddSourcesRequest,
+) error {
+	networkMode := ecstypes.NetworkMode(taskMetadata.TaskNetworkConfig.NetworkMode)
+	nsenterPrefix := ""
+	if networkMode == ecstypes.NetworkModeAwsvpc {
+		nsenterPrefix = fmt.Sprintf(nsenterCommandString, taskMetadata.TaskNetworkConfig.NetworkNamespaces[0].Path)
+	}
+	for _, netInterface := range taskMetadata.TaskNetworkConfig.NetworkNamespaces[0].NetworkInterfaces {
+		if err := h.addIPAddressesToFilter(
+			ctx, request.SourcesToFilter, taskMetadata, nsenterPrefix,
+			tcAllowlistIPCommandString, netInterface.DeviceName,
+		); err != nil {
+			return err
+		}
+		if err := h.addIPAddressesToFilter(
+			ctx, request.Sources, taskMetadata, nsenterPrefix,
+			tcAddFilterForIPCommandString, netInterface.DeviceName,
+		); err != nil {
+			return err
+		}
+	}
+	return nil
 }
 
 // decodeRequest will log the request and then translate/unmarshal an incoming fault injection request into

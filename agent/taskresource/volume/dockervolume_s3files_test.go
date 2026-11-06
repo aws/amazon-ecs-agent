@@ -147,6 +147,7 @@ func TestGetVolumePluginDriverOptions_Basic(t *testing.T) {
 	assert.Contains(t, options["o"], "tls")
 	assert.Contains(t, options["o"], "iam")
 	assert.Contains(t, options["o"], "awscredsuri=/creds")
+	assert.Contains(t, options["o"], "nos3readcache")
 }
 
 func TestGetVolumePluginDriverOptions_WithAccessPoint(t *testing.T) {

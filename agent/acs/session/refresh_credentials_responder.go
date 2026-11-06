@@ -52,6 +52,7 @@ func (cmSetter *credentialsMetadataSetter) SetTaskRoleCredentialsMetadata(
 		return err
 	}
 	task.SetCredentialsID(aws.ToString(message.RoleCredentials.CredentialsId))
+	task.SetTaskRoleArn(aws.ToString(message.RoleCredentials.RoleArn))
 	return nil
 }
 
@@ -62,6 +63,7 @@ func (cmSetter *credentialsMetadataSetter) SetExecRoleCredentialsMetadata(
 		return errors.Wrap(err, "unable to get credentials message's task")
 	}
 	task.SetExecutionRoleCredentialsID(aws.ToString(message.RoleCredentials.CredentialsId))
+	task.SetExecutionRoleArn(aws.ToString(message.RoleCredentials.RoleArn))
 
 	// Refresh domainless gMSA plugin credentials if needed.
 	err = checkAndSetDomainlessGMSATaskExecutionRoleCredentialsImpl(credentials.IAMRoleCredentialsFromACS(

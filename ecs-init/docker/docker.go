@@ -136,6 +136,14 @@ const (
 	modInfoSbinDir    = "/sbin/modinfo"
 	modInfoUsrSbinDir = "/usr/sbin/modinfo"
 
+	// mpsControlBinary is the NVIDIA MPS control front-end. The ECS agent execs it
+	// to health-check the MPS control daemon for the GPU-sharing functionality.
+	mpsControlBinary = "/usr/bin/nvidia-cuda-mps-control"
+
+	// mpsPipeDirectory is the MPS control daemon's socket directory. The ECS agent
+	// checks for it and reaches the daemon through it for the MPS health check.
+	mpsPipeDirectory = "/run/mps-ecs"
+
 	// Docker Network options to filter for the default bridge network interface of docker
 	dockerDefaultBridgeInterfaceOption = "com.docker.network.bridge.default_bridge"
 	dockerInterfaceNameOption          = "com.docker.network.bridge.name"
@@ -497,6 +505,15 @@ func (c *client) getHostConfig(envVarsFromFiles map[string]string) *godocker.Hos
 				} else {
 					// bind mount gpu metrics dir
 					binds = append(binds, gputypes.GPUMetricsDirPath+":"+gputypes.GPUMetricsDirPath+readOnly)
+				}
+
+				// Bind mount the MPS control binary and the MPS pipe directory so the
+				// agent can health-check the MPS control daemon for GPU sharing
+				if isPathValid(mpsControlBinary, false) {
+					binds = append(binds, mpsControlBinary+":"+mpsControlBinary)
+				}
+				if isPathValid(mpsPipeDirectory, true) {
+					binds = append(binds, mpsPipeDirectory+":"+mpsPipeDirectory)
 				}
 			}
 		}

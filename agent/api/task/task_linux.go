@@ -180,8 +180,9 @@ func (task *Task) BuildLinuxResourceSpec(cGroupCPUPeriod time.Duration, taskPids
 
 	// Set task pids limit if set via ECS_TASK_PIDS_LIMIT env var
 	if taskPidsLimit > 0 {
+		pidsLimitValue := int64(taskPidsLimit)
 		pidsLimit := &specs.LinuxPids{
-			Limit: int64(taskPidsLimit),
+			Limit: &pidsLimitValue,
 		}
 		linuxResourceSpec.Pids = pidsLimit
 	}

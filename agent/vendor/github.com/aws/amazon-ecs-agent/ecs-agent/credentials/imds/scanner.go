@@ -51,8 +51,6 @@ const (
 	// Ref: https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/instancedata-data-retrieval.html
 	// The rate limiter keeps credentials scanning within ~10% of the total PPS budget
 	// to leave headroom for other link-local requests on the instance.
-	//
-	// TODO: this value will be finalized based on load testing.
 	imdsQueriesPerSec = 10
 
 	// imdsQueryBurstSize is the token bucket size for the rate limiter.
@@ -75,7 +73,7 @@ const (
 type Scanner interface {
 	// Scan discovers all ECS IAM namespaces, reads their info files, and
 	// fetches credentials from namespaces that have changed since the last scan.
-	Scan(ctx context.Context) ([]TaskCredential, error)
+	Scan(ctx context.Context) (ScanResult, error)
 }
 
 // scanner implements the Scanner interface.
@@ -102,24 +100,24 @@ func NewScanner(ec2MetadataClient ec2.EC2MetadataClient,
 
 // Scan discovers all ECS IAM namespaces, reads their info files, and
 // fetches credentials from namespaces that have changed since the last scan.
-func (s *scanner) Scan(ctx context.Context) ([]TaskCredential, error) {
+func (s *scanner) Scan(ctx context.Context) (ScanResult, error) {
 	namespaces, err := s.discoverNamespaces(ctx)
 	if err != nil {
-		return nil, fmt.Errorf("imds scan: discover namespaces: %w", err)
+		return ScanResult{}, fmt.Errorf("imds scan: discover namespaces: %w", err)
 	}
 
 	// No namespaces is expected when IMDS does not have ECS task credentials yet.
 	if len(namespaces) == 0 {
-		logger.Debug("No iam-ecs namespace found in IMDS")
-		return nil, nil
+		logger.Debug("IMDS credentials scan: no iam-ecs namespace found")
+		return ScanResult{}, nil
 	}
 
-	var creds []TaskCredential
+	var result ScanResult
 	var scanErrors []error
 	for _, ns := range namespaces {
-		nsCreds, err := s.scanNamespace(ctx, ns)
+		nsResult, err := s.scanNamespace(ctx, ns)
 		if err != nil {
-			logger.Error("Failed to scan IMDS namespace", logger.Fields{
+			logger.Error("IMDS credentials scan: failed to scan namespace", logger.Fields{
 				"namespace": ns,
 				field.Error: err,
 			})
@@ -128,17 +126,18 @@ func (s *scanner) Scan(ctx context.Context) ([]TaskCredential, error) {
 			// namespaces before returning.
 			continue
 		}
-		creds = append(creds, nsCreds...)
+		result.Credentials = append(result.Credentials, nsResult.Credentials...)
+		result.AssumeRoleFailedRoles = append(result.AssumeRoleFailedRoles, nsResult.AssumeRoleFailedRoles...)
 	}
 
 	// Surface an error when scanning all namespaces failed so
 	// the caller doesn't mistake it for "no credentials yet".
-	if len(creds) == 0 && len(scanErrors) > 0 {
-		return nil, fmt.Errorf("imds scan: all %d namespace(s) failed: %w",
+	if len(result.Credentials) == 0 && len(scanErrors) > 0 {
+		return ScanResult{}, fmt.Errorf("imds scan: all %d namespace(s) failed: %w",
 			len(scanErrors), errors.Join(scanErrors...))
 	}
 
-	return creds, nil
+	return result, nil
 }
 
 // discoverNamespaces lists the IMDS metadata root and returns all
@@ -164,10 +163,9 @@ func (s *scanner) discoverNamespaces(ctx context.Context) ([]string, error) {
 	return namespaces, nil
 }
 
-// scanNamespace reads the info file for a namespace and fetches
-// credentials for each entry. Only successfully fetched credentials
-// are returned.
-func (s *scanner) scanNamespace(ctx context.Context, namespace string) ([]TaskCredential, error) {
+// scanNamespace reads the info file for a namespace, fetches the credentials
+// marked delivered, and records the roles the provider could not assume.
+func (s *scanner) scanNamespace(ctx context.Context, namespace string) (ScanResult, error) {
 	infoPath := fmt.Sprintf(infoPathFormat, namespace)
 	infoResp, err := s.getMetadata(ctx, infoPath)
 	if err != nil {
@@ -175,7 +173,7 @@ func (s *scanner) scanNamespace(ctx context.Context, namespace string) ([]TaskCr
 			WithFields(map[string]any{
 				metricFieldNamespace: namespace,
 			}).Done(err)
-		return nil, fmt.Errorf("fetch info for %s: %w", namespace, err)
+		return ScanResult{}, fmt.Errorf("fetch info for %s: %w", namespace, err)
 	}
 
 	var info NamespaceInfo
@@ -184,7 +182,7 @@ func (s *scanner) scanNamespace(ctx context.Context, namespace string) ([]TaskCr
 			WithFields(map[string]any{
 				metricFieldNamespace: namespace,
 			}).Done(err)
-		return nil, fmt.Errorf("parse info for %s: %w", namespace, err)
+		return ScanResult{}, fmt.Errorf("parse info for %s: %w", namespace, err)
 	}
 
 	// Skip credential fetches if the namespace hasn't been updated since the last scan.
@@ -194,21 +192,21 @@ func (s *scanner) scanNamespace(ctx context.Context, namespace string) ([]TaskCr
 			WithFields(map[string]any{
 				metricFieldNamespace: namespace,
 			}).Done(err)
-		return nil, fmt.Errorf("parse LastUpdated for %s: %w", namespace, err)
+		return ScanResult{}, fmt.Errorf("parse LastUpdated for %s: %w", namespace, err)
 	}
 	if cached, ok := s.lastUpdated[namespace]; ok && lastUpdated.Equal(cached) {
-		logger.Debug("Skipping namespace with unchanged LastUpdated", logger.Fields{
+		logger.Debug("IMDS credentials scan: skipping namespace with unchanged LastUpdated", logger.Fields{
 			"namespace": namespace,
 		})
-		return nil, nil
+		return ScanResult{}, nil
 	}
 
-	var creds []TaskCredential
+	var result ScanResult
 	var hasErrors bool
-	for key, entry := range info.TaskCredentials {
+	for key, status := range info.TaskCredentials {
 		taskID, roleType, err := parseCredentialKey(key)
 		if err != nil {
-			logger.Error("Failed to parse credential key from IMDS", logger.Fields{
+			logger.Error("IMDS credentials scan: failed to parse credential key", logger.Fields{
 				"namespace": namespace,
 				field.Error: err,
 			})
@@ -221,10 +219,36 @@ func (s *scanner) scanNamespace(ctx context.Context, namespace string) ([]TaskCr
 			continue
 		}
 
+		switch status {
+		case CredentialStatusDelivered:
+			// A credential file was written; fetch it below.
+		case CredentialStatusAssumeRoleFailed:
+			// The provider could not assume the role, so no credential file was
+			// written. Record the role; the customer must remediate it.
+			logger.Debug("IMDS credentials scan: provider could not assume the role", logger.Fields{
+				field.TaskID: taskID,
+				"roleType":   roleType,
+				"namespace":  namespace,
+			})
+			result.AssumeRoleFailedRoles = append(result.AssumeRoleFailedRoles, AssumeRoleFailedIAMRole{
+				TaskID:   taskID,
+				RoleType: roleType,
+			})
+			continue
+		default:
+			logger.Warn("IMDS credentials scan: unrecognized credential status", logger.Fields{
+				field.TaskID: taskID,
+				"roleType":   roleType,
+				"namespace":  namespace,
+				"status":     status,
+			})
+			continue
+		}
+
 		credPath := fmt.Sprintf(credentialPathFormat, namespace, key)
 		credResp, err := s.getMetadata(ctx, credPath)
 		if err != nil {
-			logger.Error("Failed to fetch credential from IMDS", logger.Fields{
+			logger.Error("IMDS credentials scan: failed to fetch credential", logger.Fields{
 				field.TaskID: taskID,
 				"roleType":   roleType,
 				"namespace":  namespace,
@@ -243,7 +267,7 @@ func (s *scanner) scanNamespace(ctx context.Context, namespace string) ([]TaskCr
 
 		var imdsCred imdsCredential
 		if err := json.Unmarshal([]byte(credResp), &imdsCred); err != nil {
-			logger.Error("Failed to parse credential from IMDS", logger.Fields{
+			logger.Error("IMDS credentials scan: failed to parse credential", logger.Fields{
 				field.TaskID: taskID,
 				"roleType":   roleType,
 				"namespace":  namespace,
@@ -260,10 +284,33 @@ func (s *scanner) scanNamespace(ctx context.Context, namespace string) ([]TaskCr
 			continue
 		}
 
-		creds = append(creds, TaskCredential{
+		if err := validateCredential(imdsCred); err != nil {
+			logger.Error("IMDS credentials scan: invalid credential", logger.Fields{
+				field.TaskID: taskID,
+				"roleType":   roleType,
+				"namespace":  namespace,
+				field.Error:  err,
+			})
+			s.metricsFactory.New(metrics.IMDSCredentialsScannerCredentialFailureMetricName).
+				WithFields(map[string]any{
+					metricFieldNamespace: namespace,
+					metricFieldTaskID:    taskID,
+					metricFieldRoleType:  roleType,
+				}).Done(err)
+			// Invalid credential; try remaining credentials in this namespace.
+			hasErrors = true
+			continue
+		}
+
+		logger.Debug("IMDS credentials scan: fetched credential", logger.Fields{
+			field.TaskID: taskID,
+			"roleType":   roleType,
+			"namespace":  namespace,
+			"expiration": imdsCred.Expiration,
+		})
+		result.Credentials = append(result.Credentials, TaskCredential{
 			TaskID:          taskID,
 			RoleType:        roleType,
-			RoleArn:         entry.RoleArn,
 			AccessKeyID:     imdsCred.AccessKeyId,
 			SecretAccessKey: imdsCred.SecretAccessKey,
 			SessionToken:    imdsCred.Token,
@@ -279,11 +326,18 @@ func (s *scanner) scanNamespace(ctx context.Context, namespace string) ([]TaskCr
 
 	// Surface an error when the namespace yielded no credentials and also had
 	// failures, so callers don't mistake it for "no credentials yet".
-	if len(creds) == 0 && hasErrors {
-		return nil, fmt.Errorf("namespace %s: all credential processing failed", namespace)
+	if len(result.Credentials) == 0 && hasErrors {
+		return ScanResult{}, fmt.Errorf("all credential processing failed for %s", namespace)
 	}
 
-	return creds, nil
+	logger.Info("IMDS credentials scan: namespace scan complete", logger.Fields{
+		"namespace":                 namespace,
+		"retrievedCredentialCount":  len(result.Credentials),
+		"assumeRoleFailedRoleCount": len(result.AssumeRoleFailedRoles),
+		"lastUpdated":               info.LastUpdated,
+	})
+
+	return result, nil
 }
 
 // parseCredentialKey extracts the task ID and role type from an IMDS key.
@@ -294,6 +348,29 @@ func parseCredentialKey(key string) (string, string, error) {
 		return "", "", fmt.Errorf("unexpected credential key format: %s", key)
 	}
 	return taskID, roleType, nil
+}
+
+// validateCredential reports an error when a required credential field is absent.
+// json.Unmarshal leaves fields missing from the document zero-valued, so an
+// empty value means the field was not published.
+func validateCredential(c imdsCredential) error {
+	var missing []string
+	if c.AccessKeyId == "" {
+		missing = append(missing, "AccessKeyId")
+	}
+	if c.SecretAccessKey == "" {
+		missing = append(missing, "SecretAccessKey")
+	}
+	if c.Token == "" {
+		missing = append(missing, "Token")
+	}
+	if c.Expiration == "" {
+		missing = append(missing, "Expiration")
+	}
+	if len(missing) > 0 {
+		return fmt.Errorf("missing required fields: %s", strings.Join(missing, ", "))
+	}
+	return nil
 }
 
 // getMetadata is a rate-limited wrapper around the EC2 metadata client.
