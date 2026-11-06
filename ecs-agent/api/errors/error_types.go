@@ -68,6 +68,11 @@ func NewRetriableError(retriable Retriable, err error) RetriableError {
 	}
 }
 
+// Unwrap returns the wrapped error so that errors.Is and errors.As can inspect it.
+func (e *DefaultRetriableError) Unwrap() error {
+	return e.error
+}
+
 // AttributeError defines an error type to indicate an error with an ECS
 // attribute
 type AttributeError struct {

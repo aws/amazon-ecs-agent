@@ -15,6 +15,7 @@ package retry
 
 import (
 	"context"
+	"errors"
 
 	apierrors "github.com/aws/amazon-ecs-agent/ecs-agent/api/errors"
 	"github.com/aws/amazon-ecs-agent/ecs-agent/utils/ttime"
@@ -31,7 +32,8 @@ func RetryWithBackoff(backoff Backoff, fn func() error) error {
 }
 
 // RetryWithBackoffCtx takes a context, a Backoff, and a function to call that returns an error
-// If the context is done, nil will be returned
+// If the context is done, ctx.Err() will be returned, joined with the error from
+// the last attempt if there was one.
 // If the error is nil then the function will no longer be called
 // If the error is Retriable then that will be used to determine if it should be
 // retried
@@ -40,7 +42,7 @@ func RetryWithBackoffCtx(ctx context.Context, backoff Backoff, fn func() error) 
 	for {
 		select {
 		case <-ctx.Done():
-			return nil
+			return errors.Join(ctx.Err(), err)
 		default:
 		}
 
