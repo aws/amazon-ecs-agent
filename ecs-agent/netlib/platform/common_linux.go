@@ -169,13 +169,14 @@ func (c *common) buildTaskNetworkConfiguration(
 	taskPayload *ecsacs.Task,
 	singleNetNS bool,
 	ifaceToGuestNetNS map[string]string,
+	existing []*tasknetworkconfig.NetworkNamespace,
 ) (*tasknetworkconfig.TaskNetworkConfig, error) {
 	mode := types.NetworkMode(aws.ToString(taskPayload.NetworkMode))
 	var netNSs []*tasknetworkconfig.NetworkNamespace
 	var err error
 	switch mode {
 	case types.NetworkModeAwsvpc:
-		netNSs, err = c.buildAWSVPCNetworkNamespaces(taskID, taskPayload, singleNetNS, ifaceToGuestNetNS)
+		netNSs, err = c.buildAWSVPCNetworkNamespaces(taskID, taskPayload, singleNetNS, ifaceToGuestNetNS, existing)
 		if err != nil {
 			return nil, errors.Wrap(err, "failed to translate network configuration")
 		}
@@ -212,12 +213,18 @@ func (c *common) buildAWSVPCNetworkNamespaces(
 	taskPayload *ecsacs.Task,
 	singleNetNS bool,
 	ifaceToGuestNetNS map[string]string,
+	existing []*tasknetworkconfig.NetworkNamespace,
 ) ([]*tasknetworkconfig.NetworkNamespace, error) {
 	if len(taskPayload.ElasticNetworkInterfaces) == 0 {
 		return nil, errors.New("interfaces list cannot be empty")
 	}
 
 	macToNames, err := c.interfacesMACToName()
+	if err != nil {
+		return nil, err
+	}
+
+	held, err := indexHeldInterfaces(taskPayload, existing, macToNames)
 	if err != nil {
 		return nil, err
 	}
@@ -238,7 +245,8 @@ func (c *common) buildAWSVPCNetworkNamespaces(
 			taskPayload.ElasticNetworkInterfaces,
 			taskPayload.ProxyConfiguration,
 			macToNames,
-			ifaceToGuestNetNS)
+			ifaceToGuestNetNS,
+			held)
 		if err != nil {
 			return nil, err
 		}
@@ -296,7 +304,7 @@ func (c *common) buildAWSVPCNetworkNamespaces(
 			continue
 		}
 
-		netNS, err := c.buildNetNS(taskID, nsIndex, ifaces, nil, macToNames, nil)
+		netNS, err := c.buildNetNS(taskID, nsIndex, ifaces, nil, macToNames, nil, held)
 		if err != nil {
 			return nil, err
 		}
@@ -307,7 +315,49 @@ func (c *common) buildAWSVPCNetworkNamespaces(
 	return netNSs, nil
 }
 
-// buildNetNS creates a single awsvpc network namespace object using the input network config data.
+// heldInterfaces maps the ID of every interface an existing namespace of the
+// task already holds to that namespace.
+type heldInterfaces map[string]*tasknetworkconfig.NetworkNamespace
+
+// indexHeldInterfaces indexes the interfaces the existing namespaces hold and
+// checks them against the payload. A held interface's device has left the host
+// namespace, so its name is taken from the existing model rather than resolved
+// again; macToNames is extended in place with those names. Every held
+// interface must appear in the payload: a namespace holding an interface the
+// task does not declare was built for a different task.
+func indexHeldInterfaces(
+	taskPayload *ecsacs.Task,
+	existing []*tasknetworkconfig.NetworkNamespace,
+	macToNames map[string]string,
+) (heldInterfaces, error) {
+	if len(existing) == 0 {
+		return nil, nil
+	}
+	declared := make(map[string]struct{}, len(taskPayload.ElasticNetworkInterfaces))
+	for _, eni := range taskPayload.ElasticNetworkInterfaces {
+		declared[aws.ToString(eni.Ec2Id)] = struct{}{}
+	}
+	held := make(heldInterfaces)
+	for _, netNS := range existing {
+		for _, iface := range netNS.NetworkInterfaces {
+			if _, ok := declared[iface.ID]; !ok {
+				return nil, errors.Errorf("existing network namespace %s holds interface %s, which the task does not declare",
+					netNS.Name, iface.ID)
+			}
+			held[iface.ID] = netNS
+			if iface.MacAddress != "" && iface.DeviceName != "" {
+				macToNames[iface.MacAddress] = iface.DeviceName
+			}
+		}
+	}
+	return held, nil
+}
+
+// buildNetNS creates a single awsvpc network namespace object using the input
+// network config data. When some of the interfaces are held by an existing
+// namespace, the namespace built here takes that namespace's identity and
+// state, since it describes the same namespace with the payload's remaining
+// interfaces added; the existing model is not modified.
 func (c *common) buildNetNS(
 	taskID string,
 	index int,
@@ -315,11 +365,22 @@ func (c *common) buildNetNS(
 	proxyConfig *ecsacs.ProxyConfiguration,
 	macToName map[string]string,
 	ifaceToGuestNetNS map[string]string,
+	held heldInterfaces,
 ) (*tasknetworkconfig.NetworkNamespace, error) {
 	var primaryIF *networkinterface.NetworkInterface
 	var ifaces []*networkinterface.NetworkInterface
+	var existingNS *tasknetworkconfig.NetworkNamespace
+	heldCount := 0
 	lowestIdx := int64(indexHighValue)
 	for _, ni := range networkInterfaces {
+		if holder := held[aws.ToString(ni.Ec2Id)]; holder != nil {
+			if existingNS != nil && existingNS != holder {
+				return nil, errors.Errorf("task places interfaces of existing network namespaces %s and %s together",
+					existingNS.Name, holder.Name)
+			}
+			existingNS = holder
+			heldCount++
+		}
 		guestNetNS := ifaceToGuestNetNS[aws.ToString(ni.Name)]
 		iface, err := networkinterface.New(ni, guestNetNS, networkInterfaces, macToName)
 		if err != nil {
@@ -335,17 +396,79 @@ func (c *common) buildNetNS(
 	primaryIF.Default = true
 	netNSName := networkinterface.NetNSName(taskID, primaryIF.Name)
 	netNSPath := c.GetNetNSPath(netNSName)
+	if existingNS != nil {
+		if heldCount != len(existingNS.NetworkInterfaces) {
+			return nil, errors.Errorf("task splits the interfaces of existing network namespace %s across namespaces",
+				existingNS.Name)
+		}
+		if existingNS.Index != index {
+			return nil, errors.Errorf("existing network namespace %s has index %d but the task places it at %d",
+				existingNS.Name, existingNS.Index, index)
+		}
+		netNSName = existingNS.Name
+		netNSPath = existingNS.Path
+	}
 
 	logger.Info("Building network namespace model", map[string]interface{}{
 		"NetNSName": netNSName,
 		"NetNSPath": netNSPath,
 	})
-	return tasknetworkconfig.NewNetworkNamespace(
+	netNS, err := tasknetworkconfig.NewNetworkNamespace(
 		netNSName,
 		netNSPath,
 		index,
 		proxyConfig,
 		ifaces...)
+	if err != nil || existingNS == nil {
+		return netNS, err
+	}
+
+	// The model describes a namespace that has been worked on: it carries the
+	// state that work reached, so the next Start continues from it rather than
+	// repeating it. Interfaces the existing namespace holds keep their recorded
+	// status; the ones the payload adds are at NONE for Start to configure.
+	// The hosts entries were read back from the file the pull phase wrote, and
+	// that phase does not run again for this namespace.
+	priorIfaces := make(map[string]*networkinterface.NetworkInterface, len(existingNS.NetworkInterfaces))
+	for _, iface := range existingNS.NetworkInterfaces {
+		priorIfaces[iface.ID] = iface
+	}
+	for _, iface := range netNS.NetworkInterfaces {
+		if prior, ok := priorIfaces[iface.ID]; ok {
+			iface.KnownStatus = prior.KnownStatus
+			iface.DesiredStatus = prior.DesiredStatus
+		}
+	}
+	netNS.KnownState = existingNS.KnownState
+	netNS.DesiredState = existingNS.DesiredState
+	netNS.Hosts = existingNS.Hosts
+	return netNS, nil
+}
+
+// BuildAttachmentNetworkConfiguration models the task namespace an attached
+// interface establishes. Only the primary interface establishes one, since the
+// namespace takes its name and default route from it; for any other interface
+// the task namespace is left nil for the task payload to place it.
+func (c *common) BuildAttachmentNetworkConfiguration(
+	taskID string,
+	eni *ecsacs.ElasticNetworkInterface,
+) (*tasknetworkconfig.AttachmentNetworkConfig, error) {
+	if eni == nil {
+		return nil, errors.New("an interface is required to build attachment network configuration")
+	}
+	cfg := &tasknetworkconfig.AttachmentNetworkConfig{}
+	if aws.ToInt64(eni.Index) != 0 {
+		return cfg, nil
+	}
+	macToNames, err := c.interfacesMACToName()
+	if err != nil {
+		return nil, errors.Wrap(err, "failed to list host interfaces")
+	}
+	cfg.TaskNetNS, err = c.buildNetNS(taskID, 0, []*ecsacs.ElasticNetworkInterface{eni}, nil, macToNames, nil, nil)
+	if err != nil {
+		return nil, err
+	}
+	return cfg, nil
 }
 
 // CreateNetNS creates a new network namespace with the specified path.

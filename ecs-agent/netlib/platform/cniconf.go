@@ -13,6 +13,8 @@
 
 package platform
 
+import "github.com/aws/aws-sdk-go-v2/service/ecs/types"
+
 const (
 	cniSpecVersion               = "0.3.0"
 	blockInstanceMetadataDefault = true
@@ -22,6 +24,10 @@ const (
 	AgentEndpoint = "169.254.170.2/32"
 
 	// Daemon-bridge networking constants
+	// DaemonBridgeNetworkMode is the network mode of tasks placed in the shared daemon namespace.
+	DaemonBridgeNetworkMode types.NetworkMode = "daemon-bridge"
+	// DaemonBridgeNetNSName is the shared namespace every daemon on the host runs in.
+	DaemonBridgeNetNSName   = "host-daemon"
 	DaemonBridgeGatewayIP   = "169.254.172.1"
 	DaemonBridgeIP          = "169.254.172.2/32"
 	DefaultRouteDestination = "0.0.0.0/0"

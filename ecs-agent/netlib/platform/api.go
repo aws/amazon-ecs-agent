@@ -29,9 +29,28 @@ import (
 type API interface {
 	// BuildTaskNetworkConfiguration translates network data in task payload sent by ACS
 	// into the task network configuration data structure internal to the agent.
+	//
+	// Namespaces of the task that already exist, such as one built from an ENI
+	// attachment ahead of the payload, are passed as existing. Interfaces they
+	// already hold are not resolved again (their devices have left the host
+	// namespace) and keep the status the existing model records; interfaces the
+	// payload adds to such a namespace are modelled onto a namespace of the same
+	// identity at status NONE, for Start to configure. The namespace's own state
+	// is carried from the existing model. The existing models are not modified.
 	BuildTaskNetworkConfiguration(
 		taskID string,
-		taskPayload *ecsacs.Task) (*tasknetworkconfig.TaskNetworkConfig, error)
+		taskPayload *ecsacs.Task,
+		existing ...*tasknetworkconfig.NetworkNamespace,
+	) (*tasknetworkconfig.TaskNetworkConfig, error)
+
+	// BuildAttachmentNetworkConfiguration models the networking that can be
+	// built from a task ENI attachment before the task payload arrives: the
+	// task namespace the interface establishes when it is the task's primary,
+	// and the host's shared daemon namespace on platforms that have one.
+	BuildAttachmentNetworkConfiguration(
+		taskID string,
+		eni *ecsacs.ElasticNetworkInterface,
+	) (*tasknetworkconfig.AttachmentNetworkConfig, error)
 
 	// HandleHostMode returns error if host mode is not enabled for the platform.
 	HandleHostMode() error

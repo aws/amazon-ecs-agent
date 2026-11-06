@@ -25,10 +25,12 @@ import (
 	"github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/golang/mock/gomock"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 
 	"github.com/aws/amazon-ecs-agent/ecs-agent/acs/model/ecsacs"
 	"github.com/aws/amazon-ecs-agent/ecs-agent/acs/session/testconst"
 	ni "github.com/aws/amazon-ecs-agent/ecs-agent/netlib/model/networkinterface"
+	netstatus "github.com/aws/amazon-ecs-agent/ecs-agent/netlib/model/status"
 )
 
 var testAttachTaskENIMessage = &ecsacs.AttachTaskNetworkInterfacesMessage{
@@ -243,4 +245,158 @@ func TestTaskENIAckHappyPath(t *testing.T) {
 	attachTaskEniAckSent := <-ackSent
 	wg.Wait()
 	assert.Equal(t, aws.ToString(attachTaskEniAckSent.MessageId), testconst.MessageID)
+}
+
+// TestTaskENIAttachmentCarriesInterfaceConfig verifies that the ENI attachment
+// handed to the ENIHandler carries the message's interface configuration.
+func TestTaskENIAttachmentCarriesInterfaceConfig(t *testing.T) {
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+
+	const (
+		testIPv6Address     = "2001:db8::1"
+		testGatewayIPv6     = "2001:db8::/64"
+		testDNSServer       = "10.0.0.2"
+		testDNSSearchDomain = "us-west-2.compute.internal"
+		testPrivateDnsName  = "ip-10-0-0-1.us-west-2.compute.internal"
+		testInterfaceIndex  = int64(0)
+	)
+
+	// A full-config message, deliberately independent of the shared
+	// testAttachTaskENIMessage so mutations elsewhere cannot affect it.
+	message := &ecsacs.AttachTaskNetworkInterfacesMessage{
+		MessageId:            aws.String(testconst.MessageID),
+		ClusterArn:           aws.String(testconst.ClusterARN),
+		ContainerInstanceArn: aws.String(testconst.ContainerInstanceARN),
+		TaskArn:              aws.String(testconst.TaskARN),
+		WaitTimeoutMs:        aws.Int64(testconst.WaitTimeoutMillis),
+		ElasticNetworkInterfaces: []*ecsacs.ElasticNetworkInterface{
+			{
+				Ec2Id:                        aws.String("eni-12345"),
+				MacAddress:                   aws.String(testconst.RandomMAC),
+				InterfaceAssociationProtocol: aws.String(testconst.InterfaceProtocol),
+				Index:                        aws.Int64(testInterfaceIndex),
+				SubnetGatewayIpv4Address:     aws.String(testconst.GatewayIPv4),
+				SubnetGatewayIpv6Address:     aws.String(testGatewayIPv6),
+				PrivateDnsName:               aws.String(testPrivateDnsName),
+				DomainNameServers:            []*string{aws.String(testDNSServer)},
+				DomainName:                   []*string{aws.String(testDNSSearchDomain)},
+				Ipv4Addresses: []*ecsacs.IPv4AddressAssignment{
+					{
+						Primary:        aws.Bool(true),
+						PrivateAddress: aws.String(testconst.IPv4Address),
+					},
+				},
+				Ipv6Addresses: []*ecsacs.IPv6AddressAssignment{
+					{
+						Address: aws.String(testIPv6Address),
+					},
+				},
+			},
+		},
+	}
+
+	captured := make(chan *ni.ENIAttachment, 1)
+	mockENIHandler := mock_session.NewMockENIHandler(ctrl)
+	mockENIHandler.EXPECT().
+		HandleENIAttachment(gomock.Any()).
+		Return(nil).
+		Do(func(attachment *ni.ENIAttachment) {
+			captured <- attachment
+		})
+
+	testResponseSender := func(response interface{}) error { return nil }
+	responder := NewAttachTaskENIResponder(mockENIHandler, testResponseSender)
+
+	handleAttachMessage := responder.HandlerFunc().(func(*ecsacs.AttachTaskNetworkInterfacesMessage))
+	go handleAttachMessage(message)
+
+	attachment := <-captured
+
+	// Existing attachment metadata must be unchanged.
+	assert.Equal(t, testconst.TaskARN, attachment.TaskARN)
+	assert.Equal(t, testconst.RandomMAC, attachment.MACAddress)
+	assert.Equal(t, ni.ENIAttachmentTypeTaskENI, attachment.AttachmentType)
+
+	// The configuration must build the same interface model the task payload
+	// path builds.
+	require.NotNil(t, attachment.InterfaceConfig)
+	iface, err := ni.New(attachment.InterfaceConfig, "",
+		[]*ecsacs.ElasticNetworkInterface{attachment.InterfaceConfig},
+		map[string]string{testconst.RandomMAC: "eth1"})
+	require.NoError(t, err)
+	assert.Equal(t, "eni-12345", iface.ID)
+	assert.Equal(t, testconst.RandomMAC, iface.MacAddress)
+	require.Len(t, iface.IPV4Addresses, 1)
+	assert.True(t, iface.IPV4Addresses[0].Primary)
+	assert.Equal(t, testconst.IPv4Address, iface.IPV4Addresses[0].Address)
+	require.Len(t, iface.IPV6Addresses, 1)
+	assert.Equal(t, testIPv6Address, iface.IPV6Addresses[0].Address)
+	assert.Equal(t, testconst.GatewayIPv4, iface.SubnetGatewayIPV4Address)
+	assert.Equal(t, testGatewayIPv6, iface.SubnetGatewayIPV6Address)
+	assert.Equal(t, testPrivateDnsName, iface.PrivateDNSName)
+	assert.Equal(t, []string{testDNSServer}, iface.DomainNameServers)
+	assert.Equal(t, []string{testDNSSearchDomain}, iface.DomainNameSearchList)
+	assert.Equal(t, testconst.InterfaceProtocol, iface.InterfaceAssociationProtocol)
+	assert.Equal(t, testInterfaceIndex, iface.Index)
+
+	// Fields derived from host state must be present.
+	assert.Equal(t, "eth1", iface.DeviceName)
+	assert.Equal(t, netstatus.NetworkNone, iface.KnownStatus)
+	assert.Equal(t, netstatus.NetworkReadyPull, iface.DesiredStatus)
+}
+
+// TestTaskENIAttachmentInterfaceConfigOptionalFields verifies that a message
+// carrying only the validator-required fields still yields an attachment
+// with the interface configuration set, with the optional fields (IPv6, DNS,
+// private DNS name) left empty rather than failing the attachment.
+func TestTaskENIAttachmentInterfaceConfigOptionalFields(t *testing.T) {
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+
+	message := &ecsacs.AttachTaskNetworkInterfacesMessage{
+		MessageId:            aws.String(testconst.MessageID),
+		ClusterArn:           aws.String(testconst.ClusterARN),
+		ContainerInstanceArn: aws.String(testconst.ContainerInstanceARN),
+		TaskArn:              aws.String(testconst.TaskARN),
+		WaitTimeoutMs:        aws.Int64(testconst.WaitTimeoutMillis),
+		ElasticNetworkInterfaces: []*ecsacs.ElasticNetworkInterface{
+			{
+				Ec2Id:                        aws.String("eni-12345"),
+				MacAddress:                   aws.String(testconst.RandomMAC),
+				InterfaceAssociationProtocol: aws.String(testconst.InterfaceProtocol),
+				SubnetGatewayIpv4Address:     aws.String(testconst.GatewayIPv4),
+				Ipv4Addresses: []*ecsacs.IPv4AddressAssignment{
+					{
+						Primary:        aws.Bool(true),
+						PrivateAddress: aws.String(testconst.IPv4Address),
+					},
+				},
+			},
+		},
+	}
+
+	captured := make(chan *ni.ENIAttachment, 1)
+	mockENIHandler := mock_session.NewMockENIHandler(ctrl)
+	mockENIHandler.EXPECT().
+		HandleENIAttachment(gomock.Any()).
+		Return(nil).
+		Do(func(attachment *ni.ENIAttachment) {
+			captured <- attachment
+		})
+
+	testResponseSender := func(response interface{}) error { return nil }
+	responder := NewAttachTaskENIResponder(mockENIHandler, testResponseSender)
+
+	handleAttachMessage := responder.HandlerFunc().(func(*ecsacs.AttachTaskNetworkInterfacesMessage))
+	go handleAttachMessage(message)
+
+	attachment := <-captured
+	assert.Equal(t, testconst.TaskARN, attachment.TaskARN)
+	assert.Equal(t, testconst.RandomMAC, attachment.MACAddress)
+	require.NotNil(t, attachment.InterfaceConfig)
+	assert.Empty(t, attachment.InterfaceConfig.Ipv6Addresses)
+	assert.Empty(t, attachment.InterfaceConfig.DomainNameServers)
+	assert.Empty(t, attachment.InterfaceConfig.DomainName)
+	assert.Empty(t, attachment.InterfaceConfig.PrivateDnsName)
 }
