@@ -173,26 +173,27 @@ func (r *MPSDaemonResource) Create() error {
 	defer cancel()
 
 	attempt := 0
-	err := retry.RetryNWithBackoffCtx(ctx, deps.newBackoff(), probeMaxAttempts,
+	var probeErr error
+	retry.RetryNWithBackoffCtx(ctx, deps.newBackoff(), probeMaxAttempts,
 		func() error {
 			attempt++
-			return r.checkOnce(attempt, deps)
+			probeErr = r.checkOnce(attempt, deps)
+			return probeErr
 		})
 
-	// RetryNWithBackoffCtx reports nil when the context is already done, having
-	// never run the check. Nothing was verified, so fail closed: a gate that
-	// passes without probing would let the injected memory cap be ignored, which
-	// is the failure this resource exists to prevent.
+	// Nothing was verified if no probe ran, so fail closed: a gate that passes
+	// without probing would let the injected memory cap be ignored, which is the
+	// failure this resource exists to prevent.
 	if attempt == 0 {
 		return r.blockTask(errGateNotCompleted, "context was already done, no probe ran")
 	}
-	if err != nil {
+	if probeErr != nil {
 		// The parent going down means the agent is stopping or the task was
 		// stopped. That is not the daemon's fault, so do not report it as such.
 		if deps.parent.Err() != nil {
 			return r.blockTask(errGateNotCompleted, "abandoned while retrying")
 		}
-		return r.blockTask(err, fmt.Sprintf("no success in %d attempts", attempt))
+		return r.blockTask(probeErr, fmt.Sprintf("no success in %d attempts", attempt))
 	}
 	return nil
 }

@@ -2256,7 +2256,7 @@ func (engine *DockerTaskEngine) startContainer(task *apitask.Task, container *ap
 
 	var dockerContainerMD dockerapi.DockerContainerMetadata
 	backoff := retry.NewExponentialBackoff(startContainerBackoffMin, startContainerBackoffMax, startContainerBackoffJitter, startContainerBackoffMultiplier)
-	retry.RetryNWithBackoffCtx(startCtx, backoff, maxVolumeMountRetries, func() error {
+	startErr := retry.RetryNWithBackoffCtx(startCtx, backoff, maxVolumeMountRetries, func() error {
 		dockerContainerMD = client.StartContainer(startCtx, dockerID, engine.cfg.ContainerStartTimeout)
 		// Retry when StartContainer times out due to volume plugin mount operation timeout
 		if dockerContainerMD.Error != nil && isVolumePluginMountTimeout(dockerContainerMD.Error) {
@@ -2271,6 +2271,12 @@ func (engine *DockerTaskEngine) startContainer(task *apitask.Task, container *ap
 	})
 	if dockerContainerMD.Error != nil {
 		return dockerContainerMD
+	}
+	if startErr != nil {
+		// The context ended before the first attempt, so the container was never started.
+		return dockerapi.DockerContainerMetadata{
+			Error: dockerapi.CannotStartContainerError{FromError: startErr},
+		}
 	}
 
 	logger.Info("Started container", logger.Fields{

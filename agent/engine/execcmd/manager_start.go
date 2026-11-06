@@ -89,7 +89,7 @@ func (m *manager) inspectExecAgentProcess(ctx context.Context, client dockerapi.
 		inspectRes *types.ContainerExecInspect
 		inspectErr error
 	)
-	retry.RetryNWithBackoffCtx(ctx, backoff, maxRetries, func() error {
+	err := retry.RetryNWithBackoffCtx(ctx, backoff, maxRetries, func() error {
 		inspectRes, inspectErr = client.InspectContainerExec(ctx, metadata.DockerExecID, dockerclient.ContainerExecInspectTimeout)
 		if inspectErr != nil {
 			retryable := true
@@ -103,6 +103,10 @@ func (m *manager) inspectExecAgentProcess(ctx context.Context, client dockerapi.
 		}
 		return nil
 	})
+	if inspectErr == nil {
+		// Nil unless the context ended before the first attempt.
+		inspectErr = err
+	}
 	return inspectRes, inspectErr
 }
 
@@ -148,7 +152,7 @@ func (m *manager) StartAgent(ctx context.Context, client dockerapi.DockerClient,
 	var startErr error
 
 	var execMD *AgentMetadata
-	retry.RetryNWithBackoffCtx(ctx, backoff, maxRetries, func() error {
+	err := retry.RetryNWithBackoffCtx(ctx, backoff, maxRetries, func() error {
 		execMD, startErr = m.doStartAgent(ctx, client, task, ma, containerId)
 		if startErr != nil {
 			logger.Warn("Exec command agent failed to start for container", logger.Fields{
@@ -160,6 +164,10 @@ func (m *manager) StartAgent(ctx context.Context, client dockerapi.DockerClient,
 		}
 		return startErr
 	})
+	if startErr == nil {
+		// Nil unless the context ended before the first attempt.
+		startErr = err
+	}
 	if startErr != nil {
 		container.UpdateManagedAgentByName(ExecuteCommandAgentName, apicontainer.ManagedAgentState{
 			ID:     ma.ID,

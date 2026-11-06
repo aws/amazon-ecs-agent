@@ -402,14 +402,6 @@ func (dg *dockerGoClient) PullImageManifest(
 		}
 		return registry.DistributionInspect{}, wrapManifestPullErrorAsNamedError(imageRef, err)
 	}
-	if ctxErr := ctx.Err(); ctxErr != nil {
-		// Context was done before manifest could be pulled
-		if errors.Is(ctxErr, context.DeadlineExceeded) {
-			timeoutErr := &DockerTimeoutError{time.Since(startTime), "MANIFEST_PULLED"}
-			return registry.DistributionInspect{}, timeoutErr
-		}
-		return registry.DistributionInspect{}, wrapManifestPullErrorAsNamedError(imageRef, ctxErr)
-	}
 	if distInspectPtr == nil {
 		// Shouldn't ever happen but to prevent a panic
 		return registry.DistributionInspect{}, CannotPullImageManifestError{
@@ -426,8 +418,8 @@ func (dg *dockerGoClient) PullImageManifest(
 func wrapManifestPullErrorAsNamedError(image string, err error) apierrors.NamedError {
 	var retErr apierrors.NamedError
 	if err != nil {
-		engErr, ok := err.(apierrors.NamedError)
-		if !ok {
+		var engErr apierrors.NamedError
+		if !errors.As(err, &engErr) {
 			err = redactEcrUrls(image, err)
 			engErr = CannotPullImageManifestError{err}
 		}
@@ -473,8 +465,8 @@ func (dg *dockerGoClient) PullImage(ctx context.Context, image string,
 func wrapPullErrorAsNamedError(image string, err error) apierrors.NamedError {
 	var retErr apierrors.NamedError
 	if err != nil {
-		engErr, ok := err.(apierrors.NamedError)
-		if !ok {
+		var engErr apierrors.NamedError
+		if !errors.As(err, &engErr) {
 			err = redactEcrUrls(image, err)
 			engErr = CannotPullContainerError{err}
 		}
@@ -636,9 +628,6 @@ func (dg *dockerGoClient) TagImage(ctx context.Context, source string, target st
 
 	if err != nil {
 		return fmt.Errorf("failed to tag image '%s' as '%s': %w", source, target, err)
-	}
-	if ctx.Err() != nil {
-		return ctx.Err()
 	}
 	return nil
 }
