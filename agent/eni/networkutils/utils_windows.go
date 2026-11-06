@@ -124,11 +124,10 @@ func (utils *networkUtils) retrieveMAC() (string, error) {
 	})
 
 	if err != nil {
+		if errors.Is(err, context.DeadlineExceeded) {
+			return "", errors.Wrapf(err, "timed out waiting for mac address for interface with Index: %v", utils.interfaceIndex)
+		}
 		return "", err
-	}
-
-	if err = ctx.Err(); err != nil {
-		return "", errors.Wrapf(err, "timed out waiting for mac address for interface with Index: %v", utils.interfaceIndex)
 	}
 
 	return utils.macAddress, nil

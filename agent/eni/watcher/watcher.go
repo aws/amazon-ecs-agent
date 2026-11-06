@@ -213,13 +213,11 @@ func (eniWatcher *ENIWatcher) sendENIStateChangeWithRetries(parentCtx context.Co
 	})
 
 	if err != nil {
+		if errors.Is(err, context.DeadlineExceeded) {
+			return errors.Wrapf(err,
+				"eni watcher send ENI state change: timed out waiting for eni '%s' in state", macAddress)
+		}
 		return err
-	}
-	// RetryWithBackoffCtx returns nil when the context is cancelled. Check if there was
-	// a timeout here. TODO: Fix RetryWithBackoffCtx to return ctx.Err() on context Done()
-	if err = ctx.Err(); err != nil {
-		return errors.Wrapf(err,
-			"eni watcher send ENI state change: timed out waiting for eni '%s' in state", macAddress)
 	}
 
 	return nil
