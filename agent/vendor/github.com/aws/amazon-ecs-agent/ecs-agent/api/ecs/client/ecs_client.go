@@ -254,13 +254,13 @@ func (client *ecsClient) registerContainerInstanceWithRetry(clusterRef string, c
 	platformDevices []types.PlatformDevice, outpostARN string) (string, string, error) {
 
 	var containerInstanceARN, availabilityZone string
-	var errFromRCI error
 	ctx, cancel := context.WithTimeout(context.Background(), rciMaxRetryTimeAllowed)
 	defer cancel()
 	// Reset the backoff such that retries from past calls won't impact the current call.
 	client.rciRetryBackoff.Reset()
 	err := retry.RetryWithBackoffCtx(ctx, client.rciRetryBackoff,
 		func() error {
+			var errFromRCI error
 			containerInstanceARN, availabilityZone, errFromRCI = client.registerContainerInstance(
 				clusterRef, containerInstanceArn, attributes, tags, registrationToken, platformDevices, outpostARN)
 			if errFromRCI != nil {
@@ -280,10 +280,8 @@ func (client *ecsClient) registerContainerInstanceWithRetry(clusterRef string, c
 			}
 			return nil
 		})
-	if err != nil || errFromRCI != nil {
-		// return errFromRCI instead of err returned by the retry wrapper, as err wraps around the original error thrown by RCI.
-		// errFromRCI has implementation to mark the exit code terminal, so that systemd won't restart the agent binary.
-		return "", "", errFromRCI
+	if err != nil {
+		return "", "", err
 	}
 	return containerInstanceARN, availabilityZone, nil
 }
@@ -938,7 +936,6 @@ func (client *ecsClient) GetResourceTags(ctx context.Context, resourceArn string
 
 	var (
 		tags       []types.Tag
-		lastErr    error
 		retryCount int
 	)
 
@@ -952,8 +949,6 @@ func (client *ecsClient) GetResourceTags(ctx context.Context, resourceArn string
 			tags = output.Tags
 			return nil
 		}
-
-		lastErr = err
 
 		if isTransientError(err) {
 			logger.Warn("ListTagsForResource throttled or rate limited", logger.Fields{
@@ -974,11 +969,11 @@ func (client *ecsClient) GetResourceTags(ctx context.Context, resourceArn string
 
 	if err != nil {
 		logger.Error("GetResourceTags exhausted retries", logger.Fields{
-			field.Error: lastErr,
+			field.Error: err,
 			"resource":  resourceArn,
 			"attempts":  retryCount,
 		})
-		return nil, fmt.Errorf("GetResourceTags failed for %s after %d attempts: %v", resourceArn, retryCount, lastErr)
+		return nil, fmt.Errorf("GetResourceTags failed for %s after %d attempts: %w", resourceArn, retryCount, err)
 	}
 
 	return tags, nil

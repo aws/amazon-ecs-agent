@@ -897,9 +897,6 @@ func (agent *ecsAgent) registerContainerInstance(
 		logger.Error("Error registering container instance", logger.Fields{
 			field.Error: err,
 		})
-		if retriable, ok := err.(apierrors.Retriable); ok && !retriable.Retry() {
-			return terminalError{err}
-		}
 		if utils.IsAWSErrorCodeEqual(err, apierrors.ErrCodeInvalidParameterException) {
 			logger.Critical("Instance registration attempt with an invalid parameter", logger.Fields{
 				field.Error: err,
@@ -912,7 +909,8 @@ func (agent *ecsAgent) registerContainerInstance(
 			})
 			return terminalError{err}
 		}
-		if _, ok := err.(apierrors.AttributeError); ok {
+		var attributeErr apierrors.AttributeError
+		if errors.As(err, &attributeErr) {
 			attributeErrorMsg := ""
 			if len(agent.cfg.InstanceAttributes) > 0 {
 				attributeErrorMsg = customAttributeErrorMessage
@@ -966,7 +964,8 @@ func (agent *ecsAgent) reregisterContainerInstance(client ecs.ECSClient, capabil
 		})
 		return terminalError{err}
 	}
-	if _, ok := err.(apierrors.AttributeError); ok {
+	var attributeErr apierrors.AttributeError
+	if errors.As(err, &attributeErr) {
 		attributeErrorMsg := ""
 		if len(agent.cfg.InstanceAttributes) > 0 {
 			attributeErrorMsg = customAttributeErrorMessage
