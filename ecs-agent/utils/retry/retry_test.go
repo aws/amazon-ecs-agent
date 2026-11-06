@@ -252,3 +252,72 @@ func TestRetryNWithBackoffCtx(t *testing.T) {
 		assert.Error(t, err)
 	})
 }
+
+func TestRetryNWithBackoffCtxContextDone(t *testing.T) {
+	attemptErr := errors.New("attempt failed")
+	testCases := []struct {
+		name          string
+		cancelBefore  bool
+		cancelAfter   int
+		tries         int
+		expectedCalls int
+		expectedErrs  []error
+		notExpected   []error
+	}{
+		{
+			name:          "cancelled before first attempt",
+			cancelBefore:  true,
+			tries:         3,
+			expectedCalls: 0,
+			expectedErrs:  []error{context.Canceled},
+			notExpected:   []error{attemptErr},
+		},
+		{
+			name:          "cancelled after second attempt",
+			cancelAfter:   2,
+			tries:         5,
+			expectedCalls: 2,
+			expectedErrs:  []error{context.Canceled, attemptErr},
+		},
+		{
+			name:          "tries exhausted before cancellation",
+			tries:         2,
+			expectedCalls: 2,
+			expectedErrs:  []error{attemptErr},
+			notExpected:   []error{context.Canceled},
+		},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			ctrl := gomock.NewController(t)
+			defer ctrl.Finish()
+			mocktime := mock_ttime.NewMockTime(ctrl)
+			_time = mocktime
+			defer func() { _time = &ttime.DefaultTime{} }()
+			mocktime.EXPECT().Sleep(gomock.Any()).AnyTimes()
+
+			ctx, cancel := context.WithCancel(context.TODO())
+			defer cancel()
+			if tc.cancelBefore {
+				cancel()
+			}
+			calls := 0
+			err := RetryNWithBackoffCtx(ctx, NewExponentialBackoff(time.Millisecond, time.Millisecond, 0, 1), tc.tries, func() error {
+				calls++
+				if calls == tc.cancelAfter {
+					cancel()
+				}
+				return attemptErr
+			})
+
+			assert.Equal(t, tc.expectedCalls, calls)
+			for _, expected := range tc.expectedErrs {
+				assert.ErrorIs(t, err, expected)
+			}
+			for _, notExpected := range tc.notExpected {
+				assert.NotErrorIs(t, err, notExpected)
+			}
+		})
+	}
+}

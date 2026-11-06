@@ -5733,3 +5733,30 @@ func TestStartContainerNoRetryOnNonVolumeError(t *testing.T) {
 	metadata := taskEngine.(*DockerTaskEngine).startContainer(sleepTask, container)
 	assert.Error(t, metadata.Error)
 }
+
+// TestStartContainerContextAlreadyDone verifies that a container is reported as failed to start,
+// not as started, when the engine context ends before the first start attempt.
+func TestStartContainerContextAlreadyDone(t *testing.T) {
+	ctx, cancel := context.WithCancel(context.TODO())
+	ctrl, client, _, taskEngine, _, _, _, _ := mocks(t, ctx, &defaultConfig)
+	defer ctrl.Finish()
+
+	sleepTask := testdata.LoadTask("sleep5")
+	container := sleepTask.Containers[0]
+	container.SetRuntimeID(containerID)
+
+	taskEngine.(*DockerTaskEngine).state.AddTask(sleepTask)
+	taskEngine.(*DockerTaskEngine).state.AddContainer(&apicontainer.DockerContainer{
+		DockerID:   containerID,
+		DockerName: "test-container",
+		Container:  container,
+	}, sleepTask)
+
+	client.EXPECT().StartContainer(gomock.Any(), gomock.Any(), gomock.Any()).Times(0)
+	cancel()
+
+	metadata := taskEngine.(*DockerTaskEngine).startContainer(sleepTask, container)
+
+	assert.IsType(t, dockerapi.CannotStartContainerError{}, metadata.Error)
+	assert.ErrorContains(t, metadata.Error, context.Canceled.Error())
+}
