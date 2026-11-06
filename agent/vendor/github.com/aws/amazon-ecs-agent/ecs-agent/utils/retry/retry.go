@@ -72,16 +72,21 @@ func RetryNWithBackoff(backoff Backoff, n int, fn func() error) error {
 // reached.
 // If the error returned is Retriable, the Retriability of it will be respected.
 // If the number of tries is exhausted, the last error will be returned.
+// If the context is done, ctx.Err() will be returned, joined with the error from
+// the last attempt if there was one.
 func RetryNWithBackoffCtx(ctx context.Context, backoff Backoff, n int, fn func() error) error {
-	var err error
-	RetryWithBackoffCtx(ctx, backoff, func() error {
-		err = fn()
+	var lastErr error
+	err := RetryWithBackoffCtx(ctx, backoff, func() error {
+		lastErr = fn()
 		n--
 		if n == 0 {
 			// Break out after n tries
 			return nil
 		}
-		return err
+		return lastErr
 	})
-	return err
+	if err != nil {
+		return err
+	}
+	return lastErr
 }
