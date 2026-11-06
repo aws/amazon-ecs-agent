@@ -20,6 +20,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"net/http"
 	"strings"
 	"sync"
 	"testing"
@@ -27,8 +28,11 @@ import (
 	"time"
 
 	"github.com/aws/aws-sdk-go-v2/aws"
+	awshttp "github.com/aws/aws-sdk-go-v2/aws/transport/http"
 	ecsservice "github.com/aws/aws-sdk-go-v2/service/ecs"
 	"github.com/aws/aws-sdk-go-v2/service/ecs/types"
+	"github.com/aws/smithy-go"
+	smithyhttp "github.com/aws/smithy-go/transport/http"
 	"github.com/golang/mock/gomock"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -312,9 +316,6 @@ func TestSubmitContainerStateChangeLongReason(t *testing.T) {
 }
 
 func TestSetInstanceIdentity(t *testing.T) {
-	ctrl := gomock.NewController(t)
-	defer ctrl.Finish()
-
 	const (
 		expectedIID    = "test-instance-identity-document"
 		expectedIIDSig = "test-instance-identity-signature"
@@ -390,6 +391,28 @@ func TestSetInstanceIdentity(t *testing.T) {
 			},
 		},
 		{
+			name:               "Fail_SignatureTimeout",
+			noInstanceIdentity: false,
+			mockEC2MetadataSetup: func(mockEC2Metadata *mock_ec2.MockEC2MetadataClient) {
+				mockEC2Metadata.EXPECT().
+					GetDynamicData(ec2.InstanceIdentityDocumentResource).
+					Return(expectedIID, nil)
+				mockEC2Metadata.EXPECT().
+					GetDynamicData(ec2.InstanceIdentityDocumentSignatureResource).
+					Return("", fmt.Errorf("persistent error")).
+					MinTimes(2)
+			},
+			mockCredentialsSetup: func(mockCredProvider *mock_credentials.MockCredentialsProvider) {
+				// The signature fetch does not refresh credentials on failure
+			},
+			validateExpectedFields: func(t *testing.T, req *ecsservice.RegisterContainerInstanceInput) {
+				assert.NotNil(t, req.InstanceIdentityDocument)
+				assert.Equal(t, expectedIID, *req.InstanceIdentityDocument)
+				assert.NotNil(t, req.InstanceIdentityDocumentSignature)
+				assert.Equal(t, "", *req.InstanceIdentityDocumentSignature)
+			},
+		},
+		{
 			name:               "Fail_PersistentError",
 			noInstanceIdentity: false,
 			mockEC2MetadataSetup: func(mockEC2Metadata *mock_ec2.MockEC2MetadataClient) {
@@ -398,10 +421,10 @@ func TestSetInstanceIdentity(t *testing.T) {
 					GetDynamicData(ec2.InstanceIdentityDocumentResource).
 					Return("", fmt.Errorf("persistent error")).
 					AnyTimes()
+				// The signature is not fetched once the document fetch has timed out.
 				mockEC2Metadata.EXPECT().
 					GetDynamicData(ec2.InstanceIdentityDocumentSignatureResource).
-					Return("", fmt.Errorf("persistent error")).
-					AnyTimes()
+					Times(0)
 			},
 			mockCredentialsSetup: func(mockCredProvider *mock_credentials.MockCredentialsProvider) {
 				// Expect multiple credential retrievals due to repeated failures
@@ -419,29 +442,35 @@ func TestSetInstanceIdentity(t *testing.T) {
 
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
-			mockConfigAccessor := mock_config.NewMockAgentConfigAccessor(ctrl)
-			mockEC2Metadata := mock_ec2.NewMockEC2MetadataClient(ctrl)
-			mockCredentialsProvider := mock_credentials.NewMockCredentialsProvider(ctrl)
-			mockConfigAccessor.EXPECT().AcceptInsecureCert().Return(false).AnyTimes()
-			mockConfigAccessor.EXPECT().OSType().Return(osType).AnyTimes()
-			mockConfigAccessor.EXPECT().OSFamilyDetailed().Return(detailedOSFamily).AnyTimes()
-			mockConfigAccessor.EXPECT().AWSRegion().Return(region).AnyTimes()
-			mockConfigAccessor.EXPECT().NoInstanceIdentityDocument().Return(tc.noInstanceIdentity).AnyTimes()
-			tc.mockEC2MetadataSetup(mockEC2Metadata)
-			tc.mockCredentialsSetup(mockCredentialsProvider)
+			// The failure case retries until setInstanceIdRetryTimeOut elapses, so run
+			// against the synctest fake clock.
+			synctest.Test(t, func(t *testing.T) {
+				ctrl := gomock.NewController(t)
+				defer ctrl.Finish()
+				mockConfigAccessor := mock_config.NewMockAgentConfigAccessor(ctrl)
+				mockEC2Metadata := mock_ec2.NewMockEC2MetadataClient(ctrl)
+				mockCredentialsProvider := mock_credentials.NewMockCredentialsProvider(ctrl)
+				mockConfigAccessor.EXPECT().AcceptInsecureCert().Return(false).AnyTimes()
+				mockConfigAccessor.EXPECT().OSType().Return(osType).AnyTimes()
+				mockConfigAccessor.EXPECT().OSFamilyDetailed().Return(detailedOSFamily).AnyTimes()
+				mockConfigAccessor.EXPECT().AWSRegion().Return(region).AnyTimes()
+				mockConfigAccessor.EXPECT().NoInstanceIdentityDocument().Return(tc.noInstanceIdentity).AnyTimes()
+				tc.mockEC2MetadataSetup(mockEC2Metadata)
+				tc.mockCredentialsSetup(mockCredentialsProvider)
 
-			registerRequest := ecsservice.RegisterContainerInstanceInput{
-				Cluster: aws.String("test-cluster"),
-			}
+				registerRequest := ecsservice.RegisterContainerInstanceInput{
+					Cluster: aws.String("test-cluster"),
+				}
 
-			client := &ecsClient{
-				credentialsCache: aws.NewCredentialsCache(mockCredentialsProvider),
-				configAccessor:   mockConfigAccessor,
-				ec2metadata:      mockEC2Metadata,
-			}
+				client := &ecsClient{
+					credentialsCache: aws.NewCredentialsCache(mockCredentialsProvider),
+					configAccessor:   mockConfigAccessor,
+					ec2metadata:      mockEC2Metadata,
+				}
 
-			result := client.setInstanceIdentity(registerRequest)
-			tc.validateExpectedFields(t, &result)
+				result := client.setInstanceIdentity(registerRequest)
+				tc.validateExpectedFields(t, &result)
+			})
 		})
 	}
 }
@@ -728,7 +757,12 @@ func TestRegisterContainerInstanceWithRetryNonTerminalError(t *testing.T) {
 			)
 			arn, availabilityzone, err := tester.client.RegisterContainerInstance("", capabilities,
 				containerInstanceTags, registrationToken, platformDevices, outpostARN)
-			assert.Equal(t, tc.finalRCICallError, err)
+			if tc.finalRCICallError == nil {
+				assert.NoError(t, err)
+			} else {
+				assert.ErrorIs(t, err, tc.finalRCICallError)
+				assert.NotErrorIs(t, err, context.DeadlineExceeded)
+			}
 			assert.Equal(t, tc.expectedContainerInstanceARN, arn)
 			assert.Equal(t, tc.expectedAZ, availabilityzone)
 		})
@@ -772,8 +806,8 @@ func TestRegisterContainerInstanceWithRetryTimeout(t *testing.T) {
 					started := time.Now()
 					arn, zone, err := tester.client.RegisterContainerInstance(registration.arn, nil, nil, registrationToken, nil, "")
 
-					require.ErrorIs(t, err, registrationErr)
-					assert.Equal(t, registrationErr, err)
+					assert.ErrorIs(t, err, registrationErr)
+					assert.ErrorIs(t, err, context.DeadlineExceeded)
 					assert.Empty(t, arn)
 					assert.Empty(t, zone)
 					assert.GreaterOrEqual(t, time.Since(started), rciMaxRetryTimeAllowed)
@@ -1471,6 +1505,106 @@ func TestGetResourceTagsWithRetry(t *testing.T) {
 					assert.ErrorContains(t, err, "GetResourceTags failed for", "Expected wrapped error message")
 				}
 			}
+		})
+	}
+}
+
+// TestGetResourceTagsTimeout verifies that transient errors are retried until the deadline and
+// that the error of the last attempt is reported alongside the timeout.
+func TestGetResourceTagsTimeout(t *testing.T) {
+	testCases := []struct {
+		name         string
+		transientErr error
+	}{
+		{name: "throttling", transientErr: mock_client.NewThrottlingException()},
+		{name: "server exception", transientErr: mock_client.NewServerException()},
+		{name: "limit exceeded", transientErr: mock_client.NewLimitExceededException()},
+		{name: "quota exceeded", transientErr: mock_client.NewQuotaExceededError()},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			synctest.Test(t, func(t *testing.T) {
+				ctrl := gomock.NewController(t)
+				defer ctrl.Finish()
+
+				tester := setup(t, ctrl, ec2.NewBlackholeEC2MetadataClient(), nil)
+				tester.mockStandardClient.EXPECT().ListTagsForResource(gomock.Any(), &ecsservice.ListTagsForResourceInput{
+					ResourceArn: aws.String(containerInstanceARN),
+				}).Return(nil, tc.transientErr).MinTimes(2)
+
+				tags, err := tester.client.GetResourceTags(context.Background(), containerInstanceARN)
+
+				assert.Nil(t, tags)
+				assert.ErrorIs(t, err, context.DeadlineExceeded)
+				assert.ErrorIs(t, err, tc.transientErr)
+			})
+		})
+	}
+}
+
+// TestGetResourceTagsErrorChain verifies that the error returned by GetResourceTags still exposes
+// the underlying AWS API error, which the task metadata endpoint reports to customers as
+// ErrorCode, StatusCode and RequestId.
+func TestGetResourceTagsErrorChain(t *testing.T) {
+	const (
+		statusCode = http.StatusBadRequest
+		requestID  = "request-id"
+	)
+	newResponseError := func(apiErr error) error {
+		return &awshttp.ResponseError{
+			ResponseError: &smithyhttp.ResponseError{
+				Response: &smithyhttp.Response{Response: &http.Response{StatusCode: statusCode}},
+				Err:      apiErr,
+			},
+			RequestID: requestID,
+		}
+	}
+
+	testCases := []struct {
+		name         string
+		apiErr       smithy.APIError
+		retriedUntil bool
+	}{
+		{
+			name:   "terminal error on first attempt",
+			apiErr: &types.AccessDeniedException{Message: aws.String("access denied")},
+		},
+		{
+			name:         "transient error until timeout",
+			apiErr:       &types.ServerException{Message: aws.String("server error")},
+			retriedUntil: true,
+		},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			synctest.Test(t, func(t *testing.T) {
+				ctrl := gomock.NewController(t)
+				defer ctrl.Finish()
+
+				tester := setup(t, ctrl, ec2.NewBlackholeEC2MetadataClient(), nil)
+				call := tester.mockStandardClient.EXPECT().ListTagsForResource(gomock.Any(), gomock.Any()).
+					Return(nil, newResponseError(tc.apiErr))
+				if tc.retriedUntil {
+					call.MinTimes(2)
+				} else {
+					call.Times(1)
+				}
+
+				_, err := tester.client.GetResourceTags(context.Background(), containerInstanceARN)
+
+				require.Error(t, err)
+				var apiErr smithy.APIError
+				require.ErrorAs(t, err, &apiErr)
+				assert.Equal(t, tc.apiErr.ErrorCode(), apiErr.ErrorCode())
+				assert.Equal(t, tc.apiErr.ErrorMessage(), apiErr.ErrorMessage())
+				var responseErr *awshttp.ResponseError
+				require.ErrorAs(t, err, &responseErr)
+				assert.Equal(t, statusCode, responseErr.HTTPStatusCode())
+				assert.Equal(t, requestID, responseErr.RequestID)
+				assert.Equal(t, tc.retriedUntil, errors.Is(err, context.DeadlineExceeded))
+			})
 		})
 	}
 }

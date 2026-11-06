@@ -1150,7 +1150,8 @@ func TestReregisterContainerInstanceAttributeError(t *testing.T) {
 		mockDockerClient.EXPECT().ListPluginsWithFilters(gomock.Any(), gomock.Any(),
 			gomock.Any(), gomock.Any()).AnyTimes().Return([]string{}, nil),
 		client.EXPECT().RegisterContainerInstance(containerInstanceARN, gomock.Any(), gomock.Any(), gomock.Any(),
-			gomock.Any(), gomock.Any()).Return("", "", apierrors.NewAttributeError("error")),
+			gomock.Any(), gomock.Any()).Return("", "", apierrors.NewRetriableError(apierrors.NewRetriable(false),
+			apierrors.NewAttributeError("error"))),
 	)
 	mockEC2Metadata.EXPECT().OutpostARN().Return("", nil)
 
@@ -1357,7 +1358,9 @@ func TestRegisterContainerInstanceWhenContainerInstanceARNIsNotSetHappyPath(t *t
 	assert.Equal(t, availabilityZone, agent.availabilityZone)
 }
 
-func TestRegisterContainerInstanceWhenContainerInstanceARNIsNotSetCanRetryError(t *testing.T) {
+// A registration that times out after transient errors must exit non-terminally so that systemd
+// restarts the agent and registration is attempted again.
+func TestRegisterContainerInstanceWhenContainerInstanceARNIsNotSetTimeoutError(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
 
@@ -1381,7 +1384,8 @@ func TestRegisterContainerInstanceWhenContainerInstanceARNIsNotSetCanRetryError(
 	mockDaemonManager.EXPECT().IsLoaded(gomock.Any()).Return(true, nil).AnyTimes()
 	mockDaemonManager.EXPECT().LoadImage(gomock.Any(), gomock.Any()).Return(nil, nil).AnyTimes()
 
-	retriableError := apierrors.NewRetriableError(apierrors.NewRetriable(true), errors.New("error"))
+	timeoutError := errors.Join(context.DeadlineExceeded,
+		apierrors.NewRetriableError(apierrors.NewRetriable(true), &ecstypes.ServerException{}))
 	gomock.InOrder(
 		mockCredentialsProvider.EXPECT().Retrieve(gomock.Any()).Return(aws.Credentials{}, nil),
 		mockDockerClient.EXPECT().SupportedVersions().Return(apiVersions),
@@ -1389,7 +1393,7 @@ func TestRegisterContainerInstanceWhenContainerInstanceARNIsNotSetCanRetryError(
 		mockDockerClient.EXPECT().ListPluginsWithFilters(gomock.Any(), gomock.Any(),
 			gomock.Any(), gomock.Any()).AnyTimes().Return([]string{}, nil),
 		client.EXPECT().RegisterContainerInstance("", gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(),
-			gomock.Any()).Return("", "", retriableError),
+			gomock.Any()).Return("", "", timeoutError),
 	)
 	mockEC2Metadata.EXPECT().OutpostARN().Return("", nil)
 
@@ -1415,7 +1419,8 @@ func TestRegisterContainerInstanceWhenContainerInstanceARNIsNotSetCanRetryError(
 	assert.False(t, isTerminal(err))
 }
 
-func TestRegisterContainerInstanceWhenContainerInstanceARNIsNotSetCannotRetryError(t *testing.T) {
+// A terminal API error is reported inside the retry wrapper and must still be classified as terminal.
+func TestRegisterContainerInstanceWhenContainerInstanceARNIsNotSetWrappedTerminalError(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
 
@@ -1439,7 +1444,9 @@ func TestRegisterContainerInstanceWhenContainerInstanceARNIsNotSetCannotRetryErr
 	mockDaemonManager.EXPECT().IsLoaded(gomock.Any()).Return(true, nil).AnyTimes()
 	mockDaemonManager.EXPECT().LoadImage(gomock.Any(), gomock.Any()).Return(nil, nil).AnyTimes()
 
-	cannotRetryError := apierrors.NewRetriableError(apierrors.NewRetriable(false), errors.New("error"))
+	wrappedTerminalError := apierrors.NewRetriableError(apierrors.NewRetriable(false), &smithy.GenericAPIError{
+		Code: apierrors.ErrCodeClientException,
+	})
 	gomock.InOrder(
 		mockCredentialsProvider.EXPECT().Retrieve(gomock.Any()).Return(aws.Credentials{}, nil),
 		mockDockerClient.EXPECT().SupportedVersions().Return(apiVersions),
@@ -1447,7 +1454,7 @@ func TestRegisterContainerInstanceWhenContainerInstanceARNIsNotSetCannotRetryErr
 		mockDockerClient.EXPECT().ListPluginsWithFilters(gomock.Any(), gomock.Any(),
 			gomock.Any(), gomock.Any()).AnyTimes().Return([]string{}, nil),
 		client.EXPECT().RegisterContainerInstance("", gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(),
-			gomock.Any()).Return("", "", cannotRetryError),
+			gomock.Any()).Return("", "", wrappedTerminalError),
 	)
 	mockEC2Metadata.EXPECT().OutpostARN().Return("", nil)
 
@@ -1504,7 +1511,8 @@ func TestRegisterContainerInstanceWhenContainerInstanceARNIsNotSetAttributeError
 		mockDockerClient.EXPECT().ListPluginsWithFilters(gomock.Any(), gomock.Any(),
 			gomock.Any(), gomock.Any()).AnyTimes().Return([]string{}, nil),
 		client.EXPECT().RegisterContainerInstance("", gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(),
-			gomock.Any()).Return("", "", apierrors.NewAttributeError("error")),
+			gomock.Any()).Return("", "", apierrors.NewRetriableError(apierrors.NewRetriable(false),
+			apierrors.NewAttributeError("error"))),
 	)
 	mockEC2Metadata.EXPECT().OutpostARN().Return("", nil)
 

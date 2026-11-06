@@ -17,7 +17,9 @@
 package v2
 
 import (
+	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"net/http"
 	"testing"
@@ -734,6 +736,49 @@ func TestTaskResponseWithV4TagsError(t *testing.T) {
 	assert.Equal(t, taskWithTagsResponse.Errors[1].StatusCode, errStatusCode)
 	assert.Equal(t, taskWithTagsResponse.Errors[1].RequestId, taskTagsRequestId)
 	assert.Equal(t, taskWithTagsResponse.Errors[1].ResourceARN, taskARN)
+}
+
+// TestNewErrorResponseWrappedError verifies that the AWS error details are reported even when the
+// ECS client wraps the error with retry context, so customers keep getting ErrorCode, StatusCode
+// and RequestId.
+func TestNewErrorResponseWrappedError(t *testing.T) {
+	const (
+		errMessage = "access denied"
+		statusCode = http.StatusBadRequest
+		requestID  = "request-id"
+	)
+	apiErr := &ecstypes.AccessDeniedException{Message: aws.String(errMessage)}
+	responseErr := &awshttp.ResponseError{
+		ResponseError: &smithyhttp.ResponseError{
+			Response: &smithyhttp.Response{Response: &http.Response{StatusCode: statusCode}},
+			Err:      apiErr,
+		},
+		RequestID: requestID,
+	}
+
+	testCases := []struct {
+		name string
+		err  error
+	}{
+		{name: "unwrapped", err: responseErr},
+		{name: "wrapped", err: fmt.Errorf("failed after 1 attempts: %w", responseErr)},
+		{name: "joined with timeout", err: errors.Join(context.DeadlineExceeded, responseErr)},
+		{name: "wrapped and joined", err: fmt.Errorf("failed after 3 attempts: %w",
+			errors.Join(context.DeadlineExceeded, responseErr))},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			errResp := newErrorResponse(tc.err, "TaskTags", taskARN)
+
+			assert.Equal(t, "TaskTags", errResp.ErrorField)
+			assert.Equal(t, apiErr.ErrorCode(), errResp.ErrorCode)
+			assert.Equal(t, errMessage, errResp.ErrorMessage)
+			assert.Equal(t, statusCode, errResp.StatusCode)
+			assert.Equal(t, requestID, errResp.RequestId)
+			assert.Equal(t, taskARN, errResp.ResourceARN)
+		})
+	}
 }
 
 // Tests that TMDS Health Status created by metadata endpoint v2 is marshaled to the same JSON

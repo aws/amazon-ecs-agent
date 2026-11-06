@@ -131,3 +131,26 @@ func TestResourceInitError(t *testing.T) {
 	assert.Equal(t, expectedMsg, err.Error())
 	assert.Equal(t, "ResourceInitializationError", err.ErrorName())
 }
+
+func TestRetriableErrorUnwrap(t *testing.T) {
+	testCases := []struct {
+		name    string
+		retry   bool
+		wrapped error
+	}{
+		{name: "retriable", retry: true, wrapped: &types.ServerException{}},
+		{name: "not retriable", retry: false, wrapped: &types.ClientException{}},
+		{name: "wrapped twice", retry: true, wrapped: NewRetriableError(NewRetriable(false), errors.New("inner"))},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			err := NewRetriableError(NewRetriable(tc.retry), tc.wrapped)
+
+			assert.Equal(t, tc.retry, err.Retry())
+			assert.Equal(t, tc.wrapped.Error(), err.Error())
+			assert.ErrorIs(t, err, tc.wrapped)
+			assert.Equal(t, tc.wrapped, errors.Unwrap(err))
+		})
+	}
+}

@@ -225,6 +225,37 @@ func TestSubmitAttachmentEventSucceeds(t *testing.T) {
 	assert.Len(t, res, 1)
 }
 
+// TestSubmitAttachmentEventStopsOnContextCancel verifies that the retry loop exits once the
+// handler context is cancelled, instead of retrying a failing submission forever.
+func TestSubmitAttachmentEventStopsOnContextCancel(t *testing.T) {
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+	client := mock_ecs.NewMockECSClient(ctrl)
+
+	attachmentEvent := eniAttachmentEvent(attachmentARN)
+	assert.NoError(t, attachmentEvent.Attachment.StartTimer(func() {}))
+	defer attachmentEvent.Attachment.StopAckTimer()
+
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+	handler := &attachmentHandler{
+		client:     client,
+		dataClient: newTestDataClient(t),
+		ctx:        ctx,
+		backoff: retry.NewExponentialBackoff(xSubmitStateBackoffMin, xSubmitStateBackoffMax,
+			xSubmitStateBackoffJitterMultiple, xSubmitStateBackoffMultiple),
+	}
+
+	retriable := apierrors.NewRetriableError(apierrors.NewRetriable(true), errors.New("test"))
+	client.EXPECT().SubmitAttachmentStateChange(gomock.Any()).Return(retriable).Do(func(interface{}) {
+		cancel()
+	})
+
+	handler.submitAttachmentEvent(&attachmentEvent)
+
+	assert.False(t, attachmentEvent.Attachment.IsSent())
+}
+
 func TestSubmitAttachmentEventAttachmentExpired(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()

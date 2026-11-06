@@ -3784,6 +3784,92 @@ func TestStartFirelensContainerRetryForContainerIP(t *testing.T) {
 
 }
 
+// TestStartFirelensContainerBridgeIPTimeout verifies that a Firelens container is reported as
+// failed, with the cause of the last attempt, when the bridge IP never becomes available.
+func TestStartFirelensContainerBridgeIPTimeout(t *testing.T) {
+	inspectErr := errors.New("inspect failed")
+	testCases := []struct {
+		name          string
+		inspectOutput *types.ContainerJSON
+		inspectErr    error
+		expectedCause string
+	}{
+		{
+			name: "inspect returns no bridge IP",
+			inspectOutput: &types.ContainerJSON{
+				ContainerJSONBase: &types.ContainerJSONBase{
+					ID:         containerID,
+					State:      &types.ContainerState{Pid: containerPid},
+					HostConfig: &dockercontainer.HostConfig{NetworkMode: containerNetworkMode},
+				},
+			},
+			expectedCause: "Bridge IP not available to use for firelens",
+		},
+		{
+			name:          "inspect fails",
+			inspectErr:    inspectErr,
+			expectedCause: inspectErr.Error(),
+		},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			rawHostConfig, err := json.Marshal(&dockercontainer.HostConfig{
+				LogConfig: dockercontainer.LogConfig{Type: "fluentd"},
+			})
+			require.NoError(t, err)
+			firelensContainer := &apicontainer.Container{
+				Name:              "test-firelens",
+				FirelensConfig:    &apicontainer.FirelensConfig{Type: "fluentd"},
+				NetworkModeUnsafe: apitask.BridgeNetworkMode,
+			}
+			task := &apitask.Task{
+				Arn:     "arn:aws:ecs:region:account-id:task/task-id",
+				Version: "1",
+				Family:  "logSenderTaskFamily",
+				Containers: []*apicontainer.Container{
+					{
+						Name:              "logSenderTask",
+						DockerConfig:      apicontainer.DockerConfig{HostConfig: aws.String(string(rawHostConfig))},
+						NetworkModeUnsafe: apitask.BridgeNetworkMode,
+					},
+					firelensContainer,
+				},
+				NetworkMode: networkModeBridge,
+			}
+
+			ctx, cancel := context.WithCancel(context.TODO())
+			defer cancel()
+			ctrl, client, _, taskEngine, _, _, _, _ := mocks(t, ctx, &defaultConfig)
+			defer ctrl.Finish()
+			taskEngine.(*DockerTaskEngine).state.AddTask(task)
+			taskEngine.(*DockerTaskEngine).state.AddContainer(&apicontainer.DockerContainer{
+				Container:  firelensContainer,
+				DockerName: dockerContainerName,
+				DockerID:   containerID,
+			}, task)
+
+			client.EXPECT().APIVersion().Return(defaultDockerClientAPIVersion, nil).AnyTimes()
+			client.EXPECT().StartContainer(gomock.Any(), gomock.Any(), gomock.Any()).
+				Return(dockerapi.DockerContainerMetadata{DockerID: containerID})
+			// The engine context stands in for the bridge IP deadline so the test does not
+			// have to wait for it to expire.
+			client.EXPECT().InspectContainer(gomock.Any(), containerID, gomock.Any()).
+				DoAndReturn(func(context.Context, string, time.Duration) (*types.ContainerJSON, error) {
+					cancel()
+					return tc.inspectOutput, tc.inspectErr
+				})
+
+			ret := taskEngine.(*DockerTaskEngine).startContainer(task, firelensContainer)
+
+			require.Error(t, ret.Error)
+			assert.IsType(t, dockerapi.CannotStartContainerError{}, ret.Error)
+			assert.ErrorContains(t, ret.Error, context.Canceled.Error())
+			assert.ErrorContains(t, ret.Error, tc.expectedCause)
+		})
+	}
+}
+
 func TestStartExecAgent(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.TODO())
 	defer cancel()
