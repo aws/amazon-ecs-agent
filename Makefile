@@ -185,7 +185,7 @@ test: test-ebs-csi
 	cd ecs-agent && go tool cover -func ../cover.out > ../coverprofile-ecs-agent.out && cd ..
 
 test-init:
-	cd ecs-init && go test -count=1 -short -v \
+	cd ecs-init && ${GOTEST} -short -v \
 		-coverprofile ../cover.out \
 		-coverpkg=$$(go list ./... | grep -v -f ../scripts/coverfilters/ecs-init-notest-packages.txt | ${COVERPKG_EXCLUDE}) \
 		./... && cd ..

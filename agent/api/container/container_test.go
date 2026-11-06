@@ -1562,3 +1562,11 @@ func TestGetUser(t *testing.T) {
 		})
 	}
 }
+
+func TestUsesMPS(t *testing.T) {
+	noMPS := &Container{}
+	assert.False(t, noMPS.UsesMPS(), "container with no MPSConfig should not use MPS")
+
+	withMPS := &Container{MPSConfig: &MPSConfig{Memory: 8192}}
+	assert.True(t, withMPS.UsesMPS(), "container with MPSConfig should use MPS")
+}

@@ -5,19 +5,17 @@ package ec2
 import (
 	"context"
 	"fmt"
-	awsmiddleware "github.com/aws/aws-sdk-go-v2/aws/middleware"
 	"github.com/aws/aws-sdk-go-v2/service/ec2/types"
 	"github.com/aws/smithy-go/middleware"
-	smithyhttp "github.com/aws/smithy-go/transport/http"
 )
 
 // Creates an EC2 Instance Connect Endpoint.
 //
 // An EC2 Instance Connect Endpoint allows you to connect to an instance, without
-// requiring the instance to have a public IPv4 address. For more information, see [Connect to your instances without requiring a public IPv4 address using EC2 Instance Connect Endpoint]
-// in the Amazon EC2 User Guide.
+// requiring the instance to have a public IPv4 or public IPv6 address. For more
+// information, see [Connect to your instances using EC2 Instance Connect Endpoint]in the Amazon EC2 User Guide.
 //
-// [Connect to your instances without requiring a public IPv4 address using EC2 Instance Connect Endpoint]: https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/Connect-using-EC2-Instance-Connect-Endpoint.html
+// [Connect to your instances using EC2 Instance Connect Endpoint]: https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/Connect-using-EC2-Instance-Connect-Endpoint.html
 func (c *Client) CreateInstanceConnectEndpoint(ctx context.Context, params *CreateInstanceConnectEndpointInput, optFns ...func(*Options)) (*CreateInstanceConnectEndpointOutput, error) {
 	if params == nil {
 		params = &CreateInstanceConnectEndpointInput{}
@@ -50,12 +48,30 @@ type CreateInstanceConnectEndpointInput struct {
 	// UnauthorizedOperation .
 	DryRun *bool
 
+	// The IP address type of the endpoint.
+	//
+	// If no value is specified, the default value is determined by the IP address
+	// type of the subnet:
+	//
+	//   - dualstack - If the subnet has both IPv4 and IPv6 CIDRs
+	//
+	//   - ipv4 - If the subnet has only IPv4 CIDRs
+	//
+	//   - ipv6 - If the subnet has only IPv6 CIDRs
+	//
+	// PreserveClientIp is only supported on IPv4 EC2 Instance Connect Endpoints. To
+	// use PreserveClientIp , the value for IpAddressType must be ipv4 .
+	IpAddressType types.IpAddressType
+
 	// Indicates whether the client IP address is preserved as the source. The
 	// following are the possible values.
 	//
 	//   - true - Use the client IP address as the source.
 	//
 	//   - false - Use the network interface IP address as the source.
+	//
+	// PreserveClientIp is only supported on IPv4 EC2 Instance Connect Endpoints. To
+	// use PreserveClientIp , the value for IpAddressType must be ipv4 .
 	//
 	// Default: false
 	PreserveClientIp *bool
@@ -87,9 +103,6 @@ type CreateInstanceConnectEndpointOutput struct {
 }
 
 func (c *Client) addOperationCreateInstanceConnectEndpointMiddlewares(stack *middleware.Stack, options Options) (err error) {
-	if err := stack.Serialize.Add(&setOperationInputMiddleware{}, middleware.After); err != nil {
-		return err
-	}
 	err = stack.Serialize.Add(&awsEc2query_serializeOpCreateInstanceConnectEndpoint{}, middleware.After)
 	if err != nil {
 		return err
@@ -98,68 +111,23 @@ func (c *Client) addOperationCreateInstanceConnectEndpointMiddlewares(stack *mid
 	if err != nil {
 		return err
 	}
-	if err := addProtocolFinalizerMiddlewares(stack, options, "CreateInstanceConnectEndpoint"); err != nil {
-		return fmt.Errorf("add protocol finalizers: %v", err)
-	}
 
-	if err = addlegacyEndpointContextSetter(stack, options); err != nil {
-		return err
-	}
-	if err = addSetLoggerMiddleware(stack, options); err != nil {
-		return err
-	}
-	if err = addClientRequestID(stack); err != nil {
-		return err
-	}
-	if err = addComputeContentLength(stack); err != nil {
-		return err
-	}
 	if err = addResolveEndpointMiddleware(stack, options); err != nil {
 		return err
 	}
 	if err = addComputePayloadSHA256(stack); err != nil {
 		return err
 	}
-	if err = addRetry(stack, options); err != nil {
+	if err = addRecordResponseTiming(stack, options); err != nil {
 		return err
 	}
-	if err = addRawResponseToMetadata(stack); err != nil {
-		return err
-	}
-	if err = addRecordResponseTiming(stack); err != nil {
-		return err
-	}
-	if err = addSpanRetryLoop(stack, options); err != nil {
-		return err
-	}
-	if err = addClientUserAgent(stack, options); err != nil {
-		return err
-	}
-	if err = smithyhttp.AddErrorCloseResponseBodyMiddleware(stack); err != nil {
-		return err
-	}
-	if err = smithyhttp.AddCloseResponseBodyMiddleware(stack); err != nil {
-		return err
-	}
-	if err = addSetLegacyContextSigningOptionsMiddleware(stack); err != nil {
-		return err
-	}
-	if err = addTimeOffsetBuild(stack, c); err != nil {
-		return err
-	}
-	if err = addUserAgentRetryMode(stack, options); err != nil {
+	if err = addCredentialSource(stack, options); err != nil {
 		return err
 	}
 	if err = addIdempotencyToken_opCreateInstanceConnectEndpointMiddleware(stack, options); err != nil {
 		return err
 	}
 	if err = addOpCreateInstanceConnectEndpointValidationMiddleware(stack); err != nil {
-		return err
-	}
-	if err = stack.Initialize.Add(newServiceMetadataMiddleware_opCreateInstanceConnectEndpoint(options.Region), middleware.Before); err != nil {
-		return err
-	}
-	if err = addRecursionDetection(stack); err != nil {
 		return err
 	}
 	if err = addRequestIDRetrieverMiddleware(stack); err != nil {
@@ -174,16 +142,7 @@ func (c *Client) addOperationCreateInstanceConnectEndpointMiddlewares(stack *mid
 	if err = addDisableHTTPSMiddleware(stack, options); err != nil {
 		return err
 	}
-	if err = addSpanInitializeStart(stack); err != nil {
-		return err
-	}
-	if err = addSpanInitializeEnd(stack); err != nil {
-		return err
-	}
-	if err = addSpanBuildRequestStart(stack); err != nil {
-		return err
-	}
-	if err = addSpanBuildRequestEnd(stack); err != nil {
+	if err = addInterceptors(stack, options); err != nil {
 		return err
 	}
 	return nil
@@ -220,12 +179,4 @@ func (m *idempotencyToken_initializeOpCreateInstanceConnectEndpoint) HandleIniti
 }
 func addIdempotencyToken_opCreateInstanceConnectEndpointMiddleware(stack *middleware.Stack, cfg Options) error {
 	return stack.Initialize.Add(&idempotencyToken_initializeOpCreateInstanceConnectEndpoint{tokenProvider: cfg.IdempotencyTokenProvider}, middleware.Before)
-}
-
-func newServiceMetadataMiddleware_opCreateInstanceConnectEndpoint(region string) *awsmiddleware.RegisterServiceMetadata {
-	return &awsmiddleware.RegisterServiceMetadata{
-		Region:        region,
-		ServiceID:     ServiceID,
-		OperationName: "CreateInstanceConnectEndpoint",
-	}
 }

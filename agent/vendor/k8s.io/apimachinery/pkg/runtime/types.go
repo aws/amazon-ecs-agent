@@ -23,7 +23,7 @@ package runtime
 // like this:
 //
 //	type MyAwesomeAPIObject struct {
-//	     runtime.TypeMeta    `json:",inline"`
+//	     runtime.TypeMeta    `json:""`
 //	     ... // other fields
 //	}
 //
@@ -43,9 +43,11 @@ type TypeMeta struct {
 }
 
 const (
-	ContentTypeJSON     string = "application/json"
-	ContentTypeYAML     string = "application/yaml"
-	ContentTypeProtobuf string = "application/vnd.kubernetes.protobuf"
+	ContentTypeJSON         string = "application/json"
+	ContentTypeYAML         string = "application/yaml"
+	ContentTypeProtobuf     string = "application/vnd.kubernetes.protobuf"
+	ContentTypeCBOR         string = "application/cbor"     // RFC 8949
+	ContentTypeCBORSequence string = "application/cbor-seq" // RFC 8742
 )
 
 // RawExtension is used to hold extensions in external versions.
@@ -57,7 +59,7 @@ const (
 // // Internal package:
 //
 //	type MyAPIObject struct {
-//		runtime.TypeMeta `json:",inline"`
+//		runtime.TypeMeta `json:""`
 //		MyPlugin runtime.Object `json:"myPlugin"`
 //	}
 //
@@ -68,7 +70,7 @@ const (
 // // External package:
 //
 //	type MyAPIObject struct {
-//		runtime.TypeMeta `json:",inline"`
+//		runtime.TypeMeta `json:""`
 //		MyPlugin runtime.RawExtension `json:"myPlugin"`
 //	}
 //
@@ -119,7 +121,7 @@ type RawExtension struct {
 // +protobuf=true
 // +k8s:openapi-gen=true
 type Unknown struct {
-	TypeMeta `json:",inline" protobuf:"bytes,1,opt,name=typeMeta"`
+	TypeMeta `json:"" protobuf:"bytes,1,opt,name=typeMeta"`
 	// Raw will hold the complete serialized object which couldn't be matched
 	// with a registered type. Most likely, nothing should be done with this
 	// except for passing it through the system.

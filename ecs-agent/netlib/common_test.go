@@ -184,6 +184,19 @@ func getMultiNetNSMultiIfaceAWSVPCTestData(testTaskID string) (*ecsacs.Task, tas
 	return taskPayload, taskNetConfig
 }
 
+// getMultiNetNSMultiIfaceManagedTestData returns the multi-netns test data with
+// device names as assigned on the managed platform, where every interface is
+// named after its 1-based position within its own network namespace.
+func getMultiNetNSMultiIfaceManagedTestData(testTaskID string) (*ecsacs.Task, tasknetworkconfig.TaskNetworkConfig) {
+	taskPayload, taskNetConfig := getMultiNetNSMultiIfaceAWSVPCTestData(testTaskID)
+	for _, netNS := range taskNetConfig.NetworkNamespaces {
+		for i, iface := range netNS.NetworkInterfaces {
+			iface.DeviceName = fmt.Sprintf("eth%d", i+1)
+		}
+	}
+	return taskPayload, taskNetConfig
+}
+
 func getTestInterfacesData_Containerd() ([]*ecsacs.ElasticNetworkInterface, []networkinterface.NetworkInterface) {
 	// interfacePayloads have multiple interfaces as they are sent by ACS
 	// that can be used as input data for tests.

@@ -4,11 +4,8 @@ package secretsmanager
 
 import (
 	"context"
-	"fmt"
-	awsmiddleware "github.com/aws/aws-sdk-go-v2/aws/middleware"
 	"github.com/aws/aws-sdk-go-v2/service/secretsmanager/types"
 	"github.com/aws/smithy-go/middleware"
-	smithyhttp "github.com/aws/smithy-go/transport/http"
 	"time"
 )
 
@@ -76,6 +73,19 @@ type DescribeSecretOutput struct {
 
 	// The description of the secret.
 	Description *string
+
+	// The metadata needed to successfully rotate a managed external secret. A list of
+	// key value pairs in JSON format specified by the partner. For more information
+	// about the required information, see [Managed external secrets partners].
+	//
+	// [Managed external secrets partners]: https://docs.aws.amazon.com/secretsmanager/latest/userguide/mes-partners.html
+	ExternalSecretRotationMetadata []types.ExternalSecretRotationMetadataItem
+
+	// The Amazon Resource Name (ARN) of the role that allows Secrets Manager to
+	// rotate a secret held by a third-party partner. For more information, see [Security and permissions].
+	//
+	// [Security and permissions]: https://docs.aws.amazon.com/secretsmanager/latest/userguide/mes-security.html
+	ExternalSecretRotationRoleArn *string
 
 	// The key ID or alias ARN of the KMS key that Secrets Manager uses to encrypt the
 	// secret value. If the secret is encrypted with the Amazon Web Services managed
@@ -149,6 +159,12 @@ type DescribeSecretOutput struct {
 	// remove tags, use UntagResource.
 	Tags []types.Tag
 
+	// The exact string that identifies the partner that holds the external secret.
+	// For more information, see [Using Secrets Manager managed external secrets].
+	//
+	// [Using Secrets Manager managed external secrets]: https://docs.aws.amazon.com/secretsmanager/latest/userguide/managed-external-secrets.html
+	Type *string
+
 	// A list of the versions of the secret that have staging labels attached.
 	// Versions that don't have staging labels are considered deprecated and Secrets
 	// Manager can delete them.
@@ -180,9 +196,6 @@ type DescribeSecretOutput struct {
 }
 
 func (c *Client) addOperationDescribeSecretMiddlewares(stack *middleware.Stack, options Options) (err error) {
-	if err := stack.Serialize.Add(&setOperationInputMiddleware{}, middleware.After); err != nil {
-		return err
-	}
 	err = stack.Serialize.Add(&awsAwsjson11_serializeOpDescribeSecret{}, middleware.After)
 	if err != nil {
 		return err
@@ -191,19 +204,7 @@ func (c *Client) addOperationDescribeSecretMiddlewares(stack *middleware.Stack, 
 	if err != nil {
 		return err
 	}
-	if err := addProtocolFinalizerMiddlewares(stack, options, "DescribeSecret"); err != nil {
-		return fmt.Errorf("add protocol finalizers: %v", err)
-	}
 
-	if err = addlegacyEndpointContextSetter(stack, options); err != nil {
-		return err
-	}
-	if err = addSetLoggerMiddleware(stack, options); err != nil {
-		return err
-	}
-	if err = addClientRequestID(stack); err != nil {
-		return err
-	}
 	if err = addComputeContentLength(stack); err != nil {
 		return err
 	}
@@ -213,46 +214,13 @@ func (c *Client) addOperationDescribeSecretMiddlewares(stack *middleware.Stack, 
 	if err = addComputePayloadSHA256(stack); err != nil {
 		return err
 	}
-	if err = addRetry(stack, options); err != nil {
-		return err
-	}
-	if err = addRawResponseToMetadata(stack); err != nil {
-		return err
-	}
-	if err = addRecordResponseTiming(stack); err != nil {
-		return err
-	}
-	if err = addSpanRetryLoop(stack, options); err != nil {
-		return err
-	}
-	if err = addClientUserAgent(stack, options); err != nil {
-		return err
-	}
-	if err = smithyhttp.AddErrorCloseResponseBodyMiddleware(stack); err != nil {
-		return err
-	}
-	if err = smithyhttp.AddCloseResponseBodyMiddleware(stack); err != nil {
-		return err
-	}
-	if err = addSetLegacyContextSigningOptionsMiddleware(stack); err != nil {
-		return err
-	}
-	if err = addTimeOffsetBuild(stack, c); err != nil {
-		return err
-	}
-	if err = addUserAgentRetryMode(stack, options); err != nil {
+	if err = addRecordResponseTiming(stack, options); err != nil {
 		return err
 	}
 	if err = addCredentialSource(stack, options); err != nil {
 		return err
 	}
 	if err = addOpDescribeSecretValidationMiddleware(stack); err != nil {
-		return err
-	}
-	if err = stack.Initialize.Add(newServiceMetadataMiddleware_opDescribeSecret(options.Region), middleware.Before); err != nil {
-		return err
-	}
-	if err = addRecursionDetection(stack); err != nil {
 		return err
 	}
 	if err = addRequestIDRetrieverMiddleware(stack); err != nil {
@@ -267,25 +235,8 @@ func (c *Client) addOperationDescribeSecretMiddlewares(stack *middleware.Stack, 
 	if err = addDisableHTTPSMiddleware(stack, options); err != nil {
 		return err
 	}
-	if err = addSpanInitializeStart(stack); err != nil {
-		return err
-	}
-	if err = addSpanInitializeEnd(stack); err != nil {
-		return err
-	}
-	if err = addSpanBuildRequestStart(stack); err != nil {
-		return err
-	}
-	if err = addSpanBuildRequestEnd(stack); err != nil {
+	if err = addInterceptors(stack, options); err != nil {
 		return err
 	}
 	return nil
-}
-
-func newServiceMetadataMiddleware_opDescribeSecret(region string) *awsmiddleware.RegisterServiceMetadata {
-	return &awsmiddleware.RegisterServiceMetadata{
-		Region:        region,
-		ServiceID:     ServiceID,
-		OperationName: "DescribeSecret",
-	}
 }

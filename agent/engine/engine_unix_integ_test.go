@@ -1645,9 +1645,10 @@ func TestHostResourceManagerTrickleQueue(t *testing.T) {
 		assert.NoError(t, err, "one task should be queued up after 6s")
 		assert.Equal(t, task.Arn, tasks[2].Arn, "wrong task at top of queue")
 
-		time.Sleep(6 * time.Second)
-		_, err = taskEngine.(*DockerTaskEngine).topTask()
-		assert.Error(t, err, "no task should be queued up after 12s")
+		assert.Eventually(t, func() bool {
+			_, err = taskEngine.(*DockerTaskEngine).topTask()
+			return err != nil
+		}, 30*time.Second, 500*time.Millisecond, "queue should be empty after task-0 stops")
 	}()
 	waitFinished(t, finished, testTimeout)
 }

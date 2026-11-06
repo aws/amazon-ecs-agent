@@ -654,8 +654,21 @@ func TestDoStartGPUManagerHappyPath(t *testing.T) {
 	}
 
 	imageManager.EXPECT().AddImageToCleanUpExclusionList(gomock.Eq("service_connect_agent:v1")).Times(1)
-	client.EXPECT().GetHostResources().Return(testHostResource, nil).Times(1)
+	gpuHostResource := map[string]types.Resource{}
+	for k, v := range testHostResource {
+		gpuHostResource[k] = v
+	}
+	client.EXPECT().GetHostResources().Return(gpuHostResource, nil).Times(1)
 	mockGPUManager.EXPECT().GetDevices().Return(devices).AnyTimes()
+	// The gpu-sharing-mps capability check reads these MPS facts during registration.
+	// GetGPUIDsUnsafe and GetGPUMemoryMiBUnsafe feed the AllGPUsHaveMemory gate
+	// condition and are evaluated eagerly wherever capabilities are built, so they
+	// must be mocked even when the other MPS gates are false.
+	mockGPUManager.EXPECT().GetMpsControlBinaryPresent().Return(false).AnyTimes()
+	mockGPUManager.EXPECT().GetMpsServiceEnabled().Return(false).AnyTimes()
+	mockGPUManager.EXPECT().GetHasVGPU().Return(false).AnyTimes()
+	mockGPUManager.EXPECT().GetGPUIDsUnsafe().Return([]string{}).AnyTimes()
+	mockGPUManager.EXPECT().GetGPUMemoryMiBUnsafe().Return(map[string]uint64{}).AnyTimes()
 
 	gomock.InOrder(
 		mockGPUManager.EXPECT().Initialize().Return(nil),
@@ -723,6 +736,13 @@ func TestDoStartGPUManagerHappyPath(t *testing.T) {
 	discoverEndpointsInvoked.Wait()
 	cancel()
 	agentW.Wait()
+
+	// GPUs with no reported memory still get a GPU_MEMORY capacity entry set to 0.
+	for _, device := range devices {
+		res, ok := gpuHostResource[engine.GPUMemoryCapacityPrefix+*device.Id]
+		assert.True(t, ok, "expected GPU_MEMORY entry for %s", *device.Id)
+		assert.Equal(t, int32(0), res.IntegerValue, "unknown-memory GPU should seed capacity 0")
+	}
 }
 
 func TestDoStartGPUManagerInitError(t *testing.T) {

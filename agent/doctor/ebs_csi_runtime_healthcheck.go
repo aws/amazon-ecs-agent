@@ -57,12 +57,12 @@ func (e *ebsCSIDaemonHealthcheck) RunCheck() ecstcs.InstanceHealthCheckStatus {
 	resp, err := e.csiClient.NodeGetCapabilities(ctx)
 	if err != nil {
 		logger.Error("EBS CSI Daemon health check failed", logger.Fields{field.Error: err})
-		e.SetHealthcheckStatus(ecstcs.InstanceHealthCheckStatusImpaired)
+		e.SetHealthcheckStatus(ecstcs.InstanceHealthCheckStatusImpaired, "")
 		return e.GetHealthcheckStatus()
 	}
 
 	logger.Info("EBS CSI Driver is healthy", logger.Fields{"nodeCapabilities": resp})
-	e.SetHealthcheckStatus(ecstcs.InstanceHealthCheckStatusOk)
+	e.SetHealthcheckStatus(ecstcs.InstanceHealthCheckStatusOk, "")
 	return e.GetHealthcheckStatus()
 }
 

@@ -19,6 +19,7 @@ package stats
 import (
 	"math"
 	"math/rand"
+	"runtime"
 	"testing"
 	"time"
 
@@ -886,33 +887,49 @@ func TestQueueAdd(t *testing.T) {
 	testCases := []struct {
 		name                string
 		includeRestartCount bool
+		cpuSteps            []uint64
+		expectedCPUSamples  int64
 	}{
 		{
 			name:                "restart count not included",
 			includeRestartCount: false,
+			cpuSteps:            []uint64{0, 1, 2, 3},
+			expectedCPUSamples:  3,
 		},
 		{
 			name:                "restart count included",
 			includeRestartCount: true,
+			cpuSteps:            []uint64{0, 1, 2, 3},
+			expectedCPUSamples:  3,
+		},
+		{
+			name:               "cpu counter decreases",
+			cpuSteps:           []uint64{0, 1, 0, 1},
+			expectedCPUSamples: 2,
 		},
 	}
 
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
-			queueMaxSize := 3
+			queueMaxSize := len(tc.cpuSteps)
 			queue := NewQueue(queueMaxSize)
+			start := time.Now()
 
 			for i := 0; i < queueMaxSize; i++ {
-				dockerStat := getTestStatsJSONForOSIndependentStats(rand.Uint64(), rand.Uint64(), rand.Uint64(),
-					rand.Uint64(), rand.Uint64(), rand.Uint64(), rand.Uint64(), rand.Uint64(), rand.Uint64())
+				// Stats are one second apart, and each step of 1 in cpuSteps adds one second of
+				// Linux CPU time on every core.
+				dockerStat := getTestStatsJSONForOSIndependentStats(tc.cpuSteps[i]*uint64(time.Second)*numCores,
+					0, 0, 0, 0, 0, 0, 0, 0)
+				dockerStat.Read = start.Add(time.Duration(i) * time.Second)
 				nonDockerContainerStats := NonDockerContainerStats{}
 				if tc.includeRestartCount {
 					restartCount := int64(i)
 					nonDockerContainerStats.restartCount = &restartCount
 				}
-				queue.Add(dockerStat, nonDockerContainerStats)
+				require.NoError(t, queue.Add(dockerStat, nonDockerContainerStats))
 				require.Equal(t, dockerStat, queue.GetLastStat())
 			}
+
 			restartStats, err := queue.GetRestartStatsSet()
 			if tc.includeRestartCount {
 				require.NoError(t, err)
@@ -923,6 +940,18 @@ func TestQueueAdd(t *testing.T) {
 				require.Error(t, err)
 				require.Nil(t, restartStats)
 			}
+
+			// Docker reports CPU time in nanoseconds on Linux and in 100-nanosecond units on
+			// Windows, so the same CPU time input is 100 times more CPU usage on Windows.
+			expectedCPUUsagePerc := float64(100)
+			if runtime.GOOS == "windows" {
+				expectedCPUUsagePerc = 10000
+			}
+			cpuStatsSet, err := queue.GetCPUStatsSet()
+			require.NoError(t, err)
+			assert.Equal(t, tc.expectedCPUSamples, *cpuStatsSet.SampleCount)
+			assert.Equal(t, expectedCPUUsagePerc, *cpuStatsSet.Max)
+			assert.Equal(t, expectedCPUUsagePerc, *cpuStatsSet.Min)
 		})
 	}
 }

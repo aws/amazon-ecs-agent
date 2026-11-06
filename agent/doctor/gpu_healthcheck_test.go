@@ -40,6 +40,8 @@ type step struct {
 	now      time.Time
 	want     ecstcs.InstanceHealthCheckStatus
 	wantLast *ecstcs.InstanceHealthCheckStatus // optional GetLastHealthcheckStatus assertion
+	// wantReason is the expected GetStatusReason after the check; empty unless IMPAIRED.
+	wantReason string
 }
 
 func TestGPUHealthcheckType(t *testing.T) {
@@ -85,7 +87,7 @@ func TestGPUHealthcheckRunCheck(t *testing.T) {
 			createdAt: fresh,
 			steps: []step{{
 				write: str(`{"timestamp":"` + freshTS + `","healthy":false,"unhealthy_reason":"XID_48","gpus":[{"gpu_uuid":"GPU-001"}]}`),
-				now:   fresh, want: impaired,
+				now:   fresh, want: impaired, wantReason: "XID_48",
 			}},
 		},
 		{
@@ -157,7 +159,7 @@ func TestGPUHealthcheckRunCheck(t *testing.T) {
 			createdAt: base,
 			steps: []step{
 				{write: str(`{"timestamp":"2026-01-01T00:00:00Z","healthy":true,"gpus":[]}`), now: base, want: ok},
-				{write: str(`{"timestamp":"2026-01-01T00:00:30Z","healthy":false,"unhealthy_reason":"XID_79","gpus":[]}`), now: base.Add(30 * time.Second), want: impaired, wantLast: last(ok)},
+				{write: str(`{"timestamp":"2026-01-01T00:00:30Z","healthy":false,"unhealthy_reason":"XID_79","gpus":[]}`), now: base.Add(30 * time.Second), want: impaired, wantLast: last(ok), wantReason: "XID_79"},
 			},
 		},
 		{
@@ -192,6 +194,7 @@ func TestGPUHealthcheckRunCheck(t *testing.T) {
 				if s.wantLast != nil {
 					assert.Equal(t, *s.wantLast, hc.GetLastHealthcheckStatus(), "step %d last status", i)
 				}
+				assert.Equal(t, s.wantReason, hc.GetStatusReason(), "step %d status reason", i)
 			}
 		})
 	}

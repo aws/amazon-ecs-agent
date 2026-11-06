@@ -337,9 +337,38 @@ func (envfile *EnvironmentFileResource) Create() error {
 
 var mkdirAll = os.MkdirAll
 
+// verifyEnvfileKeyLocal ensures that the S3 bucket and object key, once joined
+// onto the task's envfile resource directory, resolve to a location inside that
+// directory. The bucket/key comes from the task definition, so filepath.IsLocal
+// is evaluated on the relative subpath that gets appended to resourceDir.
+// filepath.IsLocal reports whether a path after resolving "..", ".", and
+// separators stays within the directory it is evaluated from, is not absolute,
+// and is not empty. This rejects keys that would resolve outside resourceDir
+// while allowing legitimate nested keys.
+func verifyEnvfileKeyLocal(bucket, key string) error {
+	if !filepath.IsLocal(filepath.Join(bucket, key)) {
+		return errors.Errorf("invalid path: bucket %q key %q escapes envfile resource directory", bucket, key)
+	}
+	return nil
+}
+
+// getEnvfileDownloadPath joins resourceDir, bucket and the S3 key into the local
+// download path after verifying the bucket/key stays confined within resourceDir.
+func (envfile *EnvironmentFileResource) getEnvfileDownloadPath(bucket, key string) (string, error) {
+	if err := verifyEnvfileKeyLocal(bucket, key); err != nil {
+		return "", err
+	}
+	return filepath.Join(envfile.resourceDir, bucket, key), nil
+}
+
 // createEnvfileDirectory creates the directory that we will be writing the
 // envfile to - needs to be called for each different envfile
 func (envfile *EnvironmentFileResource) createEnvfileDirectory(bucket, key string) error {
+	// Ensure the bucket/key stays within the task's resource directory before
+	// creating the directory.
+	if err := verifyEnvfileKeyLocal(bucket, key); err != nil {
+		return err
+	}
 	// create directories to include bucket and key but not the actual resulting file
 	keyDir := filepath.Dir(key)
 	envfileDir := filepath.Join(envfile.resourceDir, bucket, keyDir)
@@ -375,7 +404,11 @@ func (envfile *EnvironmentFileResource) downloadEnvfileFromS3(envFilePath string
 
 	seelog.Debugf("Downloading envfile with bucket name %v and key name %v", bucket, key)
 	// we save envfiles to path: /var/lib/ecs/data/envfiles/cluster_name/task_id/${s3bucketname}/${s3filename.env}
-	downloadPath := filepath.Join(envfile.resourceDir, bucket, key)
+	downloadPath, err := envfile.getEnvfileDownloadPath(bucket, key)
+	if err != nil {
+		errorEvents <- fmt.Errorf("unable to download env file with key %s from bucket %s, error: %v", key, bucket, err)
+		return
+	}
 	err = envfile.writeEnvFile(func(file oswrapper.File) error {
 		return s3.DownloadFile(bucket, key, s3DownloadTimeout, file, s3Client)
 	}, downloadPath)
@@ -525,7 +558,12 @@ func (envfile *EnvironmentFileResource) convertEnvfileToPath() ([]string, error)
 			return nil, err
 		}
 
-		downloadPath := filepath.Join(envfile.resourceDir, bucket, key)
+		// Ensure the resolved read path stays within resourceDir before opening it.
+		downloadPath, err := envfile.getEnvfileDownloadPath(bucket, key)
+		if err != nil {
+			seelog.Errorf("invalid path in environmentFile %s: %v", envfileObj.Value, err)
+			return nil, err
+		}
 		envfileLocations = append(envfileLocations, downloadPath)
 	}
 

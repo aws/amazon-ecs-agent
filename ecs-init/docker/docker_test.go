@@ -473,6 +473,213 @@ func TestStartAgentWithGPUConfig(t *testing.T) {
 	}
 }
 
+// TestStartAgentWithGPUConfigMPSMounts verifies that on a GPU instance where the
+// MPS control binary and pipe directory exist, both are bind mounted into the
+// agent container so the agent can health-check the MPS control daemon.
+func TestStartAgentWithGPUConfigMPSMounts(t *testing.T) {
+	// The GPU metrics dir is created on GPU hosts; don't touch the real filesystem.
+	mkdirAll = func(string, os.FileMode) error { return nil }
+	defer func() { mkdirAll = os.MkdirAll }()
+
+	mockCtrl := gomock.NewController(t)
+	defer mockCtrl.Finish()
+
+	// Report every checked path as present so the MPS binds are added.
+	isPathValid = func(path string, isDir bool) bool {
+		return true
+	}
+	config.OsStat = func(name string) (os.FileInfo, error) {
+		return nil, nil
+	}
+	MatchFilePatternForGPU = func(pattern string) ([]string, error) {
+		return []string{"/dev/nvidia0"}, nil
+	}
+	defer func() {
+		isPathValid = defaultIsPathValid
+		config.OsStat = os.Stat
+		MatchFilePatternForGPU = FilePatternMatchForGPU
+	}()
+
+	envFile := "\nECS_ENABLE_GPU_SUPPORT=true\n"
+	containerID := "container id"
+
+	mockFS := NewMockfileSystem(mockCtrl)
+	mockDocker := NewMockdockerclient(mockCtrl)
+
+	mockFS.EXPECT().ReadFile(config.InstanceConfigFile()).Return([]byte(envFile), nil).AnyTimes()
+	mockFS.EXPECT().ReadFile(config.AgentConfigFile()).Return(nil, errors.New("not found")).AnyTimes()
+	mockDocker.EXPECT().CreateContainer(gomock.Any()).Do(func(opts godocker.CreateContainerOptions) {
+		var foundBinary, foundPipe bool
+		for _, bind := range opts.HostConfig.Binds {
+			if bind == mpsControlBinary+":"+mpsControlBinary {
+				foundBinary = true
+			}
+			if bind == mpsPipeDirectory+":"+mpsPipeDirectory {
+				foundPipe = true
+			}
+		}
+		assert.True(t, foundBinary, "MPS control binary should be bind mounted")
+		assert.True(t, foundPipe, "MPS pipe directory should be bind mounted read-write")
+	}).Return(&godocker.Container{
+		ID: containerID,
+	}, nil)
+	mockDocker.EXPECT().StartContainer(containerID, nil)
+	mockDocker.EXPECT().WaitContainer(containerID)
+
+	client := &client{
+		docker: mockDocker,
+		fs:     mockFS,
+	}
+
+	_, err := client.StartAgent()
+	assert.NoError(t, err)
+}
+
+// TestStartAgentWithGPUConfigMPSMountSkipped verifies that when an MPS path is
+// not present on the host (isPathValid returns false for it), only that mount is
+// skipped while the other MPS mount is still added.
+func TestStartAgentWithGPUConfigMPSMountSkipped(t *testing.T) {
+	// The GPU metrics dir is created on GPU hosts; don't touch the real filesystem.
+	mkdirAll = func(string, os.FileMode) error { return nil }
+	defer func() { mkdirAll = os.MkdirAll }()
+
+	cases := []struct {
+		name         string
+		absentPath   string
+		expectBinary bool
+		expectPipe   bool
+	}{
+		{
+			name:         "binary absent",
+			absentPath:   mpsControlBinary,
+			expectBinary: false,
+			expectPipe:   true,
+		},
+		{
+			name:         "pipe directory absent",
+			absentPath:   mpsPipeDirectory,
+			expectBinary: true,
+			expectPipe:   false,
+		},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			mockCtrl := gomock.NewController(t)
+			defer mockCtrl.Finish()
+
+			// Every path is present except the one under test.
+			isPathValid = func(path string, isDir bool) bool {
+				return path != tc.absentPath
+			}
+			config.OsStat = func(name string) (os.FileInfo, error) {
+				return nil, nil
+			}
+			MatchFilePatternForGPU = func(pattern string) ([]string, error) {
+				return []string{"/dev/nvidia0"}, nil
+			}
+			defer func() {
+				isPathValid = defaultIsPathValid
+				config.OsStat = os.Stat
+				MatchFilePatternForGPU = FilePatternMatchForGPU
+			}()
+
+			envFile := "\nECS_ENABLE_GPU_SUPPORT=true\n"
+			containerID := "container id"
+
+			mockFS := NewMockfileSystem(mockCtrl)
+			mockDocker := NewMockdockerclient(mockCtrl)
+
+			mockFS.EXPECT().ReadFile(config.InstanceConfigFile()).Return([]byte(envFile), nil).AnyTimes()
+			mockFS.EXPECT().ReadFile(config.AgentConfigFile()).Return(nil, errors.New("not found")).AnyTimes()
+			mockDocker.EXPECT().CreateContainer(gomock.Any()).Do(func(opts godocker.CreateContainerOptions) {
+				var foundBinary, foundPipe bool
+				for _, bind := range opts.HostConfig.Binds {
+					if bind == mpsControlBinary+":"+mpsControlBinary {
+						foundBinary = true
+					}
+					if bind == mpsPipeDirectory+":"+mpsPipeDirectory {
+						foundPipe = true
+					}
+				}
+				assert.Equal(t, tc.expectBinary, foundBinary, "MPS control binary mount presence")
+				assert.Equal(t, tc.expectPipe, foundPipe, "MPS pipe directory mount presence")
+			}).Return(&godocker.Container{
+				ID: containerID,
+			}, nil)
+			mockDocker.EXPECT().StartContainer(containerID, nil)
+			mockDocker.EXPECT().WaitContainer(containerID)
+
+			client := &client{
+				docker: mockDocker,
+				fs:     mockFS,
+			}
+
+			_, err := client.StartAgent()
+			assert.NoError(t, err)
+		})
+	}
+}
+
+func TestStartAgentWithGPUConfigNoDevices(t *testing.T) {
+	// The GPU metrics dir is created on GPU hosts; don't touch the real filesystem.
+	mkdirAll = func(string, os.FileMode) error { return nil }
+	defer func() { mkdirAll = os.MkdirAll }()
+
+	mockCtrl := gomock.NewController(t)
+	defer mockCtrl.Finish()
+	isPathValid = func(path string, isDir bool) bool {
+		return false
+	}
+	defer func() {
+		isPathValid = defaultIsPathValid
+	}()
+
+	config.OsStat = func(name string) (os.FileInfo, error) {
+		return nil, nil
+	}
+	defer func() {
+		config.OsStat = os.Stat
+	}()
+
+	envFile := "\nECS_ENABLE_GPU_SUPPORT=true\n"
+	containerID := "container id"
+
+	defer func() {
+		MatchFilePatternForGPU = FilePatternMatchForGPU
+	}()
+	MatchFilePatternForGPU = func(pattern string) ([]string, error) {
+		// matches is nil
+		return nil, nil
+	}
+
+	mockFS := NewMockfileSystem(mockCtrl)
+	mockDocker := NewMockdockerclient(mockCtrl)
+
+	mockFS.EXPECT().ReadFile(config.InstanceConfigFile()).Return([]byte(envFile), nil).AnyTimes()
+	mockFS.EXPECT().ReadFile(config.AgentConfigFile()).Return(nil, errors.New("not found")).AnyTimes()
+	mockDocker.EXPECT().CreateContainer(gomock.Any()).Do(func(opts godocker.CreateContainerOptions) {
+		validateCommonCreateContainerOptions(t, opts)
+		cfg := opts.Config
+
+		envVariables := make(map[string]struct{})
+		for _, envVar := range cfg.Env {
+			envVariables[envVar] = struct{}{}
+		}
+	}).Return(&godocker.Container{
+		ID: containerID,
+	}, nil)
+	mockDocker.EXPECT().StartContainer(containerID, nil)
+	mockDocker.EXPECT().WaitContainer(containerID)
+
+	client := &client{
+		docker: mockDocker,
+		fs:     mockFS,
+	}
+
+	_, err := client.StartAgent()
+	assert.NoError(t, err)
+}
+
 func TestNvidiaGPUDevicesPresentWithRetries(t *testing.T) {
 	testCases := []struct {
 		name                                     string

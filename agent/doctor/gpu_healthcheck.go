@@ -72,7 +72,7 @@ func (ghc *gpuHealthcheck) RunCheck() ecstcs.InstanceHealthCheckStatus {
 			return ecstcs.InstanceHealthCheckStatusInitializing
 		}
 		logger.Debug("[GPUHealthcheck] GPU health status not available")
-		ghc.SetHealthcheckStatus(ecstcs.InstanceHealthCheckStatusInsufficientData)
+		ghc.SetHealthcheckStatus(ecstcs.InstanceHealthCheckStatusInsufficientData, "")
 		return ecstcs.InstanceHealthCheckStatusInsufficientData
 	}
 
@@ -83,27 +83,30 @@ func (ghc *gpuHealthcheck) RunCheck() ecstcs.InstanceHealthCheckStatus {
 				"age":       timeNow().Sub(ts),
 				"threshold": gpuStalenessThreshold,
 			})
-			ghc.SetHealthcheckStatus(ecstcs.InstanceHealthCheckStatusInsufficientData)
+			ghc.SetHealthcheckStatus(ecstcs.InstanceHealthCheckStatusInsufficientData, "")
 			return ecstcs.InstanceHealthCheckStatusInsufficientData
 		}
 	}
 
 	if healthStatus.ConnectionLost {
 		logger.Warn("[GPUHealthcheck] DCGM connection lost, reporting insufficient data")
-		ghc.SetHealthcheckStatus(ecstcs.InstanceHealthCheckStatusInsufficientData)
+		ghc.SetHealthcheckStatus(ecstcs.InstanceHealthCheckStatusInsufficientData, "")
 		return ecstcs.InstanceHealthCheckStatusInsufficientData
 	}
 
+	// The reason (e.g. "XID_48") is only reported alongside IMPAIRED.
 	var resultStatus ecstcs.InstanceHealthCheckStatus
+	var reason string
 	if healthStatus.Healthy {
 		resultStatus = ecstcs.InstanceHealthCheckStatusOk
 	} else {
+		reason = healthStatus.UnhealthyReason
 		logger.Warn("[GPUHealthcheck] GPU reported unhealthy", logger.Fields{
 			field.Reason: healthStatus.UnhealthyReason,
 		})
 		resultStatus = ecstcs.InstanceHealthCheckStatusImpaired
 	}
 
-	ghc.SetHealthcheckStatus(resultStatus)
+	ghc.SetHealthcheckStatus(resultStatus, reason)
 	return resultStatus
 }
