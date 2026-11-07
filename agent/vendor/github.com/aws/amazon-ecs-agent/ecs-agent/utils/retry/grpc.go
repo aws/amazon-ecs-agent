@@ -57,7 +57,7 @@ func CallWithRetry[T any](ctx context.Context, backoff Backoff, attempts int, ti
 
 	perAttemptTimeout := timeout / time.Duration(attempts)
 
-	RetryNWithBackoffCtx(ctx, backoff, attempts, func() error {
+	err := RetryNWithBackoffCtx(ctx, backoff, attempts, func() error {
 		callCtx, cancel := context.WithTimeout(ctx, perAttemptTimeout)
 		defer cancel()
 
@@ -74,6 +74,10 @@ func CallWithRetry[T any](ctx context.Context, backoff Backoff, attempts int, ti
 		return nil
 	})
 
+	if lastErr == nil {
+		// Nil unless the context was done before the first attempt.
+		lastErr = err
+	}
 	if lastErr != nil {
 		return zero, attemptsMade, lastErr
 	}

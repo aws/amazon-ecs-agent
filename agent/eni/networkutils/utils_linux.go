@@ -87,13 +87,11 @@ func (retriever *macAddressRetriever) retrieve() (string, error) {
 		return nil
 	})
 	if err != nil {
+		if ctxErr := ctx.Err(); ctxErr != nil {
+			return "", errors.Wrapf(ctxErr, "eni mac address: timed out waiting for eni device '%s'",
+				retriever.dev)
+		}
 		return "", err
-	}
-	// RetryWithBackoffCtx returns nil when the context is cancelled. Check if there was
-	// a timeout here. TODO: Fix RetryWithBackoffCtx to return ctx.Err() on context Done()
-	if err = ctx.Err(); err != nil {
-		return "", errors.Wrapf(err, "eni mac address: timed out waiting for eni device '%s'",
-			retriever.dev)
 	}
 
 	return retriever.macAddress, nil

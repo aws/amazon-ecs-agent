@@ -280,7 +280,7 @@ func (client *ecsClient) registerContainerInstanceWithRetry(clusterRef string, c
 			}
 			return nil
 		})
-	if err != nil || errFromRCI != nil {
+	if err != nil {
 		// return errFromRCI instead of err returned by the retry wrapper, as err wraps around the original error thrown by RCI.
 		// errFromRCI has implementation to mark the exit code terminal, so that systemd won't restart the agent binary.
 		return "", "", errFromRCI
