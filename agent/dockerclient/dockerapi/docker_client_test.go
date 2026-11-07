@@ -299,63 +299,6 @@ func TestPullImageECRSuccess(t *testing.T) {
 	assert.NoError(t, metadata.Error, "Expected pull to succeed")
 }
 
-// TestWrapPullErrorAsNamedError verifies that the NamedError from a pull attempt is reported as-is,
-// including when the retry helper has joined it with a context error, so the stopped reason that
-// customers see does not change when the retries run out of time.
-func TestWrapPullErrorAsNamedError(t *testing.T) {
-	pullErr := CannotPullContainerError{FromError: errors.New("pull failed")}
-	manifestErr := CannotPullImageManifestError{FromError: errors.New("manifest failed")}
-	plainErr := errors.New("plain error")
-
-	testCases := []struct {
-		name             string
-		err              error
-		expectedPull     apierrors.NamedError
-		expectedManifest apierrors.NamedError
-	}{
-		{
-			name: "nil",
-		},
-		{
-			name:             "named error",
-			err:              pullErr,
-			expectedPull:     pullErr,
-			expectedManifest: pullErr,
-		},
-		{
-			name:             "named error joined with context error",
-			err:              errors.Join(context.DeadlineExceeded, pullErr),
-			expectedPull:     pullErr,
-			expectedManifest: pullErr,
-		},
-		{
-			name:             "manifest error joined with context error",
-			err:              errors.Join(context.DeadlineExceeded, manifestErr),
-			expectedPull:     manifestErr,
-			expectedManifest: manifestErr,
-		},
-		{
-			name:             "plain error",
-			err:              plainErr,
-			expectedPull:     CannotPullContainerError{FromError: plainErr},
-			expectedManifest: CannotPullImageManifestError{FromError: plainErr},
-		},
-		{
-			name:             "context error alone",
-			err:              context.Canceled,
-			expectedPull:     CannotPullContainerError{FromError: context.Canceled},
-			expectedManifest: CannotPullImageManifestError{FromError: context.Canceled},
-		},
-	}
-
-	for _, tc := range testCases {
-		t.Run(tc.name, func(t *testing.T) {
-			assert.Equal(t, tc.expectedPull, wrapPullErrorAsNamedError("image", tc.err))
-			assert.Equal(t, tc.expectedManifest, wrapManifestPullErrorAsNamedError("image", tc.err))
-		})
-	}
-}
-
 func TestPullImageManifest(t *testing.T) {
 	someErr := errors.New("some error")
 	testDigest, err := digest.Parse("sha256:98ea6e4f216f2fb4b69fff9b3a44842c38686ca685f3f55dc48c5d3fb1107be4")
@@ -2461,7 +2404,7 @@ func TestTagImage(t *testing.T) {
 				f.EXPECT().GetDefaultClient().Return(client, nil)
 			},
 			ctx:           ctxCanceledWhileRetrying,
-			expectedError: "failed to tag image 'source' as 'target': context canceled\n" + someError.Error(),
+			expectedError: "failed to tag image 'source' as 'target': " + someError.Error(),
 		},
 	}
 

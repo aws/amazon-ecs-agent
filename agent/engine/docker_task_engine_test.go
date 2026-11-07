@@ -3785,7 +3785,7 @@ func TestStartFirelensContainerRetryForContainerIP(t *testing.T) {
 }
 
 // TestStartFirelensContainerBridgeIPTimeout verifies that a Firelens container is reported as
-// failed, with the cause of the last attempt, when the bridge IP never becomes available.
+// failed, with the error from the last attempt, when the bridge IP never becomes available.
 func TestStartFirelensContainerBridgeIPTimeout(t *testing.T) {
 	inspectErr := errors.New("inspect failed")
 	testCases := []struct {
@@ -3864,7 +3864,6 @@ func TestStartFirelensContainerBridgeIPTimeout(t *testing.T) {
 
 			require.Error(t, ret.Error)
 			assert.IsType(t, dockerapi.CannotStartContainerError{}, ret.Error)
-			assert.ErrorContains(t, ret.Error, context.Canceled.Error())
 			assert.ErrorContains(t, ret.Error, tc.expectedCause)
 		})
 	}

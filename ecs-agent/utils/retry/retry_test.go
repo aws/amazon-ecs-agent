@@ -102,6 +102,7 @@ func TestRetryWithBackoffCtx(t *testing.T) {
 
 func TestRetryWithBackoffCtxContextDone(t *testing.T) {
 	attemptErr := errors.New("attempt failed")
+	retriableAttemptErr := apierrors.NewRetriableError(apierrors.NewRetriable(true), attemptErr)
 	testCases := []struct {
 		name          string
 		cancelBefore  bool
@@ -119,13 +120,13 @@ func TestRetryWithBackoffCtxContextDone(t *testing.T) {
 			name:          "cancelled after failed attempt",
 			attemptErr:    attemptErr,
 			expectedCalls: 1,
-			expectedErrs:  []error{context.Canceled, attemptErr},
+			expectedErrs:  []error{attemptErr},
 		},
 		{
 			name:          "cancelled after retriable failed attempt",
-			attemptErr:    apierrors.NewRetriableError(apierrors.NewRetriable(true), attemptErr),
+			attemptErr:    retriableAttemptErr,
 			expectedCalls: 1,
-			expectedErrs:  []error{context.Canceled, attemptErr},
+			expectedErrs:  []error{retriableAttemptErr},
 		},
 		{
 			name:          "cancelled after successful attempt",
@@ -277,7 +278,8 @@ func TestRetryNWithBackoffCtxContextDone(t *testing.T) {
 			cancelAfter:   2,
 			tries:         5,
 			expectedCalls: 2,
-			expectedErrs:  []error{context.Canceled, attemptErr},
+			expectedErrs:  []error{attemptErr},
+			notExpected:   []error{context.Canceled},
 		},
 		{
 			name:          "tries exhausted before cancellation",
