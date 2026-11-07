@@ -2315,6 +2315,8 @@ func TestListPluginsWithFilter(t *testing.T) {
 
 func TestTagImage(t *testing.T) {
 	someError := errors.New("some error")
+	ctxCanceledWhileRetrying, cancelWhileRetrying := context.WithCancel(context.Background())
+	defer cancelWhileRetrying()
 	tcs := []struct {
 		name                      string
 		source                    string
@@ -2372,7 +2374,7 @@ func TestTagImage(t *testing.T) {
 				cancel()
 				return c
 			}(),
-			expectedError: "context canceled",
+			expectedError: "failed to tag image '' as '': context canceled",
 		},
 		{
 			name: "deadline exceeded",
@@ -2386,7 +2388,23 @@ func TestTagImage(t *testing.T) {
 				cancel()
 				return c
 			}(),
-			expectedError: "context deadline exceeded",
+			expectedError: "failed to tag image '' as '': context deadline exceeded",
+		},
+		{
+			name:   "canceled while retrying",
+			source: "source",
+			target: "target",
+			setSDKFactoryExpectations: func(f *mock_sdkclientfactory.MockFactory, ctrl *gomock.Controller) {
+				client := mock_sdkclient.NewMockClient(ctrl)
+				client.EXPECT().ImageTag(gomock.Any(), "source", "target").
+					DoAndReturn(func(context.Context, string, string) error {
+						cancelWhileRetrying()
+						return someError
+					})
+				f.EXPECT().GetDefaultClient().Return(client, nil)
+			},
+			ctx:           ctxCanceledWhileRetrying,
+			expectedError: "failed to tag image 'source' as 'target': " + someError.Error(),
 		},
 	}
 

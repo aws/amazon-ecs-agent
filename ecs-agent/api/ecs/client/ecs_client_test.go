@@ -312,9 +312,6 @@ func TestSubmitContainerStateChangeLongReason(t *testing.T) {
 }
 
 func TestSetInstanceIdentity(t *testing.T) {
-	ctrl := gomock.NewController(t)
-	defer ctrl.Finish()
-
 	const (
 		expectedIID    = "test-instance-identity-document"
 		expectedIIDSig = "test-instance-identity-signature"
@@ -390,6 +387,28 @@ func TestSetInstanceIdentity(t *testing.T) {
 			},
 		},
 		{
+			name:               "Fail_SignatureTimeout",
+			noInstanceIdentity: false,
+			mockEC2MetadataSetup: func(mockEC2Metadata *mock_ec2.MockEC2MetadataClient) {
+				mockEC2Metadata.EXPECT().
+					GetDynamicData(ec2.InstanceIdentityDocumentResource).
+					Return(expectedIID, nil)
+				mockEC2Metadata.EXPECT().
+					GetDynamicData(ec2.InstanceIdentityDocumentSignatureResource).
+					Return("", fmt.Errorf("persistent error")).
+					MinTimes(2)
+			},
+			mockCredentialsSetup: func(mockCredProvider *mock_credentials.MockCredentialsProvider) {
+				// The signature fetch does not refresh credentials on failure
+			},
+			validateExpectedFields: func(t *testing.T, req *ecsservice.RegisterContainerInstanceInput) {
+				assert.NotNil(t, req.InstanceIdentityDocument)
+				assert.Equal(t, expectedIID, *req.InstanceIdentityDocument)
+				assert.NotNil(t, req.InstanceIdentityDocumentSignature)
+				assert.Equal(t, "", *req.InstanceIdentityDocumentSignature)
+			},
+		},
+		{
 			name:               "Fail_PersistentError",
 			noInstanceIdentity: false,
 			mockEC2MetadataSetup: func(mockEC2Metadata *mock_ec2.MockEC2MetadataClient) {
@@ -398,10 +417,10 @@ func TestSetInstanceIdentity(t *testing.T) {
 					GetDynamicData(ec2.InstanceIdentityDocumentResource).
 					Return("", fmt.Errorf("persistent error")).
 					AnyTimes()
+				// The signature is not fetched once the document fetch has timed out.
 				mockEC2Metadata.EXPECT().
 					GetDynamicData(ec2.InstanceIdentityDocumentSignatureResource).
-					Return("", fmt.Errorf("persistent error")).
-					AnyTimes()
+					Times(0)
 			},
 			mockCredentialsSetup: func(mockCredProvider *mock_credentials.MockCredentialsProvider) {
 				// Expect multiple credential retrievals due to repeated failures
@@ -419,29 +438,35 @@ func TestSetInstanceIdentity(t *testing.T) {
 
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
-			mockConfigAccessor := mock_config.NewMockAgentConfigAccessor(ctrl)
-			mockEC2Metadata := mock_ec2.NewMockEC2MetadataClient(ctrl)
-			mockCredentialsProvider := mock_credentials.NewMockCredentialsProvider(ctrl)
-			mockConfigAccessor.EXPECT().AcceptInsecureCert().Return(false).AnyTimes()
-			mockConfigAccessor.EXPECT().OSType().Return(osType).AnyTimes()
-			mockConfigAccessor.EXPECT().OSFamilyDetailed().Return(detailedOSFamily).AnyTimes()
-			mockConfigAccessor.EXPECT().AWSRegion().Return(region).AnyTimes()
-			mockConfigAccessor.EXPECT().NoInstanceIdentityDocument().Return(tc.noInstanceIdentity).AnyTimes()
-			tc.mockEC2MetadataSetup(mockEC2Metadata)
-			tc.mockCredentialsSetup(mockCredentialsProvider)
+			// The failure cases retry until setInstanceIdRetryTimeOut elapses, so run
+			// against the synctest fake clock.
+			synctest.Test(t, func(t *testing.T) {
+				ctrl := gomock.NewController(t)
+				defer ctrl.Finish()
+				mockConfigAccessor := mock_config.NewMockAgentConfigAccessor(ctrl)
+				mockEC2Metadata := mock_ec2.NewMockEC2MetadataClient(ctrl)
+				mockCredentialsProvider := mock_credentials.NewMockCredentialsProvider(ctrl)
+				mockConfigAccessor.EXPECT().AcceptInsecureCert().Return(false).AnyTimes()
+				mockConfigAccessor.EXPECT().OSType().Return(osType).AnyTimes()
+				mockConfigAccessor.EXPECT().OSFamilyDetailed().Return(detailedOSFamily).AnyTimes()
+				mockConfigAccessor.EXPECT().AWSRegion().Return(region).AnyTimes()
+				mockConfigAccessor.EXPECT().NoInstanceIdentityDocument().Return(tc.noInstanceIdentity).AnyTimes()
+				tc.mockEC2MetadataSetup(mockEC2Metadata)
+				tc.mockCredentialsSetup(mockCredentialsProvider)
 
-			registerRequest := ecsservice.RegisterContainerInstanceInput{
-				Cluster: aws.String("test-cluster"),
-			}
+				registerRequest := ecsservice.RegisterContainerInstanceInput{
+					Cluster: aws.String("test-cluster"),
+				}
 
-			client := &ecsClient{
-				credentialsCache: aws.NewCredentialsCache(mockCredentialsProvider),
-				configAccessor:   mockConfigAccessor,
-				ec2metadata:      mockEC2Metadata,
-			}
+				client := &ecsClient{
+					credentialsCache: aws.NewCredentialsCache(mockCredentialsProvider),
+					configAccessor:   mockConfigAccessor,
+					ec2metadata:      mockEC2Metadata,
+				}
 
-			result := client.setInstanceIdentity(registerRequest)
-			tc.validateExpectedFields(t, &result)
+				result := client.setInstanceIdentity(registerRequest)
+				tc.validateExpectedFields(t, &result)
+			})
 		})
 	}
 }
@@ -1471,6 +1496,40 @@ func TestGetResourceTagsWithRetry(t *testing.T) {
 					assert.ErrorContains(t, err, "GetResourceTags failed for", "Expected wrapped error message")
 				}
 			}
+		})
+	}
+}
+
+// TestGetResourceTagsTimeout verifies that transient errors are retried until the deadline and
+// that the failure is then reported instead of an empty tag list.
+func TestGetResourceTagsTimeout(t *testing.T) {
+	testCases := []struct {
+		name         string
+		transientErr error
+	}{
+		{name: "throttling", transientErr: mock_client.NewThrottlingException()},
+		{name: "server exception", transientErr: mock_client.NewServerException()},
+		{name: "limit exceeded", transientErr: mock_client.NewLimitExceededException()},
+		{name: "quota exceeded", transientErr: mock_client.NewQuotaExceededError()},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			synctest.Test(t, func(t *testing.T) {
+				ctrl := gomock.NewController(t)
+				defer ctrl.Finish()
+
+				tester := setup(t, ctrl, ec2.NewBlackholeEC2MetadataClient(), nil)
+				tester.mockStandardClient.EXPECT().ListTagsForResource(gomock.Any(), &ecsservice.ListTagsForResourceInput{
+					ResourceArn: aws.String(containerInstanceARN),
+				}).Return(nil, tc.transientErr).MinTimes(2)
+
+				tags, err := tester.client.GetResourceTags(context.Background(), containerInstanceARN)
+
+				assert.Nil(t, tags)
+				assert.ErrorContains(t, err, "GetResourceTags failed for")
+				assert.ErrorContains(t, err, tc.transientErr.Error())
+			})
 		})
 	}
 }

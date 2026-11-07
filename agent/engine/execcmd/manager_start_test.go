@@ -224,6 +224,37 @@ func TestStartAgent(t *testing.T) {
 	}
 }
 
+// TestStartAgentContextAlreadyDone verifies that a context which ends before the first start
+// attempt is reported as an error and leaves the managed agent stopped, rather than recording a
+// running agent with no metadata.
+func TestStartAgentContextAlreadyDone(t *testing.T) {
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+	client := mock_dockerapi.NewMockDockerClient(ctrl)
+
+	container := &apicontainer.Container{
+		RuntimeID: "123abc",
+		ManagedAgentsUnsafe: []apicontainer.ManagedAgent{{
+			Name:              ExecuteCommandAgentName,
+			ManagedAgentState: apicontainer.ManagedAgentState{ID: "test-uid"},
+		}},
+	}
+	testTask := &apitask.Task{
+		Arn:        "taskArn:aws:ecs:region:account-id:task/test-task-taskArn",
+		Containers: []*apicontainer.Container{container},
+	}
+	ctx, cancel := context.WithCancel(context.Background())
+	cancel()
+
+	err := newTestManager().StartAgent(ctx, client, testTask, container, container.RuntimeID)
+
+	assert.ErrorIs(t, err, context.Canceled)
+	ma, ok := container.GetManagedAgentByName(ExecuteCommandAgentName)
+	assert.True(t, ok)
+	assert.Equal(t, apicontainerstatus.ManagedAgentStopped, ma.Status)
+	assert.Equal(t, context.Canceled.Error(), ma.Reason)
+}
+
 func TestIdempotentStartAgent(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
