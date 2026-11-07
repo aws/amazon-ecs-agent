@@ -208,6 +208,24 @@ func TestSendENIStateChangeWithRetriesDoesNotRetryExpiredENI(t *testing.T) {
 		ctx, randomMAC, sendENIStateChangeRetryTimeout))
 }
 
+// TestSendENIStateChangeWithRetriesTimeout verifies that an ENI which never shows up in agent
+// state is reported as a timeout once the retry deadline passes.
+func TestSendENIStateChangeWithRetriesTimeout(t *testing.T) {
+	mockCtrl := gomock.NewController(t)
+	defer mockCtrl.Finish()
+
+	mockStateManager := mock_dockerstate.NewMockTaskEngineState(mockCtrl)
+	ctx := context.TODO()
+
+	mockStateManager.EXPECT().ENIByMac(randomMAC).Return(nil, false).MinTimes(2)
+
+	watcher := setupWatcher(ctx, nil, mockStateManager, nil, primaryMAC)
+
+	err := watcher.sendENIStateChangeWithRetries(ctx, randomMAC, 2*sendENIStateChangeBackoffMin)
+	assert.ErrorIs(t, err, context.DeadlineExceeded)
+	assert.ErrorContains(t, err, "timed out waiting for eni")
+}
+
 // TestSendENIStateChangeWithAttachmentTypeInstanceENI tests that we send the attachment state change
 // of an instance level eni as an attachment state change
 func TestSendENIStateChangeWithAttachmentTypeInstanceENI(t *testing.T) {

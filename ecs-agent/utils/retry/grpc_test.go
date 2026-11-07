@@ -133,4 +133,16 @@ func TestCallWithRetry(t *testing.T) {
 		require.Error(t, err)
 		assert.Equal(t, codes.Unavailable, status.Code(err))
 	})
+
+	t.Run("context already done reports an error without calling fn", func(t *testing.T) {
+		ctx, cancel := context.WithCancel(context.Background())
+		cancel()
+		_, attempts, err := CallWithRetry(ctx, fastBackoff, 3, time.Minute,
+			func(_ context.Context) (string, error) {
+				t.Fatal("fn should not be called when the context is already done")
+				return "", nil
+			})
+		assert.ErrorIs(t, err, context.Canceled)
+		assert.Equal(t, 0, attempts)
+	})
 }

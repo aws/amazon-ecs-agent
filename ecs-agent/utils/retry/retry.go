@@ -31,7 +31,8 @@ func RetryWithBackoff(backoff Backoff, fn func() error) error {
 }
 
 // RetryWithBackoffCtx takes a context, a Backoff, and a function to call that returns an error
-// If the context is done, nil will be returned
+// If the context is done, the error from the last attempt is returned, or ctx.Err()
+// if no attempt was made.
 // If the error is nil then the function will no longer be called
 // If the error is Retriable then that will be used to determine if it should be
 // retried
@@ -40,7 +41,10 @@ func RetryWithBackoffCtx(ctx context.Context, backoff Backoff, fn func() error) 
 	for {
 		select {
 		case <-ctx.Done():
-			return nil
+			if err != nil {
+				return err
+			}
+			return ctx.Err()
 		default:
 		}
 
@@ -70,16 +74,22 @@ func RetryNWithBackoff(backoff Backoff, n int, fn func() error) error {
 // reached.
 // If the error returned is Retriable, the Retriability of it will be respected.
 // If the number of tries is exhausted, the last error will be returned.
+// If the context is done, the error from the last attempt is returned, or ctx.Err()
+// if no attempt was made.
 func RetryNWithBackoffCtx(ctx context.Context, backoff Backoff, n int, fn func() error) error {
-	var err error
-	RetryWithBackoffCtx(ctx, backoff, func() error {
-		err = fn()
+	var lastErr error
+	err := RetryWithBackoffCtx(ctx, backoff, func() error {
+		lastErr = fn()
 		n--
 		if n == 0 {
 			// Break out after n tries
 			return nil
 		}
-		return err
+		return lastErr
 	})
-	return err
+	if lastErr == nil {
+		// Nil unless the context was done before the first attempt.
+		return err
+	}
+	return lastErr
 }

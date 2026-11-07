@@ -135,7 +135,8 @@ func TestGetInterfaceMACByIndexContextTimeout(t *testing.T) {
 
 	mac, err := netUtils.GetInterfaceMACByIndex(interfaceIndex, ctx, macAddressBackoffMin*2)
 
-	assert.Error(t, err)
+	assert.ErrorIs(t, err, context.DeadlineExceeded)
+	assert.ErrorContains(t, err, "timed out waiting for mac address")
 	assert.Empty(t, mac)
 }
 

@@ -115,7 +115,8 @@ func TestGetMACAddressNotFoundRetryExpires(t *testing.T) {
 	// Set max retry duration to twice that of the min backoff to ensure that there's
 	// enough time to retry
 	mac, err := GetMACAddress(ctx, 2*macAddressBackoffMin, randomDevice, mockNetlink)
-	assert.Error(t, err)
+	assert.ErrorIs(t, err, context.DeadlineExceeded)
+	assert.ErrorContains(t, err, "timed out waiting for eni device")
 	assert.Empty(t, mac)
 }
 
