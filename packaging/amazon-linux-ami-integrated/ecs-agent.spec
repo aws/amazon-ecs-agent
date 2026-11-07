@@ -43,6 +43,9 @@ Source6:        ebs-csi-driver-arm64-v%{version}.tar
 Source7:        ebs-csi-driver-v%{version}.tar
 
 BuildRequires:  golang >= 1.26.0
+BuildRequires:  ca-certificates
+BuildRequires:  p11-kit-trust
+BuildRequires:  util-linux
 %if %{with systemd}
 BuildRequires:  systemd
 Requires:       systemd
@@ -281,7 +284,7 @@ required routes among its preparation steps.
 
 %build
 # each of these should build for arm and amd arch
-make release-agent-internal
+make release-agent-internal KOJI_BUILD=true
 ./scripts/gobuild.sh %{gobuild_tag}
 
 %install
