@@ -14,12 +14,9 @@
 #
 # Writes the CA bundle for the agent image to misc/certs/host-certs.crt.
 #
-# By default, the script copies the first CA bundle it finds in the known host
-# locations (borrowed from https://go.dev/src/crypto/x509/root_linux.go).
-#
-# With KOJI_BUILD=true, the script builds the bundle only from the p11-kit
-# trust file of the ca-certificates package. Then the bundle is the same on
-# all build hosts.
+# - Default: copy the first CA bundle found on the build host (locations borrowed
+#   from https://go.dev/src/crypto/x509/root_linux.go).
+# - KOJI_BUILD=true: build the bundle only from the ca-certificates package.
 
 set -ex
 
@@ -37,14 +34,23 @@ cert_bodies() {
 }
 
 if [ "${KOJI_BUILD:-false}" = "true" ]; then
+  # Build the bundle only from the ca-certificates package, so that it does not
+  # depend on CAs that are installed on the build host:
+  #   - Read the certificates from the p11-kit trust file of ca-certificates.
+  #   - Use trust extract to keep only the CAs that are trusted for TLS server
+  #     authentication. The trust file also has CAs for other purposes.
+  #   - Point trust extract at only the trust file with a p11-kit user config in a
+  #     temporary HOME. Otherwise it reads the whole host trust store.
+  #   - When the script runs as root, run trust extract as the nobody user,
+  #     because p11-kit does not read the user config for root.
+  #   - Stop the build if the bundle is empty or has a certificate that is not
+  #     in the trust file.
   if [ ! -f "${caTrustSource}" ]; then
     echo "CA trust source ${caTrustSource} does not exist" >&2
     exit 1
   fi
 
-  # The trust extract command also reads the anchors directories of the build
-  # host. A p11-kit user config in a temporary HOME limits it to the CA trust
-  # source, so the bundle is the same on all build hosts.
+  # Use a temporary HOME so that trust extract reads only the CA trust source.
   trustHome="$(mktemp -d)"
   trap 'rm -rf "${trustHome}"' EXIT
   moduleDir="${trustHome}/.config/pkcs11/modules"
@@ -54,8 +60,7 @@ if [ "${KOJI_BUILD:-false}" = "true" ]; then
     echo "x-init-reserved: paths=${caTrustSource}"
   } > "${moduleDir}/p11-kit-trust.module"
 
-  # p11-kit does not read the user config when it runs as root. As root,
-  # the script runs trust extract as the nobody user.
+  # When the script runs as root, run trust extract as the nobody user.
   runAs=()
   if [ "$(id -u)" -eq 0 ]; then
     nobodyUid="$(id -u nobody)"
