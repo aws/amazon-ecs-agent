@@ -292,8 +292,11 @@ cni-plugins: get-cni-sources .out-stamp build-ecs-cni-plugins build-vpc-cni-plug
 dockerfree-pause:
 	./scripts/build-pause
 
+# KOJI_BUILD=true builds the agent image's CA bundle only from the ca-certificates
+# package. By default, the CA bundle is copied from the build host.
+KOJI_BUILD ?= false
 dockerfree-certs:
-	./scripts/get-host-certs
+	KOJI_BUILD=$(KOJI_BUILD) ./scripts/get-host-certs
 
 dockerfree-cni-plugins:
 	./scripts/build-cni-plugins
