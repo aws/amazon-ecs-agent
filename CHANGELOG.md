@@ -1,5 +1,13 @@
 # Changelog
 
+# 1.108.3
+* Enhancement - Enhancement - Update golang.org/x/net to v0.62.0 [#5199](https://github.com/aws/amazon-ecs-agent/pull/5199)
+* Enhancement - Enhancement - Build the agent image CA bundle from the ca-certificates package in the Amazon Linux integrated rpm [#5195](https://github.com/aws/amazon-ecs-agent/pull/5195)
+* Enhancement - - Enhancement - Bump ECS Exec SSM Agent to 3.3.5700.0 [#5188](https://github.com/aws/amazon-ecs-agent/pull/5188)
+* Enhancement - Bump github.com/prometheus/common from 0.72.1 to 0.73.1 in /ecs-agent and /agent [#5196](https://github.com/aws/amazon-ecs-agent/pull/5196)
+* Enhancement - Bump github.com/prometheus/common from 0.71.0 to 0.72.1 in /ecs-agent and /agent [#5174](https://github.com/aws/amazon-ecs-agent/pull/5174)
+* Bugfix - Bugfix - Fixed false registration success on timeout [#5186](https://github.com/aws/amazon-ecs-agent/pull/5186)
+
 # 1.108.2
 * Enhancement - Enhancement - Update to golang 1.26.10 [#5183](https://github.com/aws/amazon-ecs-agent/pull/5183)
 * Enhancement - Bump github.com/klauspost/compress from 1.16.7 to 1.18.7 in /ecs-init [#5175](https://github.com/aws/amazon-ecs-agent/pull/5175)
