@@ -454,6 +454,77 @@ func TestCreateFirelensResourceWithS3ConfigDownloadFailure(t *testing.T) {
 	assert.NotEmpty(t, firelensResource.terminalReason)
 }
 
+func TestCreateFirelensResourceYAMLConfigRequiresFluentbit(t *testing.T) {
+	_, mockIOUtil, mockCredentialsManager, mockS3ClientCreator, _, done := setup(t)
+	defer done()
+
+	firelensResource := newMockFirelensResource(FirelensConfigTypeFluentd, bridgeNetworkMode, testFluentdOptions, mockIOUtil,
+		mockCredentialsManager, mockS3ClientCreator, testContainerMemoryLimit, testIPCompatibility)
+
+	err := firelensResource.parseOptions(map[string]string{
+		"config-file-type":  "s3",
+		"config-file-value": "arn:aws:s3:::bucket/custom.yaml",
+	})
+	require.NoError(t, err)
+
+	// Fail fast rather than letting the fluentd firelens container start with an unsupported YAML external
+	// config, since fluentd has no YAML config format at all.
+	assert.Error(t, firelensResource.Create())
+	assert.NotEmpty(t, firelensResource.terminalReason)
+}
+
+func TestCreateFirelensResourceWithS3YAMLConfig(t *testing.T) {
+	mockFile, mockIOUtil, mockCredentialsManager, mockS3ClientCreator, mockS3Client, done := setup(t)
+	defer done()
+
+	firelensResource := newMockFirelensResource(FirelensConfigTypeFluentbit, bridgeNetworkMode, testFluentbitOptions, mockIOUtil,
+		mockCredentialsManager, mockS3ClientCreator, testContainerMemoryLimit, testIPCompatibility)
+
+	err := firelensResource.parseOptions(map[string]string{
+		"config-file-type":  "s3",
+		"config-file-value": "arn:aws:s3:::bucket/custom.yaml",
+	})
+	require.NoError(t, err)
+
+	creds := credentials.TaskIAMRoleCredentials{
+		ARN: "arn",
+		IAMRoleCredentials: credentials.IAMRoleCredentials{
+			AccessKeyID:     "id",
+			SecretAccessKey: "key",
+		},
+	}
+
+	var renamedPaths []string
+	rename = func(oldpath, newpath string) error {
+		renamedPaths = append(renamedPaths, newpath)
+		return nil
+	}
+	defer func() {
+		rename = os.Rename
+	}()
+
+	gomock.InOrder(
+		mockCredentialsManager.EXPECT().GetTaskCredentials(testExecutionCredentialsID).Return(creds, true),
+		mockS3ClientCreator.EXPECT().NewS3ManagerClient("bucket", testRegion, creds.IAMRoleCredentials, testIPCompatibility).Return(mockS3Client, nil),
+		// write external config file downloaded from s3
+		mockIOUtil.EXPECT().TempFile(testResourceDir, tempFile).Return(mockFile, nil),
+		mockS3Client.EXPECT().Download(gomock.Any(), mockFile, gomock.Any(), gomock.Any()).Do(
+			func(ctx context.Context, w io.WriterAt, input *s3.GetObjectInput, options ...func(*s3manager.Downloader)) {
+				assert.Equal(t, "bucket", aws.ToString(input.Bucket))
+				assert.Equal(t, "custom.yaml", aws.ToString(input.Key))
+			}).Return(int64(0), nil),
+
+		// write main config file
+		mockIOUtil.EXPECT().TempFile(testResourceDir, tempFile).Return(mockFile, nil),
+	)
+
+	assert.NoError(t, firelensResource.Create())
+
+	require.Len(t, renamedPaths, 2)
+	assert.Equal(t, filepath.Join(testResourceDir, "config", "external.yaml"), renamedPaths[0])
+	assert.Equal(t, filepath.Join(testResourceDir, "config", "fluent-bit.yaml"), renamedPaths[1])
+}
+
 func TestCleanupFirelensResource(t *testing.T) {
 	_, mockIOUtil, mockCredentialsManager, mockS3ClientCreator, _, done := setup(t)
 	defer done()
