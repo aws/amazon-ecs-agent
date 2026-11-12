@@ -72,6 +72,7 @@ func taskServerSetup(
 	availabilityZoneID string,
 	vpcID string,
 	containerInstanceArn string,
+	ec2InstanceID string,
 	taskProtectionClientFactory tp.TaskProtectionClientFactoryInterface,
 ) (*http.Server, error) {
 	muxRouter := mux.NewRouter()
@@ -83,7 +84,7 @@ func taskServerSetup(
 	muxRouter.HandleFunc(tmdsv1.CredentialsPath,
 		tmdsv1.CredentialsHandler(credentialsManager, auditLogger))
 
-	tmdsAgentState := v4.NewTMDSAgentState(state, statsEngine, ecsClient, cluster, availabilityZone, availabilityZoneID, vpcID, containerInstanceArn)
+	tmdsAgentState := v4.NewTMDSAgentState(state, statsEngine, ecsClient, cluster, availabilityZone, availabilityZoneID, vpcID, containerInstanceArn, ec2InstanceID)
 	metricsFactory := metrics.NewNopEntryFactory()
 
 	v2HandlersSetup(muxRouter, state, ecsClient, statsEngine, cluster, credentialsManager, auditLogger, availabilityZone, containerInstanceArn)
@@ -381,6 +382,7 @@ func ServeTaskHTTPEndpoint(
 	availabilityZone string,
 	availabilityZoneID string,
 	vpcID string,
+	ec2InstanceID string,
 ) {
 	// Create and initialize the audit log
 	logger, err := seelog.LoggerFromConfigAsString(audit.AuditLoggerConfig(cfg))
@@ -397,7 +399,7 @@ func ServeTaskHTTPEndpoint(
 	}
 	server, err := taskServerSetup(credentialsManager, auditLogger, state, ecsClient, cfg.Cluster,
 		statsEngine, cfg.TaskMetadataSteadyStateRate, cfg.TaskMetadataBurstRate,
-		availabilityZone, availabilityZoneID, vpcID, containerInstanceArn, taskProtectionClientFactory)
+		availabilityZone, availabilityZoneID, vpcID, containerInstanceArn, ec2InstanceID, taskProtectionClientFactory)
 	if err != nil {
 		seelog.Criticalf("Failed to set up Task Metadata Server: %v", err)
 		return

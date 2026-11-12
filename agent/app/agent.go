@@ -553,7 +553,7 @@ func (agent *ecsAgent) doStart(containerChangeEventStream *eventstream.EventStre
 	taskHandler := eventhandler.NewTaskHandler(agent.ctx, agent.dataClient, state, client)
 	attachmentEventHandler := eventhandler.NewAttachmentEventHandler(agent.ctx, agent.dataClient, client)
 	agent.startAsyncRoutines(containerChangeEventStream, credentialsManager, imageManager,
-		taskEngine, deregisterInstanceEventStream, client, taskHandler, attachmentEventHandler, state, doctor)
+		taskEngine, deregisterInstanceEventStream, client, taskHandler, attachmentEventHandler, state, doctor, currentEC2InstanceID)
 	// TODO add EBS watcher to async routines
 	agent.startEBSWatcher(state, taskEngine, agent.dockerClient)
 	// Start the acs session, which should block doStart
@@ -991,6 +991,7 @@ func (agent *ecsAgent) startAsyncRoutines(
 	attachmentEventHandler *eventhandler.AttachmentEventHandler,
 	state dockerstate.TaskEngineState,
 	doctor *doctor.Doctor,
+	ec2InstanceID string,
 ) {
 
 	// Start of the periodic image cleanup process
@@ -1019,9 +1020,9 @@ func (agent *ecsAgent) startAsyncRoutines(
 	// Start serving the endpoint to fetch IAM Role credentials and other task metadata
 	if agent.cfg.TaskMetadataAZDisabled {
 		// send empty availability zone
-		go handlers.ServeTaskHTTPEndpoint(agent.ctx, credentialsManager, state, client, agent.containerInstanceARN, agent.cfg, statsEngine, "", "", agent.vpc)
+		go handlers.ServeTaskHTTPEndpoint(agent.ctx, credentialsManager, state, client, agent.containerInstanceARN, agent.cfg, statsEngine, "", "", agent.vpc, ec2InstanceID)
 	} else {
-		go handlers.ServeTaskHTTPEndpoint(agent.ctx, credentialsManager, state, client, agent.containerInstanceARN, agent.cfg, statsEngine, agent.availabilityZone, agent.availabilityZoneID, agent.vpc)
+		go handlers.ServeTaskHTTPEndpoint(agent.ctx, credentialsManager, state, client, agent.containerInstanceARN, agent.cfg, statsEngine, agent.availabilityZone, agent.availabilityZoneID, agent.vpc, ec2InstanceID)
 	}
 
 	// Start sending events to the backend

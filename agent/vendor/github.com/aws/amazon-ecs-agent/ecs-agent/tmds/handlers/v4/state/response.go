@@ -41,6 +41,8 @@ type TaskResponse struct {
 	TaskNetworkConfig       *TaskNetworkConfig       `json:"-"`
 	FaultInjectionEnabled   bool                     `json:"FaultInjectionEnabled"`
 	AvailabilityZoneID      string                   `json:"AvailabilityZoneID,omitempty"`
+	ContainerInstanceARN    string                   `json:"ContainerInstanceARN,omitempty"`
+	EC2InstanceID           string                   `json:"EC2InstanceID,omitempty"`
 }
 
 // TaskNetworkConfig contains required network configurations for network faults injection.
