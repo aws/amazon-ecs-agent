@@ -454,7 +454,7 @@ func (c *common) BuildAttachmentNetworkConfiguration(
 		return nil, errors.New("an interface is required to build attachment network configuration")
 	}
 	cfg := &tasknetworkconfig.AttachmentNetworkConfig{}
-	if aws.ToInt64(eni.Index) != 0 {
+	if !networkinterface.IsPrimaryACSInterface(eni) {
 		return cfg, nil
 	}
 	macToNames, err := c.interfacesMACToName()

@@ -113,17 +113,12 @@ func (c *containerd) ConfigureDaemonNetNS(netNS *tasknetworkconfig.NetworkNamesp
 // masquerades to the ENI's own address, and the daemon's default route is
 // pointed at this task's bridge address.
 //
-// Best-effort throughout: a task must not fail to launch because a daemon could
-// not be given egress.
+// A failure leaves the task namespace usable; the caller decides what it
+// means for daemons on the host.
 func (c *containerd) configureDaemonEgress(
 	netNSPath string,
 	eni *networkinterface.NetworkInterface,
-) {
-	logFields := logger.Fields{
-		"NetNSPath":  netNSPath,
-		"DeviceName": eni.DeviceName,
-	}
-
+) error {
 	ipComp := ipcompatibility.NewIPCompatibility(
 		len(eni.IPV4Addresses) > 0, len(eni.IPV6Addresses) > 0)
 
@@ -168,14 +163,15 @@ func (c *containerd) configureDaemonEgress(
 		return nil
 	})
 	if err != nil {
-		logFields[loggerfield.Error] = err
-		logger.Error("Failed to let the task namespace forward daemon traffic", logFields)
-		return
+		return errors.Wrap(err, "failed to let the task namespace forward daemon traffic")
 	}
 
 	if len(taskBridgeIPs) == 0 {
-		logger.Warn("No task bridge address to route daemon egress through", logFields)
-		return
+		return errors.New("no task bridge address to route daemon egress through")
+	}
+	logFields := logger.Fields{
+		"NetNSPath":  netNSPath,
+		"DeviceName": eni.DeviceName,
 	}
 	for subnet, ip := range taskBridgeIPs {
 		logFields["TaskBridgeIP:"+subnet] = ip.String()
@@ -214,12 +210,11 @@ func (c *containerd) configureDaemonEgress(
 		return nil
 	})
 	if err != nil {
-		logFields[loggerfield.Error] = err
-		logger.Error("Failed to route daemon egress through the task", logFields)
-		return
+		return errors.Wrap(err, "failed to route daemon egress through the task")
 	}
 
 	logger.Info("Daemon namespace egress now leaves over the task ENI", logFields)
+	return nil
 }
 
 // addressInSubnet returns this namespace's address within the given subnet,
@@ -340,13 +335,20 @@ func (c *containerd) ConfigureInterface(
 	}
 
 	// Daemon egress leaves over the task's primary interface, so this runs
-	// once that interface is in place. Every namespace of a multi-namespace
-	// task has a default interface of its own; the task's primary interface
-	// is the one at index 0.
-	if iface.IsPrimary() && iface.Index == 0 &&
+	// once that interface is in place. The task launches whether or not its
+	// daemons got egress; the failure is recorded on the interface for the
+	// consumer to act on.
+	if iface.IsTaskPrimary() &&
 		iface.DesiredStatus == status.NetworkReadyPull &&
 		c.common.daemonNamespaceExists() {
-		c.configureDaemonEgress(netNSPath, iface)
+		if err := c.configureDaemonEgress(netNSPath, iface); err != nil {
+			iface.DaemonEgressError = err.Error()
+			logger.Error("Failed to give the daemon namespace egress over the task interface", logger.Fields{
+				"NetNSPath":       netNSPath,
+				"DeviceName":      iface.DeviceName,
+				loggerfield.Error: err,
+			})
+		}
 	}
 
 	return nil

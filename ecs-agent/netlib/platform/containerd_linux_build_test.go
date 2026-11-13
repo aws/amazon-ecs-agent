@@ -103,6 +103,24 @@ func TestBuildAttachmentNetworkConfigurationPrimary(t *testing.T) {
 	require.Equal(t, "eni-primary", iface.ID)
 }
 
+// TestBuildAttachmentNetworkConfigurationNoIndexIsPrimary pins the reading of
+// an attachment without an index, which the control plane sends for a
+// single-interface task: it is the primary, as the task payload path reads it.
+func TestBuildAttachmentNetworkConfigurationNoIndexIsPrimary(t *testing.T) {
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+	c, mockNet := newBuildTestContainerd(t, ctrl)
+	mockNet.EXPECT().Interfaces().Return(hostInterfaces(t, map[string]string{testBuildMAC: "eth1"}), nil)
+
+	eni := buildTestENI("eni-primary", testBuildMAC, 0, "10.0.0.10")
+	eni.Index = nil
+	cfg, err := c.BuildAttachmentNetworkConfiguration(testBuildTaskID, eni)
+	require.NoError(t, err)
+	require.NotNil(t, cfg.PrimaryNetNS)
+	require.NotNil(t, cfg.DaemonNetNS)
+	require.True(t, cfg.PrimaryNetNS.GetPrimaryInterface().IsTaskPrimary())
+}
+
 // TestBuildAttachmentNetworkConfigurationSecondary verifies a non-primary
 // interface establishes neither namespace: the task namespace takes its
 // identity from the primary, and the daemon namespace mirrors the interface

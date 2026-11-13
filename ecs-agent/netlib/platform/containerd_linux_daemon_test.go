@@ -237,7 +237,8 @@ func TestContainerdConfigureInterfaceDaemonEgressOnlyFromTaskPrimary(t *testing.
 			c := &containerd{common: common{os: osWrapper, cniClient: cniClient, nsUtil: nsUtil}}
 
 			// Egress configuration begins by entering the task namespace; a
-			// failure there is logged and ends it, which is enough to observe.
+			// failure there ends it and is recorded on the interface, which is
+			// enough to observe. The interface itself is configured either way.
 			if tc.wantEgress {
 				nsUtil.EXPECT().ExecInNSPath(netNSPath, gomock.Any()).Return(errors.New("stop here")).Times(1)
 			} else {
@@ -247,6 +248,11 @@ func TestContainerdConfigureInterfaceDaemonEgressOnlyFromTaskPrimary(t *testing.
 			iface := getTestRegularV4ENI()
 			iface.Index = tc.index
 			require.NoError(t, c.ConfigureInterface(context.TODO(), netNSPath, iface, nil))
+			if tc.wantEgress {
+				assert.Contains(t, iface.DaemonEgressError, "stop here")
+			} else {
+				assert.Empty(t, iface.DaemonEgressError)
+			}
 		})
 	}
 }

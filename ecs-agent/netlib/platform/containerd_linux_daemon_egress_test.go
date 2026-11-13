@@ -149,7 +149,7 @@ func TestContainerdConfigureDaemonEgressByIPFamily(t *testing.T) {
 				eni.IPV6Addresses = []*networkinterface.IPV6Address{{Address: "2001:db8::5", Primary: true}}
 			}
 
-			c.configureDaemonEgress(testEgressTaskNetNSPath, eni)
+			require.NoError(t, c.configureDaemonEgress(testEgressTaskNetNSPath, eni))
 
 			// Forwarding is enabled only for the families the ENI carries.
 			for _, key := range tc.wantSysctl {
@@ -274,12 +274,72 @@ func TestContainerdConfigureDaemonEgressIPv6OnlyNeedsNoIPv4Address(t *testing.T)
 	runSysctlCommand = func(...string) ([]byte, error) { return nil, nil }
 
 	c := &containerd{common: common{nsUtil: nsUtil, netlink: nl}}
-	c.configureDaemonEgress(testEgressTaskNetNSPath, &networkinterface.NetworkInterface{
+	require.NoError(t, c.configureDaemonEgress(testEgressTaskNetNSPath, &networkinterface.NetworkInterface{
 		DeviceName:    testEgressDeviceName,
 		IPV6Addresses: []*networkinterface.IPV6Address{{Address: "2001:db8::5", Primary: true}},
-	})
+	}))
 
 	assert.True(t, routed, "an IPv6-only task must still give its daemon a default route")
+}
+
+// TestContainerdConfigureDaemonEgressFailures verifies that each step of
+// egress setup reports its failure, and that an ENI with no address on the
+// shared bridge is one.
+func TestContainerdConfigureDaemonEgressFailures(t *testing.T) {
+	v4Addr := netlink.Addr{IPNet: &net.IPNet{IP: net.ParseIP(testTaskBridgeIPv4), Mask: net.CIDRMask(22, 32)}}
+	for _, tc := range []struct {
+		name          string
+		bridgeAddrs   []netlink.Addr
+		sysctlErr     error
+		natAppendErr  error
+		routeErr      error
+		wantErrSubstr string
+	}{
+		{name: "forwarding sysctl fails", bridgeAddrs: []netlink.Addr{v4Addr}, sysctlErr: assert.AnError,
+			wantErrSubstr: "forward daemon traffic"},
+		{name: "no address on the shared bridge", bridgeAddrs: nil,
+			wantErrSubstr: "forward daemon traffic"},
+		{name: "MASQUERADE append fails", bridgeAddrs: []netlink.Addr{v4Addr}, natAppendErr: assert.AnError,
+			wantErrSubstr: "forward daemon traffic"},
+		{name: "daemon default route fails", bridgeAddrs: []netlink.Addr{v4Addr}, routeErr: assert.AnError,
+			wantErrSubstr: "route daemon egress through the task"},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			ctrl := gomock.NewController(t)
+			defer ctrl.Finish()
+
+			nsUtil := mock_nsutil.NewMockNetNSUtil(ctrl)
+			nl := mock_netlinkwrapper.NewMockNetLink(ctrl)
+			nsUtil.EXPECT().ExecInNSPath(gomock.Any(), gomock.Any()).DoAndReturn(
+				func(_ string, fn func(cnins.NetNS) error) error { return fn(nil) }).AnyTimes()
+			nsUtil.EXPECT().GetNetNSPath(DaemonBridgeNetNSName).Return(testDaemonNetNSPath).AnyTimes()
+
+			taskLink := &netlink.Veth{LinkAttrs: netlink.LinkAttrs{Index: 7, Name: "ecs-eth0"}}
+			daemonLink := &netlink.Veth{LinkAttrs: netlink.LinkAttrs{Index: 11, Name: "eth0"}}
+			nl.EXPECT().LinkList().Return([]netlink.Link{taskLink}, nil).AnyTimes()
+			nl.EXPECT().AddrList(taskLink, netlink.FAMILY_V4).Return(tc.bridgeAddrs, nil).AnyTimes()
+			nl.EXPECT().LinkByName("eth0").Return(daemonLink, nil).AnyTimes()
+			nl.EXPECT().RouteReplace(gomock.Any()).Return(tc.routeErr).AnyTimes()
+
+			origIptables, origSysctl := runIptablesCommand, runSysctlCommand
+			defer func() { runIptablesCommand, runSysctlCommand = origIptables, origSysctl }()
+			runIptablesCommand = func(_ string, args ...string) ([]byte, error) {
+				if strings.Contains(" "+strings.Join(args, " ")+" ", " -C ") {
+					return nil, assert.AnError
+				}
+				return nil, tc.natAppendErr
+			}
+			runSysctlCommand = func(...string) ([]byte, error) { return nil, tc.sysctlErr }
+
+			c := &containerd{common: common{nsUtil: nsUtil, netlink: nl}}
+			err := c.configureDaemonEgress(testEgressTaskNetNSPath, &networkinterface.NetworkInterface{
+				DeviceName:    testEgressDeviceName,
+				IPV4Addresses: []*networkinterface.IPV4Address{{Address: "10.0.0.5", Primary: true}},
+			})
+			require.Error(t, err)
+			assert.Contains(t, err.Error(), tc.wantErrSubstr)
+		})
+	}
 }
 
 func containsSubstring(haystack []string, needle string) bool {
