@@ -108,8 +108,9 @@ func (r *attachTaskENIResponder) handleTaskENIFromMessage(eni *ecsacs.ElasticNet
 			ClusterARN:           clusterARN,
 			ContainerInstanceARN: containerInstanceARN,
 		},
-		AttachmentType: ni.ENIAttachmentTypeTaskENI,
-		MACAddress:     aws.ToString(eni.MacAddress),
+		AttachmentType:  ni.ENIAttachmentTypeTaskENI,
+		MACAddress:      aws.ToString(eni.MacAddress),
+		InterfaceConfig: eni,
 	})
 	if err != nil {
 		logger.Error(fmt.Sprintf("Unable to handle %s", AttachTaskENIMessageName), logger.Fields{

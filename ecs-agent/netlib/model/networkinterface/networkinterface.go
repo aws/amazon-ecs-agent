@@ -93,6 +93,12 @@ type NetworkInterface struct {
 	// for handling default route within the netns it resides in.
 	Default bool
 
+	// DaemonEgressError records why this interface could not carry the shared
+	// daemon namespace's egress. Empty when egress was configured or never
+	// attempted. Task networking is unaffected; what a host whose daemons have
+	// no egress may run is the consumer's decision.
+	DaemonEgressError string `json:",omitempty"`
+
 	// guard protects access to fields of this struct.
 	guard sync.RWMutex
 }
@@ -641,6 +647,20 @@ func (ni *NetworkInterface) setDeviceName(macToName map[string]string) error {
 // IsPrimary returns whether the NetworkInterface is the primary NetworkInterface of the task.
 func (ni *NetworkInterface) IsPrimary() bool {
 	return ni.Default
+}
+
+// IsTaskPrimary reports whether this is the task's primary interface. Every
+// namespace of a multi-namespace task has a default interface of its own;
+// the task's is the one at index 0.
+func (ni *NetworkInterface) IsTaskPrimary() bool {
+	return ni.Default && ni.Index == 0
+}
+
+// IsPrimaryACSInterface reports whether an interface message names the task's
+// primary interface. A message without an index is read as index 0, as New
+// does; the control plane sends none for a single-interface task.
+func IsPrimaryACSInterface(acsENI *ecsacs.ElasticNetworkInterface) bool {
+	return acsENI != nil && aws.ToInt64(acsENI.Index) == 0
 }
 
 // ShouldGenerateNetworkConfigFiles can be used to check if network configuration files (hosts,
