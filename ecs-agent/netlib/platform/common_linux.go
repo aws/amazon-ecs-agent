@@ -29,6 +29,7 @@ import (
 	"github.com/aws/amazon-ecs-agent/ecs-agent/ec2"
 	"github.com/aws/amazon-ecs-agent/ecs-agent/ipcompatibility"
 	"github.com/aws/amazon-ecs-agent/ecs-agent/logger"
+	"github.com/aws/amazon-ecs-agent/ecs-agent/metrics"
 	netlibdata "github.com/aws/amazon-ecs-agent/ecs-agent/netlib/data"
 	"github.com/aws/amazon-ecs-agent/ecs-agent/netlib/model/appmesh"
 	"github.com/aws/amazon-ecs-agent/ecs-agent/netlib/model/ecscni"
@@ -82,6 +83,7 @@ type common struct {
 	cniClient         ecscni.CNI
 	net               netwrapper.Net
 	resolvConfPath    string
+	metricsFactory    metrics.EntryFactory
 }
 
 // NewPlatform creates an implementation of the platform API depending on the
@@ -92,6 +94,11 @@ func NewPlatform(
 	stateDBDirectory string,
 	netWrapper netwrapper.Net,
 ) (API, error) {
+	metricsFactory := platformConfig.MetricsFactory
+	if metricsFactory == nil {
+		metricsFactory = metrics.NewNopEntryFactory()
+	}
+
 	commonPlatform := common{
 		nsUtil:            ecscni.NewNetNSUtil(),
 		dnsVolumeAccessor: volumeAccessor,
@@ -102,6 +109,7 @@ func NewPlatform(
 		cniClient:         ecscni.NewCNIClient([]string{CNIPluginPathDefault}),
 		net:               netWrapper,
 		resolvConfPath:    platformConfig.ResolvConfPath,
+		metricsFactory:    metricsFactory,
 	}
 
 	switch platformConfig.Name {
