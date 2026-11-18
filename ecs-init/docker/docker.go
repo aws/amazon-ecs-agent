@@ -91,6 +91,8 @@ const (
 	iptablesAltDir = "/etc/alternatives"
 	// legacyDir holds the location of legacy iptables
 	iptablesLegacyDir = "/usr/sbin"
+	// usrBinDir specifies the location of user binaries on the host
+	usrBinDir = "/usr/bin"
 	// externalEnvCredsHostDir specifies the location of the credentials on host when running in external environment.
 	externalEnvCredsHostDir = "/root/.aws"
 	// externalEnvCredsContainerDir specifies the location of the credentials that will be mounted in agent container.
