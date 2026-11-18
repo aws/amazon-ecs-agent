@@ -1196,6 +1196,12 @@ func (mtask *managedTask) startContainerTransitions(transitionFunc containerTran
 		anyCanTransition = true
 
 		if !transition.actionRequired {
+			// A NONE next state means the container was told to stop while its docker
+			// start is still running. There is no status to send yet. The result of that
+			// start arrives on mtask.dockerMessages and wakes overseeTask.
+			if transition.nextState == apicontainerstatus.ContainerStatusNone {
+				continue
+			}
 			// Updating the container status without calling any docker API, send in
 			// a goroutine so that it won't block here before the waitForContainerTransition
 			// was called after this function. And all the events sent to mtask.dockerMessages
