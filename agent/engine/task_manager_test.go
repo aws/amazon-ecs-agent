@@ -693,6 +693,228 @@ func TestContainerNextStateWithAvoidingDanglingContainers(t *testing.T) {
 	assert.Equal(t, nil, transition.reason, "Mismatch transition possible")
 }
 
+// newStartInProgressContainer returns a container that must stop while its
+// docker start is still in progress.
+func newStartInProgressContainer(name string, dependsOn ...apicontainer.DependsOn) *apicontainer.Container {
+	return &apicontainer.Container{
+		Name:                name,
+		DesiredStatusUnsafe: apicontainerstatus.ContainerStopped,
+		KnownStatusUnsafe:   apicontainerstatus.ContainerCreated,
+		AppliedStatus:       apicontainerstatus.ContainerRunning,
+		DependsOnUnsafe:     dependsOn,
+	}
+}
+
+// failOnDockerCall returns a transition function that fails the test if a
+// docker call is made.
+func failOnDockerCall(t *testing.T) func(*apicontainer.Container, apicontainerstatus.ContainerStatus) {
+	return func(cont *apicontainer.Container, nextStatus apicontainerstatus.ContainerStatus) {
+		t.Errorf("unexpected docker call for container %s, next status %s", cont.Name, nextStatus)
+	}
+}
+
+// A container whose docker start is still in progress gets no event while its
+// desired status is STOPPED. The task loop waits for the start result instead.
+func TestStartContainerTransitionsSendsNoEventWhileStartIsInProgress(t *testing.T) {
+	testCases := []struct {
+		name       string
+		containers []*apicontainer.Container
+	}{
+		{
+			name:       "one container with start in progress",
+			containers: []*apicontainer.Container{newStartInProgressContainer("container0")},
+		},
+		{
+			name: "two containers with start in progress",
+			containers: []*apicontainer.Container{
+				newStartInProgressContainer("container0"),
+				newStartInProgressContainer("container1"),
+			},
+		},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			task := &managedTask{
+				Task: &apitask.Task{
+					Containers:          tc.containers,
+					DesiredStatusUnsafe: apitaskstatus.TaskStopped,
+				},
+				engine:         &DockerTaskEngine{},
+				dockerMessages: make(chan dockerContainerChange),
+			}
+
+			canTransition, _, transitions, _ := task.startContainerTransitions(failOnDockerCall(t))
+
+			assert.True(t, canTransition, "start in progress must keep the task loop waiting for an event")
+			assert.Empty(t, transitions)
+			select {
+			case change := <-task.dockerMessages:
+				t.Errorf("unexpected event for container %s, status %s",
+					change.container.Name, change.event.Status)
+			case <-time.After(100 * time.Millisecond):
+			}
+		})
+	}
+}
+
+func TestStartContainerTransitionsWithDependsOnWhileStartIsInProgress(t *testing.T) {
+	newTask := func(containers ...*apicontainer.Container) *managedTask {
+		return &managedTask{
+			Task: &apitask.Task{
+				Containers:          containers,
+				DesiredStatusUnsafe: apitaskstatus.TaskStopped,
+			},
+			engine:         &DockerTaskEngine{},
+			dockerMessages: make(chan dockerContainerChange),
+		}
+	}
+	receiveEvents := func(task *managedTask) []dockerContainerChange {
+		var changes []dockerContainerChange
+		for {
+			select {
+			case change := <-task.dockerMessages:
+				changes = append(changes, change)
+			case <-time.After(100 * time.Millisecond):
+				return changes
+			}
+		}
+	}
+
+	t.Run("dependency of the container waits for it to stop", func(t *testing.T) {
+		// The container depends on a running sidecar. The sidecar can't stop first.
+		sidecar := &apicontainer.Container{
+			Name:                "sidecar",
+			DesiredStatusUnsafe: apicontainerstatus.ContainerStopped,
+			KnownStatusUnsafe:   apicontainerstatus.ContainerRunning,
+		}
+		app := newStartInProgressContainer("app", apicontainer.DependsOn{ContainerName: "sidecar", Condition: "START"})
+		task := newTask(app, sidecar)
+
+		canTransition, _, transitions, _ := task.startContainerTransitions(failOnDockerCall(t))
+
+		assert.True(t, canTransition)
+		assert.Empty(t, transitions)
+		assert.Empty(t, receiveEvents(task))
+	})
+
+	t.Run("dependent of the container stops first", func(t *testing.T) {
+		// The dependent never started, because it waited for the app to start.
+		app := newStartInProgressContainer("app")
+		dependent := &apicontainer.Container{
+			Name:                "dependent",
+			DesiredStatusUnsafe: apicontainerstatus.ContainerStopped,
+			KnownStatusUnsafe:   apicontainerstatus.ContainerStatusNone,
+			DependsOnUnsafe:     []apicontainer.DependsOn{{ContainerName: "app", Condition: "START"}},
+		}
+		task := newTask(app, dependent)
+
+		canTransition, _, _, _ := task.startContainerTransitions(failOnDockerCall(t))
+		assert.True(t, canTransition)
+		changes := receiveEvents(task)
+		if !assert.Len(t, changes, 1) {
+			return
+		}
+		assert.Equal(t, "dependent", changes[0].container.Name)
+		assert.Equal(t, apicontainerstatus.ContainerStopped, changes[0].event.Status)
+
+		// The task loop handles that event, so the dependent is now known as stopped.
+		dependent.SetKnownStatus(apicontainerstatus.ContainerStopped)
+
+		canTransition, _, _, _ = task.startContainerTransitions(failOnDockerCall(t))
+		assert.True(t, canTransition)
+		assert.Empty(t, receiveEvents(task))
+	})
+}
+
+// When a docker start that was in progress returns after the stop, the next pass
+// still moves the container to STOPPED.
+func TestStartContainerTransitionsAfterStartInProgressReturns(t *testing.T) {
+	newTask := func(ctx context.Context, container *apicontainer.Container) *managedTask {
+		containerChangeEventStream := eventstream.NewEventStream(t.Name(), ctx)
+		containerChangeEventStream.StartListening()
+		hostResourceManager := NewHostResourceManager(getTestHostResources())
+		stateChangeEvents := make(chan statechange.Event, 10)
+		return &managedTask{
+			Task: &apitask.Task{
+				Containers:          []*apicontainer.Container{container},
+				DesiredStatusUnsafe: apitaskstatus.TaskStopped,
+			},
+			engine: &DockerTaskEngine{
+				containerChangeEventStream: containerChangeEventStream,
+				stateChangeEvents:          stateChangeEvents,
+				dataClient:                 data.NewNoopClient(),
+				hostResourceManager:        &hostResourceManager,
+			},
+			stateChangeEvents:          stateChangeEvents,
+			containerChangeEventStream: containerChangeEventStream,
+			dockerMessages:             make(chan dockerContainerChange),
+			ctx:                        context.TODO(),
+		}
+	}
+	t.Run("start succeeds", func(t *testing.T) {
+		ctx, cancel := context.WithCancel(context.Background())
+		defer cancel()
+		app := newStartInProgressContainer("app")
+		task := newTask(ctx, app)
+		task.startContainerTransitions(failOnDockerCall(t))
+
+		// The worker reports the result of the docker start.
+		task.handleContainerChange(dockerContainerChange{
+			container: app,
+			event:     dockerapi.DockerContainerChangeEvent{Status: apicontainerstatus.ContainerRunning},
+		})
+		assert.Equal(t, apicontainerstatus.ContainerRunning, app.GetKnownStatus())
+		assert.Equal(t, apicontainerstatus.ContainerStatusNone, app.GetAppliedStatus())
+
+		dockerCalls := make(chan apicontainerstatus.ContainerStatus, 1)
+		canTransition, _, transitions, _ := task.startContainerTransitions(
+			func(cont *apicontainer.Container, nextStatus apicontainerstatus.ContainerStatus) {
+				dockerCalls <- nextStatus
+			})
+		assert.True(t, canTransition)
+		assert.Equal(t, apicontainerstatus.ContainerStopped, transitions["app"])
+		select {
+		case nextStatus := <-dockerCalls:
+			assert.Equal(t, apicontainerstatus.ContainerStopped, nextStatus)
+		case <-time.After(time.Second):
+			t.Error("expected a docker call to stop container app")
+		}
+	})
+
+	t.Run("start fails", func(t *testing.T) {
+		ctx, cancel := context.WithCancel(context.Background())
+		defer cancel()
+		app := newStartInProgressContainer("app")
+		task := newTask(ctx, app)
+		task.startContainerTransitions(failOnDockerCall(t))
+
+		// The worker reports the error of the docker start.
+		task.handleContainerChange(dockerContainerChange{
+			container: app,
+			event: dockerapi.DockerContainerChangeEvent{
+				Status: apicontainerstatus.ContainerRunning,
+				DockerContainerMetadata: dockerapi.DockerContainerMetadata{
+					Error: dockerapi.CannotStartContainerError{FromError: errors.New("volume mount failed")},
+				},
+			},
+		})
+		assert.Equal(t, apicontainerstatus.ContainerCreated, app.GetKnownStatus())
+		assert.Equal(t, apicontainerstatus.ContainerStatusNone, app.GetAppliedStatus())
+
+		canTransition, _, transitions, _ := task.startContainerTransitions(failOnDockerCall(t))
+		assert.True(t, canTransition)
+		assert.Empty(t, transitions)
+		select {
+		case change := <-task.dockerMessages:
+			assert.Equal(t, "app", change.container.Name)
+			assert.Equal(t, apicontainerstatus.ContainerStopped, change.event.Status)
+		case <-time.After(time.Second):
+			t.Error("expected a STOPPED event for container app")
+		}
+	})
+}
+
 func TestStartContainerTransitionsWhenForwardTransitionPossible(t *testing.T) {
 	steadyStates := []apicontainerstatus.ContainerStatus{apicontainerstatus.ContainerRunning, apicontainerstatus.ContainerResourcesProvisioned}
 	for _, steadyState := range steadyStates {
