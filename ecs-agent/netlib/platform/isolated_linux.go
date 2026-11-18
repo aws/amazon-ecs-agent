@@ -20,12 +20,15 @@ import (
 	"path/filepath"
 	"time"
 
+	apierrors "github.com/aws/amazon-ecs-agent/ecs-agent/api/errors"
 	"github.com/aws/amazon-ecs-agent/ecs-agent/logger"
+	"github.com/aws/amazon-ecs-agent/ecs-agent/metrics"
 	netlibdata "github.com/aws/amazon-ecs-agent/ecs-agent/netlib/data"
 	"github.com/aws/amazon-ecs-agent/ecs-agent/netlib/model/ecscni"
 	"github.com/aws/amazon-ecs-agent/ecs-agent/netlib/model/networkinterface"
 	"github.com/aws/amazon-ecs-agent/ecs-agent/netlib/model/status"
 	"github.com/aws/amazon-ecs-agent/ecs-agent/netlib/model/tasknetworkconfig"
+	"github.com/aws/amazon-ecs-agent/ecs-agent/utils/retry"
 
 	cnins "github.com/containernetworking/plugins/pkg/ns"
 	"github.com/pkg/errors"
@@ -139,13 +142,18 @@ func (il *isolatedLinux) configureBranchENI(ctx context.Context, netNSPath strin
 
 var (
 	// gatewayNeighborResolveTimeout bounds how long we wait for the task-netns
-	// kernel to ARP-resolve the VPC gateway's MAC. It is set to match the
-	// kernel's own worst-case resolution horizon for a new neighbor:
-	// mcast_solicit (default 3) x retrans_time_ms (default 1000ms) = ~3s
-	// (see man 7 arp, /proc/sys/net/ipv4/neigh/<iface>/).
-	gatewayNeighborResolveTimeout = 3 * time.Second
-	// gatewayNeighborResolveInterval is the poll/probe interval while waiting.
-	gatewayNeighborResolveInterval = 100 * time.Millisecond
+	// kernel to ARP-resolve the VPC gateway's MAC. The gateway normally answers
+	// within ~100ms; this is only reached when it isn't answering yet, e.g. a
+	// freshly attached branch ENI whose VLAN is still being programmed. One
+	// kernel ARP attempt (~3s) proved too short for that, and the probe loop
+	// restarts resolution after each failed attempt. 10s is a best guess;
+	// revisit it once the resolve duration metric shows real numbers.
+	gatewayNeighborResolveTimeout  = 10 * time.Second
+	gatewayNeighborBackoffMin      = 100 * time.Millisecond
+	gatewayNeighborBackoffMax      = 1 * time.Second
+	gatewayNeighborBackoffJitter   = 0.2
+	gatewayNeighborBackoffMultiple = 2.0
+	gatewayProbeDialTimeout        = 100 * time.Millisecond
 )
 
 // gatewayProbePort is an arbitrary UDP port used only to nudge the kernel into
@@ -158,7 +166,7 @@ const gatewayProbePort = "9"
 // exists only to trigger ARP; the ARP reply (not the datagram's delivery) is
 // what populates the neighbor table.
 var gatewayProbeFn = func(gwIP net.IP) {
-	conn, err := net.DialTimeout("udp", net.JoinHostPort(gwIP.String(), gatewayProbePort), gatewayNeighborResolveInterval)
+	conn, err := net.DialTimeout("udp", net.JoinHostPort(gwIP.String(), gatewayProbePort), gatewayProbeDialTimeout)
 	if err != nil {
 		return
 	}
@@ -244,29 +252,53 @@ func (il *isolatedLinux) addGatewayNeighbor(netNSPath string, eni *networkinterf
 // the kernel to ARP the gateway between polls, until an entry with a resolved
 // MAC appears or the timeout elapses. It must be called inside the task netns
 // (e.g. from within ExecInNSPath).
-func (il *isolatedLinux) resolveGatewayNeighbor(link netlink.Link, gwIP net.IP) (net.HardwareAddr, error) {
+func (il *isolatedLinux) resolveGatewayNeighbor(
+	link netlink.Link,
+	gwIP net.IP,
+) (gwMAC net.HardwareAddr, err error) {
 	linkIndex := link.Attrs().Index
 	deadline := time.Now().Add(gatewayNeighborResolveTimeout)
+	backoff := retry.NewExponentialBackoff(gatewayNeighborBackoffMin, gatewayNeighborBackoffMax,
+		gatewayNeighborBackoffJitter, gatewayNeighborBackoffMultiple)
+	polls := 0
 
-	for {
-		mac, err := il.lookupNeighbor(linkIndex, gwIP)
-		if err != nil {
-			return nil, err
+	entry := il.common.metricsFactory.New(metrics.GatewayNeighborResolveDurationName)
+	defer func() {
+		entry.WithFields(map[string]interface{}{
+			"GatewayIP":  gwIP.String(),
+			"DeviceName": link.Attrs().Name,
+			"Polls":      polls,
+		}).Done(err)
+	}()
+
+	errNotResolved := errors.New("gateway neighbor not resolved yet")
+
+	err = retry.RetryWithBackoff(backoff, func() error {
+		polls++
+		mac, lookupErr := il.lookupNeighbor(linkIndex, gwIP)
+		if lookupErr != nil {
+			return apierrors.NewRetriableError(apierrors.NewRetriable(false),
+				errors.Wrap(lookupErr, "failed to look up gateway neighbor"))
 		}
 		if mac != nil {
-			return mac, nil
+			gwMAC = mac
+			return nil
 		}
-
 		if time.Now().After(deadline) {
-			break
+			return apierrors.NewRetriableError(apierrors.NewRetriable(false),
+				fmt.Errorf("no neighbor entry for %s in task netns after %s", gwIP, gatewayNeighborResolveTimeout))
 		}
 
-		// Nudge the kernel to resolve the gateway, then wait before re-checking.
+		// Nudge the kernel to resolve the gateway; the backoff then waits
+		// before the next check.
 		gatewayProbeFn(gwIP)
-		time.Sleep(gatewayNeighborResolveInterval)
-	}
+		return errNotResolved
+	})
 
-	return nil, fmt.Errorf("no neighbor entry for %s in task netns after %s", gwIP, gatewayNeighborResolveTimeout)
+	if err != nil {
+		return nil, err
+	}
+	return gwMAC, nil
 }
 
 // lookupNeighbor returns the resolved MAC for ip on the given interface, or nil

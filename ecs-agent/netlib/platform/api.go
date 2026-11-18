@@ -19,6 +19,7 @@ import (
 	netlibdata "github.com/aws/amazon-ecs-agent/ecs-agent/netlib/data"
 
 	"github.com/aws/amazon-ecs-agent/ecs-agent/acs/model/ecsacs"
+	"github.com/aws/amazon-ecs-agent/ecs-agent/metrics"
 	"github.com/aws/amazon-ecs-agent/ecs-agent/netlib/model/appmesh"
 	"github.com/aws/amazon-ecs-agent/ecs-agent/netlib/model/networkinterface"
 	"github.com/aws/amazon-ecs-agent/ecs-agent/netlib/model/serviceconnect"
@@ -95,4 +96,5 @@ type Config struct {
 	// ResolvConfPath specifies path to resolv.conf file for DNS config.
 	// Different platforms may have different paths for this file.
 	ResolvConfPath string
+	MetricsFactory metrics.EntryFactory
 }

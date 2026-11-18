@@ -53,6 +53,8 @@ func NewNetworkBuilder(
 	volumeAccessor volume.TaskVolumeAccessor,
 	networkDao data.NetworkDataClient,
 	stateDBDir string) (NetworkBuilder, error) {
+	platformConfig.MetricsFactory = metricsFactory
+
 	pAPI, err := platform.NewPlatform(
 		platformConfig,
 		volumeAccessor,
