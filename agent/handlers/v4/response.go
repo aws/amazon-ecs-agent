@@ -41,6 +41,7 @@ func NewTaskResponse(
 	azID string,
 	vpcID string,
 	containerInstanceARN string,
+	ec2InstanceID string,
 	serviceName string,
 	propagateTags bool,
 ) (*tmdsv4.TaskResponse, error) {
@@ -68,11 +69,13 @@ func NewTaskResponse(
 	}
 
 	return &tmdsv4.TaskResponse{
-		TaskResponse:       v2Resp,
-		Containers:         containers,
-		VPCID:              vpcID,
-		ServiceName:        serviceName,
-		AvailabilityZoneID: azID,
+		TaskResponse:         v2Resp,
+		Containers:           containers,
+		VPCID:                vpcID,
+		ServiceName:          serviceName,
+		AvailabilityZoneID:   azID,
+		ContainerInstanceARN: containerInstanceARN,
+		EC2InstanceID:        ec2InstanceID,
 	}, nil
 }
 
