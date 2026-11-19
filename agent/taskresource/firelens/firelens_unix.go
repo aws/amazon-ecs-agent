@@ -59,10 +59,6 @@ const (
 	ExternalConfigTypeS3 = "s3"
 	// ExternalConfigTypeFile means the firelens container is using a config file inside the container.
 	ExternalConfigTypeFile = "file"
-	// externalConfigValueOption is the option that specifies the location of the external config file. When
-	// ExternalConfigTypeOption is s3, the value for this option should be an s3 arn; when ExternalConfigTypeOption is
-	// file, the value for this option should be a path to the config file inside the firelens container.
-	externalConfigValueOption = "config-file-value"
 
 	s3DownloadTimeout = 30 * time.Second
 )
@@ -156,9 +152,9 @@ func (firelens *FirelensResource) parseOptions(options map[string]string) error 
 		}
 		firelens.externalConfigType = externalConfigType
 
-		externalConfigValue, ok := options[externalConfigValueOption]
+		externalConfigValue, ok := options[ExternalConfigValueOption]
 		if !ok {
-			return errors.Errorf("option %s is specified but %s is not specified", ExternalConfigTypeOption, externalConfigValueOption)
+			return errors.Errorf("option %s is specified but %s is not specified", ExternalConfigTypeOption, ExternalConfigValueOption)
 		}
 		firelens.externalConfigValue = externalConfigValue
 	}
@@ -422,6 +418,18 @@ func (firelens *FirelensResource) Create() error {
 		return err
 	}
 
+	// Fail fast instead of letting an unsupported combination reach the firelens container, where it would
+	// otherwise silently exit right after startup with no indication of what's wrong.
+	if firelens.externalConfigType != "" && IsYAMLExternalConfigValue(firelens.externalConfigValue) &&
+		firelens.firelensConfigType != FirelensConfigTypeFluentbit {
+		err := errors.New(fmt.Sprintf(
+			"YAML formatted external firelens config files (%s=%s) are only supported when firelens "+
+				"configuration type is %s, got %s", ExternalConfigValueOption, firelens.externalConfigValue,
+			FirelensConfigTypeFluentbit, firelens.firelensConfigType))
+		firelens.setTerminalReason(err.Error())
+		return err
+	}
+
 	err := firelens.createDirectories()
 	if err != nil {
 		err = errors.Wrapf(err, "unable to initialize resource directory %s", firelens.resourceDir)
@@ -489,9 +497,21 @@ func (firelens *FirelensResource) createDirectories() error {
 	return nil
 }
 
-// generateConfigFile generates a firelens config file at $(RESOURCE_DIR)/config/fluent.conf.
-// This contains configs needed by the firelens container.
+// usesYAMLFluentBitConfig returns true if this resource's external config is YAML formatted. YAML external
+// configs are only supported for fluentbit firelens containers; Create() fails fast otherwise.
+func (firelens *FirelensResource) usesYAMLFluentBitConfig() bool {
+	return firelens.externalConfigType != "" && firelens.firelensConfigType == FirelensConfigTypeFluentbit &&
+		IsYAMLExternalConfigValue(firelens.externalConfigValue)
+}
+
+// generateConfigFile generates a firelens config file at $(RESOURCE_DIR)/config/fluent.conf (or
+// $(RESOURCE_DIR)/config/fluent-bit.yaml when the external config is YAML formatted). This contains configs
+// needed by the firelens container.
 func (firelens *FirelensResource) generateConfigFile() error {
+	if firelens.usesYAMLFluentBitConfig() {
+		return firelens.generateYAMLConfigFile()
+	}
+
 	config, err := firelens.generateConfig()
 	if err != nil {
 		return errors.Wrap(err, "unable to generate firelens config")
@@ -513,8 +533,9 @@ func (firelens *FirelensResource) generateConfigFile() error {
 	return nil
 }
 
-// downloadConfigFromS3 downloads an external config file from S3 and saves it at ${RESOURCE_DIR}/config/external.conf.
-// The generated firelens config file fluent.conf will have a reference to include this file.
+// downloadConfigFromS3 downloads an external config file from S3 and saves it at
+// ${RESOURCE_DIR}/config/external.conf (or external.yaml if the S3 object is YAML formatted, based on its key's
+// extension). The generated firelens config file will have a reference to include this file.
 func (firelens *FirelensResource) downloadConfigFromS3() error {
 	creds, ok := firelens.credentialsManager.GetTaskCredentials(firelens.executionCredentialsID)
 	if !ok {
@@ -531,7 +552,11 @@ func (firelens *FirelensResource) downloadConfigFromS3() error {
 		return errors.Wrapf(err, "unable to initialize s3 client for bucket %s", bucket)
 	}
 
-	confFilePath := filepath.Join(firelens.resourceDir, "config", "external.conf")
+	externalConfigFileName := "external.conf"
+	if IsYAMLExternalConfigValue(firelens.externalConfigValue) {
+		externalConfigFileName = "external.yaml"
+	}
+	confFilePath := filepath.Join(firelens.resourceDir, "config", externalConfigFileName)
 	err = firelens.writeConfigFile(func(file oswrapper.File) error {
 		return s3.DownloadFile(bucket, key, s3DownloadTimeout, file, s3Client)
 	}, confFilePath)

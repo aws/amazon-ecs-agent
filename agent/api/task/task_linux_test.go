@@ -1247,6 +1247,41 @@ func TestAddFirelensContainerBindMounts(t *testing.T) {
 			cfg:        cfg,
 			shouldFail: true,
 		},
+		{
+			name: "test add bind mounts for fluentbit firelens container with yaml s3 external config",
+			task: func() *Task {
+				task := getFirelensTask(t)
+				task.Containers[1].FirelensConfig.Type = firelens.FirelensConfigTypeFluentbit
+				task.Containers[1].FirelensConfig.Options["config-file-type"] = "s3"
+				task.Containers[1].FirelensConfig.Options["config-file-value"] = "arn:aws:s3:::bucket/custom.yaml"
+				return task
+			}(),
+			hostCfg:    &dockercontainer.HostConfig{},
+			cfg:        cfg,
+			shouldFail: false,
+			expectedBindMounts: []string{
+				"testDataDirOnHost/data/firelens/task-id/config/fluent-bit.yaml:/fluent-bit/etc/fluent-bit.yaml",
+				"testDataDirOnHost/data/firelens/task-id/socket/:/var/run/",
+				"testDataDirOnHost/data/firelens/task-id/config/external.yaml:/fluent-bit/etc/external.yaml",
+			},
+		},
+		{
+			name: "test add bind mounts for fluentbit firelens container with yaml file external config",
+			task: func() *Task {
+				task := getFirelensTask(t)
+				task.Containers[1].FirelensConfig.Type = firelens.FirelensConfigTypeFluentbit
+				task.Containers[1].FirelensConfig.Options["config-file-type"] = "file"
+				task.Containers[1].FirelensConfig.Options["config-file-value"] = "/fluent-bit/etc/custom.yaml"
+				return task
+			}(),
+			hostCfg:    &dockercontainer.HostConfig{},
+			cfg:        cfg,
+			shouldFail: false,
+			expectedBindMounts: []string{
+				"testDataDirOnHost/data/firelens/task-id/config/fluent-bit.yaml:/fluent-bit/etc/fluent-bit.yaml",
+				"testDataDirOnHost/data/firelens/task-id/socket/:/var/run/",
+			},
+		},
 	}
 
 	for _, tc := range testCases {
