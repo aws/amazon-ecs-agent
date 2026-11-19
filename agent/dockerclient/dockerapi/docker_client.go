@@ -973,7 +973,7 @@ func MetadataFromContainer(dockerContainer *types.ContainerJSON) DockerContainer
 	if dockerContainer.State.Error != "" {
 		metadata.Error = NewDockerStateError(dockerContainer.State.Error)
 	}
-	if dockerContainer.State.OOMKilled {
+	if dockerContainer.State.OOMKilled && !dockerContainer.State.Running {
 		metadata.Error = OutOfMemoryError{}
 	}
 	// Health field in Docker SDK is a pointer, need to check before not nil before dereference.
