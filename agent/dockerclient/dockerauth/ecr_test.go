@@ -553,3 +553,104 @@ func TestExtractECRTokenError(t *testing.T) {
 	assert.Equal(t, username, authconfig.Username)
 	assert.Equal(t, password, authconfig.Password)
 }
+
+// TestGetAuthConfigDualStackEndpoint verifies that when the image references the
+// ECR DualStack endpoint (dkr-ecr.<region>.on.aws), the returned AuthConfig's
+// ServerAddress matches the DualStack host rather than ECR's regular ProxyEndpoint.
+// This is required for the containerd image store (Docker 29.x default), which
+// matches registry credentials by exact host.
+func TestGetAuthConfigDualStackEndpoint(t *testing.T) {
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+
+	client := mock_ecr.NewMockECRClient(ctrl)
+	factory := mock_ecr.NewMockECRFactory(ctrl)
+	authData := &apicontainer.ECRAuthData{
+		Region:     "us-west-2",
+		RegistryID: "012345678901",
+	}
+	// ECR's GetAuthorizationToken returns the REGULAR endpoint.
+	regularEndpoint := "012345678901.dkr.ecr.us-west-2.amazonaws.com"
+	// But the image uses the DUALSTACK endpoint.
+	dualStackImage := "012345678901.dkr-ecr.us-west-2.on.aws/myrepo:latest"
+	username := "username"
+	password := "password"
+
+	registryAuthData := &apicontainer.RegistryAuthenticationData{
+		ECRAuthData: authData,
+	}
+	provider := ecrAuthProvider{
+		factory:    factory,
+		tokenCache: async.NewLRUCache(tokenCacheSize, tokenCacheTTL),
+	}
+
+	factory.EXPECT().GetClient(authData).Return(client, nil)
+	client.EXPECT().GetAuthorizationToken(authData.RegistryID).Return(&types.AuthorizationData{
+		ProxyEndpoint:      aws.String(proxyEndpointScheme + regularEndpoint),
+		AuthorizationToken: aws.String(base64.StdEncoding.EncodeToString([]byte(username + ":" + password))),
+	}, nil)
+
+	authconfig, err := provider.GetAuthconfig(dualStackImage, registryAuthData)
+	require.NoError(t, err)
+	assert.Equal(t, username, authconfig.Username)
+	assert.Equal(t, password, authconfig.Password)
+	// The fix: ServerAddress must be the DualStack host from the image, not the
+	// regular ProxyEndpoint, so containerd matches the credential to the pull.
+	assert.Equal(t, proxyEndpointScheme+"012345678901.dkr-ecr.us-west-2.on.aws", authconfig.ServerAddress)
+}
+
+// TestGetAuthConfigRegularEndpoint verifies the ServerAddress matches the regular
+// endpoint host when the image uses the regular ECR endpoint.
+func TestGetAuthConfigRegularEndpoint(t *testing.T) {
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+
+	client := mock_ecr.NewMockECRClient(ctrl)
+	factory := mock_ecr.NewMockECRFactory(ctrl)
+	authData := &apicontainer.ECRAuthData{
+		Region:     "us-west-2",
+		RegistryID: "012345678901",
+	}
+	regularEndpoint := "012345678901.dkr.ecr.us-west-2.amazonaws.com"
+	regularImage := "012345678901.dkr.ecr.us-west-2.amazonaws.com/myrepo:latest"
+	username := "username"
+	password := "password"
+
+	registryAuthData := &apicontainer.RegistryAuthenticationData{
+		ECRAuthData: authData,
+	}
+	provider := ecrAuthProvider{
+		factory:    factory,
+		tokenCache: async.NewLRUCache(tokenCacheSize, tokenCacheTTL),
+	}
+
+	factory.EXPECT().GetClient(authData).Return(client, nil)
+	client.EXPECT().GetAuthorizationToken(authData.RegistryID).Return(&types.AuthorizationData{
+		ProxyEndpoint:      aws.String(proxyEndpointScheme + regularEndpoint),
+		AuthorizationToken: aws.String(base64.StdEncoding.EncodeToString([]byte(username + ":" + password))),
+	}, nil)
+
+	authconfig, err := provider.GetAuthconfig(regularImage, registryAuthData)
+	require.NoError(t, err)
+	assert.Equal(t, username, authconfig.Username)
+	assert.Equal(t, password, authconfig.Password)
+	assert.Equal(t, proxyEndpointScheme+"012345678901.dkr.ecr.us-west-2.amazonaws.com", authconfig.ServerAddress)
+}
+
+// TestExtractRegistryHost verifies the registry host extraction helper.
+func TestExtractRegistryHost(t *testing.T) {
+	cases := []struct {
+		image    string
+		expected string
+	}{
+		{"012345678901.dkr-ecr.us-west-2.on.aws/repo:tag", "012345678901.dkr-ecr.us-west-2.on.aws"},
+		{"012345678901.dkr.ecr.us-west-2.amazonaws.com/repo@sha256:abc", "012345678901.dkr.ecr.us-west-2.amazonaws.com"},
+		{"registry:5000/repo", "registry:5000"},
+		{"busybox", ""},         // no host, default registry repo name
+		{"library/busybox", ""}, // no host, default registry repo path
+		{"", ""},                // empty
+	}
+	for _, c := range cases {
+		assert.Equal(t, c.expected, extractRegistryHost(c.image), "image=%q", c.image)
+	}
+}
