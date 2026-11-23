@@ -20,6 +20,7 @@ import (
 	"fmt"
 	"sync"
 	"testing"
+	"time"
 
 	mock_session "github.com/aws/amazon-ecs-agent/ecs-agent/acs/session/mocks"
 	"github.com/aws/aws-sdk-go-v2/aws"
@@ -243,4 +244,72 @@ func TestTaskENIAckHappyPath(t *testing.T) {
 	attachTaskEniAckSent := <-ackSent
 	wg.Wait()
 	assert.Equal(t, aws.ToString(attachTaskEniAckSent.MessageId), testconst.MessageID)
+}
+
+// TestTaskENIAttachmentCarriesInterfaceConfig verifies that the attachment
+// handed to the ENIHandler carries the message's own interface configuration.
+func TestTaskENIAttachmentCarriesInterfaceConfig(t *testing.T) {
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+
+	captured := make(chan *ni.ENIAttachment, 1)
+	mockENIHandler := mock_session.NewMockENIHandler(ctrl)
+	mockENIHandler.EXPECT().
+		HandleENIAttachment(gomock.Any()).
+		Return(nil).
+		Do(func(attachment *ni.ENIAttachment) {
+			captured <- attachment
+		})
+
+	responder := NewAttachTaskENIResponder(mockENIHandler, func(interface{}) error { return nil })
+	handleAttachMessage := responder.HandlerFunc().(func(*ecsacs.AttachTaskNetworkInterfacesMessage))
+	go handleAttachMessage(testAttachTaskENIMessage)
+
+	attachment := <-captured
+	assert.Equal(t, testconst.TaskARN, attachment.TaskARN)
+	assert.Equal(t, testconst.RandomMAC, attachment.MACAddress)
+	assert.Equal(t, ni.ENIAttachmentTypeTaskENI, attachment.AttachmentType)
+	assert.Same(t, testAttachTaskENIMessage.ElasticNetworkInterfaces[0], attachment.InterfaceConfig)
+}
+
+// TestTaskENIAttachmentRejectedOnInvalidInterface verifies that a message whose
+// interface fails validation is dropped before any attachment is handled or
+// acknowledged.
+func TestTaskENIAttachmentRejectedOnInvalidInterface(t *testing.T) {
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+
+	message := &ecsacs.AttachTaskNetworkInterfacesMessage{
+		MessageId:            aws.String(testconst.MessageID),
+		ClusterArn:           aws.String(testconst.ClusterARN),
+		ContainerInstanceArn: aws.String(testconst.ContainerInstanceARN),
+		TaskArn:              aws.String(testconst.TaskARN),
+		WaitTimeoutMs:        aws.Int64(testconst.WaitTimeoutMillis),
+		ElasticNetworkInterfaces: []*ecsacs.ElasticNetworkInterface{
+			{
+				Ec2Id:                        aws.String("1"),
+				MacAddress:                   aws.String(testconst.RandomMAC),
+				InterfaceAssociationProtocol: aws.String(testconst.InterfaceProtocol),
+				SubnetGatewayIpv4Address:     aws.String(testconst.GatewayIPv4),
+				// No IPv4 addresses: ValidateENI rejects the interface.
+			},
+		},
+	}
+
+	mockENIHandler := mock_session.NewMockENIHandler(ctrl)
+	mockENIHandler.EXPECT().HandleENIAttachment(gomock.Any()).Times(0)
+
+	acked := make(chan struct{}, 1)
+	responder := NewAttachTaskENIResponder(mockENIHandler, func(interface{}) error {
+		acked <- struct{}{}
+		return nil
+	})
+	handleAttachMessage := responder.HandlerFunc().(func(*ecsacs.AttachTaskNetworkInterfacesMessage))
+	handleAttachMessage(message)
+
+	select {
+	case <-acked:
+		t.Fatal("an invalid message must not be acknowledged")
+	case <-time.After(100 * time.Millisecond):
+	}
 }

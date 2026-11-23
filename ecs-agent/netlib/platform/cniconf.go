@@ -13,6 +13,8 @@
 
 package platform
 
+import "github.com/aws/aws-sdk-go-v2/service/ecs/types"
+
 const (
 	cniSpecVersion               = "0.3.0"
 	blockInstanceMetadataDefault = true
@@ -21,7 +23,10 @@ const (
 	ECSSubNet     = "169.254.172.0/22"
 	AgentEndpoint = "169.254.170.2/32"
 
+	DaemonBridgeNetworkMode types.NetworkMode = "daemon-bridge"
+
 	// Daemon-bridge networking constants
+	DaemonBridgeNetNSName   = "host-daemon"
 	DaemonBridgeGatewayIP   = "169.254.172.1"
 	DaemonBridgeIP          = "169.254.172.2/32"
 	DefaultRouteDestination = "0.0.0.0/0"
