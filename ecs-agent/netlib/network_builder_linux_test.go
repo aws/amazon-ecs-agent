@@ -28,6 +28,7 @@ import (
 	mock_metrics "github.com/aws/amazon-ecs-agent/ecs-agent/metrics/mocks"
 	mock_data "github.com/aws/amazon-ecs-agent/ecs-agent/netlib/data/mocks"
 	"github.com/aws/amazon-ecs-agent/ecs-agent/netlib/model/appmesh"
+	"github.com/aws/amazon-ecs-agent/ecs-agent/netlib/model/networkinterface"
 	"github.com/aws/amazon-ecs-agent/ecs-agent/netlib/model/serviceconnect"
 	"github.com/aws/amazon-ecs-agent/ecs-agent/netlib/model/status"
 	"github.com/aws/amazon-ecs-agent/ecs-agent/netlib/model/tasknetworkconfig"
@@ -193,9 +194,9 @@ func testNetworkBuilder_StartAWSVPC(t *testing.T) {
 		netBuilder.Start(ctx, types.NetworkModeAwsvpc, taskID, netNS)
 	})
 
-	// Single ENI with AppMesh config and desired state = READY.
-	// The appmesh configuration should get executed now.
-	netNS.KnownState = status.NetworkReadyPull
+	// Single ENI with AppMesh config and desired state = READY, from
+	// CONFIGURED. The appmesh configuration should get executed now.
+	netNS.KnownState = status.NetworkConfigured
 	netNS.DesiredState = status.NetworkReady
 	mockEntry = mock_metrics.NewMockEntry(ctrl)
 	t.Run("single-eni-appmesh-ready", func(*testing.T) {
@@ -204,6 +205,19 @@ func testNetworkBuilder_StartAWSVPC(t *testing.T) {
 		)
 		netBuilder.Start(ctx, types.NetworkModeAwsvpc, taskID, netNS)
 	})
+
+	// A consumer that skips CONFIGURED and drives READY_PULL straight to
+	// READY still gets AppMesh configured, after the interface pass.
+	netNS.KnownState = status.NetworkReadyPull
+	netNS.DesiredState = status.NetworkReady
+	mockEntry = mock_metrics.NewMockEntry(ctrl)
+	t.Run("single-eni-appmesh-ready-from-readypull", func(*testing.T) {
+		gomock.InOrder(
+			getExpectedCalls_StartAWSVPC(ctx, platformAPI, metricsFactory, mockEntry, netDao, netNS)...,
+		)
+		netBuilder.Start(ctx, types.NetworkModeAwsvpc, taskID, netNS)
+	})
+	netNS.KnownState = status.NetworkConfigured
 
 	// Single ENI with ServiceConnect and desired state = READY.
 	// In this case, the ServiceConnect configuration should be executed.
@@ -219,17 +233,28 @@ func testNetworkBuilder_StartAWSVPC(t *testing.T) {
 		netBuilder.Start(ctx, types.NetworkModeAwsvpc, taskID, netNS)
 	})
 
-	// Single ENI with ServiceConnect and desired state = READY_PULL.
-	// In this case, the ServiceConnect configuration should not be executed.
+	// READY_PULL -> CONFIGURED with ServiceConnect config present: the
+	// interfaces already at READY_PULL are left alone, an interface added
+	// after the namespace was built is driven to READY_PULL (not to
+	// CONFIGURED, which is a namespace status), and ServiceConnect is not
+	// configured yet.
 	netNS.KnownState = status.NetworkReadyPull
-	netNS.DesiredState = status.NetworkReady
+	netNS.DesiredState = status.NetworkConfigured
+	for _, iface := range netNS.NetworkInterfaces {
+		iface.KnownStatus = status.NetworkReadyPull
+	}
+	addedIface := &networkinterface.NetworkInterface{ID: "eni-added", Index: 1, KnownStatus: status.NetworkNone}
+	netNS.NetworkInterfaces = append(netNS.NetworkInterfaces, addedIface)
 	mockEntry = mock_metrics.NewMockEntry(ctrl)
-	t.Run("single-eni-serviceconnect-readypull", func(*testing.T) {
+	t.Run("single-eni-serviceconnect-configured", func(*testing.T) {
 		gomock.InOrder(
 			getExpectedCalls_StartAWSVPC(ctx, platformAPI, metricsFactory, mockEntry, netDao, netNS)...,
 		)
-		netBuilder.Start(ctx, types.NetworkModeAwsvpc, taskID, netNS)
+		require.NoError(t, netBuilder.Start(ctx, types.NetworkModeAwsvpc, taskID, netNS))
+		require.Equal(t, status.NetworkReadyPull, addedIface.KnownStatus)
+		require.Equal(t, status.NetworkReadyPull, addedIface.DesiredStatus)
 	})
+	netNS.NetworkInterfaces = netNS.NetworkInterfaces[:len(netNS.NetworkInterfaces)-1]
 
 	// Single netns with multi interface case.
 	_, taskNetConfig = getSingleNetNSMultiIfaceAWSVPCTestData(taskID)
@@ -291,8 +316,9 @@ func getExpectedCalls_StartAWSVPC(
 
 	// For each interface inside the netns, the network builder needs to invoke the
 	// `ConfigureInterface` platformAPI.
+	target := interfaceTargetStatus(netNS.DesiredState)
 	for _, iface := range netNS.NetworkInterfaces {
-		if iface.KnownStatus == netNS.DesiredState {
+		if iface.KnownStatus == target {
 			continue
 		}
 		calls = append(calls,
@@ -300,8 +326,8 @@ func getExpectedCalls_StartAWSVPC(
 			netDao.EXPECT().SaveNetworkNamespace(netNS).Return(nil).Times(1))
 	}
 
-	// AppMesh/ServiceConnect configurations are executed only during the READY_PULL -> READY transitions.
-	if netNS.KnownState == status.NetworkReadyPull &&
+	// AppMesh/ServiceConnect configurations are executed only on the transition to READY.
+	if (netNS.KnownState == status.NetworkConfigured || netNS.KnownState == status.NetworkReadyPull) &&
 		netNS.DesiredState == status.NetworkReady {
 		// AppMesh and ServiceConnect configuration happens only if the configuration data is present.
 		if netNS.AppMeshConfig != nil {
@@ -309,6 +335,8 @@ func getExpectedCalls_StartAWSVPC(
 				Return(nil).Times(1))
 		}
 		if netNS.ServiceConnectConfig != nil {
+			// DNS config files are recreated before ServiceConnect is configured.
+			calls = append(calls, platformAPI.EXPECT().CreateDNSConfig(taskID, netNS).Return(nil).Times(1))
 			calls = append(calls, platformAPI.EXPECT().ConfigureServiceConnect(ctx, netNS.Path,
 				netNS.GetPrimaryInterface(), netNS.ServiceConnectConfig).Return(nil).Times(1))
 		}
@@ -370,8 +398,9 @@ func getExpectedCalls_StopAWSVPC(
 
 	// For each interface inside the netns, the network builder needs to invoke the
 	// `ConfigureInterface` platformAPI.
+	target := interfaceTargetStatus(netNS.DesiredState)
 	for _, iface := range netNS.NetworkInterfaces {
-		if iface.KnownStatus == netNS.DesiredState {
+		if iface.KnownStatus == target {
 			continue
 		}
 		calls = append(calls,

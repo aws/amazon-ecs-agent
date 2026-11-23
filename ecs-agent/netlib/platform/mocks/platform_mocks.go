@@ -54,19 +54,39 @@ func (m *MockAPI) EXPECT() *MockAPIMockRecorder {
 	return m.recorder
 }
 
-// BuildTaskNetworkConfiguration mocks base method.
-func (m *MockAPI) BuildTaskNetworkConfiguration(arg0 string, arg1 *ecsacs.Task) (*tasknetworkconfig.TaskNetworkConfig, error) {
+// BuildAttachmentNetworkConfiguration mocks base method.
+func (m *MockAPI) BuildAttachmentNetworkConfiguration(arg0 string, arg1 *ecsacs.ElasticNetworkInterface) (*tasknetworkconfig.AttachmentNetworkConfig, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "BuildTaskNetworkConfiguration", arg0, arg1)
+	ret := m.ctrl.Call(m, "BuildAttachmentNetworkConfiguration", arg0, arg1)
+	ret0, _ := ret[0].(*tasknetworkconfig.AttachmentNetworkConfig)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// BuildAttachmentNetworkConfiguration indicates an expected call of BuildAttachmentNetworkConfiguration.
+func (mr *MockAPIMockRecorder) BuildAttachmentNetworkConfiguration(arg0, arg1 interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "BuildAttachmentNetworkConfiguration", reflect.TypeOf((*MockAPI)(nil).BuildAttachmentNetworkConfiguration), arg0, arg1)
+}
+
+// BuildTaskNetworkConfiguration mocks base method.
+func (m *MockAPI) BuildTaskNetworkConfiguration(arg0 string, arg1 *ecsacs.Task, arg2 ...*tasknetworkconfig.NetworkNamespace) (*tasknetworkconfig.TaskNetworkConfig, error) {
+	m.ctrl.T.Helper()
+	varargs := []interface{}{arg0, arg1}
+	for _, a := range arg2 {
+		varargs = append(varargs, a)
+	}
+	ret := m.ctrl.Call(m, "BuildTaskNetworkConfiguration", varargs...)
 	ret0, _ := ret[0].(*tasknetworkconfig.TaskNetworkConfig)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
 // BuildTaskNetworkConfiguration indicates an expected call of BuildTaskNetworkConfiguration.
-func (mr *MockAPIMockRecorder) BuildTaskNetworkConfiguration(arg0, arg1 interface{}) *gomock.Call {
+func (mr *MockAPIMockRecorder) BuildTaskNetworkConfiguration(arg0, arg1 interface{}, arg2 ...interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "BuildTaskNetworkConfiguration", reflect.TypeOf((*MockAPI)(nil).BuildTaskNetworkConfiguration), arg0, arg1)
+	varargs := append([]interface{}{arg0, arg1}, arg2...)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "BuildTaskNetworkConfiguration", reflect.TypeOf((*MockAPI)(nil).BuildTaskNetworkConfiguration), varargs...)
 }
 
 // ConfigureAppMesh mocks base method.

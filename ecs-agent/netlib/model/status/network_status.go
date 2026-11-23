@@ -22,6 +22,13 @@ const (
 	// NetworkReadyPull indicates that the ENI is ready for downloading resources associated with
 	// the execution role. This includes container images, task secrets and configs.
 	NetworkReadyPull NetworkStatus = "READY_PULL"
+	// NetworkConfigured indicates that every interface the task declares for the
+	// namespace is in it and ready for pull. A namespace built ahead of the task
+	// payload holds only the interface that established it; the payload may add
+	// others, and this is the status at which they have all been configured.
+	// It is a namespace status only: interfaces themselves go from READY_PULL
+	// straight to READY.
+	NetworkConfigured NetworkStatus = "CONFIGURED"
 	// NetworkReady indicates that the ENI is ready for use by containers in the task.
 	NetworkReady NetworkStatus = "READY"
 	// NetworkDeleted indicates that the ENI is deleted.
@@ -30,10 +37,11 @@ const (
 
 var (
 	statusOrder = map[NetworkStatus]int{
-		NetworkNone:      0,
-		NetworkReadyPull: 1,
-		NetworkReady:     2,
-		NetworkDeleted:   3,
+		NetworkNone:       0,
+		NetworkReadyPull:  1,
+		NetworkConfigured: 2,
+		NetworkReady:      3,
+		NetworkDeleted:    4,
 	}
 )
 
@@ -49,6 +57,7 @@ func GetAllNetworkStatuses() []NetworkStatus {
 	return []NetworkStatus{
 		NetworkNone,
 		NetworkReadyPull,
+		NetworkConfigured,
 		NetworkReady,
 		NetworkDeleted,
 	}

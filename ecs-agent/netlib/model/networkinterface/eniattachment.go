@@ -18,6 +18,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/aws/amazon-ecs-agent/ecs-agent/acs/model/ecsacs"
 	"github.com/aws/amazon-ecs-agent/ecs-agent/api/attachment"
 	"github.com/aws/amazon-ecs-agent/ecs-agent/logger"
 	"github.com/aws/amazon-ecs-agent/ecs-agent/logger/field"
@@ -41,6 +42,10 @@ type ENIAttachment struct {
 	AttachmentType string `json:"attachmentType"`
 	// MACAddress is the mac address of eni
 	MACAddress string `json:"macAddress"`
+	// InterfaceConfig is the interface as described in the ACS attach message,
+	// for building the task's networking before the task payload arrives.
+	// Nil on attachments persisted by an agent that predates this field.
+	InterfaceConfig *ecsacs.ElasticNetworkInterface `json:"interfaceConfig,omitempty"`
 	// ackTimer is used to register the expiration timeout callback for unsuccessful
 	// ENI attachments
 	ackTimer ttime.Timer
