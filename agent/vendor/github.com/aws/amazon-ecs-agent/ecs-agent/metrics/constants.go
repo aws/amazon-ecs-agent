@@ -40,6 +40,12 @@ const (
 	taskManifestResponderNamespace = "TaskManifestResponder"
 	TaskManifestHandlingDuration   = taskManifestResponderNamespace + ".Duration"
 
+	// Isolated platform networking
+	isolatedNetworkNamespace = "IsolatedNetwork"
+	// GatewayNeighborResolveDurationName measures how long it takes to resolve
+	// the VPC gateway's MAC inside the task netns.
+	GatewayNeighborResolveDurationName = isolatedNetworkNamespace + ".GatewayNeighborResolveDuration"
+
 	// TaskStopVerificationACKResponder
 	taskStopVerificationACKResponderNamespace = "TaskStopVeificationACKResponder"
 	TaskStoppedMetricName                     = taskStopVerificationACKResponderNamespace + ".TaskStopped"

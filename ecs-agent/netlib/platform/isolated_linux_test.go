@@ -18,11 +18,14 @@ package platform
 
 import (
 	"context"
+	"errors"
 	"net"
 	"path/filepath"
 	"testing"
 	"time"
 
+	"github.com/aws/amazon-ecs-agent/ecs-agent/metrics"
+	mock_metrics "github.com/aws/amazon-ecs-agent/ecs-agent/metrics/mocks"
 	mock_ecscni2 "github.com/aws/amazon-ecs-agent/ecs-agent/netlib/model/ecscni/mocks_ecscni"
 	mock_ecscni "github.com/aws/amazon-ecs-agent/ecs-agent/netlib/model/ecscni/mocks_nsutil"
 	"github.com/aws/amazon-ecs-agent/ecs-agent/netlib/model/networkinterface"
@@ -49,11 +52,12 @@ func newIsolatedLinuxPlatform(ctrl *gomock.Controller) (*isolatedLinux, *mock_os
 	p := &isolatedLinux{
 		managedLinux: managedLinux{
 			common: common{
-				os:         osWrapper,
-				cniClient:  cniClient,
-				nsUtil:     mockNSUtil,
-				netlink:    mockNetLink,
-				stateDBDir: "dummy-db-dir",
+				os:             osWrapper,
+				cniClient:      cniClient,
+				nsUtil:         mockNSUtil,
+				netlink:        mockNetLink,
+				stateDBDir:     "dummy-db-dir",
+				metricsFactory: metrics.NewNopEntryFactory(),
 			},
 		},
 	}
@@ -246,13 +250,7 @@ func TestIsolatedLinux_AddGatewayNeighbor_GatewayNotResolvable(t *testing.T) {
 	eni.DeviceName = "eth0"
 
 	// Keep the test fast and avoid a real probe datagram.
-	origTimeout, origInterval, origProbe := gatewayNeighborResolveTimeout, gatewayNeighborResolveInterval, gatewayProbeFn
-	gatewayNeighborResolveTimeout = 0
-	gatewayNeighborResolveInterval = time.Millisecond
-	gatewayProbeFn = func(net.IP) {}
-	defer func() {
-		gatewayNeighborResolveTimeout, gatewayNeighborResolveInterval, gatewayProbeFn = origTimeout, origInterval, origProbe
-	}()
+	defer stubGatewayNeighborResolve(0)()
 
 	mockNSUtil.EXPECT().ExecInNSPath(netNSPath, gomock.Any()).DoAndReturn(
 		func(path string, fn func(cnins.NetNS) error) error {
@@ -265,4 +263,134 @@ func TestIsolatedLinux_AddGatewayNeighbor_GatewayNotResolvable(t *testing.T) {
 	err := p.addGatewayNeighbor(netNSPath, eni)
 	assert.Error(t, err)
 	assert.Contains(t, err.Error(), "gateway MAC not resolvable in task netns")
+}
+
+// TestIsolatedLinux_AddGatewayNeighbor_EmitsResolveDurationMetric asserts that
+// the gateway resolve emits its duration metric, carrying the poll count, even
+// when resolution fails. The metric is what makes the resolve timeout observable, so
+// losing it would hide exactly the case we care about.
+func TestIsolatedLinux_AddGatewayNeighbor_EmitsResolveDurationMetric(t *testing.T) {
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+
+	mockLink := &netlink.Dummy{LinkAttrs: netlink.LinkAttrs{Index: 7, Name: "eth0"}}
+
+	p, _, _, mockNSUtil, mockNetLink := newIsolatedLinuxPlatform(ctrl)
+	eni := getTestRegularV4ENI()
+	eni.DeviceName = "eth0"
+
+	// Keep the test fast and avoid a real probe datagram.
+	defer stubGatewayNeighborResolve(0)()
+
+	mockFactory := mock_metrics.NewMockEntryFactory(ctrl)
+	mockEntry := mock_metrics.NewMockEntry(ctrl)
+	p.common.metricsFactory = mockFactory
+
+	mockFactory.EXPECT().New(metrics.GatewayNeighborResolveDurationName).Return(mockEntry)
+
+	var gotFields map[string]interface{}
+	mockEntry.EXPECT().WithFields(gomock.Any()).DoAndReturn(
+		func(f map[string]interface{}) metrics.Entry {
+			gotFields = f
+			return mockEntry
+		})
+	// Done must receive the resolve error, so success and failure are separable.
+	mockEntry.EXPECT().Done(gomock.Not(gomock.Nil()))
+
+	mockNSUtil.EXPECT().ExecInNSPath(netNSPath, gomock.Any()).DoAndReturn(
+		func(path string, fn func(cnins.NetNS) error) error {
+			return fn(nil)
+		})
+	mockNetLink.EXPECT().LinkByName("eth0").Return(mockLink, nil)
+	mockNetLink.EXPECT().NeighList(7, netlink.FAMILY_V4).Return([]netlink.Neigh{}, nil).AnyTimes()
+
+	err := p.addGatewayNeighbor(netNSPath, eni)
+	assert.Error(t, err)
+
+	assert.Equal(t, "eth0", gotFields["DeviceName"])
+	assert.NotEmpty(t, gotFields["GatewayIP"])
+	polls, ok := gotFields["Polls"].(int)
+	assert.True(t, ok, "Polls field should be an int, got %T", gotFields["Polls"])
+	assert.GreaterOrEqual(t, polls, 1, "at least one neighbor lookup should be recorded")
+}
+
+// stubGatewayNeighborResolve shrinks the gateway resolve timeout and backoff so
+// tests run fast, and replaces the probe so no real datagram is sent. It
+// returns a func that restores the originals.
+func stubGatewayNeighborResolve(timeout time.Duration) func() {
+	origTimeout, origMin, origMax, origProbe := gatewayNeighborResolveTimeout,
+		gatewayNeighborBackoffMin, gatewayNeighborBackoffMax, gatewayProbeFn
+	gatewayNeighborResolveTimeout = timeout
+	gatewayNeighborBackoffMin = time.Millisecond
+	gatewayNeighborBackoffMax = 4 * time.Millisecond
+	gatewayProbeFn = func(net.IP) {}
+	return func() {
+		gatewayNeighborResolveTimeout, gatewayNeighborBackoffMin, gatewayNeighborBackoffMax, gatewayProbeFn =
+			origTimeout, origMin, origMax, origProbe
+	}
+}
+
+// TestIsolatedLinux_ResolveGatewayNeighbor_RetriesUntilResolved asserts that the
+// resolve keeps probing with backoff until the gateway appears, and returns
+// its MAC.
+func TestIsolatedLinux_ResolveGatewayNeighbor_RetriesUntilResolved(t *testing.T) {
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+	defer stubGatewayNeighborResolve(time.Second)()
+
+	probes := 0
+	gatewayProbeFn = func(net.IP) { probes++ }
+
+	p, _, _, _, mockNetLink := newIsolatedLinuxPlatform(ctrl)
+	link := &netlink.Dummy{LinkAttrs: netlink.LinkAttrs{Index: 7, Name: "eth0"}}
+	gwIP := net.ParseIP("10.1.0.1")
+	gwMAC, _ := net.ParseMAC("06:00:00:00:00:01")
+
+	gomock.InOrder(
+		mockNetLink.EXPECT().NeighList(7, netlink.FAMILY_V4).Return([]netlink.Neigh{}, nil).Times(3),
+		mockNetLink.EXPECT().NeighList(7, netlink.FAMILY_V4).Return([]netlink.Neigh{
+			{IP: gwIP, HardwareAddr: gwMAC, State: netlink.NUD_REACHABLE},
+		}, nil),
+	)
+
+	got, err := p.resolveGatewayNeighbor(link, gwIP)
+	assert.NoError(t, err)
+	assert.Equal(t, gwMAC, got)
+	assert.Equal(t, 3, probes, "one probe per unresolved poll")
+}
+
+// TestIsolatedLinux_ResolveGatewayNeighbor_StopsAfterDeadline asserts that the
+// resolve gives up shortly after the timeout instead of retrying forever.
+func TestIsolatedLinux_ResolveGatewayNeighbor_StopsAfterDeadline(t *testing.T) {
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+	defer stubGatewayNeighborResolve(20 * time.Millisecond)()
+
+	p, _, _, _, mockNetLink := newIsolatedLinuxPlatform(ctrl)
+	link := &netlink.Dummy{LinkAttrs: netlink.LinkAttrs{Index: 7, Name: "eth0"}}
+	mockNetLink.EXPECT().NeighList(7, netlink.FAMILY_V4).Return([]netlink.Neigh{}, nil).AnyTimes()
+
+	start := time.Now()
+	_, err := p.resolveGatewayNeighbor(link, net.ParseIP("10.1.0.1"))
+	assert.ErrorContains(t, err, "no neighbor entry for 10.1.0.1 in task netns after 20ms")
+	assert.Less(t, time.Since(start), 500*time.Millisecond)
+}
+
+// TestIsolatedLinux_ResolveGatewayNeighbor_LookupErrorStopsRetry asserts that a
+// neighbor-table read failure ends the resolve immediately, without probing.
+func TestIsolatedLinux_ResolveGatewayNeighbor_LookupErrorStopsRetry(t *testing.T) {
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+	defer stubGatewayNeighborResolve(time.Second)()
+
+	probes := 0
+	gatewayProbeFn = func(net.IP) { probes++ }
+
+	p, _, _, _, mockNetLink := newIsolatedLinuxPlatform(ctrl)
+	link := &netlink.Dummy{LinkAttrs: netlink.LinkAttrs{Index: 7, Name: "eth0"}}
+	mockNetLink.EXPECT().NeighList(7, netlink.FAMILY_V4).Return(nil, errors.New("neigh boom"))
+
+	_, err := p.resolveGatewayNeighbor(link, net.ParseIP("10.1.0.1"))
+	assert.ErrorContains(t, err, "failed to look up gateway neighbor: failed to list neighbors: neigh boom")
+	assert.Equal(t, 0, probes)
 }
