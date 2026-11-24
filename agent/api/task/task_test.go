@@ -6919,3 +6919,36 @@ func TestGetDockerResourcesPropagateTaskMemoryLimitCgroupV2(t *testing.T) {
 		})
 	}
 }
+
+// TestPostUnmarshalTaskContainerNamedServiceConnectWithoutSCAttachment verifies that a task
+// without a Service Connect attachment is not treated as a Service Connect task just because
+// one of its containers is named "service-connect".
+func TestPostUnmarshalTaskContainerNamedServiceConnectWithoutSCAttachment(t *testing.T) {
+	task := &Task{
+		Arn:                "arn:aws:ecs:us-west-2:123456789012:task/test/1234",
+		NetworkMode:        BridgeNetworkMode,
+		ResourcesMapUnsafe: make(map[string][]taskresource.TaskResource),
+		Containers: []*apicontainer.Container{
+			{
+				Name:                      "service-connect",
+				TransitionDependenciesMap: make(map[apicontainerstatus.ContainerStatus]apicontainer.TransitionDependencySet),
+			},
+			{
+				Name:                      "sidecar",
+				TransitionDependenciesMap: make(map[apicontainerstatus.ContainerStatus]apicontainer.TransitionDependencySet),
+			},
+		},
+	}
+
+	err := task.PostUnmarshalTask(&config.Config{}, nil, nil, nil, nil)
+	require.NoError(t, err)
+
+	assert.Nil(t, task.ServiceConnectConfig, "task without SC attachment should have no ServiceConnectConfig")
+	assert.False(t, task.IsServiceConnectEnabled(), "task without SC attachment should not be SC-enabled")
+	assert.Nil(t, task.GetServiceConnectContainer())
+	for _, c := range task.Containers {
+		assert.Empty(t, c.GetDependsOn(), "container %s should not get SC container ordering", c.Name)
+		_, ok := c.Environment[serviceConnectListenerPortMappingEnvVar]
+		assert.False(t, ok, "container %s should not get %s", c.Name, serviceConnectListenerPortMappingEnvVar)
+	}
+}
