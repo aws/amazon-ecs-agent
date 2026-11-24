@@ -437,6 +437,10 @@ func (m *manager) CreateInstanceTask(cfg *config.Config) (*apitask.Task, error) 
 		NetworkMode:        apitask.HostNetworkMode,
 		ResourcesMapUnsafe: make(map[string][]taskresource.TaskResource),
 		IsInternal:         true,
+		// The relay task has no Service Connect attachment. It needs a config to hold the
+		// runtime config set by AugmentInstanceContainer. ContainerName is left empty, so
+		// IsServiceConnectEnabled() stays false for the relay task.
+		ServiceConnectConfig: &apiserviceconnect.Config{},
 	}
 	m.initRelayEnvironment(cfg, task.Containers[0])
 
