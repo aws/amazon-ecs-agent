@@ -24,11 +24,13 @@ import (
 	apicontainer "github.com/aws/amazon-ecs-agent/agent/api/container"
 	"github.com/aws/amazon-ecs-agent/agent/api/serviceconnect"
 	apitask "github.com/aws/amazon-ecs-agent/agent/api/task"
+	"github.com/aws/amazon-ecs-agent/agent/config"
 	"github.com/aws/amazon-ecs-agent/agent/dockerclient/dockerapi"
 	"github.com/aws/amazon-ecs-agent/ecs-agent/ipcompatibility"
 	dockertypes "github.com/docker/docker/api/types"
 	dockercontainer "github.com/docker/docker/api/types/container"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 func TestDNSConfigToDockerExtraHostsFormat(t *testing.T) {
@@ -461,4 +463,40 @@ func TestAugmentTaskContainerSetsImageDigest(t *testing.T) {
 			assert.Equal(t, tc.expectedDigest, serviceConnectContainer.GetImageDigest())
 		})
 	}
+}
+
+// TestCreateInstanceTaskAndAugmentInstanceContainer verifies that the Service Connect relay
+// task, which has no Service Connect attachment, can go through PostUnmarshalTask and
+// AugmentInstanceContainer without a nil ServiceConnectConfig, and is not treated as a
+// Service Connect task.
+func TestCreateInstanceTaskAndAugmentInstanceContainer(t *testing.T) {
+	origMkdir := mkdirAllAndChown
+	mkdirAllAndChown = func(path string, perm fs.FileMode, uid, gid int) error {
+		return nil
+	}
+	defer func() { mkdirAllAndChown = origMkdir }()
+
+	scManager := &manager{
+		agentContainerImageName: "container_image",
+		agentContainerTag:       "tag",
+		relayPathContainer:      "/var/run/ecs/relay/",
+		adminStatsRequest:       "/stats/prometheus",
+		adminDrainRequest:       "/drain_listeners",
+	}
+
+	relayTask, err := scManager.CreateInstanceTask(&config.Config{AWSRegion: "us-west-2"})
+	require.NoError(t, err)
+
+	require.NoError(t, relayTask.PostUnmarshalTask(&config.Config{}, nil, nil, nil, nil))
+	assert.False(t, relayTask.IsServiceConnectEnabled(), "relay task should not be SC-enabled")
+
+	relayContainer := relayTask.Containers[0]
+	assert.NotPanics(t, func() {
+		err = scManager.AugmentInstanceContainer(relayTask, relayContainer, &dockercontainer.HostConfig{})
+	})
+	require.NoError(t, err)
+	runtimeConfig := relayTask.GetServiceConnectRuntimeConfig()
+	assert.NotEmpty(t, runtimeConfig.AdminSocketPath)
+	assert.Equal(t, "/stats/prometheus", runtimeConfig.StatsRequest)
+	assert.Equal(t, "/drain_listeners", runtimeConfig.DrainRequest)
 }
