@@ -37,6 +37,33 @@ func TestGetNsenterBinds(t *testing.T) {
 	})
 }
 
+func TestGetMergedUsrSbinBinds(t *testing.T) {
+	t.Run("usr sbin is merged into usr bin", func(t *testing.T) {
+		binds := getMergedUsrSbinBinds(
+			func(s string) (string, error) { return "/usr/bin", nil })
+		require.Len(t, binds, 1)
+		assert.Equal(t, "/usr/bin:/usr/bin:ro", binds[0])
+	})
+
+	t.Run("usr sbin is a separate directory", func(t *testing.T) {
+		binds := getMergedUsrSbinBinds(
+			func(s string) (string, error) { return s, nil })
+		assert.Empty(t, binds)
+	})
+
+	t.Run("usr sbin resolves elsewhere", func(t *testing.T) {
+		binds := getMergedUsrSbinBinds(
+			func(s string) (string, error) { return "/opt/sbin", nil })
+		assert.Empty(t, binds)
+	})
+
+	t.Run("usr sbin cannot be resolved", func(t *testing.T) {
+		binds := getMergedUsrSbinBinds(
+			func(s string) (string, error) { return "", errors.New("not found") })
+		assert.Empty(t, binds)
+	})
+}
+
 func TestGetModinfoBinds(t *testing.T) {
 	t.Run("modinfo not found", func(t *testing.T) {
 		binds := getModInfoBinds(

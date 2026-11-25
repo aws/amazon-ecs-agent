@@ -16,6 +16,7 @@ package docker
 import (
 	"fmt"
 	"os"
+	"path/filepath"
 
 	"github.com/aws/amazon-ecs-agent/ecs-init/config"
 	"github.com/cihub/seelog"
@@ -47,6 +48,7 @@ func createHostConfig(binds []string) *godocker.HostConfig {
 		iptablesLegacyDir+":"+iptablesLegacyDir+readOnly,
 		lsblkDir+":"+lsblkDir,
 	)
+	binds = append(binds, getMergedUsrSbinBinds(filepath.EvalSymlinks)...)
 	binds = append(binds, getNsenterBinds(config.OsStat)...)
 	binds = append(binds, getModInfoBinds(config.OsStat)...)
 	binds = append(binds, getCloudInitResultBinds(config.OsStat)...)
@@ -102,6 +104,22 @@ func getNsenterBinds(statFn func(string) (os.FileInfo, error)) []string {
 			nsEnterDir, err)
 	}
 	return binds
+}
+
+// getMergedUsrSbinBinds returns a read-only bind of /usr/bin if /usr/sbin on the host resolves to it,
+// so that iptables alternatives linking into /usr/bin resolve in the Agent container.
+func getMergedUsrSbinBinds(evalSymlinksFn func(string) (string, error)) []string {
+	resolved, err := evalSymlinksFn(iptablesLegacyDir)
+	if err != nil {
+		seelog.Infof("Unable to resolve %s, skip binding %s to Agent container: %v",
+			iptablesLegacyDir, usrBinDir, err)
+		return []string{}
+	}
+	if resolved != usrBinDir {
+		return []string{}
+	}
+	seelog.Debugf("%s resolves to %s, binding %s to Agent container", iptablesLegacyDir, resolved, usrBinDir)
+	return []string{usrBinDir + ":" + usrBinDir + readOnly}
 }
 
 // Returns modinfo bind as a slice if modinfo is available on the host.
